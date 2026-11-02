@@ -4142,6 +4142,20 @@ export type Database = {
           result: Json
         }[]
       }
+      terminate_membership: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_membership_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       transfer_ownership: {
         Args: {
           p_command_id: string

@@ -529,6 +529,39 @@ export function studioOrganizationRoutes(
     },
   )
 
+  routes.post('/organizations/:organizationId/memberships/:membershipId/termination', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    if (c.req.header('origin') !== studioOrigin) return problem(c, 'forbidden')
+    const organizationId = c.req.param('organizationId')
+    const membershipId = c.req.param('membershipId')
+    if (!UUID.test(organizationId) || !UUID.test(membershipId)) {
+      return problem(c, 'invalid-request')
+    }
+    if ((await c.req.text()).length !== 0) return problem(c, 'invalid-request')
+    const command = commandContext(c, {
+      organization_id: organizationId,
+      membership_id: membershipId,
+    })
+    if (!command) return problem(c, 'invalid-request')
+    try {
+      const actor = await studioActor(c, sessions(), problem)
+      if (actor instanceof Response) return actor
+      const result = await organizations().terminateMembership(actor, {
+        organizationId,
+        membershipId,
+        ...command,
+      })
+      replayHeader(c, result.replayed)
+      const response: AllfitV1Schemas['OrganizationMembershipTermination'] = {
+        membership_id: result.resource.membershipId,
+        ended_at: result.resource.endedAt,
+      }
+      return c.json(response)
+    } catch (error) {
+      return operationFailure(c, error, problem)
+    }
+  })
+
   return routes
 }
 
