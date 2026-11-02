@@ -94,6 +94,10 @@ export interface StudioOrganizationService {
       roleCode: Exclude<OrganizationRoleCode, 'owner'>
     },
   ): ReturnType<OrganizationDatabase['revokeMembershipRole']>
+  terminateMembership(
+    actor: AccountActor,
+    input: OrganizationCommand & { organizationId: string; membershipId: string },
+  ): ReturnType<OrganizationDatabase['terminateMembership']>
 }
 
 export function createStudioOrganizationService(
@@ -123,5 +127,7 @@ export function createStudioOrganizationService(
       database.grantMembershipRole({ personId: personId(actor), ...input }),
     revokeMembershipRole: (actor, input) =>
       database.revokeMembershipRole({ personId: personId(actor), ...input }),
+    terminateMembership: (actor, input) =>
+      database.terminateMembership({ personId: personId(actor), ...input }),
   }
 }

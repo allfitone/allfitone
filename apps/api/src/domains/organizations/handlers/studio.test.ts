@@ -131,6 +131,10 @@ function organizations(
       },
       replayed: false,
     }),
+    terminateMembership: async () => ({
+      resource: { membershipId: TARGET_MEMBERSHIP_ID, endedAt: '2026-11-02T19:00:00.000Z' },
+      replayed: false,
+    }),
     grantMembershipRole: async () => ({
       resource: {
         membershipId: '0198d000-0000-7000-8000-000000000032',
@@ -264,6 +268,103 @@ describe('Studio organization routes', () => {
       ).request(
         `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/roles/coach`,
         { method: 'DELETE', headers: HEADERS },
+      )
+      expect(response.status).toBe(status)
+      if (code === '55P03') expect(response.headers.get('retry-after')).toBe('1')
+    }
+  })
+
+  test('T-ORG-API-TERM-01 terminates a membership without a body and returns its closing instant', async () => {
+    const response = await app().request(
+      `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/termination`,
+      { method: 'POST', headers: HEADERS },
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    const body = await response.json()
+    expect(
+      validator.getSchema('allfit-v1#/components/schemas/OrganizationMembershipTermination')?.(
+        body,
+      ),
+    ).toBe(true)
+    expect(body).toEqual({
+      membership_id: TARGET_MEMBERSHIP_ID,
+      ended_at: '2026-11-02T19:00:00.000Z',
+    })
+  })
+
+  test('T-ORG-API-TERM-02 rejects malformed paths, bodies, foreign origins and missing headers', async () => {
+    const path = `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/termination`
+    for (const malformed of [
+      path.replace(ORGANIZATION_ID, 'invalid'),
+      path.replace(TARGET_MEMBERSHIP_ID, 'invalid'),
+    ]) {
+      expect((await app().request(malformed, { method: 'POST', headers: HEADERS })).status).toBe(
+        400,
+      )
+    }
+    expect(
+      (await app().request(path, { method: 'POST', headers: HEADERS, body: '{}' })).status,
+    ).toBe(400)
+    expect(
+      (await app().request(path, { method: 'POST', headers: { origin: HEADERS.origin } })).status,
+    ).toBe(400)
+    expect(
+      (
+        await app().request(path, {
+          method: 'POST',
+          headers: { ...HEADERS, origin: 'https://evil.test' },
+        })
+      ).status,
+    ).toBe(403)
+    expect(
+      (await app().request(path, { method: 'POST', headers: { ...HEADERS, cookie: '' } })).status,
+    ).toBe(401)
+  })
+
+  test('T-ORG-API-TERM-03 preserves command identity and reports replays', async () => {
+    const hashes: string[] = []
+    const service = organizations({
+      terminateMembership: async (actor, input) => {
+        expect(actor.personId).toBe('0198d000-0000-7000-8000-000000000012')
+        expect(input.commandId).toBe(HEADERS['command-id'])
+        expect(input.idempotencyKey).toBe(HEADERS['idempotency-key'])
+        hashes.push(Buffer.from(input.requestHash).toString('hex'))
+        return {
+          resource: { membershipId: input.membershipId, endedAt: '2026-11-02T19:00:00.000Z' },
+          replayed: true,
+        }
+      },
+    })
+    for (const membershipId of [TARGET_MEMBERSHIP_ID, ORGANIZATION_ID]) {
+      const response = await app(service).request(
+        `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${membershipId}/termination`,
+        { method: 'POST', headers: HEADERS },
+      )
+      expect(response.status).toBe(200)
+      expect(response.headers.get('idempotent-replay')).toBe('true')
+      expect(await response.json()).toMatchObject({ membership_id: membershipId })
+    }
+    expect(hashes[0]).not.toBe(hashes[1])
+  })
+
+  test('T-ORG-API-TERM-04 maps database refusals and retryable locks', async () => {
+    for (const [code, status] of [
+      ['42501', 403],
+      ['P0002', 404],
+      ['40001', 409],
+      ['55P03', 409],
+      ['22023', 422],
+    ] as const) {
+      const response = await app(
+        organizations({
+          terminateMembership: async () => {
+            throw Object.assign(new Error('database refusal'), { code })
+          },
+        }),
+      ).request(
+        `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/termination`,
+        { method: 'POST', headers: HEADERS },
       )
       expect(response.status).toBe(status)
       if (code === '55P03') expect(response.headers.get('retry-after')).toBe('1')

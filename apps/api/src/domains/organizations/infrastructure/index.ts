@@ -350,6 +350,28 @@ export function createOrganizationDatabase(): OrganizationDatabase {
       )
     },
 
+    async terminateMembership(input) {
+      return measureStudioRequestPhase('business-db', () =>
+        sql.begin(async (transaction) => {
+          await setPersonActor(transaction, input.personId)
+          const [row] = await transaction<
+            { result: { membership_id: string; ended_at: string }; replayed: boolean }[]
+          >`
+            select * from organizations.terminate_membership(
+              ${input.personId}::uuid, ${input.organizationId}::uuid,
+              ${input.membershipId}::uuid,
+              ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+            )
+          `
+          if (!row) throw new Error('PostgreSQL did not terminate the membership')
+          return {
+            resource: { membershipId: row.result.membership_id, endedAt: row.result.ended_at },
+            replayed: row.replayed,
+          }
+        }),
+      )
+    },
+
     async grantMembershipRole(input) {
       return measureStudioRequestPhase('business-db', () =>
         sql.begin(async (transaction) => {

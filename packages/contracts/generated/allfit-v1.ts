@@ -1949,6 +1949,30 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/termination': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Terminate a member's membership, roles and professional assignments
+     * @description Closes the membership and every open role at one instant, and ends the member's holder and accepted cover assignments in the same transaction.
+     *
+     *     **Terminating a membership does not end the organization's service relationships.** They stay active without a responsible professional and must be reassigned (`OP-REL-005`). Consent grants and authorship survive.
+     *
+     *     A membership that holds `owner` cannot be terminated: ownership leaves only through a transfer (`OP-ORG-011`). The request has no body. Converges without effect on an already terminated membership.
+     */
+    post: operations['terminateStudioOrganizationMembership']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/offerable-scopes': {
     parameters: {
       query?: never
@@ -6560,6 +6584,11 @@ export interface components {
       role_code: components['schemas']['AssignableOrganizationRoleCode']
       /** Format: date-time */
       valid_to: string
+    }
+    OrganizationMembershipTermination: {
+      membership_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      ended_at: string
     }
     TeamInvitationToken: {
       /** @description Opaque token transported in JSON after being removed from the URL fragment. */
@@ -13599,6 +13628,44 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['OrganizationRoleRevocation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  terminateStudioOrganizationMembership: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        membershipId: components['parameters']['MembershipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Terminated membership, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMembershipTermination']
         }
       }
       400: components['responses']['BadRequest']

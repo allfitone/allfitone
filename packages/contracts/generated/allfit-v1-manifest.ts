@@ -1442,6 +1442,13 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'POST',
+      path: '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/termination',
+      operationId: 'terminateStudioOrganizationMembership',
+      allfitOperation: 'OP-ORG-009',
+      responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+    },
+    {
+      method: 'POST',
       path: '/studio/v1/organizations/{organizationId}/ownership-transfers',
       operationId: 'transferStudioOrganizationOwnership',
       allfitOperation: 'OP-ORG-011',
