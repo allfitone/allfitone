@@ -274,7 +274,7 @@ triggers, and functions. This is deliberate. The last line of defence over healt
 data must not depend on the application being correctly written.
 
 The canonical migration, environment, deployment, backup and naming policy lives
-in [`allfitone-docs/platform/database`](https://github.com/dinnartec/allfitone-docs/tree/main/platform/database).
+in [`allfitone-docs/platform/database`](https://github.com/allfitone/allfitone-docs/tree/main/platform/database).
 Read both `DATABASE_AND_SUPABASE_BEST_PRACTICES.md` and `OPERATIONS.md` before
 changing the schema or deployment workflow. All database changes must pass
 `bun run check:db-policy`; shared migration history is immutable and fixes are
