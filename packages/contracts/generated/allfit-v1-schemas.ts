@@ -7182,6 +7182,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  OrganizationRoleRevocation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'role_code', 'valid_to'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      role_code: {
+        $ref: '#/components/schemas/AssignableOrganizationRoleCode',
+      },
+      valid_to: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
   OrganizationSite: {
     type: 'object',
     additionalProperties: false,

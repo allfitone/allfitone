@@ -4635,6 +4635,53 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles/{roleCode}:
+    delete:
+      tags: [Studio Organizations]
+      operationId: revokeStudioOrganizationMembershipRole
+      x-allfit-operation: OP-ORG-008
+      x-allfit-cache: no-store
+      summary: Revoke a non-owner role and end professional assignments when removing coach
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/MembershipId'
+        - name: roleCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AssignableOrganizationRoleCode'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Closed role period, including convergent duplicate commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationRoleRevocation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/offerable-scopes:
     get:
       tags: [Studio Relationships]
@@ -16796,6 +16843,18 @@ components:
         role_code:
           $ref: '#/components/schemas/AssignableOrganizationRoleCode'
         valid_from:
+          type: string
+          format: date-time
+    OrganizationRoleRevocation:
+      type: object
+      additionalProperties: false
+      required: [membership_id, role_code, valid_to]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        role_code:
+          $ref: '#/components/schemas/AssignableOrganizationRoleCode'
+        valid_to:
           type: string
           format: date-time
     TeamInvitationToken:

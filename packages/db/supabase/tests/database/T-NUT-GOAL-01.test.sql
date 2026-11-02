@@ -20,6 +20,8 @@ values ('019f1200-0000-7000-8000-000000000101', 'gym', 'Bodytech',
 insert into organizations.organization_memberships (id, organization_id, person_id, status)
 values ('019f1200-0000-7000-8000-000000000201', '019f1200-0000-7000-8000-000000000101',
   '019f1200-0000-7000-8000-000000000011', 'active');
+insert into organizations.membership_roles (membership_id, role_code)
+values ('019f1200-0000-7000-8000-000000000201', 'coach');
 insert into relationships.service_relationships (id, person_id, organization_id, status)
 values ('019f1200-0000-7000-8000-000000000301', '019f1200-0000-7000-8000-000000000001',
   '019f1200-0000-7000-8000-000000000101', 'active');

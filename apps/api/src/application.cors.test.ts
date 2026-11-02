@@ -3,6 +3,25 @@ import { describe, expect, test } from 'bun:test'
 import { createApp } from './application.js'
 
 describe('Studio surface CORS', () => {
+  test('allows role DELETE through the assembled application', async () => {
+    process.env.API_PUBLIC_URL = 'https://api.example.test'
+    process.env.STUDIO_WEB_URL = 'https://studio.example.test'
+    process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
+    const response = await createApp().request(
+      '/studio/v1/organizations/019a0ab9-b723-7b7b-954d-5385eb5d1ea9/memberships/019a1195-9cd8-7b28-8d54-794366a94883/roles/coach',
+      {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://studio.example.test',
+          'access-control-request-method': 'DELETE',
+          'access-control-request-headers': 'command-id,idempotency-key',
+        },
+      },
+    )
+    expect(response.status).toBe(204)
+    expect(response.headers.get('access-control-allow-methods')).toContain('DELETE')
+    expect(response.headers.get('access-control-allow-headers')).toContain('Command-Id')
+  })
   test('allows command headers on onboarding preflight through the assembled application', async () => {
     process.env.API_PUBLIC_URL = 'https://api.example.test'
     process.env.STUDIO_WEB_URL = 'https://studio.example.test'

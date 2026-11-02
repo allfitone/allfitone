@@ -86,6 +86,14 @@ export interface StudioOrganizationService {
       roleCode: Exclude<OrganizationRoleCode, 'owner'>
     },
   ): ReturnType<OrganizationDatabase['grantMembershipRole']>
+  revokeMembershipRole(
+    actor: AccountActor,
+    input: OrganizationCommand & {
+      organizationId: string
+      membershipId: string
+      roleCode: Exclude<OrganizationRoleCode, 'owner'>
+    },
+  ): ReturnType<OrganizationDatabase['revokeMembershipRole']>
 }
 
 export function createStudioOrganizationService(
@@ -113,5 +121,7 @@ export function createStudioOrganizationService(
       database.transferOwnership({ personId: personId(actor), ...input }),
     grantMembershipRole: (actor, input) =>
       database.grantMembershipRole({ personId: personId(actor), ...input }),
+    revokeMembershipRole: (actor, input) =>
+      database.revokeMembershipRole({ personId: personId(actor), ...input }),
   }
 }
