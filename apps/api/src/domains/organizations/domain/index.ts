@@ -190,4 +190,7 @@ export interface OrganizationDatabase {
       membershipId: string
     },
   ): Promise<OrganizationCommandResult<MembershipTermination>>
+  resignMembership(
+    input: OrganizationCommand & { personId: string; organizationId: string },
+  ): Promise<OrganizationCommandResult<MembershipTermination>>
 }

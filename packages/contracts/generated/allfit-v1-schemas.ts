@@ -6999,6 +6999,20 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  OrganizationMembershipResignation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'ended_at'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
   OrganizationMembershipStatus: {
     type: 'string',
     enum: ['active', 'terminated'],
