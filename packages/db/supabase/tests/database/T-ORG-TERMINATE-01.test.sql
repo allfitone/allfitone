@@ -150,6 +150,8 @@ select throws_ok($$select * from organizations.terminate_membership(
 select set_config('app.actor_person_id', '019d1400-0000-7000-8000-000000000002', true);
 select lives_ok($$select * from pg_temp.terminate(907, 203)$$,
   'T-ORG-RLS-TERM-09 an administrator can terminate a membership');
+select throws_ok($$select * from pg_temp.terminate(913, 202)$$,
+  '22023', null, 'T-ORG-RLS-TERM-11 an administrator cannot terminate their own membership');
 select set_config('app.actor_person_id', '019d1400-0000-7000-8000-000000000001', true);
 select lives_ok($$select * from relationships.assign_relationship_holder(
   '019d1400-0000-7000-8000-000000000001', '019d1400-0000-7000-8000-000000000101',

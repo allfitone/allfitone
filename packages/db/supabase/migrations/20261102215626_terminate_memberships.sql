@@ -124,6 +124,10 @@ begin
   end if;
 
   if target.status = 'active' then
+    -- Leaving is OP-ORG-010, so a departure is always recorded as a resignation.
+    if target.person_id = p_person_id then
+      raise exception 'own membership is left by resignation' using errcode = '22023';
+    end if;
     -- Ownership leaves only through OP-ORG-011; terminating it would orphan the tenant.
     perform role.id from organizations.membership_roles as role
     where role.membership_id = p_membership_id and role.role_code = 'owner'
