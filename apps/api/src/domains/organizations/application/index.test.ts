@@ -47,6 +47,10 @@ describe('Studio organization registration boundary', () => {
         databaseCalls += 1
         throw new Error('must not be reached')
       },
+      revokeMembershipRole: async () => {
+        databaseCalls += 1
+        throw new Error('must not be reached')
+      },
       grantMembershipRole: async () => {
         databaseCalls += 1
         throw new Error('must not be reached')
@@ -117,6 +121,14 @@ describe('Studio organization registration boundary', () => {
     ).toThrow(new StudioOrganizationError('registration-incomplete'))
     expect(() =>
       service.grantMembershipRole(accountOnlyActor, {
+        organizationId: 'organization-id',
+        membershipId: 'membership-id',
+        roleCode: 'coach',
+        ...command,
+      }),
+    ).toThrow(new StudioOrganizationError('registration-incomplete'))
+    expect(() =>
+      service.revokeMembershipRole(accountOnlyActor, {
         organizationId: 'organization-id',
         membershipId: 'membership-id',
         roleCode: 'coach',

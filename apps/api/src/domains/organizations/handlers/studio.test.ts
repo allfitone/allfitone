@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { allfitV1ContractSchemas } from '@allfitone/contracts'
+import Ajv2020 from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
 import { Hono } from 'hono'
 
 import { StudioSessionError, type StudioSessionService } from '../../identity/index.js'
 import { StudioOrganizationError, type StudioOrganizationService } from '../application/index.js'
 import { studioOrganizationRoutes } from './studio.js'
+
+const validator = new Ajv2020({ strict: false, allErrors: true })
+addFormats(validator)
+validator.addSchema({ $id: 'allfit-v1', components: { schemas: allfitV1ContractSchemas } })
 
 const HEADERS = {
   origin: 'https://studio.example.test',
@@ -116,6 +123,14 @@ function organizations(
       },
       replayed: false,
     }),
+    revokeMembershipRole: async () => ({
+      resource: {
+        membershipId: TARGET_MEMBERSHIP_ID,
+        roleCode: 'coach',
+        validTo: '2026-11-02T18:00:00.000Z',
+      },
+      replayed: false,
+    }),
     grantMembershipRole: async () => ({
       resource: {
         membershipId: '0198d000-0000-7000-8000-000000000032',
@@ -139,6 +154,122 @@ beforeEach(() => {
 })
 
 describe('Studio organization routes', () => {
+  test('T-ORG-API-REV-01 removes a role without a body and returns its closing instant', async () => {
+    const response = await app().request(
+      `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/roles/coach`,
+      { method: 'DELETE', headers: HEADERS },
+    )
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    const body = await response.json()
+    expect(
+      validator.getSchema('allfit-v1#/components/schemas/OrganizationRoleRevocation')?.(body),
+    ).toBe(true)
+    expect(body).toEqual({
+      membership_id: TARGET_MEMBERSHIP_ID,
+      role_code: 'coach',
+      valid_to: '2026-11-02T18:00:00.000Z',
+    })
+  })
+
+  test('T-ORG-API-REV-02 rejects owner, malformed paths, bodies and missing command headers', async () => {
+    const base = `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/roles`
+    expect(
+      (
+        await app().request(`${base.replace(ORGANIZATION_ID, 'invalid')}/coach`, {
+          method: 'DELETE',
+          headers: HEADERS,
+        })
+      ).status,
+    ).toBe(400)
+    for (const role of ['owner', 'invalid']) {
+      expect(
+        (await app().request(`${base}/${role}`, { method: 'DELETE', headers: HEADERS })).status,
+      ).toBe(400)
+    }
+    expect(
+      (await app().request(`${base}/coach`, { method: 'DELETE', headers: HEADERS, body: '{}' }))
+        .status,
+    ).toBe(400)
+    expect(
+      (
+        await app().request(`${base}/coach`, {
+          method: 'DELETE',
+          headers: { origin: HEADERS.origin },
+        })
+      ).status,
+    ).toBe(400)
+    expect(
+      (
+        await app().request(`${base}/coach`, {
+          method: 'DELETE',
+          headers: { ...HEADERS, origin: 'https://evil.test' },
+        })
+      ).status,
+    ).toBe(403)
+    expect(
+      (
+        await app().request(`${base}/coach`, {
+          method: 'DELETE',
+          headers: { ...HEADERS, cookie: '' },
+        })
+      ).status,
+    ).toBe(401)
+  })
+
+  test('T-ORG-API-REV-03 preserves command identity and reports replays', async () => {
+    const hashes: string[] = []
+    const service = organizations({
+      revokeMembershipRole: async (actor, input) => {
+        expect(actor.personId).toBe('0198d000-0000-7000-8000-000000000012')
+        expect(input.commandId).toBe(HEADERS['command-id'])
+        expect(input.idempotencyKey).toBe(HEADERS['idempotency-key'])
+        hashes.push(Buffer.from(input.requestHash).toString('hex'))
+        return {
+          resource: {
+            membershipId: input.membershipId,
+            roleCode: input.roleCode,
+            validTo: '2026-11-02T18:00:00.000Z',
+          },
+          replayed: true,
+        }
+      },
+    })
+    for (const role of ['admin', 'coach']) {
+      const response = await app(service).request(
+        `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/roles/${role}`,
+        { method: 'DELETE', headers: HEADERS },
+      )
+      expect(response.status).toBe(200)
+      expect(response.headers.get('idempotent-replay')).toBe('true')
+      expect(await response.json()).toMatchObject({ role_code: role })
+    }
+    expect(hashes[0]).not.toBe(hashes[1])
+  })
+
+  test('T-ORG-API-REV-04 maps database refusals and retryable locks', async () => {
+    for (const [code, status] of [
+      ['42501', 403],
+      ['P0002', 404],
+      ['40001', 409],
+      ['55P03', 409],
+      ['22023', 422],
+    ] as const) {
+      const response = await app(
+        organizations({
+          revokeMembershipRole: async () => {
+            throw Object.assign(new Error('database refusal'), { code })
+          },
+        }),
+      ).request(
+        `/studio/v1/organizations/${ORGANIZATION_ID}/memberships/${TARGET_MEMBERSHIP_ID}/roles/coach`,
+        { method: 'DELETE', headers: HEADERS },
+      )
+      expect(response.status).toBe(status)
+      if (code === '55P03') expect(response.headers.get('retry-after')).toBe('1')
+    }
+  })
+
   test('resolves the complete Studio entry context with one session and membership read', async () => {
     let sessionCalls = 0
     let membershipCalls = 0
