@@ -24,7 +24,7 @@
   --shadow: color-mix(in srgb, var(--afo-color-neutral-black) 70%, transparent);
 
   --gutter: clamp(20px, 5vw, 72px);
-  --radius: 28px;
+  --card-radius: 28px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
@@ -58,8 +58,11 @@ img {
   max-width: 100%;
 }
 
-a {
-  color: inherit;
+/* Layered under the Design System utilities so the shared header and footer keep their link colours. */
+@layer afo-base {
+  a {
+    color: inherit;
+  }
 }
 
 :focus-visible {
@@ -183,7 +186,7 @@ html[data-motion='on'] [data-reveal='mask'] .line > span {
 html[data-motion='on'] [data-reveal='card'] {
   opacity: 1;
   transform: none;
-  clip-path: inset(18% 0 0 0 round var(--radius));
+  clip-path: inset(18% 0 0 0 round var(--card-radius));
   transition: clip-path 1.2s var(--ease);
   transition-delay: calc(var(--i, 0) * 110ms);
 }
@@ -198,10 +201,10 @@ html[data-motion='on'] [data-reveal='mask'].is-in .line > span {
 }
 
 html[data-motion='on'] [data-reveal='card'].is-in {
-  clip-path: inset(0 0 0 0 round var(--radius));
+  clip-path: inset(0 0 0 0 round var(--card-radius));
 }
 
-/* ---------------------------------------------------------------- header */
+/* -------------------------------------------------------------- progress */
 
 .progress {
   position: fixed;
@@ -217,122 +220,6 @@ html[data-motion='on'] [data-reveal='card'].is-in {
   .progress {
     animation: grow linear both;
     animation-timeline: scroll(root);
-  }
-}
-
-.header {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 50;
-  transition:
-    background-color 0.4s var(--ease),
-    border-color 0.4s var(--ease),
-    backdrop-filter 0.4s var(--ease);
-  border-bottom: 1px solid transparent;
-}
-
-html[data-scrolled='true'] .header {
-  background: color-mix(in srgb, var(--bg) 78%, transparent);
-  backdrop-filter: blur(18px) saturate(1.4);
-  border-bottom-color: var(--line);
-}
-
-.header__bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  height: 84px;
-}
-
-.header__home {
-  display: inline-flex;
-  border-radius: 8px;
-}
-
-.header__home img {
-  height: 34px;
-  width: auto;
-}
-
-.header__nav {
-  display: flex;
-  align-items: center;
-  gap: 36px;
-}
-
-.header__links {
-  display: flex;
-  gap: 32px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.header__links a {
-  position: relative;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 500;
-  text-decoration: none;
-  opacity: 0.86;
-  transition: opacity 0.2s;
-}
-
-.header__links a::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -6px;
-  height: 1.5px;
-  background: var(--cyan);
-  transform: scaleX(0);
-  transform-origin: 100% 50%;
-  transition: transform 0.45s var(--ease);
-}
-
-.header__links a:hover {
-  opacity: 1;
-}
-
-.header__links a:hover::after {
-  transform: scaleX(1);
-  transform-origin: 0 50%;
-}
-
-.langs {
-  display: inline-flex;
-  padding: 4px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-}
-
-.langs a {
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  min-height: 36px;
-  padding: 0 10px;
-  border-radius: 999px;
-  color: var(--text-soft);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-decoration: none;
-  transition:
-    background-color 0.3s,
-    color 0.3s;
-}
-
-.langs a[aria-current='true'] {
-  background: var(--text);
-  color: var(--bg);
-}
-
-@media (max-width: 960px) {
-  .header__links {
-    display: none;
   }
 }
 
@@ -689,7 +576,7 @@ a.store:active {
   padding: 36px 32px 0;
   overflow: clip;
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--card-radius);
   background: linear-gradient(180deg, var(--panel-raised) 0%, var(--panel) 60%, var(--bg) 100%);
 }
 
@@ -776,7 +663,7 @@ a.store:active {
   aspect-ratio: 3 / 4.3;
   padding: 24px;
   overflow: clip;
-  border-radius: var(--radius);
+  border-radius: var(--card-radius);
   background: var(--panel);
 }
 
@@ -1526,118 +1413,6 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   justify-items: center;
   gap: 40px;
   padding-block: 120px;
-}
-
-/* ---------------------------------------------------------------- partner */
-
-.partner {
-  display: grid;
-  justify-items: center;
-  gap: 24px;
-  padding-block: 64px;
-  border-top: 1px solid var(--line);
-  text-align: center;
-}
-
-.partner img {
-  width: 200px;
-  height: auto;
-}
-
-.partner p {
-  margin: 0;
-}
-
-.partner__member {
-  font-size: 20px;
-  font-weight: 600;
-  text-wrap: balance;
-}
-
-.partner .partner__legal {
-  margin: 8px auto 0;
-  max-width: 70ch;
-  color: var(--text-faint);
-  font-size: 13px;
-  line-height: 1.6;
-  text-wrap: balance;
-}
-
-/* ----------------------------------------------------------------- footer */
-
-.footer {
-  border-top: 1px solid var(--line);
-}
-
-.footer__bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding-block: 40px;
-}
-
-/* The Design System's ghost sm button, as the earlier Space header used it. This app does not
-   load the Design System component styles, so the treatment is restated with its tokens. */
-.footer__parent {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  /* Pulls the transparent padding out so the label lines up with the footer column. */
-  margin-inline-start: -15px;
-  padding: 6px 14px;
-  border: 1px solid transparent;
-  border-radius: var(--afo-radius-action);
-  color: var(--text);
-  font-size: 12px;
-  line-height: 15px;
-  white-space: nowrap;
-  text-decoration: none;
-  transition:
-    color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing),
-    background-color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing);
-}
-
-.footer__parent:hover {
-  background-color: var(--afo-color-action-secondary-hover);
-}
-
-.footer__links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 28px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-soft);
-  font-size: 14px;
-}
-
-.footer__links a {
-  display: inline-block;
-  padding-block: 12px;
-  text-decoration: none;
-}
-
-.footer__links a:hover {
-  color: var(--text);
-}
-
-/* Same closing line as the main Allfit One landing: centered, last, in its small tracked capitals. */
-.footer__meta {
-  margin-block: 0;
-  padding-block: 24px;
-  border-top: 1px solid var(--line);
-  color: color-mix(in srgb, var(--afo-color-neutral-chalk) 52%, transparent);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  line-height: 1.5;
-  text-align: center;
-  text-transform: uppercase;
 }
 
 /* ------------------------------------------------------------------ legal */

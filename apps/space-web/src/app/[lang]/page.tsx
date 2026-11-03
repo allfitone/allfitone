@@ -238,9 +238,9 @@ export default async function Landing({ params }: LocaleParams) {
               </div>
               <a
                 className="pill-link"
-                href={`https://www.allfit.one/${lang}`}
+                href={`https://studio.allfit.one/${lang}`}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
               >
                 {copy.studio.cta}
                 <ExternalIcon size="sm" decorative />
