@@ -157,7 +157,7 @@ export const es = {
   },
   footer: {
     nvidia: 'Allfit One es miembro de NVIDIA Inception.',
-    products: 'Productos',
+    privacy: 'Privacidad',
     rights: '© 2026 Allfit One',
   },
 }

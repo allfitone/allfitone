@@ -113,6 +113,40 @@ test('a tab holding an invitation is taken back to it from the landing', async (
   await expect(page).toHaveURL('/invitations')
 })
 
+/**
+ * The landing has a footer, so its privacy entry lives there, as on the Space
+ * landing, and nothing floats over the page once a visitor has decided.
+ */
+test.describe('privacy', () => {
+  test('is a footer entry that opens the analytics preferences', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+    await page.goto('/es')
+
+    const entry = page.getByRole('contentinfo').getByRole('button', { name: 'Privacidad' })
+    await expect(entry).toBeVisible()
+    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
+
+    // The panel opens far from the footer, so focus travels to it and back.
+    await entry.focus()
+    await page.keyboard.press('Enter')
+    const panel = page.locator('[data-analytics-panel]')
+    await expect(panel.getByText('Analítica opcional')).toBeVisible()
+    await expect(panel).toBeFocused()
+
+    await panel.getByRole('button', { name: 'No permitir' }).click()
+    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
+    await expect(entry).toBeFocused()
+  })
+
+  test('speaks English on the English landing', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+    await page.goto('/en')
+
+    await page.getByRole('contentinfo').getByRole('button', { name: 'Privacy' }).click()
+    await expect(page.getByText('Optional analytics')).toBeVisible()
+  })
+})
+
 test.describe('languages', () => {
   test('`/` takes a Spanish browser to the Spanish landing', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))

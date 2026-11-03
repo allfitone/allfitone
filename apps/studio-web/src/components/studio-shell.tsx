@@ -15,8 +15,19 @@ import type { Locale } from '@/lib/locale'
  *
  * The guard's own screens — the recovery lock, the closing notice — belong to
  * the workspace and stay in Spanish on the English landing.
+ *
+ * The workspace keeps the floating privacy control. The landing has a footer,
+ * so its privacy entry lives there, as on the Space landing.
  */
-export function StudioShell({ locale, children }: { locale: Locale; children: ReactNode }) {
+export function StudioShell({
+  locale,
+  privacyEntry = 'floating',
+  children,
+}: {
+  locale: Locale
+  privacyEntry?: 'floating' | 'footer'
+  children: ReactNode
+}) {
   return (
     <>
       <StudioQueryProvider>
@@ -24,7 +35,7 @@ export function StudioShell({ locale, children }: { locale: Locale; children: Re
           <SessionGuard>{children}</SessionGuard>
         </StudioEntryContextProvider>
       </StudioQueryProvider>
-      <AnalyticsControls locale={locale} />
+      <AnalyticsControls locale={locale} floating={privacyEntry === 'floating'} />
     </>
   )
 }

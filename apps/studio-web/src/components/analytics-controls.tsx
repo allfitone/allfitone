@@ -4,8 +4,9 @@ import { Button } from '@allfitone/react/components/button'
 import { ANALYTICS_PRIVACY_NOTICE_URL, type TelemetryScreen } from '@allfitone/telemetry'
 import { usePathname } from 'next/navigation'
 import { useReportWebVitals } from 'next/web-vitals'
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
+import { onAnalyticsPreferencesRequested } from '@/lib/analytics-preferences'
 import {
   captureStudioTelemetry,
   initializeStudioTelemetry,
@@ -20,6 +21,11 @@ import type { Locale } from '@/lib/locale'
 /**
  * The panel opens on a visitor's first page, which may be the English landing,
  * so it speaks the page's language. The workspace always passes Spanish.
+ *
+ * Once a visitor has decided, the workspace keeps a floating control to reopen
+ * the panel. The landing does not float one (`floating={false}`): its footer
+ * asks for the panel through `openAnalyticsPreferences`, and focus moves into
+ * the panel and back to that entry, because the two sit far apart.
  */
 const COPY = {
   es: {
@@ -44,7 +50,13 @@ const COPY = {
   },
 } satisfies Record<Locale, Record<string, string>>
 
-export function AnalyticsControls({ locale }: { locale: Locale }) {
+export function AnalyticsControls({
+  locale,
+  floating = true,
+}: {
+  locale: Locale
+  floating?: boolean
+}) {
   const copy = COPY[locale]
   const telemetry = useSyncExternalStore(
     subscribeStudioTelemetry,
@@ -52,9 +64,23 @@ export function AnalyticsControls({ locale }: { locale: Locale }) {
     studioTelemetryServerSnapshot,
   )
   const [expanded, setExpanded] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
+  const requester = useRef<HTMLElement | null>(null)
   const pathname = usePathname()
 
   useEffect(() => initializeStudioTelemetry(), [])
+  useEffect(
+    () =>
+      onAnalyticsPreferencesRequested(() => {
+        requester.current =
+          document.activeElement instanceof HTMLElement ? document.activeElement : null
+        setExpanded(true)
+      }),
+    [],
+  )
+  useEffect(() => {
+    if (expanded) panel.current?.focus()
+  }, [expanded])
   useEffect(() => {
     if (!telemetry.active) return
     captureStudioTelemetry({
@@ -80,10 +106,19 @@ export function AnalyticsControls({ locale }: { locale: Locale }) {
   // honest thing to show: it is the steady state of almost every load, and
   // opening the panel first would ask again of everyone who already answered.
   const open = telemetry.resolved && (telemetry.decision === 'undecided' || expanded)
+  if (!open && !floating) return null
+
+  const decide = (decision: 'denied' | 'granted') => {
+    setStudioAnalyticsConsent(decision)
+    setExpanded(false)
+    requester.current?.focus()
+    requester.current = null
+  }
+
   return (
     <aside data-analytics-controls data-expanded={open ? 'true' : 'false'} aria-label={copy.label}>
       {open ? (
-        <div data-analytics-panel>
+        <div data-analytics-panel ref={panel} tabIndex={-1}>
           <strong>{copy.title}</strong>
           <p>{copy.text}</p>
           <a
@@ -98,25 +133,10 @@ export function AnalyticsControls({ locale }: { locale: Locale }) {
             <p>{copy.privacySignal}</p>
           ) : (
             <div data-analytics-actions>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setStudioAnalyticsConsent('granted')
-                  setExpanded(false)
-                }}
-              >
+              <Button type="button" size="sm" onClick={() => decide('granted')}>
                 {copy.allow}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setStudioAnalyticsConsent('denied')
-                  setExpanded(false)
-                }}
-              >
+              <Button type="button" size="sm" variant="outline" onClick={() => decide('denied')}>
                 {copy.deny}
               </Button>
             </div>

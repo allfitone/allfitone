@@ -2,7 +2,7 @@
 
 import { ProductLockup } from '@allfitone/react/brand'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { buttonVariants } from '@allfitone/react/components/button'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   SiteContainer,
   SiteFooter,
@@ -30,6 +30,7 @@ import { Suspense, useEffect, useRef, useState, type MouseEvent } from 'react'
 
 import type { Dictionary } from '@/content'
 import { useLandingMotion } from './landing-motion'
+import { openAnalyticsPreferences } from '@/lib/analytics-preferences'
 import { readPendingInvitationToken } from '@/lib/invitation-token'
 import { LOCALES, type Locale } from '@/lib/locale'
 import { prepareStudioAuthentication, readStudioSessionActivity } from '@/lib/session-activity'
@@ -592,7 +593,18 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
             Allfit One
             <ExternalIcon size="sm" decorative />
           </SiteFooterParent>
-          <SiteFooterLinks aria-label={copy.footer.products}>
+          <SiteFooterLinks>
+            <SiteFooterLink
+              render={
+                <Button
+                  variant="link"
+                  data-studio-footer-action
+                  onClick={openAnalyticsPreferences}
+                />
+              }
+            >
+              {copy.footer.privacy}
+            </SiteFooterLink>
             <SiteFooterLink
               href={spaceSiteUrl}
               target="_blank"

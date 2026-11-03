@@ -83,11 +83,11 @@ for (const screen of SCREENS) {
  * can. The privacy control used an outline variant, whose transparent fill left
  * only a border at roughly 1.24:1 against the entry background — invisible, and
  * not something the WCAG sweep catches, because axe does not automate non-text
- * contrast.
+ * contrast. Only the workspace floats it; the landing keeps it in its footer.
  */
 test('the floating privacy control carries its own surface', async ({ page }) => {
-  await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
-  await page.goto('/es')
+  await installStudioApiMock(page, createStudioApiFixture())
+  await page.goto('/app')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   const measured = await page.getByRole('button', { name: 'Privacidad' }).evaluate((element) => ({
