@@ -368,6 +368,28 @@ export function studioPlanningRoutes(
     }
   })
 
+  routes.get(
+    '/organizations/:organizationId/programs/:programId/versions/:versionNumber',
+    async (c) => {
+      const version = programVersionPath(c, studioOrigin)
+      if (version instanceof Response) return version
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const resource = await planning().readProgramVersion(actor, {
+          ...version,
+          requestId: randomUUID(),
+        })
+        // Same as a template version: the composition is fixed, its status is not.
+        c.header('Cache-Control', 'private, max-age=0, must-revalidate')
+        c.header('ETag', projectionEtag(resource))
+        return c.json(resource)
+      } catch (error) {
+        return operationFailure(c, error)
+      }
+    },
+  )
+
   routes.post(
     '/organizations/:organizationId/programs/:programId/versions/:versionNumber/deprecation',
     async (c) => {

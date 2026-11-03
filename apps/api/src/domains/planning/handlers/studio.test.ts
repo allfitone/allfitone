@@ -623,6 +623,54 @@ describe('Studio planning API contract', () => {
     expect(response.headers.get('retry-after')).toBe('1')
   })
 
+  test('T-PLN-API-043 reads the program version publishing names in Location', async () => {
+    const calls: CapturedCall[] = []
+    const app = studioPlanningRoutes(planningService(calls), sessionService())
+    const published = await app.request(
+      `/organizations/${ORGANIZATION_ID}/programs/${PROGRAM_ID}/versions`,
+      requestInit({ method: 'POST', ifMatch: true }),
+    )
+    const location = published.headers.get('location')
+    expect(location).toBe(`/organizations/${ORGANIZATION_ID}/programs/${PROGRAM_ID}/versions/1`)
+
+    const response = await app.request(location ?? '', requestInit({ method: 'GET' }))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('private, max-age=0, must-revalidate')
+    expect(response.headers.get('etag')).toBeString()
+    expect(await response.json()).toEqual(programVersion)
+    expect(calls[1]?.operation).toBe('readProgramVersion')
+    expect(calls[1]?.input).toMatchObject({
+      organizationId: ORGANIZATION_ID,
+      programId: PROGRAM_ID,
+      versionNumber: 1,
+    })
+    expect(calls[1]?.input.requestId).toBeString()
+  })
+
+  test('T-PLN-API-044 answers a program version it cannot show as absent, and validates the path', async () => {
+    const path = `/organizations/${ORGANIZATION_ID}/programs/${PROGRAM_ID}/versions/1`
+    const absent = await studioPlanningRoutes(
+      planningService([], { failure: databaseError('P0002') }),
+      sessionService(),
+    ).request(path, requestInit({ method: 'GET' }))
+    expect(absent.status).toBe(404)
+    expect(absent.headers.get('content-type')).toContain('application/problem+json')
+
+    const calls: CapturedCall[] = []
+    const app = studioPlanningRoutes(planningService(calls), sessionService())
+    const zero = await app.request(
+      `/organizations/${ORGANIZATION_ID}/programs/${PROGRAM_ID}/versions/0`,
+      requestInit({ method: 'GET' }),
+    )
+    const foreignOrigin = await app.request(path, {
+      method: 'GET',
+      headers: { ...commandHeaders(), origin: 'https://elsewhere.example.test' },
+    })
+    expect(zero.status).toBe(400)
+    expect(foreignOrigin.status).toBe(403)
+    expect(calls).toHaveLength(0)
+  })
+
   test('T-PLN-API-040 rejects an originally overlong padded title', async () => {
     const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
       `/organizations/${ORGANIZATION_ID}/programs`,
@@ -733,6 +781,11 @@ function planningService(
         input: input as Record<string, unknown>,
       })
       return Promise.resolve(errors.missingDraft ? null : templateDraft)
+    },
+    readProgramVersion: (_actor, input) => {
+      if (errors.failure) return Promise.reject(errors.failure)
+      calls.push({ operation: 'readProgramVersion', input: input as Record<string, unknown> })
+      return Promise.resolve(programVersion)
     },
   }
 }
