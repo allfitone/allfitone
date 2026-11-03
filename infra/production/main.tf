@@ -52,3 +52,31 @@ module "network" {
 module "github_oidc" {
   source = "../modules/github-oidc"
 }
+
+# One secret per environment holds every credential: database and app alike.
+resource "aws_secretsmanager_secret" "environment" {
+  name                    = "allfitone/production"
+  description             = "Every credential of the production environment, as one JSON object"
+  recovery_window_in_days = 30
+}
+
+# Exists only during the apply; RDS and the secret receive it write-only.
+ephemeral "aws_secretsmanager_random_password" "database_master" {
+  password_length     = 40
+  exclude_punctuation = true
+}
+
+module "database" {
+  source = "../modules/database"
+
+  name               = "allfitone-production"
+  vpc_id             = module.network.vpc_id
+  private_subnet_ids = module.network.private_subnet_ids
+
+  environment_secret_id = aws_secretsmanager_secret.environment.arn
+  master_password       = ephemeral.aws_secretsmanager_random_password.database_master.random_password
+
+  # Nothing reaches the database yet; ECS joins this map in phase 3.
+  client_security_group_ids = {}
+}
+
