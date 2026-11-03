@@ -41,6 +41,10 @@ const WORKER_SOURCE = import.meta.dir
  * claims any of them. The store is the one that charges and already writes to the person
  * about its own money, so they may well be domain records — but nobody has decided that
  * out loud. The day Allfit sends one of them itself, its name belongs above.
+ *
+ * Also open: `relationship.terminated.v1`, `relationship.termination_requested.v1` and
+ * `relationship.termination_request_rejected.v1` carry recipients and words for a
+ * notice, but no worker delivers them yet. Each joins the list with its consumer.
  */
 const DELIVERY_EVENT =
   /^(organization\.(\w*invited|membership_resigned)|relationship\.(client_invited|professional_reassigned|substitution_proposed)|identity\.account_recovery_requested|payments\.subscription_(suspended|reactivated|ended))\.v1$/

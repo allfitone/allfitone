@@ -14,6 +14,7 @@ import type {
   SubstitutionProposalDatabase,
   SubstitutionListDatabase,
   RelationshipTerminationDatabase,
+  TerminationRequestDatabase,
   SubstitutionPage,
   SubstitutionQuery,
   SubstitutionTerminationDatabase,
@@ -260,6 +261,46 @@ export function createRelationshipTerminationService(
       if (!actor.personId) throw new RelationshipsError('registration-incomplete')
       return database.terminate({ actorPersonId: actor.personId, ...input })
     },
+  }
+}
+
+/**
+ * `OP-REL-009`, `OP-REL-017`, `OP-REL-018`. Thin like its siblings: who is the
+ * holder, who could end the relationship instead, and whether the request is still
+ * pending are all the command's decisions.
+ */
+export interface TerminationRequestService {
+  request(
+    actor: AccountActor,
+    input: CommandContext & { organizationId: string; relationshipId: string; reason?: string },
+  ): ReturnType<TerminationRequestDatabase['request']>
+  withdraw(
+    actor: AccountActor,
+    input: CommandContext & { organizationId: string; relationshipId: string; requestId: string },
+  ): ReturnType<TerminationRequestDatabase['withdraw']>
+  reject(
+    actor: AccountActor,
+    input: CommandContext & {
+      organizationId: string
+      relationshipId: string
+      requestId: string
+      resolution: string
+    },
+  ): ReturnType<TerminationRequestDatabase['reject']>
+}
+
+export function createTerminationRequestService(
+  database: TerminationRequestDatabase,
+): TerminationRequestService {
+  const personId = (actor: AccountActor) => {
+    if (!actor.personId) throw new RelationshipsError('registration-incomplete')
+    return actor.personId
+  }
+
+  return {
+    request: (actor, input) => database.request({ actorPersonId: personId(actor), ...input }),
+    withdraw: (actor, input) => database.withdraw({ actorPersonId: personId(actor), ...input }),
+    reject: (actor, input) => database.reject({ actorPersonId: personId(actor), ...input }),
   }
 }
 

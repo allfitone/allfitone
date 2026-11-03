@@ -6272,6 +6272,169 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests:
+    post:
+      tags: [Studio Relationships]
+      operationId: requestRelationshipTermination
+      x-allfit-operation: OP-REL-009
+      x-allfit-cache: no-store
+      summary: Ask the organization to end a relationship
+      description: >-
+        The holder of a relationship who cannot end it herself asks the
+        administration to. **Asking changes nothing**: the relationship, its
+        permissions and every assignment stay exactly as they were until an
+        administrator, an owner or the person ends it.
+
+
+        Only the current holder may ask, and never somebody who could end the
+        relationship directly — an administrator or owner who also coaches ends
+        it with `terminateRelationship` instead (`403`). A second pending
+        request on the same relationship is impossible (`409`). The person
+        attended never sees the request.
+
+
+        The request settles on its own: `resolved` when the organization ends
+        the relationship, `superseded` when the person ends it or the coach
+        stops being its holder.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipTerminationRequestCreate'
+      responses:
+        '201':
+          description: The request is pending; nothing about the relationship changed
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipTerminationRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests/{terminationRequestId}/withdrawal:
+    post:
+      tags: [Studio Relationships]
+      operationId: withdrawRelationshipTerminationRequest
+      x-allfit-operation: OP-REL-017
+      x-allfit-cache: no-store
+      summary: Take back a request to end a relationship
+      description: >-
+        The coach who asked takes her pending request back; she is recorded as
+        who settled it. Nobody else may, the administration included (`403`).
+        Withdrawing a request already withdrawn answers with it again; any
+        other settled request is a `409`.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/TerminationRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The request is withdrawn
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipTerminationRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests/{terminationRequestId}/rejection:
+    post:
+      tags: [Studio Relationships]
+      operationId: rejectRelationshipTerminationRequest
+      x-allfit-operation: OP-REL-018
+      x-allfit-cache: no-store
+      summary: Refuse a request to end a relationship
+      description: >-
+        An administrator or owner refuses a pending request, in words the coach
+        is told. Who refused and when are recorded. Accepting a request is not
+        an operation: ending the relationship with `terminateRelationship`
+        settles it as `resolved`. A coach may not refuse (`403`); a request
+        already settled is a `409`.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/TerminationRequestId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RelationshipTerminationRequestRejection'
+      responses:
+        '200':
+          description: The request is refused
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipTerminationRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/relationships/{relationshipId}/substitutions:
     get:
       tags: [Studio Relationships]
@@ -11816,6 +11979,12 @@ components:
         $ref: '#/components/schemas/Uuid'
     SubstitutionId:
       name: substitutionId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    TerminationRequestId:
+      name: terminationRequestId
       in: path
       required: true
       schema:
@@ -18462,7 +18631,7 @@ components:
       additionalProperties: false
       required:
         [relationship_id, person_id, display_name, status, started_at, ended_at,
-         holder, substitutions, grants]
+         holder, substitutions, grants, termination_request]
       properties:
         relationship_id:
           $ref: '#/components/schemas/UuidV7'
@@ -18494,6 +18663,84 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/RelationshipGrant'
+        termination_request:
+          description: >-
+            The latest request to end this relationship, whatever became of it,
+            or null. Only the coach who asked and an administrator or owner ever
+            receive one; staff and other coaches read null.
+          oneOf:
+            - $ref: '#/components/schemas/RelationshipTerminationRequest'
+            - type: 'null'
+    RelationshipTerminationRequestCreate:
+      description: >-
+        A reason is optional. A blank one is refused rather than stored.
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    RelationshipTerminationRequestRejection:
+      description: A refusal always says why, and the coach is told.
+      type: object
+      additionalProperties: false
+      required: [resolution]
+      properties:
+        resolution:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    RelationshipTerminationRequestParty:
+      type: object
+      additionalProperties: false
+      required: [membership_id, display_name]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: string
+          minLength: 1
+    RelationshipTerminationRequest:
+      description: >-
+        A coach's request that the organization end a relationship, and how it
+        was settled. `pending` until one of: `withdrawn` by the coach,
+        `rejected` by the administration with a `resolution`, `resolved` when
+        the organization ended the relationship, or `superseded` when the
+        person ended it or the coach stopped being its holder. `resolved_by` is
+        null while pending and when superseded, since nobody in the
+        organization decided anything then.
+      type: object
+      additionalProperties: false
+      required:
+        [request_id, relationship_id, status, reason, resolution, requested_by,
+         resolved_by, created_at, resolved_at]
+      properties:
+        request_id:
+          $ref: '#/components/schemas/Uuid'
+        relationship_id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [pending, withdrawn, rejected, resolved, superseded]
+        reason:
+          type: [string, 'null']
+          maxLength: 2000
+        resolution:
+          type: [string, 'null']
+          maxLength: 2000
+        requested_by:
+          $ref: '#/components/schemas/RelationshipTerminationRequestParty'
+        resolved_by:
+          oneOf:
+            - $ref: '#/components/schemas/RelationshipTerminationRequestParty'
+            - type: 'null'
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: [string, 'null']
+          format: date-time
     ClientDirectoryItem:
       description: >-
         A directory entry is one of two things and says which. A `relationship`

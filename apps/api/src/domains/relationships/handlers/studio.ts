@@ -25,6 +25,7 @@ import {
   substitutionTerminationService,
   substitutionListService,
   relationshipTerminationService,
+  terminationRequestService,
 } from '../dependencies.js'
 import {
   RelationshipsError,
@@ -37,8 +38,14 @@ import {
   type SubstitutionTerminationService,
   type SubstitutionListService,
   type RelationshipTerminationService,
+  type TerminationRequestService,
 } from '../application/index.js'
-import type { DirectoryEntry, DirectoryGroup, RelationshipState } from '../domain/index.js'
+import type {
+  DirectoryEntry,
+  DirectoryGroup,
+  RelationshipState,
+  TerminationRequest,
+} from '../domain/index.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -65,6 +72,7 @@ export interface StudioRelationshipDependencies {
   readonly terminations?: SubstitutionTerminationService
   readonly substitutionPages?: SubstitutionListService
   readonly relationshipTerminations?: RelationshipTerminationService
+  readonly terminationRequests?: TerminationRequestService
 }
 
 export function studioRelationshipRoutes(injected: StudioRelationshipDependencies = {}): Hono {
@@ -79,6 +87,7 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
   const substitutionPages = () => injected.substitutionPages ?? substitutionListService()
   const relationshipEndings = () =>
     injected.relationshipTerminations ?? relationshipTerminationService()
+  const terminationRequests = () => injected.terminationRequests ?? terminationRequestService()
   const sessions = () => injected.sessions ?? studioSessionService()
   const routes = new Hono()
 
@@ -436,6 +445,123 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
   )
 
   /*
+   * `OP-REL-009`. The holder asks the organization to end a relationship she cannot
+   * end herself. Asking changes nothing about the relationship; a second pending
+   * request on it is a 409 from the database, not a check here.
+   */
+  routes.post(
+    '/organizations/:organizationId/relationships/:relationshipId/termination-requests',
+    async (c) => {
+      c.header('Cache-Control', 'no-store')
+      if (c.req.header('origin') !== studioOrigin) {
+        return fail(c, 'forbidden', 'origin is not allowed')
+      }
+      const organizationId = c.req.param('organizationId')
+      const relationshipId = c.req.param('relationshipId')
+      if (!UUID.test(organizationId) || !UUID.test(relationshipId)) {
+        return fail(c, 'invalid-request')
+      }
+      const body = (await readJson(c)) ?? {}
+      if (!isTerminationRequest(body)) return fail(c, 'validation-failed')
+      const command = commandContext(c, { relationshipId, ...body })
+      if (!command) return fail(c, 'invalid-request', 'valid command headers are required')
+
+      try {
+        const actor = await studioActor(c, sessions())
+        if (actor instanceof Response) return actor
+        const result = await terminationRequests().request(actor, {
+          organizationId,
+          relationshipId,
+          ...(body.reason === undefined ? {} : { reason: body.reason }),
+          ...command,
+        })
+        if (result.replayed) c.header('Idempotent-Replay', 'true')
+        return c.json(presentTerminationRequest(result.resource), 201)
+      } catch (error) {
+        return failure(c, error)
+      }
+    },
+  )
+
+  /*
+   * `OP-REL-017`. The coach takes her request back. No body: withdrawing says nothing
+   * beyond which request, and both of those are in the path.
+   */
+  routes.post(
+    '/organizations/:organizationId/relationships/:relationshipId/termination-requests/:terminationRequestId/withdrawal',
+    async (c) => {
+      c.header('Cache-Control', 'no-store')
+      if (c.req.header('origin') !== studioOrigin) {
+        return fail(c, 'forbidden', 'origin is not allowed')
+      }
+      const organizationId = c.req.param('organizationId')
+      const relationshipId = c.req.param('relationshipId')
+      const requestId = c.req.param('terminationRequestId')
+      if (!UUID.test(organizationId) || !UUID.test(relationshipId) || !UUID.test(requestId)) {
+        return fail(c, 'invalid-request')
+      }
+      const command = commandContext(c, { relationshipId, requestId })
+      if (!command) return fail(c, 'invalid-request', 'valid command headers are required')
+
+      try {
+        const actor = await studioActor(c, sessions())
+        if (actor instanceof Response) return actor
+        const result = await terminationRequests().withdraw(actor, {
+          organizationId,
+          relationshipId,
+          requestId,
+          ...command,
+        })
+        if (result.replayed) c.header('Idempotent-Replay', 'true')
+        return c.json(presentTerminationRequest(result.resource))
+      } catch (error) {
+        return failure(c, error)
+      }
+    },
+  )
+
+  /*
+   * `OP-REL-018`. The administration refuses the request, in words: the coach asked
+   * with a reason and is answered with one. Accepting it is ending the relationship,
+   * which settles the request on its own.
+   */
+  routes.post(
+    '/organizations/:organizationId/relationships/:relationshipId/termination-requests/:terminationRequestId/rejection',
+    async (c) => {
+      c.header('Cache-Control', 'no-store')
+      if (c.req.header('origin') !== studioOrigin) {
+        return fail(c, 'forbidden', 'origin is not allowed')
+      }
+      const organizationId = c.req.param('organizationId')
+      const relationshipId = c.req.param('relationshipId')
+      const requestId = c.req.param('terminationRequestId')
+      if (!UUID.test(organizationId) || !UUID.test(relationshipId) || !UUID.test(requestId)) {
+        return fail(c, 'invalid-request')
+      }
+      const body = await readJson(c)
+      if (!isRejection(body)) return fail(c, 'validation-failed')
+      const command = commandContext(c, { relationshipId, requestId, ...body })
+      if (!command) return fail(c, 'invalid-request', 'valid command headers are required')
+
+      try {
+        const actor = await studioActor(c, sessions())
+        if (actor instanceof Response) return actor
+        const result = await terminationRequests().reject(actor, {
+          organizationId,
+          relationshipId,
+          requestId,
+          resolution: body.resolution,
+          ...command,
+        })
+        if (result.replayed) c.header('Idempotent-Replay', 'true')
+        return c.json(presentTerminationRequest(result.resource))
+      } catch (error) {
+        return failure(c, error)
+      }
+    },
+  )
+
+  /*
    * `OP-REL-013`. Who has covered this client, newest first.
    *
    * The relationship document already carries its covers, so this exists for
@@ -727,6 +853,31 @@ function presentState(state: RelationshipState): Record<string, unknown> {
       granted_at: grant.grantedAt.toISOString(),
       revoked_at: grant.revokedAt?.toISOString() ?? null,
     })),
+    termination_request: state.terminationRequest
+      ? presentTerminationRequest(state.terminationRequest)
+      : null,
+  }
+}
+
+function presentTerminationRequest(request: TerminationRequest): Record<string, unknown> {
+  return {
+    request_id: request.requestId,
+    relationship_id: request.relationshipId,
+    status: request.status,
+    reason: request.reason,
+    resolution: request.resolution,
+    requested_by: {
+      membership_id: request.requestedBy.membershipId,
+      display_name: request.requestedBy.displayName,
+    },
+    resolved_by: request.resolvedBy
+      ? {
+          membership_id: request.resolvedBy.membershipId,
+          display_name: request.resolvedBy.displayName,
+        }
+      : null,
+    created_at: request.createdAt.toISOString(),
+    resolved_at: request.resolvedAt?.toISOString() ?? null,
   }
 }
 
@@ -809,5 +960,16 @@ function isTerminationRequest(value: unknown): value is { reason?: string } {
   if (keys.length > 1 || keys[0] !== 'reason') return false
   return (
     typeof value.reason === 'string' && value.reason.trim() !== '' && value.reason.length <= 2000
+  )
+}
+
+/** A refusal carries its words and nothing else, never blank. */
+function isRejection(value: unknown): value is { resolution: string } {
+  return (
+    isObject(value) &&
+    Object.keys(value).join(',') === 'resolution' &&
+    typeof value.resolution === 'string' &&
+    value.resolution.trim() !== '' &&
+    value.resolution.length <= 2000
   )
 }

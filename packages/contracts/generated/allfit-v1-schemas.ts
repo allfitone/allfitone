@@ -9495,6 +9495,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'holder',
       'substitutions',
       'grants',
+      'termination_request',
     ],
     properties: {
       relationship_id: {
@@ -9541,6 +9542,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/RelationshipGrant',
         },
+      },
+      termination_request: {
+        description:
+          'The latest request to end this relationship, whatever became of it, or null. Only the coach who asked and an administrator or owner ever receive one; staff and other coaches read null.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/RelationshipTerminationRequest',
+          },
+          {
+            type: 'null',
+          },
+        ],
       },
     },
   },
@@ -9758,6 +9771,103 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     additionalProperties: false,
     properties: {
       reason: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+    },
+  },
+  RelationshipTerminationRequest: {
+    description:
+      "A coach's request that the organization end a relationship, and how it was settled. `pending` until one of: `withdrawn` by the coach, `rejected` by the administration with a `resolution`, `resolved` when the organization ended the relationship, or `superseded` when the person ended it or the coach stopped being its holder. `resolved_by` is null while pending and when superseded, since nobody in the organization decided anything then.",
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'request_id',
+      'relationship_id',
+      'status',
+      'reason',
+      'resolution',
+      'requested_by',
+      'resolved_by',
+      'created_at',
+      'resolved_at',
+    ],
+    properties: {
+      request_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      status: {
+        type: 'string',
+        enum: ['pending', 'withdrawn', 'rejected', 'resolved', 'superseded'],
+      },
+      reason: {
+        type: ['string', 'null'],
+        maxLength: 2000,
+      },
+      resolution: {
+        type: ['string', 'null'],
+        maxLength: 2000,
+      },
+      requested_by: {
+        $ref: '#/components/schemas/RelationshipTerminationRequestParty',
+      },
+      resolved_by: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/RelationshipTerminationRequestParty',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      resolved_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  RelationshipTerminationRequestCreate: {
+    description: 'A reason is optional. A blank one is refused rather than stored.',
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      reason: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+    },
+  },
+  RelationshipTerminationRequestParty: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'display_name'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      display_name: {
+        type: 'string',
+        minLength: 1,
+      },
+    },
+  },
+  RelationshipTerminationRequestRejection: {
+    description: 'A refusal always says why, and the coach is told.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['resolution'],
+    properties: {
+      resolution: {
         type: 'string',
         minLength: 1,
         maxLength: 2000,

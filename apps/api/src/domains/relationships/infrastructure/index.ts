@@ -21,6 +21,9 @@ import type {
   SubstitutionListDatabase,
   RelationshipTerminationDatabase,
   SubstitutionTerminationDatabase,
+  TerminationRequest,
+  TerminationRequestDatabase,
+  TerminationRequestStatus,
   MyRelationship,
   MyRelationshipCommandDatabase,
   MyRelationshipDatabase,
@@ -171,6 +174,9 @@ function presentState(document: StateDocument): RelationshipState {
         : null,
     })),
     grants: document.grants.map(presentGrant),
+    terminationRequest: document.termination_request
+      ? presentTerminationRequest(document.termination_request)
+      : null,
   }
 }
 
@@ -288,6 +294,7 @@ type StateDocument = {
   holder: ProfessionalRow | null
   substitutions: SubstitutionRow[]
   grants: GrantRow[]
+  termination_request: TerminationRequestDocument | null
 }
 
 type HistoryEventRow = {
@@ -814,4 +821,121 @@ type RelationshipTerminationRow = {
   frozen_grants: number
   closed_assignments: number
   replayed: boolean
+}
+
+type TerminationRequestParty = { membership_id: string; display_name: string }
+
+/** `relationships.termination_request_document`, the one shape a request is read in. */
+type TerminationRequestDocument = {
+  request_id: string
+  relationship_id: string
+  status: TerminationRequestStatus
+  reason: string | null
+  resolution: string | null
+  requested_by: TerminationRequestParty
+  resolved_by: TerminationRequestParty | null
+  created_at: string
+  resolved_at: string | null
+}
+
+function presentTerminationRequest(document: TerminationRequestDocument): TerminationRequest {
+  return {
+    requestId: document.request_id,
+    relationshipId: document.relationship_id,
+    status: document.status,
+    reason: document.reason,
+    resolution: document.resolution,
+    requestedBy: {
+      membershipId: document.requested_by.membership_id,
+      displayName: document.requested_by.display_name,
+    },
+    resolvedBy: document.resolved_by
+      ? {
+          membershipId: document.resolved_by.membership_id,
+          displayName: document.resolved_by.display_name,
+        }
+      : null,
+    createdAt: new Date(document.created_at),
+    resolvedAt: document.resolved_at ? new Date(document.resolved_at) : null,
+  }
+}
+
+type TerminationRequestRow = { result: TerminationRequestDocument | null; replayed: boolean }
+
+/**
+ * `OP-REL-009`, `OP-REL-017`, `OP-REL-018`. Each command answers with the request as
+ * the actor may read it; a null document means the policy hid it, which no command
+ * that just succeeded should produce, so it is an error rather than an empty answer.
+ */
+export function createTerminationRequestDatabase(
+  sql: postgres.Sql = database(),
+): TerminationRequestDatabase {
+  const run = (
+    actorPersonId: string,
+    name: string,
+    query: (transaction: postgres.TransactionSql) => Promise<TerminationRequestRow[]>,
+  ) =>
+    measureStudioRequestPhase('business-db', async () => {
+      const [row] = await sql.begin(async (transaction) => {
+        await setPersonActor(transaction, actorPersonId)
+        return query(transaction)
+      })
+      if (!row?.result) throw new Error(`${name} returned no request`)
+      return { resource: presentTerminationRequest(row.result), replayed: row.replayed }
+    })
+
+  return {
+    request: (input) =>
+      run(
+        input.actorPersonId,
+        'request_relationship_termination',
+        (transaction) => transaction<TerminationRequestRow[]>`
+          select result, replayed
+          from relationships.request_relationship_termination(
+            ${input.actorPersonId}::uuid,
+            ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid,
+            ${input.reason ?? null}::text,
+            ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `,
+      ),
+    withdraw: (input) =>
+      run(
+        input.actorPersonId,
+        'withdraw_termination_request',
+        (transaction) => transaction<TerminationRequestRow[]>`
+          select result, replayed
+          from relationships.withdraw_termination_request(
+            ${input.actorPersonId}::uuid,
+            ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid,
+            ${input.requestId}::uuid,
+            ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `,
+      ),
+    reject: (input) =>
+      run(
+        input.actorPersonId,
+        'reject_termination_request',
+        (transaction) => transaction<TerminationRequestRow[]>`
+          select result, replayed
+          from relationships.reject_termination_request(
+            ${input.actorPersonId}::uuid,
+            ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid,
+            ${input.requestId}::uuid,
+            ${input.resolution}::text,
+            ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `,
+      ),
+  }
 }
