@@ -215,6 +215,7 @@
 [data-team-page],
 [data-client-page],
 [data-billing-page],
+[data-authorized-scope-page],
 [data-client-invite-page],
 [data-team-section],
 [data-profile-section],
@@ -488,6 +489,7 @@
 [data-team-member-identity],
 [data-client-identity],
 [data-billing-person],
+[data-authorized-scope-person],
 [data-overview-team-identity] {
   display: flex;
   min-width: 0;
@@ -544,6 +546,7 @@
 [data-team-member-facts] dt,
 [data-client-facts] dt,
 [data-billing-facts] dt,
+[data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
 [data-credential-details] dt {
   font-family: var(--afo-typography-label-font-family);
@@ -568,6 +571,7 @@
 [data-team-member-facts],
 [data-client-facts],
 [data-billing-facts],
+[data-authorized-scope-facts],
 [data-relationship-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -620,6 +624,7 @@
 [data-team-directory-card-list],
 [data-client-directory-card-list],
 [data-billing-card-list],
+[data-authorized-scope-card-list],
 [data-relationship-substitution-list],
 [data-relationship-grant-cards],
 [data-relationship-history-list],
@@ -742,7 +747,8 @@
    flush against each other and against the note below them. */
 [data-team-directory-cards],
 [data-client-directory-cards],
-[data-billing-cards] {
+[data-billing-cards],
+[data-authorized-scope-cards] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -758,7 +764,8 @@
    next column, which is what happened here. */
 [data-team-member-identity],
 [data-client-identity],
-[data-billing-person] {
+[data-billing-person],
+[data-authorized-scope-person] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
 }
@@ -768,7 +775,8 @@
 }
 
 [data-team-pagination],
-[data-client-pagination] {
+[data-client-pagination],
+[data-authorized-scope-pagination] {
   display: flex;
   justify-content: center;
 }
@@ -776,6 +784,7 @@
 [data-team-directory-note],
 [data-client-directory-note],
 [data-billing-note],
+[data-authorized-scope-note],
 [data-relationship-grant-note] {
   max-width: var(--studio-measure);
 }
@@ -1249,10 +1258,34 @@
 /* The alert states the refusal and the button acts on it; as bare siblings in
    a section they had no space between them and read as one block. The button
    sizes to its label rather than stretching the width of the alert. */
-[data-site-form-refusal] {
+[data-site-form-refusal],
+[data-organization-form-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);
+}
+
+/* Status and the way to change it share the card's action slot. They are two
+   different kinds of thing, so they get space between them, and they wrap
+   rather than push the card's title out of its own box on a narrow screen. */
+[data-organization-identity-action] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+}
+
+/* The type when it has nowhere to move to. It sits among the form's fields, so
+   it keeps their rhythm, but it is a term and its value — the same pair the read
+   screen shows — rather than a label and a control. */
+[data-organization-type-fixed] {
+  display: grid;
+  gap: var(--afo-space-2);
+}
+
+[data-organization-form-loading] {
+  margin: 0;
+  color: var(--afo-color-text-muted);
 }
 
 /* A site name is one word as often as not, and nothing caps how long that word
@@ -1300,7 +1333,8 @@
   font-size: var(--afo-font-size-lg);
 }
 
-[data-site-status-description] {
+[data-site-status-description],
+[data-organization-type-note] {
   margin: 0;
   max-width: var(--studio-measure);
   color: var(--afo-color-text-muted);
@@ -1311,8 +1345,59 @@
   margin-block-start: var(--afo-space-3);
 }
 
-[data-organization-site-edit] {
+[data-organization-site-edit],
+[data-organization-edit] {
   flex: none;
+}
+
+/* -------------------------------------------------------------- references */
+
+/* The client directory's two consultations, closing the section. A rule and
+   space set them apart from the list rather than a box: the page is a spread
+   and has borders enough already. The pair stacks when it does not fit,
+   instead of taking a third of the width each as it did in the action row. */
+[data-client-references] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--afo-space-1) var(--afo-space-5);
+  padding-block-start: var(--afo-space-3);
+  border-block-start: 1px solid var(--afo-color-border-default);
+}
+
+/*
+ * A text link that announces itself without waiting for the cursor and without
+ * asking for a button's weight: underlined at rest in the border grey, turning
+ * the text's own colour when pointed at.
+ *
+ * The token carries its suffix on purpose. `--afo-color-border` does not exist
+ * in the Design System — the names are `-default`, `-subtle`, `-strong` and
+ * `-accent` — and an invalid custom property in `text-decoration-color` or in
+ * `border-color` falls back to `currentcolor`, meaning full ink, which also
+ * leaves `:hover` with nothing to change. Four more rules in this file still
+ * carry the name that does not exist, `data-client-open` among them: the
+ * pattern this one came from. They go in STUDIO-157, because fixing them
+ * changes how other screens look.
+ */
+[data-client-reference] {
+  color: inherit;
+  font-size: var(--afo-font-size-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--afo-color-border-default);
+  text-underline-offset: 3px;
+}
+
+[data-client-reference]:hover {
+  text-decoration-color: currentcolor;
+}
+
+/* One link per line: on a phone the two of them in a row left the second one
+   broken mid-word. */
+@media (max-width: 640px) {
+  [data-client-references] {
+    flex-direction: column;
+    gap: var(--afo-space-3);
+  }
 }
 
 /* ----------------------------------------------------------- relationship */

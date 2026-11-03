@@ -93,7 +93,7 @@ export function mountSurfaces(app: Hono): void {
     cors({
       origin: new URL(trustedStudioWebUrl()).origin,
       credentials: true,
-      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id', 'If-Match', 'If-None-Match'],
       exposeHeaders: ['ETag', 'Server-Timing', 'Retry-After', 'Idempotent-Replay'],
       maxAge: 600,

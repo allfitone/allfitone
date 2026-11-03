@@ -127,6 +127,11 @@ x-allfit-error-catalog:
   - code: rate-limited
     status: 429
     description: A closed invitation abuse-prevention limit rejected the attempt.
+  - code: guest-quota-exhausted
+    status: 409
+    description: >-
+      The organization has filled every guest place Allfit sold it (HU-STUDIO-087).
+      Live relationships and unanswered invitations occupy a place.
 x-allfit-media-url-policy:
   space_owner:
     delivery: signed_storage_url
@@ -3212,6 +3217,11 @@ paths:
 
         Rejecting the relationship ends the invitation and no scope is granted,
         whatever the scope answers say.
+
+
+        HU-STUDIO-087: accepting converts the guest place the invitation already
+        held. If the organization is over its quota by another way, acceptance
+        answers `409` with `guest-quota-exhausted` and nothing is decided.
       security:
         - bearerAuth: []
       parameters:
@@ -4524,6 +4534,69 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/authorized-scopes:
+    get:
+      tags: [Studio Relationships]
+      operationId: listStudioAuthorizedScopes
+      x-allfit-operation: OP-PRV-023
+      x-allfit-cache: private-no-store
+      summary: List what each client authorized the organization to see
+      description: >-
+        Returns one entry per authorization: who granted it, which category it
+        covers, the version agreed, whether it still stands and since when. A
+        withdrawn authorization stays in the list with the date it was
+        withdrawn, because that is what explains no longer seeing that part.
+
+
+        It carries the **state** of each permission and nothing the permission
+        covers. Learning that somebody shared their health context is not
+        reading their health context, and no field here crosses that line.
+
+
+        What comes back depends on the caller. A role holding `view_directory`
+        reads every client's authorizations. A coach reads only those of the
+        clients they attend — narrowed by the relationship's own policy, not by
+        the grant's, which is organization-wide.
+
+
+        This is a report, never the source that decides an access. A reader
+        about to open somebody's data resolves the policy at that moment, inside
+        the transaction that writes the access record; what this returns is
+        already the past by the time it is on screen.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Authorized scope page
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizedScopePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles:
     post:
       tags: [Studio Organizations]
@@ -4557,6 +4630,167 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationRoleGrant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles/{roleCode}:
+    delete:
+      tags: [Studio Organizations]
+      operationId: revokeStudioOrganizationMembershipRole
+      x-allfit-operation: OP-ORG-008
+      x-allfit-cache: no-store
+      summary: Revoke a non-owner role and end professional assignments when removing coach
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/MembershipId'
+        - name: roleCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AssignableOrganizationRoleCode'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Closed role period, including convergent duplicate commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationRoleRevocation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/memberships/{membershipId}/termination:
+    post:
+      tags: [Studio Organizations]
+      operationId: terminateStudioOrganizationMembership
+      x-allfit-operation: OP-ORG-009
+      x-allfit-cache: no-store
+      summary: Terminate a member's membership, roles and professional assignments
+      description: >-
+        Closes the membership and every open role at one instant, and ends the
+        member's holder and accepted cover assignments in the same transaction.
+
+
+        **Terminating a membership does not end the organization's service
+        relationships.** They stay active without a responsible professional and
+        must be reassigned (`OP-REL-005`). Consent grants and authorship survive.
+
+
+        A membership that holds `owner` cannot be terminated: ownership leaves
+        only through a transfer (`OP-ORG-011`). The request has no body.
+        Converges without effect on an already terminated membership.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/MembershipId'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Terminated membership, including convergent duplicate commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMembershipTermination'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/me/membership/resignation:
+    post:
+      tags: [Studio Organizations]
+      operationId: resignStudioOrganizationMembership
+      x-allfit-operation: OP-ORG-010
+      x-allfit-cache: no-store
+      summary: Resign from your own membership in an organization
+      description: >-
+        Ends the authenticated person's own active membership, every open role
+        and their holder and accepted cover assignments at one instant. The
+        membership is resolved from the session, never from the request, and no
+        role is required.
+
+
+        **Resigning does not end the organization's service relationships.**
+        They stay active without a responsible professional and must be
+        reassigned (`OP-REL-005`). Consent grants and authorship survive. Every
+        current owner and administrator with a contact on file is notified by
+        email.
+
+
+        An owner cannot resign: ownership leaves only through a transfer
+        (`OP-ORG-011`). The request has no body. A new command after resigning
+        converges on the original instant; a membership an administrator
+        terminated answers `404`.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Resigned membership, including convergent duplicate commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMembershipResignation'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4939,6 +5173,12 @@ paths:
 
         The initial-program proposal in criteria 2, 6 and 7 of the story is not
         implemented: an organization has no way to publish a program yet.
+
+
+        HU-STUDIO-087: a new invitation takes a guest place. When the organization
+        has none left the answer is `409` with `guest-quota-exhausted`; reusing a
+        pending invitation takes no second place. An organization without a quota
+        has no limit.
       security:
         - cookieAuth: []
       parameters:
@@ -17053,6 +17293,38 @@ components:
         valid_from:
           type: string
           format: date-time
+    OrganizationRoleRevocation:
+      type: object
+      additionalProperties: false
+      required: [membership_id, role_code, valid_to]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        role_code:
+          $ref: '#/components/schemas/AssignableOrganizationRoleCode'
+        valid_to:
+          type: string
+          format: date-time
+    OrganizationMembershipTermination:
+      type: object
+      additionalProperties: false
+      required: [membership_id, ended_at]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        ended_at:
+          type: string
+          format: date-time
+    OrganizationMembershipResignation:
+      type: object
+      additionalProperties: false
+      required: [membership_id, ended_at]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        ended_at:
+          type: string
+          format: date-time
     TeamInvitationToken:
       type: object
       additionalProperties: false
@@ -18228,6 +18500,67 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/ClientDirectoryItem'
+        page:
+          $ref: '#/components/schemas/Page'
+    AuthorizedScopeItem:
+      description: >-
+        One authorization, as the organization sees it. Every field is about the
+        permission and none is from the data it covers: the category it names,
+        the version agreed, whether it still stands, and the dates that bound
+        it. The day a field carrying content is added here, T-PRV-SCOPES-01
+        fails.
+      type: object
+      additionalProperties: false
+      required:
+        [relationship_id, person_id, display_name, grant_id, scope_code,
+         scope_display_name, version_number, access_level, status, purpose,
+         granted_at, revoked_at]
+      properties:
+        relationship_id:
+          $ref: '#/components/schemas/UuidV7'
+        person_id:
+          $ref: '#/components/schemas/UuidV7'
+        display_name:
+          type: string
+          minLength: 1
+        grant_id:
+          $ref: '#/components/schemas/UuidV7'
+        scope_code:
+          $ref: '#/components/schemas/ScopeCode'
+        scope_display_name:
+          description: >-
+            The words the person was shown for this category. Null when the
+            vocabulary has no presentation row for it, which is a curation gap
+            rather than a missing permission.
+          type: [string, 'null']
+          minLength: 1
+        version_number:
+          type: integer
+          minimum: 1
+        access_level:
+          $ref: '#/components/schemas/AccessLevel'
+        status:
+          $ref: '#/components/schemas/GrantStatus'
+        purpose:
+          type: string
+          minLength: 1
+        granted_at:
+          type: string
+          format: date-time
+        revoked_at:
+          description: When the person took this authorization back, if they did.
+          type: [string, 'null']
+          format: date-time
+    AuthorizedScopePage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AuthorizedScopeItem'
         page:
           $ref: '#/components/schemas/Page'
     OrganizationCapability:

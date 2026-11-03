@@ -23,6 +23,7 @@ export interface StudioApiFixture {
   memberships: unknown[]
   organizationMemberships: unknown[]
   organizationClients: unknown[]
+  authorizedScopes: unknown[]
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -266,6 +267,38 @@ export const activeSubscription = {
   started_at: '2026-10-01T15:12:44.118Z',
   suspended_at: null,
   ended_at: null,
+}
+
+/*
+ * One standing and one withdrawn, which is the pair HU-STUDIO-035 turns on:
+ * criterion 4 says a withdrawn authorization stays visible, because it is what
+ * explains no longer seeing that part. Values copied from what
+ * `privacy.list_authorized_scopes` really returns.
+ */
+export const grantedHealthContext = {
+  relationship_id: '01991600-7000-7000-8000-000000000101',
+  person_id: '01991600-7000-7000-8000-000000000201',
+  display_name: 'Ana Álvarez',
+  grant_id: '01991600-7000-7000-8000-000000000c01',
+  scope_code: 'health_context',
+  scope_display_name: 'Contexto de salud',
+  version_number: 1,
+  access_level: 'read',
+  status: 'active',
+  purpose: 'Adaptar el entrenamiento a lo que la persona reporte.',
+  granted_at: '2025-03-04T15:12:44.118Z',
+  revoked_at: null,
+}
+
+export const withdrawnBodyProgress = {
+  ...grantedHealthContext,
+  grant_id: '01991600-7000-7000-8000-000000000c02',
+  scope_code: 'body_progress',
+  scope_display_name: 'Progreso corporal',
+  status: 'revoked',
+  purpose: 'Seguir cómo cambia el cuerpo y ajustar el plan.',
+  granted_at: '2025-03-04T15:12:44.118Z',
+  revoked_at: '2025-07-19T10:00:00.000Z',
 }
 
 export const activeClient = {
@@ -653,6 +686,28 @@ interface SiteRow {
   revision_number: number
 }
 
+interface OrganizationRow {
+  id: string
+  display_name: string
+  legal_name: string | null
+  type_code: string
+  status: string
+  revision_number: number
+  sites: SiteRow[]
+}
+
+/*
+ * `organizations.organization_type_transitions` as the migration seeds it
+ * (20260817154245_studio_organization_team_core.sql). This is the server's side
+ * of the rule; the client keeps its own in `lib/organization-profile.ts`, and
+ * the point of the pair is that a test fails when they disagree.
+ */
+const MOCK_TYPE_TRANSITIONS: Record<string, readonly string[]> = {
+  professional_practice: ['gym', 'studio'],
+  gym: [],
+  studio: [],
+}
+
 let siteSequence = 900
 
 // Named rather than positional: the specs reach for a particular site, and
@@ -714,6 +769,19 @@ export const organizationWithLongSite = {
   sites: [longestSite],
 }
 
+/*
+ * The only type that can still become another one. Every organization in these
+ * fixtures is a gym or a studio, and both of those have nowhere to move to, so
+ * without this one the type field is never exercised as a field.
+ */
+export const professionalPracticeOrganization = {
+  ...organizationWithSites,
+  display_name: 'Camila Restrepo',
+  legal_name: null,
+  type_code: 'professional_practice',
+  sites: [chapineroSite],
+}
+
 // No legal name and no site registered. Both absences are legitimate, and the
 // screen has to say so rather than drop the rows and leave the reader
 // wondering whether it even asked.
@@ -736,6 +804,7 @@ export function createStudioApiFixture(
     memberships: [],
     organizationMemberships: [activeTeamMember, terminatedTeamMember],
     organizationClients: [activeClient, pendingClientInvitation, terminatedClient],
+    authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -929,6 +998,18 @@ function defaultResponse(
         })
       : fixture.organizationClients
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/authorized-scopes$/.test(request.path)
+  ) {
+    return {
+      status: 200,
+      body: {
+        data: fixture.authorizedScopes,
+        page: { has_more: false, next_cursor: null },
+      },
+    }
   }
   if (
     request.method === 'GET' &&
@@ -1340,6 +1421,49 @@ function defaultResponse(
     const organization = fixture.organization as { sites: unknown[] } | null
     if (organization) organization.sites = [...organization.sites, site]
     return { status: 201, body: site }
+  }
+  if (request.method === 'PATCH' && /^\/studio\/v1\/organizations\/[^/]+$/.test(request.path)) {
+    const existing = fixture.organization as OrganizationRow | null
+    if (!existing) return { status: 404, body: error('not-found') }
+
+    const patch = request.body as
+      (Partial<OrganizationRow> & { expected_revision?: number }) | undefined
+    if (!patch || Object.keys(patch).length === 0) {
+      return { status: 400, body: error('invalid-request') }
+    }
+
+    // The same comparison the site PATCH above makes, and for the same reason:
+    // without it the conflict state has no way to be reached from a test.
+    const { expected_revision: expectedRevision, ...fields } = patch
+    const ifMatch = request.headers['if-match']
+    if (expectedRevision === undefined && !ifMatch) {
+      return { status: 428, body: error('precondition-required') }
+    }
+    const expected =
+      expectedRevision ?? Number(/:r([0-9]+)"$/.exec(String(ifMatch))?.[1] ?? Number.NaN)
+    if (expected !== existing.revision_number) {
+      return { status: 409, body: error('conflict') }
+    }
+    if (Object.keys(fields).length === 0) {
+      return { status: 400, body: error('invalid-request') }
+    }
+
+    /*
+     * What `trg_organizations_before_update_type_transition` enforces, read off
+     * the migration rather than off the client's copy of the same table. Taking
+     * it from the client would make every test agree with itself: both halves
+     * could be wrong together and nothing would fail.
+     */
+    if (
+      typeof fields.type_code === 'string' &&
+      fields.type_code !== existing.type_code &&
+      !(MOCK_TYPE_TRANSITIONS[existing.type_code] ?? []).includes(fields.type_code)
+    ) {
+      return { status: 422, body: error('validation-failed') }
+    }
+
+    Object.assign(existing, fields, { revision_number: existing.revision_number + 1 })
+    return { status: 200, body: existing }
   }
   if (request.method === 'GET' && /^\/studio\/v1\/organizations\/[^/]+$/.test(request.path)) {
     if (fixture.organization === null) return { status: 404, body: error('not-found') }

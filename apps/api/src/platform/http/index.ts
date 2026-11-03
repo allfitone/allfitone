@@ -52,6 +52,8 @@ export type ApiErrorCode =
   | 'separation-of-duties'
   /** The person's plan does not open this function, or its limit was reached (DT-018). */
   | 'plan-limit-reached'
+  /** The organization has filled every guest place Allfit sold it (HU-STUDIO-087). */
+  | 'guest-quota-exhausted'
 
 const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   unauthenticated: 401,
@@ -75,6 +77,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'command-effect-disposed': 410,
   'separation-of-duties': 403,
   'plan-limit-reached': 403,
+  'guest-quota-exhausted': 409,
 }
 
 const TITLE: Record<ApiErrorCode, string> = {
@@ -99,6 +102,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'command-effect-disposed': 'The command effect was disposed',
   'separation-of-duties': 'This actor already asked to read this person',
   'plan-limit-reached': 'The plan does not include this function',
+  'guest-quota-exhausted': 'The organization has no guest places left',
 }
 
 /**

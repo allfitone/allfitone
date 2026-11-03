@@ -3940,6 +3940,10 @@ export type Database = {
           result: Json
         }[]
       }
+      guest_places_exhausted: {
+        Args: { p_already_held: number; p_organization_id: string }
+        Returns: boolean
+      }
       guest_quota_projection: {
         Args: { p_organization_id: string }
         Returns: Json
@@ -4096,6 +4100,34 @@ export type Database = {
           result: Json
         }[]
       }
+      resign_membership: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      revoke_membership_role: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_membership_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+          p_role_code: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       set_organization_guest_quota: {
         Args: {
           p_actor_person_id: string
@@ -4120,6 +4152,20 @@ export type Database = {
           p_idempotency_key: string
           p_organization_id: string
           p_reason_code: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      terminate_membership: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_membership_id: string
+          p_organization_id: string
+          p_person_id: string
           p_request_hash: string
         }
         Returns: {

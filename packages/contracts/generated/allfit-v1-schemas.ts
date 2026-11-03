@@ -901,6 +901,90 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  AuthorizedScopeItem: {
+    description:
+      'One authorization, as the organization sees it. Every field is about the permission and none is from the data it covers: the category it names, the version agreed, whether it still stands, and the dates that bound it. The day a field carrying content is added here, T-PRV-SCOPES-01 fails.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'relationship_id',
+      'person_id',
+      'display_name',
+      'grant_id',
+      'scope_code',
+      'scope_display_name',
+      'version_number',
+      'access_level',
+      'status',
+      'purpose',
+      'granted_at',
+      'revoked_at',
+    ],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      person_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      display_name: {
+        type: 'string',
+        minLength: 1,
+      },
+      grant_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      scope_code: {
+        $ref: '#/components/schemas/ScopeCode',
+      },
+      scope_display_name: {
+        description:
+          'The words the person was shown for this category. Null when the vocabulary has no presentation row for it, which is a curation gap rather than a missing permission.',
+        type: ['string', 'null'],
+        minLength: 1,
+      },
+      version_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      access_level: {
+        $ref: '#/components/schemas/AccessLevel',
+      },
+      status: {
+        $ref: '#/components/schemas/GrantStatus',
+      },
+      purpose: {
+        type: 'string',
+        minLength: 1,
+      },
+      granted_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      revoked_at: {
+        description: 'When the person took this authorization back, if they did.',
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  AuthorizedScopePage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        maxItems: 100,
+        items: {
+          $ref: '#/components/schemas/AuthorizedScopeItem',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
   AuthorizedStrengthSet: {
     type: 'object',
     additionalProperties: false,
@@ -6984,9 +7068,37 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  OrganizationMembershipResignation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'ended_at'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
   OrganizationMembershipStatus: {
     type: 'string',
     enum: ['active', 'terminated'],
+  },
+  OrganizationMembershipTermination: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'ended_at'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
   },
   OrganizationOwnershipTransfer: {
     type: 'object',
@@ -7164,6 +7276,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     properties: {
       role_code: {
         $ref: '#/components/schemas/AssignableOrganizationRoleCode',
+      },
+    },
+  },
+  OrganizationRoleRevocation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'role_code', 'valid_to'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      role_code: {
+        $ref: '#/components/schemas/AssignableOrganizationRoleCode',
+      },
+      valid_to: {
+        type: 'string',
+        format: 'date-time',
       },
     },
   },

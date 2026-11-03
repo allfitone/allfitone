@@ -353,6 +353,17 @@ describe('what answering refuses', () => {
     const response = await app(service).fetch(post('decisions', DECISION_BODY))
     expect(response.status).toBe(409)
   })
+
+  test('T-REL-QUOTA-API-02 accepting into a gym that is over its quota says so', async () => {
+    const service = invitations({
+      decide: async () => {
+        throw Object.assign(new Error('no guest places left'), { code: 'AF409' })
+      },
+    })
+    const response = await app(service).fetch(post('decisions', DECISION_BODY))
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: { code: 'guest-quota-exhausted' } })
+  })
 })
 
 const INVITATION = '0199d000-0000-7000-8000-000000000031'

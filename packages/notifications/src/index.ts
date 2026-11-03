@@ -364,6 +364,46 @@ export function renderSubstitutionProposedEmail(input: {
   }
 }
 
+/**
+ * Telling an organization's administration that somebody left it.
+ *
+ * The reader has work to do: whoever the member attended now has nobody, and the
+ * relationship stays open until an administrator assigns a new professional. So the
+ * body says that before anything else it could say about the departure.
+ */
+export function renderMembershipResignedEmail(input: {
+  organizationName: string
+  memberName: string
+  brandAssetUrl: string
+}): { subject: string; text: string; html: string } {
+  const organization = escapeHtml(input.organizationName)
+  const member = escapeHtml(input.memberName)
+  const followUp =
+    'Las personas que atendía siguen en tu organización, pero ahora no tienen profesional asignado. Asígnales uno desde Allfit Studio.'
+  const preserved = 'Sus roles y su acceso terminaron al renunciar. Lo que registró se conserva.'
+  return {
+    subject: `${input.memberName} dejó ${input.organizationName}`,
+    text: [
+      `${input.memberName} renunció a su membresía en ${input.organizationName}.`,
+      followUp,
+      preserved,
+      'Si no esperabas esto, revisa tu equipo en Allfit Studio.',
+    ].join('\n\n'),
+    html: invitationEmailHtml({
+      title: `${member} dejó ${organization}`,
+      preheader: `${member} renunció. Revisa a quién atendía.`,
+      eyebrow: 'RENUNCIA EN TU EQUIPO',
+      heading: `${member} renunció a ${organization}`,
+      lead: `${followUp} ${preserved}`,
+      detailLabel: 'RENUNCIÓ',
+      detailValue: member,
+      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      note: 'Si no esperabas esto, revisa tu equipo en Allfit Studio.',
+      footer: 'Allfit One',
+    }),
+  }
+}
+
 function invitationEmailHtml(parts: InvitationEmailParts): string {
   return `<!doctype html>
 <html lang="es">

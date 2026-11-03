@@ -309,6 +309,7 @@ function operationFailure(c: Context, error: unknown) {
   if (sqlState === '42501') return fail(c, 'forbidden')
   if (sqlState === 'P0002') return fail(c, 'not-found')
   if (sqlState === 'P0004') return fail(c, 'conflict')
+  if (sqlState === 'AF409') return fail(c, 'guest-quota-exhausted')
   if (sqlState === '23505' || sqlState === '40001') return fail(c, 'conflict')
   if (sqlState === '22023' || sqlState === '23514' || sqlState === '22P02') {
     return fail(c, 'validation-failed')

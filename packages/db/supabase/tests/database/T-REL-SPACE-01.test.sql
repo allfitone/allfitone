@@ -33,6 +33,7 @@ values ('019b3000-0000-7000-8000-000000000201', '019b3000-0000-7000-8000-0000000
         '019b3000-0000-7000-8000-000000000012', 'active');
 insert into organizations.membership_roles (membership_id, role_code)
 values ('019b3000-0000-7000-8000-000000000201', 'owner'),
+       ('019b3000-0000-7000-8000-000000000201', 'coach'),
        ('019b3000-0000-7000-8000-000000000202', 'coach');
 
 insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)

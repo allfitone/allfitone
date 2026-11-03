@@ -16,6 +16,11 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/organization`) {
     return { title: 'Organización' }
   }
+  // "Datos" is the word the card on the section above already uses, and the
+  // button that leads here says "Editar datos".
+  if (pathname === `${basePath}/organization/edit`) {
+    return { title: 'Editar datos' }
+  }
   if (pathname === `${basePath}/organization/sites/new`) {
     return { title: 'Nueva sede' }
   }
@@ -43,15 +48,19 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/clients/information-categories`) {
     return { title: 'Categorías de información' }
   }
+  if (pathname === `${basePath}/clients/authorizations`) {
+    return { title: 'Autorizaciones' }
+  }
   /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
-   * `invitations` or `information-categories`, which are paths and not
-   * relationship ids; both are excluded here as well as matched above, because
-   * a static route added below this one would otherwise be titled "Vínculo".
+   * `invitations`, `information-categories` or `authorizations`, which are
+   * paths and not relationship ids; all are excluded here as well as matched
+   * above, because a static route added below this one would otherwise be
+   * titled "Vínculo".
    */
   if (
-    /^\/organizations\/[^/]+\/clients\/(?!invitations$|information-categories$)[^/]+$/.test(
+    /^\/organizations\/[^/]+\/clients\/(?!invitations$|information-categories$|authorizations$)[^/]+$/.test(
       pathname,
     )
   ) {

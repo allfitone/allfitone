@@ -41,6 +41,8 @@ export type OfferableScope = AllfitV1Schemas['OfferableScope']
 export type ClientInvitationCreate = AllfitV1Schemas['ClientInvitationCreate']
 export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
+export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
+export type AuthorizedScopePage = AllfitV1Schemas['AuthorizedScopePage']
 export type ClientDirectoryItem = AllfitV1Schemas['ClientDirectoryItem']
 export type ClientDirectoryRelationship = AllfitV1Schemas['ClientDirectoryRelationship']
 export type ClientDirectoryInvitation = AllfitV1Schemas['ClientDirectoryInvitation']
@@ -62,6 +64,7 @@ export type RelationshipTerminationCreate = AllfitV1Schemas['RelationshipTermina
 export type RelationshipSubstitutionTermination =
   AllfitV1Schemas['RelationshipSubstitutionTermination']
 export type Organization = AllfitV1Schemas['Organization']
+export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
 export type OrganizationSiteStatus = AllfitV1Schemas['OrganizationSiteStatus']
 export type OrganizationSiteCreate = AllfitV1Schemas['OrganizationSiteCreate']
@@ -321,6 +324,24 @@ export const studioApi = {
     )
   },
 
+  authorizedScopes: (
+    organizationId: string,
+    options: { limit?: number; cursor?: string } = {},
+    signal?: AbortSignal,
+  ) => {
+    const query = new URLSearchParams()
+    if (options.limit) query.set('limit', String(options.limit))
+    if (options.cursor) query.set('cursor', options.cursor)
+    const suffix = query.size ? `?${query.toString()}` : ''
+    return request<AuthorizedScopePage>(
+      `/studio/v1/organizations/${organizationId}/authorized-scopes${suffix}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    )
+  },
+
   organizationSubscriptions: (
     organizationId: string,
     options: { status?: SubscriptionStatus; limit?: number; cursor?: string } = {},
@@ -523,6 +544,23 @@ export const studioApi = {
 
   organization: (organizationId: string, signal?: AbortSignal) =>
     request<Organization>(`/studio/v1/organizations/${organizationId}`, signal ? { signal } : {}),
+
+  updateOrganization: (
+    organizationId: string,
+    body: OrganizationUpdate,
+    expectedRevision: number,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<Organization>(`/studio/v1/organizations/${organizationId}`, {
+      method: 'PATCH',
+      headers: commandHeaders(command),
+      // The revision in the body, not in `If-Match`, for the reason spelled out
+      // on `updateOrganizationSite` below: the Edge answers a conditional write
+      // before the function runs.
+      body: JSON.stringify({ ...body, expected_revision: expectedRevision }),
+      ...(signal ? { signal } : {}),
+    }),
 
   createOrganizationSite: (
     organizationId: string,

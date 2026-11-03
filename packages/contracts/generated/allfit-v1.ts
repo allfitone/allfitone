@@ -1311,6 +1311,8 @@ export interface paths {
      *     **Accepting the relationship grants nothing.** Each scope carries its own answer, and a scope left out of `scope_decisions` counts as rejected. A person may accept the relationship and reject every scope: the relationship is then in force and no professional can read anything of theirs. That is a legitimate outcome, not a broken state.
      *
      *     Rejecting the relationship ends the invitation and no scope is granted, whatever the scope answers say.
+     *
+     *     HU-STUDIO-087: accepting converts the guest place the invitation already held. If the organization is over its quota by another way, acceptance answers `409` with `guest-quota-exhausted` and nothing is decided.
      */
     post: operations['decideSpaceClientInvitation']
     delete?: never
@@ -1889,6 +1891,32 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/authorized-scopes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List what each client authorized the organization to see
+     * @description Returns one entry per authorization: who granted it, which category it covers, the version agreed, whether it still stands and since when. A withdrawn authorization stays in the list with the date it was withdrawn, because that is what explains no longer seeing that part.
+     *
+     *     It carries the **state** of each permission and nothing the permission covers. Learning that somebody shared their health context is not reading their health context, and no field here crosses that line.
+     *
+     *     What comes back depends on the caller. A role holding `view_directory` reads every client's authorizations. A coach reads only those of the clients they attend — narrowed by the relationship's own policy, not by the grant's, which is organization-wide.
+     *
+     *     This is a report, never the source that decides an access. A reader about to open somebody's data resolves the policy at that moment, inside the transaction that writes the access record; what this returns is already the past by the time it is on screen.
+     */
+    get: operations['listStudioAuthorizedScopes']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles': {
     parameters: {
       query?: never
@@ -1900,6 +1928,71 @@ export interface paths {
     put?: never
     /** Grant a non-owner role to an active organization membership */
     post: operations['grantStudioOrganizationMembershipRole']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles/{roleCode}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Revoke a non-owner role and end professional assignments when removing coach */
+    delete: operations['revokeStudioOrganizationMembershipRole']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/termination': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Terminate a member's membership, roles and professional assignments
+     * @description Closes the membership and every open role at one instant, and ends the member's holder and accepted cover assignments in the same transaction.
+     *
+     *     **Terminating a membership does not end the organization's service relationships.** They stay active without a responsible professional and must be reassigned (`OP-REL-005`). Consent grants and authorship survive.
+     *
+     *     A membership that holds `owner` cannot be terminated: ownership leaves only through a transfer (`OP-ORG-011`). The request has no body. Converges without effect on an already terminated membership.
+     */
+    post: operations['terminateStudioOrganizationMembership']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/me/membership/resignation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Resign from your own membership in an organization
+     * @description Ends the authenticated person's own active membership, every open role and their holder and accepted cover assignments at one instant. The membership is resolved from the session, never from the request, and no role is required.
+     *
+     *     **Resigning does not end the organization's service relationships.** They stay active without a responsible professional and must be reassigned (`OP-REL-005`). Consent grants and authorship survive. Every current owner and administrator with a contact on file is notified by email.
+     *
+     *     An owner cannot resign: ownership leaves only through a transfer (`OP-ORG-011`). The request has no body. A new command after resigning converges on the original instant; a membership an administrator terminated answers `404`.
+     */
+    post: operations['resignStudioOrganizationMembership']
     delete?: never
     options?: never
     head?: never
@@ -2064,6 +2157,8 @@ export interface paths {
      *     Reissuing the same offer to the same contact reuses the pending invitation so the person does not receive two. Asking for a different set of scopes is a different proposal and issues a new one, because the person would be answering a different question.
      *
      *     The initial-program proposal in criteria 2, 6 and 7 of the story is not implemented: an organization has no way to publish a program yet.
+     *
+     *     HU-STUDIO-087: a new invitation takes a guest place. When the organization has none left the answer is `409` with `guest-quota-exhausted`; reusing a pending invitation takes no second place. An organization without a quota has no limit.
      */
     post: operations['createStudioClientInvitation']
     delete?: never
@@ -6668,6 +6763,22 @@ export interface components {
       /** Format: date-time */
       valid_from: string
     }
+    OrganizationRoleRevocation: {
+      membership_id: components['schemas']['Uuid']
+      role_code: components['schemas']['AssignableOrganizationRoleCode']
+      /** Format: date-time */
+      valid_to: string
+    }
+    OrganizationMembershipTermination: {
+      membership_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      ended_at: string
+    }
+    OrganizationMembershipResignation: {
+      membership_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      ended_at: string
+    }
     TeamInvitationToken: {
       /** @description Opaque token transported in JSON after being removed from the URL fragment. */
       token: string
@@ -7211,6 +7322,31 @@ export interface components {
     ClientDirectoryGroup: 'active' | 'invited' | 'terminated'
     ClientDirectoryPage: {
       data: components['schemas']['ClientDirectoryItem'][]
+      page: components['schemas']['Page']
+    }
+    /** @description One authorization, as the organization sees it. Every field is about the permission and none is from the data it covers: the category it names, the version agreed, whether it still stands, and the dates that bound it. The day a field carrying content is added here, T-PRV-SCOPES-01 fails. */
+    AuthorizedScopeItem: {
+      relationship_id: components['schemas']['UuidV7']
+      person_id: components['schemas']['UuidV7']
+      display_name: string
+      grant_id: components['schemas']['UuidV7']
+      scope_code: components['schemas']['ScopeCode']
+      /** @description The words the person was shown for this category. Null when the vocabulary has no presentation row for it, which is a curation gap rather than a missing permission. */
+      scope_display_name: string | null
+      version_number: number
+      access_level: components['schemas']['AccessLevel']
+      status: components['schemas']['GrantStatus']
+      purpose: string
+      /** Format: date-time */
+      granted_at: string
+      /**
+       * Format: date-time
+       * @description When the person took this authorization back, if they did.
+       */
+      revoked_at: string | null
+    }
+    AuthorizedScopePage: {
+      data: components['schemas']['AuthorizedScopeItem'][]
       page: components['schemas']['Page']
     }
     OrganizationCapability: {
@@ -13660,6 +13796,37 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listStudioAuthorizedScopes: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Authorized scope page */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuthorizedScopePage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   grantStudioOrganizationMembershipRole: {
     parameters: {
       query?: never
@@ -13691,6 +13858,120 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['OrganizationRoleGrant']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  revokeStudioOrganizationMembershipRole: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        membershipId: components['parameters']['MembershipId']
+        roleCode: components['schemas']['AssignableOrganizationRoleCode']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Closed role period, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationRoleRevocation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  terminateStudioOrganizationMembership: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        membershipId: components['parameters']['MembershipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Terminated membership, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMembershipTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  resignStudioOrganizationMembership: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resigned membership, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMembershipResignation']
         }
       }
       400: components['responses']['BadRequest']
