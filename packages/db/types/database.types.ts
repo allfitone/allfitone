@@ -3940,6 +3940,10 @@ export type Database = {
           result: Json
         }[]
       }
+      guest_places_exhausted: {
+        Args: { p_already_held: number; p_organization_id: string }
+        Returns: boolean
+      }
       guest_quota_projection: {
         Args: { p_organization_id: string }
         Returns: Json
