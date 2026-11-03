@@ -131,8 +131,7 @@ revoke all on function payments.history_cutoff(uuid, text, text) from public, al
 -- their own, and each plan decides whether it includes it.
 alter table planning.programs
   add column unlock_feature_code text,
-  add constraint fk_programs_unlock_feature foreign key (unlock_feature_code)
-    references payments.platform_features(code) on delete restrict,
+  add constraint fk_programs_unlock_feature foreign key (unlock_feature_code) references payments.platform_features(code) on delete restrict,
   add constraint ck_programs_unlock_feature_global check (
     unlock_feature_code is null or content_scope = 'global'
   );
