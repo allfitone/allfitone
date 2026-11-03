@@ -59,6 +59,10 @@ describe('Studio organization registration boundary', () => {
         databaseCalls += 1
         throw new Error('must not be reached')
       },
+      closeOrganization: async () => {
+        databaseCalls += 1
+        throw new Error('must not be reached')
+      },
       grantMembershipRole: async () => {
         databaseCalls += 1
         throw new Error('must not be reached')
@@ -152,6 +156,12 @@ describe('Studio organization registration boundary', () => {
     ).toThrow(new StudioOrganizationError('registration-incomplete'))
     expect(() =>
       service.resignMembership(accountOnlyActor, { organizationId: 'organization-id', ...command }),
+    ).toThrow(new StudioOrganizationError('registration-incomplete'))
+    expect(() =>
+      service.closeOrganization(accountOnlyActor, {
+        organizationId: 'organization-id',
+        ...command,
+      }),
     ).toThrow(new StudioOrganizationError('registration-incomplete'))
     expect(databaseCalls).toBe(0)
   })

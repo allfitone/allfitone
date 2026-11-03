@@ -245,6 +245,17 @@ describe('what it refuses', () => {
     expect(response.status).toBe(403)
   })
 
+  test('T-REL-QUOTA-API-01 a gym with no guest places left gets a code the screen can explain', async () => {
+    const service = invitations({
+      issue: async () => {
+        throw Object.assign(new Error('no guest places left'), { code: 'AF409' })
+      },
+    })
+    const response = await app(service).fetch(post(BODY))
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: { code: 'guest-quota-exhausted' } })
+  })
+
   test('issuance while the feature is switched off', async () => {
     const service = invitations({
       issue: async () => {

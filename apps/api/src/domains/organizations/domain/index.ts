@@ -99,6 +99,12 @@ export interface MembershipTermination {
   endedAt: string
 }
 
+export interface OrganizationClosure {
+  organizationId: string
+  closedAt: string
+  relationshipsTerminated: number
+}
+
 export interface OrganizationCommand {
   idempotencyKey: string
   commandId: string
@@ -193,4 +199,7 @@ export interface OrganizationDatabase {
   resignMembership(
     input: OrganizationCommand & { personId: string; organizationId: string },
   ): Promise<OrganizationCommandResult<MembershipTermination>>
+  closeOrganization(
+    input: OrganizationCommand & { personId: string; organizationId: string },
+  ): Promise<OrganizationCommandResult<OrganizationClosure>>
 }
