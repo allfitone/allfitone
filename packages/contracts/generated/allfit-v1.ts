@@ -2530,6 +2530,70 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ask the organization to end a relationship
+     * @description The holder of a relationship who cannot end it herself asks the administration to. **Asking changes nothing**: the relationship, its permissions and every assignment stay exactly as they were until an administrator, an owner or the person ends it.
+     *
+     *     Only the current holder may ask, and never somebody who could end the relationship directly — an administrator or owner who also coaches ends it with `terminateRelationship` instead (`403`). A second pending request on the same relationship is impossible (`409`). The person attended never sees the request.
+     *
+     *     The request settles on its own: `resolved` when the organization ends the relationship, `superseded` when the person ends it or the coach stops being its holder.
+     */
+    post: operations['requestRelationshipTermination']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests/{terminationRequestId}/withdrawal': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take back a request to end a relationship
+     * @description The coach who asked takes her pending request back; she is recorded as who settled it. Nobody else may, the administration included (`403`). Withdrawing a request already withdrawn answers with it again; any other settled request is a `409`.
+     */
+    post: operations['withdrawRelationshipTerminationRequest']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests/{terminationRequestId}/rejection': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Refuse a request to end a relationship
+     * @description An administrator or owner refuses a pending request, in words the coach is told. Who refused and when are recorded. Accepting a request is not an operation: ending the relationship with `terminateRelationship` settles it as `resolved`. A coach may not refuse (`403`); a request already settled is a `409`.
+     */
+    post: operations['rejectRelationshipTerminationRequest']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/substitutions': {
     parameters: {
       query?: never
@@ -7311,6 +7375,35 @@ export interface components {
       holder: components['schemas']['RelationshipProfessional'] | null
       substitutions: components['schemas']['RelationshipSubstitution'][]
       grants: components['schemas']['RelationshipGrant'][]
+      /** @description The latest request to end this relationship, whatever became of it, or null. Only the coach who asked and an administrator or owner ever receive one; staff and other coaches read null. */
+      termination_request: components['schemas']['RelationshipTerminationRequest'] | null
+    }
+    /** @description A reason is optional. A blank one is refused rather than stored. */
+    RelationshipTerminationRequestCreate: {
+      reason?: string
+    }
+    /** @description A refusal always says why, and the coach is told. */
+    RelationshipTerminationRequestRejection: {
+      resolution: string
+    }
+    RelationshipTerminationRequestParty: {
+      membership_id: components['schemas']['Uuid']
+      display_name: string
+    }
+    /** @description A coach's request that the organization end a relationship, and how it was settled. `pending` until one of: `withdrawn` by the coach, `rejected` by the administration with a `resolution`, `resolved` when the organization ended the relationship, or `superseded` when the person ended it or the coach stopped being its holder. `resolved_by` is null while pending and when superseded, since nobody in the organization decided anything then. */
+    RelationshipTerminationRequest: {
+      request_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      /** @enum {string} */
+      status: 'pending' | 'withdrawn' | 'rejected' | 'resolved' | 'superseded'
+      reason: string | null
+      resolution: string | null
+      requested_by: components['schemas']['RelationshipTerminationRequestParty']
+      resolved_by: components['schemas']['RelationshipTerminationRequestParty'] | null
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      resolved_at: string | null
     }
     /** @description A directory entry is one of two things and says which. A `relationship` entry has a person behind it. An `invitation` entry does not: until somebody accepts, no person and no name exist, so it carries only the masked contact the invitation was sent to. */
     ClientDirectoryItem:
@@ -10421,6 +10514,7 @@ export interface components {
     InvitationId: components['schemas']['UuidV7']
     RelationshipId: components['schemas']['Uuid']
     SubstitutionId: components['schemas']['Uuid']
+    TerminationRequestId: components['schemas']['Uuid']
     PlannedSessionId: components['schemas']['Uuid']
     ExecutionId: components['schemas']['Uuid']
     PersonId: components['schemas']['Uuid']
@@ -15102,6 +15196,126 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['RelationshipTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  requestRelationshipTermination: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RelationshipTerminationRequestCreate']
+      }
+    }
+    responses: {
+      /** @description The request is pending; nothing about the relationship changed */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTerminationRequest']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  withdrawRelationshipTerminationRequest: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+        terminationRequestId: components['parameters']['TerminationRequestId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The request is withdrawn */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTerminationRequest']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  rejectRelationshipTerminationRequest: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+        terminationRequestId: components['parameters']['TerminationRequestId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RelationshipTerminationRequestRejection']
+      }
+    }
+    responses: {
+      /** @description The request is refused */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTerminationRequest']
         }
       }
       400: components['responses']['BadRequest']

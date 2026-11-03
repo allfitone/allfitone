@@ -25,11 +25,15 @@ select plan(5);
 -- Naming all of them, rather than asserting that no name matches `terminate%`, is the
 -- point: a closure called anything at all breaks this, and whoever adds a function to
 -- `relationships` has to say out loud that theirs is not one. It has already worked
--- five times — `read_relationship_state` and `reassign_relationship_holder` arrived with
+-- six times — `read_relationship_state` and `reassign_relationship_holder` arrived with
 -- `AFO-54`/`AFO-57`, `read_relationship_history` with `AFO-55`,
--- `propose_substitution` with `AFO-58`, `list_my_relationships` with `OP-REL-012` and
--- `relationship_assignment_is_visible` with `STUDIO-94`; each landed here before it
--- landed anywhere else.
+-- `propose_substitution` with `AFO-58`, `list_my_relationships` with `OP-REL-012`,
+-- `relationship_assignment_is_visible` with `STUDIO-94`, and the three termination
+-- request commands with `STUDIO-26`; each landed here before it landed anywhere else.
+--
+-- Those three end nothing either. A coach asks, withdraws, or is refused; the
+-- relationship only ends through `terminate_relationship` or `end_my_relationship`,
+-- by the gym or the person, never by Allfit.
 --
 -- The last one is not an operation. It is the assignment read policy's predicate,
 -- lifted into a function so the policy reads as one line, and the runtime holds
@@ -61,26 +65,28 @@ select is(
     || 'list_my_relationships, list_organization_clients, '
     || 'list_relationship_substitutions, propose_substitution, '
     || 'read_relationship_history, read_relationship_state, '
-    || 'reassign_relationship_holder, relationship_assignment_is_visible, '
-    || 'terminate_relationship',
-  'the runtime reaches fourteen relationship functions, ending a relationship '
-    || 'among them at last'
+    || 'reassign_relationship_holder, reject_termination_request, '
+    || 'relationship_assignment_is_visible, request_relationship_termination, '
+    || 'terminate_relationship, withdraw_termination_request',
+  'the runtime reaches seventeen relationship functions, and only the gym and the '
+    || 'person end a relationship through them'
 );
 
 -- ---------------------------------------------------------------------------
 -- No DDL: nothing models a closure the platform decides
 -- ---------------------------------------------------------------------------
 
--- The gym asking to end a relationship is a legitimate piece that is simply not built
--- yet; Allfit ending it over the gym's head is the one that was ruled out. Neither
--- exists, so neither has a table.
+-- A coach asking her own gym to end a relationship is a legitimate piece, and since
+-- `STUDIO-26` it has a table: `relationship_termination_requests`, deliberation
+-- inside the organization. Allfit ending it over the gym's head is the one that was
+-- ruled out, and that still has none.
 select is(
   (select count(*)::integer
    from information_schema.tables
    where table_schema = 'relationships'
-     and table_name in ('relationship_termination_requests', 'platform_closures')),
+     and table_name in ('platform_closures', 'platform_termination_requests')),
   0,
-  'no table records a termination request, by the gym or by the platform'
+  'no table records a closure or a termination decided by the platform'
 );
 
 select is(

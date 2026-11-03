@@ -124,6 +124,11 @@ export interface RelationshipState {
   readonly holder: RelationshipProfessional | null
   readonly substitutions: readonly RelationshipSubstitution[]
   readonly grants: readonly RelationshipGrant[]
+  /**
+   * The latest request to end it, whatever became of it, or null. Only the coach who
+   * asked and whoever could end the relationship ever see one.
+   */
+  readonly terminationRequest: TerminationRequest | null
 }
 
 export interface RelationshipProfessional {
@@ -365,6 +370,65 @@ export interface RelationshipTerminationDatabase {
       reason?: string
     },
   ): Promise<RelationshipTerminationResult>
+}
+
+/**
+ * `OP-REL-009`, `OP-REL-017`, `OP-REL-018`. A coach asking her organization to end a
+ * relationship she cannot end herself, and how that request was settled.
+ *
+ * `resolvedBy` is null while pending and when the request was superseded: overtaken
+ * by the person ending it, or by the coach ceasing to be the holder, with nobody in
+ * the organization deciding anything.
+ */
+export type TerminationRequestStatus =
+  'pending' | 'withdrawn' | 'rejected' | 'resolved' | 'superseded'
+
+export interface TerminationRequestParty {
+  readonly membershipId: string
+  readonly displayName: string
+}
+
+export interface TerminationRequest {
+  readonly requestId: string
+  readonly relationshipId: string
+  readonly status: TerminationRequestStatus
+  readonly reason: string | null
+  /** The administration's words, present only on a refusal. */
+  readonly resolution: string | null
+  readonly requestedBy: TerminationRequestParty
+  readonly resolvedBy: TerminationRequestParty | null
+  readonly createdAt: Date
+  readonly resolvedAt: Date | null
+}
+
+export type TerminationRequestResult = CommandResult<TerminationRequest>
+
+export interface TerminationRequestDatabase {
+  request(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      reason?: string
+    },
+  ): Promise<TerminationRequestResult>
+  withdraw(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      requestId: string
+    },
+  ): Promise<TerminationRequestResult>
+  reject(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      requestId: string
+      resolution: string
+    },
+  ): Promise<TerminationRequestResult>
 }
 
 /**

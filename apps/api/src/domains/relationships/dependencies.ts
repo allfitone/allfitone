@@ -10,6 +10,7 @@ import {
   createSubstitutionTerminationService,
   createSubstitutionListService,
   createRelationshipTerminationService,
+  createTerminationRequestService,
   type ClientDirectoryService,
   type MyRelationshipCommandService,
   type MyRelationshipService,
@@ -21,6 +22,7 @@ import {
   type SubstitutionTerminationService,
   type SubstitutionListService,
   type RelationshipTerminationService,
+  type TerminationRequestService,
 } from './application/index.js'
 import {
   createClientDirectoryDatabase,
@@ -34,6 +36,7 @@ import {
   createSubstitutionTerminationDatabase,
   createSubstitutionListDatabase,
   createRelationshipTerminationDatabase,
+  createTerminationRequestDatabase,
 } from './infrastructure/index.js'
 
 let cached: ClientDirectoryService | undefined
@@ -55,6 +58,7 @@ let cachedSubstitutions: SubstitutionProposalService | undefined
 let cachedTerminations: SubstitutionTerminationService | undefined
 let cachedSubstitutionPages: SubstitutionListService | undefined
 let cachedTerminatedRelationships: RelationshipTerminationService | undefined
+let cachedTerminationRequests: TerminationRequestService | undefined
 
 export function clientDirectoryService(): ClientDirectoryService {
   cached ??= createClientDirectoryService(createClientDirectoryDatabase())
@@ -103,6 +107,11 @@ export function relationshipTerminationService(): RelationshipTerminationService
     createRelationshipTerminationDatabase(),
   )
   return cachedTerminatedRelationships
+}
+
+export function terminationRequestService(): TerminationRequestService {
+  cachedTerminationRequests ??= createTerminationRequestService(createTerminationRequestDatabase())
+  return cachedTerminationRequests
 }
 
 export function myRelationshipService(): MyRelationshipService {
