@@ -98,6 +98,10 @@ export interface StudioOrganizationService {
     actor: AccountActor,
     input: OrganizationCommand & { organizationId: string; membershipId: string },
   ): ReturnType<OrganizationDatabase['terminateMembership']>
+  resignMembership(
+    actor: AccountActor,
+    input: OrganizationCommand & { organizationId: string },
+  ): ReturnType<OrganizationDatabase['resignMembership']>
 }
 
 export function createStudioOrganizationService(
@@ -129,5 +133,7 @@ export function createStudioOrganizationService(
       database.revokeMembershipRole({ personId: personId(actor), ...input }),
     terminateMembership: (actor, input) =>
       database.terminateMembership({ personId: personId(actor), ...input }),
+    resignMembership: (actor, input) =>
+      database.resignMembership({ personId: personId(actor), ...input }),
   }
 }

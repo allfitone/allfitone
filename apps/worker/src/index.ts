@@ -20,6 +20,7 @@ import {
   createOwnershipInvitationBatchProcessor,
   createOwnershipInvitationDeliveryDatabase,
 } from './ownership-invitations.js'
+import { createResignationBatchProcessor } from './membership-resignations.js'
 import { createReassignmentBatchProcessor } from './professional-reassignments.js'
 import { createSubscriptionNoticeBatchProcessor } from './subscription-notices.js'
 import { createSubstitutionBatchProcessor } from './substitution-proposals.js'
@@ -239,6 +240,12 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
   })
+  const resignations = createResignationBatchProcessor({
+    queue,
+    email,
+    brandAssetUrl,
+    deliveryEnabled,
+  })
   const substitutions = createSubstitutionBatchProcessor({
     queue,
     email,
@@ -278,12 +285,12 @@ function processorsFromEnvironment(): WorkerJobProcessors {
       const ownership = await ownershipInvitations()
       const client = await clientInvitations()
       /*
-       * Reassignment notices, substitution questions and subscription notices ride the
+       * Reassignment and resignation notices, substitution questions and subscription notices ride the
        * same job rather than a cron each: they are the same claim against the same
        * outbox, and a separate schedule would be another thing to notice when it stops
        * running.
        *
-       * Summed by a fold and not by hand. With six processors and four counters the
+       * Summed by a fold and not by hand. With seven processors and four counters the
        * written-out version was twenty-four terms, and a sixth kind added to three of
        * them would have under-reported for as long as nobody checked the number.
        */
@@ -292,6 +299,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         ownership,
         client,
         await reassignments(),
+        await resignations(),
         await substitutions(),
         await subscriptionNotices(),
       ]

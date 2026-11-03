@@ -1973,6 +1973,30 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/me/membership/resignation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Resign from your own membership in an organization
+     * @description Ends the authenticated person's own active membership, every open role and their holder and accepted cover assignments at one instant. The membership is resolved from the session, never from the request, and no role is required.
+     *
+     *     **Resigning does not end the organization's service relationships.** They stay active without a responsible professional and must be reassigned (`OP-REL-005`). Consent grants and authorship survive. Every current owner and administrator with a contact on file is notified by email.
+     *
+     *     An owner cannot resign: ownership leaves only through a transfer (`OP-ORG-011`). The request has no body. A new command after resigning converges on the original instant; a membership an administrator terminated answers `404`.
+     */
+    post: operations['resignStudioOrganizationMembership']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/offerable-scopes': {
     parameters: {
       query?: never
@@ -6586,6 +6610,11 @@ export interface components {
       valid_to: string
     }
     OrganizationMembershipTermination: {
+      membership_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      ended_at: string
+    }
+    OrganizationMembershipResignation: {
       membership_id: components['schemas']['Uuid']
       /** Format: date-time */
       ended_at: string
@@ -13666,6 +13695,43 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['OrganizationMembershipTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  resignStudioOrganizationMembership: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resigned membership, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMembershipResignation']
         }
       }
       400: components['responses']['BadRequest']

@@ -1420,6 +1420,13 @@ export const allfitV1ContractManifest = {
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
     },
     {
+      method: 'POST',
+      path: '/studio/v1/organizations/{organizationId}/me/membership/resignation',
+      operationId: 'resignStudioOrganizationMembership',
+      allfitOperation: 'OP-ORG-010',
+      responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+    },
+    {
       method: 'GET',
       path: '/studio/v1/organizations/{organizationId}/memberships',
       operationId: 'listStudioOrganizationMemberships',

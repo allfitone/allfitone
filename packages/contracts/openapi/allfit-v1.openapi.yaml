@@ -4737,6 +4737,65 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/me/membership/resignation:
+    post:
+      tags: [Studio Organizations]
+      operationId: resignStudioOrganizationMembership
+      x-allfit-operation: OP-ORG-010
+      x-allfit-cache: no-store
+      summary: Resign from your own membership in an organization
+      description: >-
+        Ends the authenticated person's own active membership, every open role
+        and their holder and accepted cover assignments at one instant. The
+        membership is resolved from the session, never from the request, and no
+        role is required.
+
+
+        **Resigning does not end the organization's service relationships.**
+        They stay active without a responsible professional and must be
+        reassigned (`OP-REL-005`). Consent grants and authorship survive. Every
+        current owner and administrator with a contact on file is notified by
+        email.
+
+
+        An owner cannot resign: ownership leaves only through a transfer
+        (`OP-ORG-011`). The request has no body. A new command after resigning
+        converges on the original instant; a membership an administrator
+        terminated answers `404`.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Resigned membership, including convergent duplicate commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMembershipResignation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/offerable-scopes:
     get:
       tags: [Studio Relationships]
@@ -16913,6 +16972,16 @@ components:
           type: string
           format: date-time
     OrganizationMembershipTermination:
+      type: object
+      additionalProperties: false
+      required: [membership_id, ended_at]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        ended_at:
+          type: string
+          format: date-time
+    OrganizationMembershipResignation:
       type: object
       additionalProperties: false
       required: [membership_id, ended_at]

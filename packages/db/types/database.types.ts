@@ -4096,6 +4096,19 @@ export type Database = {
           result: Json
         }[]
       }
+      resign_membership: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       revoke_membership_role: {
         Args: {
           p_command_id: string
