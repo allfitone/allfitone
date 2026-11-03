@@ -671,6 +671,24 @@ describe('Studio planning API contract', () => {
     expect(calls).toHaveLength(0)
   })
 
+  test('T-PLN-API-045 hands a stale editor the current draft with its conflict', async () => {
+    const current = { ...templateDraft, etag: 'W/"current"' }
+    const stale = Object.assign(new Error('stale-draft'), {
+      code: '40001',
+      detail: JSON.stringify(current),
+    })
+    const response = await studioPlanningRoutes(
+      planningService([], { failure: stale }),
+      sessionService(),
+    ).request(
+      `/organizations/${ORGANIZATION_ID}/programs/${PROGRAM_ID}/draft`,
+      requestInit({ method: 'PUT', body: programDraftContent, ifMatch: true }),
+    )
+    expect(response.status).toBe(409)
+    expect(response.headers.get('retry-after')).toBeNull()
+    expect(await response.json()).toMatchObject({ status: 409, current_state: current })
+  })
+
   test('T-PLN-API-040 rejects an originally overlong padded title', async () => {
     const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
       `/organizations/${ORGANIZATION_ID}/programs`,
