@@ -11,6 +11,10 @@
  * own (the person's word is required); the review shows it as chosen, and committing
  * without changing it is that word. A name left without a movement is not lost: its
  * sets keep the name they had in the other app.
+ *
+ * **Committing is a loop.** Each call brings in at most 25 sessions and answers how many
+ * are pending, so no request lasts long however big the history is. `commitAll` repeats
+ * it until nothing is pending, and an import left half way is continued the same way.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
@@ -197,6 +201,8 @@ export function importStatusLine(document: HistoryImport): string {
   switch (document.status) {
     case 'staged':
       return 'Pendiente de revisar'
+    case 'committing':
+      return `A medias: ${thousands(document.imported_count)} importadas, faltan ${thousands(document.pending_count ?? 0)}`
     case 'committed':
       return `${count(document.imported_count, 'sesión importada', 'sesiones importadas')}`
     case 'undone':
@@ -209,4 +215,41 @@ export function importStatusLine(document: HistoryImport): string {
 /** «Hevy · 3 nov 2026»: what the list calls an import. */
 export function importTitle(document: HistoryImport): string {
   return `${sourceName(document.source) ?? 'Importación'} · ${localDay(document.created_at)}`
+}
+
+/** Sessions of the file already gone through, whether they entered or were already here. */
+function processed(document: HistoryImport): number {
+  return document.session_count - (document.pending_count ?? 0)
+}
+
+/** How much of the file is through, from 0 to 1. */
+export function commitProgress(document: HistoryImport): number {
+  if (document.status === 'committed') return 1
+  if (document.status !== 'committing' || document.session_count === 0) return 0
+  return processed(document) / document.session_count
+}
+
+/** «Importando… 100 de 340». */
+export function progressLine(document: HistoryImport): string {
+  return `Importando… ${thousands(processed(document))} de ${thousands(document.session_count)}`
+}
+
+/**
+ * Repeats a commit call until nothing is pending, telling `onProgress` each answer. A
+ * call that leaves as much pending as the one before stops it: it would never end.
+ */
+export async function commitAll(
+  step: () => Promise<HistoryImport>,
+  onProgress: (document: HistoryImport) => void,
+): Promise<HistoryImport> {
+  let pending: number | null = null
+  for (;;) {
+    const document = await step()
+    onProgress(document)
+    if (document.status !== 'committing') return document
+    if (pending !== null && (document.pending_count ?? 0) >= pending) {
+      throw new Error('the commit made no progress')
+    }
+    pending = document.pending_count ?? 0
+  }
 }

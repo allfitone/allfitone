@@ -5,9 +5,9 @@
  *
  * Staging takes a new command each time: the server recognises the same file by its
  * hash and answers the import already alive, so a second upload cannot make a second
- * import. Committing and undoing hold one command per import until it is answered, so
- * a retry after a dropped connection — likelier here, because a large history takes
- * seconds to write — replays instead of failing as a conflict.
+ * import. Each part of a commit is a new command too: a part is short, and if its answer
+ * is lost the next call simply goes on from where the server stopped. Undoing holds one
+ * command per import until it is answered, so a retry replays instead of conflicting.
  */
 
 import { newCommand, type CommandHeaders } from '@allfitone/contracts/commands'
@@ -18,9 +18,8 @@ import { authorizedGet, authorizedPost } from './index'
 import { authenticated } from './session'
 import type { HistoryImport, HistoryImportChoice } from './history-import'
 
-// A heavy history is a megabyte to send and thousands of sets to write.
+// A heavy history is a megabyte to send, which a slow connection takes a while to carry.
 const STAGE_TIMEOUT_MS = 60_000
-const COMMIT_TIMEOUT_MS = 120_000
 
 const pending = new Map<string, CommandHeaders>()
 
@@ -76,26 +75,20 @@ export const historyImports = {
       )
     ).data,
 
-  async commit(
+  /** One part: at most 25 sessions. `commitAll` repeats it until nothing is pending. */
+  commit: (
     importId: string,
     timezone: string,
     choices: HistoryImportChoice[],
-  ): Promise<HistoryImport> {
-    // The body is part of the key: a retry with other choices is another command.
-    const key = `commit:${importId}:${timezone}:${JSON.stringify(choices)}`
-    const result = await authenticated((token) =>
+  ): Promise<HistoryImport> =>
+    authenticated((token) =>
       authorizedPost<HistoryImport>(
         `/space/v1/history-imports/${importId}/commit`,
-        held(key),
+        command(),
         { timezone, choices },
         token,
-        undefined,
-        COMMIT_TIMEOUT_MS,
       ),
-    )
-    pending.delete(key)
-    return result
-  },
+    ),
 
   async undo(importId: string): Promise<HistoryImport> {
     const key = `undo:${importId}`
@@ -105,8 +98,6 @@ export const historyImports = {
         held(key),
         undefined,
         token,
-        undefined,
-        COMMIT_TIMEOUT_MS,
       ),
     )
     pending.delete(key)

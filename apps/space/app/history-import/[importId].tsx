@@ -7,8 +7,12 @@
  * answer — and the answer comes back through the picker's mailbox, as it does for a
  * routine. Nothing is written until «Importar».
  *
- * **Imported**, it can be undone. Undoing annuls its sessions as any annulment does;
- * the same file can then be imported again.
+ * **Importing** goes a part at a time (`commitAll`), with a bar that fills as the
+ * parts come back. Leaving the screen does not stop it, and an import left half way —
+ * the app closed, the connection lost — opens here with «Continuar importación».
+ *
+ * **Imported**, or half way, it can be undone. Undoing annuls what entered as any
+ * annulment does; the same file can then be imported again.
  */
 
 import { Button } from '@allfitone/react-native/button'
@@ -32,6 +36,8 @@ import {
 import {
   choicesToSend,
   choose,
+  commitAll,
+  commitProgress,
   countsLine,
   duplicatesLine,
   entryCaption,
@@ -39,6 +45,7 @@ import {
   importButton,
   importStatusLine,
   issueLines,
+  progressLine,
   rangeLine,
   reviewEntries,
   sourceName,
@@ -93,18 +100,25 @@ export default function HistoryImportDetail() {
     router.push('/routines/exercises')
   }
 
-  const commit = async () => {
+  // The first part sends the person's choices; a part that continues sends none.
+  const commit = async (choices: ReturnType<typeof choicesToSend>) => {
     if (!document) return
     setWorking(true)
     setFailure(undefined)
     try {
-      show(await historyImports.commit(document.id, document.timezone, choicesToSend(entries)))
+      show(
+        await commitAll(() => historyImports.commit(document.id, document.timezone, choices), show),
+      )
     } catch (error) {
       setFailure(
         error instanceof ApiError && error.failure === 'conflict'
-          ? 'Esta importación ya no está pendiente, o aún se está guardando. Vuelve a abrirla en un momento.'
-          : 'No pudimos terminar la importación. Inténtalo de nuevo: nada se duplicará.',
+          ? 'Esta importación ya no está pendiente. Vuelve a abrirla desde tus importaciones.'
+          : 'La importación quedó a medias. Toca «Continuar importación» para terminarla: nada se duplicará.',
       )
+      historyImports
+        .read(document.id)
+        .then(show)
+        .catch(() => undefined)
     } finally {
       setWorking(false)
     }
@@ -127,6 +141,7 @@ export default function HistoryImportDetail() {
 
   const source = sourceName(document?.source) ?? 'la otra app'
   const preview = document?.status === 'staged' ? document.preview : null
+  const halfway = document?.status === 'committing'
   const toReview = entries.filter((entry) => entry.toReview)
   const known = entries.filter((entry) => !entry.toReview)
   const confirm = preview ? importButton(preview) : null
@@ -136,7 +151,11 @@ export default function HistoryImportDetail() {
       <View style={styles.header}>
         <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
-          {preview ? 'Revisa tu historial' : `Importado de ${source}`}
+          {preview
+            ? 'Revisa tu historial'
+            : halfway
+              ? `Importando de ${source}`
+              : `Importado de ${source}`}
         </Text>
       </View>
 
@@ -168,6 +187,8 @@ export default function HistoryImportDetail() {
                   </Text>
                 ) : null}
               </>
+            ) : halfway ? (
+              <ProgressBar document={document} />
             ) : (
               <Text role="body" size="sm" color="secondary">
                 {importStatusLine(document)}
@@ -206,7 +227,22 @@ export default function HistoryImportDetail() {
         ) : null}
 
         {preview && confirm ? (
-          <Button label={confirm} loading={working} onPress={() => void commit()} />
+          <Button
+            label={confirm}
+            loading={working}
+            onPress={() => void commit(choicesToSend(entries))}
+          />
+        ) : null}
+
+        {halfway && !working ? (
+          <View style={styles.actions}>
+            <Button label="Continuar importación" onPress={() => void commit([])} />
+            <Button
+              label="Deshacer importación"
+              variant="secondary"
+              onPress={() => setUndoing(true)}
+            />
+          </View>
         ) : null}
 
         {document?.status === 'committed' ? (
@@ -228,9 +264,11 @@ export default function HistoryImportDetail() {
       >
         <View style={styles.sheet}>
           <Text role="body" size="sm" color="secondary">
-            Sus {document?.imported_count ?? 0} sesiones salen de tu historial, y tus récords y tu
-            racha dejan de contarlas. Lo que entrenaste en Allfit no cambia. Puedes volver a
-            importar el mismo archivo cuando quieras.
+            {halfway
+              ? `Las ${String(document?.imported_count ?? 0)} sesiones que ya entraron salen de tu historial y el resto no se importa.`
+              : `Sus ${String(document?.imported_count ?? 0)} sesiones salen de tu historial, y tus récords y tu racha dejan de contarlas.`}{' '}
+            Lo que entrenaste en Allfit no cambia. Puedes volver a importar el mismo archivo cuando
+            quieras.
           </Text>
           <Button
             label="Deshacer importación"
@@ -242,6 +280,31 @@ export default function HistoryImportDetail() {
         </View>
       </Sheet>
     </Screen>
+  )
+}
+
+/** How much of the file is through, as a bar and in words. */
+function ProgressBar({ document }: { readonly document: HistoryImport }) {
+  const theme = useTheme()
+  const done = commitProgress(document)
+  return (
+    <View style={styles.progress}>
+      <View
+        accessibilityRole="progressbar"
+        accessibilityValue={{ min: 0, max: 100, now: Math.round(done * 100) }}
+        style={[styles.track, { backgroundColor: theme.color.border.subtle }]}
+      >
+        <View
+          style={[
+            styles.fill,
+            { backgroundColor: theme.color.icon.accent, width: `${done * 100}%` },
+          ]}
+        />
+      </View>
+      <Text role="body" size="sm" color="secondary">
+        {progressLine(document)}
+      </Text>
+    </View>
   )
 }
 
@@ -326,5 +389,8 @@ const styles = StyleSheet.create({
   actions: { gap: 12 },
   sheet: { gap: 14 },
   clear: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  progress: { gap: 8, paddingTop: 4 },
+  track: { height: 4, borderRadius: 2, overflow: 'hidden' },
+  fill: { height: 4, borderRadius: 2 },
   pressed: { opacity: 0.6 },
 })

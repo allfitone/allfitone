@@ -3,12 +3,15 @@ import { describe, expect, test } from 'bun:test'
 import {
   choicesToSend,
   choose,
+  commitAll,
+  commitProgress,
   countsLine,
   duplicatesLine,
   entryState,
   importButton,
   importStatusLine,
   issueLines,
+  progressLine,
   rangeLine,
   refusalMessage,
   reviewEntries,
@@ -35,6 +38,7 @@ const staged = (overrides: Partial<HistoryImport> = {}): HistoryImport => ({
   session_count: 340,
   set_count: 7322,
   imported_count: 0,
+  pending_count: null,
   issues: [],
   created_at: '2026-11-03T15:00:00+00:00',
   committed_at: null,
@@ -177,5 +181,62 @@ describe('an import in the list', () => {
       importStatusLine(staged({ status: 'undone', undone_at: '2026-11-04T15:00:00+00:00' })),
     ).toBe('Deshecha: sus sesiones ya no están en tu historial')
     expect(importStatusLine(staged({ status: 'expired' }))).toBe('Caducó sin importarse')
+  })
+})
+
+describe('a long history, a part at a time', () => {
+  const committing = (imported: number, pending: number): HistoryImport =>
+    staged({
+      status: 'committing',
+      imported_count: imported,
+      pending_count: pending,
+      preview: null,
+    })
+  const committed = staged({
+    status: 'committed',
+    imported_count: 340,
+    committed_at: '2026-11-03T15:00:00+00:00',
+    preview: null,
+  })
+
+  test('T-SPC-UNIT-IMP-13 an import left half way says how far it got', () => {
+    expect(importStatusLine(committing(100, 240))).toBe('A medias: 100 importadas, faltan 240')
+    expect(progressLine(committing(100, 240))).toBe('Importando… 100 de 340')
+    expect(commitProgress(committing(100, 240))).toBeCloseTo(100 / 340)
+    expect(commitProgress(committed)).toBe(1)
+    expect(commitProgress(staged())).toBe(0)
+  })
+
+  test('T-SPC-UNIT-IMP-14 the commit is repeated until nothing is pending, reporting each part', async () => {
+    const answers = [committing(25, 315), committing(50, 290), committed]
+    const seen: string[] = []
+    let calls = 0
+    const result = await commitAll(
+      async () => {
+        calls += 1
+        const next = answers.shift()
+        if (!next) throw new Error('asked once too often')
+        return next
+      },
+      (document) => seen.push(`${document.status}:${String(document.pending_count)}`),
+    )
+
+    expect(result.status).toBe('committed')
+    expect(calls).toBe(3)
+    expect(seen).toEqual(['committing:315', 'committing:290', 'committed:null'])
+  })
+
+  test('T-SPC-UNIT-IMP-15 a part that moves nothing stops the loop instead of spinning', async () => {
+    let calls = 0
+    const stalled = commitAll(
+      async () => {
+        calls += 1
+        return committing(25, 315)
+      },
+      () => undefined,
+    )
+
+    await expect(stalled).rejects.toThrow('made no progress')
+    expect(calls).toBe(2)
   })
 })
