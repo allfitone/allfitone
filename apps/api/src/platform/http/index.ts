@@ -113,12 +113,19 @@ export function fail(c: Context, code: ApiErrorCode, detail?: string) {
   return c.json({ error: { code, ...(detail ? { detail } : {}) } }, STATUS[code])
 }
 
+/** One entry of a problem's `errors`: what was wrong, and where in the request. */
+export interface ProblemIssue {
+  code: string
+  path: string
+  message: string
+}
+
 /** RFC 9457 response for contract-first endpoints migrating off the legacy envelope. */
 export function problem(
   c: Context,
   code: ApiErrorCode,
   detail?: string,
-  extensions: Readonly<Record<string, string>> = {},
+  extensions: Readonly<Record<string, string | readonly ProblemIssue[]>> = {},
 ) {
   return c.json(
     {

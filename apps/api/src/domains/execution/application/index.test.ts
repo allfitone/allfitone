@@ -75,6 +75,7 @@ describe('the history as Space sees it', () => {
         total_volume_kg: 3840,
         record_count: 2,
         thumbnail_object_key: 'movements/pull-up/demo.webp',
+        source: null,
       },
       {
         executed_session_id: '019e4000-0000-7000-8000-000000000202',
@@ -89,6 +90,7 @@ describe('the history as Space sees it', () => {
         total_volume_kg: null,
         record_count: 0,
         thumbnail_object_key: null,
+        source: null,
       },
     ],
     window: { visible_from: null, has_hidden: false },

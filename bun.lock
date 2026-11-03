@@ -33,6 +33,7 @@
         "@allfitone/contracts": "workspace:*",
         "@allfitone/db": "workspace:*",
         "@allfitone/food-recognition": "workspace:*",
+        "@allfitone/history-import": "workspace:*",
         "@allfitone/notifications": "workspace:*",
         "@allfitone/object-store": "workspace:*",
         "@allfitone/queue": "workspace:*",

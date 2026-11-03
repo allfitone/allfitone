@@ -20,7 +20,7 @@ import {
   catalogSurfaceRoutes,
   studioCatalogRoutes,
 } from './domains/catalog/index.js'
-import { spaceExecutionRoutes } from './domains/execution/index.js'
+import { spaceExecutionRoutes, spaceHistoryImportRoutes } from './domains/execution/index.js'
 import { spaceNutritionRoutes } from './domains/nutrition/index.js'
 import {
   backofficeAccountRecoveryRoutes,
@@ -129,6 +129,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/space/v1', spaceClientInvitationRoutes())
   app.route('/space/v1', spacePlanningRoutes())
   app.route('/space/v1', spaceExecutionRoutes())
+  app.route('/space/v1', spaceHistoryImportRoutes())
   app.route('/space/v1', spaceNutritionRoutes())
   app.route('/space/v1', spaceProRoutes())
   app.route('/space/v1', spacePaymentRoutes())

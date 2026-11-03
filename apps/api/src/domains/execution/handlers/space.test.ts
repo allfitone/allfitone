@@ -116,6 +116,7 @@ const historyPage: HistoryPage = {
       total_volume_kg: 4410,
       record_count: 1,
       thumbnail_url: 'https://media.example/movements/press/demo.webp',
+      source: null,
     },
   ],
   window: { visible_from: null, has_hidden: false },
@@ -183,8 +184,12 @@ const finished: FinishedExecution = {
           best_ever: true,
         },
       ],
+      source_name: null,
+      source_note: null,
     },
   ],
+  source: null,
+  source_description: null,
 }
 
 function harness(overrides?: Partial<SpaceExecutionService>, actorFails = false): Hono {
