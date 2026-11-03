@@ -6648,6 +6648,25 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  OrganizationClosure: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['organization_id', 'closed_at', 'relationships_terminated'],
+    properties: {
+      organization_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      closed_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      relationships_terminated: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Service relationships this closure ended',
+      },
+    },
+  },
   OrganizationCreate: {
     type: 'object',
     additionalProperties: false,

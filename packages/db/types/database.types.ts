@@ -3,7 +3,24 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   access_control: {
     Tables: {
-      [_ in never]: never
+      contract_scope_keys: {
+        Row: {
+          created_at: string
+          id: number
+          secret: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          secret?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          secret?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -21,6 +38,12 @@ export type Database = {
       can_read_membership_event: {
         Args: { p_membership_id: string }
         Returns: boolean
+      }
+      close_contract_scope: { Args: never; Returns: undefined }
+      contract_scope: { Args: { p_purpose: string }; Returns: string }
+      contract_scope_token: {
+        Args: { p_purpose: string; p_scope_id: string }
+        Returns: string
       }
       counts_platform_metrics: { Args: never; Returns: boolean }
       has_active_relationship: {
@@ -46,6 +69,10 @@ export type Database = {
       }
       holds_backoffice_duty: { Args: { p_duty_code: string }; Returns: boolean }
       is_self: { Args: { target_person_id: string }; Returns: boolean }
+      open_contract_scope: {
+        Args: { p_purpose: string; p_scope_id: string }
+        Returns: undefined
+      }
       org: { Args: never; Returns: string }
       owns_membership: { Args: { p_membership_id: string }; Returns: boolean }
       person: { Args: never; Returns: string }
@@ -3341,6 +3368,14 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: boolean
       }
+      revoke_invitations_for_organization_closure: {
+        Args: {
+          p_command_id: string
+          p_effective_at: string
+          p_organization_id: string
+        }
+        Returns: number
+      }
       revoke_staff_invitation: {
         Args: {
           p_command_id: string
@@ -3960,6 +3995,20 @@ export type Database = {
           result: Json
         }[]
       }
+      close_organization: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      closure_receipt: { Args: { p_organization_id: string }; Returns: Json }
       create_organization: {
         Args: {
           p_command_id: string

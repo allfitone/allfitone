@@ -1999,6 +1999,28 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/closure': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close the organization
+     * @description Only the owner may close. In one transaction, at one instant, every active service relationship ends with its full effect: consent grants are frozen, not deleted, and professional assignments end. Each client with a contact on file gets a termination notice. Pending invitations are revoked, pending nutrition proposals from the organization are cancelled, and every membership closes, the owner's included.
+     *
+     *     **Closing deletes no Fitness ID and no session.** If any step cannot complete, nothing closes. An organization with a client subscription that is not ended answers `422`: end those first. Only an active organization can be closed; a suspended one answers `422`. The request has no body. A retry, or a new command after the closure, converges on the original instant.
+     */
+    post: operations['closeStudioOrganization']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/offerable-scopes': {
     parameters: {
       query?: never
@@ -6778,6 +6800,13 @@ export interface components {
       membership_id: components['schemas']['Uuid']
       /** Format: date-time */
       ended_at: string
+    }
+    OrganizationClosure: {
+      organization_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      closed_at: string
+      /** @description Service relationships this closure ended */
+      relationships_terminated: number
     }
     TeamInvitationToken: {
       /** @description Opaque token transported in JSON after being removed from the URL fragment. */
@@ -13972,6 +14001,43 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['OrganizationMembershipResignation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  closeStudioOrganization: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Closed organization, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationClosure']
         }
       }
       400: components['responses']['BadRequest']
