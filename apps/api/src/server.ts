@@ -8,12 +8,17 @@
 import { serve } from '@hono/node-server'
 import { createApp } from './application.js'
 import { shutdownServerTelemetry } from './platform/telemetry/server.js'
+import { shutdownGracefully } from './shutdown.js'
 
 const port = Number(process.env.PORT ?? 8080)
 
-serve({ fetch: createApp().fetch, port })
+const server = serve({ fetch: createApp().fetch, port })
 console.log(`API listening on :${port}`)
 
 process.once('SIGTERM', () => {
-  void shutdownServerTelemetry()
+  void shutdownGracefully({
+    server,
+    flush: shutdownServerTelemetry,
+    exit: (code) => process.exit(code),
+  })
 })
