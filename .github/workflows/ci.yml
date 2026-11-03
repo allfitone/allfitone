@@ -16,8 +16,11 @@ name: CI
 # The trade-off is real: two pull requests that pass alone can break together.
 # Requiring branches to be up to date before merging closes that, and costs
 # nothing. Restore `push: branches: [main]` if this ever bites.
+#
+# Drafts run nothing (Verify's `if`); marking one ready for review starts the run.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 # A superseded run tells you nothing. Cancel it and save the minutes.
 concurrency:
@@ -25,64 +28,55 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Decides which of the heavy jobs this change actually needs. Roughly twenty
-  # seconds of Linux that can save fifteen minutes of Supabase and Playwright.
-  scope:
-    name: Scope
+  # Also decides which heavy jobs run: a separate job billed a minute for seconds
+  # of work, and waiting on Verify means a failed lint never pays for Playwright.
+  verify:
+    name: Verify
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     outputs:
-      database: ${{ steps.changed.outputs.database }}
-      studio: ${{ steps.changed.outputs.studio }}
+      database: ${{ steps.scope.outputs.database }}
+      studio: ${{ steps.scope.outputs.studio }}
+
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history so commitlint and the scope can diff against the base.
           fetch-depth: 0
 
-      - id: changed
-        env:
-          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          # A push whose before-sha is unknown — a new branch, or a force push —
-          # cannot be diffed, so everything runs rather than silently skipping.
-          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
-             || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "database=true" >> "$GITHUB_OUTPUT"
-            echo "studio=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.16
 
-          FILES=$(git diff --name-only "$BASE" "${{ github.sha }}")
+      - name: Scope
+        id: scope
+        env:
+          TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+          TURBO_SCM_HEAD: ${{ github.sha }}
+        run: |
+          FILES=$(git diff --name-only "$TURBO_SCM_BASE" "$TURBO_SCM_HEAD")
           echo "$FILES"
 
           database=false
           studio=false
 
           # The workflow itself counts: a change to these rules has to prove it.
-          if echo "$FILES" | grep -qE '^(packages/db/|packages/contracts/|\.github/workflows/|package\.json|bun\.lock|turbo\.json)'; then
+          if echo "$FILES" | grep -qE '^(packages/db/|packages/contracts/|\.github/workflows/(ci|deploy-database)\.yml|package\.json|bun\.lock|turbo\.json)'; then
             database=true
           fi
-          if echo "$FILES" | grep -qE '^(apps/studio-web/|packages/telemetry/|packages/contracts/|\.github/workflows/|package\.json|bun\.lock)'; then
+
+          # Turbo derives what Studio consumes from the workspace graph and reads
+          # the lockfile per package, so a dependency bump elsewhere does not count.
+          AFFECTED=$(bunx turbo@2.10.8 ls --affected --output=json)
+          echo "$AFFECTED"
+          if echo "$AFFECTED" | grep -q '"@allfitone/studio-web"' \
+             || echo "$FILES" | grep -qE '^\.github/workflows/ci\.yml$'; then
             studio=true
           fi
 
           echo "database=$database" >> "$GITHUB_OUTPUT"
           echo "studio=$studio" >> "$GITHUB_OUTPUT"
-
-  verify:
-    name: Verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # Full history so commitlint can see the pushed range.
-          fetch-depth: 0
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.2.16
 
       - name: Cache turbo
         uses: actions/cache@v4
@@ -124,7 +118,6 @@ jobs:
       # The commit-msg hook covers local commits, but a push from a machine
       # without hooks installed would slip through. This closes that gap.
       - name: Commit messages
-        if: github.event_name == 'pull_request'
         run: |
           bunx commitlint \
             --from "${{ github.event.pull_request.base.sha }}" \
@@ -133,8 +126,8 @@ jobs:
 
   database:
     name: Database
-    needs: scope
-    if: needs.scope.outputs.database == 'true'
+    needs: verify
+    if: needs.verify.outputs.database == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -152,7 +145,7 @@ jobs:
 
       - name: Database policy
         env:
-          DB_POLICY_BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          DB_POLICY_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: bun run check:db-policy -- --base "$DB_POLICY_BASE_SHA"
 
       - name: Start Supabase
@@ -199,8 +192,8 @@ jobs:
 
   studio-e2e:
     name: Studio E2E
-    needs: scope
-    if: needs.scope.outputs.studio == 'true'
+    needs: verify
+    if: needs.verify.outputs.studio == 'true'
     runs-on: ubuntu-latest
     # The sweep grew from 322 cases to 384 as the screen inventory filled, and a
     # run that passed took 15m02s — cut during cleanup, reported as cancelled
@@ -233,7 +226,24 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
+
+      # The browser came from the cache; only its system libraries are missing.
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      # Next reuses compiled output from its cache, so the e2e build only redoes
+      # what changed. The key moves with Studio's sources; older entries still seed it.
+      - name: Cache Studio build
+        uses: actions/cache@v4
+        with:
+          path: apps/studio-web/.next-e2e/cache
+          key: studio-next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/studio-web/src/**', 'apps/studio-web/next.config.ts') }}
+          restore-keys: |
+            studio-next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+            studio-next-${{ runner.os }}-
 
       - name: Test Studio interactions
         run: bun run --cwd apps/studio-web test:e2e
