@@ -38,13 +38,11 @@
         "@allfitone/queue": "workspace:*",
         "@allfitone/store-billing": "workspace:*",
         "@allfitone/telemetry": "workspace:*",
+        "@hono/node-server": "^1.13.0",
         "@vercel/functions": "3.9.3",
         "hono": "^4.6.0",
         "postgres": "3.4.9",
         "sharp": "0.35.5",
-      },
-      "devDependencies": {
-        "@hono/node-server": "^1.13.0",
       },
     },
     "apps/backoffice-web": {
