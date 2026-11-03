@@ -1137,6 +1137,70 @@ export type Database = {
           },
         ]
       }
+      body_photo_disposals: {
+        Row: {
+          id: string
+          media_ref: string
+          person_id: string
+          requested_at: string
+          sealed_at: string | null
+        }
+        Insert: {
+          id?: string
+          media_ref: string
+          person_id: string
+          requested_at?: string
+          sealed_at?: string | null
+        }
+        Update: {
+          id?: string
+          media_ref?: string
+          person_id?: string
+          requested_at?: string
+          sealed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_body_photo_disposals_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      body_photos: {
+        Row: {
+          created_at: string
+          id: string
+          media_ref: string
+          person_id: string
+          taken_on: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          media_ref: string
+          person_id: string
+          taken_on: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_ref?: string
+          person_id?: string
+          taken_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_body_photos_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       body_progress_metrics: {
         Row: {
           code: string
@@ -2610,6 +2674,16 @@ export type Database = {
           result: Json
         }[]
       }
+      delete_my_body_photo: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_photo_id: string
+          p_request_hash: string
+        }
+        Returns: string
+      }
       expire_backoffice_authentication_attempts: {
         Args: { p_limit: number }
         Returns: number
@@ -2758,6 +2832,7 @@ export type Database = {
         }
         Returns: Json
       }
+      list_my_body_photos: { Args: { p_person_id: string }; Returns: Json }
       list_my_client_invitations: {
         Args: never
         Returns: {
@@ -3033,6 +3108,17 @@ export type Database = {
           terminal: boolean
         }[]
       }
+      record_body_photo: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_media_ref: string
+          p_person_id: string
+          p_request_hash: string
+          p_taken_on: string
+        }
+        Returns: string
+      }
       record_body_progress: {
         Args: {
           p_account_id: string
@@ -3278,6 +3364,10 @@ export type Database = {
           p_token_ciphertext: string
         }
         Returns: boolean
+      }
+      seal_body_photo_disposal: {
+        Args: { p_media_ref: string; p_person_id: string }
+        Returns: undefined
       }
       skip_onboarding_step: {
         Args: {
@@ -4773,6 +4863,7 @@ export type Database = {
           routine_cover_icon: Database['planning']['Enums']['routine_cover_icon'] | null
           routine_cover_kind: Database['planning']['Enums']['routine_cover'] | null
           status: Database['catalog']['Enums']['publication_status']
+          unlock_feature_code: string | null
           updated_at: string
         }
         Insert: {
@@ -4786,6 +4877,7 @@ export type Database = {
           routine_cover_icon?: Database['planning']['Enums']['routine_cover_icon'] | null
           routine_cover_kind?: Database['planning']['Enums']['routine_cover'] | null
           status?: Database['catalog']['Enums']['publication_status']
+          unlock_feature_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -4799,6 +4891,7 @@ export type Database = {
           routine_cover_icon?: Database['planning']['Enums']['routine_cover_icon'] | null
           routine_cover_kind?: Database['planning']['Enums']['routine_cover'] | null
           status?: Database['catalog']['Enums']['publication_status']
+          unlock_feature_code?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5054,6 +5147,7 @@ export type Database = {
       canonical_session_content: { Args: { p_content: Json }; Returns: Json }
       canonical_target: { Args: { p_target: Json }; Returns: Json }
       content_etag: { Args: { p_content: Json }; Returns: string }
+      count_own_routines: { Args: { p_person_id: string }; Returns: number }
       cover_for: {
         Args: { p_person_id: string; p_program_id: string }
         Returns: string
@@ -5197,6 +5291,19 @@ export type Database = {
         Returns: {
           program: Json
           replayed: boolean
+        }[]
+      }
+      duplicate_my_session_template: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_request_hash: string
+          p_template_id: string
+        }
+        Returns: {
+          replayed: boolean
+          template: Json
         }[]
       }
       fork_program_version: {
@@ -5405,10 +5512,12 @@ export type Database = {
           emphases: string[]
           goals: string[]
           levels: string[]
+          locked: boolean
           program_id: string
           program_version_id: string
           sex_affinity: string
           title: string
+          unlock_feature: string
           weeks: number
         }[]
       }
