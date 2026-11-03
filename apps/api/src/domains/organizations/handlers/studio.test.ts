@@ -139,6 +139,14 @@ function organizations(
       resource: { membershipId: TARGET_MEMBERSHIP_ID, endedAt: '2026-11-02T20:00:00.000Z' },
       replayed: false,
     }),
+    closeOrganization: async () => ({
+      resource: {
+        organizationId: ORGANIZATION_ID,
+        closedAt: '2026-11-03T01:00:00.000Z',
+        relationshipsTerminated: 2,
+      },
+      replayed: false,
+    }),
     grantMembershipRole: async () => ({
       resource: {
         membershipId: '0198d000-0000-7000-8000-000000000032',
@@ -469,6 +477,80 @@ describe('Studio organization routes', () => {
           },
         }),
       ).request(RESIGNATION_PATH, { method: 'POST', headers: HEADERS })
+      expect(response.status).toBe(status)
+      if (code === '55P03') expect(response.headers.get('retry-after')).toBe('1')
+    }
+  })
+
+  const CLOSURE_PATH = `/studio/v1/organizations/${ORGANIZATION_ID}/closure`
+
+  test('T-ORG-API-CLOSE-01 closes without a body and returns the closing instant', async () => {
+    const response = await app().request(CLOSURE_PATH, { method: 'POST', headers: HEADERS })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    const body = await response.json()
+    expect(validator.getSchema('allfit-v1#/components/schemas/OrganizationClosure')?.(body)).toBe(
+      true,
+    )
+    expect(body).toEqual({
+      organization_id: ORGANIZATION_ID,
+      closed_at: '2026-11-03T01:00:00.000Z',
+      relationships_terminated: 2,
+    })
+  })
+
+  test('T-ORG-API-CLOSE-02 rejects malformed paths, bodies, foreign origins and missing headers', async () => {
+    const statuses = await Promise.all(
+      [
+        [CLOSURE_PATH.replace(ORGANIZATION_ID, 'invalid'), { method: 'POST', headers: HEADERS }],
+        [CLOSURE_PATH, { method: 'POST', headers: HEADERS, body: '{}' }],
+        [CLOSURE_PATH, { method: 'POST', headers: { origin: HEADERS.origin } }],
+        [CLOSURE_PATH, { method: 'POST', headers: { ...HEADERS, origin: 'https://evil.test' } }],
+        [CLOSURE_PATH, { method: 'POST', headers: { ...HEADERS, cookie: '' } }],
+      ].map(
+        async ([path, init]) => (await app().request(path as string, init as RequestInit)).status,
+      ),
+    )
+    expect(statuses).toEqual([400, 400, 400, 403, 401])
+  })
+
+  test('T-ORG-API-CLOSE-03 passes the session person and the command, and reports replays', async () => {
+    const service = organizations({
+      closeOrganization: async (actor, input) => {
+        expect(actor.personId).toBe('0198d000-0000-7000-8000-000000000012')
+        expect(input.organizationId).toBe(ORGANIZATION_ID)
+        expect(input.commandId).toBe(HEADERS['command-id'])
+        expect(input.idempotencyKey).toBe(HEADERS['idempotency-key'])
+        return {
+          resource: {
+            organizationId: ORGANIZATION_ID,
+            closedAt: '2026-11-03T01:00:00.000Z',
+            relationshipsTerminated: 0,
+          },
+          replayed: true,
+        }
+      },
+    })
+    const response = await app(service).request(CLOSURE_PATH, { method: 'POST', headers: HEADERS })
+    expect(response.status).toBe(200)
+    expect(response.headers.get('idempotent-replay')).toBe('true')
+  })
+
+  test('T-ORG-API-CLOSE-04 maps database refusals and retryable locks', async () => {
+    for (const [code, status] of [
+      ['42501', 403],
+      ['P0002', 404],
+      ['40001', 409],
+      ['55P03', 409],
+      ['22023', 422],
+    ] as const) {
+      const response = await app(
+        organizations({
+          closeOrganization: async () => {
+            throw Object.assign(new Error('database refusal'), { code })
+          },
+        }),
+      ).request(CLOSURE_PATH, { method: 'POST', headers: HEADERS })
       expect(response.status).toBe(status)
       if (code === '55P03') expect(response.headers.get('retry-after')).toBe('1')
     }

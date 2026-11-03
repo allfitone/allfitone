@@ -393,6 +393,38 @@ export function createOrganizationDatabase(): OrganizationDatabase {
       )
     },
 
+    async closeOrganization(input) {
+      return measureStudioRequestPhase('business-db', () =>
+        sql.begin(async (transaction) => {
+          await setPersonActor(transaction, input.personId)
+          const [row] = await transaction<
+            {
+              result: {
+                organization_id: string
+                closed_at: string
+                relationships_terminated: number
+              }
+              replayed: boolean
+            }[]
+          >`
+            select * from organizations.close_organization(
+              ${input.personId}::uuid, ${input.organizationId}::uuid,
+              ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+            )
+          `
+          if (!row) throw new Error('PostgreSQL did not close the organization')
+          return {
+            resource: {
+              organizationId: row.result.organization_id,
+              closedAt: row.result.closed_at,
+              relationshipsTerminated: row.result.relationships_terminated,
+            },
+            replayed: row.replayed,
+          }
+        }),
+      )
+    },
+
     async grantMembershipRole(input) {
       return measureStudioRequestPhase('business-db', () =>
         sql.begin(async (transaction) => {

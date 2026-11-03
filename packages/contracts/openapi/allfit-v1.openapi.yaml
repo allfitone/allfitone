@@ -4806,6 +4806,62 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/closure:
+    post:
+      tags: [Studio Organizations]
+      operationId: closeStudioOrganization
+      x-allfit-operation: OP-ORG-012
+      x-allfit-cache: no-store
+      summary: Close the organization
+      description: >-
+        Only the owner may close. In one transaction, at one instant, every
+        active service relationship ends with its full effect: consent grants
+        are frozen, not deleted, and professional assignments end. Each client
+        with a contact on file gets a termination notice. Pending invitations
+        are revoked, pending nutrition proposals from the organization are
+        cancelled, and every membership closes, the owner's included.
+
+
+        **Closing deletes no Fitness ID and no session.** If any step cannot
+        complete, nothing closes. An organization with a client subscription
+        that is not ended answers `422`: end those first. Only an active
+        organization can be closed; a suspended one answers `422`. The request
+        has no body. A retry, or a new command after the closure, converges on
+        the original instant.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Closed organization, including convergent duplicate commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationClosure'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/offerable-scopes:
     get:
       tags: [Studio Relationships]
@@ -17007,6 +17063,20 @@ components:
         ended_at:
           type: string
           format: date-time
+    OrganizationClosure:
+      type: object
+      additionalProperties: false
+      required: [organization_id, closed_at, relationships_terminated]
+      properties:
+        organization_id:
+          $ref: '#/components/schemas/Uuid'
+        closed_at:
+          type: string
+          format: date-time
+        relationships_terminated:
+          type: integer
+          minimum: 0
+          description: Service relationships this closure ended
     TeamInvitationToken:
       type: object
       additionalProperties: false
