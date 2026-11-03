@@ -190,11 +190,12 @@ function readCommit(
   for (const raw of fields.choices) {
     const choice = exactObject(raw, ['external_name', 'movement_id'])
     const name = choice?.external_name
-    const movement = choice?.movement_id
+    const given = choice?.movement_id
     if (typeof name !== 'string' || name.trim() === '' || name.length > MAX_NAME) return undefined
-    if (movement !== null && (typeof movement !== 'string' || !UUID.test(movement))) {
-      return undefined
-    }
+    // Explicit, because not every compiler narrows `unknown` through the negated test.
+    const movement =
+      given === null ? null : typeof given === 'string' && UUID.test(given) ? given : undefined
+    if (movement === undefined) return undefined
     choices.push({ external_name: name, movement_id: movement })
   }
   return { timezone, choices }
