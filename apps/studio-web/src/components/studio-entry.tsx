@@ -2,10 +2,9 @@
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { AccessLanding } from './access-landing'
 import { ActivationForm } from './activation-form'
 import { InvitationWaiting } from './invitation-waiting'
 import { MembershipSelector } from './membership-selector'
@@ -42,8 +41,6 @@ type FlowState =
 
 export function StudioEntry() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const logoutPartial = searchParams.get('logout') === 'partial'
   const entryContext = useStudioEntryContext()
   const [flow, setFlow] = useState<FlowState>({ kind: 'loading' })
   const bootstrapStarted = useRef(false)
@@ -139,8 +136,14 @@ export function StudioEntry() {
 
   const announceWait = useAnnouncedWait(flow.kind === 'loading')
 
+  // Signed out, this entry has nothing to show: the landing is the way in. The
+  // guard usually leaves first on the 401; this covers what it did not see.
+  useEffect(() => {
+    if (flow.kind === 'access') window.location.replace('/')
+  }, [flow.kind])
+
   if (flow.kind === 'loading') return announceWait ? <LoadingStage /> : null
-  if (flow.kind === 'access') return <AccessLanding logoutPartial={logoutPartial} />
+  if (flow.kind === 'access') return null
   if (flow.kind === 'activation') {
     return (
       <ActivationForm

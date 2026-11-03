@@ -170,7 +170,7 @@ test('a delayed profile mutation cannot update a new cross-tab session', async (
   })
   await installStudioApiMock(controller, fixture)
   await installStudioApiMock(page, fixture)
-  await controller.goto('/')
+  await controller.goto('/es')
   await page.goto('/account')
   await page.getByLabel('Titular profesional').fill('Cambio todavía pendiente')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()

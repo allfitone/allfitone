@@ -43,7 +43,7 @@ export default function StudioError({
                 the entry panel, where the action is the point of the screen. */}
             <Button onClick={reset}>Reintentar</Button>
             <Link
-              href="/"
+              href="/app"
               data-slot="button"
               data-variant="outline"
               className={buttonVariants({ variant: 'outline' })}

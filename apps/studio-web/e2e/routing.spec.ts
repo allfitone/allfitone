@@ -15,7 +15,7 @@ test('offers creation or an explicit invitation wait without professional setup'
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
 
-  await page.goto('/')
+  await page.goto('/app')
 
   await expect(page.getByRole('heading', { name: '¿Cómo trabajas hoy?' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Mi cuenta', exact: true })).toHaveCount(0)
@@ -40,7 +40,7 @@ test('reuses organization commands for unchanged retries and rotates after editi
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: /Trabajo por mi cuenta/ }).click()
 
   const name = page.getByLabel('Nombre visible')
@@ -94,13 +94,13 @@ test('finishes a new organization in a dedicated ready step before entering the 
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Trabajo por mi cuenta' }).click()
   await page.getByRole('button', { name: 'Crear mi espacio' }).click()
 
   // The closing step is state in the creation flow, not a place. It stays on
   // the entry URL, so it cannot be reached again once the space exists.
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/app')
   await expect(page.getByRole('heading', { name: 'Tu espacio está listo.' })).toBeVisible()
   await expect(page.getByText(/no es obligatorio/i)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Puedes hacerlo después' })).toBeVisible()
@@ -170,7 +170,7 @@ test('keeps activation step commands stable and rotates only the edited completi
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
 
   const givenName = page.getByLabel('Nombres')
   await givenName.fill('Ada')
@@ -211,7 +211,7 @@ test('keeps the session active after returning from independent space setup twic
 }) => {
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
 
   const independent = page.getByRole('button', { name: 'Trabajo por mi cuenta' })
   for (let visit = 0; visit < 2; visit += 1) {
@@ -232,7 +232,7 @@ test('keeps the session active after returning from independent space setup twic
 test('waits without mutations and rechecks an empty membership list', async ({ page }) => {
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
 
   const wait = page.getByRole('button', { name: 'Esperar una invitación' })
   await wait.focus()
@@ -262,7 +262,7 @@ test('waits without mutations and rechecks an empty membership list', async ({ p
 test('returns from the invitation wait to the choice it came from', async ({ page }) => {
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Esperar una invitación' }).click()
   await expect(
     page.getByRole('heading', { name: 'Tu espacio puede llegar después.' }),
@@ -281,7 +281,7 @@ test('returns from the invitation wait to the choice it came from', async ({ pag
 test('enters a newly active membership from the invitation wait', async ({ page }) => {
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Esperar una invitación' }).click()
 
   fixture.memberships = [terminatedMembership, activeMembership]
@@ -299,7 +299,7 @@ test('enters a newly active membership from the invitation wait', async ({ page 
 test('opens the selector when multiple memberships arrive during the wait', async ({ page }) => {
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Esperar una invitación' }).click()
 
   fixture.memberships = [activeMembership, secondActiveMembership]
@@ -322,11 +322,12 @@ test('returns an expired waiting session to the access landing', async ({ page }
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Esperar una invitación' }).click()
 
   await page.getByRole('button', { name: 'Comprobar de nuevo' }).click()
 
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
 })
 
@@ -344,7 +345,7 @@ test('recovers when checking memberships fails temporarily', async ({ page }) =>
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Esperar una invitación' }).click()
 
   await page.getByRole('button', { name: 'Comprobar de nuevo' }).click()
@@ -361,7 +362,7 @@ test('routes one active membership directly and ignores terminated history', asy
   })
   await installStudioApiMock(page, fixture)
 
-  await page.goto('/')
+  await page.goto('/app')
 
   await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}`)
   await expect(page.getByRole('heading', { name: 'Equipo reciente' })).toBeVisible()
@@ -393,7 +394,7 @@ test('shows the organization selector only for multiple active memberships', asy
   })
   await installStudioApiMock(page, fixture)
 
-  await page.goto('/')
+  await page.goto('/app')
 
   await expect(page.getByRole('heading', { name: '¿Dónde quieres trabajar hoy?' })).toBeVisible()
   await expect(page.getByText(activeMembership.display_name)).toBeVisible()
@@ -412,7 +413,7 @@ test('revalidates memberships after the in-memory entry snapshot expires', async
     memberships: [activeMembership, secondActiveMembership],
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
 
   await page
     .locator('[data-membership-card]')
@@ -611,7 +612,7 @@ test('returns an expired organization session to the access landing', async ({ p
 
   await page.goto(`/organizations/${activeMembership.organization_id}`)
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
   await expect(page.getByText(activeMembership.display_name)).toHaveCount(0)
 })
@@ -660,7 +661,7 @@ test('routes incomplete and expired sessions through the existing entry flow', a
   })
   await installStudioApiMock(page, fixture)
 
-  await page.goto('/')
+  await page.goto('/app')
 
   await expect(
     page.getByRole('heading', { name: 'Confirma y deja tu identidad lista.' }),
@@ -677,8 +678,9 @@ test('returns unauthenticated sessions to the access landing', async ({ page }) 
   })
   await installStudioApiMock(page, fixture)
 
-  await page.goto('/')
+  await page.goto('/app')
 
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
 })
 
@@ -688,7 +690,7 @@ test.describe('invitation wait on mobile', () => {
   test('keeps actions inside the viewport', async ({ page }) => {
     const fixture = createStudioApiFixture()
     await installStudioApiMock(page, fixture)
-    await page.goto('/')
+    await page.goto('/app')
     await page.getByRole('button', { name: 'Esperar una invitación' }).click()
 
     await expect(page.getByRole('button', { name: 'Comprobar de nuevo' })).toBeVisible()

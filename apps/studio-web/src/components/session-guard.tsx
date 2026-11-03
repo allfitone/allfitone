@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Card, CardContent } from '@allfitone/react/components/card'
 import { Spinner } from '@allfitone/react/components/spinner'
@@ -7,6 +8,7 @@ import { Spinner } from '@allfitone/react/components/spinner'
 import { AccessLanding } from './access-landing'
 import { LoadingStage } from './studio-frame'
 import { useAnnouncedWait } from '@/lib/announced-wait'
+import { isLandingPath } from '@/lib/locale'
 import {
   announceStudioLogout,
   readStudioSessionActivity,
@@ -39,6 +41,9 @@ const CLOSING_RECOVERY_DELAY_MS = 10_000
 
 export function SessionGuard({ children }: { children: ReactNode }) {
   const [guard, setGuard] = useState<GuardState>({ kind: 'checking', silent: false })
+  // The landing is public, so it paints from the server and stays readable while
+  // the guard decides. A lock or a closing notice can still replace it.
+  const publicWhileChecking = isLandingPath(usePathname())
   const activityRef = useRef<StudioSessionActivity | undefined>(undefined)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const closingRecoveryRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -106,7 +111,8 @@ export function SessionGuard({ children }: { children: ReactNode }) {
     }
 
     function publicEntryIsCurrent() {
-      return window.location.pathname === '/' || window.location.pathname === '/invitations'
+      const { pathname } = window.location
+      return isLandingPath(pathname) || pathname === '/invitations'
     }
 
     function revealUnauthenticatedEntry() {
@@ -119,6 +125,7 @@ export function SessionGuard({ children }: { children: ReactNode }) {
       }
       coverImmediately()
       commit({ kind: 'checking', silent: true })
+      // `/` lets the proxy pick the landing's language.
       window.location.replace('/')
     }
 
@@ -299,15 +306,21 @@ export function SessionGuard({ children }: { children: ReactNode }) {
   // the ones whose message arrives and leaves before it can be read: a reload
   // that finds a confirmed answer in storage resolves inside the first frame,
   // and announcing that wait paints a card nobody has time to see.
-  const announceCheck = useAnnouncedWait(guard.kind === 'checking' && !guard.silent)
+  const announceCheck = useAnnouncedWait(
+    guard.kind === 'checking' && !guard.silent && !publicWhileChecking,
+  )
   const checkingIsVisible = guard.kind === 'checking' && !guard.silent && announceCheck
+  const contentIsVisible =
+    guard.kind === 'ready' ||
+    guard.kind === 'ending' ||
+    (guard.kind === 'checking' && publicWhileChecking)
 
   return (
     <>
-      {/* `ready` and `ending` must resolve to the same element in the same slot. A
+      {/* Every visible state must resolve to the same element in the same slot. A
           different branch would remount the whole workspace, restarting every request
           it makes at the exact moment the session is being torn down. */}
-      {guard.kind === 'ready' || guard.kind === 'ending' ? (
+      {contentIsVisible ? (
         <div
           data-session-content
           data-session-ending={guard.kind === 'ending' ? '' : undefined}

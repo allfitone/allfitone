@@ -523,10 +523,10 @@ function invitationFixture(options: InvitationOptions = {}): StudioApiFixture {
 }
 
 export const SCREENS: Screen[] = [
-  // --- `/` · StudioEntry renders nine screens through one state machine -------
+  // --- `/app` · StudioEntry renders nine screens through one state machine ----
   {
     stories: 'entry · resolving the account',
-    path: '/',
+    path: '/app',
     fixture: stall('/studio/v1/entry-context'),
     hasHeading: false,
     settled: async (page) => {
@@ -535,7 +535,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-001 · access landing',
-    path: '/',
+    path: '/es',
     fixture: () => createStudioApiFixture({ signedOut: true }),
   },
   {
@@ -543,16 +543,32 @@ export const SCREENS: Screen[] = [
     // seeds a denied decision. The open panel is what a first-time visitor
     // actually meets, and until now nothing had measured it.
     stories: 'privacy · the consent panel on a first visit',
-    path: '/',
+    path: '/es',
     fixture: () => createStudioApiFixture({ signedOut: true }),
     consent: 'undecided',
     settled: async (page) => {
       await expect(page.getByText('Analítica opcional')).toBeVisible()
     },
   },
+  // The landing again in English: other words, other line lengths, and a
+  // consent panel that has to clear them just the same.
+  {
+    stories: 'HU-001 · access landing in English',
+    path: '/en',
+    fixture: () => createStudioApiFixture({ signedOut: true }),
+  },
+  {
+    stories: 'privacy · the consent panel on a first visit in English',
+    path: '/en',
+    fixture: () => createStudioApiFixture({ signedOut: true }),
+    consent: 'undecided',
+    settled: async (page) => {
+      await expect(page.getByText('Optional analytics')).toBeVisible()
+    },
+  },
   {
     stories: 'entry · personal activation',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({
         session: {
@@ -567,7 +583,7 @@ export const SCREENS: Screen[] = [
     // The link outlives its window. The form stays on screen with its submit
     // disabled, so the person can read why nothing they type will be accepted.
     stories: 'entry · the activation window closed',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({
         session: {
@@ -600,7 +616,7 @@ export const SCREENS: Screen[] = [
     // The waiting panel checks on demand rather than polling, so its failure is
     // the only one in the product a person provokes by pressing a button.
     stories: 'entry · the membership check did not finish',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({
         intercept: (request) =>
@@ -616,12 +632,12 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-007 · how do you work today',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
   },
   {
     stories: 'HU-007 · name your independent space',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Trabajo por mi cuenta/ }).click()
@@ -632,7 +648,7 @@ export const SCREENS: Screen[] = [
     // The team choice leads somewhere else entirely: a type selector, a radio
     // group and a conditional field the independent form never renders.
     stories: 'HU-007 · name your team space',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Tengo un equipo o centro/ }).click()
@@ -643,7 +659,7 @@ export const SCREENS: Screen[] = [
     // Choosing an entity reveals a required field the natural-person path never
     // shows, so this is a screen of its own rather than the same one toggled.
     stories: 'HU-007 · name your team space for an entity',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Tengo un equipo o centro/ }).click()
@@ -653,7 +669,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-007 · the space is ready',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Trabajo por mi cuenta/ }).click()
@@ -666,7 +682,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'entry · waiting for an invitation',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Esperar una invitación/ }).click()
@@ -674,13 +690,13 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-004 · choose where to work today',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({ memberships: [activeMembership, secondActiveMembership] }),
   },
   {
     stories: 'entry · the identity service is unreachable',
-    path: '/',
+    path: '/app',
     fixture: failing('/studio/v1/entry-context', 503, 'upstream-unavailable'),
   },
 
@@ -2001,7 +2017,7 @@ export const SCREENS: Screen[] = [
   // that wording is already asserted per reason in the spec.
   {
     stories: 'HU-002 · the remote logout could not be confirmed',
-    path: '/?logout=partial',
+    path: '/es?logout=partial',
     fixture: () => createStudioApiFixture({ signedOut: true }),
     settled: async (page) => {
       await expect(page.getByText('La sesión se cerró en este equipo')).toBeVisible()

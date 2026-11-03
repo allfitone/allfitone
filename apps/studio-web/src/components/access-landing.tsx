@@ -28,7 +28,6 @@ import { PulseMark } from '@allfitone/react/components/pulse-mark'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useEffect, useRef } from 'react'
 
-import { StudioLanding } from './studio-landing'
 import { type StudioSessionEndReason } from '@/lib/session-activity'
 import { studioApi } from '@/lib/studio-api'
 
@@ -42,32 +41,21 @@ interface SessionClosing {
   reason: StudioSessionEndReason
 }
 
+/**
+ * What the session guard shows instead of Studio while a session closes or
+ * waits to be confirmed closed. Neither is a welcome — the landing at `/` is
+ * that — they hold the workspace hidden until the close is complete.
+ */
 export function AccessLanding({
-  logoutPartial = false,
   closing,
   recovery,
-}: {
-  logoutPartial?: boolean
-  closing?: SessionClosing
-  recovery?: SessionRecovery
-}) {
-  useEffect(() => {
-    if (!logoutPartial) return
-    const url = new URL(window.location.href)
-    url.searchParams.delete('logout')
-    window.history.replaceState(window.history.state, '', url)
-  }, [logoutPartial])
-
-  const secureState = closing ?? recovery
-  const secureStateActive = Boolean(secureState)
+}:
+  | { closing: SessionClosing; recovery?: undefined }
+  | { closing?: undefined; recovery: SessionRecovery }) {
   const secureTitleRef = useRef<HTMLHeadingElement>(null)
   useEffect(() => {
-    if (secureStateActive) secureTitleRef.current?.focus()
-  }, [secureStateActive])
-
-  // A signed-out visitor gets the landing. The two session states below are not
-  // a welcome: they hold the workspace hidden until the close is complete.
-  if (!secureState) return <StudioLanding logoutPartial={logoutPartial} />
+    secureTitleRef.current?.focus()
+  }, [])
 
   const secureTitle = closing ? 'Cerrando tu sesión' : 'Tu sesión está protegida'
 
