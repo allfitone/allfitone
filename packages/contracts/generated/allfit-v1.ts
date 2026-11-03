@@ -2380,6 +2380,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/programs/{programId}/versions/{versionNumber}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read one complete published program version
+     * @description The version publishing a program names in `Location`: its exact routine version for every day and whether it repeats forever. Only the organization's content managers read it, and the read is audited. The composition is immutable, but deprecation moves the status and the list of retired routine versions this projection carries, so the response is revalidated against its ETag rather than cached as immutable.
+     */
+    get: operations['getOrganizationProgramVersion']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/programs/{programId}/versions/{versionNumber}/deprecation': {
     parameters: {
       query?: never
@@ -7866,6 +7886,7 @@ export interface components {
      *       "version_number": 1,
      *       "status": "published",
      *       "title": "Bloque de fuerza",
+     *       "repeats_forever": false,
      *       "sessions": [
      *         {
      *           "position": 1,
@@ -7887,6 +7908,8 @@ export interface components {
       status: 'published' | 'deprecated'
       title: string
       notes?: string | null
+      /** @description True when the program has no end: its last week is followed by the first again (ADR-032). Fixed at publication like the rest of the version. */
+      repeats_forever: boolean
       sessions: components['schemas']['ProgramVersionSessionCreate'][]
       /** Format: date-time */
       published_at: string
@@ -14962,6 +14985,37 @@ export interface operations {
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
       428: components['responses']['PreconditionRequired']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getOrganizationProgramVersion: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        programId: components['parameters']['ProgramId']
+        versionNumber: components['parameters']['VersionNumber']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Complete program version with its current status */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateRevalidate']
+          ETag: components['headers']['ETag']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProgramVersion']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
       503: components['responses']['UpstreamUnavailable']
     }
   }

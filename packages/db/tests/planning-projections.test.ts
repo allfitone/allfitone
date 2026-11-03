@@ -143,6 +143,7 @@ interface Projections {
   program: unknown
   programDraft: unknown
   programVersion: unknown
+  readProgramVersion: unknown
   deprecatedProgramVersion: unknown
   sessionTemplatePage: unknown[]
   programPage: unknown[]
@@ -272,6 +273,15 @@ beforeAll(async () => {
   )
   projections.programVersion = programVersionRow?.result
 
+  const [readProgramRow] = await actorTransaction(
+    (transaction) => transaction`
+      select planning.read_organization_program_version(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${programId}::uuid, 1) as result
+    `,
+    nextRequestId(),
+  )
+  projections.readProgramVersion = readProgramRow?.result
+
   const listedTemplates = await actorTransaction(
     (transaction) => transaction`
       select result from planning.list_session_templates(
@@ -380,6 +390,11 @@ describe('Planning projections against the OpenAPI contract', () => {
       id: 'T-PLN-API-061',
       schema: 'ProgramVersion',
       projection: () => projections.deprecatedProgramVersion,
+    },
+    {
+      id: 'T-PLN-API-064',
+      schema: 'ProgramVersion',
+      projection: () => projections.readProgramVersion,
     },
   ]
 

@@ -9113,6 +9113,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'version_number',
       'status',
       'title',
+      'repeats_forever',
       'sessions',
       'published_at',
       'session_count',
@@ -9124,6 +9125,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       version_number: 1,
       status: 'published',
       title: 'Bloque de fuerza',
+      repeats_forever: false,
       sessions: [
         {
           position: 1,
@@ -9157,6 +9159,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       notes: {
         type: ['string', 'null'],
         maxLength: 2000,
+      },
+      repeats_forever: {
+        description:
+          'True when the program has no end: its last week is followed by the first again (ADR-032). Fixed at publication like the rest of the version.',
+        type: 'boolean',
       },
       sessions: {
         type: 'array',

@@ -181,6 +181,18 @@ export function createPlanningDatabase(): PlanningDatabase {
         if (!row) throw new Error('PostgreSQL did not return the session template version')
         return row.result
       }),
+
+    readProgramVersion: (input) =>
+      query(sql, input.personId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ result: ProgramVersion }[]>`
+          select planning.read_organization_program_version(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.programId}::uuid, ${input.versionNumber}::integer
+          ) as result
+        `
+        if (!row) throw new Error('PostgreSQL did not return the program version')
+        return row.result
+      }),
   }
 }
 

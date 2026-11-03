@@ -5882,6 +5882,49 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/programs/{programId}/versions/{versionNumber}:
+    get:
+      tags: [Studio Planning]
+      operationId: getOrganizationProgramVersion
+      x-allfit-operation: OP-PLN-021
+      x-allfit-cache: private-revalidate
+      summary: Read one complete published program version
+      description: >-
+        The version publishing a program names in `Location`: its exact routine
+        version for every day and whether it repeats forever. Only the
+        organization's content managers read it, and the read is audited. The
+        composition is immutable, but deprecation moves the status and the list
+        of retired routine versions this projection carries, so the response is
+        revalidated against its ETag rather than cached as immutable.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/ProgramId'
+        - $ref: '#/components/parameters/VersionNumber'
+      responses:
+        '200':
+          description: Complete program version with its current status
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateRevalidate'
+            ETag:
+              $ref: '#/components/headers/ETag'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgramVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/programs/{programId}/versions/{versionNumber}/deprecation:
     post:
       tags: [Studio Planning]
@@ -19769,6 +19812,7 @@ components:
           version_number,
           status,
           title,
+          repeats_forever,
           sessions,
           published_at,
           session_count,
@@ -19780,6 +19824,7 @@ components:
         version_number: 1
         status: published
         title: Bloque de fuerza
+        repeats_forever: false
         sessions:
           - position: 1
             week: 1
@@ -19804,6 +19849,12 @@ components:
         notes:
           type: [string, 'null']
           maxLength: 2000
+        repeats_forever:
+          description: >-
+            True when the program has no end: its last week is followed by the
+            first again (ADR-032). Fixed at publication like the rest of the
+            version.
+          type: boolean
         sessions:
           type: array
           minItems: 1

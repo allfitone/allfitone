@@ -125,4 +125,11 @@ export interface PlanningDatabase {
     versionNumber: number
     requestId: string
   }): Promise<SessionTemplateVersion>
+  readProgramVersion(input: {
+    personId: string
+    organizationId: string
+    programId: string
+    versionNumber: number
+    requestId: string
+  }): Promise<ProgramVersion>
 }
