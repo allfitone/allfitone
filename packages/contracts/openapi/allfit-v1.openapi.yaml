@@ -8898,6 +8898,232 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /space/v1/history-imports:
+    post:
+      tags: [Space Execution]
+      operationId: stageMyHistoryImport
+      x-allfit-operation: OP-EXE-027
+      x-allfit-cache: no-store
+      summary: Read a history exported by another app and hold it for review
+      description: >-
+        ADR-044. The file's text travels as it is and is read in the request; it is never
+        stored. Which app it came from is decided by its header (today a Hevy CSV export).
+        Nothing enters the history yet: the answer is a preview of what would, with how
+        each exercise name meets the catalogue. The same file again answers the import
+        already alive with `200`; `Command-Id` is a new import's identity.
+
+
+        A file that cannot be read answers `422` with one entry in `errors` whose `code`
+        says why (`empty`, `too_large`, `unknown_format`, `malformed_csv`,
+        `unreadable_date`) and whose `path` is `/content` or `/content/<row>`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryImportUpload'
+      responses:
+        '200':
+          description: The same file was already imported or waiting; that import
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryImport'
+        '201':
+          description: Staged, with its preview
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryImport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    get:
+      tags: [Space Execution]
+      operationId: listMyHistoryImports
+      x-allfit-operation: OP-EXE-030
+      x-allfit-cache: no-store
+      summary: List the histories I brought from other apps
+      description: Newest first, without their previews. An expired one is still listed.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: My imports
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryImportList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/history-imports/{importId}:
+    get:
+      tags: [Space Execution]
+      operationId: getMyHistoryImport
+      x-allfit-operation: OP-EXE-030
+      x-allfit-cache: no-store
+      summary: Read one of my imports, with its preview while it waits
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/HistoryImportId'
+      responses:
+        '200':
+          description: The import
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryImport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/history-imports/{importId}/commit:
+    post:
+      tags: [Space Execution]
+      operationId: commitMyHistoryImport
+      x-allfit-operation: OP-EXE-028
+      x-allfit-cache: no-store
+      summary: Bring a staged import into my history, a part per call
+      description: >-
+        Each call brings in at most 25 staged sessions not already in the history,
+        finished and declared by the person, oldest first; a call's sessions enter
+        together or not at all. The answer is `committing` with `pending_count` while
+        sessions remain, and `committed` once none do: the client repeats the call, with
+        a new `Idempotency-Key` and the same body, until then. Every call stays short
+        however long the history is.
+
+
+        The first call fixes the commit: `timezone` is the zone the file's times are read
+        in, and `choices` say which movement each exercise name is (null: none); they are
+        remembered for the next import and every exercise name is resolved once, here. A
+        suggestion not confirmed is not used. A later call must name the same zone, or it
+        answers `409`; its `choices` are not read, so an app reopened half way continues
+        with `[]`. An import already committed, undone or expired answers `409` too.
+        Undoing a commit left half way annuls what entered and drops the rest.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/HistoryImportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryImportCommit'
+      responses:
+        '200':
+          description: This call's sessions entered; `committing` while more remain
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryImport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/history-imports/{importId}/undo:
+    post:
+      tags: [Space Execution]
+      operationId: undoMyHistoryImport
+      x-allfit-operation: OP-EXE-029
+      x-allfit-cache: no-store
+      summary: Take an import back out of my history
+      description: >-
+        Its sessions are annulled, as an annulment always is (ADR-038): marked, never
+        deleted. The same file can then be imported again. Undoing what was already undone
+        or expired answers the import as it is.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/HistoryImportId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: Undone
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryImport'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /space/v1/executions/{executionId}/results:
     put:
       tags: [Space Execution]
@@ -12044,6 +12270,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
+    HistoryImportId:
+      name: importId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV7'
     PersonId:
       name: personId
       in: path
@@ -16054,7 +16286,7 @@ components:
       type: object
       additionalProperties: false
       required: [executed_session_id, status, started_at, trained_on, title, is_free, discipline_code,
-        duration_seconds, work_sets, total_volume_kg, record_count, thumbnail_url]
+        duration_seconds, work_sets, total_volume_kg, record_count, thumbnail_url, source]
       properties:
         executed_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -16097,6 +16329,13 @@ components:
           description: >-
             The routine's cover, the same photograph its summary shows (ADR-037). Null for
             a free session, which has no routine.
+        source:
+          oneOf:
+            - $ref: '#/components/schemas/HistoryImportSource'
+            - type: 'null'
+          description: >-
+            The app it was brought from (ADR-044); null when trained here. An imported
+            session's title is the one it had there.
     SpaceHistoryPage:
       type: object
       additionalProperties: false
@@ -20259,7 +20498,7 @@ components:
       additionalProperties: false
       required: [executed_session_id, revision_number, started_at, ended_at, duration_seconds, title,
         planned_session_id, repeatable, session_number, work_sets, total_volume_kg, record_count,
-        previous, exercises]
+        previous, exercises, source, source_description]
       properties:
         executed_session_id:
           $ref: '#/components/schemas/Uuid'
@@ -20306,6 +20545,192 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SpaceFinishedExercise'
+        source:
+          oneOf:
+            - $ref: '#/components/schemas/HistoryImportSource'
+            - type: 'null'
+          description: The app it was brought from (ADR-044); null when trained here.
+        source_description:
+          type: [string, 'null']
+          description: The note the session had in that app.
+    HistoryImportSource:
+      type: string
+      enum: [hevy_csv]
+      description: Where an imported history came from (ADR-044). Grows with each reader.
+    HistoryImportUpload:
+      type: object
+      additionalProperties: false
+      required: [timezone, content]
+      properties:
+        timezone:
+          $ref: '#/components/schemas/IanaTimeZone'
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000000
+          description: >-
+            The exported file's text, as it is. Its times carry no zone and are read in
+            `timezone`, which the person can still change when committing.
+    HistoryImportCommit:
+      type: object
+      additionalProperties: false
+      required: [timezone, choices]
+      properties:
+        timezone:
+          $ref: '#/components/schemas/IanaTimeZone'
+        choices:
+          type: array
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/HistoryImportChoice'
+    HistoryImportChoice:
+      type: object
+      additionalProperties: false
+      required: [external_name, movement_id]
+      properties:
+        external_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        movement_id:
+          type: [string, 'null']
+          format: uuid
+          description: A published global movement, or null for none of them.
+    HistoryImportStatus:
+      type: string
+      enum: [staged, committing, committed, undone, expired]
+    HistoryImportIssue:
+      type: object
+      additionalProperties: false
+      required: [row, code]
+      description: A row of the file that was read but not taken whole.
+      properties:
+        row:
+          type: integer
+          minimum: 1
+        code:
+          type: string
+          enum: [unsupported_set, invalid_number, ended_before_start, empty_session]
+    HistoryImportResolution:
+      type: string
+      enum: [chosen, catalogue, suggested, unmatched]
+      description: >-
+        How a name met the catalogue: the person's earlier choice, a curated equivalence,
+        a suggestion to confirm, or nothing.
+    HistoryImportExercise:
+      type: object
+      additionalProperties: false
+      required: [external_name, source_name, session_count, set_count, resolution, movement]
+      properties:
+        external_name:
+          type: string
+          description: The name as a key; what a choice names.
+        source_name:
+          type: string
+        session_count:
+          type: integer
+          minimum: 0
+        set_count:
+          type: integer
+          minimum: 0
+        resolution:
+          $ref: '#/components/schemas/HistoryImportResolution'
+        movement:
+          oneOf:
+            - $ref: '#/components/schemas/HistoryImportMovement'
+            - type: 'null'
+    HistoryImportMovement:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+    HistoryImportPreview:
+      type: object
+      additionalProperties: false
+      required: [new_sessions, duplicate_sessions, first_started_local, last_started_local, exercises]
+      properties:
+        new_sessions:
+          type: integer
+          minimum: 0
+        duplicate_sessions:
+          type: integer
+          minimum: 0
+          description: Already in the history from an earlier import; they will not enter twice.
+        first_started_local:
+          type: [string, 'null']
+          description: Local date and time, `YYYY-MM-DDTHH:MM`, as the file wrote it.
+        last_started_local:
+          type: [string, 'null']
+        exercises:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryImportExercise'
+    HistoryImport:
+      type: object
+      additionalProperties: false
+      required: [id, source, status, timezone, session_count, set_count, imported_count,
+        pending_count, issues, created_at, committed_at, undone_at, expires_at, preview]
+      properties:
+        id:
+          $ref: '#/components/schemas/UuidV7'
+        source:
+          $ref: '#/components/schemas/HistoryImportSource'
+        status:
+          $ref: '#/components/schemas/HistoryImportStatus'
+        timezone:
+          type: string
+          maxLength: 64
+          description: The IANA zone the file's times are read in.
+        session_count:
+          type: integer
+          minimum: 0
+        set_count:
+          type: integer
+          minimum: 0
+        imported_count:
+          type: integer
+          minimum: 0
+          description: Sessions that have entered so far; zero before the commit begins.
+        pending_count:
+          type: [integer, 'null']
+          minimum: 0
+          description: While committing, the staged sessions still to go through; null otherwise.
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryImportIssue'
+        created_at:
+          type: string
+          format: date-time
+        committed_at:
+          type: [string, 'null']
+          format: date-time
+        undone_at:
+          type: [string, 'null']
+          format: date-time
+        expires_at:
+          type: [string, 'null']
+          format: date-time
+          description: While staged, when it stops waiting.
+        preview:
+          description: Only while staged; null otherwise and in the list.
+          oneOf:
+            - $ref: '#/components/schemas/HistoryImportPreview'
+            - type: 'null'
+    HistoryImportList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryImport'
     SpaceFinishedPrevious:
       type: object
       additionalProperties: false
@@ -20326,7 +20751,8 @@ components:
     SpaceFinishedExercise:
       type: object
       additionalProperties: false
-      required: [position, movement_id, movement, superset_group, record, best_set, sets]
+      required: [position, movement_id, movement, superset_group, record, best_set, sets, source_name,
+        source_note]
       properties:
         position:
           type: integer
@@ -20350,6 +20776,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SpaceFinishedSet'
+        source_name:
+          type: [string, 'null']
+          description: >-
+            The name it had in the app it was brought from; what to show when no movement
+            of the catalogue stands for it. Null when trained here.
+        source_note:
+          type: [string, 'null']
     SpaceBestSet:
       type: object
       additionalProperties: false

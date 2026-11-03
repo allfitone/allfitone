@@ -29,6 +29,7 @@ const item = (overrides: Partial<HistoryItem>): HistoryItem => ({
   total_volume_kg: 6240,
   record_count: 0,
   thumbnail_url: null,
+  source: null,
   ...overrides,
 })
 
@@ -64,6 +65,12 @@ describe('the history, grouped by week (H-2, H-6)', () => {
 })
 
 describe('what a history row says', () => {
+  test('T-SPC-UNIT-IMP-12 a session brought from Hevy is not called a free session', () => {
+    const imported = item({ is_free: true, source: 'hevy_csv', total_volume_kg: null })
+    expect(historyDetail(imported)).toBe('61 min · 18 series')
+    expect(historyDetail({ ...imported, source: null })).toBe('Entreno libre · 61 min · 18 series')
+  })
+
   test('T-SPC-UNIT-178 minutes, work sets and kilos, each only when there is one', () => {
     expect(historyDetail(item({}))).toBe('61 min · 18 series · 6.240 kg')
     expect(historyDetail(item({ total_volume_kg: null }))).toBe('61 min · 18 series')

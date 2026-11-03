@@ -3583,6 +3583,91 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/history-imports': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the histories I brought from other apps
+     * @description Newest first, without their previews. An expired one is still listed.
+     */
+    get: operations['listMyHistoryImports']
+    put?: never
+    /**
+     * Read a history exported by another app and hold it for review
+     * @description ADR-044. The file's text travels as it is and is read in the request; it is never stored. Which app it came from is decided by its header (today a Hevy CSV export). Nothing enters the history yet: the answer is a preview of what would, with how each exercise name meets the catalogue. The same file again answers the import already alive with `200`; `Command-Id` is a new import's identity.
+     *
+     *     A file that cannot be read answers `422` with one entry in `errors` whose `code` says why (`empty`, `too_large`, `unknown_format`, `malformed_csv`, `unreadable_date`) and whose `path` is `/content` or `/content/<row>`.
+     */
+    post: operations['stageMyHistoryImport']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/history-imports/{importId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Read one of my imports, with its preview while it waits */
+    get: operations['getMyHistoryImport']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/history-imports/{importId}/commit': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Bring a staged import into my history, a part per call
+     * @description Each call brings in at most 25 staged sessions not already in the history, finished and declared by the person, oldest first; a call's sessions enter together or not at all. The answer is `committing` with `pending_count` while sessions remain, and `committed` once none do: the client repeats the call, with a new `Idempotency-Key` and the same body, until then. Every call stays short however long the history is.
+     *
+     *     The first call fixes the commit: `timezone` is the zone the file's times are read in, and `choices` say which movement each exercise name is (null: none); they are remembered for the next import and every exercise name is resolved once, here. A suggestion not confirmed is not used. A later call must name the same zone, or it answers `409`; its `choices` are not read, so an app reopened half way continues with `[]`. An import already committed, undone or expired answers `409` too. Undoing a commit left half way annuls what entered and drops the rest.
+     */
+    post: operations['commitMyHistoryImport']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/history-imports/{importId}/undo': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take an import back out of my history
+     * @description Its sessions are annulled, as an annulment always is (ADR-038): marked, never deleted. The same file can then be imported again. Undoing what was already undone or expired answers the import as it is.
+     */
+    post: operations['undoMyHistoryImport']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/executions/{executionId}/results': {
     parameters: {
       query?: never
@@ -6259,6 +6344,8 @@ export interface components {
        * @description The routine's cover, the same photograph its summary shows (ADR-037). Null for a free session, which has no routine.
        */
       thumbnail_url: string | null
+      /** @description The app it was brought from (ADR-044); null when trained here. An imported session's title is the one it had there. */
+      source: components['schemas']['HistoryImportSource'] | null
     }
     SpaceHistoryPage: {
       window: components['schemas']['SpaceHistoryWindow']
@@ -8177,6 +8264,98 @@ export interface components {
       record_count: number
       previous: components['schemas']['SpaceFinishedPrevious'] | null
       exercises: components['schemas']['SpaceFinishedExercise'][]
+      /** @description The app it was brought from (ADR-044); null when trained here. */
+      source: components['schemas']['HistoryImportSource'] | null
+      /** @description The note the session had in that app. */
+      source_description: string | null
+    }
+    /**
+     * @description Where an imported history came from (ADR-044). Grows with each reader.
+     * @enum {string}
+     */
+    HistoryImportSource: 'hevy_csv'
+    HistoryImportUpload: {
+      timezone: components['schemas']['IanaTimeZone']
+      /** @description The exported file's text, as it is. Its times carry no zone and are read in `timezone`, which the person can still change when committing. */
+      content: string
+    }
+    HistoryImportCommit: {
+      timezone: components['schemas']['IanaTimeZone']
+      choices: components['schemas']['HistoryImportChoice'][]
+    }
+    HistoryImportChoice: {
+      external_name: string
+      /**
+       * Format: uuid
+       * @description A published global movement, or null for none of them.
+       */
+      movement_id: string | null
+    }
+    /** @enum {string} */
+    HistoryImportStatus: 'staged' | 'committing' | 'committed' | 'undone' | 'expired'
+    /** @description A row of the file that was read but not taken whole. */
+    HistoryImportIssue: {
+      row: number
+      /** @enum {string} */
+      code: 'unsupported_set' | 'invalid_number' | 'ended_before_start' | 'empty_session'
+    }
+    /**
+     * @description How a name met the catalogue: the person's earlier choice, a curated equivalence, a suggestion to confirm, or nothing.
+     * @enum {string}
+     */
+    HistoryImportResolution: 'chosen' | 'catalogue' | 'suggested' | 'unmatched'
+    HistoryImportExercise: {
+      /** @description The name as a key; what a choice names. */
+      external_name: string
+      source_name: string
+      session_count: number
+      set_count: number
+      resolution: components['schemas']['HistoryImportResolution']
+      movement: components['schemas']['HistoryImportMovement'] | null
+    }
+    HistoryImportMovement: {
+      /** Format: uuid */
+      id: string
+      name: string
+    }
+    HistoryImportPreview: {
+      new_sessions: number
+      /** @description Already in the history from an earlier import; they will not enter twice. */
+      duplicate_sessions: number
+      /** @description Local date and time, `YYYY-MM-DDTHH:MM`, as the file wrote it. */
+      first_started_local: string | null
+      last_started_local: string | null
+      exercises: components['schemas']['HistoryImportExercise'][]
+    }
+    HistoryImport: {
+      id: components['schemas']['UuidV7']
+      source: components['schemas']['HistoryImportSource']
+      status: components['schemas']['HistoryImportStatus']
+      /** @description The IANA zone the file's times are read in. */
+      timezone: string
+      session_count: number
+      set_count: number
+      /** @description Sessions that have entered so far; zero before the commit begins. */
+      imported_count: number
+      /** @description While committing, the staged sessions still to go through; null otherwise. */
+      pending_count: number | null
+      issues: components['schemas']['HistoryImportIssue'][]
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      committed_at: string | null
+      /** Format: date-time */
+      undone_at: string | null
+      /**
+       * Format: date-time
+       * @description While staged, when it stops waiting.
+       */
+      expires_at: string | null
+      /** @description Only while staged; null otherwise and in the list. */
+      preview: components['schemas']['HistoryImportPreview'] | null
+    }
+    HistoryImportList: {
+      data: components['schemas']['HistoryImport'][]
     }
     /** @description The last time the same routine was finished, before this one. */
     SpaceFinishedPrevious: {
@@ -8197,6 +8376,9 @@ export interface components {
       record: boolean
       best_set: components['schemas']['SpaceBestSet'] | null
       sets: components['schemas']['SpaceFinishedSet'][]
+      /** @description The name it had in the app it was brought from; what to show when no movement of the catalogue stands for it. Null when trained here. */
+      source_name: string | null
+      source_note: string | null
     }
     /** @description The work set with the highest estimated max, the first of equals. */
     SpaceBestSet: {
@@ -10540,6 +10722,7 @@ export interface components {
     TerminationRequestId: components['schemas']['Uuid']
     PlannedSessionId: components['schemas']['Uuid']
     ExecutionId: components['schemas']['Uuid']
+    HistoryImportId: components['schemas']['UuidV7']
     PersonId: components['schemas']['Uuid']
     GrantId: components['schemas']['Uuid']
     MealId: components['schemas']['Uuid']
@@ -17038,6 +17221,181 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ExecutionRepeated']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listMyHistoryImports: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description My imports */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoryImportList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  stageMyHistoryImport: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HistoryImportUpload']
+      }
+    }
+    responses: {
+      /** @description The same file was already imported or waiting; that import */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoryImport']
+        }
+      }
+      /** @description Staged, with its preview */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoryImport']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getMyHistoryImport: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        importId: components['parameters']['HistoryImportId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The import */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoryImport']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  commitMyHistoryImport: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        importId: components['parameters']['HistoryImportId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HistoryImportCommit']
+      }
+    }
+    responses: {
+      /** @description This call's sessions entered; `committing` while more remain */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoryImport']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  undoMyHistoryImport: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        importId: components['parameters']['HistoryImportId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Undone */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoryImport']
         }
       }
       400: components['responses']['BadRequest']

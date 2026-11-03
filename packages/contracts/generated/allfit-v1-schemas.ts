@@ -4605,6 +4605,280 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'string',
     enum: ['pain', 'limitation', 'recovery'],
   },
+  HistoryImport: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'source',
+      'status',
+      'timezone',
+      'session_count',
+      'set_count',
+      'imported_count',
+      'pending_count',
+      'issues',
+      'created_at',
+      'committed_at',
+      'undone_at',
+      'expires_at',
+      'preview',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      source: {
+        $ref: '#/components/schemas/HistoryImportSource',
+      },
+      status: {
+        $ref: '#/components/schemas/HistoryImportStatus',
+      },
+      timezone: {
+        type: 'string',
+        maxLength: 64,
+        description: "The IANA zone the file's times are read in.",
+      },
+      session_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      set_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      imported_count: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Sessions that have entered so far; zero before the commit begins.',
+      },
+      pending_count: {
+        type: ['integer', 'null'],
+        minimum: 0,
+        description: 'While committing, the staged sessions still to go through; null otherwise.',
+      },
+      issues: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/HistoryImportIssue',
+        },
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      committed_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      undone_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      expires_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+        description: 'While staged, when it stops waiting.',
+      },
+      preview: {
+        description: 'Only while staged; null otherwise and in the list.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/HistoryImportPreview',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  HistoryImportChoice: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['external_name', 'movement_id'],
+    properties: {
+      external_name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 200,
+      },
+      movement_id: {
+        type: ['string', 'null'],
+        format: 'uuid',
+        description: 'A published global movement, or null for none of them.',
+      },
+    },
+  },
+  HistoryImportCommit: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['timezone', 'choices'],
+    properties: {
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      choices: {
+        type: 'array',
+        maxItems: 1000,
+        items: {
+          $ref: '#/components/schemas/HistoryImportChoice',
+        },
+      },
+    },
+  },
+  HistoryImportExercise: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'external_name',
+      'source_name',
+      'session_count',
+      'set_count',
+      'resolution',
+      'movement',
+    ],
+    properties: {
+      external_name: {
+        type: 'string',
+        description: 'The name as a key; what a choice names.',
+      },
+      source_name: {
+        type: 'string',
+      },
+      session_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      set_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      resolution: {
+        $ref: '#/components/schemas/HistoryImportResolution',
+      },
+      movement: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/HistoryImportMovement',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  HistoryImportIssue: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['row', 'code'],
+    description: 'A row of the file that was read but not taken whole.',
+    properties: {
+      row: {
+        type: 'integer',
+        minimum: 1,
+      },
+      code: {
+        type: 'string',
+        enum: ['unsupported_set', 'invalid_number', 'ended_before_start', 'empty_session'],
+      },
+    },
+  },
+  HistoryImportList: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/HistoryImport',
+        },
+      },
+    },
+  },
+  HistoryImportMovement: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'name'],
+    properties: {
+      id: {
+        type: 'string',
+        format: 'uuid',
+      },
+      name: {
+        type: 'string',
+      },
+    },
+  },
+  HistoryImportPreview: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'new_sessions',
+      'duplicate_sessions',
+      'first_started_local',
+      'last_started_local',
+      'exercises',
+    ],
+    properties: {
+      new_sessions: {
+        type: 'integer',
+        minimum: 0,
+      },
+      duplicate_sessions: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Already in the history from an earlier import; they will not enter twice.',
+      },
+      first_started_local: {
+        type: ['string', 'null'],
+        description: 'Local date and time, `YYYY-MM-DDTHH:MM`, as the file wrote it.',
+      },
+      last_started_local: {
+        type: ['string', 'null'],
+      },
+      exercises: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/HistoryImportExercise',
+        },
+      },
+    },
+  },
+  HistoryImportResolution: {
+    type: 'string',
+    enum: ['chosen', 'catalogue', 'suggested', 'unmatched'],
+    description:
+      "How a name met the catalogue: the person's earlier choice, a curated equivalence, a suggestion to confirm, or nothing.",
+  },
+  HistoryImportSource: {
+    type: 'string',
+    enum: ['hevy_csv'],
+    description: 'Where an imported history came from (ADR-044). Grows with each reader.',
+  },
+  HistoryImportStatus: {
+    type: 'string',
+    enum: ['staged', 'committing', 'committed', 'undone', 'expired'],
+  },
+  HistoryImportUpload: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['timezone', 'content'],
+    properties: {
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      content: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 4000000,
+        description:
+          "The exported file's text, as it is. Its times carry no zone and are read in `timezone`, which the person can still change when committing.",
+      },
+    },
+  },
   IanaTimeZone: {
     type: 'string',
     minLength: 3,
@@ -11254,6 +11528,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'record_count',
       'previous',
       'exercises',
+      'source',
+      'source_description',
     ],
     properties: {
       executed_session_id: {
@@ -11321,6 +11597,21 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/SpaceFinishedExercise',
         },
       },
+      source: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/HistoryImportSource',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'The app it was brought from (ADR-044); null when trained here.',
+      },
+      source_description: {
+        type: ['string', 'null'],
+        description: 'The note the session had in that app.',
+      },
     },
   },
   SpaceFinishedExercise: {
@@ -11334,6 +11625,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'record',
       'best_set',
       'sets',
+      'source_name',
+      'source_note',
     ],
     properties: {
       position: {
@@ -11370,6 +11663,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/SpaceFinishedSet',
         },
+      },
+      source_name: {
+        type: ['string', 'null'],
+        description:
+          'The name it had in the app it was brought from; what to show when no movement of the catalogue stands for it. Null when trained here.',
+      },
+      source_note: {
+        type: ['string', 'null'],
       },
     },
   },
@@ -11518,6 +11819,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'total_volume_kg',
       'record_count',
       'thumbnail_url',
+      'source',
     ],
     properties: {
       executed_session_id: {
@@ -11571,6 +11873,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         format: 'uri',
         description:
           "The routine's cover, the same photograph its summary shows (ADR-037). Null for a free session, which has no routine.",
+      },
+      source: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/HistoryImportSource',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          "The app it was brought from (ADR-044); null when trained here. An imported session's title is the one it had there.",
       },
     },
   },

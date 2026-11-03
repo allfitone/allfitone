@@ -470,7 +470,8 @@ function week(row: WeekRow | undefined): WeekSummary {
   }
 }
 
-function transact<T>(
+/** Actor context is transaction-local, so it survives the pooler; shared with imports. */
+export function transact<T>(
   sql: ReturnType<typeof database>,
   personId: string,
   requestId: string,

@@ -406,9 +406,10 @@ select ok(exists (select 1 from pg_constraint
   || 'fails, add planning.detach_for_organization_closure to OP-ORG-012');
 select set_eq($$select table_name::text from information_schema.tables
     where table_schema = 'execution' and table_type = 'BASE TABLE'$$,
-  array['endurance_laps', 'executed_sessions', 'execution_revisions', 'interval_results',
-    'mobility_results', 'planned_session_executions', 'round_results', 'session_exercises',
-    'session_segments', 'strength_sets'],
+  array['endurance_laps', 'executed_sessions', 'execution_revisions', 'history_import_sessions',
+    'history_imports', 'imported_exercises', 'imported_sessions', 'interval_results',
+    'mobility_results', 'person_movement_choices', 'planned_session_executions', 'round_results',
+    'session_exercises', 'session_segments', 'strength_sets'],
   'T-ORG-CLOSURE-INT-20 Execution holds no correction proposals yet: when this fails, '
   || 'add execution.cancel_proposals_for_organization_closure to OP-ORG-012');
 

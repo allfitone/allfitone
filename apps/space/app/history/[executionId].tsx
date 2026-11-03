@@ -57,6 +57,7 @@ import {
 import { ApiError } from '../../src/client/index'
 import { SET_KIND_NAMES } from '../../src/client/set-scheme'
 import { durationLabel, groupsTitle } from '../../src/client/share-cards'
+import { sourceName } from '../../src/client/history-import'
 import { deviceTimezone } from '../../src/client/timezone'
 import { ActionRow } from '../../src/components/action-row'
 import { BodyFigure } from '../../src/components/body-figure'
@@ -401,10 +402,19 @@ function Hero({
           </Text>
           <Text role="body" size="sm" color="secondary">
             {[
-              detail.title ? `Rutina ${detail.title}` : 'Entreno libre',
+              detail.source
+                ? `${detail.title ?? 'Sesión'} · De ${sourceName(detail.source) ?? 'otra app'}`
+                : detail.title
+                  ? `Rutina ${detail.title}`
+                  : 'Entreno libre',
               whenRange(detail, timeZone),
             ].join(' · ')}
           </Text>
+          {detail.source_description ? (
+            <Text role="body" size="sm" color="muted">
+              {detail.source_description}
+            </Text>
+          ) : null}
         </View>
         {lit.length > 0 ? (
           <View style={styles.figures} accessible={false}>
@@ -475,7 +485,7 @@ function ExerciseCard({
         </View>
         <View style={styles.grow}>
           <Text role="control" size="md" numberOfLines={2}>
-            {exercise.movement ?? 'Ejercicio'}
+            {exercise.movement ?? exercise.source_name ?? 'Ejercicio'}
           </Text>
           {best ? (
             <Text role="body" size="sm" color="secondary">

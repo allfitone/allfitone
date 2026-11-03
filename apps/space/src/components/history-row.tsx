@@ -27,6 +27,7 @@ import type { ReactNode } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import { dayParts, historyDetail, recordsLine, type HistoryItem } from '../client/history'
+import { sourceName } from '../client/history-import'
 
 /** Hoy's thumbnail is a step larger than the full list's, as H-2 and H-6 draw it. */
 const SIZES = {
@@ -104,6 +105,9 @@ export function HistoryRow({
   const name = (item.title ?? (item.is_free ? 'Entreno libre' : 'Sesión')).toUpperCase()
   const detail = historyDetail(item)
   const below = records ?? extra
+  // A session brought from another app says so, wherever the row is drawn (ADR-044).
+  const imported = sourceName(item.source)
+  const shownTag = tag ?? (imported ? { label: imported, icon: 'history' as const } : undefined)
 
   return (
     <Pressable
@@ -142,7 +146,7 @@ export function HistoryRow({
           />
         ) : (
           <FoundationIcon
-            name={item.is_free ? 'freestyle' : 'training'}
+            name={imported ? 'history' : item.is_free ? 'freestyle' : 'training'}
             customSize={22}
             color={theme.color.icon.accent}
             decorative
@@ -176,18 +180,18 @@ export function HistoryRow({
           <Text role="poster" size="md" uppercase numberOfLines={1} style={styles.shrink}>
             {name}
           </Text>
-          {tag ? (
+          {shownTag ? (
             <View style={[styles.tag, { backgroundColor: `${theme.color.text.secondary}1F` }]}>
-              {tag.icon ? (
+              {shownTag.icon ? (
                 <FoundationIcon
-                  name={tag.icon}
+                  name={shownTag.icon}
                   customSize={10}
                   color={theme.color.text.secondary}
                   decorative
                 />
               ) : null}
               <Text role="eyebrow" size="2xs" color="secondary" uppercase>
-                {tag.label}
+                {shownTag.label}
               </Text>
             </View>
           ) : null}
