@@ -265,6 +265,32 @@ export type Database = {
         }
         Relationships: []
       }
+      external_movement_names: {
+        Row: {
+          external_name: string
+          movement_id: string
+          source: string
+        }
+        Insert: {
+          external_name: string
+          movement_id: string
+          source: string
+        }
+        Update: {
+          external_name?: string
+          movement_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_external_movement_names_movement'
+            columns: ['movement_id']
+            isOneToOne: false
+            referencedRelation: 'movements'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       movement_aliases: {
         Row: {
           id: string
@@ -913,6 +939,7 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: Json
       }
+      suggest_movement: { Args: { p_name: string }; Returns: string }
     }
     Enums: {
       activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
