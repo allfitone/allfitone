@@ -283,7 +283,7 @@ alter function catalog.suggest_movement(text) owner to allfit_owner;
 revoke all on function catalog.suggest_movement(text) from public;
 
 -- Every distinct name of a staged import, with how it meets the catalogue today.
-create function execution.history_import_names(p_person_id uuid, p_import_id uuid)
+create function execution.history_import_names(p_person_id uuid, p_import_id uuid, p_suggest boolean)
 returns table (
   external_name text,
   source_name text,
@@ -330,13 +330,16 @@ as $function$
    and choice.external_name = grouped.external_name
   left join catalog.external_movement_names as curated
     on curated.source = import.source and curated.external_name = grouped.external_name
-  left join lateral (select catalog.suggest_movement(grouped.source_name) as id) as suggested
-    on choice.person_id is null and curated.movement_id is null
+  -- Inside the lateral, so a name already answered never pays for a suggestion.
+  left join lateral (
+    select catalog.suggest_movement(grouped.source_name) as id
+    where p_suggest and choice.person_id is null and curated.movement_id is null
+  ) as suggested on true
   order by grouped.set_count desc, grouped.external_name
 $function$;
 
-alter function execution.history_import_names(uuid, uuid) owner to allfit_owner;
-revoke all on function execution.history_import_names(uuid, uuid) from public;
+alter function execution.history_import_names(uuid, uuid, boolean) owner to allfit_owner;
+revoke all on function execution.history_import_names(uuid, uuid, boolean) from public;
 
 -- ———————————————————————————————————————— what an import says about itself
 
@@ -372,7 +375,7 @@ begin
           'resolution', name.resolution,
           'movement', case when movement.id is null then null
                            else jsonb_build_object('id', movement.id, 'name', movement.name) end))
-        from execution.history_import_names(p_person_id, p_import_id) as name
+        from execution.history_import_names(p_person_id, p_import_id, true) as name
         left join catalog.movements as movement on movement.id = name.movement_id), '[]'::jsonb))
     into staged
     from execution.history_import_sessions as session
@@ -580,7 +583,7 @@ begin
   -- A suggestion the person did not confirm is not used: only choices and curation count.
   select coalesce(jsonb_object_agg(name.external_name, name.movement_id), '{}'::jsonb)
   into resolved
-  from execution.history_import_names(p_person_id, p_import_id) as name
+  from execution.history_import_names(p_person_id, p_import_id, false) as name
   where name.resolution in ('chosen', 'catalogue');
 
   select activity.id as activity_type_id, association.result_contract_id, published.version_number
