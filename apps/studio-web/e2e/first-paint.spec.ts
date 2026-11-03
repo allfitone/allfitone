@@ -25,7 +25,7 @@ test.describe('server-rendered first paint', () => {
   test.use({ javaScriptEnabled: false })
 
   test('offers the privacy control without opening the consent panel', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/es')
 
     await expect(page.getByRole('button', { name: 'Privacidad' })).toBeVisible()
     await expect(page.getByText('Analítica opcional')).toHaveCount(0)
@@ -33,9 +33,21 @@ test.describe('server-rendered first paint', () => {
   })
 
   test('does not announce a setup step it has not resolved', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/es')
 
     await expect(page.locator('[data-studio-progress]')).toHaveCount(0)
+  })
+
+  // The landing is public, so it has nothing to wait for. Its way in points at
+  // the workspace entry until a script can tell who is here.
+  test('paints the landing itself rather than an empty frame', async ({ page }) => {
+    await page.goto('/es')
+
+    await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toHaveAttribute(
+      'href',
+      '/app',
+    )
   })
 })
 
@@ -45,7 +57,7 @@ test('an undecided visitor still gets the consent panel once it is known', async
   await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
     consent: 'undecided',
   })
-  await page.goto('/')
+  await page.goto('/es')
 
   await expect(page.getByText('Analítica opcional')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Permitir analítica' })).toBeVisible()
@@ -53,7 +65,7 @@ test('an undecided visitor still gets the consent panel once it is known', async
 
 test('a decided visitor never sees the consent panel', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
-  await page.goto('/')
+  await page.goto('/es')
 
   await expect(page.getByRole('button', { name: 'Privacidad' })).toBeVisible()
   await expect(page.getByText('Analítica opcional')).toHaveCount(0)
@@ -61,7 +73,7 @@ test('a decided visitor never sees the consent panel', async ({ page }) => {
 
 test('the setup progress appears once the step is actually known', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture())
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   // The space setup screen does know where the person is, so it says so. This
@@ -100,7 +112,8 @@ test('a reload that already knows the answer never paints a loading card', async
   })
   await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
 
-  await page.goto('/')
+  await page.goto('/app')
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   expect(await seen(), 'the loading card painted on a reload that needed no wait').toBe(false)
@@ -120,7 +133,7 @@ test('a wait long enough to feel is still announced', async ({ page }) => {
     }),
   )
 
-  await page.goto('/')
+  await page.goto('/app')
 
   // Nothing is claimed immediately, and the indicator arrives once the wait has
   // earned it rather than being suppressed outright.

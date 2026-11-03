@@ -212,7 +212,7 @@ export function OrganizationContextBoundary({
               No tienes una membresía activa para esta organización.
             </AlertDescription>
             <AlertAction>
-              <Button onClick={() => router.replace('/')}>Elegir otro espacio</Button>
+              <Button onClick={() => router.replace('/app')}>Elegir otro espacio</Button>
             </AlertAction>
           </Alert>
         </div>

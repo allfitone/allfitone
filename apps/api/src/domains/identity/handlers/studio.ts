@@ -27,6 +27,9 @@ const SESSION_COOKIE_PATH = '/studio/v1'
 export function studioIdentityRoutes(injectedService?: StudioSessionService): Hono {
   const callback = callbackUrl()
   const studioWebUrl = trustedStudioWebUrl()
+  // Signing in lands on the workspace entry; signing out still returns to the
+  // public landing at `studioWebUrl` itself.
+  const studioEntryUrl = `${studioWebUrl}/app`
   const studioOrigin = new URL(studioWebUrl).origin
   const sessions = () => injectedService ?? studioSessionService()
   const routes = new Hono()
@@ -107,7 +110,7 @@ export function studioIdentityRoutes(injectedService?: StudioSessionService): Ho
       const result = await sessions().completeCode(code)
       setCookie(c, STUDIO_SESSION_COOKIE, result.opaqueToken, sessionCookieOptions())
       recordStudioAuthCallback('succeeded')
-      return c.redirect(studioWebUrl, 303)
+      return c.redirect(studioEntryUrl, 303)
     } catch (error) {
       recordStudioAuthCallback('failed', 'authentication-failed')
       return sessionFailure(c, error, 'authentication callback failed')

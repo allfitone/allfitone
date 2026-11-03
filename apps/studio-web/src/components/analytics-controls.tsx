@@ -15,8 +15,37 @@ import {
   studioTelemetrySnapshot,
   subscribeStudioTelemetry,
 } from '@/lib/telemetry'
+import type { Locale } from '@/lib/locale'
 
-export function AnalyticsControls() {
+/**
+ * The panel opens on a visitor's first page, which may be the English landing,
+ * so it speaks the page's language. The workspace always passes Spanish.
+ */
+const COPY = {
+  es: {
+    label: 'Preferencias de analítica',
+    title: 'Analítica opcional',
+    text: 'Ayúdanos a medir rendimiento y uso con un identificador seudónimo. No capturamos contenido, nombres, correos ni datos de salud.',
+    notice: 'Leer el aviso completo',
+    privacySignal: 'La señal de privacidad de este dispositivo mantiene la analítica desactivada.',
+    allow: 'Permitir analítica',
+    deny: 'No permitir',
+    reopen: 'Privacidad',
+  },
+  en: {
+    label: 'Analytics preferences',
+    title: 'Optional analytics',
+    text: 'Help us measure performance and usage with a pseudonymous identifier. We do not capture content, names, emails or health data.',
+    notice: 'Read the full notice',
+    privacySignal: "This device's privacy signal keeps analytics turned off.",
+    allow: 'Allow analytics',
+    deny: 'Do not allow',
+    reopen: 'Privacy',
+  },
+} satisfies Record<Locale, Record<string, string>>
+
+export function AnalyticsControls({ locale }: { locale: Locale }) {
+  const copy = COPY[locale]
   const telemetry = useSyncExternalStore(
     subscribeStudioTelemetry,
     studioTelemetrySnapshot,
@@ -52,28 +81,21 @@ export function AnalyticsControls() {
   // opening the panel first would ask again of everyone who already answered.
   const open = telemetry.resolved && (telemetry.decision === 'undecided' || expanded)
   return (
-    <aside
-      data-analytics-controls
-      data-expanded={open ? 'true' : 'false'}
-      aria-label="Preferencias de analítica"
-    >
+    <aside data-analytics-controls data-expanded={open ? 'true' : 'false'} aria-label={copy.label}>
       {open ? (
         <div data-analytics-panel>
-          <strong>Analítica opcional</strong>
-          <p>
-            Ayúdanos a medir rendimiento y uso con un identificador seudónimo. No capturamos
-            contenido, nombres, correos ni datos de salud.
-          </p>
+          <strong>{copy.title}</strong>
+          <p>{copy.text}</p>
           <a
             data-analytics-notice-link
             href={ANALYTICS_PRIVACY_NOTICE_URL}
             target="_blank"
             rel="noopener noreferrer"
           >
-            Leer el aviso completo
+            {copy.notice}
           </a>
           {telemetry.privacySignalDenied ? (
-            <p>La señal de privacidad de este dispositivo mantiene la analítica desactivada.</p>
+            <p>{copy.privacySignal}</p>
           ) : (
             <div data-analytics-actions>
               <Button
@@ -84,7 +106,7 @@ export function AnalyticsControls() {
                   setExpanded(false)
                 }}
               >
-                Permitir analítica
+                {copy.allow}
               </Button>
               <Button
                 type="button"
@@ -95,7 +117,7 @@ export function AnalyticsControls() {
                   setExpanded(false)
                 }}
               >
-                No permitir
+                {copy.deny}
               </Button>
             </div>
           )}
@@ -107,7 +129,7 @@ export function AnalyticsControls() {
         // a boundary that thin delimits nothing and the control reads as loose
         // text. A floating control needs to carry its own surface.
         <Button type="button" size="sm" variant="secondary" onClick={() => setExpanded(true)}>
-          Privacidad
+          {copy.reopen}
         </Button>
       )}
     </aside>

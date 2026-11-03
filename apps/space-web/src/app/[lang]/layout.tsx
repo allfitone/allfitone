@@ -9,6 +9,7 @@ import { isLocale, LOCALES } from '@/lib/locale'
 import { alternates, SITE_URL } from '@/lib/site'
 
 import '@allfitone/react/tokens.css'
+import '@allfitone/react/styles.css'
 import '../space.css'
 
 const display = Barlow_Condensed({

@@ -53,7 +53,7 @@ export function ProfessionalProfileScreen() {
         error instanceof StudioApiError &&
         (error.status === 401 || error.code === 'registration-incomplete')
       ) {
-        router.replace('/')
+        router.replace('/app')
         return true
       }
       return false
@@ -95,7 +95,7 @@ export function ProfessionalProfileScreen() {
   }
 
   return (
-    <AccountShell onSpaces={() => router.push('/')}>
+    <AccountShell onSpaces={() => router.push('/app')}>
       {/* A refresh of what is already on screen, never a first load. Gated on
           `catalogsEnabled` it also fired while the catalogues loaded for the first
           time, so "Actualizando tu cuenta…" sat above the catalogue loader. */}

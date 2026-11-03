@@ -247,13 +247,13 @@ export function TeamInvitationDecision() {
   if (flow.kind === 'invalid') {
     return (
       // The only terminal stage that offered no way out. Every path here clears
-      // the stored token first or never had one, so returning to `/` cannot
-      // bounce back to `/invitations`, and `/` routes each person on its own.
+      // the stored token first or never had one, so returning to `/app` cannot
+      // bounce back to `/invitations`, and `/app` routes each person on its own.
       <InvitationMessage
         title="Esta invitación ya no está disponible"
         description="Puede haber vencido, sido revocada o ya haberse decidido. Si aún quieres unirte, pide a quien te invitó que te envíe una nueva."
       >
-        <Button onClick={() => router.replace('/')}>Volver a Studio</Button>
+        <Button onClick={() => router.replace('/app')}>Volver a Studio</Button>
       </InvitationMessage>
     )
   }
@@ -277,7 +277,7 @@ export function TeamInvitationDecision() {
   if (flow.kind === 'rejected') {
     return (
       <InvitationMessage title="Rechazaste la invitación" description={flow.description}>
-        <Button onClick={() => router.replace('/')}>Volver a Studio</Button>
+        <Button onClick={() => router.replace('/app')}>Volver a Studio</Button>
       </InvitationMessage>
     )
   }

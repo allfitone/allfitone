@@ -18,7 +18,7 @@ export function Stores({ copy }: { copy: Dictionary['stores'] }) {
     <div className="stores">
       {STORES.map(({ key, url }) =>
         url ? (
-          <a key={key} className="store" href={url} rel="noopener">
+          <a key={key} className="store" href={url} rel="noopener noreferrer">
             <small>{copy.download}</small>
             <strong>{copy[key]}</strong>
           </a>

@@ -1,244 +1,610 @@
 'use client'
 
-import { BrandLockup, ProductWordmark } from '@allfitone/react/brand'
+import { ProductLockup } from '@allfitone/react/brand'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { AccessHeader, AccessShell } from '@allfitone/react/components/access-shell'
 import { buttonVariants } from '@allfitone/react/components/button'
-import { ForwardIcon, FoundationIcon, type IconName } from '@allfitone/react/icons'
+import {
+  SiteContainer,
+  SiteFooter,
+  SiteFooterBar,
+  SiteFooterLink,
+  SiteFooterLinks,
+  SiteFooterMeta,
+  SiteFooterParent,
+  SiteFooterPartner,
+  SiteFooterPartnerLegal,
+  SiteFooterPartnerText,
+  SiteHeader,
+  SiteHeaderActions,
+  SiteHeaderHome,
+  SiteHeaderLink,
+  SiteHeaderNav,
+  SiteLanguageLink,
+  SiteLanguageSwitch,
+} from '@allfitone/react/components/site-shell'
+import { ExternalIcon, ForwardIcon, FoundationIcon, type IconName } from '@allfitone/react/icons'
+import Image from 'next/image'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState, type MouseEvent } from 'react'
 
-import { prepareStudioAuthentication } from '@/lib/session-activity'
+import type { Dictionary } from '@/content'
+import { useLandingMotion } from './landing-motion'
+import { readPendingInvitationToken } from '@/lib/invitation-token'
+import { LOCALES, type Locale } from '@/lib/locale'
+import { prepareStudioAuthentication, readStudioSessionActivity } from '@/lib/session-activity'
 import { studioApi } from '@/lib/studio-api'
 
 /**
  * What a signed-out visitor to studio.allfit.one sees first: what Studio is,
- * then the way in. Copy follows the Studio section of allfitone-landing-page,
- * so the public site and the product never describe Studio differently.
+ * then the way in. It belongs to the same family as the Allfit Space landing —
+ * the shared site header and footer, its condensed display titles and tall
+ * product cards — on a white canvas instead of Space's night.
  *
- * Signing in and creating an account are one hosted flow: there is a single
- * `auth/start`, and a first visit continues into activation and space setup.
+ * One idea carries the page: what a client logs in Space arrives in Studio. The
+ * client's data is always drawn on a dark surface (Space's world) set inside the
+ * white workspace, so the hero sheet, the sharing card and the session cards all
+ * say the same thing without a caption.
+ *
+ * Every product object is illustrative, never live data. Signing in and creating
+ * an account are one hosted flow: there is a single `auth/start`.
+ *
+ * The page is public and asks the API nothing, so it paints from the server.
+ * Who is here is only asked once somebody asks to enter — see `enterStudio`.
+ *
+ * It speaks Spanish and English, at `/es` and `/en`. Its words come from
+ * `@/content`; what stays the same in both languages is declared below.
  */
 
-const parentSiteUrl = 'https://www.allfit.one/es'
+const AUTH_START_URL = `${studioApi.apiUrl}/studio/v1/auth/start`
+const WORKSPACE_ENTRY = '/app'
 
-const principles = [
-  {
-    title: 'Cada persona entra con su identidad',
-    description:
-      'La relación comienza cuando acepta una invitación. Studio usa su Fitness ID y solo muestra los datos que decidió compartir.',
-  },
-  {
-    title: 'Compara el plan con lo que ocurrió',
-    description:
-      'Studio conserva cada versión del programa y la compara con lo que la persona registró en sus sesiones.',
-  },
-  {
-    title: 'Cada persona decide qué comparte',
-    description:
-      'El acceso depende de una relación, una autorización y una asignación vigentes. Ser dueño o administrador no basta.',
-  },
-  {
-    title: 'Los cobros llegan a tu organización',
-    description: 'Cada pago pasa por tu propia pasarela. Allfit no recibe ni retiene el dinero.',
-  },
+const NVIDIA_TRADEMARK =
+  '© 2026 NVIDIA, the NVIDIA logo, and NVIDIA Inception are trademarks and/or registered trademarks of NVIDIA Corporation in the U.S. and other countries.'
+
+type Tone = 'solid' | 'ghost' | 'accent'
+
+/** A display title whose lines rise one after another, as on the Space landing:
+ *  the hero's on load, every other one the first time it scrolls into view. */
+function Title({
+  as: Tag = 'h2',
+  id,
+  lines,
+  tones = [],
+}: {
+  as?: 'h1' | 'h2'
+  id: string
+  lines: readonly string[]
+  tones?: readonly Tone[]
+}) {
+  return (
+    <Tag
+      id={id}
+      data-studio-display={Tag === 'h1' ? 'hero' : 'section'}
+      data-reveal={Tag === 'h1' ? undefined : 'mask'}
+    >
+      {lines.map((line, index) => (
+        <span
+          key={line}
+          data-studio-display-line
+          data-line={index}
+          data-tone={tones[index] ?? 'solid'}
+        >
+          <span>{line}</span>
+        </span>
+      ))}
+    </Tag>
+  )
+}
+
+/** Illustrative only: one client's session, planned against logged. */
+const SHEET_ROWS = [
+  { exercise: 'squat', planned: '4 × 6', logged: '4 × 6' },
+  { exercise: 'bench', planned: '4 × 8', logged: '3 × 8', direction: 'below' },
+  { exercise: 'row', planned: '3 × 10', logged: '3 × 12', direction: 'above' },
+  { exercise: 'deadlift', planned: '3 × 8', logged: '3 × 8' },
 ] as const
 
-const modules: readonly { icon: IconName; name: string; description: string }[] = [
-  {
-    icon: 'people',
-    name: 'Personas',
-    description: 'Invitaciones, relaciones y seguimiento de clientes',
-  },
-  {
-    icon: 'training',
-    name: 'Entrenamiento',
-    description: 'Plantillas, programas, asignaciones e historial de versiones',
-  },
-  {
-    icon: 'progress',
-    name: 'Progreso',
-    description: 'Sesiones registradas, adherencia y resultados compartidos',
-  },
-  { icon: 'team', name: 'Equipo', description: 'Miembros, roles y permisos' },
-  { icon: 'business', name: 'Planes', description: 'Planes que vendes y suscripciones activas' },
+const ROSTER = [
+  { key: 'laura', initials: 'LM', name: 'Laura Méndez' },
+  { key: 'camilo', initials: 'CR', name: 'Camilo Rojas' },
+  { key: 'valentina', initials: 'VP', name: 'Valentina Pardo' },
+] as const
+
+const STEPS = ['invite', 'versions', 'week'] as const
+
+const VERSIONS = [
+  { label: 'v3', current: true },
+  { label: 'v2', current: false },
+  { label: 'v1', current: false },
+] as const
+
+const WEEK = [
+  { day: 'mon', done: 4, planned: 4 },
+  { day: 'tue', done: 0, planned: 0 },
+  { day: 'wed', done: 5, planned: 5 },
+  { day: 'thu', done: 0, planned: 0 },
+  { day: 'fri', done: 3, planned: 4 },
+  { day: 'sat', done: 0, planned: 3 },
+] as const
+
+const SHARING = [
+  { category: 'training', shared: true },
+  { category: 'progress', shared: true },
+  { category: 'nutrition', shared: false },
+  { category: 'health', shared: false },
+] as const
+
+const PILLARS: readonly { key: keyof Dictionary['privacy']['pillars']; icon: IconName }[] = [
+  { key: 'consent', icon: 'permissions' },
+  { key: 'purpose', icon: 'locked' },
+  { key: 'history', icon: 'history' },
 ]
 
-const upcoming = ['Agenda y reservas', 'Clases y cupos', 'Página pública', 'Marketplace'] as const
+const MODULES: readonly { key: keyof Dictionary['modules']['items']; icon: IconName }[] = [
+  { key: 'people', icon: 'people' },
+  { key: 'training', icon: 'training' },
+  { key: 'progress', icon: 'progress' },
+  { key: 'team', icon: 'team' },
+  { key: 'plans', icon: 'business' },
+]
 
-/** Illustrative only: one client's week, planned against logged. Not product data. */
-const preview = {
-  client: 'Laura Méndez',
-  program: 'Fuerza · Programa v3 · Semana 4',
-  shared: 'Comparte contigo su entrenamiento y su progreso.',
-  columns: ['Ejercicio', 'Plan', 'Registró'],
-  rows: [
-    { exercise: 'Sentadilla trasera', planned: '4 × 6', logged: '4 × 6' },
-    { exercise: 'Press de banca', planned: '4 × 8', logged: '3 × 8', change: 'Una serie menos' },
-    {
-      exercise: 'Remo con barra',
-      planned: '3 × 10',
-      logged: '3 × 12',
-      change: 'Dos repeticiones más',
-    },
-    { exercise: 'Peso muerto rumano', planned: '3 × 8', logged: '3 × 8' },
-  ],
-} as const
+function SharingList({ copy }: { copy: Dictionary['sharing'] }) {
+  return (
+    <ul data-studio-object-list>
+      {SHARING.map((item) => (
+        <li key={item.category} data-shared={item.shared ? 'true' : 'false'}>
+          <span>{copy.categories[item.category]}</span>
+          <span data-studio-object-state>{item.shared ? copy.shared : copy.notShared}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
 
-export function StudioLanding({ logoutPartial }: { logoutPartial: boolean }) {
-  const authStart = `${studioApi.apiUrl}/studio/v1/auth/start`
+function StepObject({ kind, copy }: { kind: (typeof STEPS)[number]; copy: Dictionary }) {
+  if (kind === 'invite') {
+    return (
+      <div data-studio-object="invite" data-afo-theme="dark">
+        <div data-studio-object-person>
+          <span data-studio-avatar>CR</span>
+          <span>
+            <strong>Camilo Rojas</strong>
+            <small>{copy.people.camilo}</small>
+          </span>
+        </div>
+        <SharingList copy={copy.sharing} />
+      </div>
+    )
+  }
+
+  if (kind === 'versions') {
+    return (
+      <div data-studio-object="versions">
+        <p data-studio-object-heading>
+          <strong>{copy.how.versions.template}</strong>
+          <small>Laura Méndez</small>
+        </p>
+        <ol data-studio-versions>
+          {VERSIONS.map((version) => (
+            <li key={version.label} data-current={version.current ? 'true' : undefined}>
+              <span data-studio-version-label>{version.label}</span>
+              <span>{copy.how.versions.notes[version.label]}</span>
+              {version.current ? (
+                <span data-studio-version-current>{copy.how.versions.current}</span>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </div>
+    )
+  }
 
   return (
-    <AccessShell>
-      <AccessHeader>
-        <ProductWordmark
-          product="studio"
-          surface="light"
-          title="Allfit Studio"
-          width={138}
-          height={28}
-        />
-        {/* No link here: on a phone the first-visit consent panel opens over this
-            corner, and the footer already leads to Allfit One. */}
-      </AccessHeader>
+    <div data-studio-object="week" data-afo-theme="dark">
+      <p data-studio-object-heading>
+        <strong>{copy.how.week.title}</strong>
+        <small>{copy.how.week.count}</small>
+      </p>
+      <ol data-studio-week>
+        {WEEK.map((day) => (
+          <li
+            key={day.day}
+            data-rest={day.planned === 0 ? 'true' : undefined}
+            data-planned={day.planned}
+            data-done={day.done}
+          >
+            <span data-studio-week-bar>
+              <span data-studio-week-fill />
+            </span>
+            <span data-studio-week-day>{copy.how.week.days[day.day]}</span>
+          </li>
+        ))}
+      </ol>
+      <p data-studio-object-note>{copy.how.week.note}</p>
+    </div>
+  )
+}
 
-      <main data-studio-landing>
-        <section data-studio-landing-hero aria-labelledby="studio-landing-title">
-          <div data-studio-landing-intro>
-            {logoutPartial ? (
-              <Alert variant="warning" live="polite">
-                <AlertTitle>La sesión se cerró en este equipo</AlertTitle>
-                <AlertDescription>
-                  No pudimos confirmar todo el cierre remoto. Si vuelves a entrar, completa de nuevo
-                  el acceso con el proveedor de identidad.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            <h1 id="studio-landing-title" data-studio-landing-title>
-              Organiza tu negocio sin perder de vista a tus clientes.
-            </h1>
-            <p data-studio-landing-lead>
-              Un solo panel para gestionar clientes, planificación, progreso y operación, conectado
-              con el Fitness ID de cada persona.
-            </p>
-            <div data-studio-landing-actions>
+/**
+ * Where "Entrar" goes is decided on click, because only this browser knows
+ * whether it holds a Studio session. Known absent: straight to the provider.
+ * Anything else goes to the workspace entry, whose guard verifies before it
+ * trusts — a session ended here may still be open at the API. The anchor keeps
+ * that safe target until hydration, and the default action reads the href
+ * after this handler, so new tabs and modifier keys still behave as links do.
+ */
+function enterStudio(event: MouseEvent<HTMLAnchorElement>): void {
+  const stored = readStudioSessionActivity()
+  const signedOut =
+    stored === undefined || (stored.status === 'ended' && stored.confirmedAt !== undefined)
+  if (signedOut) prepareStudioAuthentication()
+  event.currentTarget.href = signedOut ? AUTH_START_URL : WORKSPACE_ENTRY
+}
+
+/**
+ * The API returns here with `?logout=partial` when only this browser's half of
+ * the close could be confirmed. Read once, then dropped from the address bar so
+ * a reload does not repeat it; Next's own history state keeps the router out.
+ */
+function PartialLogoutNotice({ copy }: { copy: Dictionary['partialLogout'] }) {
+  const searchParams = useSearchParams()
+  const [partial] = useState(() => searchParams.get('logout') === 'partial')
+
+  useEffect(() => {
+    if (!partial) return
+    const url = new URL(window.location.href)
+    url.searchParams.delete('logout')
+    window.history.replaceState(window.history.state, '', url)
+  }, [partial])
+
+  if (!partial) return null
+  return (
+    <Alert variant="warning" live="polite">
+      <AlertTitle>{copy.title}</AlertTitle>
+      <AlertDescription>{copy.description}</AlertDescription>
+    </Alert>
+  )
+}
+
+export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictionary }) {
+  const router = useRouter()
+  const site = useRef<HTMLDivElement>(null)
+  useLandingMotion(site)
+  const parentSiteUrl = `https://www.allfit.one/${locale}`
+  const spaceSiteUrl = `https://space.allfit.one/${locale}`
+
+  // A tab that opened an invitation belongs on it, including after a close the
+  // recovery lock forced on the way: that close always returns here.
+  useEffect(() => {
+    if (readPendingInvitationToken()) router.replace('/invitations')
+  }, [router])
+
+  return (
+    <div data-studio-site ref={site}>
+      <div data-studio-scroll-progress aria-hidden="true" />
+      <SiteHeader>
+        {/* Not a link: this page is home. */}
+        <SiteHeaderHome render={<div />}>
+          <ProductLockup product="studio" surface="light" title="Allfit Studio" />
+        </SiteHeaderHome>
+        <SiteHeaderNav aria-label={copy.nav.label}>
+          <SiteHeaderLink href="#como-funciona">{copy.nav.how}</SiteHeaderLink>
+          <SiteHeaderLink href="#privacidad">{copy.nav.privacy}</SiteHeaderLink>
+          <SiteHeaderLink href="#modulos">{copy.nav.modules}</SiteHeaderLink>
+        </SiteHeaderNav>
+        <SiteHeaderActions>
+          <SiteLanguageSwitch aria-label={copy.nav.language}>
+            {LOCALES.map((option) => (
+              <SiteLanguageLink
+                key={option}
+                render={<Link href={`/${option}`} />}
+                hrefLang={option}
+                lang={option}
+                current={option === locale}
+              >
+                {option.toUpperCase()}
+              </SiteLanguageLink>
+            ))}
+          </SiteLanguageSwitch>
+          {/* It steps aside with the section links below 60rem, where the hero's
+              own way in is on screen and the consent panel needs the room. */}
+          <a
+            data-studio-header-action
+            data-slot="button"
+            data-variant="outline"
+            className={buttonVariants({ variant: 'outline' })}
+            href={WORKSPACE_ENTRY}
+            onClick={enterStudio}
+          >
+            {copy.nav.enter}
+          </a>
+        </SiteHeaderActions>
+      </SiteHeader>
+
+      <main id="contenido" data-studio-landing>
+        <section data-studio-hero aria-labelledby="studio-landing-title">
+          <SiteContainer data-studio-hero-grid>
+            <div data-studio-hero-copy>
+              {/* Only this notice depends on the address, so only it waits for the client. */}
+              <Suspense fallback={null}>
+                <PartialLogoutNotice copy={copy.partialLogout} />
+              </Suspense>
+              <Title
+                as="h1"
+                id="studio-landing-title"
+                lines={copy.hero.title}
+                tones={['solid', 'ghost', 'accent']}
+              />
+              <p data-studio-lead>{copy.hero.lead}</p>
+              <div data-studio-actions>
+                <a
+                  data-slot="button"
+                  data-variant="default"
+                  className={buttonVariants({ size: 'lg' })}
+                  href={WORKSPACE_ENTRY}
+                  onClick={enterStudio}
+                >
+                  {copy.hero.cta}
+                  <ForwardIcon data-icon="inline-end" decorative />
+                </a>
+                <p data-studio-note>{copy.hero.note}</p>
+              </div>
+            </div>
+
+            {/* The client's session, drawn on Space's night, arriving in the white workspace. */}
+            <figure data-studio-hero-stage aria-hidden="true">
+              <div data-studio-sheet data-afo-theme="dark">
+                <div data-studio-sheet-head>
+                  <span data-studio-avatar>LM</span>
+                  <span>
+                    <strong>Laura Méndez</strong>
+                    <small>{copy.sheet.program}</small>
+                  </span>
+                </div>
+                <p data-studio-sheet-shared>
+                  <FoundationIcon name="permissions" decorative />
+                  {copy.sheet.shared}
+                </p>
+                <div data-studio-sheet-grid>
+                  <span data-studio-sheet-column>{copy.sheet.columns.exercise}</span>
+                  <span data-studio-sheet-column>{copy.sheet.columns.planned}</span>
+                  <span data-studio-sheet-column>{copy.sheet.columns.logged}</span>
+                  {SHEET_ROWS.map((row, index) => (
+                    <div key={row.exercise} data-studio-sheet-row data-row={index}>
+                      <span data-studio-sheet-exercise>
+                        {copy.sheet.exercises[row.exercise]}
+                        {'direction' in row ? (
+                          <span data-studio-sheet-change data-direction={row.direction}>
+                            {copy.sheet.changes[row.exercise]}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span data-studio-sheet-value>{row.planned}</span>
+                      <span
+                        data-studio-sheet-value
+                        data-studio-sheet-logged
+                        data-direction={'direction' in row ? row.direction : undefined}
+                      >
+                        {row.logged}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p data-studio-sheet-foot>{copy.sheet.footer}</p>
+              </div>
+            </figure>
+          </SiteContainer>
+        </section>
+
+        <section id="como-funciona" data-studio-section aria-labelledby="studio-landing-how">
+          <SiteContainer>
+            <div data-studio-section-head>
+              <Title id="studio-landing-how" lines={copy.how.title} tones={['solid', 'ghost']} />
+            </div>
+            <ul data-studio-steps>
+              {STEPS.map((step, index) => (
+                <li key={step} data-studio-step data-reveal="card" data-i={index} data-spotlight>
+                  <span data-studio-step-index aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <h3>{copy.how.steps[step].title}</h3>
+                  <p>{copy.how.steps[step].text}</p>
+                  <div data-studio-step-stage aria-hidden="true">
+                    <StepObject kind={step} copy={copy} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </SiteContainer>
+        </section>
+
+        <section
+          id="privacidad"
+          data-studio-section
+          data-studio-band
+          data-afo-theme="dark"
+          aria-labelledby="studio-landing-privacy"
+        >
+          <SiteContainer>
+            <div data-studio-privacy>
+              <div data-studio-privacy-copy>
+                <Title
+                  id="studio-landing-privacy"
+                  lines={copy.privacy.title}
+                  tones={['solid', 'accent']}
+                />
+                <p data-studio-lead data-reveal>
+                  {copy.privacy.lead}
+                </p>
+              </div>
+              <div data-studio-privacy-stage aria-hidden="true" data-reveal>
+                <div data-studio-object="invite">
+                  <div data-studio-object-person>
+                    <span data-studio-avatar>LM</span>
+                    <span>
+                      <strong>Laura Méndez</strong>
+                      <small>{copy.sharing.yours}</small>
+                    </span>
+                  </div>
+                  <SharingList copy={copy.sharing} />
+                </div>
+              </div>
+            </div>
+            <ul data-studio-pillars>
+              {PILLARS.map((pillar, index) => (
+                <li key={pillar.key} data-studio-pillar data-reveal data-i={index}>
+                  <span data-studio-pillar-icon>
+                    <FoundationIcon name={pillar.icon} decorative />
+                  </span>
+                  <h3>{copy.privacy.pillars[pillar.key].title}</h3>
+                  <p>{copy.privacy.pillars[pillar.key].text}</p>
+                </li>
+              ))}
+            </ul>
+          </SiteContainer>
+        </section>
+
+        <section id="modulos" data-studio-section aria-labelledby="studio-landing-modules">
+          <SiteContainer>
+            <div data-studio-section-head data-split="true">
+              <Title
+                id="studio-landing-modules"
+                lines={copy.modules.title}
+                tones={['solid', 'ghost']}
+              />
+              <p data-studio-lead data-reveal>
+                {copy.modules.lead}
+              </p>
+            </div>
+            <div data-studio-modules-grid>
+              <ol data-studio-modules>
+                {MODULES.map((module, index) => (
+                  <li key={module.key} data-studio-module data-reveal data-i={index}>
+                    <h3>{copy.modules.items[module.key].name}</h3>
+                    <p>{copy.modules.items[module.key].description}</p>
+                    <span data-studio-module-icon>
+                      <FoundationIcon name={module.icon} decorative />
+                    </span>
+                  </li>
+                ))}
+                <li data-studio-module data-studio-module-upcoming data-reveal data-i={5}>
+                  <h3>{copy.modules.upcoming.label}</h3>
+                  <p>{copy.modules.upcoming.text}</p>
+                  <span data-studio-module-icon>
+                    <FoundationIcon name="calendar" decorative />
+                  </span>
+                </li>
+              </ol>
+
+              {/* The workspace itself: the sidebar these five become, open on Personas. */}
+              <div data-studio-workspace aria-hidden="true" data-reveal="card">
+                <div data-studio-workspace-nav data-afo-theme="dark">
+                  <ProductLockup product="studio" surface="dark" />
+                  <ul>
+                    {MODULES.map((module) => (
+                      <li key={module.key}>
+                        <FoundationIcon name={module.icon} decorative />
+                        <span>{copy.modules.items[module.key].name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div data-studio-workspace-main>
+                  <p data-studio-workspace-title>{copy.people.title}</p>
+                  <ul data-studio-workspace-list>
+                    {ROSTER.map((person) => (
+                      <li key={person.key}>
+                        <span data-studio-avatar>{person.initials}</span>
+                        <span>
+                          <strong>{person.name}</strong>
+                          <small>{copy.people[person.key]}</small>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Space's night, because this is the one thing here that is Space. */}
+            <div data-studio-space data-afo-theme="dark" data-reveal>
+              <ProductLockup product="space" surface="dark" aria-hidden="true" />
+              <div>
+                <h3>{copy.modules.space.title}</h3>
+                <p>{copy.modules.space.text}</p>
+              </div>
+              <a
+                data-slot="button"
+                data-variant="secondary"
+                className={buttonVariants({ variant: 'secondary', size: 'lg' })}
+                href={spaceSiteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${copy.modules.space.cta} ${copy.links.newTab}`}
+              >
+                {copy.modules.space.cta}
+                <ExternalIcon data-icon="inline-end" decorative />
+              </a>
+            </div>
+          </SiteContainer>
+        </section>
+
+        <section data-studio-closing aria-labelledby="studio-landing-closing">
+          <SiteContainer data-studio-closing-inner>
+            <Title
+              id="studio-landing-closing"
+              lines={copy.closing.title}
+              tones={['solid', 'accent']}
+            />
+            <div data-studio-closing-actions data-reveal>
               <a
                 data-slot="button"
                 data-variant="default"
                 className={buttonVariants({ size: 'lg' })}
-                href={authStart}
-                onClick={prepareStudioAuthentication}
+                href={WORKSPACE_ENTRY}
+                onClick={enterStudio}
               >
-                Entrar a Studio
+                {copy.closing.cta}
                 <ForwardIcon data-icon="inline-end" decorative />
               </a>
-              <p data-studio-landing-note>
-                ¿Es tu primera vez? Con este mismo acceso creas tu cuenta y configuras tu espacio.
-              </p>
+              <p data-studio-note>{copy.closing.note}</p>
             </div>
-          </div>
-
-          {/* The plan-against-logged comparison is Studio's core idea, so it is the one picture here. */}
-          <figure data-studio-landing-preview aria-hidden="true">
-            <div data-studio-preview-head>
-              <p data-studio-preview-client>{preview.client}</p>
-              <p data-studio-preview-program>{preview.program}</p>
-            </div>
-            <p data-studio-preview-shared>
-              <FoundationIcon name="permissions" decorative />
-              {preview.shared}
-            </p>
-            <div data-studio-preview-grid>
-              {preview.columns.map((column) => (
-                <span key={column} data-studio-preview-column>
-                  {column}
-                </span>
-              ))}
-              {preview.rows.map((row) => (
-                <div key={row.exercise} data-studio-preview-row>
-                  <span data-studio-preview-exercise>
-                    {row.exercise}
-                    {'change' in row ? <span data-studio-preview-change>{row.change}</span> : null}
-                  </span>
-                  <span data-studio-preview-value>{row.planned}</span>
-                  <span
-                    data-studio-preview-value
-                    data-changed={'change' in row ? 'true' : undefined}
-                  >
-                    {row.logged}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </figure>
-        </section>
-
-        <section data-studio-landing-section aria-labelledby="studio-landing-how">
-          <h2 id="studio-landing-how" data-studio-landing-heading>
-            Cómo funciona Studio
-          </h2>
-          <ul data-studio-landing-principles>
-            {principles.map((principle) => (
-              <li key={principle.title} data-studio-landing-principle>
-                <h3 data-studio-landing-principle-title>{principle.title}</h3>
-                <p data-studio-landing-body>{principle.description}</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section data-studio-landing-section aria-labelledby="studio-landing-modules">
-          <h2 id="studio-landing-modules" data-studio-landing-heading>
-            Lo que gestionas desde Studio
-          </h2>
-          {/* Laid out like the workspace navigation these modules become once inside. */}
-          <ul data-studio-landing-modules>
-            {modules.map((module) => (
-              <li key={module.name} data-studio-landing-module>
-                <span data-studio-landing-module-icon>
-                  <FoundationIcon name={module.icon} decorative />
-                </span>
-                <span data-studio-landing-module-name>{module.name}</span>
-                <span data-studio-landing-body>{module.description}</span>
-              </li>
-            ))}
-          </ul>
-          <p data-studio-landing-upcoming>
-            <span data-studio-landing-upcoming-label>Más adelante</span>
-            {upcoming.join(', ')}.
-          </p>
-        </section>
-
-        <section data-studio-landing-closing aria-labelledby="studio-landing-closing">
-          <h2 id="studio-landing-closing" data-studio-landing-heading>
-            Entra. El contexto ya está listo.
-          </h2>
-          <div data-studio-landing-closing-body>
-            <p data-studio-landing-lead>
-              Accede de forma segura para continuar con tus espacios, equipo y actividad.
-            </p>
-            <a
-              data-slot="button"
-              data-variant="outline"
-              className={buttonVariants({ variant: 'outline', size: 'lg' })}
-              href={authStart}
-              onClick={prepareStudioAuthentication}
-            >
-              Crear cuenta o ingresar
-            </a>
-            <p data-studio-landing-note>
-              El inicio de sesión se completa con el proveedor de identidad de Allfit One.
-            </p>
-          </div>
+          </SiteContainer>
         </section>
       </main>
 
-      <footer data-studio-landing-footer>
-        <div data-studio-landing-footer-row>
-          <a href={parentSiteUrl} data-studio-landing-footer-brand>
-            <BrandLockup surface="light" title="Allfit One" width={112} />
-          </a>
-          <p data-studio-landing-body>Allfit Studio es parte de Allfit One.</p>
-        </div>
-      </footer>
-    </AccessShell>
+      <SiteFooter>
+        <SiteFooterPartner>
+          <Image
+            src="/partners/nvidia-inception-program-badge.svg"
+            alt="NVIDIA Inception Program"
+            width={200}
+            height={86}
+          />
+          <div>
+            <SiteFooterPartnerText>{copy.footer.nvidia}</SiteFooterPartnerText>
+            <SiteFooterPartnerLegal lang="en">{NVIDIA_TRADEMARK}</SiteFooterPartnerLegal>
+          </div>
+        </SiteFooterPartner>
+        <SiteFooterBar>
+          <SiteFooterParent href={parentSiteUrl}>
+            Allfit One
+            <ExternalIcon size="sm" decorative />
+          </SiteFooterParent>
+          <SiteFooterLinks aria-label={copy.footer.products}>
+            <SiteFooterLink
+              href={spaceSiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Allfit Space ${copy.links.newTab}`}
+            >
+              Allfit Space
+            </SiteFooterLink>
+          </SiteFooterLinks>
+        </SiteFooterBar>
+        <SiteFooterMeta>{copy.footer.rights}</SiteFooterMeta>
+      </SiteFooter>
+    </div>
   )
 }

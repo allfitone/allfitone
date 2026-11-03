@@ -1,3 +1,14 @@
+import {
+  SiteFooter,
+  SiteFooterBar,
+  SiteFooterLink,
+  SiteFooterLinks,
+  SiteFooterMeta,
+  SiteFooterParent,
+  SiteFooterPartner,
+  SiteFooterPartnerLegal,
+  SiteFooterPartnerText,
+} from '@allfitone/react/components/site-shell'
 import { ExternalIcon } from '@allfitone/react/icons'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -5,10 +16,11 @@ import Link from 'next/link'
 import type { Dictionary } from '@/content'
 import type { Locale } from '@/lib/locale'
 
+/** The site footer shared with studio.allfit.one, from the Design System. */
 export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
   return (
-    <footer className="footer">
-      <div className="wrap partner">
+    <SiteFooter>
+      <SiteFooterPartner>
         <Image
           src="/partners/nvidia-inception-program-badge.svg"
           alt={copy.nvidia.alt}
@@ -16,33 +28,33 @@ export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
           height={86}
         />
         <div>
-          <p className="partner__member">{copy.nvidia.member}</p>
-          <p className="partner__legal" lang="en">
-            {copy.nvidia.trademark}
-          </p>
+          <SiteFooterPartnerText>{copy.nvidia.member}</SiteFooterPartnerText>
+          <SiteFooterPartnerLegal lang="en">{copy.nvidia.trademark}</SiteFooterPartnerLegal>
         </div>
-      </div>
-      <div className="wrap footer__bar">
-        <a href={`https://www.allfit.one/${locale}`} className="footer__parent">
+      </SiteFooterPartner>
+      <SiteFooterBar>
+        <SiteFooterParent href={`https://www.allfit.one/${locale}`}>
           Allfit One
           <ExternalIcon size="sm" decorative />
-        </a>
-        <ul className="footer__links">
-          <li>
-            <Link href={`/${locale}/terms`}>{copy.footer.terms}</Link>
-          </li>
-          <li>
-            <Link href={`/${locale}/privacy`}>{copy.footer.privacy}</Link>
-          </li>
-          <li>
-            <a href={`https://studio.allfit.one/${locale}`} target="_blank" rel="noopener">
-              {copy.footer.studio}
-              <span className="sr-only"> {copy.footer.newWindow}</span>
-            </a>
-          </li>
-        </ul>
-      </div>
-      <p className="wrap footer__meta">{copy.footer.rights}</p>
-    </footer>
+        </SiteFooterParent>
+        <SiteFooterLinks>
+          <SiteFooterLink render={<Link href={`/${locale}/terms`} />}>
+            {copy.footer.terms}
+          </SiteFooterLink>
+          <SiteFooterLink render={<Link href={`/${locale}/privacy`} />}>
+            {copy.footer.privacy}
+          </SiteFooterLink>
+          <SiteFooterLink
+            href={`https://studio.allfit.one/${locale}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {copy.footer.studio}
+            <span className="sr-only"> {copy.footer.newWindow}</span>
+          </SiteFooterLink>
+        </SiteFooterLinks>
+      </SiteFooterBar>
+      <SiteFooterMeta>{copy.footer.rights}</SiteFooterMeta>
+    </SiteFooter>
   )
 }

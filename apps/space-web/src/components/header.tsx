@@ -1,36 +1,23 @@
-import Image from 'next/image'
+import { ProductLockup } from '@allfitone/react/brand'
+import {
+  SiteHeader,
+  SiteHeaderActions,
+  SiteHeaderHome,
+  SiteHeaderLink,
+  SiteHeaderNav,
+  SiteLanguageLink,
+  SiteLanguageSwitch,
+} from '@allfitone/react/components/site-shell'
 import Link from 'next/link'
 
 import type { Dictionary } from '@/content'
 import { LOCALES, type Locale } from '@/lib/locale'
 
-/** The language switch keeps the visitor on the same page in the other language. */
-export function Languages({
-  locale,
-  path,
-  label,
-}: {
-  locale: Locale
-  path: string
-  label: string
-}) {
-  return (
-    <nav className="langs" aria-label={label}>
-      {LOCALES.map((option) => (
-        <Link
-          key={option}
-          href={`/${option}${path}`}
-          hrefLang={option}
-          lang={option}
-          aria-current={option === locale ? 'true' : undefined}
-        >
-          {option.toUpperCase()}
-        </Link>
-      ))}
-    </nav>
-  )
-}
-
+/**
+ * The site header shared with studio.allfit.one, from the Design System. It
+ * reads as Space because the document is `data-afo-theme="dark"`; this file
+ * only supplies Space's lockup, sections and language routes.
+ */
 export function Header({
   locale,
   copy,
@@ -50,32 +37,35 @@ export function Header({
     { id: 'gimnasios', label: copy.gyms },
   ]
   return (
-    <header className="header">
-      <div className="wrap header__bar">
-        <Link className="header__home" href={home} aria-label={copy.home}>
-          <Image
-            src="/brand/allfit-space-lockup-on-dark.svg"
-            alt=""
-            width={168}
-            height={41}
-            priority
-          />
-        </Link>
-        <div className="header__nav">
-          {sections ? (
-            <nav aria-label={copy.label}>
-              <ul className="header__links">
-                {links.map((link) => (
-                  <li key={link.id}>
-                    <a href={`#${link.id}`}>{link.label}</a>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-          ) : null}
-          <Languages locale={locale} path={path} label={copy.language} />
-        </div>
-      </div>
-    </header>
+    <SiteHeader>
+      <SiteHeaderHome render={<Link href={home} />} aria-label={copy.home}>
+        <ProductLockup product="space" surface="dark" aria-hidden="true" />
+      </SiteHeaderHome>
+      {sections ? (
+        <SiteHeaderNav aria-label={copy.label}>
+          {links.map((link) => (
+            <SiteHeaderLink key={link.id} href={`#${link.id}`}>
+              {link.label}
+            </SiteHeaderLink>
+          ))}
+        </SiteHeaderNav>
+      ) : null}
+      <SiteHeaderActions>
+        {/* Keeps the visitor on the same page in the other language. */}
+        <SiteLanguageSwitch aria-label={copy.language}>
+          {LOCALES.map((option) => (
+            <SiteLanguageLink
+              key={option}
+              render={<Link href={`/${option}${path}`} />}
+              hrefLang={option}
+              lang={option}
+              current={option === locale}
+            >
+              {option.toUpperCase()}
+            </SiteLanguageLink>
+          ))}
+        </SiteLanguageSwitch>
+      </SiteHeaderActions>
+    </SiteHeader>
   )
 }

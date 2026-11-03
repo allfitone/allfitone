@@ -2,10 +2,11 @@
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
-import { Barlow_Condensed, Manrope } from 'next/font/google'
 import { useEffect } from 'react'
 
 import { StudioFrame } from '@/components/studio-frame'
+
+import { studioFontVariables } from './document'
 
 import '@allfitone/react/tokens.css'
 import '@allfitone/react/app.css'
@@ -18,8 +19,8 @@ import './studio.composition.css'
  * there is nothing left to render into. Without this file Next answers with its
  * own built-in page — unstyled, in English, and with no way back.
  *
- * That is not a theoretical risk here. `layout.tsx` mounts four providers, one
- * of which verifies the session on every route.
+ * That is not a theoretical risk here. Both root layouts mount four providers,
+ * one of which verifies the session on every route.
  *
  * Replacing the root layout means replacing everything it set up, which is why
  * this file repeats the `<html>` element, the font variables and the stylesheet
@@ -30,24 +31,13 @@ import './studio.composition.css'
  * offering: re-rendering the segment would mount the same layout that just
  * failed. A full reload is the honest recovery, so that is the only action.
  */
-const display = Barlow_Condensed({
-  subsets: ['latin'],
-  variable: '--afo-app-font-display',
-  weight: ['500', '600', '700'],
-})
-
-const body = Manrope({
-  subsets: ['latin'],
-  variable: '--afo-app-font-body',
-})
-
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   useEffect(() => {
     console.error(error)
   }, [error])
 
   return (
-    <html lang="es" data-afo-theme="light" className={`${display.variable} ${body.variable}`}>
+    <html lang="es" data-afo-theme="light" className={studioFontVariables}>
       <body>
         <StudioFrame showLogout={false}>
           <div data-studio-error-stage>

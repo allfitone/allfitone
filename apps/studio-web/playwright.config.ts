@@ -12,6 +12,9 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     viewport: { width: 1440, height: 900 },
+    // `/` answers with the landing in the browser's language; pinned so the
+    // suite meets the Spanish one wherever it runs.
+    locale: 'es-CO',
     baseURL: BASE_URL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
