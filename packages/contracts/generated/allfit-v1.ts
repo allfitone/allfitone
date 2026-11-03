@@ -8306,7 +8306,8 @@ export interface components {
       id: components['schemas']['UuidV7']
       source: components['schemas']['HistoryImportSource']
       status: components['schemas']['HistoryImportStatus']
-      timezone: components['schemas']['IanaTimeZone']
+      /** @description The IANA zone the file's times are read in. */
+      timezone: string
       session_count: number
       set_count: number
       /** @description Sessions that entered on commit; zero before. */

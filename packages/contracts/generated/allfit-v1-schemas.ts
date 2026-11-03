@@ -4634,7 +4634,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         $ref: '#/components/schemas/HistoryImportStatus',
       },
       timezone: {
-        $ref: '#/components/schemas/IanaTimeZone',
+        type: 'string',
+        maxLength: 64,
+        description: "The IANA zone the file's times are read in.",
       },
       session_count: {
         type: 'integer',
