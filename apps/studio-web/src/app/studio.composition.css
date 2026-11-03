@@ -1609,9 +1609,14 @@
   color: var(--afo-color-text-primary);
 }
 
-/* Ends clear of the floating privacy control. */
-[data-studio-site] > footer {
-  padding-block-end: var(--afo-space-16);
+/* The footer's privacy entry opens a panel, so it is a button set like its links.
+   The link variant leaves the browser's own button face, so it is cleared here. */
+[data-studio-footer-action] {
+  padding: 0;
+  background: none;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 /* ------------------------------------------------------------------ type */

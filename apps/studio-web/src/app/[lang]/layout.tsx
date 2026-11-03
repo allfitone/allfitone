@@ -66,7 +66,9 @@ export default async function LandingLayout({
   return (
     <html lang={lang} data-afo-theme="light" className={studioFontVariables}>
       <body>
-        <StudioShell locale={lang}>{children}</StudioShell>
+        <StudioShell locale={lang} privacyEntry="footer">
+          {children}
+        </StudioShell>
       </body>
     </html>
   )
