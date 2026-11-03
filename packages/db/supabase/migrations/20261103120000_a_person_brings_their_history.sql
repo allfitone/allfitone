@@ -7,8 +7,13 @@
 --   untouched. The answer is a preview: how much, between which dates, what is already
 --   here and how each exercise name meets the catalogue. The same file again answers the
 --   same import. An import not committed within seven days expires.
--- - **committed** (OP-EXE-028): every new session enters the history at once, finished,
---   with its source, or none does.
+-- - **committing → committed** (OP-EXE-028): the new sessions enter the history finished,
+--   with their source, at most 25 per call. The first call fixes the zone and the choices
+--   and resolves every name once; the app repeats the call, in the same zone, until
+--   nothing is pending, and a later call's choices are not read: an app reopened half
+--   way no longer has them, and the names are already settled. Each
+--   call is short and whole: its sessions enter together or not at all. Doing it in the
+--   person's own calls, not in the worker, keeps every write the person's (ADR-044 §4).
 -- - **undone** (OP-EXE-029): the sessions of that import are annulled, as ADR-038 annuls,
 --   and their fingerprints are free to be imported again.
 --
@@ -62,6 +67,7 @@ create table execution.history_imports (
   set_count integer not null,
   issues jsonb not null default '[]'::jsonb,
   imported_count integer,
+  commit_resolution jsonb,
   created_at timestamptz not null default clock_timestamp(),
   committed_at timestamptz,
   undone_at timestamptz,
@@ -72,17 +78,19 @@ create table execution.history_imports (
   constraint ck_history_imports_model_version check (model_version = 1),
   constraint ck_history_imports_timezone check (btrim(timezone) <> ''),
   constraint ck_history_imports_sha check (octet_length(content_sha256) = 32),
-  constraint ck_history_imports_status check (status in ('staged', 'committed', 'undone', 'expired')),
+  constraint ck_history_imports_status check (status in ('staged', 'committing', 'committed', 'undone', 'expired')),
   constraint ck_history_imports_counts check (session_count >= 0 and set_count >= 0),
   constraint ck_history_imports_issues check (jsonb_typeof(issues) = 'array'),
+  constraint ck_history_imports_committing check (status <> 'committing' or (imported_count is not null and commit_resolution is not null)),
   constraint ck_history_imports_committed check (status <> 'committed' or (committed_at is not null and imported_count is not null)),
+  constraint ck_history_imports_commit_resolution check (commit_resolution is null or jsonb_typeof(commit_resolution) = 'object'),
   constraint ck_history_imports_undone check ((status = 'undone') = (undone_at is not null))
 );
 
 -- The same file again lands on the import that is already alive.
 create unique index uidx_history_imports_content
   on execution.history_imports (person_id, content_sha256)
-  where status in ('staged', 'committed');
+  where status in ('staged', 'committing', 'committed');
 create index idx_history_imports_person_created
   on execution.history_imports (person_id, created_at desc);
 
@@ -393,12 +401,15 @@ begin
     'timezone', import.timezone,
     'session_count', import.session_count,
     'set_count', import.set_count,
-    'imported_count', import.imported_count,
+    'imported_count', coalesce(import.imported_count, 0),
     'issues', import.issues,
     'created_at', import.created_at,
     'committed_at', import.committed_at,
     'undone_at', import.undone_at,
     'expires_at', case when import.status = 'staged' then import.created_at + interval '7 days' end,
+    'pending_count', case when import.status = 'committing' then (
+      select count(*)::integer from execution.history_import_sessions as session
+      where session.import_id = p_import_id and session.person_id = p_person_id) end,
     'preview', staged);
 end
 $function$;
@@ -462,7 +473,7 @@ begin
   select import.id into existing
   from execution.history_imports as import
   where import.person_id = p_person_id and import.content_sha256 = p_content_sha256
-    and import.status in ('staged', 'committed');
+    and import.status in ('staged', 'committing', 'committed');
   if existing is not null then
     perform system.finish_idempotency(
       receipt.receipt_id, 200::smallint, 'history-import-found', 'history_import', existing
@@ -528,6 +539,7 @@ declare
   exercises jsonb;
   results jsonb;
   created integer := 0;
+  chunk constant integer := 25;
 begin
   if access_control.actor_kind() <> 'person' or access_control.person() <> p_person_id then
     raise exception 'history import person does not match the authenticated actor' using errcode = '42501';
@@ -549,42 +561,56 @@ begin
     return execution.history_import_document(p_person_id, p_import_id);
   end if;
 
-  if import.status <> 'staged' or import.created_at < clock_timestamp() - interval '7 days' then
+  if import.status = 'committing' then
+    -- The zone guards against another device continuing differently; the names were
+    -- settled by the first call, so these choices are not read.
+    if p_timezone is distinct from import.timezone then
+      raise exception 'a commit in progress continues in its zone' using errcode = '55000';
+    end if;
+    resolved := import.commit_resolution;
+  elsif import.status <> 'staged' or import.created_at < clock_timestamp() - interval '7 days' then
     raise exception 'history import is not waiting to be committed' using errcode = '55000';
-  end if;
-  if not exists (select 1 from pg_catalog.pg_timezone_names where name = p_timezone) then
-    raise exception 'unknown timezone' using errcode = '22023';
-  end if;
-  if jsonb_typeof(coalesce(p_choices, '[]'::jsonb)) <> 'array' then
-    raise exception 'choices are a list' using errcode = '22023';
-  end if;
-  if exists (
-    select 1
+  else
+    if not exists (select 1 from pg_catalog.pg_timezone_names where name = p_timezone) then
+      raise exception 'unknown timezone' using errcode = '22023';
+    end if;
+    if jsonb_typeof(coalesce(p_choices, '[]'::jsonb)) <> 'array' then
+      raise exception 'choices are a list' using errcode = '22023';
+    end if;
+    if exists (
+      select 1
+      from jsonb_array_elements(coalesce(p_choices, '[]'::jsonb)) as choice
+      where nullif(choice->>'movement_id', '') is not null
+        and not exists (
+          select 1 from catalog.movements as movement
+          where movement.id = (choice->>'movement_id')::uuid
+            and movement.content_scope = 'global' and movement.status = 'published')
+    ) then
+      raise exception 'a chosen movement is not in the catalogue' using errcode = '23514';
+    end if;
+
+    -- The person's word is remembered first, so the resolution below reads it back.
+    insert into execution.person_movement_choices (person_id, source, external_name, movement_id)
+    select distinct on (execution.external_name_key(choice->>'external_name'))
+           p_person_id, import.source, execution.external_name_key(choice->>'external_name'),
+           nullif(choice->>'movement_id', '')::uuid
     from jsonb_array_elements(coalesce(p_choices, '[]'::jsonb)) as choice
-    where nullif(choice->>'movement_id', '') is not null
-      and not exists (
-        select 1 from catalog.movements as movement
-        where movement.id = (choice->>'movement_id')::uuid
-          and movement.content_scope = 'global' and movement.status = 'published')
-  ) then
-    raise exception 'a chosen movement is not in the catalogue' using errcode = '23514';
+    where execution.external_name_key(choice->>'external_name') <> ''
+    on conflict (person_id, source, external_name)
+    do update set movement_id = excluded.movement_id, chosen_at = clock_timestamp();
+
+    -- A suggestion the person did not confirm is not used: only choices and curation count.
+    select coalesce(jsonb_object_agg(name.external_name, name.movement_id), '{}'::jsonb)
+    into resolved
+    from execution.history_import_names(p_person_id, p_import_id, false) as name
+    where name.resolution in ('chosen', 'catalogue');
+
+    -- Fixed once: every later call writes with the same zone and the same names.
+    update execution.history_imports as candidate
+    set status = 'committing', timezone = p_timezone, imported_count = 0,
+        commit_resolution = resolved
+    where candidate.id = p_import_id;
   end if;
-
-  -- The person's word is remembered first, so the resolution below reads it back.
-  insert into execution.person_movement_choices (person_id, source, external_name, movement_id)
-  select distinct on (execution.external_name_key(choice->>'external_name'))
-         p_person_id, import.source, execution.external_name_key(choice->>'external_name'),
-         nullif(choice->>'movement_id', '')::uuid
-  from jsonb_array_elements(coalesce(p_choices, '[]'::jsonb)) as choice
-  where execution.external_name_key(choice->>'external_name') <> ''
-  on conflict (person_id, source, external_name)
-  do update set movement_id = excluded.movement_id, chosen_at = clock_timestamp();
-
-  -- A suggestion the person did not confirm is not used: only choices and curation count.
-  select coalesce(jsonb_object_agg(name.external_name, name.movement_id), '{}'::jsonb)
-  into resolved
-  from execution.history_import_names(p_person_id, p_import_id, false) as name
-  where name.resolution in ('chosen', 'catalogue');
 
   select activity.id as activity_type_id, association.result_contract_id, published.version_number
   into contract
@@ -602,15 +628,22 @@ begin
     raise exception 'discipline has no single published activity type' using errcode = '23514';
   end if;
 
+  -- Oldest first, so a commit left half way leaves the history whole up to a date.
   for staged in
-    select session.payload, session.fingerprint
+    select session.position, session.payload, session.fingerprint
     from execution.history_import_sessions as session
     where session.import_id = p_import_id
-      and not exists (
-        select 1 from execution.imported_sessions as live
-        where live.person_id = p_person_id and live.fingerprint = session.fingerprint and live.is_live)
     order by session.started_local, session.position
+    limit chunk
   loop
+    delete from execution.history_import_sessions as session
+    where session.import_id = p_import_id and session.position = staged.position;
+
+    -- Already in the history, from another import or earlier in this one.
+    continue when exists (
+      select 1 from execution.imported_sessions as live
+      where live.person_id = p_person_id and live.fingerprint = staged.fingerprint and live.is_live);
+
     new_id := extensions.uuid_generate_v7();
 
     insert into execution.executed_sessions (
@@ -674,10 +707,13 @@ begin
   end loop;
 
   update execution.history_imports as candidate
-  set status = 'committed', committed_at = clock_timestamp(), imported_count = created,
-      timezone = p_timezone
+  set imported_count = candidate.imported_count + created,
+      status = case when pending.left_over then 'committing' else 'committed' end,
+      committed_at = case when pending.left_over then null else clock_timestamp() end
+  from (select exists (
+          select 1 from execution.history_import_sessions as session
+          where session.import_id = p_import_id) as left_over) as pending
   where candidate.id = p_import_id;
-  delete from execution.history_import_sessions as session where session.import_id = p_import_id;
 
   perform system.finish_idempotency(
     receipt.receipt_id, 200::smallint, 'history-import-committed', 'history_import', p_import_id

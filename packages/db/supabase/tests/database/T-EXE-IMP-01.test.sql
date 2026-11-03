@@ -4,17 +4,21 @@
 -- committing creates every new session finished, with its source, and records count it;
 -- a later file only adds what is missing; undoing annuls the import and frees it to come
 -- back; the person's choices are remembered; nobody else reads, commits or undoes it.
+-- A long history commits in calls of 25 that resume where the last one stopped, keep the
+-- zone and names the first one fixed (a later call's choices are not read), and can be
+-- undone half way.
 --
 -- Written before the functions and watched failing; the deny cases were also watched
 -- passing with row security switched off, so they do depend on the policies.
 
 begin;
 
-select plan(32);
+select plan(40);
 
 insert into identity.people (id, given_name, family_name)
 values ('019ef800-0000-7000-8000-000000000001', 'Quien', 'Migra'),
-       ('019ef800-0000-7000-8000-000000000002', 'La', 'Vecina');
+       ('019ef800-0000-7000-8000-000000000002', 'La', 'Vecina'),
+       ('019ef800-0000-7000-8000-000000000003', 'Mucho', 'Historial');
 
 insert into catalog.movements (id, discipline_code, name, normalized_name, content_scope, status)
 values ('019ef800-0000-7000-8000-0000000000a1', 'test_strength', 'Press de banca', 'press de banca', 'global', 'published'),
@@ -74,11 +78,12 @@ select is(
   (select jsonb_build_object('status', :'staged'::jsonb->>'status',
      'sessions', (:'staged'::jsonb->>'session_count')::integer,
      'sets', (:'staged'::jsonb->>'set_count')::integer,
+     'imported', :'staged'::jsonb->'imported_count',
      'new', (:'staged'::jsonb->'preview'->>'new_sessions')::integer,
      'duplicates', (:'staged'::jsonb->'preview'->>'duplicate_sessions')::integer,
      'from', :'staged'::jsonb->'preview'->>'first_started_local',
      'issues', :'staged'::jsonb->'issues')),
-  '{"status":"staged","sessions":2,"sets":5,"new":2,"duplicates":0,"from":"2026-01-10T09:00","issues":[{"row":7,"code":"unsupported_set"}]}'::jsonb,
+  '{"status":"staged","sessions":2,"sets":5,"imported":0,"new":2,"duplicates":0,"from":"2026-01-10T09:00","issues":[{"row":7,"code":"unsupported_set"}]}'::jsonb,
   'T-EXE-IMP-01 staging answers a preview of what would enter');
 
 select is(
@@ -308,6 +313,140 @@ select is(
    from jsonb_array_elements(execution.list_history_imports('019ef800-0000-7000-8000-000000000001')) as item),
   '["staged","committed","undone"]'::jsonb,
   'T-EXE-IMP-30 the person lists their imports, newest first');
+
+-- ———————————————————————————————————————— a long history, in calls
+
+-- `p_count` sessions of one exercise, a day apart, fingerprints and dates of their own.
+create function pg_temp.many(p_letter text, p_count integer, p_first date)
+returns jsonb
+language sql
+as $fn$
+  select jsonb_agg(jsonb_build_object(
+           'fingerprint', lpad(to_hex(n), 64, p_letter), 'title', 'Day ' || n,
+           'started_local', to_char(p_first + n, 'YYYY-MM-DD') || 'T09:00',
+           'ended_local', to_char(p_first + n, 'YYYY-MM-DD') || 'T10:00', 'description', null,
+           'exercises', '[{"position":1,"source_name":"Mystery Move","note":null,"superset_group":null,
+                           "sets":[{"order":1,"kind":"normal","load_kg":20,"reps":10,"rpe":null}]}]'::jsonb)
+         order by n)
+  from generate_series(1, p_count) as n
+$fn$;
+
+create function pg_temp.long(p_import text, p_timezone text, p_choices jsonb, p_key text)
+returns jsonb
+language sql
+as $fn$
+  select execution.commit_history_import('019ef800-0000-7000-8000-000000000003', p_import::uuid,
+    p_timezone, p_choices, p_key::uuid, extensions.uuid_generate_v7(), decode(repeat('5a', 32), 'hex'))
+$fn$;
+
+create function pg_temp.theirs()
+returns integer
+language sql
+as $fn$
+  select count(*)::integer from execution.executed_sessions
+  where person_id = '019ef800-0000-7000-8000-000000000003' and annulled_at is null
+$fn$;
+
+select set_config('app.actor_person_id', '019ef800-0000-7000-8000-000000000003', true);
+
+select execution.stage_history_import(
+  '019ef800-0000-7000-8000-000000000003', 'hevy_csv', 1, 'test_strength', 'America/Bogota',
+  decode(repeat('c3', 32), 'hex'), pg_temp.many('c', 30, '2025-01-01'), '[]'::jsonb,
+  'f8111111-1111-4111-8111-111111111150', '019ef800-0000-7000-8000-000000000150',
+  decode(repeat('c3', 32), 'hex')) \gset
+
+select pg_temp.long('019ef800-0000-7000-8000-000000000150', 'America/Bogota',
+  '[{"external_name":"Mystery Move","movement_id":"019ef800-0000-7000-8000-0000000000a1"}]',
+  'f8111111-1111-4111-8111-111111111151') as first_call \gset
+
+select is(
+  (select jsonb_build_array(:'first_call'::jsonb->>'status', (:'first_call'::jsonb->>'imported_count')::integer,
+                            (:'first_call'::jsonb->>'pending_count')::integer, :'first_call'::jsonb->'committed_at',
+                            pg_temp.theirs())),
+  '["committing",25,5,null,25]'::jsonb,
+  'T-EXE-IMP-33 a long history enters 25 sessions per call and says how many are pending');
+
+select is(
+  (select count(*)::integer from execution.history_import_sessions
+   where import_id = '019ef800-0000-7000-8000-000000000150'),
+  5,
+  'T-EXE-IMP-34 what entered leaves the staging area; what is pending stays');
+
+select is(
+  (pg_temp.long('019ef800-0000-7000-8000-000000000150', 'America/Bogota',
+     '[{"external_name":"Mystery Move","movement_id":"019ef800-0000-7000-8000-0000000000a1"}]',
+     'f8111111-1111-4111-8111-111111111151')->>'imported_count')::integer + pg_temp.theirs(),
+  50,
+  'T-EXE-IMP-35 a retry of the same call answers again and writes nothing more');
+
+select throws_ok(
+  $$ select pg_temp.long('019ef800-0000-7000-8000-000000000150', 'Europe/Madrid',
+       '[{"external_name":"Mystery Move","movement_id":"019ef800-0000-7000-8000-0000000000a1"}]',
+       'f8111111-1111-4111-8111-111111111152') $$,
+  '55000', null,
+  'T-EXE-IMP-36 a commit in progress does not continue in another zone');
+
+select is(
+  execution.stage_history_import(
+    '019ef800-0000-7000-8000-000000000003', 'hevy_csv', 1, 'test_strength', 'America/Bogota',
+    decode(repeat('c3', 32), 'hex'), pg_temp.many('c', 30, '2025-01-01'), '[]'::jsonb,
+    'f8111111-1111-4111-8111-111111111154', '019ef800-0000-7000-8000-000000000154',
+    decode(repeat('c4', 32), 'hex'))->>'id',
+  '019ef800-0000-7000-8000-000000000150',
+  'T-EXE-IMP-37 the same file while it commits lands on the import in progress');
+
+-- The names were resolved when the commit began: neither a later change of mind nor the
+-- last call's empty choices split it.
+reset role;
+update execution.person_movement_choices set movement_id = null
+where person_id = '019ef800-0000-7000-8000-000000000003';
+set local role allfit_owner;
+
+select pg_temp.long('019ef800-0000-7000-8000-000000000150', 'America/Bogota', '[]',
+  'f8111111-1111-4111-8111-111111111155') as last_call \gset
+
+select is(
+  (select jsonb_build_array(:'last_call'::jsonb->>'status', (:'last_call'::jsonb->>'imported_count')::integer,
+                            :'last_call'::jsonb->'pending_count', :'last_call'::jsonb->'committed_at' is not null,
+                            pg_temp.theirs(),
+                            (select count(*)::integer from execution.history_import_sessions
+                             where import_id = '019ef800-0000-7000-8000-000000000150'))),
+  '["committed",30,null,true,30,0]'::jsonb,
+  'T-EXE-IMP-38 the call that takes the last session closes the import');
+
+select is(
+  (select array_agg(distinct coalesce(item.movement_id::text, 'none'))
+   from execution.session_exercises as item
+   join execution.imported_sessions as imported on imported.executed_session_id = item.executed_session_id
+   where imported.import_id = '019ef800-0000-7000-8000-000000000150'),
+  array['019ef800-0000-7000-8000-0000000000a1'],
+  'T-EXE-IMP-39 every call writes the names as the first one resolved them');
+
+select execution.stage_history_import(
+  '019ef800-0000-7000-8000-000000000003', 'hevy_csv', 1, 'test_strength', 'America/Bogota',
+  decode(repeat('d4', 32), 'hex'), pg_temp.many('d', 30, '2024-01-01'), '[]'::jsonb,
+  'f8111111-1111-4111-8111-111111111160', '019ef800-0000-7000-8000-000000000160',
+  decode(repeat('d4', 32), 'hex')) \gset
+select pg_temp.long('019ef800-0000-7000-8000-000000000160', 'America/Bogota', '[]',
+  'f8111111-1111-4111-8111-111111111161') \gset
+select execution.undo_history_import(
+  '019ef800-0000-7000-8000-000000000003', '019ef800-0000-7000-8000-000000000160',
+  'f8111111-1111-4111-8111-111111111162', extensions.uuid_generate_v7(), decode(repeat('62', 32), 'hex')) \gset
+
+select is(
+  (select jsonb_build_array(
+     (select status from execution.history_imports where id = '019ef800-0000-7000-8000-000000000160'),
+     pg_temp.theirs(),
+     (select count(*)::integer from execution.history_import_sessions
+      where import_id = '019ef800-0000-7000-8000-000000000160'),
+     (select count(*)::integer from execution.executed_sessions as session
+      join execution.imported_sessions as imported on imported.executed_session_id = session.id
+      where imported.import_id = '019ef800-0000-7000-8000-000000000160'
+        and session.annulment_reason = 'import_undone'))),
+  '["undone",30,0,25]'::jsonb,
+  'T-EXE-IMP-40 a commit left half way is undone whole: what entered is annulled, the rest dropped');
+
+select set_config('app.actor_person_id', '019ef800-0000-7000-8000-000000000001', true);
 
 -- ———————————————————————————————————————— expiry and privileges
 
