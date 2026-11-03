@@ -3616,8 +3616,10 @@ export interface paths {
     get?: never
     put?: never
     /**
-     * Bring a staged import into my history
-     * @description Atomic: every staged session not already in the history enters finished, as declared by the person, or none does. `choices` say which movement each exercise name is (null: none) and are remembered for the next import; a suggestion not confirmed here is not used. `timezone` is the zone the file's times are read in. An import already committed, undone or expired answers `409`.
+     * Bring a staged import into my history, a part per call
+     * @description Each call brings in at most 25 staged sessions not already in the history, finished and declared by the person, oldest first; a call's sessions enter together or not at all. The answer is `committing` with `pending_count` while sessions remain, and `committed` once none do: the client repeats the call, with a new `Idempotency-Key` and the same body, until then. Every call stays short however long the history is.
+     *
+     *     The first call fixes the commit: `timezone` is the zone the file's times are read in, and `choices` say which movement each exercise name is (null: none); they are remembered for the next import and every exercise name is resolved once, here. A suggestion not confirmed is not used. A later call must name the same zone, or it answers `409`; its `choices` are not read, so an app reopened half way continues with `[]`. An import already committed, undone or expired answers `409` too. Undoing a commit left half way annuls what entered and drops the rest.
      */
     post: operations['commitMyHistoryImport']
     delete?: never
@@ -8267,7 +8269,7 @@ export interface components {
       movement_id: string | null
     }
     /** @enum {string} */
-    HistoryImportStatus: 'staged' | 'committed' | 'undone' | 'expired'
+    HistoryImportStatus: 'staged' | 'committing' | 'committed' | 'undone' | 'expired'
     /** @description A row of the file that was read but not taken whole. */
     HistoryImportIssue: {
       row: number
@@ -8310,8 +8312,10 @@ export interface components {
       timezone: string
       session_count: number
       set_count: number
-      /** @description Sessions that entered on commit; zero before. */
+      /** @description Sessions that have entered so far; zero before the commit begins. */
       imported_count: number
+      /** @description While committing, the staged sessions still to go through; null otherwise. */
+      pending_count: number | null
       issues: components['schemas']['HistoryImportIssue'][]
       /** Format: date-time */
       created_at: string
@@ -17293,7 +17297,7 @@ export interface operations {
       }
     }
     responses: {
-      /** @description Committed */
+      /** @description This call's sessions entered; `committing` while more remain */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']

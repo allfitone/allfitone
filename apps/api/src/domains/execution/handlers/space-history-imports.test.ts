@@ -47,6 +47,7 @@ function documentFor(id: string, status: HistoryImport['status'] = 'staged'): Hi
     session_count: 4,
     set_count: 99,
     imported_count: 0,
+    pending_count: null,
     issues: [],
     created_at: '2026-11-03T12:00:00+00:00',
     committed_at: null,
@@ -289,6 +290,24 @@ describe('committing and undoing (OP-EXE-028, OP-EXE-029)', () => {
       importId: IMPORT_ID,
       timezone: 'Europe/Madrid',
       choices,
+    })
+  })
+
+  test('T-EXE-API-48 a commit with sessions still pending answers 200 with how many remain', async () => {
+    const { app } = harness({
+      commit: async (input) => ({
+        ...documentFor(input.importId, 'committing'),
+        imported_count: 25,
+        pending_count: 315,
+      }),
+    })
+    const response = await commit(app, { timezone: 'Europe/Madrid', choices: [] })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      status: 'committing',
+      imported_count: 25,
+      pending_count: 315,
     })
   })
 

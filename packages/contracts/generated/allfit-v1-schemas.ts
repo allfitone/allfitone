@@ -4616,6 +4616,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'session_count',
       'set_count',
       'imported_count',
+      'pending_count',
       'issues',
       'created_at',
       'committed_at',
@@ -4649,7 +4650,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       imported_count: {
         type: 'integer',
         minimum: 0,
-        description: 'Sessions that entered on commit; zero before.',
+        description: 'Sessions that have entered so far; zero before the commit begins.',
+      },
+      pending_count: {
+        type: ['integer', 'null'],
+        minimum: 0,
+        description: 'While committing, the staged sessions still to go through; null otherwise.',
       },
       issues: {
         type: 'array',
@@ -4854,7 +4860,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   },
   HistoryImportStatus: {
     type: 'string',
-    enum: ['staged', 'committed', 'undone', 'expired'],
+    enum: ['staged', 'committing', 'committed', 'undone', 'expired'],
   },
   HistoryImportUpload: {
     type: 'object',

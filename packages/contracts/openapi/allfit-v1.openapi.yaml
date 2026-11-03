@@ -8983,13 +8983,23 @@ paths:
       operationId: commitMyHistoryImport
       x-allfit-operation: OP-EXE-028
       x-allfit-cache: no-store
-      summary: Bring a staged import into my history
+      summary: Bring a staged import into my history, a part per call
       description: >-
-        Atomic: every staged session not already in the history enters finished, as
-        declared by the person, or none does. `choices` say which movement each exercise
-        name is (null: none) and are remembered for the next import; a suggestion not
-        confirmed here is not used. `timezone` is the zone the file's times are read in.
-        An import already committed, undone or expired answers `409`.
+        Each call brings in at most 25 staged sessions not already in the history,
+        finished and declared by the person, oldest first; a call's sessions enter
+        together or not at all. The answer is `committing` with `pending_count` while
+        sessions remain, and `committed` once none do: the client repeats the call, with
+        a new `Idempotency-Key` and the same body, until then. Every call stays short
+        however long the history is.
+
+
+        The first call fixes the commit: `timezone` is the zone the file's times are read
+        in, and `choices` say which movement each exercise name is (null: none); they are
+        remembered for the next import and every exercise name is resolved once, here. A
+        suggestion not confirmed is not used. A later call must name the same zone, or it
+        answers `409`; its `choices` are not read, so an app reopened half way continues
+        with `[]`. An import already committed, undone or expired answers `409` too.
+        Undoing a commit left half way annuls what entered and drops the rest.
       security:
         - bearerAuth: []
       parameters:
@@ -9004,7 +9014,7 @@ paths:
               $ref: '#/components/schemas/HistoryImportCommit'
       responses:
         '200':
-          description: Committed
+          description: This call's sessions entered; `committing` while more remain
           headers:
             Cache-Control:
               $ref: '#/components/headers/NoStore'
@@ -20537,7 +20547,7 @@ components:
           description: A published global movement, or null for none of them.
     HistoryImportStatus:
       type: string
-      enum: [staged, committed, undone, expired]
+      enum: [staged, committing, committed, undone, expired]
     HistoryImportIssue:
       type: object
       additionalProperties: false
@@ -20612,8 +20622,8 @@ components:
     HistoryImport:
       type: object
       additionalProperties: false
-      required: [id, source, status, timezone, session_count, set_count, imported_count, issues,
-        created_at, committed_at, undone_at, expires_at, preview]
+      required: [id, source, status, timezone, session_count, set_count, imported_count,
+        pending_count, issues, created_at, committed_at, undone_at, expires_at, preview]
       properties:
         id:
           $ref: '#/components/schemas/UuidV7'
@@ -20634,7 +20644,11 @@ components:
         imported_count:
           type: integer
           minimum: 0
-          description: Sessions that entered on commit; zero before.
+          description: Sessions that have entered so far; zero before the commit begins.
+        pending_count:
+          type: [integer, 'null']
+          minimum: 0
+          description: While committing, the staged sessions still to go through; null otherwise.
         issues:
           type: array
           items:
