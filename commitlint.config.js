@@ -27,6 +27,7 @@ export default {
         'object-store',
         'store-billing',
         'food-recognition',
+        'history-import',
         // domains inside apps/api
         'identity',
         'organizations',

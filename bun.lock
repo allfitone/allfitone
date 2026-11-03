@@ -183,6 +183,10 @@
         "zod": "4.6.5",
       },
     },
+    "packages/history-import": {
+      "name": "@allfitone/history-import",
+      "version": "0.0.0",
+    },
     "packages/notifications": {
       "name": "@allfitone/notifications",
       "version": "0.0.0",
@@ -252,6 +256,8 @@
     "@allfitone/db": ["@allfitone/db@workspace:packages/db"],
 
     "@allfitone/food-recognition": ["@allfitone/food-recognition@workspace:packages/food-recognition"],
+
+    "@allfitone/history-import": ["@allfitone/history-import@workspace:packages/history-import"],
 
     "@allfitone/icons": ["@allfitone/icons@0.5.1", "", { "dependencies": { "lucide-react": "^1.25.0" }, "peerDependencies": { "react": ">=19" } }, "sha512-TY0kgR9cQIztHSfguLn7BeT2E9MApU7UhO7HdbOR+qydGn4Z41TJKgNJhO+3jVw5yQhSSTnnYzmhlYf062ez1g=="],
 
