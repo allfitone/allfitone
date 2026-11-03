@@ -95,7 +95,8 @@ const plural = (count: number, one: string, many: string) =>
 /** «48 min · 12 series · 3.840 kg», with only the parts there are. */
 export function historyDetail(row: HistoryItem): string {
   const parts = [
-    row.is_free ? 'Entreno libre' : null,
+    // An imported session has no plan either, but it was not trained off one here.
+    row.is_free && row.source === null ? 'Entreno libre' : null,
     `${String(Math.round(row.duration_seconds / 60))} min`,
     row.work_sets > 0 ? plural(row.work_sets, 'serie', 'series') : null,
     row.total_volume_kg === null ? null : `${kilos(row.total_volume_kg)} kg`,

@@ -39,10 +39,17 @@ export type ApiFailure =
    */
   | 'plan-limit'
 
+/** What a `422` said was wrong with the request, and where in it. */
+export interface ApiIssue {
+  readonly code: string
+  readonly path: string
+}
+
 export class ApiError extends Error {
   constructor(
     readonly failure: ApiFailure,
     readonly feature?: string,
+    readonly issues: readonly ApiIssue[] = [],
   ) {
     super(failure)
     this.name = 'ApiError'
@@ -61,8 +68,11 @@ export function failureFor(status: number): ApiFailure {
 
 const PLAN_LIMIT = 'https://errors.allfit.invalid/plan-limit-reached'
 
-/** The error a refused response means, reading the problem only for a plan limit. */
+/** The error a refused response means, reading the problem for a plan limit or a 422's issues. */
 export async function apiErrorFrom(response: Response): Promise<ApiError> {
+  if (response.status === 422) {
+    return new ApiError('validation-failed', undefined, issuesOf(await problemOf(response)))
+  }
   if (response.status !== 403) return new ApiError(failureFor(response.status))
   let body: unknown
   try {
@@ -75,4 +85,23 @@ export async function apiErrorFrom(response: Response): Promise<ApiError> {
     if (typeof feature === 'string') return new ApiError('plan-limit', feature)
   }
   return new ApiError('forbidden')
+}
+
+async function problemOf(response: Response): Promise<unknown> {
+  try {
+    return await response.json()
+  } catch {
+    return undefined
+  }
+}
+
+/** Only entries of the contract's shape are believed; anything else is dropped. */
+function issuesOf(body: unknown): readonly ApiIssue[] {
+  if (typeof body !== 'object' || body === null || !('errors' in body)) return []
+  if (!Array.isArray(body.errors)) return []
+  return body.errors.flatMap((entry: unknown) => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const { code, path } = entry as { code?: unknown; path?: unknown }
+    return typeof code === 'string' && typeof path === 'string' ? [{ code, path }] : []
+  })
 }

@@ -47,4 +47,28 @@ describe('apiErrorFrom', () => {
     ])
     expect(forbidden.feature).toBeUndefined()
   })
+
+  test('T-SPC-UNIT-IMP-01 an unusable request says what was wrong with it, and where', async () => {
+    const error = await apiErrorFrom(
+      problem(
+        {
+          type: 'https://errors.allfit.invalid/validation-failed',
+          status: 422,
+          errors: [
+            { code: 'unreadable_date', path: '/content/37', message: 'A date cannot be read.' },
+          ],
+        },
+        422,
+      ),
+    )
+    expect(error.failure).toBe('validation-failed')
+    expect(error.issues).toEqual([{ code: 'unreadable_date', path: '/content/37' }])
+  })
+
+  test('T-SPC-UNIT-IMP-02 a 422 without a readable problem has no issues, and is still a 422', async () => {
+    const empty = await apiErrorFrom(new Response('', { status: 422 }))
+    const odd = await apiErrorFrom(problem({ errors: [{ code: 7 }, 'x'] }, 422))
+    expect([empty.failure, odd.failure]).toEqual(['validation-failed', 'validation-failed'])
+    expect([empty.issues, odd.issues]).toEqual([[], []])
+  })
 })

@@ -65,6 +65,8 @@ const detail: FinishedExecution = {
       record: true,
       best_set: { load_kg: 70, reps: 8 },
       sets: [set({ kind: 'warmup', load_value: 40 }), set({ set_order: 2 }), set({ set_order: 3 })],
+      source_name: null,
+      source_note: null,
     },
     {
       position: 2,
@@ -74,8 +76,12 @@ const detail: FinishedExecution = {
       record: false,
       best_set: null,
       sets: [set({ set_order: 4, load_value: null, achieved_reps: 10 })],
+      source_name: null,
+      source_note: null,
     },
   ],
+  source: null,
+  source_description: null,
 }
 
 describe('what the detail of a finished session says (FIN-18)', () => {

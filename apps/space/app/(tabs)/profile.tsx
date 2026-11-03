@@ -203,6 +203,13 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
             onPress={() => router.push('/body')}
           />
           <ProfileRow
+            icon="download"
+            title="Importar historial"
+            caption="Trae tus entrenamientos de Hevy"
+            end="open"
+            onPress={() => router.push('/history-import')}
+          />
+          <ProfileRow
             icon="person"
             title="Perfil fitness"
             caption="Objetivo, experiencia y medidas"

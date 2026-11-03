@@ -39,7 +39,7 @@ export type RegistrationAccepted = AllfitV1Schemas['SpaceRegistrationAccepted']
 export type SessionTokens = AllfitV1Schemas['SpaceSessionTokens']
 export type SessionRefreshed = AllfitV1Schemas['SpaceSessionRefreshed']
 
-export { ApiError, type ApiFailure } from './api-error'
+export { ApiError, type ApiFailure, type ApiIssue } from './api-error'
 import { ApiError, apiErrorFrom } from './api-error'
 
 /** The port the API listens on. Only the host varies between simulator and device. */
@@ -209,8 +209,9 @@ export async function authorizedPost<T>(
   body: unknown,
   token?: string,
   ifMatch?: string,
+  timeoutMs: number = TIMEOUT_MS,
 ): Promise<T> {
-  const { signal, done } = timeoutSignal(TIMEOUT_MS)
+  const { signal, done } = timeoutSignal(timeoutMs)
   let response: Response | undefined
   try {
     response = await fetch(`${BASE_URL}${path}`, {

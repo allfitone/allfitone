@@ -237,6 +237,7 @@ describe('words and the receipt', () => {
         total_volume_kg: kg,
         record_count: 0,
         thumbnail_url: null,
+        source: null,
       }) satisfies HistoryItem
     const rows = receiptRows(
       [
