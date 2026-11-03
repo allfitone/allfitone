@@ -103,6 +103,7 @@ const programVersion: AllfitV1Schemas['ProgramVersion'] = {
   status: 'published',
   title: 'Program A',
   notes: null,
+  repeats_forever: true,
   sessions: programDraftContent.sessions,
   published_at: NOW,
   session_count: 1,

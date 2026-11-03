@@ -7866,6 +7866,7 @@ export interface components {
      *       "version_number": 1,
      *       "status": "published",
      *       "title": "Bloque de fuerza",
+     *       "repeats_forever": false,
      *       "sessions": [
      *         {
      *           "position": 1,
@@ -7887,6 +7888,8 @@ export interface components {
       status: 'published' | 'deprecated'
       title: string
       notes?: string | null
+      /** @description True when the program has no end: its last week is followed by the first again (ADR-032). Fixed at publication like the rest of the version. */
+      repeats_forever: boolean
       sessions: components['schemas']['ProgramVersionSessionCreate'][]
       /** Format: date-time */
       published_at: string

@@ -5553,6 +5553,15 @@ export type Database = {
         Args: { p_person_id: string }
         Returns: Json
       }
+      read_organization_program_version: {
+        Args: {
+          p_organization_id: string
+          p_person_id: string
+          p_program_id: string
+          p_version_number: number
+        }
+        Returns: Json
+      }
       read_program_catalogue: {
         Args: { p_person_id: string }
         Returns: {
