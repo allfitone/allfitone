@@ -1311,6 +1311,8 @@ export interface paths {
      *     **Accepting the relationship grants nothing.** Each scope carries its own answer, and a scope left out of `scope_decisions` counts as rejected. A person may accept the relationship and reject every scope: the relationship is then in force and no professional can read anything of theirs. That is a legitimate outcome, not a broken state.
      *
      *     Rejecting the relationship ends the invitation and no scope is granted, whatever the scope answers say.
+     *
+     *     HU-STUDIO-087: accepting converts the guest place the invitation already held. If the organization is over its quota by another way, acceptance answers `409` with `guest-quota-exhausted` and nothing is decided.
      */
     post: operations['decideSpaceClientInvitation']
     delete?: never
@@ -2155,6 +2157,8 @@ export interface paths {
      *     Reissuing the same offer to the same contact reuses the pending invitation so the person does not receive two. Asking for a different set of scopes is a different proposal and issues a new one, because the person would be answering a different question.
      *
      *     The initial-program proposal in criteria 2, 6 and 7 of the story is not implemented: an organization has no way to publish a program yet.
+     *
+     *     HU-STUDIO-087: a new invitation takes a guest place. When the organization has none left the answer is `409` with `guest-quota-exhausted`; reusing a pending invitation takes no second place. An organization without a quota has no limit.
      */
     post: operations['createStudioClientInvitation']
     delete?: never

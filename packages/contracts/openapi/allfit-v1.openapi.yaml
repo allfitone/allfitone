@@ -127,6 +127,11 @@ x-allfit-error-catalog:
   - code: rate-limited
     status: 429
     description: A closed invitation abuse-prevention limit rejected the attempt.
+  - code: guest-quota-exhausted
+    status: 409
+    description: >-
+      The organization has filled every guest place Allfit sold it (HU-STUDIO-087).
+      Live relationships and unanswered invitations occupy a place.
 x-allfit-media-url-policy:
   space_owner:
     delivery: signed_storage_url
@@ -3212,6 +3217,11 @@ paths:
 
         Rejecting the relationship ends the invitation and no scope is granted,
         whatever the scope answers say.
+
+
+        HU-STUDIO-087: accepting converts the guest place the invitation already
+        held. If the organization is over its quota by another way, acceptance
+        answers `409` with `guest-quota-exhausted` and nothing is decided.
       security:
         - bearerAuth: []
       parameters:
@@ -5163,6 +5173,12 @@ paths:
 
         The initial-program proposal in criteria 2, 6 and 7 of the story is not
         implemented: an organization has no way to publish a program yet.
+
+
+        HU-STUDIO-087: a new invitation takes a guest place. When the organization
+        has none left the answer is `409` with `guest-quota-exhausted`; reusing a
+        pending invitation takes no second place. An organization without a quota
+        has no limit.
       security:
         - cookieAuth: []
       parameters:
