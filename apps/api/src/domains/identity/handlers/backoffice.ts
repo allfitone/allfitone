@@ -122,7 +122,7 @@ export function backofficeIdentityRoutes(injectedService?: BackofficeAuthenticat
     try {
       const result = await service().readSession(token)
       recordBackofficeAuth('session', 'succeeded')
-      return c.json({ ...result, analytics: result.analytics ?? { distinct_id: null } })
+      return c.json(result)
     } catch (error) {
       recordBackofficeAuth('session', 'failed')
       if (terminalAuthenticationError(error)) clearSession(c)

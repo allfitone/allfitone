@@ -51,7 +51,7 @@ describe('client invitation resend presentation', () => {
 
   test('says who signed the invitation', () => {
     expect(issuedByLabel(invitation())).toBe('El gimnasio')
-    expect(issuedByLabel(invitation({ issued_by: 'allfit' }))).toContain('Allfit')
+    expect(issuedByLabel(invitation({ issued_by: 'allfit' }))).toContain('Allfit One')
   })
 
   test('a row without a resend says why, and a resendable one says nothing', () => {
@@ -75,7 +75,7 @@ describe('client invitation resend presentation', () => {
       ...invitation({ state: 'pending', issued_by: 'allfit' }),
       outcome: 'reissued',
     })
-    expect(reissued).toContain('firmada por Allfit')
+    expect(reissued).toContain('firmada por Allfit One')
     expect(reissued).toContain('los mismos permisos')
     expect(reissued).toContain('l***@example.test')
   })

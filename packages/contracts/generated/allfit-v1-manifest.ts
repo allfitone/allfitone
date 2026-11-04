@@ -559,14 +559,6 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
-      path: '/backoffice/v1/telemetry-config',
-      operationId: 'getBackofficeTelemetryConfig',
-      allfitOperation: 'OP-SYS-011',
-      responses: ['200'],
-      security: [],
-    },
-    {
-      method: 'GET',
       path: '/backoffice/v1/verification-renewals',
       operationId: 'listBackofficeVerificationRenewals',
       allfitOperation: 'OP-IDN-011',

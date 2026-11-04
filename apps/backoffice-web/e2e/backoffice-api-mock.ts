@@ -1687,23 +1687,10 @@ export function createBackofficeFixture(
   }
 }
 
-/**
- * Consent is seeded as declined so the notice stays folded away from what a
- * spec is looking at. `undecided` leaves it open, as a first visit sees it.
- */
 export async function mockBackofficeApi(
   context: BrowserContext,
   fixture: BackofficeFixture,
-  options: { consent?: 'denied' | 'undecided' } = {},
 ): Promise<void> {
-  if (options.consent !== 'undecided') {
-    await context.addInitScript(() => {
-      localStorage.setItem(
-        'allfit.analytics-v1',
-        JSON.stringify({ decision: 'denied', notice_version: 'analytics-v1' }),
-      )
-    })
-  }
   await context.route('http://127.0.0.1:8080/backoffice/v1/**', async (route) => {
     const request = toMockRequest(route)
     fixture.requests.push(request)

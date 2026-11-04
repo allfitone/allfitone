@@ -1653,7 +1653,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'assurance_level',
       'authentication_method',
       'operator',
-      'analytics',
       'assurance_verified_at',
       'inactivity_expires_at',
       'absolute_expires_at',
@@ -1687,9 +1686,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             maxLength: 100,
           },
         },
-      },
-      analytics: {
-        $ref: '#/components/schemas/AnalyticsIdentity',
       },
       assurance_verified_at: {
         type: 'string',

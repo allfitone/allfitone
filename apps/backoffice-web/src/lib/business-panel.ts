@@ -89,7 +89,7 @@ const METRIC_LABELS: Record<string, string> = {
   lapsed_subscriptions: 'Suscripciones vencidas sin reportar',
   open_subscriptions: 'Suscripciones abiertas',
   active_organization_subscriptions: 'Planes de gimnasio activos',
-  pro_people_paying_allfit: 'Con Pro, pagándole a Allfit',
+  pro_people_paying_allfit: 'Con Pro, pagándole a Allfit One',
   pro_people_through_organization: 'Con Pro, por su gimnasio',
   premium_people: 'Personas con Pro',
   billed_this_month: 'Facturado',
@@ -104,7 +104,7 @@ const METRIC_HINTS: Record<string, string> = {
     'Profesionales que trabajaron en Studio. Es otra pregunta que la de arriba y no sustituye a la anterior.',
   organizations: 'Todos, sin importar en qué estado estén.',
   operating_organizations: 'Reclamados, no cerrados y con al menos una persona en el equipo.',
-  unclaimed_organizations: 'Allfit los creó y su dueño todavía no los aceptó.',
+  unclaimed_organizations: 'Allfit One los creó y su dueño todavía no los aceptó.',
   active_subscriptions:
     'Las que siguen dando Pro: al día, o dentro del plazo de gracia que la tienda da tras un cobro fallido.',
   suspended_subscriptions:
@@ -114,10 +114,10 @@ const METRIC_HINTS: Record<string, string> = {
   open_subscriptions:
     'Todas las que no están cerradas. Es la suma exacta de las tres de arriba, así que lo que falte está en una de ellas.',
   active_organization_subscriptions:
-    'Lo que las personas le pagan a su gimnasio. El gimnasio lo cobra en su propia pasarela: no es ingreso de Allfit y no pasa por aquí.',
+    'Lo que las personas le pagan a su gimnasio. El gimnasio lo cobra en su propia pasarela: no es ingreso de Allfit One y no pasa por aquí.',
   pro_people_paying_allfit: 'Compraron Pro en App Store o Google Play.',
   pro_people_through_organization:
-    'Lo tienen por entrenar en un gimnasio que opera. Quien además le paga a Allfit se cuenta arriba y no aquí.',
+    'Lo tienen por entrenar en un gimnasio que opera. Quien además le paga a Allfit One se cuenta arriba y no aquí.',
   premium_people: 'Las dos rutas sumadas, cada persona una sola vez.',
   billed_this_month:
     'Lo que las tiendas reportaron como cobrado. Un cobro fallido no cuenta, y cada moneda va aparte.',
@@ -125,10 +125,10 @@ const METRIC_HINTS: Record<string, string> = {
 
 const REASONS: Record<string, string> = {
   payments_not_modelled:
-    'Allfit todavía no guarda pagos ni suscripciones. Cuando existan, esta cifra aparece aquí.',
+    'Allfit One todavía no guarda pagos ni suscripciones. Cuando existan, esta cifra aparece aquí.',
 }
 
-export const NOT_MODELLED_NOTE = 'Allfit todavía no guarda los datos para esta cifra.'
+export const NOT_MODELLED_NOTE = 'Allfit One todavía no guarda los datos para esta cifra.'
 
 export const NOTHING_BILLED = 'Nada cobrado todavía este mes.'
 

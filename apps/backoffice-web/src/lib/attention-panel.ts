@@ -90,7 +90,7 @@ export function verificationSummary(notice: AttentionVerificationNotice): string
 export function unclaimedSummary(notice: AttentionUnclaimedOrganizationNotice): string {
   if (notice.availability === 'withheld') return WITHHELD_NOTE
   const count = notice.count ?? 0
-  if (count === 0) return 'Todos los gimnasios que Allfit creó ya tienen dueño.'
+  if (count === 0) return 'Todos los gimnasios que Allfit One creó ya tienen dueño.'
   const followUp = notice.needs_follow_up_count ?? 0
   const gyms = counted(count, 'gimnasio sin reclamar', 'gimnasios sin reclamar')
   if (followUp === 0) return `${gyms}, todos con la invitación a su dueño vigente.`

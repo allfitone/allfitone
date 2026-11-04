@@ -1,74 +1,3 @@
-[data-analytics-controls] {
-  position: fixed;
-  z-index: 100;
-  right: 16px;
-  bottom: 16px;
-  max-width: min(390px, calc(100vw - 32px));
-}
-
-/* Open on the access screen it sits over the wordmark: the form panel fills the
-   right, and at the bottom the notice covered the sign-in action at 1280x720. */
-[data-analytics-controls][data-expanded='true'] {
-  top: 16px;
-  right: auto;
-  bottom: auto;
-  left: 16px;
-}
-
-/* In the workspace it opens where it folds: top-left covered the navigation, and at
-   the top it covered the screen title and its filters at 768px. */
-:root:has([data-backoffice-shell]) [data-analytics-controls][data-expanded='true'] {
-  top: auto;
-  right: 16px;
-  bottom: 16px;
-  left: auto;
-}
-
-/* Room to scroll the end of a screen clear of the notice, folded or open, so no
-   control stays under it. */
-:root:has([data-analytics-controls]) [data-backoffice-content] {
-  padding-block-end: 5rem;
-}
-
-:root:has([data-analytics-controls][data-expanded='true']) [data-backoffice-content] {
-  padding-block-end: 20rem;
-}
-
-[data-analytics-panel] {
-  display: grid;
-  padding: 16px;
-  gap: 10px;
-  border: 1px solid var(--afo-color-border-default);
-  border-radius: var(--afo-radius-xl);
-  background: var(--afo-color-background-surface);
-  box-shadow: var(--afo-shadow-lg);
-  color: var(--afo-color-text-primary);
-}
-
-[data-analytics-panel] p {
-  margin: 0;
-  font-size: var(--afo-font-size-sm);
-  line-height: var(--afo-line-height-relaxed);
-}
-
-[data-analytics-notice-link] {
-  display: inline-flex;
-  min-height: 44px;
-  width: fit-content;
-  align-items: center;
-  color: var(--afo-color-text-accent);
-  font-size: var(--afo-font-size-sm);
-  font-weight: var(--afo-font-weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-[data-analytics-actions] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 /* Authenticated shell. The Design System owns the components; this file only
    composes them, because a literal visual class is forbidden in product apps. */
 [data-backoffice-gate] {
@@ -566,8 +495,7 @@
 
 /* The three outcomes sit side by side with equal weight: "not verifiable" is an
    answer, not the lesser option. */
-/* The same treatment as the analytics notice link: an external destination is a
-   link, with a touch target of its own. */
+/* An external destination is a link, with a touch target of its own. */
 [data-verification-registry-link] {
   display: inline-flex;
   min-height: 44px;
@@ -582,4 +510,28 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
   gap: 12px;
+}
+
+/* Allfit One's own staff sign in here: the access panel alone, centred, with nothing to sell.
+   The shell's second column is for a hero this screen no longer has. */
+[data-backoffice-access-main] {
+  grid-template-columns: minmax(0, 30rem);
+  grid-template-rows: auto;
+  justify-content: center;
+}
+
+[data-backoffice-access-panel] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+[data-backoffice-access-brand] {
+  margin: 0;
+  line-height: 0;
+}
+
+/* No decorative band behind the access and device screens: only the soft glow stays. */
+[data-backoffice-access-shell]::after,
+[data-backoffice-device-gate]::after {
+  content: none;
 }

@@ -31,7 +31,7 @@ const MODE_LABELS: Record<AccessMode, string> = {
   frozen: 'Permiso congelado',
   break_glass: 'Acceso excepcional',
   organization_operational: 'Operación del gimnasio',
-  support_metadata: 'Lectura del equipo de Allfit',
+  support_metadata: 'Lectura del equipo de Allfit One',
 }
 
 export function modeLabel(mode: AccessMode): string {
@@ -51,7 +51,7 @@ const MODE_BASIS: Record<AccessMode, string> = {
   organization_operational:
     'Fue una operación del gimnasio sobre datos que administra, no una lectura de datos de salud.',
   support_metadata:
-    'No hubo permiso de la persona: la hizo alguien del equipo de Allfit ejerciendo un deber de plataforma.',
+    'No hubo permiso de la persona: la hizo alguien del equipo de Allfit One ejerciendo un deber de plataforma.',
 }
 
 export function modeBasis(mode: AccessMode): string {

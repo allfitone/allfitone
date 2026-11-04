@@ -54,10 +54,10 @@ export function statusFilterLabel(status: OrganizationStatus | 'any'): string {
 const STATUS_MEANINGS: Record<OrganizationStatus, string> = {
   active: 'Su dueño lo reclamó y está operando.',
   suspended:
-    'Allfit le cortó el servicio y no opera. No terminó ninguna relación ni se le quitó ningún permiso: se levanta y vuelve a operar.',
-  unclaimed: 'Allfit lo creó y su dueño todavía no aceptó. Existe, pero no opera.',
+    'Allfit One le cortó el servicio y no opera. No terminó ninguna relación ni se le quitó ningún permiso: se levanta y vuelve a operar.',
+  unclaimed: 'Allfit One lo creó y su dueño todavía no aceptó. Existe, pero no opera.',
   closed: 'Operó y se cerró.',
-  cancelled: 'Allfit lo creó, nadie lo reclamó y se canceló.',
+  cancelled: 'Allfit One lo creó, nadie lo reclamó y se canceló.',
 }
 
 export function statusMeaning(status: OrganizationStatus): string {
@@ -140,7 +140,7 @@ export function directoryAnswer(
   if (shown === 0) {
     return isFiltered(filters)
       ? 'Ningún gimnasio coincide con esta búsqueda.'
-      : 'Todavía no hay ningún gimnasio en Allfit.'
+      : 'Todavía no hay ningún gimnasio en Allfit One.'
   }
   const count = shown === 1 ? '1 gimnasio' : `${shown} gimnasios`
   return hasMore ? `${count} por ahora. Hay más: cárgalos al final de la lista.` : `${count}.`

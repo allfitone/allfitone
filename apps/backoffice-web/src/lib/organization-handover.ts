@@ -38,7 +38,7 @@ export const PARTY_KINDS: ReadonlyArray<{ code: PartyKind; label: string }> = [
 export function partyKindExplanation(kind: PartyKind): string {
   return kind === 'legal_entity'
     ? 'Escribe la razón social tal como figura en su registro.'
-    : 'No escribas su nombre: se toma de su propia cuenta cuando acepte. Allfit no escribe el nombre de alguien que todavía no aceptó nada.'
+    : 'No escribas su nombre: se toma de su propia cuenta cuando acepte. Allfit One no escribe el nombre de alguien que todavía no aceptó nada.'
 }
 
 export interface HandoverDraft {

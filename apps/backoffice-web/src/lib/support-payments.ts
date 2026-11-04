@@ -33,7 +33,7 @@ export const GYM_CHARGES_NOTE =
   'De lo que le cobra su gimnasio no guardamos los cobros: cada gimnasio cobra en su propia pasarela. Aquí solo está el estado del plan.'
 
 export const NO_CARD_NOTE =
-  'Allfit no guarda datos de tarjeta de nadie, así que no hay ninguno que mostrar aquí.'
+  'Allfit One no guarda datos de tarjeta de nadie, así que no hay ninguno que mostrar aquí.'
 
 /** Where her Pro comes from, in one sentence that names the gym when there is one. */
 export function proSentence(payments: SupportPersonPayments): string {
@@ -42,14 +42,14 @@ export function proSentence(payments: SupportPersonPayments): string {
     const store = payments.pro.subscription
       ? storeLabel(payments.pro.subscription.store)
       : 'la tienda'
-    return `Tiene Pro porque se lo paga a Allfit por ${store}.`
+    return `Tiene Pro porque se lo paga a Allfit One por ${store}.`
   }
   if (payments.pro.source === 'organization') {
     const names = gyms.map((gym) => gym.organization_name)
     if (names.length === 0) return 'Tiene Pro por el gimnasio donde entrena.'
     if (names.length === 1)
-      return `Tiene Pro por entrenar en ${names[0]}. No le paga nada a Allfit.`
-    return `Tiene Pro por entrenar en ${names.join(' y ')}. No le paga nada a Allfit.`
+      return `Tiene Pro por entrenar en ${names[0]}. No le paga nada a Allfit One.`
+    return `Tiene Pro por entrenar en ${names.join(' y ')}. No le paga nada a Allfit One.`
   }
   return 'No tiene Pro: está en el plan gratuito.'
 }

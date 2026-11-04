@@ -7,7 +7,6 @@ describe('public telemetry gates', () => {
     const previous = {
       studio: process.env.ANALYTICS_STUDIO_CLIENT_ENABLED,
       space: process.env.ANALYTICS_SPACE_CLIENT_ENABLED,
-      backoffice: process.env.ANALYTICS_BACKOFFICE_CLIENT_ENABLED,
       vercelEnv: process.env.VERCEL_ENV,
     }
     process.env.API_PUBLIC_URL = 'https://api.example.test'
@@ -15,19 +14,16 @@ describe('public telemetry gates', () => {
     process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
     delete process.env.ANALYTICS_STUDIO_CLIENT_ENABLED
     process.env.ANALYTICS_SPACE_CLIENT_ENABLED = 'true'
-    process.env.ANALYTICS_BACKOFFICE_CLIENT_ENABLED = 'false'
     process.env.VERCEL_ENV = 'production'
 
     try {
       const app = createApp()
       const studio = await app.request('/studio/v1/telemetry-config')
       const space = await app.request('/space/v1/telemetry-config')
-      const backoffice = await app.request('/backoffice/v1/telemetry-config')
 
       expect(await studio.json()).toEqual({ enabled: false, notice_version: 'analytics-v1' })
       expect(await space.json()).toEqual({ enabled: true, notice_version: 'analytics-v1' })
-      expect(await backoffice.json()).toEqual({ enabled: false, notice_version: 'analytics-v1' })
-      for (const response of [studio, space, backoffice]) {
+      for (const response of [studio, space]) {
         expect(response.status).toBe(200)
         expect(response.headers.get('cache-control')).toBe('public, max-age=300')
         expect(response.headers.get('server-timing')).toContain('total;dur=')
@@ -36,6 +32,32 @@ describe('public telemetry gates', () => {
     } finally {
       restore('ANALYTICS_STUDIO_CLIENT_ENABLED', previous.studio)
       restore('ANALYTICS_SPACE_CLIENT_ENABLED', previous.space)
+      restore('VERCEL_ENV', previous.vercelEnv)
+    }
+  })
+
+  /*
+   * The Backoffice is Allfit One's internal tool: its operators are staff, so their
+   * browser is never measured and there is no gate to open, even by mistake.
+   */
+  test('the Backoffice has no client telemetry gate, whatever its flag says', async () => {
+    const previous = {
+      backoffice: process.env.ANALYTICS_BACKOFFICE_CLIENT_ENABLED,
+      vercelEnv: process.env.VERCEL_ENV,
+    }
+    process.env.API_PUBLIC_URL = 'https://api.example.test'
+    process.env.STUDIO_WEB_URL = 'https://studio.example.test'
+    process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
+    process.env.ANALYTICS_BACKOFFICE_CLIENT_ENABLED = 'true'
+    process.env.VERCEL_ENV = 'production'
+
+    try {
+      const response = await createApp().request('/backoffice/v1/telemetry-config', {
+        headers: { origin: 'https://backoffice.example.test' },
+      })
+      expect(response.status).toBe(404)
+      expect(await response.text()).not.toContain('notice_version')
+    } finally {
       restore('ANALYTICS_BACKOFFICE_CLIENT_ENABLED', previous.backoffice)
       restore('VERCEL_ENV', previous.vercelEnv)
     }
@@ -46,18 +68,16 @@ describe('public telemetry gates', () => {
     process.env.STUDIO_WEB_URL = 'https://studio.example.test'
     process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
 
-    const response = await createApp().request('/backoffice/v1/telemetry-config', {
+    const response = await createApp().request('/studio/v1/telemetry-config', {
       method: 'OPTIONS',
       headers: {
-        origin: 'https://backoffice.example.test',
+        origin: 'https://studio.example.test',
         'access-control-request-method': 'GET',
       },
     })
 
     expect(response.status).toBe(204)
-    expect(response.headers.get('access-control-allow-origin')).toBe(
-      'https://backoffice.example.test',
-    )
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://studio.example.test')
     expect(response.headers.get('access-control-max-age')).toBe('600')
     expect(response.headers.get('access-control-expose-headers')?.toLowerCase()).toContain(
       'server-timing',

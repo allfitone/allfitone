@@ -42,7 +42,7 @@ export const WHAT_REACTIVATING_DOES =
   'Levantar la suspensión cierra solo el bloqueo de este gimnasio y vuelve a calcular con el estado de hoy. No restaura una copia anterior: lo que se revocó, terminó, venció o se canceló durante la suspensión no revive, y cualquier otro bloqueo vigente —una suscripción sin pagar, por ejemplo— sigue aplicando.'
 
 const REASON_LABELS: Record<OrganizationSuspensionReason, string> = {
-  nonpayment: 'No le está pagando a Allfit',
+  nonpayment: 'No le está pagando a Allfit One',
   terms_breach: 'Incumplió los términos',
   security_incident: 'Incidente de seguridad',
   legal_requirement: 'Obligación legal',
@@ -50,6 +50,11 @@ const REASON_LABELS: Record<OrganizationSuspensionReason, string> = {
 
 export function reasonLabel(reason: OrganizationSuspensionReason): string {
   return REASON_LABELS[reason]
+}
+
+// Inside a sentence only the label's first letter drops: a name in it keeps its capitals.
+function inSentence(label: string): string {
+  return label.charAt(0).toLowerCase() + label.slice(1)
 }
 
 /** What is true right now, in one sentence, before anything else on the panel. */
@@ -60,7 +65,7 @@ export function stateSentence(suspension: OrganizationSuspension): string {
       : 'Este gimnasio opera con normalidad. Estuvo suspendido antes.'
   }
   const reason = suspension.current ? reasonLabel(suspension.current.reason_code) : 'Sin motivo'
-  return `Suspendido: ${reason.toLowerCase()}.`
+  return `Suspendido: ${inSentence(reason)}.`
 }
 
 /** The cost of the decision, counted from the causes it opened. */
@@ -86,7 +91,7 @@ export function costWarning(peopleServed: number): string {
 }
 
 export function periodSentence(period: OrganizationSuspensionPeriod): string {
-  const reason = reasonLabel(period.reason_code).toLowerCase()
+  const reason = inSentence(reasonLabel(period.reason_code))
   return period.ended_at === null ? `${reason}, todavía abierta` : `${reason}, levantada`
 }
 

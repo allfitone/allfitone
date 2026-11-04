@@ -115,5 +115,5 @@ export function equipmentExplanation(
   availability: BackofficeGlobalCatalogue['equipment_availability'],
 ): string {
   if (availability === 'available') return 'El equipamiento se publica desde aquí.'
-  return 'Allfit todavía no guarda equipamiento: no es que no haya, es que no existe dónde ponerlo. Publicarlo llega con su propia tabla.'
+  return 'Allfit One todavía no guarda equipamiento: no es que no haya, es que no existe dónde ponerlo. Publicarlo llega con su propia tabla.'
 }

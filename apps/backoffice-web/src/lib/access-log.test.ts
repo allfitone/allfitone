@@ -130,7 +130,7 @@ describe('access log presentation rules', () => {
   test("sets a read by Allfit staff apart from the person's own permissions", () => {
     // A verifier or a support operator reads under a duty, not a grant. Shown as a
     // live permission, the log would tell an auditor the person consented.
-    expect(modeLabel('support_metadata')).toBe('Lectura del equipo de Allfit')
+    expect(modeLabel('support_metadata')).toBe('Lectura del equipo de Allfit One')
     expect(modeTone('support_metadata')).toBe('warning')
     expect(modeBasis('support_metadata')).toContain('No hubo permiso de la persona')
     expect(modeBasis('support_metadata')).not.toContain('permiso vigente')

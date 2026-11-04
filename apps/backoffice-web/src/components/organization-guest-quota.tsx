@@ -113,7 +113,7 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
         </CardTitle>
         <CardDescription>
           Cuántas personas puede tener este gimnasio a la vez, contando relaciones vigentes e
-          invitaciones sin responder. Lo fija Allfit; el gimnasio no lo cambia.
+          invitaciones sin responder. Lo fija Allfit One; el gimnasio no lo cambia.
         </CardDescription>
       </CardHeader>
       <CardContent>
