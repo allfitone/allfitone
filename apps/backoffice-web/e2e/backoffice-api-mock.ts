@@ -32,6 +32,7 @@ export interface BackofficeFixture {
   globalCatalogue?: GlobalCatalogueFixture
   platformPlans?: PlatformPlansFixture
   attention?: AttentionFixture
+  billingFollowUp?: BillingFollowUpFixture
   business?: BusinessFixture
   verification?: VerificationFixture
   breakGlass?: BreakGlassFixture
@@ -1226,6 +1227,71 @@ export interface AttentionPanelFixture {
   }
 }
 
+/**
+ * The charges to follow up (`HU-BO-005`, `HU-BO-020`). The mock refuses a read without a
+ * traceable case, as the database does, and answers the rows in the order given.
+ */
+export interface BillingFollowUpFixture {
+  refusal?: { status: number; code: string }
+  items: BillingFollowUpItemFixture[]
+  hasMore?: boolean
+}
+
+export interface BillingFollowUpItemFixture {
+  person_id: string
+  subscription_status: 'active' | 'grace' | 'suspended' | 'ended' | null
+  plan_name: string | null
+  store: 'app_store' | 'google_play' | null
+  grace_until: string | null
+  suspended_at: string | null
+  failed_charges: number
+  last_failed_charge: {
+    occurred_at: string
+    failure_code: string | null
+    amount_minor: number | null
+    currency_code: string | null
+  } | null
+}
+
+export function billingFollowUpItem(
+  overrides: Partial<BillingFollowUpItemFixture> = {},
+): BillingFollowUpItemFixture {
+  return {
+    person_id: '019b4000-0000-7000-8000-000000000011',
+    subscription_status: 'suspended',
+    plan_name: 'Pro',
+    store: 'google_play',
+    grace_until: null,
+    suspended_at: new Date(Date.now() - 4 * 86_400_000).toISOString(),
+    failed_charges: 0,
+    last_failed_charge: null,
+    ...overrides,
+  }
+}
+
+async function routeBillingFollowUp(
+  route: Route,
+  request: MockRequest,
+  fixture: BackofficeFixture,
+): Promise<void> {
+  const state = fixture.billingFollowUp ?? { items: [] }
+  if (state.refusal) {
+    await fulfillProblem(route, state.refusal.status, state.refusal.code)
+    return
+  }
+  const parameters = new URLSearchParams(request.query)
+  if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(parameters.get('case_reference') ?? '')) {
+    await fulfillProblem(route, 400, 'invalid-request')
+    return
+  }
+  await fulfill(route, 200, {
+    generated_at: new Date().toISOString(),
+    window_days: 30,
+    items: state.items,
+    has_more: state.hasMore ?? false,
+  })
+}
+
 /** Support's view: gyms and failures available, verifications withheld. */
 export function attentionPanelRecord(
   overrides: Partial<AttentionPanelFixture> = {},
@@ -1881,6 +1947,10 @@ export async function mockBackofficeApi(
     }
     if (request.path === '/backoffice/v1/support/attention') {
       await routeAttention(route, fixture)
+      return
+    }
+    if (request.path === '/backoffice/v1/support/billing-follow-up') {
+      await routeBillingFollowUp(route, request, fixture)
       return
     }
     if (request.path === '/backoffice/v1/support/business') {

@@ -162,6 +162,36 @@ export function backofficeSupportMetadataRoutes(
     }
   })
 
+  // The list the attention panel's billing count stands for. It names payers, so it
+  // carries a case like a person's payments and never a filter beyond its page.
+  routes.get('/support/billing-follow-up', async (c) => {
+    const query = c.req.query()
+    if (Object.keys(query).some((key) => key !== 'case_reference' && key !== 'limit')) {
+      return problem(c, 'invalid-request')
+    }
+    const caseReference = query.case_reference
+    if (!caseReference || !SUPPORT_CASE_REFERENCE.test(caseReference)) {
+      return problem(c, 'invalid-request', 'a traceable case reference is required')
+    }
+    const limit = query.limit === undefined ? 50 : Number(query.limit)
+    if (!/^[0-9]{1,3}$/.test(query.limit ?? '50') || limit < 1 || limit > 200) {
+      return problem(c, 'invalid-request')
+    }
+
+    try {
+      const actor = await backofficeActor(c, sessions())
+      if (actor instanceof Response) return actor
+      return c.json(
+        await metadata().billingFollowUp(
+          { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
+          { requestId: randomUUID(), caseReference, limit },
+        ),
+      )
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
   // No case reference on the two diagnosis routes, unlike every other support
   // read: this feed has no subject, so there is nothing to trace back to a case.
   routes.get('/support/operations', async (c) => {

@@ -435,6 +435,27 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/backoffice/v1/support/billing-follow-up': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the charges to follow up
+     * @description `HU-BO-005` c1 and c5, `HU-BO-020` c3. People whose Allfit subscription is suspended or in its grace period, or who had a charge fail in the last thirty days: suspended first, then in grace, then the failures, most recent first. It is what the attention panel's billing count stands for.
+     *     It names payers, so it requires `view_billing_metadata` and a traceable case reference (`HU-BO-020` c4), and one access record is written per person listed before the list is returned. No subscription reference or transaction id travels; each row leads to the person's payments under the same case.
+     */
+    get: operations['readBackofficeBillingFollowUp']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/support/operations': {
     parameters: {
       query?: never
@@ -5542,6 +5563,39 @@ export interface components {
       credential_verifications: components['schemas']['AttentionVerificationNotice']
       unclaimed_organizations: components['schemas']['AttentionUnclaimedOrganizationNotice']
       repeated_failures: components['schemas']['AttentionFailureNotice']
+    }
+    SupportBillingFollowUp: {
+      /** Format: date-time */
+      generated_at: string
+      /** @description How far back a failed charge still needs following up. */
+      window_days: number
+      items: components['schemas']['SupportBillingFollowUpItem'][]
+      has_more: boolean
+    }
+    /** @description One person to follow up. The state of their latest Allfit subscription, since when, and the last charge that failed in the window — never a store reference. */
+    SupportBillingFollowUpItem: {
+      person_id: components['schemas']['Uuid']
+      /**
+       * @description Null when the failed charge has no subscription left behind it.
+       * @enum {string|null}
+       */
+      subscription_status: 'active' | 'grace' | 'suspended' | 'ended' | null
+      plan_name: string | null
+      /** @enum {string|null} */
+      store: 'app_store' | 'google_play' | null
+      /** Format: date-time */
+      grace_until: string | null
+      /** Format: date-time */
+      suspended_at: string | null
+      /** @description Charges that failed within the window. */
+      failed_charges: number
+      last_failed_charge: {
+        /** Format: date-time */
+        occurred_at: string
+        failure_code: string | null
+        amount_minor: number | null
+        currency_code: string | null
+      } | null
     }
     /** @description What a person pays. Closed by enumeration: no means of payment exists in the schema behind it, so there is nothing to filter out of a row. */
     SupportPersonPayments: {
@@ -11800,6 +11854,38 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readBackofficeBillingFollowUp: {
+    parameters: {
+      query: {
+        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
+        case_reference: components['parameters']['SupportCaseReference']
+        limit?: number
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The charges to follow up, as of now */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SupportBillingFollowUp']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
     }

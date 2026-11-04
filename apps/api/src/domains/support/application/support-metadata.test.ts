@@ -20,6 +20,7 @@ function database(found: unknown): SupportMetadataDatabase {
     search: () => Promise.resolve(found as Awaited<ReturnType<SupportMetadataDatabase['search']>>),
     read: () => Promise.reject(new Error('not read here')),
     payments: () => Promise.reject(new Error('not read here')),
+    billingFollowUp: () => Promise.reject(new Error('not read here')),
   }
 }
 

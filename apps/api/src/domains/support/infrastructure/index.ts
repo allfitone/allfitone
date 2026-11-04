@@ -32,6 +32,7 @@ import type {
   SupportPersonMatch,
   SupportPersonMetadata,
   SupportPersonPayments,
+  SupportBillingFollowUp,
   PlatformAccessDatabase,
   PlatformCommandResult,
   PlatformDutyAssignment,
@@ -268,6 +269,18 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
         `
         if (!row) throw new Error('PostgreSQL did not project what the person pays')
         return row.person_payments
+      }),
+
+    billingFollowUp: (input) =>
+      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ billing_follow_up: SupportBillingFollowUp }[]>`
+          select support.billing_follow_up(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.caseReference}, ${input.limit}::integer
+          )
+        `
+        if (!row) throw new Error('PostgreSQL did not list the charges to follow up')
+        return row.billing_follow_up
       }),
   }
 }

@@ -68,6 +68,7 @@ export type PlatformPlanCreate = AllfitV1Schemas['PlatformPlanCreate']
 export type PlatformPlanVersionProposal = AllfitV1Schemas['PlatformPlanVersionProposal']
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
+export type SupportBillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
 export type BackofficeAccountRecovery = AllfitV1Schemas['BackofficeAccountRecovery']
 export type BackofficeAccountRecoveryRequest = AllfitV1Schemas['BackofficeAccountRecoveryRequest']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
@@ -340,6 +341,13 @@ export const backofficeApi = {
   supportPersonPayments: (personId: string, caseReference: string, signal?: AbortSignal) =>
     requestJson<SupportPersonPayments>(
       `/backoffice/v1/support/people/${personId}/payments${query({ case_reference: caseReference })}`,
+      signal ? { signal } : {},
+    ),
+
+  // Names payers, so it carries the case like one person's payments.
+  billingFollowUp: (caseReference: string, limit: number, signal?: AbortSignal) =>
+    requestJson<SupportBillingFollowUp>(
+      `/backoffice/v1/support/billing-follow-up${query({ case_reference: caseReference, limit: String(limit) })}`,
       signal ? { signal } : {},
     ),
 
@@ -905,6 +913,7 @@ function supportOperation(route: string): ClientOperation | undefined {
   }
   if (segments[3] === 'attention') return 'backoffice.support.attention'
   if (segments[3] === 'business') return 'backoffice.support.business'
+  if (segments[3] === 'billing-follow-up') return 'backoffice.support.billing_follow_up'
   if (segments[3] === 'operations') return 'backoffice.support.operations'
   if (segments[3] === 'delivery-circuits') return 'backoffice.support.delivery_circuits'
   if (segments[3] !== 'people') return undefined

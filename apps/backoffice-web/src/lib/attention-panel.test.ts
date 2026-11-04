@@ -162,6 +162,7 @@ describe('attention panel presentation', () => {
       verifications: '/verifications',
       unclaimedOrganizations: '/organizations?status=unclaimed',
       failures: '/diagnosis',
+      billing: '/people/billing',
     })
   })
 

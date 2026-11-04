@@ -27,8 +27,8 @@ export const ATTENTION_DESTINATIONS = {
   verifications: '/verifications',
   unclaimedOrganizations: '/organizations?status=unclaimed',
   failures: '/diagnosis',
-  // There is no screen for a person's payments yet (`HU-BO-018`), so this notice
-  // states what is happening and leads nowhere rather than to a page that refuses.
+  // Who the billing count is; it names payers, so it asks for the case first.
+  billing: '/people/billing',
 } as const
 
 export const WITHHELD_NOTE =

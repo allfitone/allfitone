@@ -535,6 +535,14 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/backoffice/v1/support/billing-follow-up',
+      operationId: 'readBackofficeBillingFollowUp',
+      allfitOperation: 'NEW-SUP-BILLING-FOLLOW-UP',
+      responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
+      method: 'GET',
       path: '/backoffice/v1/support/business',
       operationId: 'readBackofficeSupportBusiness',
       allfitOperation: 'NEW-SUP-DASHBOARD',

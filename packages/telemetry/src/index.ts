@@ -100,6 +100,7 @@ export const clientOperations = [
   'backoffice.support.account_recovery_resend',
   'backoffice.support.account_recovery_start',
   'backoffice.support.attention',
+  'backoffice.support.billing_follow_up',
   'backoffice.support.business',
   'backoffice.support.delivery_circuits',
   'backoffice.support.operations',

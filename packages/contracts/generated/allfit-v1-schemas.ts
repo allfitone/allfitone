@@ -15573,6 +15573,105 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SupportBillingFollowUp: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['generated_at', 'window_days', 'items', 'has_more'],
+    properties: {
+      generated_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      window_days: {
+        type: 'integer',
+        description: 'How far back a failed charge still needs following up.',
+        minimum: 1,
+      },
+      items: {
+        type: 'array',
+        maxItems: 200,
+        items: {
+          $ref: '#/components/schemas/SupportBillingFollowUpItem',
+        },
+      },
+      has_more: {
+        type: 'boolean',
+      },
+    },
+  },
+  SupportBillingFollowUpItem: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'One person to follow up. The state of their latest Allfit subscription, since when, and the last charge that failed in the window — never a store reference.',
+    required: [
+      'person_id',
+      'subscription_status',
+      'plan_name',
+      'store',
+      'grace_until',
+      'suspended_at',
+      'failed_charges',
+      'last_failed_charge',
+    ],
+    properties: {
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      subscription_status: {
+        type: ['string', 'null'],
+        enum: ['active', 'grace', 'suspended', 'ended', null],
+        description: 'Null when the failed charge has no subscription left behind it.',
+      },
+      plan_name: {
+        type: ['string', 'null'],
+      },
+      store: {
+        type: ['string', 'null'],
+        enum: ['app_store', 'google_play', null],
+      },
+      grace_until: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      suspended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      failed_charges: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Charges that failed within the window.',
+      },
+      last_failed_charge: {
+        oneOf: [
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['occurred_at', 'failure_code', 'amount_minor', 'currency_code'],
+            properties: {
+              occurred_at: {
+                type: 'string',
+                format: 'date-time',
+              },
+              failure_code: {
+                type: ['string', 'null'],
+              },
+              amount_minor: {
+                type: ['integer', 'null'],
+              },
+              currency_code: {
+                type: ['string', 'null'],
+              },
+            },
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
   SupportBlockAvailability: {
     type: 'string',
     description:

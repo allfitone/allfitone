@@ -32,6 +32,7 @@ import type {
   SupportOperationState,
   SupportMetadataDatabase,
   SupportPersonPayments,
+  SupportBillingFollowUp,
   SupportPeopleSearch,
   SupportPersonMatch,
   SupportPersonMetadata,
@@ -150,6 +151,11 @@ export interface SupportMetadataService {
     reader: SupportReader,
     input: { requestId: string; caseReference: string; personId: string },
   ): Promise<SupportPersonPayments>
+  /** Who needs following up for what they pay; the duty, case and record are the database's. */
+  billingFollowUp(
+    reader: SupportReader,
+    input: { requestId: string; caseReference: string; limit: number },
+  ): Promise<SupportBillingFollowUp>
 }
 
 export function createSupportMetadataService(
@@ -170,6 +176,7 @@ export function createSupportMetadataService(
     },
     read: (reader, input) => database.read({ ...reader, ...input }),
     payments: (reader, input) => database.payments({ ...reader, ...input }),
+    billingFollowUp: (reader, input) => database.billingFollowUp({ ...reader, ...input }),
   }
 }
 
