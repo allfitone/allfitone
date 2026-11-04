@@ -3,8 +3,9 @@ import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { StudioShell } from '@/components/studio-shell'
-import { dictionaryFor } from '@/content'
 import { isLocale, LOCALES } from '@/lib/locale'
+import { landingMetadata } from '@/lib/site'
+import { serializeStructuredData, structuredData } from '@/lib/structured-data'
 
 import { studioFontVariables, studioIcons } from '../document'
 
@@ -21,12 +22,10 @@ import '../studio.composition.css'
  * only acts on `/invitations`. And the language switch re-renders this layout
  * on the client, where React refuses to render a `<script>` element.
  *
- * Still `noindex`, as the whole of Studio was before the landing had languages.
- * The alternates are declared so that opening it to search engines is that one
- * flag and nothing else.
+ * It is the only part of Studio meant to be found: indexable, previewable when
+ * shared and described as structured data. The workspace keeps its `noindex`.
+ * The JSON-LD survives the client re-render, which React allows for data blocks.
  */
-
-const SITE_URL = 'https://studio.allfit.one'
 
 interface LandingParams {
   params: Promise<{ lang: string }>
@@ -41,20 +40,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: LandingParams): Promise<Metadata> {
   const { lang } = await params
   if (!isLocale(lang)) return {}
-  const copy = dictionaryFor(lang)
-  return {
-    title: copy.meta.title,
-    description: copy.meta.description,
-    alternates: {
-      canonical: `${SITE_URL}/${lang}`,
-      languages: Object.fromEntries(LOCALES.map((option) => [option, `${SITE_URL}/${option}`])),
-    },
-    icons: studioIcons,
-    robots: {
-      index: false,
-      follow: false,
-    },
-  }
+  return { ...landingMetadata(lang), icons: studioIcons }
 }
 
 export default async function LandingLayout({
@@ -66,6 +52,10 @@ export default async function LandingLayout({
   return (
     <html lang={lang} data-afo-theme="light" className={studioFontVariables}>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeStructuredData(structuredData(lang)) }}
+        />
         <StudioShell locale={lang} privacyEntry="footer">
           {children}
         </StudioShell>

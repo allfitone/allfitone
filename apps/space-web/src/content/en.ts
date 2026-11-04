@@ -4,11 +4,16 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Allfit Space · Train with a plan, not with luck',
+    title: 'Allfit Space · The app to train with a plan, not with luck',
     description:
-      'Your programme, every set and what you eat, in one app. And your history goes with you: your data is yours.',
+      'Training and nutrition app: your programme, every set and what you eat in one place. Your history goes with you, and your data is yours.',
+    shareImageAlt: 'An athlete sets up a deadlift with a loaded barbell in a dimly lit gym.',
     privacyTitle: 'Data processing policy · Allfit Space',
+    privacyDescription:
+      'What data Allfit Space processes, what it uses them for, what you share with your gym and how to exercise your rights under Colombian Law 1581 of 2012.',
     termsTitle: 'Terms and conditions · Allfit Space',
+    termsDescription:
+      'The conditions for using Allfit Space: who can use it, what the service and Allfit Pro include, and how it works with gyms and coaches.',
   },
   nav: {
     skip: 'Skip to content',

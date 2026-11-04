@@ -70,6 +70,57 @@ test('the legal pages say they are drafts', async ({ page }) => {
   await expect(page.getByText('Versión preliminar')).toBeVisible()
 })
 
+test.describe('search engines', () => {
+  const SITE = 'https://space.allfit.one'
+
+  test('the landing can be indexed and names every version of itself', async ({ request }) => {
+    const html = await (await request.get('/es')).text()
+
+    expect(html).toContain('<meta name="robots" content="index, follow"/>')
+    expect(html).toContain(`<link rel="canonical" href="${SITE}/es"/>`)
+    expect(html).toContain(`<link rel="alternate" hrefLang="en" href="${SITE}/en"/>`)
+    expect(html).toContain(`<link rel="alternate" hrefLang="x-default" href="${SITE}"/>`)
+    expect(html).toContain(`<meta property="og:url" content="${SITE}/es"/>`)
+    expect(html).toContain(`<meta property="og:image" content="${SITE}/images/og.jpg"/>`)
+    expect(html).toContain('<meta property="og:image:alt"')
+  })
+
+  test('the landing describes the app as Allfit One’s', async ({ request }) => {
+    const html = await (await request.get('/en')).text()
+    const block = /<script type="application\/ld\+json">(.*?)<\/script>/.exec(html)?.[1]
+    expect(block).toBeDefined()
+
+    const graph = (JSON.parse(block ?? '{}') as { '@graph': Record<string, unknown>[] })['@graph']
+    expect(graph.find((node) => node['@type'] === 'MobileApplication')).toMatchObject({
+      url: `${SITE}/en`,
+      publisher: { '@id': 'https://www.allfit.one/#organization' },
+    })
+  })
+
+  test('a legal draft shares its own title but stays out of the index', async ({ request }) => {
+    const html = await (await request.get('/en/terms')).text()
+
+    expect(html).toContain('<meta name="robots" content="noindex, follow"/>')
+    expect(html).toContain(`<link rel="canonical" href="${SITE}/en/terms"/>`)
+    expect(html).toContain(`<meta property="og:url" content="${SITE}/en/terms"/>`)
+    expect(html).toContain(
+      '<meta property="og:title" content="Terms and conditions · Allfit Space"/>',
+    )
+  })
+
+  test('robots.txt and the sitemap point at the landing only', async ({ request }) => {
+    const robots = await (await request.get('/robots.txt')).text()
+    expect(robots).toContain(`Sitemap: ${SITE}/sitemap.xml`)
+
+    const sitemap = await (await request.get('/sitemap.xml')).text()
+    expect(sitemap).toContain(`<loc>${SITE}/es</loc>`)
+    expect(sitemap).toContain(`<loc>${SITE}/en</loc>`)
+    expect(sitemap).toContain(`hreflang="x-default" href="${SITE}"`)
+    expect(sitemap).not.toContain('/privacy')
+    expect(sitemap).not.toContain('/terms')
+  })
+})
+
 for (const viewport of VIEWPORTS) {
   test.describe(`accessibility · ${viewport.name}`, () => {
     for (const target of PAGES) {

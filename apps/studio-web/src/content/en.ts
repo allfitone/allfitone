@@ -4,9 +4,11 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Allfit Studio',
+    title: 'Allfit Studio · Software for personal trainers and gyms',
     description:
-      'Allfit Studio brings together your clients, their programs and what they log in every session.',
+      'Bring your clients, their training programs and every session they log into one panel. For personal trainers, studios and gyms.',
+    shareImageAlt:
+      'Allfit Studio’s front page: “Your plan. Their session. One panel.”, beside a client’s sheet comparing what was planned with what was logged.',
   },
   nav: {
     label: 'Main',

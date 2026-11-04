@@ -6,7 +6,8 @@ import { Motion } from '@/components/motion'
 import { dictionaryFor } from '@/content'
 import type { LocaleLayoutProps, LocaleParams } from '@/lib/route'
 import { isLocale, LOCALES } from '@/lib/locale'
-import { alternates, SITE_URL } from '@/lib/site'
+import { pageMetadata, SITE_NAME, SITE_URL } from '@/lib/site'
+import { serializeStructuredData, structuredData } from '@/lib/structured-data'
 
 import '@allfitone/react/tokens.css'
 import '@allfitone/react/styles.css'
@@ -37,22 +38,23 @@ export const viewport: Viewport = {
 export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
   const { lang } = await params
   if (!isLocale(lang)) return {}
-  const copy = dictionaryFor(lang)
+  const { meta } = dictionaryFor(lang)
   return {
     metadataBase: new URL(SITE_URL),
-    title: copy.meta.title,
-    description: copy.meta.description,
-    alternates: alternates(lang, ''),
+    applicationName: SITE_NAME,
+    ...pageMetadata(lang, '', { title: meta.title, description: meta.description }),
     icons: { icon: [{ url: '/brand/favicon.svg', type: 'image/svg+xml' }] },
-    openGraph: {
-      type: 'website',
-      siteName: 'Allfit Space',
-      title: copy.meta.title,
-      description: copy.meta.description,
-      locale: lang === 'es' ? 'es_CO' : 'en_US',
-      images: [{ url: '/images/og.jpg', width: 1200, height: 630 }],
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
     },
-    twitter: { card: 'summary_large_image' },
   }
 }
 
@@ -63,6 +65,10 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
   return (
     <html lang={lang} data-afo-theme="dark" className={`${display.variable} ${body.variable}`}>
       <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: serializeStructuredData(structuredData(lang)) }}
+        />
         <a className="skip" href="#contenido">
           {copy.nav.skip}
         </a>
