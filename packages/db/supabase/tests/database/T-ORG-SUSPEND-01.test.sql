@@ -21,7 +21,7 @@
 
 begin;
 
-select plan(30);
+select plan(31);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -277,6 +277,17 @@ select is(
   )->'suspension'->'current'->>'reason_code'),
   'nonpayment',
   'the gym file carries the suspension, so the screen opens knowing it'
+);
+
+-- The directory offers «Suspendido» as a filter; refusing it as an unknown state hid
+-- every stopped gym from the one list meant to find them.
+select results_eq(
+  $$ select organization_id from organizations.list_backoffice_organizations(
+       '019af000-0000-7000-8000-000000000003', '019af000-0000-7000-8000-000000000043',
+       null, 'suspended', 50, null, null
+     ) $$,
+  $$ values ('019af000-0000-7000-8000-000000000301'::uuid) $$,
+  'the directory finds a stopped gym by its state'
 );
 
 -- ---------------------------------------------------------------------------
