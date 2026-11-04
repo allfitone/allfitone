@@ -1713,10 +1713,15 @@ export type Database = {
           id: string
           invitation_id: string
           kind: Database['identity']['Enums']['invitation_intent_kind']
+          materialized_assignment_id: string | null
           materialized_membership_id: string | null
           materialized_relationship_id: string | null
+          proposed_program_version_id: string | null
           proposed_role_code: string | null
+          proposed_starts_on: string | null
+          proposed_timezone: string | null
           status: Database['identity']['Enums']['invitation_intent_status']
+          unmaterialized_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -1725,10 +1730,15 @@ export type Database = {
           id?: string
           invitation_id: string
           kind: Database['identity']['Enums']['invitation_intent_kind']
+          materialized_assignment_id?: string | null
           materialized_membership_id?: string | null
           materialized_relationship_id?: string | null
+          proposed_program_version_id?: string | null
           proposed_role_code?: string | null
+          proposed_starts_on?: string | null
+          proposed_timezone?: string | null
           status?: Database['identity']['Enums']['invitation_intent_status']
+          unmaterialized_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -1737,10 +1747,15 @@ export type Database = {
           id?: string
           invitation_id?: string
           kind?: Database['identity']['Enums']['invitation_intent_kind']
+          materialized_assignment_id?: string | null
           materialized_membership_id?: string | null
           materialized_relationship_id?: string | null
+          proposed_program_version_id?: string | null
           proposed_role_code?: string | null
+          proposed_starts_on?: string | null
+          proposed_timezone?: string | null
           status?: Database['identity']['Enums']['invitation_intent_status']
+          unmaterialized_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2467,9 +2482,25 @@ export type Database = {
           expires_at: string
           invitation_id: string
           invitation_intent_id: string
+          program_proposal: Json
           scope_codes: string[]
           status: string
         }[]
+      }
+      client_program_outcome: {
+        Args: { p_invitation_id: string }
+        Returns: Json
+      }
+      client_proposal_hash: {
+        Args: {
+          p_channel: string
+          p_contact: string
+          p_organization_id: string
+          p_program_starts_on: string
+          p_program_version_id: string
+          p_scope_codes: string[]
+        }
+        Returns: string
       }
       complete_backoffice_authentication: {
         Args: {
@@ -2527,9 +2558,11 @@ export type Database = {
           p_idempotency_key: string
           p_intent_id: string
           p_person_id: string
+          p_program_decision?: string
           p_relationship_decision: string
           p_request_hash: string
           p_scope_decisions: Json
+          p_timezone?: string
           p_token_hash: string
         }
         Returns: {
@@ -2539,6 +2572,7 @@ export type Database = {
           invitation_intent_id: string
           invitation_status: string
           organization_id: string
+          program_proposal: Json
           relationship_id: string
           replayed: boolean
         }[]
@@ -2572,9 +2606,11 @@ export type Database = {
           p_intent_id: string
           p_invitation_id: string
           p_person_id: string
+          p_program_decision?: string
           p_relationship_decision: string
           p_request_hash: string
           p_scope_decisions: Json
+          p_timezone?: string
         }
         Returns: {
           granted_scope_codes: string[]
@@ -2583,6 +2619,7 @@ export type Database = {
           invitation_intent_id: string
           invitation_status: string
           organization_id: string
+          program_proposal: Json
           relationship_id: string
           replayed: boolean
         }[]
@@ -2778,6 +2815,9 @@ export type Database = {
           p_idempotency_key: string
           p_organization_id: string
           p_person_id: string
+          p_program_starts_on?: string
+          p_program_timezone?: string
+          p_program_version_id?: string
           p_request_hash: string
           p_scope_options: Json
           p_token_hash: string
@@ -2789,6 +2829,7 @@ export type Database = {
           expires_at: string
           invitation_id: string
           invitation_intent_id: string
+          program_proposal: Json
           replayed: boolean
           reused: boolean
           scope_codes: string[]
@@ -3136,6 +3177,7 @@ export type Database = {
           invited_by: string
           organization_display_name: string
           organization_id: string
+          program_proposal: Json
           responsible_party: Json
           scope_options: Json
           status: string
@@ -3337,6 +3379,7 @@ export type Database = {
           invited_by: string
           organization_display_name: string
           organization_id: string
+          program_proposal: Json
           responsible_party: Json
           scope_options: Json
           status: string
@@ -5695,6 +5738,14 @@ export type Database = {
         Returns: string
       }
       planned_set_errors: { Args: { p_sets: Json }; Returns: string[] }
+      plant_invited_program: {
+        Args: {
+          p_device_timezone: string
+          p_intent_id: string
+          p_relationship_id: string
+        }
+        Returns: string
+      }
       plant_my_open_week: {
         Args: { p_person_id: string; p_timezone: string }
         Returns: undefined
