@@ -55,21 +55,24 @@ values
   ('019b2000-0000-7000-8000-000000000206', 'coach'),
   ('019b2000-0000-7000-8000-000000000203', 'coach');
 
+-- The former client's start is explicit: the default is read after `ended_at`, and a
+-- microsecond later is enough to break `ck_service_relationships_ended_at`.
 insert into relationships.service_relationships (
-  id, person_id, organization_id, status, ended_at, ended_reason, ended_by_kind
+  id, person_id, organization_id, status, started_at, ended_at, ended_reason, ended_by_kind
 ) values
   -- The client verifier trains with the holder.
   ('019b2000-0000-7000-8000-000000000302', '019b2000-0000-7000-8000-000000000002',
-    '019b2000-0000-7000-8000-000000000101', 'active', null, null, null),
+    '019b2000-0000-7000-8000-000000000101', 'active', default, null, null, null),
   -- The holder trains with the coach verifier.
   ('019b2000-0000-7000-8000-000000000301', '019b2000-0000-7000-8000-000000000001',
-    '019b2000-0000-7000-8000-000000000102', 'active', null, null, null),
+    '019b2000-0000-7000-8000-000000000102', 'active', default, null, null, null),
   -- A former client of the holder.
   ('019b2000-0000-7000-8000-000000000304', '019b2000-0000-7000-8000-000000000004',
-    '019b2000-0000-7000-8000-000000000101', 'terminated', clock_timestamp(), 'moved away', 'person'),
+    '019b2000-0000-7000-8000-000000000101', 'terminated', clock_timestamp() - interval '30 days',
+    clock_timestamp(), 'moved away', 'person'),
   -- A client of the same gym, under the colleague.
   ('019b2000-0000-7000-8000-000000000305', '019b2000-0000-7000-8000-000000000005',
-    '019b2000-0000-7000-8000-000000000101', 'active', null, null, null);
+    '019b2000-0000-7000-8000-000000000101', 'active', default, null, null, null);
 
 insert into relationships.relationship_professional_assignments (
   id, relationship_id, person_id, organization_id, membership_id, kind, status, valid_from, valid_to
