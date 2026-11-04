@@ -179,7 +179,7 @@ export default function Train() {
   const shown = filteredRoutines(routines, filter)
 
   const start = (card: RoutineCard) => {
-    const notice = heldNotice(card.state)
+    const notice = heldNotice(card)
     if (notice) {
       setHeld(notice)
       return

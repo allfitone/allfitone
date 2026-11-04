@@ -766,7 +766,7 @@ const Carousel = memo(function Carousel({
     },
   )
   // The card in front says why it does not start; the others say it when they lead.
-  const notice = heldNotice(week[leadingIndex]?.state)
+  const notice = heldNotice(week[leadingIndex])
 
   return (
     <View style={styles.carousel}>

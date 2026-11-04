@@ -20,7 +20,7 @@ function routine(done: boolean, id: string) {
     set_count: 16,
     done,
     open_execution_id: null,
-    organization_suspension: null,
+    hold: null,
     last_time: null,
   }
 }

@@ -13093,12 +13093,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
-  SpaceOrganizationSuspension: {
-    type: 'string',
-    enum: ['paused', 'missed'],
-    description:
-      "What a gym's suspension does to a session of a programme that gym assigned (HU-BO-016). `paused`: the gym is suspended now, and nothing of the programme starts, repeats included, until it is reactivated. `missed`: the session's day passed while the gym was suspended; it stays not done and does not start later. What she trained before is unaffected, and her own programmes never carry it.",
-  },
   SpacePasswordResetCreate: {
     type: 'object',
     additionalProperties: false,
@@ -14559,6 +14553,27 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceSessionHold: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'cause'],
+    description:
+      'What holds a session of a programme a gym assigned, and why. Nothing of the programme starts while it is held, repeats included; an attempt already open is finished. What she trained before is unaffected, and her own programmes are never held.',
+    properties: {
+      state: {
+        type: 'string',
+        enum: ['paused', 'missed'],
+        description:
+          "`paused`: the cause is in force now, and the session waits for it to be lifted. `missed`: the session's day passed while it was; it stays not done and does not start later. A day missed outranks a pause, whatever the causes.",
+      },
+      cause: {
+        type: 'string',
+        enum: ['organization_suspension', 'subscription_suspension'],
+        description:
+          "`organization_suspension`: the gym is suspended (HU-BO-016). `subscription_suspension`: the gym paused her plan for a pending payment (HU-SP-083). When both hold it, the gym's suspension is the one given, since paying does not lift it.",
+      },
+    },
+  },
   SpaceSessionRecord: {
     type: 'object',
     additionalProperties: false,
@@ -14727,7 +14742,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'status',
       'exercise_count',
       'executed_session_id',
-      'organization_suspension',
+      'hold',
     ],
     properties: {
       planned_session_id: {
@@ -14762,17 +14777,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         description:
           'The attempt already open on today\'s session, if there is one. It is what turns "Empezar" into "Continuar" and what stops a second attempt being started by accident.',
       },
-      organization_suspension: {
+      hold: {
         oneOf: [
           {
-            $ref: '#/components/schemas/SpaceOrganizationSuspension',
+            $ref: '#/components/schemas/SpaceSessionHold',
           },
           {
             type: 'null',
           },
         ],
         description:
-          '`paused` while the gym that assigned the programme is suspended. Never `missed`: a day missed that way does not start, so it is not offered.',
+          'Whether the session is held, and why. Never `missed`: a day missed that way does not start, so it is not offered.',
       },
     },
   },
@@ -15012,7 +15027,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'done',
       'open_execution_id',
       'last_time',
-      'organization_suspension',
+      'hold',
     ],
     properties: {
       planned_session_id: {
@@ -15070,17 +15085,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         description:
           'An attempt already open on this routine, which is what turns "empezar" into "continuar".',
       },
-      organization_suspension: {
+      hold: {
         oneOf: [
           {
-            $ref: '#/components/schemas/SpaceOrganizationSuspension',
+            $ref: '#/components/schemas/SpaceSessionHold',
           },
           {
             type: 'null',
           },
         ],
         description:
-          'Whether the gym that assigned the programme holds this session back. Null for her own programmes and for every session of an operating gym.',
+          'Whether the session is held, and why. Null for her own programmes and for every session the gym is free to give her.',
       },
       last_time: {
         oneOf: [

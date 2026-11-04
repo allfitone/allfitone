@@ -2878,7 +2878,7 @@ export interface paths {
     put?: never
     /**
      * Assign an immutable program version through an active relationship
-     * @description HU-STUDIO-046. A coach holding the relationship, or a cover the person accepted, gives her a published version of an organization program. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required` naming the scope and level. Staff and administrators who do not coach answer 403 `forbidden`.
+     * @description HU-STUDIO-046. A coach holding the relationship, or a cover the person accepted, gives her a published version of an organization program. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required` naming the scope and level. Staff and administrators who do not coach answer 403 `forbidden`. While her service with the organization is paused the answer is 409 `service-paused`.
      *
      *     The assignment, its management period and its calendar are created in one transaction (ADR-032): a finite version is planted whole, an open-ended one only its first week. The calendar uses the time zone the person's device last sent; `timezone` is used only for a person who never opened Space. A start before today in that zone is refused. Overlapping a program she already follows is reported in `schedule_overlaps`, never blocked, and never says with what. A retired version, one of another organization or the person's own answer 422 `program-version`.
      */
@@ -2906,7 +2906,7 @@ export interface paths {
      * Move a managed session to another day of its week
      * @description HU-STUDIO-048. The coach who holds the relationship, or a cover the person accepted, moves a session of a program the organization still manages. Only the day changes: the routine, its targets and the week it belongs to stay, and the move is kept with who made it. The new day is today or later in the person's own zone, never before the program starts, and inside the session's own calendar week, which is what Space offers (ADR-032).
      *
-     *     The caller names the `revision_number` she read in `expected_revision`; when the session moved on meanwhile the answer is 409 `stale-draft` with the current session in `current_state`. A session the person started, one that is not scheduled, and one of a program the organization no longer manages answer 409 `conflict`. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required`. A session of the person's own program, of another organization, or of a relationship the caller does not attend answers 404. Moving a session to the day it is on changes nothing.
+     *     The caller names the `revision_number` she read in `expected_revision`; when the session moved on meanwhile the answer is 409 `stale-draft` with the current session in `current_state`. A session the person started, one that is not scheduled, and one of a program the organization no longer manages answer 409 `conflict`. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required`, and while her service with the organization is paused it is 409 `service-paused`. A session of the person's own program, of another organization, or of a relationship the caller does not attend answers 404. Moving a session to the day it is on changes nothing.
      */
     patch: operations['reschedulePlannedSession']
     trace?: never
@@ -2924,7 +2924,7 @@ export interface paths {
      * Adjust a step's prescription for this one person
      * @description HU-STUDIO-049. The coach who holds the relationship, or a cover the person accepted, adjusts one target of one step of the version she was given: the published routine and program stay as they are (T-ASG-7). Each revision is typed, kept with the professional assignment that made it, and never rewritten; the latest of each kind is the one in force, and Space trains it wherever it read the program's target. Adjustments outlive the management period, so a detached program keeps them.
      *
-     *     `value` takes the type its `kind` needs: a positive integer for sets, reps, rounds and repetitions; a number of seconds for durations; a number with a `unit_code` for load, distance and pace; an effort between 0 and 10; one of `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a note. A step outside the assigned version answers 422 `planned-step`, a kind its target family does not take 422 `kind`. Only while the organization manages the program, else 409 `conflict`; the grant and visibility rules are those of moving a session.
+     *     `value` takes the type its `kind` needs: a positive integer for sets, reps, rounds and repetitions; a number of seconds for durations; a number with a `unit_code` for load, distance and pace; an effort between 0 and 10; one of `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a note. A step outside the assigned version answers 422 `planned-step`, a kind its target family does not take 422 `kind`. Only while the organization manages the program, else 409 `conflict`; the grant, pause and visibility rules are those of moving a session.
      */
     post: operations['revisePrescription']
     delete?: never
@@ -2946,7 +2946,7 @@ export interface paths {
      * Stop a program the organization manages
      * @description HU-STUDIO-050. The coach who attends the person, or an administrator or owner of the organization without attending her, stops a program it still manages. The assignment ends and its management period closes as cancelled; the sessions from today on that nobody started are cancelled. Past sessions, what the person trained and the assignment itself stay (T-ASG-5). Cancelling again answers the same cancellation.
      *
-     *     Everyone needs the person's `relationship_training` grant at `contribute`; without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one the caller cannot reach answers 404.
+     *     Everyone needs the person's `relationship_training` grant at `contribute`; without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`. While her service with the organization is paused the answer is 409 `service-paused`: a paused service is stopped by reactivating it or by ending the relationship, not program by program. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one the caller cannot reach answers 404.
      */
     post: operations['cancelProgramAssignment']
     delete?: never
@@ -6515,14 +6515,22 @@ export interface components {
       status: string
       /** @description The attempt already open on today's session, if there is one. It is what turns "Empezar" into "Continuar" and what stops a second attempt being started by accident. */
       executed_session_id: components['schemas']['UuidV7'] | null
-      /** @description `paused` while the gym that assigned the programme is suspended. Never `missed`: a day missed that way does not start, so it is not offered. */
-      organization_suspension: components['schemas']['SpaceOrganizationSuspension'] | null
+      /** @description Whether the session is held, and why. Never `missed`: a day missed that way does not start, so it is not offered. */
+      hold: components['schemas']['SpaceSessionHold'] | null
     }
-    /**
-     * @description What a gym's suspension does to a session of a programme that gym assigned (HU-BO-016). `paused`: the gym is suspended now, and nothing of the programme starts, repeats included, until it is reactivated. `missed`: the session's day passed while the gym was suspended; it stays not done and does not start later. What she trained before is unaffected, and her own programmes never carry it.
-     * @enum {string}
-     */
-    SpaceOrganizationSuspension: 'paused' | 'missed'
+    /** @description What holds a session of a programme a gym assigned, and why. Nothing of the programme starts while it is held, repeats included; an attempt already open is finished. What she trained before is unaffected, and her own programmes are never held. */
+    SpaceSessionHold: {
+      /**
+       * @description `paused`: the cause is in force now, and the session waits for it to be lifted. `missed`: the session's day passed while it was; it stays not done and does not start later. A day missed outranks a pause, whatever the causes.
+       * @enum {string}
+       */
+      state: 'paused' | 'missed'
+      /**
+       * @description `organization_suspension`: the gym is suspended (HU-BO-016). `subscription_suspension`: the gym paused her plan for a pending payment (HU-SP-083). When both hold it, the gym's suspension is the one given, since paying does not lift it.
+       * @enum {string}
+       */
+      cause: 'organization_suspension' | 'subscription_suspension'
+    }
     /** @description A finished session as «Compártelo» tells it. Work sets only: a warmup is neither a set here nor kilos lifted, and never a record. */
     SpaceExecutionSummary: {
       /** Format: uuid */
@@ -6735,8 +6743,8 @@ export interface components {
       done: boolean
       /** @description An attempt already open on this routine, which is what turns "empezar" into "continuar". */
       open_execution_id: components['schemas']['UuidV7'] | null
-      /** @description Whether the gym that assigned the programme holds this session back. Null for her own programmes and for every session of an operating gym. */
-      organization_suspension: components['schemas']['SpaceOrganizationSuspension'] | null
+      /** @description Whether the session is held, and why. Null for her own programmes and for every session the gym is free to give her. */
+      hold: components['schemas']['SpaceSessionHold'] | null
       /** @description How the last time went. Null when this routine was never trained: the card's reverse then shows the muscles and says nothing else, because a zero would claim a session in which no work was done. */
       last_time: components['schemas']['SpaceRoutineLastTime'] | null
     }
@@ -11025,7 +11033,7 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
-    /** @description The session moved on since it was read (`stale-draft`, with the current session in `current_state`), it started, or the organization no longer manages it (`conflict`) */
+    /** @description The session moved on since it was read (`stale-draft`, with the current session in `current_state`), it started, or the organization no longer manages it (`conflict`), or the person's service with it is paused (`service-paused`) */
     ManagedSessionConflict: {
       headers: {
         'Cache-Control': components['headers']['NoStore']

@@ -976,5 +976,6 @@ function databaseErrorCode(error: unknown): ApiErrorCode | undefined {
   if (sqlState === '40001')
     return message.includes('stale-draft') ? 'stale-draft' : 'idempotency-in-progress'
   if (sqlState === '55000') return 'conflict'
+  if (sqlState === 'AF424') return 'service-paused'
   return undefined
 }

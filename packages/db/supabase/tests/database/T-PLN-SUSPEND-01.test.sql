@@ -8,10 +8,13 @@
 --
 -- Nothing is written to a session. The pause is derived from the blocks at read time,
 -- so a block that closes takes its effect with it and leaves only the blocked period.
+--
+-- Her plan paused for a pending payment holds the same program (T-PLN-SUSPEND-02). When
+-- both hold it, the gym's suspension is what she is told: paying does not lift it.
 
 begin;
 
-select plan(15);
+select plan(18);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -75,6 +78,20 @@ values ('019bd000-0000-7000-8000-000000000311', 'owner');
 insert into relationships.service_relationships (id, person_id, organization_id, status)
 values ('019bd000-0000-7000-8000-000000000321', '019bd000-0000-7000-8000-000000000008',
   '019bd000-0000-7000-8000-000000000301', 'active');
+
+-- What she pays the gym, so her plan can be paused as well.
+insert into payments.organization_plans (id, organization_id, name, status)
+values ('019bd000-0000-7000-8000-000000000331', '019bd000-0000-7000-8000-000000000301',
+  'Mensual', 'published');
+insert into payments.plan_versions (
+  id, plan_id, organization_id, version_number, amount_minor, currency_code, billing_period
+) values (
+  '019bd000-0000-7000-8000-000000000332', '019bd000-0000-7000-8000-000000000331',
+  '019bd000-0000-7000-8000-000000000301', 1, 12000000, 'COP', 'month'
+);
+insert into payments.plan_subscriptions (id, person_id, organization_id, plan_version_id)
+values ('019bd000-0000-7000-8000-000000000333', '019bd000-0000-7000-8000-000000000008',
+  '019bd000-0000-7000-8000-000000000301', '019bd000-0000-7000-8000-000000000332');
 
 -- The gym's program and her own, each with one routine.
 insert into planning.session_templates (
@@ -183,11 +200,26 @@ returns uuid language sql as $$
     extensions.digest('start' || command_number, 'sha256'));
 $$;
 
-create function pg_temp.week_suspensions()
+-- Each session of the week Space shows her, as `state/cause`.
+create function pg_temp.week_holds()
 returns text[] language sql as $$
-  select array_agg(coalesce(entry->>'organization_suspension', 'none') order by entry->>'scheduled_at')
+  select array_agg(
+           coalesce((entry->'hold'->>'state') || '/' || (entry->'hold'->>'cause'), 'none')
+           order by entry->>'scheduled_at')
   from planning.read_week_plan('019bd000-0000-7000-8000-000000000008', 'UTC') as plan,
        jsonb_array_elements(plan.sessions) as entry;
+$$;
+
+create function pg_temp.hold(planned_session text)
+returns text language sql as $$
+  select coalesce((held->>'state') || '/' || (held->>'cause'), 'none')
+  from planning.session_hold_of(planned_session::uuid) as held
+$$;
+
+create function pg_temp.today_hold()
+returns text language sql as $$
+  select coalesce((hold->>'state') || '/' || (hold->>'cause'), 'none')
+  from planning.read_today_session('019bd000-0000-7000-8000-000000000008', 'UTC')
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -206,15 +238,15 @@ set local role allfit_api;
 select pg_temp.as_ana();
 
 select is(
-  pg_temp.week_suspensions(),
-  array['paused', 'paused', 'paused', 'paused'],
+  pg_temp.week_holds(),
+  array['paused/organization_suspension', 'paused/organization_suspension',
+        'paused/organization_suspension', 'paused/organization_suspension'],
   'every session of the gym''s program this week is shown paused'
 );
 
 select is(
-  (select organization_suspension from planning.read_today_session(
-    '019bd000-0000-7000-8000-000000000008', 'UTC')),
-  'paused',
+  pg_temp.today_hold(),
+  'paused/organization_suspension',
   'and so is the one Hoy offers'
 );
 
@@ -242,7 +274,7 @@ set local role allfit_api;
 select pg_temp.as_ana();
 
 select is(
-  pg_temp.week_suspensions(),
+  pg_temp.week_holds(),
   array['none'],
   'and her own week shows nothing paused'
 );
@@ -250,6 +282,30 @@ select is(
 reset role;
 update planning.program_assignments set display_order = 0
 where id = '019bd000-0000-7000-8000-000000000811';
+
+-- Meanwhile the gym also paused her plan for a pending payment.
+insert into planning.service_access_blocks (
+  id, person_id, organization_id, relationship_id, subscription_id, source_kind,
+  blocks_future_sessions, blocks_professional_contribution, created_by_kind,
+  created_by_membership_id
+) values (
+  '019bd000-0000-7000-8000-000000000334', '019bd000-0000-7000-8000-000000000008',
+  '019bd000-0000-7000-8000-000000000301', '019bd000-0000-7000-8000-000000000321',
+  '019bd000-0000-7000-8000-000000000333', 'subscription_suspension', true, true, 'person',
+  '019bd000-0000-7000-8000-000000000311'
+);
+
+set local role allfit_api;
+select pg_temp.as_ana();
+
+select is(
+  pg_temp.week_holds(),
+  array['paused/organization_suspension', 'paused/organization_suspension',
+        'paused/organization_suspension', 'paused/organization_suspension'],
+  'held by both, she is told the gym is suspended: paying would not lift it'
+);
+
+reset role;
 
 -- ---------------------------------------------------------------------------
 -- Once it is lifted
@@ -267,7 +323,20 @@ set local role allfit_api;
 select pg_temp.as_ana();
 
 select is(
-  pg_temp.week_suspensions(),
+  pg_temp.week_holds(),
+  array['paused/subscription_suspension', 'paused/subscription_suspension',
+        'paused/subscription_suspension', 'paused/subscription_suspension'],
+  'lifting the gym''s suspension leaves her plan paused: one cause does not close another'
+);
+
+reset role;
+update planning.service_access_blocks set ended_at = clock_timestamp()
+where id = '019bd000-0000-7000-8000-000000000334';
+set local role allfit_api;
+select pg_temp.as_ana();
+
+select is(
+  pg_temp.week_holds(),
   array['none', 'none', 'none', 'none'],
   'lifted the same day, the week is as it was: no day passed while it lasted'
 );
@@ -309,32 +378,45 @@ insert into planning.service_access_blocks (
   (:'monday'::date - 4 + time '09:00') at time zone 'UTC'
 );
 
+-- Her plan was paused those same days.
+insert into planning.service_access_blocks (
+  person_id, organization_id, relationship_id, subscription_id, source_kind,
+  blocks_future_sessions, blocks_professional_contribution, created_by_kind,
+  created_by_membership_id, started_at, ended_at
+) values (
+  '019bd000-0000-7000-8000-000000000008', '019bd000-0000-7000-8000-000000000301',
+  '019bd000-0000-7000-8000-000000000321', '019bd000-0000-7000-8000-000000000333',
+  'subscription_suspension', true, true, 'person', '019bd000-0000-7000-8000-000000000311',
+  (:'monday'::date - 6 + time '10:00') at time zone 'UTC',
+  (:'monday'::date - 4 + time '09:00') at time zone 'UTC'
+);
+
 set local role allfit_owner;
 select pg_temp.as_ana();
 
 select is(
-  planning.organization_suspension_of('019bd000-0000-7000-8000-000000000911'),
-  null,
+  pg_temp.hold('019bd000-0000-7000-8000-000000000911'),
+  'none',
   'the day before the suspension is an ordinary day'
 );
 
 select is(
-  array[planning.organization_suspension_of('019bd000-0000-7000-8000-000000000912'),
-        planning.organization_suspension_of('019bd000-0000-7000-8000-000000000913')],
-  array['missed', 'missed'],
-  'the day it started, even before it started, and the days it lasted are missed'
+  array[pg_temp.hold('019bd000-0000-7000-8000-000000000912'),
+        pg_temp.hold('019bd000-0000-7000-8000-000000000913')],
+  array['missed/organization_suspension', 'missed/organization_suspension'],
+  'the day it started, even before it started, and the days it lasted are missed, naming the gym'
 );
 
 select is(
-  array[planning.organization_suspension_of('019bd000-0000-7000-8000-000000000914'),
-        planning.organization_suspension_of('019bd000-0000-7000-8000-000000000915')],
-  array[null, null]::text[],
+  array[pg_temp.hold('019bd000-0000-7000-8000-000000000914'),
+        pg_temp.hold('019bd000-0000-7000-8000-000000000915')],
+  array['none', 'none'],
   'the day it was lifted and the days after are ordinary again'
 );
 
 select is(
-  planning.organization_suspension_of('019bd000-0000-7000-8000-000000000916'),
-  null,
+  pg_temp.hold('019bd000-0000-7000-8000-000000000916'),
+  'none',
   'what was trained during those days stays trained, not missed'
 );
 
@@ -354,9 +436,32 @@ select lives_ok(
 );
 
 select is(
-  pg_temp.week_suspensions(),
+  pg_temp.week_holds(),
   array['none', 'none', 'none', 'none'],
   'and a suspension that ended last week leaves this week as it was'
+);
+
+reset role;
+
+-- Her plan paused again now: a day the gym's suspension cost stays missed, naming it.
+insert into planning.service_access_blocks (
+  person_id, organization_id, relationship_id, subscription_id, source_kind,
+  blocks_future_sessions, blocks_professional_contribution, created_by_kind,
+  created_by_membership_id
+) values (
+  '019bd000-0000-7000-8000-000000000008', '019bd000-0000-7000-8000-000000000301',
+  '019bd000-0000-7000-8000-000000000321', '019bd000-0000-7000-8000-000000000333',
+  'subscription_suspension', true, true, 'person', '019bd000-0000-7000-8000-000000000311'
+);
+
+set local role allfit_owner;
+select pg_temp.as_ana();
+
+select is(
+  array[pg_temp.hold('019bd000-0000-7000-8000-000000000913'),
+        pg_temp.hold('019bd000-0000-7000-8000-000000000915')],
+  array['missed/organization_suspension', 'paused/subscription_suspension'],
+  'a missed day outranks a pause of the other cause, and the rest is paused'
 );
 
 reset role;

@@ -15,9 +15,11 @@
  * and the first one keeps what it earned. A screen that hid it would be telling
  * somebody they cannot do what they are about to do anyway.
  *
- * **A suspended gym holds its program back** (HU-BO-016). Its sessions stay in view
- * and say why they do not start: `paused` while the gym is suspended, `missed` for a
- * day that passed while it was. The server decides it and refuses the start anyway.
+ * **A gym's program can be held back**: while the gym is suspended (HU-BO-016), or
+ * while it has paused her plan for a pending payment (HU-SP-083). Its sessions stay in
+ * view and say why they do not start: `paused` while the cause lasts, `missed` for a
+ * day that passed while it did. The server decides both, and the cause it names, and
+ * refuses the start anyway.
  */
 
 import type { PreviewFigure } from './home-preview'
@@ -26,6 +28,9 @@ import type { WeekPlan, WeekRoutine } from './programs'
 export type { WeekPlan, WeekRoutine }
 
 export type RoutineState = 'suggested' | 'pending' | 'done' | 'open' | 'paused' | 'missed'
+
+/** What holds a session of a gym's program, and why. */
+export type RoutineHold = NonNullable<WeekRoutine['hold']>
 
 export interface RoutineCard {
   readonly routine: WeekRoutine
@@ -43,9 +48,7 @@ export function cardsFor(plan: WeekPlan | undefined, today: number): readonly Ro
   if (!plan) return []
   const open = plan.sessions.find((session) => session.open_execution_id !== null)
   // Only what can start is suggested: a session the gym holds back cannot.
-  const pending = plan.sessions.filter(
-    (session) => !session.done && session.organization_suspension === null,
-  )
+  const pending = plan.sessions.filter((session) => !session.done && !session.hold)
   const suggested = pending[nearestFrom(pending, today)]
 
   return plan.sessions.map((routine) => ({
@@ -61,7 +64,7 @@ function stateOf(
   suggested: WeekRoutine | undefined,
 ): RoutineState {
   if (routine.open_execution_id !== null) return 'open'
-  if (routine.organization_suspension !== null) return routine.organization_suspension
+  if (routine.hold) return routine.hold.state
   if (!anotherOpen && routine === suggested) return 'suggested'
   return routine.done ? 'done' : 'pending'
 }
@@ -177,7 +180,7 @@ export function weekDays(cards: readonly RoutineCard[], today: number): readonly
 export function startLabel(state: RoutineState): string {
   if (state === 'open') return 'Continuar'
   if (state === 'paused') return 'En pausa'
-  if (state === 'missed') return 'No hecha'
+  if (state === 'missed') return 'No realizada'
   return state === 'done' ? 'Repetir' : 'Empezar'
 }
 
@@ -187,17 +190,30 @@ export function startable(state: RoutineState): boolean {
 }
 
 /**
- * Why a gym's session does not start, said next to the button that does not.
- *
- * The pause reminds her that training does not depend on the gym: its programs pause,
- * her own and free training go on.
+ * What each cause says, paused and missed. The pause reminds her that training does
+ * not depend on the gym: its programs pause, her own and free training go on.
  */
-export function heldNotice(state: RoutineState | undefined): string | undefined {
-  if (state === 'paused') {
-    return 'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.'
-  }
-  if (state === 'missed') return 'No hecha: tu gimnasio estaba suspendido ese día.'
-  return undefined
+const HELD_NOTICES: Record<RoutineHold['cause'], Record<RoutineHold['state'], string>> = {
+  organization_suspension: {
+    paused:
+      'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.',
+    missed: 'No realizada: tu gimnasio estaba suspendido ese día.',
+  },
+  subscription_suspension: {
+    paused:
+      'Esta sesión está en pausa porque tu gimnasio pausó tu plan por un pago pendiente. Puedes seguir entrenando por tu cuenta.',
+    missed: 'No realizada: tu plan estaba en pausa ese día.',
+  },
+}
+
+/**
+ * Why a gym's session does not start, said next to the button that does not. Nothing
+ * for one that starts, including one held but already open, which is finished.
+ */
+export function heldNotice(card: RoutineCard | undefined): string | undefined {
+  const hold = card?.routine.hold
+  if (!card || !hold || startable(card.state)) return undefined
+  return HELD_NOTICES[hold.cause][hold.state]
 }
 
 /** Cómo fue la última vez que se hizo esta rutina, tal y como la responde la agenda. */

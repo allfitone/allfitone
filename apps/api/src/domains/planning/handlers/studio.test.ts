@@ -1097,6 +1097,30 @@ describe('Studio planning API contract', () => {
     expect(response.headers.get('access-control-allow-methods')).toContain('PATCH')
   })
 
+  test('T-PLN-API-184 a paused service refuses every write of the coach by name', async () => {
+    // HU-SP-083: the database refuses with AF424 while her plan is paused for a payment.
+    const paused = planningService([], {
+      failure: Object.assign(new Error("the person's service with this organization is paused"), {
+        code: 'AF424',
+      }),
+    })
+    const app = studioPlanningRoutes(paused, sessionService())
+    const responses = [
+      await app.request(ASSIGNMENTS_PATH, requestInit({ method: 'POST', body: assignmentBody })),
+      await app.request(SESSION_PATH, requestInit({ method: 'PATCH', body: rescheduleBody })),
+      await app.request(REVISIONS_PATH, requestInit({ method: 'POST', body: revisionBody })),
+      await app.request(CANCELLATION_PATH, requestInit({ method: 'POST' })),
+    ]
+    for (const response of responses) {
+      expect(response.status).toBe(409)
+      expect(response.headers.get('content-type')).toContain('application/problem+json')
+      expect(await response.json()).toMatchObject({
+        type: 'https://errors.allfit.invalid/service-paused',
+        status: 409,
+      })
+    }
+  })
+
   test('T-PLN-API-040 rejects an originally overlong padded title', async () => {
     const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
       `/organizations/${ORGANIZATION_ID}/programs`,

@@ -140,6 +140,13 @@ x-allfit-error-catalog:
     description: >-
       The organization is suspended and gains no client until it operates again
       (HU-BO-016). An invitation it sent stays open; nothing was decided.
+  - code: service-paused
+    status: 409
+    description: >-
+      The person's service with this organization is paused (HU-SP-083), so nobody
+      there contributes to her training until it is reactivated. What she shares still
+      stands and can still be read. It says the service is paused, never why: a coach
+      does not read her billing.
 x-allfit-media-url-policy:
   space_owner:
     delivery: signed_storage_url
@@ -7220,7 +7227,8 @@ paths:
         accepted, gives her a published version of an organization program. The
         person must share `relationship_training` at `contribute`; without it the
         answer is 403 `scope-required` naming the scope and level. Staff and
-        administrators who do not coach answer 403 `forbidden`.
+        administrators who do not coach answer 403 `forbidden`. While her service
+        with the organization is paused the answer is 409 `service-paused`.
 
 
         The assignment, its management period and its calendar are created in one
@@ -7296,9 +7304,10 @@ paths:
         current session in `current_state`. A session the person started, one that is
         not scheduled, and one of a program the organization no longer manages answer
         409 `conflict`. The person must share `relationship_training` at
-        `contribute`; without it the answer is 403 `scope-required`. A session of the
-        person's own program, of another organization, or of a relationship the caller
-        does not attend answers 404. Moving a session to the day it is on changes
+        `contribute`; without it the answer is 403 `scope-required`, and while her
+        service with the organization is paused it is 409 `service-paused`. A session
+        of the person's own program, of another organization, or of a relationship the
+        caller does not attend answers 404. Moving a session to the day it is on changes
         nothing.
       security:
         - cookieAuth: []
@@ -7365,8 +7374,8 @@ paths:
         `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a
         note. A step outside the assigned version answers 422 `planned-step`, a kind
         its target family does not take 422 `kind`. Only while the organization
-        manages the program, else 409 `conflict`; the grant and visibility rules are
-        those of moving a session.
+        manages the program, else 409 `conflict`; the grant, pause and visibility rules
+        are those of moving a session.
       security:
         - cookieAuth: []
       parameters:
@@ -7427,6 +7436,9 @@ paths:
 
         Everyone needs the person's `relationship_training` grant at `contribute`;
         without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`.
+        While her service with the organization is paused the answer is 409
+        `service-paused`: a paused service is stopped by reactivating it or by ending
+        the relationship, not program by program.
         A program the organization no longer manages answers 409 `conflict`; the
         person's own program, another organization's, or one the caller cannot reach
         answers 404.
@@ -13259,7 +13271,7 @@ components:
       description: >-
         The session moved on since it was read (`stale-draft`, with the current session
         in `current_state`), it started, or the organization no longer manages it
-        (`conflict`)
+        (`conflict`), or the person's service with it is paused (`service-paused`)
       headers:
         Cache-Control:
           $ref: '#/components/headers/NoStore'
@@ -16929,7 +16941,7 @@ components:
       additionalProperties: false
       required:
         [planned_session_id, program_title, session_title, discipline_code, status,
-         exercise_count, executed_session_id, organization_suspension]
+         exercise_count, executed_session_id, hold]
       properties:
         planned_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -16953,22 +16965,38 @@ components:
             The attempt already open on today's session, if there is one. It is what
             turns "Empezar" into "Continuar" and what stops a second attempt being
             started by accident.
-        organization_suspension:
+        hold:
           oneOf:
-            - $ref: '#/components/schemas/SpaceOrganizationSuspension'
+            - $ref: '#/components/schemas/SpaceSessionHold'
             - type: 'null'
           description: >-
-            `paused` while the gym that assigned the programme is suspended. Never
-            `missed`: a day missed that way does not start, so it is not offered.
-    SpaceOrganizationSuspension:
-      type: string
-      enum: [paused, missed]
+            Whether the session is held, and why. Never `missed`: a day missed that way
+            does not start, so it is not offered.
+    SpaceSessionHold:
+      type: object
+      additionalProperties: false
+      required: [state, cause]
       description: >-
-        What a gym's suspension does to a session of a programme that gym assigned
-        (HU-BO-016). `paused`: the gym is suspended now, and nothing of the programme
-        starts, repeats included, until it is reactivated. `missed`: the session's day
-        passed while the gym was suspended; it stays not done and does not start later.
-        What she trained before is unaffected, and her own programmes never carry it.
+        What holds a session of a programme a gym assigned, and why. Nothing of the
+        programme starts while it is held, repeats included; an attempt already open is
+        finished. What she trained before is unaffected, and her own programmes are never
+        held.
+      properties:
+        state:
+          type: string
+          enum: [paused, missed]
+          description: >-
+            `paused`: the cause is in force now, and the session waits for it to be
+            lifted. `missed`: the session's day passed while it was; it stays not done
+            and does not start later. A day missed outranks a pause, whatever the causes.
+        cause:
+          type: string
+          enum: [organization_suspension, subscription_suspension]
+          description: >-
+            `organization_suspension`: the gym is suspended (HU-BO-016).
+            `subscription_suspension`: the gym paused her plan for a pending payment
+            (HU-SP-083). When both hold it, the gym's suspension is the one given, since
+            paying does not lift it.
     SpaceExecutionSummary:
       type: object
       additionalProperties: false
@@ -17361,7 +17389,7 @@ components:
       required:
         [planned_session_id, template_version_id, title, discipline_code, status, program_day,
          scheduled_at, exercise_count, set_count, done, open_execution_id, last_time,
-         organization_suspension]
+         hold]
       properties:
         planned_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -17412,13 +17440,13 @@ components:
             - $ref: '#/components/schemas/UuidV7'
             - type: 'null'
           description: An attempt already open on this routine, which is what turns "empezar" into "continuar".
-        organization_suspension:
+        hold:
           oneOf:
-            - $ref: '#/components/schemas/SpaceOrganizationSuspension'
+            - $ref: '#/components/schemas/SpaceSessionHold'
             - type: 'null'
           description: >-
-            Whether the gym that assigned the programme holds this session back. Null for
-            her own programmes and for every session of an operating gym.
+            Whether the session is held, and why. Null for her own programmes and for
+            every session the gym is free to give her.
         last_time:
           oneOf:
             - $ref: '#/components/schemas/SpaceRoutineLastTime'

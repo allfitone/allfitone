@@ -29,7 +29,7 @@ function routine(overrides: Partial<WeekRoutine> = {}): WeekRoutine {
     set_count: 16,
     done: false,
     open_execution_id: null,
-    organization_suspension: null,
+    hold: null,
     last_time: null,
     ...overrides,
   }
@@ -115,12 +115,15 @@ describe('which routine the screen reaches for', () => {
   })
 })
 
-describe('a session the gym holds back (HU-BO-016)', () => {
+const gymMissed = { state: 'missed', cause: 'organization_suspension' } as const
+const gymPaused = { state: 'paused', cause: 'organization_suspension' } as const
+
+describe('a session the gym holds back (HU-BO-016, HU-SP-083)', () => {
   test('T-SPC-UNIT-330 a day missed while the gym was suspended is not suggested again', () => {
     // Lifted on Wednesday: Monday stays missed and the program goes on from today.
     const cards = cardsFor(
       plan([
-        routine({ title: 'Lunes', program_day: 1, organization_suspension: 'missed' }),
+        routine({ title: 'Lunes', program_day: 1, hold: gymMissed }),
         routine({ title: 'Miércoles', program_day: 3 }),
       ]),
       1,
@@ -132,8 +135,8 @@ describe('a session the gym holds back (HU-BO-016)', () => {
   test('T-SPC-UNIT-331 while the gym is suspended nothing is suggested, not even a repeat', () => {
     const cards = cardsFor(
       plan([
-        routine({ program_day: 1, done: true, organization_suspension: 'paused' }),
-        routine({ program_day: 3, organization_suspension: 'paused' }),
+        routine({ program_day: 1, done: true, hold: gymPaused }),
+        routine({ program_day: 3, hold: gymPaused }),
       ]),
       1,
     )
@@ -147,7 +150,7 @@ describe('a session the gym holds back (HU-BO-016)', () => {
       plan([
         routine({
           open_execution_id: '019e4000-0000-7000-8000-000000000501',
-          organization_suspension: 'paused',
+          hold: gymPaused,
         }),
       ]),
       1,
@@ -157,14 +160,52 @@ describe('a session the gym holds back (HU-BO-016)', () => {
   })
 
   test('T-SPC-UNIT-333 the button says why it does not start, and the notice explains it', () => {
+    const [paused, missed] = cardsFor(
+      plan([
+        routine({ program_day: 1, hold: gymPaused }),
+        routine({ program_day: 3, hold: gymMissed }),
+      ]),
+      1,
+    )
     expect(startLabel('paused')).toBe('En pausa')
-    expect(startLabel('missed')).toBe('No hecha')
-    expect(heldNotice('paused')).toBe(
+    expect(startLabel('missed')).toBe('No realizada')
+    expect(heldNotice(paused)).toBe(
       'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.',
     )
-    expect(heldNotice('missed')).toBe('No hecha: tu gimnasio estaba suspendido ese día.')
-    expect(heldNotice('pending')).toBeUndefined()
-    expect(heldNotice('open')).toBeUndefined()
+    expect(heldNotice(missed)).toBe('No realizada: tu gimnasio estaba suspendido ese día.')
+  })
+
+  test('T-SPC-UNIT-334 a plan paused for a pending payment says so, not that the gym is suspended', () => {
+    const [paused, missed] = cardsFor(
+      plan([
+        routine({ program_day: 1, hold: { state: 'paused', cause: 'subscription_suspension' } }),
+        routine({ program_day: 3, hold: { state: 'missed', cause: 'subscription_suspension' } }),
+      ]),
+      1,
+    )
+    expect(paused?.state).toBe('paused')
+    expect(heldNotice(paused)).toBe(
+      'Esta sesión está en pausa porque tu gimnasio pausó tu plan por un pago pendiente. Puedes seguir entrenando por tu cuenta.',
+    )
+    expect(missed?.state).toBe('missed')
+    expect(heldNotice(missed)).toBe('No realizada: tu plan estaba en pausa ese día.')
+  })
+
+  test('T-SPC-UNIT-335 nothing to explain for a session that starts, or one left open', () => {
+    const [pending, open] = cardsFor(
+      plan([
+        routine({ program_day: 1 }),
+        routine({
+          program_day: 3,
+          open_execution_id: '019e4000-0000-7000-8000-000000000501',
+          hold: gymPaused,
+        }),
+      ]),
+      1,
+    )
+    expect(heldNotice(pending)).toBeUndefined()
+    expect(heldNotice(open)).toBeUndefined()
+    expect(heldNotice(undefined)).toBeUndefined()
   })
 })
 

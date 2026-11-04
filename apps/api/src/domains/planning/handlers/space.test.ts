@@ -190,7 +190,7 @@ const weekPlan: WeekPlan = {
       set_count: 16,
       done: true,
       open_execution_id: null,
-      organization_suspension: null,
+      hold: null,
       last_time: {
         trained_on: '2026-08-24',
         seconds: 3240,
@@ -210,7 +210,7 @@ const weekPlan: WeekPlan = {
       set_count: 12,
       done: false,
       open_execution_id: null,
-      organization_suspension: null,
+      hold: null,
       last_time: null,
     },
   ],
@@ -682,9 +682,9 @@ describe('GET /space/v1/week-plan', () => {
     expect(response.status).toBe(404)
   })
 
-  test('T-PLN-API-182 says which sessions a suspended gym holds back, as the contract describes it', async () => {
-    // HU-BO-016 c3: the database derives it from the gym's suspension; the surface only
-    // carries it, so the screen can say why a session does not start.
+  test('T-PLN-API-182 says which sessions are held and why, as the contract describes it', async () => {
+    // HU-BO-016 c3 and HU-SP-083: the database derives it from the open blocks; the surface
+    // only carries it, so the screen can say why a session does not start.
     const [first, second] = weekPlan.sessions
     if (!first || !second) throw new Error('the fixture plans two sessions')
     const held = harness({
@@ -692,8 +692,8 @@ describe('GET /space/v1/week-plan', () => {
         readWeekPlan: async () => ({
           ...weekPlan,
           sessions: [
-            { ...first, organization_suspension: 'missed' },
-            { ...second, organization_suspension: 'paused' },
+            { ...first, hold: { state: 'missed', cause: 'organization_suspension' } },
+            { ...second, hold: { state: 'paused', cause: 'subscription_suspension' } },
           ],
         }),
       },
@@ -704,9 +704,9 @@ describe('GET /space/v1/week-plan', () => {
 
     expect(response.status).toBe(200)
     const body = (await response.json()) as WeekPlan
-    expect(body.sessions.map((routine) => routine.organization_suspension)).toEqual([
-      'missed',
-      'paused',
+    expect(body.sessions.map((routine) => routine.hold)).toEqual([
+      { state: 'missed', cause: 'organization_suspension' },
+      { state: 'paused', cause: 'subscription_suspension' },
     ])
     assertMatchesContract('SpaceWeekPlan', body)
   })
@@ -1088,7 +1088,7 @@ describe('GET /space/v1/today', () => {
     assertMatchesContract('SpaceToday', body)
   })
 
-  test('T-PLN-API-183 the session of the day says when its gym is suspended', async () => {
+  test('T-PLN-API-183 the session of the day says when it is held and why', async () => {
     const response = await harness({
       service: {
         readTodaySession: async () => ({
@@ -1099,16 +1099,16 @@ describe('GET /space/v1/today', () => {
           status: 'scheduled',
           exercise_count: 4,
           executed_session_id: null,
-          organization_suspension: 'paused',
+          hold: { state: 'paused', cause: 'subscription_suspension' },
         }),
       },
     }).request('/space/v1/today?timezone=America/Bogota', { headers: authorized })
 
     expect(response.status).toBe(200)
     const body = (await response.json()) as {
-      session: { organization_suspension: string | null } | null
+      session: { hold: { state: string; cause: string } | null } | null
     }
-    expect(body.session?.organization_suspension).toBe('paused')
+    expect(body.session?.hold).toEqual({ state: 'paused', cause: 'subscription_suspension' })
     assertMatchesContract('SpaceToday', body)
   })
 
