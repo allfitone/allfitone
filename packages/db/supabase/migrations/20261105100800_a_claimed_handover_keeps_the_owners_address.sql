@@ -6,7 +6,7 @@
 -- Allfit typed when it created the gym, and it is still shown; after it, the handover
 -- withholds it like the file. A company's address is never withheld.
 --
--- Restated from the definition in force (`20261104150000`) with the site block alone
+-- Restated from the definition in force (`20261105100000`) with the site block alone
 -- changed, and `address_withheld` added to it.
 
 set lock_timeout = '5s';
