@@ -434,7 +434,10 @@ export function BackofficeAccess() {
 function AccessFrame({ children }: { children: ReactNode }) {
   return (
     <DeviceGate>
-      <DeviceGateFallback aria-labelledby="backoffice-device-gate-title">
+      <DeviceGateFallback
+        data-backoffice-device-gate
+        aria-labelledby="backoffice-device-gate-title"
+      >
         <DeviceGateHeader>
           <BrandLockup surface="dark" title="Allfit One" width={120} height={40} />
         </DeviceGateHeader>
@@ -452,7 +455,7 @@ function AccessFrame({ children }: { children: ReactNode }) {
       </DeviceGateFallback>
 
       <DeviceGateContent>
-        <AccessShell>
+        <AccessShell data-backoffice-access-shell>
           <AccessHeader>
             {/* With the pitch gone, the brand is the page's one top-level heading. */}
             <h1 data-backoffice-access-brand>

@@ -529,3 +529,9 @@
   margin: 0;
   line-height: 0;
 }
+
+/* No decorative band behind the access and device screens: only the soft glow stays. */
+[data-backoffice-access-shell]::after,
+[data-backoffice-device-gate]::after {
+  content: none;
+}
