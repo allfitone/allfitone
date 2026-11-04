@@ -81,6 +81,8 @@ export interface PlatformAccessDatabase {
   // target state: the caller never chooses which transition it is asking for.
   suspendDuty(input: PlatformDutyClosure): Promise<PlatformCommandResult<PlatformDutyAssignment>>
   revokeDuty(input: PlatformDutyClosure): Promise<PlatformCommandResult<PlatformDutyAssignment>>
+  // HU-BO-028 c4: attests a duty in force is still needed; never extends its window.
+  recertifyDuty(input: PlatformDutyClosure): Promise<PlatformCommandResult<PlatformDutyAssignment>>
   listRoles(input: {
     actorPersonId: string
     actorSessionId: string

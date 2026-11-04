@@ -38,22 +38,32 @@ import {
   createAccountRecoveryDeliveryDatabase,
   type AccountRecoveryBatchResult,
 } from './account-recovery.js'
+import {
+  createPlatformDutyLapseProcessor,
+  type PlatformDutyLapseResult,
+} from './platform-duties.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
 export interface WorkerJobProcessors {
   invitationDelivery(): Promise<InvitationBatchResult>
   backofficeAuthCleanup(): Promise<BackofficeAuthBatchResult>
   accountRecoveryDelivery(): Promise<AccountRecoveryBatchResult>
+  platformDutyLapse(): Promise<PlatformDutyLapseResult>
 }
 
 export interface WorkerBatchResult {
   invitations: InvitationBatchResult
   backofficeAuthentication: BackofficeAuthBatchResult
   accountRecovery: AccountRecoveryBatchResult
+  platformDuties: PlatformDutyLapseResult
 }
 
 type WorkerJob =
-  'account_recovery_delivery' | 'backoffice_auth_cleanup' | 'invitation_delivery' | 'outbox_batch'
+  | 'account_recovery_delivery'
+  | 'backoffice_auth_cleanup'
+  | 'invitation_delivery'
+  | 'outbox_batch'
+  | 'platform_duty_lapse'
 
 let cachedProcessors: WorkerJobProcessors | undefined
 
@@ -92,9 +102,20 @@ export function createWorkerApp(
         'account_recovery_delivery',
         processors.accountRecoveryDelivery,
       )
+      const platformDuties = await runJob(
+        telemetry,
+        logs,
+        'platform_duty_lapse',
+        processors.platformDutyLapse,
+      )
 
-      const result: WorkerBatchResult = { invitations, backofficeAuthentication, accountRecovery }
-      const jobs = [invitations, backofficeAuthentication, accountRecovery]
+      const result: WorkerBatchResult = {
+        invitations,
+        backofficeAuthentication,
+        accountRecovery,
+        platformDuties,
+      }
+      const jobs = [invitations, backofficeAuthentication, accountRecovery, platformDuties]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
       captureJob(
         telemetry,
@@ -318,6 +339,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     },
     backofficeAuthCleanup: backofficeAuthentication,
     accountRecoveryDelivery: accountRecovery,
+    platformDutyLapse: createPlatformDutyLapseProcessor(sql),
   }
   return cachedProcessors
 }

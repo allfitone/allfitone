@@ -197,6 +197,12 @@ export const backofficeApi = {
       { method: 'POST', headers: commandHeaders(command), body: '{}' },
     ),
 
+  recertifyPlatformDuty: (assignmentId: string, command: BackofficeCommand) =>
+    requestJson<PlatformDutyAssignment>(
+      `/backoffice/v1/platform/duty-assignments/${assignmentId}/recertification`,
+      { method: 'POST', headers: commandHeaders(command), body: '{}' },
+    ),
+
   // The curator's view: published and archived alike, unlike /backoffice/v1/catalog.
   globalCatalogue: (signal?: AbortSignal) =>
     requestJson<BackofficeGlobalCatalogue>('/backoffice/v1/catalogue', signal ? { signal } : {}),
@@ -948,6 +954,9 @@ function platformOperation(route: string): ClientOperation | undefined {
   }
   if (resource === 'duty-assignments' && action === 'revocation') {
     return 'backoffice.platform.duty_revoke'
+  }
+  if (resource === 'duty-assignments' && action === 'recertification') {
+    return 'backoffice.platform.duty_recertify'
   }
   return undefined
 }

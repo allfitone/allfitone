@@ -407,6 +407,14 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'POST',
+      path: '/backoffice/v1/platform/duty-assignments/{assignmentId}/recertification',
+      operationId: 'recertifyBackofficePlatformDuty',
+      allfitOperation: 'OP-SUP-010',
+      responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
+      method: 'POST',
       path: '/backoffice/v1/platform/duty-assignments/{assignmentId}/revocation',
       operationId: 'revokeBackofficePlatformDuty',
       allfitOperation: 'OP-SUP-010',

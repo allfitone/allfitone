@@ -1878,8 +1878,17 @@ async function routePlatformAccess(
     return
   }
   if (request.method === 'GET') {
+    // The duty filters are the API's, so the mock applies them rather than the screen.
+    const filters = new URLSearchParams(request.query)
     const rows: Array<PlatformRoleFixture | PlatformDutyFixture> =
-      request.path === '/backoffice/v1/platform/role-assignments' ? access.roles : access.duties
+      request.path === '/backoffice/v1/platform/role-assignments'
+        ? access.roles
+        : access.duties.filter(
+            (duty) =>
+              (filters.get('status') === null || duty.status === filters.get('status')) &&
+              (filters.get('duty_code') === null || duty.duty_code === filters.get('duty_code')) &&
+              (filters.get('person_id') === null || duty.person_id === filters.get('person_id')),
+          )
     await fulfill(route, 200, paginate(rows, access.pageSize, cursorOf(request)))
     return
   }
@@ -1908,6 +1917,15 @@ async function routePlatformAccess(
           duty.revoked_by_person_id = ACTOR_PERSON_ID
         }
       }
+    }
+    await fulfill(route, 200, target ?? {})
+    return
+  }
+  if (resource === 'duty-assignments' && action === 'recertification') {
+    const target = access.duties.find((duty) => duty.id === segments[4])
+    if (target) {
+      target.recertified_at = now
+      target.recertified_by_person_id = ACTOR_PERSON_ID
     }
     await fulfill(route, 200, target ?? {})
     return

@@ -7,6 +7,7 @@ import type { OperationalLogAdapter } from '@allfitone/telemetry/posthog-otlp-lo
 import type { InvitationBatchResult } from './invitations.js'
 import type { BackofficeAuthBatchResult } from './backoffice-auth.js'
 import type { AccountRecoveryBatchResult } from './account-recovery.js'
+import type { PlatformDutyLapseResult } from './platform-duties.js'
 
 type WorkerEvent = TelemetryEventFor<'worker.job.completed.v1'>
 
@@ -39,12 +40,14 @@ test('runs the batch after authenticating the Vercel cron', async () => {
     invitations: invitationResult(),
     backofficeAuthentication: backofficeResult(),
     accountRecovery: recoveryResult(),
+    platformDuties: lapseResult(),
   })
-  expect(captured).toHaveLength(4)
+  expect(captured).toHaveLength(5)
   for (const job of [
     'invitation_delivery',
     'backoffice_auth_cleanup',
     'account_recovery_delivery',
+    'platform_duty_lapse',
   ]) {
     expect(captured).toContainEqual(
       expect.objectContaining({
@@ -53,10 +56,42 @@ test('runs the batch after authenticating the Vercel cron', async () => {
       }),
     )
   }
-  expect(captured[3]).toMatchObject({
+  expect(captured[4]).toMatchObject({
     event: 'worker.job.completed.v1',
     properties: { job: 'outbox_batch', outcome: 'completed', item_count: 0 },
   })
+})
+
+test('lapses the platform duties past their window every minute, and counts them', async () => {
+  // HU-BO-028 criterion 5: nothing else notices a duty running out of time.
+  const captured: WorkerEvent[] = []
+  const telemetry: ServerTelemetryAdapter = {
+    capture: (event) => {
+      if (event.event === 'worker.job.completed.v1') captured.push(event)
+    },
+    shutdown: async () => undefined,
+  }
+  const processors = successfulProcessors()
+  processors.platformDutyLapse = async () => lapseResult({ claimed: 2, lapsed: 2 })
+
+  const response = await createWorkerApp(processors, telemetry, operationalLogs()).request(
+    '/cron/outbox',
+    { headers: { authorization: 'Bearer cron-test-secret' } },
+  )
+
+  expect(response.status).toBe(200)
+  await expect(response.json()).resolves.toMatchObject({
+    platformDuties: { claimed: 2, deadOrDelayed: 0, lapsed: 2 },
+  })
+  expect(captured).toContainEqual(
+    expect.objectContaining({
+      properties: expect.objectContaining({
+        job: 'platform_duty_lapse',
+        outcome: 'completed',
+        item_count: 2,
+      }),
+    }),
+  )
 })
 
 test('marks individual and aggregate jobs as retrying when work was delayed', async () => {
@@ -80,9 +115,10 @@ test('marks individual and aggregate jobs as retrying when work was delayed', as
     ['invitation_delivery', 'completed'],
     ['backoffice_auth_cleanup', 'completed'],
     ['account_recovery_delivery', 'retrying'],
+    ['platform_duty_lapse', 'completed'],
     ['outbox_batch', 'retrying'],
   ])
-  expect(captured[3]?.properties.item_count).toBe(2)
+  expect(captured[4]?.properties.item_count).toBe(2)
 })
 
 test('emits failed job and aggregate events without unreliable item counts', async () => {
@@ -156,7 +192,12 @@ function successfulProcessors() {
     invitationDelivery: async () => invitationResult(),
     backofficeAuthCleanup: async () => backofficeResult(),
     accountRecoveryDelivery: async () => recoveryResult(),
+    platformDutyLapse: async () => lapseResult(),
   }
+}
+
+function lapseResult(overrides: Partial<PlatformDutyLapseResult> = {}): PlatformDutyLapseResult {
+  return { claimed: 0, deadOrDelayed: 0, lapsed: 0, ...overrides }
 }
 
 function invitationResult(overrides: Partial<InvitationBatchResult> = {}): InvitationBatchResult {

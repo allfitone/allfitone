@@ -109,6 +109,24 @@ export function isDutyClosed(status: PlatformDutyStatus): boolean {
 }
 
 /**
+ * HU-BO-028 c4: only a duty in force is attested as still needed. A suspended one is
+ * reinstated and a closed one granted again; the command refuses them either way.
+ */
+export function canRecertify(status: PlatformDutyStatus): boolean {
+  return status === 'active'
+}
+
+/** HU-BO-029 c2: every effective state the API filters on, and none. */
+export const DUTY_STATUS_FILTERS: readonly { value: PlatformDutyStatus | ''; label: string }[] = [
+  { value: '', label: 'Todos los estados' },
+  { value: 'active', label: DUTY_STATUS_LABELS.active },
+  { value: 'scheduled', label: DUTY_STATUS_LABELS.scheduled },
+  { value: 'suspended', label: DUTY_STATUS_LABELS.suspended },
+  { value: 'expired', label: DUTY_STATUS_LABELS.expired },
+  { value: 'revoked', label: DUTY_STATUS_LABELS.revoked },
+]
+
+/**
  * The identifier is what an operator quotes in a case, and a full UUID is
  * unreadable in a table. The short form is for reading, never for matching: the
  * full value stays available for copying.

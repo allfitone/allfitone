@@ -76,6 +76,10 @@ export interface PlatformAccessService {
     actor: BackofficeActor,
     input: PlatformCommandContext & { assignmentId: string },
   ): Promise<PlatformCommandResult<PlatformDutyAssignment>>
+  recertifyDuty(
+    actor: BackofficeActor,
+    input: PlatformCommandContext & { assignmentId: string },
+  ): Promise<PlatformCommandResult<PlatformDutyAssignment>>
   listRoles(
     actor: BackofficeActor,
     input: { requestId: string; limit: number; cursor?: PlatformRoleCursor },
@@ -107,6 +111,7 @@ export function createPlatformAccessService(
     grantDuty: (actor, input) => database.grantDuty({ ...from(actor), ...input }),
     suspendDuty: (actor, input) => database.suspendDuty({ ...from(actor), ...input }),
     revokeDuty: (actor, input) => database.revokeDuty({ ...from(actor), ...input }),
+    recertifyDuty: (actor, input) => database.recertifyDuty({ ...from(actor), ...input }),
     listRoles: (actor, input) => database.listRoles({ ...from(actor), ...input }),
     listDuties: (actor, input) => database.listDuties({ ...from(actor), ...input }),
   }

@@ -72,6 +72,7 @@ function accessService(overrides: Partial<PlatformAccessService> = {}): Platform
     grantDuty: record('grantDuty', dutyAssignment),
     suspendDuty: record('suspendDuty', dutyAssignment),
     revokeDuty: record('revokeDuty', dutyAssignment),
+    recertifyDuty: record('recertifyDuty', dutyAssignment),
     ...overrides,
   } as PlatformAccessService
 }
@@ -243,6 +244,28 @@ describe('Backoffice platform access API contract', () => {
     ])
     expect(captured[0]?.input).toMatchObject({ assignmentId: DUTY_ASSIGNMENT_ID })
     expect(captured[2]?.input).toMatchObject({ assignmentId: ROLE_ASSIGNMENT_ID })
+  })
+
+  test('T-SUP-API-RECERT-01 routes a recertification to its own command (HU-BO-028 c4)', async () => {
+    const response = await routes().fetch(
+      request(`/platform/duty-assignments/${DUTY_ASSIGNMENT_ID}/recertification`),
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual(dutyAssignment)
+    expect(captured.map((call) => call.operation)).toEqual(['recertifyDuty'])
+    expect(captured[0]?.input).toMatchObject({ assignmentId: DUTY_ASSIGNMENT_ID })
+  })
+
+  test('T-SUP-API-RECERT-02 a duty no longer in force answers conflict, not an error', async () => {
+    const response = await routes(
+      accessService({
+        recertifyDuty: () =>
+          Promise.reject(Object.assign(new Error('only a duty in force'), { code: '23514' })),
+      }),
+    ).fetch(request(`/platform/duty-assignments/${DUTY_ASSIGNMENT_ID}/recertification`))
+
+    expect(response.status).toBe(409)
   })
 
   test('T-SUP-API-06 refuses a duty code outside the closed catalogue', async () => {

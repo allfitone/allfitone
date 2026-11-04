@@ -175,6 +175,14 @@ export function backofficePlatformAccessRoutes(
     })
   })
 
+  routes.post('/platform/duty-assignments/:assignmentId/recertification', async (c) => {
+    return closureRoute(c, origin, sessions, async (actor, assignmentId, command) => {
+      const result = await access().recertifyDuty(actor, { assignmentId, ...command })
+      replay(c, result.replayed)
+      return c.json(result.resource)
+    })
+  })
+
   routes.post('/platform/duty-assignments/:assignmentId/revocation', async (c) => {
     return closureRoute(c, origin, sessions, async (actor, assignmentId, command) => {
       const result = await access().revokeDuty(actor, { assignmentId, ...command })

@@ -57,6 +57,7 @@ export const clientOperations = [
   'backoffice.platform.duty_list',
   'backoffice.platform.duty_revoke',
   'backoffice.platform.duty_suspend',
+  'backoffice.platform.duty_recertify',
   'backoffice.platform.role_grant',
   'backoffice.platform.role_list',
   'backoffice.platform.role_revoke',
@@ -279,6 +280,7 @@ export type TelemetryEvent =
           | 'backoffice_auth_cleanup'
           | 'invitation_delivery'
           | 'outbox_batch'
+          | 'platform_duty_lapse'
         outcome: 'completed' | 'failed' | 'retrying'
         duration_ms: number
         item_count?: number
@@ -454,6 +456,7 @@ function validateSpecific(name: TelemetryEventName, properties: Record<string, u
             'backoffice_auth_cleanup',
             'invitation_delivery',
             'outbox_batch',
+            'platform_duty_lapse',
           ] as const,
           properties.job,
         ) &&

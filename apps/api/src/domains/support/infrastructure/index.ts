@@ -120,6 +120,18 @@ export function createPlatformAccessDatabase(): PlatformAccessDatabase {
         return required(row, 'revoke the platform duty')
       }),
 
+    recertifyDuty: (input) =>
+      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<CommandRow<PlatformDutyAssignment>[]>`
+          select * from support.recertify_platform_duty(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.assignmentId}::uuid,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return required(row, 'recertify the platform duty')
+      }),
+
     listRoles: (input) =>
       inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
         // One extra row answers "is there another page" without a second count.
