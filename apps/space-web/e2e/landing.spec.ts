@@ -23,24 +23,18 @@ const PAGES = [
 ]
 
 test.describe('language', () => {
-  test('the root sends a Spanish browser to Spanish', async ({ browser }) => {
-    const context = await browser.newContext({ locale: 'es-CO' })
-    const page = await context.newPage()
-    await page.goto('/')
-    await expect(page).toHaveURL(/\/es$/)
-    await context.close()
+  test('the root opens in Spanish whatever language the browser prefers', async ({ browser }) => {
+    for (const locale of ['es-CO', 'en-US']) {
+      const context = await browser.newContext({ locale })
+      const page = await context.newPage()
+      await page.goto('/')
+      await expect(page).toHaveURL(/\/es$/)
+      await context.close()
+    }
   })
 
-  test('the root sends an English browser to English', async ({ browser }) => {
+  test('a page without a language opens in Spanish and keeps its path', async ({ browser }) => {
     const context = await browser.newContext({ locale: 'en-US' })
-    const page = await context.newPage()
-    await page.goto('/')
-    await expect(page).toHaveURL(/\/en$/)
-    await context.close()
-  })
-
-  test('a page without a language keeps its path', async ({ browser }) => {
-    const context = await browser.newContext({ locale: 'es-CO' })
     const page = await context.newPage()
     await page.goto('/privacy')
     await expect(page).toHaveURL(/\/es\/privacy$/)

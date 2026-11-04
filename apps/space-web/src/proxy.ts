@@ -1,20 +1,19 @@
 /**
- * Sends a visitor who arrives without a language to the one their browser
- * prefers. `/` becomes `/es` or `/en`; `/privacy` becomes `/es/privacy`.
+ * Sends a visitor who arrives without a language to Spanish, whatever their
+ * browser prefers: `/` becomes `/es` and `/privacy` becomes `/es/privacy`.
  * Paths that already carry a locale, and every static asset, pass untouched.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { localeFromPath, preferredLocale } from '@/lib/locale'
+import { DEFAULT_LOCALE, localeFromPath } from '@/lib/locale'
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   if (localeFromPath(pathname)) return NextResponse.next()
 
-  const locale = preferredLocale(request.headers.get('accept-language'))
   const target = request.nextUrl.clone()
-  target.pathname = `/${locale}${pathname === '/' ? '' : pathname}`
+  target.pathname = `/${DEFAULT_LOCALE}${pathname === '/' ? '' : pathname}`
   return NextResponse.redirect(target)
 }
 
