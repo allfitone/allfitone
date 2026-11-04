@@ -11,9 +11,11 @@
  */
 export const es = {
   meta: {
-    title: 'Allfit Studio',
+    title: 'Allfit Studio · Software para entrenadores y gimnasios',
     description:
-      'Allfit Studio reúne a tus clientes, sus programas y lo que registran en cada sesión.',
+      'Reúne a tus clientes, sus programas de entrenamiento y cada sesión que registran en un solo panel. Para entrenadores personales, estudios y gimnasios.',
+    shareImageAlt:
+      'Portada de Allfit Studio: «Tu plan. Su sesión. Un solo panel.», junto a la ficha de una persona que compara lo planeado con lo que registró.',
   },
   nav: {
     label: 'Principal',

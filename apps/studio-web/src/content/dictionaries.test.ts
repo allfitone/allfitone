@@ -49,6 +49,6 @@ describe('landing dictionaries', () => {
     const same = leaves(en)
       .filter(([path, value]) => spanish.get(path) === value)
       .map(([path]) => path)
-    expect(same).toEqual(['meta.title', 'sheet.columns.planned', 'footer.rights'])
+    expect(same).toEqual(['sheet.columns.planned', 'footer.rights'])
   })
 })
