@@ -4348,6 +4348,8 @@ export interface paths {
     /**
      * Send a client invitation again
      * @description A live invitation is sent again as it is. An expired one is replaced by a new identical invitation that Allfit signs, asking for exactly the same scopes at exactly the same levels, and the expired one never works again. An accepted, declined or revoked invitation, one already reissued, or one with an equal invitation pending answers 409. Resending never changes the gym, the contact or what was asked for, and the destination limit Studio enforces applies: 429. The command carries no body.
+     *
+     *     HU-STUDIO-087. A reissue is a new invitation and takes a place in the gym's guest quota; when the gym has none left the answer is `409` with `guest-quota-exhausted` and nothing is reissued. Sending a live invitation again takes no place and is never refused for the quota.
      */
     post: operations['resendBackofficeClientInvitation']
     delete?: never
