@@ -315,3 +315,36 @@ test('the directory leads to creating a gym and to an unclaimed gym’s handover
     `/organizations/${record.organization_id}`,
   )
 })
+
+// HU-BO-013 c5: once a natural person claims the gym, the address the file reserves is
+// not one link away on the handover.
+test('the address of a claimed natural person is withheld on the handover', async ({
+  context,
+  page,
+}) => {
+  const record = handoverRecord({
+    party_kind: 'natural_person',
+    legal_name: null,
+    status: 'active',
+    claimed_at: new Date().toISOString(),
+    site: {
+      site_id: '019a7200-0000-7000-8000-000000000009',
+      name: 'Sede Casa',
+      address: null,
+      address_withheld: true,
+    },
+  })
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      organizationHandover: { handovers: [record] },
+    }),
+  )
+
+  await page.goto(`/organizations/${record.organization_id}/handover`)
+
+  await expect(page.locator('#ho-site-view')).toHaveText(
+    'Sede Casa · dirección reservada: es de la persona natural que responde por el gimnasio',
+  )
+})

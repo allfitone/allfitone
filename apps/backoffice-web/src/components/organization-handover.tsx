@@ -58,6 +58,7 @@ import {
   fileLink,
   handoverMessage,
   handoverStage,
+  siteLine,
   resendNotice,
   responsibleSentence,
   stageLabel,
@@ -186,11 +187,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
             </Field>
             <Field orientation="responsive">
               <FieldLabel htmlFor="ho-site-view">Sede</FieldLabel>
-              <span id="ho-site-view">
-                {handover.site
-                  ? [handover.site.name, handover.site.address].filter(Boolean).join(' · ')
-                  : 'Sin sede declarada'}
-              </span>
+              <span id="ho-site-view">{siteLine(handover)}</span>
             </Field>
             <Field orientation="responsive">
               <FieldLabel htmlFor="ho-invited">Invitación enviada a</FieldLabel>

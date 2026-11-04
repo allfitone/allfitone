@@ -183,6 +183,16 @@ export function responsibleSentence(handover: OrganizationHandover): string {
     : 'Una persona natural, nombrada con su propia cuenta al aceptar.'
 }
 
+/** HU-BO-013 c5: a claimed natural person's address is withheld, and the line says so. */
+export function siteLine(handover: OrganizationHandover): string {
+  const site = handover.site
+  if (!site) return 'Sin sede declarada'
+  if (site.address_withheld) {
+    return `${site.name} · dirección reservada: es de la persona natural que responde por el gimnasio`
+  }
+  return [site.name, site.address].filter(Boolean).join(' · ')
+}
+
 /** HU-BO-014 c7: who on Allfit's team created the gym. */
 export function createdBySentence(handover: OrganizationHandover): string {
   const actor = handover.created_by

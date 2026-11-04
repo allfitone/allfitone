@@ -7459,7 +7459,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       site: {
         type: ['object', 'null'],
         additionalProperties: false,
-        required: ['site_id', 'name', 'address'],
+        required: ['site_id', 'name', 'address', 'address_withheld'],
         properties: {
           site_id: {
             $ref: '#/components/schemas/Uuid',
@@ -7469,6 +7469,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
           address: {
             type: ['string', 'null'],
+          },
+          address_withheld: {
+            type: 'boolean',
+            description:
+              "True once a natural person has claimed the gym: the address is theirs then and is withheld, as the gym's file withholds it. Before the claim it is the address Allfit typed and is shown.",
           },
         },
       },

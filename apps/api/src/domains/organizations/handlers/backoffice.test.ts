@@ -49,7 +49,12 @@ const handoverResource: AllfitV1Schemas['OrganizationHandover'] = {
   cancelled_at: null,
   created_by: { person_id: ACTOR_PERSON_ID, name: 'Mateo Ciclo' },
   cancelled_by: null,
-  site: { site_id: '019ab000-0000-7000-8000-000000000601', name: 'Sede Principal', address: null },
+  site: {
+    site_id: '019ab000-0000-7000-8000-000000000601',
+    name: 'Sede Principal',
+    address: null,
+    address_withheld: false,
+  },
   invitation: {
     invitation_id: COMMAND_ID,
     status: 'pending',

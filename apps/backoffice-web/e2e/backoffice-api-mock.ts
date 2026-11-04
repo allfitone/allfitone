@@ -782,7 +782,7 @@ export interface HandoverRecordFixture {
   cancelled_at: string | null
   created_by: { person_id: string; name: string | null } | null
   cancelled_by: { person_id: string; name: string | null } | null
-  site: { site_id: string; name: string; address: string | null } | null
+  site: { site_id: string; name: string; address: string | null; address_withheld: boolean } | null
   invitation: {
     invitation_id: string
     status: 'pending' | 'completed' | 'revoked' | 'expired'
@@ -3946,6 +3946,7 @@ async function routeOrganizationHandover(
             site_id: '019a7200-0000-7000-8000-000000000001',
             name: site.name,
             address: site.address ?? null,
+            address_withheld: false,
           }
         : null,
     })

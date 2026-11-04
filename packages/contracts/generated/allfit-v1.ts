@@ -5212,6 +5212,8 @@ export interface components {
         site_id: components['schemas']['Uuid']
         name: string
         address: string | null
+        /** @description True once a natural person has claimed the gym: the address is theirs then and is withheld, as the gym's file withholds it. Before the claim it is the address Allfit typed and is shown. */
+        address_withheld: boolean
       } | null
       /** @description The latest ownership invitation. The address is a hint, never the address. */
       invitation: {
