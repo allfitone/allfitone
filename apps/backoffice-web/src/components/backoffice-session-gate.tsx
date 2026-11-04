@@ -13,7 +13,9 @@
 import { Spinner } from '@allfitone/react/components/spinner'
 import { useEffect, useState, type ReactNode } from 'react'
 
+import { BackofficeSessionProvider } from './backoffice-session-context'
 import { BackofficeWorkspaceShell } from './backoffice-workspace-shell'
+
 import { backofficeApi, type BackofficeSession } from '@/lib/backoffice-api'
 
 export function BackofficeSessionGate({ children }: { children: ReactNode }) {
@@ -42,5 +44,10 @@ export function BackofficeSessionGate({ children }: { children: ReactNode }) {
   }
 
   const operatorName = `${session.operator.given_name} ${session.operator.family_name}`.trim()
-  return <BackofficeWorkspaceShell operatorName={operatorName}>{children}</BackofficeWorkspaceShell>
+
+  return (
+    <BackofficeSessionProvider session={session}>
+      <BackofficeWorkspaceShell operatorName={operatorName}>{children}</BackofficeWorkspaceShell>
+    </BackofficeSessionProvider>
+  )
 }

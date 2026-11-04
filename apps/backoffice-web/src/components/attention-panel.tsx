@@ -15,8 +15,9 @@
  * reads first.
  */
 
-import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -24,7 +25,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Spinner } from '@allfitone/react/components/spinner'
 import Link from 'next/link'
 import { useEffect, useState, type ReactNode } from 'react'
 
@@ -47,12 +47,14 @@ import {
 } from '@/lib/attention-panel'
 import { sourceLabel } from '@/lib/support-diagnosis'
 import { formatInstant } from '@/lib/platform-access'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
 export function AttentionPanel() {
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [panel, setPanel] = useState<SupportAttentionPanel | null>(null)
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export function AttentionPanel() {
           window.location.assign('/')
           return
         }
+        setRefused(isRefusal(error))
         setFailure(failureMessage(error))
         setState('failed')
       }
@@ -74,14 +77,21 @@ export function AttentionPanel() {
     return () => controller.abort()
   }, [])
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed' || !panel) {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo leer lo que necesita atención</AlertTitle>
-        <AlertDescription>{failure ?? attentionMessage('upstream-unavailable')}</AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={refused}
+        duties={[
+          'verify_professional_credentials',
+          'manage_organization_lifecycle',
+          'diagnose_support_metadata',
+          'view_billing_metadata',
+        ]}
+        title="No se pudo leer lo que necesita atención"
+        message={failure ?? attentionMessage('upstream-unavailable')}
+      />
     )
   }
 

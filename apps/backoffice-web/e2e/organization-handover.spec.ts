@@ -256,7 +256,7 @@ test('a withdrawn lifecycle duty is explained as expiry by design', async ({ con
 
   await page.goto('/organizations/019a7000-0000-7000-8000-000000009999/handover')
 
-  await expect(page.getByText('No se pudo leer la entrega')).toBeVisible()
+  await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
   await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
 })
 

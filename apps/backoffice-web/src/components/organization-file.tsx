@@ -20,6 +20,8 @@
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -29,7 +31,6 @@ import {
 } from '@allfitone/react/components/card'
 import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -64,6 +65,7 @@ import {
   teamSentence,
 } from '@/lib/organization-file'
 import { formatInstant } from '@/lib/platform-access'
+import { isRefusal } from '@/lib/screen-state'
 
 import { OrganizationClientInvitations } from './organization-client-invitations'
 import { OrganizationGuestQuotaPanel } from './organization-guest-quota'
@@ -76,6 +78,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
   const [state, setState] = useState<LoadState>('loading')
   const [file, setFile] = useState<BackofficeOrganizationFile | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [caseReference, setCaseReference] = useState('')
 
   useEffect(() => {
@@ -90,6 +93,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
           window.location.assign('/')
           return
         }
+        setRefused(isRefusal(error))
         setFailure(failureMessage(error))
         setState('failed')
       }
@@ -97,15 +101,17 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
     return () => controller.abort()
   }, [organizationId])
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed' || !file) {
     return (
       <div data-organization-file>
-        <Alert live="assertive" variant="danger">
-          <AlertTitle>No se pudo abrir la ficha</AlertTitle>
-          <AlertDescription>{failure ?? fileMessage('upstream-unavailable')}</AlertDescription>
-        </Alert>
+        <ScreenFailure
+          refused={refused}
+          duties={['manage_organization_lifecycle', 'diagnose_support_metadata']}
+          title="No se pudo abrir la ficha"
+          message={failure ?? fileMessage('upstream-unavailable')}
+        />
         <Link href="/organizations" data-handover-link>
           Volver al directorio
         </Link>

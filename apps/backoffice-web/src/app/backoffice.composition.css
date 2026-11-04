@@ -86,10 +86,114 @@
   place-items: center;
 }
 
+/* A 1920px canvas is not a line length. The column stops where a table still
+   has room and a sentence no longer runs across the screen. */
 [data-backoffice-content] {
   display: grid;
   gap: 24px;
   align-content: start;
+  max-width: 84rem;
+}
+
+[data-backoffice-content] p {
+  max-width: 72ch;
+}
+
+/* A card's description sits right after its title. The Design System renders it as a
+   plain block, so the measure is set on the sibling rather than on a slot name. */
+[data-backoffice-content] [role='heading'] + * {
+  max-width: 72ch;
+}
+
+/* A form reads top to bottom at the width of a long input, with its action at the
+   action's own width. Stretched across the canvas, a label sat 1200px from its field. */
+[data-backoffice-form] {
+  display: grid;
+  gap: 16px;
+  max-width: 36rem;
+}
+
+[data-form-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------- shared states */
+
+/* The shape of the screen while it reads: a title, two lines and a block. */
+[data-screen-loading] {
+  display: grid;
+  gap: 12px;
+  max-width: 48rem;
+}
+
+[data-skeleton-line] {
+  height: 1rem;
+  width: 70%;
+}
+
+[data-skeleton-line='title'] {
+  height: 1.5rem;
+  width: 40%;
+}
+
+[data-skeleton-line='short'] {
+  width: 45%;
+}
+
+[data-skeleton-block] {
+  height: 9rem;
+  width: 100%;
+}
+
+[data-screen-duties] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The operator's session reads as three facts in a row, not as a form. */
+[data-operator-session] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 16px;
+  margin: 0 0 16px;
+}
+
+[data-operator-session] dt {
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-semibold);
+  color: var(--afo-color-text-muted, currentColor);
+}
+
+[data-operator-session] dd {
+  margin: 4px 0 0;
+}
+
+[data-operator-note] {
+  margin: 0;
+  font-size: var(--afo-font-size-sm);
+  color: var(--afo-color-text-secondary, currentColor);
+}
+
+/* A link inside a sentence keeps the line's height; the block links above carry
+   their own 44px target because they stand alone. */
+[data-inline-link] {
+  color: var(--afo-color-text-accent, currentColor);
+  font-weight: var(--afo-font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Three groups and thirteen entries have to fit a 900px viewport above the
+   operator's name, so each group gives back the Design System's outer padding. */
+[data-backoffice-area] {
+  padding-block: 2px;
 }
 
 [data-backoffice-brand] {
@@ -281,7 +385,8 @@
    target of its own. */
 [data-handover-link],
 [data-organization-create-link],
-[data-attention-link] {
+[data-attention-link],
+[data-backoffice-link] {
   display: inline-flex;
   min-height: 44px;
   width: fit-content;

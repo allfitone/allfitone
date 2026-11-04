@@ -219,7 +219,7 @@ test('a withdrawn audit duty is explained as expiry by design', async ({ context
   await page.getByLabel('Persona afectada').fill(SUPPORT_SUBJECT_ID)
   await page.getByRole('button', { name: 'Consultar' }).click()
 
-  await expect(page.getByText('No se pudo consultar el registro')).toBeVisible()
+  await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
   await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
 })
 

@@ -28,6 +28,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -45,7 +47,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -93,6 +94,7 @@ import {
   type BreakGlassExerciseOutcome,
   type BreakGlassPurpose,
 } from '@/lib/break-glass'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -100,6 +102,7 @@ export function BreakGlassWindows() {
   const [state, setState] = useState<LoadState>('loading')
   const [files, setFiles] = useState<BreakGlassRequest[]>([])
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [subject, setSubject] = useState('')
@@ -124,6 +127,7 @@ export function BreakGlassWindows() {
         window.location.assign('/')
         return
       }
+      setRefused(isRefusal(caught))
       setFailure(failureMessage(caught))
       setState('failed')
     }
@@ -215,14 +219,17 @@ export function BreakGlassWindows() {
     }
   }
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed') {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo leer la bandeja</AlertTitle>
-        <AlertDescription>{failure ?? breakGlassMessage('upstream-unavailable')}</AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={refused}
+        duties={['request_break_glass']}
+        title="No se pudo leer la bandeja"
+        message={failure ?? breakGlassMessage('upstream-unavailable')}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -377,9 +384,9 @@ export function BreakGlassWindows() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} data-break-glass-form noValidate>
+          <form onSubmit={submit} data-backoffice-form data-break-glass-form noValidate>
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="bg-subject">Persona afectada</FieldLabel>
                 <Input
                   id="bg-subject"
@@ -390,7 +397,7 @@ export function BreakGlassWindows() {
                   disabled={busy}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="bg-case">Referencia del caso</FieldLabel>
                 <Input
                   id="bg-case"
@@ -401,7 +408,7 @@ export function BreakGlassWindows() {
                   disabled={busy}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="bg-purpose">Propósito</FieldLabel>
                 <Select
                   value={purpose}
@@ -456,22 +463,22 @@ export function BreakGlassWindows() {
               ) : null}
 
               {error ? <FieldError>{error}</FieldError> : null}
-              <Button type="submit" disabled={busy}>
-                Pedir la ventana
-              </Button>
+
+              <div data-form-actions>
+                <Button type="submit" disabled={busy}>
+                  Pedir la ventana
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>
       </Card>
 
       {files.length === 0 ? (
-        <Alert live="off" variant="info">
-          <AlertTitle>No hay expedientes</AlertTitle>
-          <AlertDescription>
-            Aquí aparecerán las solicitudes que tengas que decidir y las tuyas, con su quórum, su
-            ventana y cuántas veces se ejerció.
-          </AlertDescription>
-        </Alert>
+        <ScreenEmpty icon="warning" title="No hay expedientes">
+          Aquí aparecerán las solicitudes que tengas que decidir y las tuyas, con su quórum, su
+          ventana y cuántas veces se ejerció.
+        </ScreenEmpty>
       ) : (
         files.map((file) => (
           <Card key={file.id} data-break-glass-file>

@@ -16,6 +16,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -31,7 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -64,6 +65,7 @@ import {
   type SupportOperationSourceKind,
   type SupportOperationState,
 } from '@/lib/support-diagnosis'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -72,6 +74,7 @@ const ANY = 'any'
 export function SupportDiagnosis() {
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [circuits, setCircuits] = useState<SupportDeliveryCircuit[]>([])
   const [operations, setOperations] = useState<SupportOperation[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
@@ -105,6 +108,7 @@ export function SupportDiagnosis() {
           window.location.assign('/')
           return
         }
+        setRefused(isRefusal(error))
         setFailure(failureMessage(error))
         setState('failed')
       }
@@ -126,16 +130,16 @@ export function SupportDiagnosis() {
     }
   }
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed') {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo leer el estado técnico</AlertTitle>
-        <AlertDescription>
-          {failure ?? supportDiagnosisMessage('upstream-unavailable')}
-        </AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={refused}
+        duties={['diagnose_support_metadata']}
+        title="No se pudo leer el estado técnico"
+        message={failure ?? supportDiagnosisMessage('upstream-unavailable')}
+      />
     )
   }
 
