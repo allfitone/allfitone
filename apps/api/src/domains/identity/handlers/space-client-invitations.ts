@@ -37,6 +37,19 @@ const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const TOKEN = /^[A-Za-z0-9_-]{43}$/
+const TIME_ZONE = /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/
+const DECISION_KEYS = new Set([
+  'invitation_intent_id',
+  'relationship_decision',
+  'scope_decisions',
+  'program_decision',
+  'timezone',
+])
+// What PostgreSQL names in a 22023 detail, as the field of this request it refers to.
+const FIELDS: Readonly<Record<string, string>> = {
+  'program-decision': '/program_decision',
+  timezone: '/timezone',
+}
 const SCOPE_CODES = new Set<ScopeCode>([
   'relationship_training',
   'prior_training_history',
@@ -147,6 +160,8 @@ export function spaceClientInvitationRoutes(
         intentId: body.invitation_intent_id,
         relationshipDecision: body.relationship_decision,
         scopeDecisions: body.scope_decisions ?? {},
+        programDecision: body.program_decision ?? null,
+        timezone: body.timezone ?? null,
         ...command,
       })
       if (result.replayed) c.header('Idempotent-Replay', 'true')
@@ -158,6 +173,14 @@ export function spaceClientInvitationRoutes(
         intent_status: result.resource.intentStatus,
         relationship_id: result.resource.relationshipId,
         granted_scope_codes: result.resource.grantedScopeCodes,
+        program_proposal: result.resource.programProposal
+          ? {
+              invitation_intent_id: result.resource.programProposal.intentId,
+              intent_status: result.resource.programProposal.intentStatus,
+              assignment_id: result.resource.programProposal.assignmentId,
+              unmaterialized_reason: result.resource.programProposal.unmaterializedReason,
+            }
+          : null,
         replayed: result.replayed,
       })
     } catch (error) {
@@ -242,18 +265,23 @@ function isDecisionBody(value: unknown): value is (
   invitation_intent_id: string
   relationship_decision: ConsentDecision
   scope_decisions?: Record<string, ConsentDecision>
+  program_decision?: ConsentDecision
+  timezone?: string
 } {
   if (!isObject(value)) return false
   // The invitation is named by the token or by its id, never both.
   const named = ['token', 'invitation_id'].filter((key) => key in value)
   if (named.length !== 1) return false
-  const keys = Object.keys(value)
-    .filter((key) => key !== 'token' && key !== 'invitation_id')
-    .sort()
-    .join(',')
+  const keys = Object.keys(value).filter((key) => key !== 'token' && key !== 'invitation_id')
+  if (!keys.every((key) => DECISION_KEYS.has(key))) return false
+  if (!('invitation_intent_id' in value) || !('relationship_decision' in value)) return false
+  if ('program_decision' in value && !isDecision(value.program_decision)) return false
   if (
-    keys !== 'invitation_intent_id,relationship_decision' &&
-    keys !== 'invitation_intent_id,relationship_decision,scope_decisions'
+    'timezone' in value &&
+    (typeof value.timezone !== 'string' ||
+      value.timezone.length < 3 ||
+      value.timezone.length > 100 ||
+      !TIME_ZONE.test(value.timezone))
   ) {
     return false
   }
@@ -296,6 +324,22 @@ function presentInvitation(invitation: ClientInvitationPresentation) {
       presented_snapshot: option.presentedSnapshot,
       decision: option.decision,
     })),
+    program_proposal: invitation.programProposal
+      ? {
+          invitation_intent_id: invitation.programProposal.intentId,
+          program_version_id: invitation.programProposal.programVersionId,
+          title: invitation.programProposal.title,
+          version_number: invitation.programProposal.versionNumber,
+          weeks: invitation.programProposal.weeks,
+          repeats_forever: invitation.programProposal.repeatsForever,
+          starts_on: invitation.programProposal.startsOn,
+          required_scope: {
+            scope_code: invitation.programProposal.requiredScope.scopeCode,
+            access_level: invitation.programProposal.requiredScope.accessLevel,
+          },
+          decision: invitation.programProposal.decision,
+        }
+      : null,
   }
 }
 
@@ -313,10 +357,22 @@ function operationFailure(c: Context, error: unknown) {
   if (sqlState === 'AF423') return fail(c, 'organization-not-operating')
   if (sqlState === '23505' || sqlState === '40001') return fail(c, 'conflict')
   if (sqlState === '22023' || sqlState === '23514' || sqlState === '22P02') {
-    return fail(c, 'validation-failed')
+    return fail(c, 'validation-failed', refusedField(error))
   }
   console.error('[space-client-invitations] operation failed')
   return fail(c, 'upstream-unavailable')
+}
+
+/** The request field a refusal names, when PostgreSQL named one it knows. */
+function refusedField(error: unknown): string | undefined {
+  if (!isObject(error) || typeof error.detail !== 'string') return undefined
+  try {
+    const codes: unknown = JSON.parse(error.detail)
+    const [first] = Array.isArray(codes) ? codes : []
+    return typeof first === 'string' ? FIELDS[first] : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
