@@ -680,6 +680,62 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /backoffice/v1/platform/duty-assignments/{assignmentId}/recertification:
+    post:
+      tags: [Backoffice Platform Access]
+      operationId: recertifyBackofficePlatformDuty
+      x-allfit-operation: OP-SUP-010
+      x-allfit-cache: no-store
+      summary: Recertify a platform duty in force
+      description: >-
+        HU-BO-028 criterion 4 and ADR-028: security and privacy attest, every quarter,
+        that a duty in force is still needed. Records who and when; it never extends
+        the window, because longer authority is a new assignment. Needs
+        `manage_platform_access` and AAL2, and is never done by the duty's holder. A
+        duty that is not in force answers `409`.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PlatformAssignmentId'
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+      responses:
+        '200':
+          description: Duty recertified, or the converged assignment for a repeated command
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformDutyAssignment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /backoffice/v1/platform/duty-assignments/{assignmentId}/revocation:
     post:
       tags: [Backoffice Platform Access]

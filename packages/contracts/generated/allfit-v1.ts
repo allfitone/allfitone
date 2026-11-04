@@ -211,6 +211,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/backoffice/v1/platform/duty-assignments/{assignmentId}/recertification': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Recertify a platform duty in force
+     * @description HU-BO-028 criterion 4 and ADR-028: security and privacy attest, every quarter, that a duty in force is still needed. Records who and when; it never extends the window, because longer authority is a new assignment. Needs `manage_platform_access` and AAL2, and is never done by the duty's holder. A duty that is not in force answers `409`.
+     */
+    post: operations['recertifyBackofficePlatformDuty']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/platform/duty-assignments/{assignmentId}/revocation': {
     parameters: {
       query?: never
@@ -11176,6 +11196,48 @@ export interface operations {
     }
     responses: {
       /** @description Duty suspended, or the already suspended assignment */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PlatformDutyAssignment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  recertifyBackofficePlatformDuty: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        assignmentId: components['parameters']['PlatformAssignmentId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>
+      }
+    }
+    responses: {
+      /** @description Duty recertified, or the converged assignment for a repeated command */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']

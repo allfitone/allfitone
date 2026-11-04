@@ -62,11 +62,14 @@ import {
   newBackofficeCommand,
   type PlatformDutyAssignment,
   type PlatformDutyCode,
+  type PlatformDutyFilters,
   type PlatformRoleAssignment,
 } from '@/lib/backoffice-api'
 import {
   actorModeLabel,
+  canRecertify,
   DEFAULT_DUTY_DAYS,
+  DUTY_STATUS_FILTERS,
   MAX_DUTY_DAYS,
   PLATFORM_DUTY_CODES,
   dutyExpiryFromDays,
@@ -81,6 +84,7 @@ import {
   platformAccessMessage,
   roleStatusLabel,
   roleStatusTone,
+  type PlatformDutyStatus,
 } from '@/lib/platform-access'
 
 type LoadState = 'loading' | 'ready' | 'forbidden' | 'error'
@@ -94,35 +98,57 @@ interface Inventory {
 
 const EMPTY: Inventory = { roles: [], roleCursor: null, duties: [], dutyCursor: null }
 
+/** HU-BO-029 c2: what the duty list is narrowed to; empty means every value. */
+interface DutyFilter {
+  status: PlatformDutyStatus | ''
+  dutyCode: PlatformDutyCode | ''
+}
+
+// A select item needs a value of its own; this one stands for "no filter".
+const ALL = 'all'
+
+function dutyQuery(filter: DutyFilter): PlatformDutyFilters {
+  return {
+    ...(filter.status === '' ? {} : { status: filter.status }),
+    ...(filter.dutyCode === '' ? {} : { dutyCode: filter.dutyCode }),
+  }
+}
+
 export function PlatformAccess() {
   const [state, setState] = useState<LoadState>('loading')
   const [inventory, setInventory] = useState<Inventory>(EMPTY)
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [appending, setAppending] = useState<'roles' | 'duties' | null>(null)
+  const [dutyFilter, setDutyFilter] = useState<DutyFilter>({ status: '', dutyCode: '' })
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const [roles, duties] = await Promise.all([
-        backofficeApi.platformRoles(undefined, signal),
-        backofficeApi.platformDuties({}, signal),
-      ])
-      setInventory({
-        roles: roles.data,
-        roleCursor: roles.page.next_cursor,
-        duties: duties.data,
-        dutyCursor: duties.page.next_cursor,
-      })
-      setState('ready')
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      if (error instanceof BackofficeApiError && error.status === 401) {
-        window.location.assign('/')
-        return
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const [roles, duties] = await Promise.all([
+          backofficeApi.platformRoles(undefined, signal),
+          backofficeApi.platformDuties(dutyQuery(dutyFilter), signal),
+        ])
+        setInventory({
+          roles: roles.data,
+          roleCursor: roles.page.next_cursor,
+          duties: duties.data,
+          dutyCursor: duties.page.next_cursor,
+        })
+        setState('ready')
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (error instanceof BackofficeApiError && error.status === 401) {
+          window.location.assign('/')
+          return
+        }
+        setState(
+          error instanceof BackofficeApiError && error.status === 403 ? 'forbidden' : 'error',
+        )
       }
-      setState(error instanceof BackofficeApiError && error.status === 403 ? 'forbidden' : 'error')
-    }
-  }, [])
+    },
+    [dutyFilter],
+  )
 
   useEffect(() => {
     const controller = new AbortController()
@@ -151,7 +177,7 @@ export function PlatformAccess() {
           roleCursor: page.page.next_cursor,
         }))
       } else {
-        const page = await backofficeApi.platformDuties({ cursor })
+        const page = await backofficeApi.platformDuties({ ...dutyQuery(dutyFilter), cursor })
         setInventory((current) => ({
           ...current,
           duties: [...current.duties, ...page.data],
@@ -239,6 +265,8 @@ export function PlatformAccess() {
 
       <DutySection
         assignments={inventory.duties}
+        filter={dutyFilter}
+        onFilter={setDutyFilter}
         busy={busy}
         hasMore={inventory.dutyCursor !== null}
         appending={appending === 'duties'}
@@ -259,6 +287,12 @@ export function PlatformAccess() {
           run(
             () => backofficeApi.revokePlatformDuty(assignmentId, newBackofficeCommand()),
             'Deber revocado.',
+          )
+        }
+        onRecertify={(assignmentId) =>
+          run(
+            () => backofficeApi.recertifyPlatformDuty(assignmentId, newBackofficeCommand()),
+            'Deber recertificado: queda registrado quién lo confirmó y cuándo. No alarga su vigencia.',
           )
         }
       />
@@ -431,6 +465,8 @@ function BaseRoleSection({
 
 function DutySection({
   assignments,
+  filter,
+  onFilter,
   busy,
   hasMore,
   appending,
@@ -438,8 +474,11 @@ function DutySection({
   onGrant,
   onSuspend,
   onRevoke,
+  onRecertify,
 }: {
   assignments: PlatformDutyAssignment[]
+  filter: DutyFilter
+  onFilter: (next: DutyFilter) => void
   busy: boolean
   hasMore: boolean
   appending: boolean
@@ -452,6 +491,7 @@ function DutySection({
   }) => void
   onSuspend: (assignmentId: string) => void
   onRevoke: (assignmentId: string) => Promise<void>
+  onRecertify: (assignmentId: string) => void
 }) {
   const [personId, setPersonId] = useState('')
   const [dutyCode, setDutyCode] = useState<PlatformDutyCode>('diagnose_support_metadata')
@@ -561,6 +601,60 @@ function DutySection({
           </FieldGroup>
         </form>
 
+        <FieldGroup data-platform-duty-filters>
+          <Field>
+            <FieldLabel htmlFor="platform-duty-status-filter">Estado del deber</FieldLabel>
+            <Select
+              value={filter.status === '' ? ALL : filter.status}
+              onValueChange={(value) =>
+                onFilter({
+                  ...filter,
+                  status: value === ALL || value === null ? '' : (value as PlatformDutyStatus),
+                })
+              }
+            >
+              <SelectTrigger id="platform-duty-status-filter" disabled={busy}>
+                <SelectValue>
+                  {DUTY_STATUS_FILTERS.find((option) => option.value === filter.status)?.label}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {DUTY_STATUS_FILTERS.map((option) => (
+                  <SelectItem key={option.value || ALL} value={option.value || ALL}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="platform-duty-code-filter">Filtrar por deber</FieldLabel>
+            <Select
+              value={filter.dutyCode === '' ? ALL : filter.dutyCode}
+              onValueChange={(value) =>
+                onFilter({
+                  ...filter,
+                  dutyCode: value === ALL || value === null ? '' : (value as PlatformDutyCode),
+                })
+              }
+            >
+              <SelectTrigger id="platform-duty-code-filter" disabled={busy}>
+                <SelectValue>
+                  {filter.dutyCode === '' ? 'Todos los deberes' : dutyLabel(filter.dutyCode)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos los deberes</SelectItem>
+                {PLATFORM_DUTY_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {dutyLabel(code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldGroup>
+
         <Table scrollAreaLabel="Asignaciones de deber">
           <TableHeader>
             <TableRow>
@@ -611,6 +705,17 @@ function DutySection({
                       <span>—</span>
                     ) : (
                       <>
+                        {canRecertify(assignment.status) ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => onRecertify(assignment.id)}
+                          >
+                            Recertificar
+                          </Button>
+                        ) : null}
                         {assignment.status !== 'suspended' ? (
                           <Button
                             type="button"

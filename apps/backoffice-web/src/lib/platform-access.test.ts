@@ -11,6 +11,8 @@ import {
   dutyStatusTone,
   formatInstant,
   isDutyClosed,
+  canRecertify,
+  DUTY_STATUS_FILTERS,
   isValidDutyDays,
   isValidPersonId,
   isValidReasonCode,
@@ -54,6 +56,27 @@ describe('platform access presentation rules', () => {
     expect(isDutyClosed('suspended')).toBe(false)
     expect(isDutyClosed('expired')).toBe(true)
     expect(isDutyClosed('revoked')).toBe(true)
+  })
+
+  test('offers recertification only for a duty in force (HU-BO-028 c4)', () => {
+    // A suspended, scheduled or closed duty is not attested: it is reinstated or granted.
+    expect(canRecertify('active')).toBe(true)
+    expect(canRecertify('scheduled')).toBe(false)
+    expect(canRecertify('suspended')).toBe(false)
+    expect(canRecertify('expired')).toBe(false)
+    expect(canRecertify('revoked')).toBe(false)
+  })
+
+  test('filters the inventory by every state the API answers, and by none', () => {
+    expect(DUTY_STATUS_FILTERS.map((option) => option.value)).toEqual([
+      '',
+      'active',
+      'scheduled',
+      'suspended',
+      'expired',
+      'revoked',
+    ])
+    expect(DUTY_STATUS_FILTERS[0]?.label).toBe('Todos los estados')
   })
 
   test('shortens an identifier for reading without inventing a new one', () => {

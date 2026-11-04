@@ -227,6 +227,85 @@ test('explains a refused command as an expired duty rather than a bad request', 
   await expect(page.getByText(/no tiene un deber vigente/)).toBeVisible()
 })
 
+test('recertifies a duty in force, and the inventory says who and when', async ({
+  context,
+  page,
+}) => {
+  // HU-BO-028 c4 and HU-BO-029 c2: «última recertificación» was always empty.
+  const access = seeded()
+  const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/team')
+  const row = page
+    .getByRole('row')
+    .filter({ hasText: SUBJECT_PERSON_ID })
+    .filter({
+      has: page.getByRole('button', { name: 'Recertificar' }),
+    })
+  await row.getByRole('button', { name: 'Recertificar' }).click()
+
+  await expect(page.getByText(/Deber recertificado/)).toBeVisible()
+  const recertifications = fixture.requests.filter(
+    (request) => request.method === 'POST' && request.path.endsWith('/recertification'),
+  )
+  expect(recertifications).toHaveLength(1)
+  expect(recertifications[0]?.path).toContain(access.duties[1]?.id ?? 'missing')
+  expect(access.duties[1]?.recertified_at).not.toBeNull()
+})
+
+test('a duty no longer in force offers no recertification', async ({ context, page }) => {
+  const access = seeded()
+  access.duties.push(
+    platformDuty({
+      person_id: SUBJECT_PERSON_ID,
+      duty_code: 'view_platform_metrics',
+      status: 'revoked',
+    }),
+  )
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), platformAccess: access }),
+  )
+
+  await page.goto('/team')
+  const revoked = page.getByRole('row').filter({ hasText: 'Ver métricas de plataforma' })
+  await expect(revoked).toContainText('Revocado')
+  await expect(revoked.getByRole('button', { name: 'Recertificar' })).toHaveCount(0)
+})
+
+test('filters the duties by state, asking the API rather than hiding rows', async ({
+  context,
+  page,
+}) => {
+  // HU-BO-029 c2: the API filtered; the screen never asked it to.
+  const access = seeded()
+  access.duties.push(
+    platformDuty({
+      person_id: SUBJECT_PERSON_ID,
+      duty_code: 'view_platform_metrics',
+      status: 'suspended',
+    }),
+  )
+  const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/team')
+  await page.getByRole('combobox', { name: 'Estado del deber' }).click()
+  await page.getByRole('option', { name: 'Suspendido', exact: true }).click()
+
+  // Cells only: the grant form's selector shows a duty name too, but never as a cell.
+  await expect(page.getByRole('cell', { name: 'Ver métricas de plataforma' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Diagnosticar metadatos de soporte' })).toHaveCount(0)
+  const filtered = fixture.requests.filter(
+    (request) =>
+      request.method === 'GET' &&
+      request.path === '/backoffice/v1/platform/duty-assignments' &&
+      new URLSearchParams(request.query).get('status') === 'suspended',
+  )
+  expect(filtered.length).toBeGreaterThan(0)
+})
+
 test('sends an unauthenticated operator back to the access screen', async ({ context, page }) => {
   await mockBackofficeApi(context, createBackofficeFixture({ platformAccess: seeded() }))
 
