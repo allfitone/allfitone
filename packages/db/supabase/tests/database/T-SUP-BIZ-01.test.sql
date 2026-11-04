@@ -575,6 +575,14 @@ select ('019b3000-0000-7000-8000-00000000107' || step)::uuid,
   'active', (clock_timestamp() + interval '30 days')::date
 from generate_series(1, 5) as step;
 
+-- A sixth whose subscription is suspended: it is not an active plan (HU-BO-004 c3).
+insert into payments.plan_subscriptions (
+  id, person_id, organization_id, plan_version_id, status, current_period_end, suspended_at
+)
+values ('019b3000-0000-7000-8000-000000001076', '019b3000-0000-7000-8000-000000001046',
+  '019b3000-0000-7000-8000-000000001031', '019b3000-0000-7000-8000-000000001062',
+  'suspended', (clock_timestamp() + interval '30 days')::date, clock_timestamp());
+
 create temporary table biz_money on commit drop as
 select support.read_business_panel(
   '019b3000-0000-7000-8000-000000000003', '019b3000-0000-7000-8000-000000000023'

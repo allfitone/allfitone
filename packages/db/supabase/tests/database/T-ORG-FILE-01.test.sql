@@ -513,6 +513,14 @@ values
     '019ad000-0000-7000-8000-000000000301', '019ad000-0000-7000-8000-000000000511',
     'active', (clock_timestamp() + interval '30 days')::date);
 
+-- A third client whose subscription is suspended: not somebody who pays it (HU-BO-013 c4).
+insert into payments.plan_subscriptions (
+  id, person_id, organization_id, plan_version_id, status, current_period_end, suspended_at
+)
+values ('019ad000-0000-7000-8000-000000000523', '019ad000-0000-7000-8000-000000000009',
+  '019ad000-0000-7000-8000-000000000301', '019ad000-0000-7000-8000-000000000511',
+  'suspended', (clock_timestamp() + interval '30 days')::date, clock_timestamp());
+
 -- The gateway account, and the credential hanging off it that nobody here may read.
 insert into payments.gateway_connections (id, organization_id, provider, status)
 values ('019ad000-0000-7000-8000-000000000531', '019ad000-0000-7000-8000-000000000301',
