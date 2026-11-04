@@ -31,6 +31,7 @@ import {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const UUID_ANY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CONTRACT_CODE = /^[a-z][a-z0-9_.]{1,63}$/
 const MAX_FIXTURES = 100
 
@@ -59,6 +60,22 @@ export function backofficeCatalogRoutes(
     c.header('Cache-Control', 'no-store')
     c.header('Referrer-Policy', 'no-referrer')
     c.header('Vary', 'Origin')
+  })
+
+  // The curator's view: every version, so an older one can be deprecated.
+  routes.get('/result-contracts', async (c) => {
+    const query = c.req.query()
+    const activityTypeId = query.activity_type_id
+    if (Object.keys(query).length !== 1 || !activityTypeId || !UUID_ANY.test(activityTypeId)) {
+      return problem(c, 'invalid-request')
+    }
+    try {
+      const actor = await backofficeActor(c, sessions())
+      if (actor instanceof Response) return actor
+      return c.json(await contracts().versions(actor, { requestId: randomUUID(), activityTypeId }))
+    } catch (error) {
+      return operationFailure(c, error)
+    }
   })
 
   routes.post('/result-contracts', async (c) => {

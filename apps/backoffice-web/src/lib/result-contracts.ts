@@ -34,6 +34,22 @@ export function activityFamilyLabel(family: ActivityFamily): string {
   return FAMILY_LABELS[family]
 }
 
+export type ResultContractVersion = AllfitV1Schemas['ResultContract']
+
+/** One version as the list says it: number, code, and whether it still validates. */
+export function versionLine(contract: ResultContractVersion): string {
+  const state = contract.status === 'published' ? 'en vigor' : 'deprecada'
+  return `Versión ${contract.version_number} de ${contract.contract_code}, ${state}.`
+}
+
+export function versionsSummary(versions: readonly ResultContractVersion[]): string {
+  if (versions.length === 0) return 'Este tipo de actividad todavía no tiene contratos publicados.'
+  const inForce = versions.filter((contract) => contract.status === 'published').length
+  const deprecated = versions.length - inForce
+  const total = versions.length === 1 ? '1 versión' : `${versions.length} versiones`
+  return `${total}: ${inForce} en vigor y ${deprecated} deprecada${deprecated === 1 ? '' : 's'}.`
+}
+
 export function contractStatusLabel(status: 'published' | 'deprecated'): string {
   return status === 'published' ? 'Publicado' : 'Deprecado'
 }

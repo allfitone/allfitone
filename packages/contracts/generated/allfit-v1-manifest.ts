@@ -486,6 +486,14 @@ export const allfitV1ContractManifest = {
       security: ['backofficeCookieAuth'],
     },
     {
+      method: 'GET',
+      path: '/backoffice/v1/result-contracts',
+      operationId: 'listResultContractVersions',
+      allfitOperation: 'NEW-CAT-CONTRACT-VERSIONS',
+      responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
       method: 'POST',
       path: '/backoffice/v1/result-contracts',
       operationId: 'publishResultContract',

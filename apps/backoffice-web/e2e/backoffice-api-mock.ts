@@ -2135,6 +2135,20 @@ async function routeResultContracts(
 ): Promise<void> {
   const contracts = fixture.resultContracts ?? { versions: {}, published: [] }
   fixture.resultContracts = contracts
+  if (request.method === 'GET') {
+    // Every version bound to the type, newest first, as the curator's read answers.
+    const activityTypeId = new URLSearchParams(request.query).get('activity_type_id') ?? ''
+    const items = contracts.published
+      .filter((contract) =>
+        contract.activity_type_bindings.some(
+          (binding) => binding.activity_type_id === activityTypeId,
+        ),
+      )
+      .sort((left, right) => right.version_number - left.version_number)
+    await fulfill(route, 200, { activity_type_id: activityTypeId, items })
+    return
+  }
+  // A command failure is for the next command; the versions read never spends it.
   const failure = contracts.nextCommandFailure
   if (failure) {
     contracts.nextCommandFailure = undefined

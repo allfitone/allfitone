@@ -11,6 +11,7 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 
 export type ResultContract = AllfitV1Schemas['ResultContract']
 export type ResultContractPublication = AllfitV1Schemas['ResultContractPublication']
+export type ResultContractVersionList = AllfitV1Schemas['ResultContractVersionList']
 export type ActivityFamily = AllfitV1Schemas['ActivityFamily']
 
 export const ACTIVITY_FAMILIES: readonly ActivityFamily[] = [
@@ -47,6 +48,12 @@ export interface ResultContractDatabase {
       contractId: string
     },
   ): Promise<CatalogCommandResult<ResultContract>>
+  versions(input: {
+    actorPersonId: string
+    actorSessionId: string
+    requestId: string
+    activityTypeId: string
+  }): Promise<ResultContractVersionList>
 }
 
 export interface ProfessionalCatalogItem {

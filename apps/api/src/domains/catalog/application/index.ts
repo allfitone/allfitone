@@ -19,6 +19,7 @@ import type {
   ResultContract,
   ResultContractDatabase,
   ResultContractPublication,
+  ResultContractVersionList,
 } from '../domain/index.js'
 
 export class StudioCatalogError extends Error {
@@ -66,6 +67,11 @@ export interface ResultContractService {
     actor: BackofficeActor,
     input: CatalogCommandContext & { contractId: string },
   ): Promise<CatalogCommandResult<ResultContract>>
+  /** Every version of a type's contracts, so an older one can be deprecated. */
+  versions(
+    actor: BackofficeActor,
+    input: { requestId: string; activityTypeId: string },
+  ): Promise<ResultContractVersionList>
 }
 
 export function createResultContractService(
@@ -78,6 +84,7 @@ export function createResultContractService(
   return {
     publish: (actor, input) => database.publish({ ...from(actor), ...input }),
     deprecate: (actor, input) => database.deprecate({ ...from(actor), ...input }),
+    versions: (actor, input) => database.versions({ ...from(actor), ...input }),
   }
 }
 

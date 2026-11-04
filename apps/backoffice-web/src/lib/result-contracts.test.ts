@@ -16,6 +16,9 @@ import {
   parseJsonDocument,
   resultContractMessage,
   toContractFixtures,
+  versionLine,
+  versionsSummary,
+  type ResultContractVersion,
 } from './result-contracts'
 
 describe('result contract publication rules', () => {
@@ -157,5 +160,40 @@ describe('the global catalogue as the operator reads it', () => {
     expect(catalogueReadMessage('network-unavailable')).toContain('conexión')
     expect(catalogueReadMessage('anything-else')).toContain('catálogo global')
     expect(catalogueReadMessage('anything-else')).not.toContain('publicar')
+  })
+})
+
+// HU-BO-023: every version is listed, so an older one can be deprecated.
+describe('the versions of the contracts of a type', () => {
+  function version(overrides: Partial<ResultContractVersion> = {}): ResultContractVersion {
+    return {
+      id: '019f0000-0000-7000-8000-000000000501',
+      contract_code: 'test.versions',
+      version_number: 2,
+      activity_family: 'strength',
+      contract_schema_version: 1,
+      envelope: {},
+      minimums: {},
+      status: 'published',
+      published_at: '2026-11-01T12:00:00.000Z',
+      fixtures: [],
+      activity_type_bindings: [],
+      ...overrides,
+    }
+  }
+
+  test('a version line says its number, code and whether it is in force', () => {
+    expect(versionLine(version())).toContain('Versión 2 de test.versions')
+    expect(versionLine(version())).toContain('en vigor')
+    expect(versionLine(version({ version_number: 1, status: 'deprecated' }))).toContain('deprecada')
+  })
+
+  test('the summary counts what is in force and what was deprecated', () => {
+    expect(versionsSummary([version(), version({ id: 'b', status: 'deprecated' })])).toBe(
+      '2 versiones: 1 en vigor y 1 deprecada.',
+    )
+    expect(versionsSummary([])).toBe(
+      'Este tipo de actividad todavía no tiene contratos publicados.',
+    )
   })
 })

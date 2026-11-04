@@ -10744,6 +10744,22 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  ResultContractVersionList: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['activity_type_id', 'items'],
+    properties: {
+      activity_type_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ResultContract',
+        },
+      },
+    },
+  },
   RoutineCover: {
     oneOf: [
       {

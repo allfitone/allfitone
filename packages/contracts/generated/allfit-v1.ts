@@ -258,7 +258,11 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /**
+     * Read every version of an activity type's result contracts
+     * @description `HU-BO-023`. Published and deprecated alike, newest first, each as its publication answered it — unlike `/backoffice/v1/catalog`, which answers only what is in force. It is what lets a curator deprecate an older version. A type outside the global catalogue answers 404. Requires `curate_global_catalog`.
+     */
+    get: operations['listResultContractVersions']
     put?: never
     /**
      * Publish the validation rules an activity must satisfy to count as complete
@@ -5875,6 +5879,10 @@ export interface components {
       activity_type_id: components['schemas']['Uuid']
       /** @description Defaults to true on the server. Publishing a new default closes the previous one with a window instead of overwriting it. */
       is_default?: boolean
+    }
+    ResultContractVersionList: {
+      activity_type_id: components['schemas']['Uuid']
+      items: components['schemas']['ResultContract'][]
     }
     ResultContract: {
       id: components['schemas']['UuidV7']
@@ -11568,6 +11576,36 @@ export interface operations {
       409: components['responses']['Conflict']
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listResultContractVersions: {
+    parameters: {
+      query: {
+        activity_type_id: components['schemas']['Uuid']
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Every version bound to the activity type */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResultContractVersionList']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
       503: components['responses']['UpstreamUnavailable']
     }
   }

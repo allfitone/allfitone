@@ -789,6 +789,46 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
   /backoffice/v1/result-contracts:
+    get:
+      tags: [Backoffice Catalogue]
+      operationId: listResultContractVersions
+      x-allfit-operation: NEW-CAT-CONTRACT-VERSIONS
+      x-allfit-cache: no-store
+      summary: Read every version of an activity type's result contracts
+      description: >-
+        `HU-BO-023`. Published and deprecated alike, newest first, each as its
+        publication answered it — unlike `/backoffice/v1/catalog`, which answers only
+        what is in force. It is what lets a curator deprecate an older version. A type
+        outside the global catalogue answers 404. Requires `curate_global_catalog`.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - name: activity_type_id
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Every version bound to the activity type
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultContractVersionList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
     post:
       tags: [Backoffice Catalogue]
       operationId: publishResultContract
@@ -15428,6 +15468,17 @@ components:
           description: >-
             Defaults to true on the server. Publishing a new default closes the
             previous one with a window instead of overwriting it.
+    ResultContractVersionList:
+      type: object
+      additionalProperties: false
+      required: [activity_type_id, items]
+      properties:
+        activity_type_id:
+          $ref: '#/components/schemas/Uuid'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultContract'
     ResultContract:
       type: object
       additionalProperties: false

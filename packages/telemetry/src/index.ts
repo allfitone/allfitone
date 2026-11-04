@@ -48,6 +48,7 @@ export const clientOperations = [
   'backoffice.catalog.global_read',
   'backoffice.catalog.result_contract_deprecate',
   'backoffice.catalog.result_contract_publish',
+  'backoffice.catalog.result_contract_versions',
   'backoffice.commercial.plan_create',
   'backoffice.commercial.plan_version_propose',
   'backoffice.commercial.plan_version_publish',

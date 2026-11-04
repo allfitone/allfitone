@@ -69,6 +69,7 @@ export type PlatformPlanVersionProposal = AllfitV1Schemas['PlatformPlanVersionPr
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
 export type SupportBillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
+export type ResultContractVersionList = AllfitV1Schemas['ResultContractVersionList']
 export type BackofficeAccountRecovery = AllfitV1Schemas['BackofficeAccountRecovery']
 export type BackofficeAccountRecoveryRequest = AllfitV1Schemas['BackofficeAccountRecoveryRequest']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
@@ -288,6 +289,13 @@ export const backofficeApi = {
       headers: commandHeaders(command),
       body: JSON.stringify(publication),
     }),
+
+  // The curator's view: every version, published and deprecated, newest first.
+  resultContractVersions: (activityTypeId: string, signal?: AbortSignal) =>
+    requestJson<ResultContractVersionList>(
+      `/backoffice/v1/result-contracts${query({ activity_type_id: activityTypeId })}`,
+      signal ? { signal } : {},
+    ),
 
   deprecateResultContract: (contractId: string, command: BackofficeCommand) =>
     requestJson<ResultContract>(`/backoffice/v1/result-contracts/${contractId}/deprecation`, {
@@ -849,7 +857,7 @@ function backofficeOperation(path: string, method: string): ClientOperation {
     peopleOperation(resolved) ??
     supportOperation(resolved) ??
     catalogOperation(resolved) ??
-    platformOperation(resolved) ??
+    platformOperation(resolved, method) ??
     operations[resolved] ??
     'backoffice.session'
   )
@@ -980,12 +988,13 @@ function catalogOperation(route: string): ClientOperation | undefined {
 }
 
 /** Assignment identifiers vary per row, so these routes are matched by shape. */
-function platformOperation(route: string): ClientOperation | undefined {
+function platformOperation(route: string, method: string): ClientOperation | undefined {
   const segments = route.split('/').filter(Boolean)
   if (segments[0] === 'backoffice' && segments[1] === 'v1' && segments[2] === 'result-contracts') {
-    return segments.length === 3
-      ? 'backoffice.catalog.result_contract_publish'
-      : 'backoffice.catalog.result_contract_deprecate'
+    if (segments.length > 3) return 'backoffice.catalog.result_contract_deprecate'
+    return method === 'GET'
+      ? 'backoffice.catalog.result_contract_versions'
+      : 'backoffice.catalog.result_contract_publish'
   }
   if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'platform') {
     return undefined
