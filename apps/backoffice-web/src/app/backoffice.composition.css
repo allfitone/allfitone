@@ -1,12 +1,3 @@
-/* @allfitone/react up to 0.15 leaves ghost and link buttons on the browser's grey face. `theme`
-   is the one layer its bundle orders below `utilities`, so hover still paints. Drop on upgrade. */
-@layer theme {
-  [data-variant='ghost'],
-  [data-variant='link'] {
-    background: none;
-  }
-}
-
 [data-analytics-controls] {
   position: fixed;
   z-index: 100;
@@ -584,4 +575,11 @@
   align-items: center;
   font-weight: var(--afo-font-weight-semibold);
   text-decoration: underline;
+}
+
+/* A moment's day and time sit side by side, and stack when the form is narrow. */
+[data-moment-field-parts] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 12px;
 }

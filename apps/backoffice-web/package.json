@@ -15,8 +15,9 @@
   },
   "dependencies": {
     "@allfitone/contracts": "workspace:*",
-    "@allfitone/react": "0.10.0",
+    "@allfitone/react": "0.16.0",
     "@allfitone/telemetry": "workspace:*",
+    "date-fns": "^4.4.0",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"

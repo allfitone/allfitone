@@ -24,6 +24,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { MomentField } from './date-fields'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
 import {
@@ -391,28 +392,22 @@ export function CredentialVerification() {
                           disabled={busy}
                         />
                       </Field>
-                      <Field>
-                        <FieldLabel htmlFor="vr-checked">Consultado el</FieldLabel>
-                        <Input
-                          id="vr-checked"
-                          type="datetime-local"
-                          value={draft.sourceCheckedAt}
-                          onChange={(event) => update('sourceCheckedAt', event.target.value)}
-                          disabled={busy}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="vr-source-valid-to">
-                          La fuente dice que vence
-                        </FieldLabel>
-                        <Input
-                          id="vr-source-valid-to"
-                          type="datetime-local"
-                          value={draft.sourceValidTo}
-                          onChange={(event) => update('sourceValidTo', event.target.value)}
-                          disabled={busy}
-                        />
-                      </Field>
+                      <MomentField
+                        id="vr-checked"
+                        legend="Consultado el"
+                        value={draft.sourceCheckedAt}
+                        onChange={(value) => update('sourceCheckedAt', value)}
+                        defaultTime="00:00"
+                        disabled={busy}
+                      />
+                      <MomentField
+                        id="vr-source-valid-to"
+                        legend="La fuente dice que vence"
+                        value={draft.sourceValidTo}
+                        onChange={(value) => update('sourceValidTo', value)}
+                        defaultTime="23:59"
+                        disabled={busy}
+                      />
 
                       <Alert live="off" variant="info" data-verification-validity>
                         <AlertTitle>La vigencia no se elige</AlertTitle>
