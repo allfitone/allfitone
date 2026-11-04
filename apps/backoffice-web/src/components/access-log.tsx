@@ -233,40 +233,42 @@ export function AccessLog() {
                 <CardDescription>{formatInstant(event.occurred_at)}</CardDescription>
               </CardHeader>
               <CardContent>
-                <FieldGroup>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-mode-${index}`}>Base del acceso</FieldLabel>
+                <dl data-facts>
+                  <dt>Base del acceso</dt>
+                  <dd>
                     <Badge id={`al-mode-${index}`} variant={modeTone(event.access_mode)}>
                       {modeLabel(event.access_mode)}
                     </Badge>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-actor-${index}`}>Quién accedió</FieldLabel>
+                  </dd>
+                  <dt>Quién accedió</dt>
+                  <dd>
                     <code id={`al-actor-${index}`}>{event.actor_person_id}</code>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-subject-${index}`}>Sobre quién</FieldLabel>
+                  </dd>
+                  <dt>Sobre quién</dt>
+                  <dd>
                     <code id={`al-subject-${index}`}>
                       {event.subject_person_id ?? 'Sin persona afectada'}
                     </code>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-result-${index}`}>Resultado</FieldLabel>
+                  </dd>
+                  <dt>Resultado</dt>
+                  <dd>
                     <span id={`al-result-${index}`}>{resultLabel(event.result)}</span>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-purpose-${index}`}>Propósito</FieldLabel>
+                  </dd>
+                  <dt>Propósito</dt>
+                  <dd>
                     <span id={`al-purpose-${index}`}>{event.purpose}</span>
-                  </Field>
+                  </dd>
                   {event.scope_code ? (
-                    <Field orientation="responsive">
-                      <FieldLabel htmlFor={`al-scope-${index}`}>Permiso</FieldLabel>
-                      <span id={`al-scope-${index}`}>
-                        {event.scope_code} · v{event.scope_version}
-                      </span>
-                    </Field>
+                    <>
+                      <dt>Permiso</dt>
+                      <dd>
+                        <span id={`al-scope-${index}`}>
+                          {event.scope_code} · v{event.scope_version}
+                        </span>
+                      </dd>
+                    </>
                   ) : null}
-                </FieldGroup>
+                </dl>
 
                 <Alert live="off" variant={isExceptional(event) ? 'warning' : 'info'}>
                   <AlertTitle>Qué autorizó esta lectura</AlertTitle>

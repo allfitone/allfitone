@@ -18,6 +18,16 @@
  * rename one.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -84,7 +94,6 @@ export function GlobalCatalogue() {
   const [catalogue, setCatalogue] = useState<BackofficeGlobalCatalogue | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<string | null>(null)
   const [commandFailure, setCommandFailure] = useState<string | null>(null)
   const pending = useRef(new Map<string, BackofficeCommand>())
@@ -127,7 +136,6 @@ export function GlobalCatalogue() {
     const command = pending.current.get(key) ?? newBackofficeCommand()
     pending.current.set(key, command)
     setBusy(key)
-    setConfirming(null)
     setOutcome(null)
     setCommandFailure(null)
     try {
@@ -293,8 +301,6 @@ export function GlobalCatalogue() {
             description="La familia de actividad a la que pertenece todo lo demás."
             entries={catalogue.disciplines}
             busy={busy}
-            confirming={confirming}
-            onConfirm={setConfirming}
             onArchive={archive}
             form={
               <form
@@ -345,8 +351,6 @@ export function GlobalCatalogue() {
             description="La clase concreta de actividad; decide qué reglas de resultado aplican."
             entries={catalogue.activity_types}
             busy={busy}
-            confirming={confirming}
-            onConfirm={setConfirming}
             onArchive={archive}
             form={
               <form
@@ -426,8 +430,6 @@ export function GlobalCatalogue() {
             description="La acción o técnica reutilizable. Se identifica por su nombre, así que el mismo nombre escrito distinto es el mismo movimiento."
             entries={catalogue.movements}
             busy={busy}
-            confirming={confirming}
-            onConfirm={setConfirming}
             onArchive={archive}
             form={
               <form onSubmit={publishMovement} data-backoffice-form data-catalogue-form="movement">
@@ -505,8 +507,6 @@ function CatalogueSection({
   description,
   entries,
   busy,
-  confirming,
-  onConfirm,
   onArchive,
   form,
 }: {
@@ -515,12 +515,10 @@ function CatalogueSection({
   description: string
   entries: GlobalCatalogueEntry[]
   busy: string | null
-  confirming: string | null
-  onConfirm: (id: string | null) => void
-  onArchive: (entry: GlobalCatalogueEntry) => void
+  onArchive: (entry: GlobalCatalogueEntry) => Promise<void>
   form: ReactNode
 }) {
-  const pendingArchival = entries.find((entry) => entry.id === confirming)
+  const [archiving, setArchiving] = useState<string | null>(null)
 
   return (
     <Card data-catalogue-section={kind}>
@@ -532,32 +530,6 @@ function CatalogueSection({
       </CardHeader>
       <CardContent>
         {form}
-
-        {/* The confirmation lives above the table, not inside a cell: a row that grows
-            sideways pushes its own buttons out of the scroll area. */}
-        {pendingArchival ? (
-          <Alert live="polite" variant="warning" data-catalogue-confirm>
-            <AlertTitle>
-              ¿Archivar {catalogueKindLabel(pendingArchival.kind).toLowerCase()} «
-              {pendingArchival.name}»?
-            </AlertTitle>
-            <AlertDescription>
-              Sale de las búsquedas; lo que ya la usaba sigue funcionando.{' '}
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                disabled={busy !== null}
-                onClick={() => onArchive(pendingArchival)}
-              >
-                Sí, archivar
-              </Button>{' '}
-              <Button type="button" size="sm" variant="ghost" onClick={() => onConfirm(null)}>
-                No
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : null}
 
         {entries.length === 0 ? (
           <ScreenEmpty
@@ -596,16 +568,48 @@ function CatalogueSection({
                     {entry.status !== 'published' ? (
                       <span data-catalogue-reason>Ya está fuera de las búsquedas.</span>
                     ) : (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy !== null}
-                        aria-label={`Archivar ${entry.name}`}
-                        onClick={() => onConfirm(entry.id)}
+                      <AlertDialog
+                        open={archiving === entry.id}
+                        onOpenChange={(next) => {
+                          // Closing mid-flight would hide a request that is still going to land.
+                          if (busy !== null) return
+                          setArchiving(next ? entry.id : null)
+                        }}
                       >
-                        {busy === `archive:${entry.id}` ? 'Archivando…' : 'Archivar'}
-                      </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy !== null}
+                          aria-label={`Archivar ${entry.name}`}
+                          onClick={() => setArchiving(entry.id)}
+                        >
+                          {busy === `archive:${entry.id}` ? 'Archivando…' : 'Archivar'}
+                        </Button>
+                        <AlertDialogContent data-archive-entry-dialog>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              {`¿Archivar ${catalogueKindLabel(entry.kind).toLowerCase()} «${entry.name}»?`}
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Sale de las búsquedas; lo que ya la usaba sigue funcionando. El código
+                              no se reutiliza y no se puede volver a publicar.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={busy !== null}>
+                              Mantener en las búsquedas
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              disabled={busy !== null}
+                              onClick={() => void onArchive(entry).then(() => setArchiving(null))}
+                            >
+                              {busy === `archive:${entry.id}` ? 'Archivando…' : 'Sí, archivar'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </TableCell>
                 </TableRow>

@@ -17,6 +17,12 @@
  * plain words and the rest of the screen carries on without it.
  */
 
+import {
+  AccentBlock,
+  AccentBlockLabel,
+  AccentBlockMeta,
+  AccentBlockTitle,
+} from '@allfitone/react/components/accent-block'
 import { Badge } from '@allfitone/react/components/badge'
 import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
 
@@ -121,88 +127,96 @@ export function BusinessPanel() {
       {/* Money first inside its own section: an amount is what the founder opens this
           screen for, and it is the one figure that is not a count of anything. */}
       {panel.money.length > 0 ? (
-        <section data-business-section="billed">
-          <h3 data-business-section-title>Facturado por Allfit</h3>
-          <p data-business-section-description>
-            Lo que las tiendas cobraron por Pro. Un gimnasio cobra en su propia pasarela, así que lo
-            que sus clientes le pagan no aparece aquí y no es ingreso de Allfit.
-          </p>
-          <div data-business-metrics>
-            {panel.money.map((metric) => {
-              const lines = moneyLines(metric)
-              const note = moneyNote(metric, panel.minimum_aggregate)
-              return (
-                <Card
-                  key={metric.key}
-                  data-business-money={metric.key}
-                  data-availability={metric.availability}
-                >
-                  <CardHeader>
-                    <CardTitle role="heading" aria-level={4}>
-                      {metricLabel(metric.key)}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div data-business-body>
-                      {lines.length > 0 ? (
-                        lines.map((line) => (
-                          <p key={line} data-business-value>
-                            {line}
-                          </p>
-                        ))
-                      ) : (
-                        <p data-business-value>—</p>
-                      )}
-                      <p data-business-period>{periodPhrase(metric.period)}</p>
-                      {note ? <p data-business-note>{note}</p> : null}
-                      {metricHint(metric.key) ? (
-                        <p data-business-hint>{metricHint(metric.key)}</p>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </section>
+        <Card data-business-section="billed">
+          <CardHeader>
+            <CardTitle role="heading" aria-level={3}>
+              Facturado por Allfit
+            </CardTitle>
+            <CardDescription>
+              Lo que las tiendas cobraron por Pro. Un gimnasio cobra en su propia pasarela, así que
+              lo que sus clientes le pagan no aparece aquí y no es ingreso de Allfit.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div data-business-metrics>
+              {panel.money.map((metric) => {
+                const lines = moneyLines(metric)
+                const note = moneyNote(metric, panel.minimum_aggregate)
+                return (
+                  <AccentBlock
+                    key={metric.key}
+                    role="group"
+                    aria-label={metricLabel(metric.key)}
+                    data-business-money={metric.key}
+                    data-availability={metric.availability}
+                  >
+                    <AccentBlockLabel>{metricLabel(metric.key)}</AccentBlockLabel>
+                    {lines.length > 0 ? (
+                      lines.map((line) => (
+                        <AccentBlockTitle key={line} data-business-value>
+                          {line}
+                        </AccentBlockTitle>
+                      ))
+                    ) : (
+                      <AccentBlockTitle data-business-value>—</AccentBlockTitle>
+                    )}
+                    <AccentBlockMeta data-business-period>
+                      {periodPhrase(metric.period)}
+                    </AccentBlockMeta>
+                    {note ? <AccentBlockMeta data-business-note>{note}</AccentBlockMeta> : null}
+                    {metricHint(metric.key) ? (
+                      <AccentBlockMeta data-business-hint>{metricHint(metric.key)}</AccentBlockMeta>
+                    ) : null}
+                  </AccentBlock>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
 
       {businessSections(panel).map((section) => (
-        <section key={section.key} data-business-section={section.key}>
-          <h3 data-business-section-title>{section.title}</h3>
-          <p data-business-section-description>{section.description}</p>
-          <div data-business-metrics>
-            {section.metrics.map((metric) => {
-              const badge = metricBadge(metric)
-              const note = metricNote(metric, panel.minimum_aggregate)
-              const hint = metricHint(metric.key)
-              return (
-                <Card
-                  key={metric.key}
-                  data-business-metric={metric.key}
-                  data-availability={metric.availability}
-                >
-                  <CardHeader>
-                    <CardTitle role="heading" aria-level={4}>
-                      {metricLabel(metric.key)}
-                    </CardTitle>
-                    <CardDescription>
-                      <Badge variant={badge.variant}>{badge.label}</Badge>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div data-business-body>
-                      <p data-business-value>{metricValue(metric)}</p>
-                      <p data-business-period>{periodPhrase(metric.period)}</p>
-                      {note ? <p data-business-note>{note}</p> : null}
-                      {hint ? <p data-business-hint>{hint}</p> : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        </section>
+        <Card key={section.key} data-business-section={section.key}>
+          <CardHeader>
+            <CardTitle role="heading" aria-level={3}>
+              {section.title}
+            </CardTitle>
+            <CardDescription>{section.description}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div data-business-metrics>
+              {section.metrics.map((metric) => {
+                const badge = metricBadge(metric)
+                const note = metricNote(metric, panel.minimum_aggregate)
+                const hint = metricHint(metric.key)
+                return (
+                  <Card
+                    key={metric.key}
+                    data-business-metric={metric.key}
+                    data-availability={metric.availability}
+                  >
+                    <CardHeader>
+                      <CardTitle role="heading" aria-level={4}>
+                        {metricLabel(metric.key)}
+                      </CardTitle>
+                      <CardDescription>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div data-business-body>
+                        <p data-business-value>{metricValue(metric)}</p>
+                        <p data-business-period>{periodPhrase(metric.period)}</p>
+                        {note ? <p data-business-note>{note}</p> : null}
+                        {hint ? <p data-business-hint>{hint}</p> : null}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   )

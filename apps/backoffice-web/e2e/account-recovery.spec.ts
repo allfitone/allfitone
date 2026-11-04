@@ -164,12 +164,11 @@ test('a suspicious recovery is cancelled only after confirming, honest about an 
   const section = page.locator('[data-account-recovery]')
   await section.getByRole('button', { name: `Cancelar la recuperación enviada a ${HINT}` }).click()
 
-  await expect(section.locator('[data-account-recovery-confirm]')).toContainText(
-    'no se puede retirar',
-  )
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('no se puede retirar')
   expect(commands(fixture)).toHaveLength(0)
 
-  await section.getByRole('button', { name: 'Sí, cancelar' }).click()
+  await dialog.getByRole('button', { name: 'Sí, cancelar' }).click()
 
   await expect(section.locator('[data-account-recovery-outcome]')).toContainText(
     'usarlo ya no la confirma',
@@ -178,6 +177,38 @@ test('a suspicious recovery is cancelled only after confirming, honest about an 
     section.locator('[data-account-recovery-request][data-state="cancelled"]'),
   ).toBeVisible()
   expect(commands(fixture)[0]?.path.endsWith('/cancellation')).toBe(true)
+})
+
+test('keeping the recovery from the cancellation dialog cancels nothing', async ({
+  context,
+  page,
+}) => {
+  const fixture = fixtureWith({
+    states: {
+      [SUPPORT_SUBJECT_ID]: accountRecoveryState({
+        can_start: false,
+        requests: [accountRecoveryRequest()],
+      }),
+    },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(CARD)
+  const section = page.locator('[data-account-recovery]')
+  await section.getByRole('button', { name: `Cancelar la recuperación enviada a ${HINT}` }).click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('¿Cancelar la recuperación?')
+  await dialog.getByRole('button', { name: 'Conservar la recuperación' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(
+    section.locator('[data-account-recovery-request][data-state="awaiting_verification"]'),
+  ).toBeVisible()
+  await expect(
+    section.locator('[data-account-recovery-request][data-state="cancelled"]'),
+  ).toHaveCount(0)
+  expect(commands(fixture)).toHaveLength(0)
 })
 
 test('a start lost to the network is retried with the same command, so nobody gets two emails', async ({

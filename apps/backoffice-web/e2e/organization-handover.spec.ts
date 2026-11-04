@@ -181,7 +181,10 @@ test('cancelling asks again, then withdraws the invitation for good', async ({ c
     0,
   )
 
-  await page.getByRole('button', { name: 'Sí, cancelar la creación' }).click()
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Sí, cancelar la creación' })
+    .click()
 
   await expect(page.getByText('Cancelado', { exact: true })).toBeVisible()
   await expect(page.getByText(/invitación retirada/).first()).toBeVisible()
@@ -201,8 +204,10 @@ test('backing out of cancelling changes nothing', async ({ context, page }) => {
 
   await page.goto(`/organizations/${record.organization_id}/handover`)
   await page.getByRole('button', { name: 'Cancelar la creación' }).click()
-  await page.getByRole('button', { name: 'No, dejarlo como está' }).click()
+  const dialog = page.getByRole('alertdialog')
+  await dialog.getByRole('button', { name: 'No, dejarlo como está' }).click()
 
+  await expect(dialog).toBeHidden()
   await expect(page.getByText('Esperando a su dueño')).toBeVisible()
   expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(0)
 })

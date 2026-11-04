@@ -162,11 +162,49 @@ test('withdrawing a proposal keeps it in the history and opens the form again', 
 
   const card = page.locator('[data-plan="premium"]')
   await card.getByRole('button', { name: 'Retirar propuesta' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Retirar', exact: true }).click()
 
   await expect(page.locator('[data-plans-outcome]')).toContainText('Queda en el historial')
   await expect(card.locator('[data-plan-history-version="1"]')).toContainText('Retirada')
   await expect(card.locator('[data-plan-propose-form]')).toBeVisible()
   expect(commands(fixture, '/withdrawal')).toHaveLength(1)
+})
+
+test('keeping the proposal from the withdrawal dialog withdraws nothing', async ({
+  context,
+  page,
+}) => {
+  const fixture = fixtureWith(
+    platformPlansFixture({
+      plans: [
+        platformPlan({
+          versions: [
+            platformPlanVersion({
+              status: 'draft',
+              proposed_by_self: true,
+              published_by_person_id: null,
+              published_at: null,
+            }),
+          ],
+        }),
+      ],
+    }),
+  )
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/plans')
+
+  const card = page.locator('[data-plan="premium"]')
+  await card.getByRole('button', { name: 'Retirar propuesta' }).click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('¿Retirar la propuesta de la versión 1?')
+  await dialog.getByRole('button', { name: 'Conservar la propuesta' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(card.locator('[data-plan-proposal]')).toBeVisible()
+  await expect(card.locator('[data-plan-history-version="1"]')).toHaveCount(0)
+  expect(commands(fixture, '/withdrawal')).toHaveLength(0)
 })
 
 test('a price written with a thousands dot is refused before it is sent', async ({

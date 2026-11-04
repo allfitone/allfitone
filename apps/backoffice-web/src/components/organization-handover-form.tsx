@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
+import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, type FormEvent } from 'react'
@@ -126,9 +127,14 @@ export function OrganizationHandoverForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(event) => void submit(event)} data-handover-form noValidate>
+          <form
+            onSubmit={(event) => void submit(event)}
+            data-backoffice-form
+            data-handover-form
+            noValidate
+          >
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="ho-name">Nombre del gimnasio</FieldLabel>
                 <Input
                   id="ho-name"
@@ -140,7 +146,7 @@ export function OrganizationHandoverForm() {
                 />
               </Field>
 
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="ho-type">Tipo</FieldLabel>
                 <Select
                   value={draft.typeCode}
@@ -161,23 +167,23 @@ export function OrganizationHandoverForm() {
 
               <Field>
                 <FieldLabel htmlFor="ho-party">Quién responde por el gimnasio</FieldLabel>
-                <span id="ho-party" data-handover-choice>
-                  {PARTY_KINDS.map((kind) => {
-                    const selected = draft.partyKind === kind.code
-                    return (
-                      <Button
-                        key={kind.code}
-                        type="button"
-                        aria-pressed={selected}
-                        disabled={busy}
-                        onClick={() => update('partyKind', kind.code)}
-                        {...(selected ? {} : { variant: 'outline' as const })}
-                      >
-                        {kind.label}
-                      </Button>
-                    )
-                  })}
-                </span>
+                <ToggleGroup
+                  id="ho-party"
+                  data-handover-choice
+                  aria-label="Quién responde por el gimnasio"
+                  value={draft.partyKind ? [draft.partyKind] : []}
+                  onValueChange={(values) => {
+                    const next = values[0]
+                    if (next && next !== draft.partyKind) update('partyKind', next)
+                  }}
+                  disabled={busy}
+                >
+                  {PARTY_KINDS.map((kind) => (
+                    <ToggleGroupItem key={kind.code} value={kind.code}>
+                      {kind.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
                 {draft.partyKind ? (
                   <span data-handover-party-explanation>
                     {partyKindExplanation(draft.partyKind)}
@@ -186,7 +192,7 @@ export function OrganizationHandoverForm() {
               </Field>
 
               {draft.partyKind === 'legal_entity' ? (
-                <Field orientation="responsive">
+                <Field>
                   <FieldLabel htmlFor="ho-legal">Razón social</FieldLabel>
                   <Input
                     id="ho-legal"
@@ -199,7 +205,7 @@ export function OrganizationHandoverForm() {
                 </Field>
               ) : null}
 
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="ho-site">Sede (opcional)</FieldLabel>
                 <Input
                   id="ho-site"
@@ -212,7 +218,7 @@ export function OrganizationHandoverForm() {
                 />
               </Field>
 
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="ho-address">Dirección de la sede (opcional)</FieldLabel>
                 <Input
                   id="ho-address"
@@ -224,7 +230,7 @@ export function OrganizationHandoverForm() {
                 />
               </Field>
 
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="ho-email">Correo de quien será el dueño</FieldLabel>
                 <Input
                   id="ho-email"
@@ -237,9 +243,11 @@ export function OrganizationHandoverForm() {
               </Field>
 
               {issue ? <FieldError>{issue}</FieldError> : null}
-              <Button type="submit" disabled={busy}>
-                {busy ? 'Creando…' : 'Crear y enviar la invitación'}
-              </Button>
+              <div data-form-actions>
+                <Button type="submit" disabled={busy}>
+                  {busy ? 'Creando…' : 'Crear y enviar la invitación'}
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>

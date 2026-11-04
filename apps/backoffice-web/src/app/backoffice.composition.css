@@ -190,6 +190,42 @@
   text-underline-offset: 3px;
 }
 
+/* Read-only facts about a record: a definition list, the same shape Studio
+   gives its facts. The form primitives are for what the operator can change. */
+[data-facts] {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px 16px;
+  margin: 0;
+}
+
+[data-facts] dt {
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-semibold);
+  letter-spacing: var(--afo-letter-spacing-utility, 0.04em);
+  text-transform: uppercase;
+  color: var(--afo-color-text-muted, currentColor);
+}
+
+[data-facts] dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A card body stacks its children without a gap; the list keeps its distance
+   from the table, form or note beside it. */
+* + [data-facts],
+[data-facts] + * {
+  margin-top: 16px;
+}
+
+[data-facts] code {
+  font-family: var(--afo-font-family-mono, monospace);
+  font-size: var(--afo-font-size-xs);
+}
+
 /* Three groups and thirteen entries have to fit a 900px viewport above the
    operator's name, so each group gives back the Design System's outer padding. */
 [data-backoffice-area] {
@@ -302,22 +338,6 @@
   align-content: start;
 }
 
-[data-business-panel] section {
-  display: grid;
-  gap: 12px;
-}
-
-[data-business-section-title] {
-  margin: 0;
-  font-size: var(--afo-font-size-lg);
-  font-weight: var(--afo-font-weight-semibold);
-}
-
-[data-business-section-description] {
-  margin: 0;
-  color: var(--afo-color-text-muted, currentColor);
-}
-
 [data-business-metrics] {
   display: grid;
   gap: 16px;
@@ -336,19 +356,19 @@
 
 /* The number is the point of the card; the period under it is what makes it mean
    something, so neither is allowed to read as body text. */
-[data-business-value] {
+[data-business-body] [data-business-value] {
   font-size: var(--afo-font-size-3xl, 2rem);
   font-weight: var(--afo-font-weight-semibold);
   line-height: 1.1;
 }
 
-[data-business-period] {
+[data-business-body] [data-business-period] {
   font-size: var(--afo-font-size-sm);
   font-weight: var(--afo-font-weight-semibold);
 }
 
-[data-business-note],
-[data-business-hint] {
+[data-business-body] [data-business-note],
+[data-business-body] [data-business-hint] {
   font-size: var(--afo-font-size-sm);
   color: var(--afo-color-text-muted, currentColor);
 }
@@ -374,7 +394,6 @@
 
 /* Both kinds of responsible party sit side by side with equal weight: a natural
    person is not the lesser option, only the one whose name Allfit never writes. */
-[data-handover-choice],
 [data-handover-actions] {
   display: flex;
   flex-wrap: wrap;
@@ -485,12 +504,6 @@
 }
 
 /* The two halves read as one control, and wrap before they shrink. */
-[data-erasure-halves] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-2, 0.5rem);
-}
-
 [data-erasure-subject] {
   max-width: 18rem;
   overflow-wrap: anywhere;
@@ -523,12 +536,6 @@
   gap: var(--spacing-2, 0.5rem);
 }
 
-[data-erasure-hold-categories] label {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2, 0.5rem);
-}
-
 [data-erasure-resolution] {
   min-width: 12rem;
   max-width: 18rem;
@@ -554,12 +561,6 @@
 
 /* The three outcomes sit side by side with equal weight: "not verifiable" is an
    answer, not the lesser option. */
-[data-verification-choice] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 /* The same treatment as the analytics notice link: an external destination is a
    link, with a touch target of its own. */
 [data-verification-registry-link] {

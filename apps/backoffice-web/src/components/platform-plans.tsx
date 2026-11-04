@@ -17,6 +17,16 @@
  * than proposing twice.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -293,7 +303,7 @@ export function PlatformPlans() {
                 )
               }
               onWithdraw={(version) =>
-                void run(`withdraw:${version.id}`, 'withdraw', (command) =>
+                run(`withdraw:${version.id}`, 'withdraw', (command) =>
                   backofficeApi.withdrawPlatformPlanVersion(plan.id, version.id, command),
                 )
               }
@@ -395,8 +405,9 @@ function PlanCard({
   busy: string | null
   onPropose: (proposal: PlatformPlanVersionProposal) => Promise<boolean>
   onPublish: (version: PlatformPlanVersion) => void
-  onWithdraw: (version: PlatformPlanVersion) => void
+  onWithdraw: (version: PlatformPlanVersion) => Promise<boolean>
 }) {
+  const [withdrawing, setWithdrawing] = useState(false)
   const inForce = plan.current_version
   const proposal = plan.proposal
   const past = plan.history.filter(
@@ -448,14 +459,47 @@ function PlanCard({
                 >
                   Publicar versión {proposal.version_number}
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onWithdraw(proposal)}
-                  disabled={busy !== null}
+                <AlertDialog
+                  open={withdrawing}
+                  onOpenChange={(next) => {
+                    // Closing mid-flight would hide a request that is still going to land.
+                    if (busy !== null) return
+                    setWithdrawing(next)
+                  }}
                 >
-                  Retirar propuesta
-                </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setWithdrawing(true)}
+                    disabled={busy !== null}
+                  >
+                    Retirar propuesta
+                  </Button>
+                  <AlertDialogContent data-withdraw-proposal-dialog>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        ¿Retirar la propuesta de la versión {proposal.version_number}?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Nadie podrá publicarla: queda en el historial como retirada y el plan sigue
+                        con lo que tiene en vigor. No se puede deshacer; para volver a cambiar el
+                        plan habría que proponer una versión nueva.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={busy !== null}>
+                        Conservar la propuesta
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={busy !== null}
+                        onClick={() => void onWithdraw(proposal).then(() => setWithdrawing(false))}
+                      >
+                        {busy === `withdraw:${proposal.id}` ? 'Retirando…' : 'Retirar'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </section>
           ) : (

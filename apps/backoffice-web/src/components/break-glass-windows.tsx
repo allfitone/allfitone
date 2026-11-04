@@ -25,6 +25,16 @@
  * closes or lapses, the content leaves the screen with it.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -56,7 +66,7 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import {
   BackofficeApiError,
@@ -115,6 +125,8 @@ export function BreakGlassWindows() {
     answer: BreakGlassExerciseOutcome
   } | null>(null)
   const [now, setNow] = useState(() => Date.now())
+  const [rejecting, setRejecting] = useState<string | null>(null)
+  const [closing, setClosing] = useState<string | null>(null)
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -431,25 +443,27 @@ export function BreakGlassWindows() {
 
               <Field>
                 <FieldLabel htmlFor="bg-categories">Qué necesitas ver</FieldLabel>
-                <span id="bg-categories" data-break-glass-categories>
+                <div id="bg-categories" data-break-glass-categories>
                   {BREAK_GLASS_CATEGORIES.map((category) => (
-                    <Checkbox
-                      key={category}
-                      checked={categories.includes(category)}
-                      onCheckedChange={(checked) =>
-                        setCategories((current) =>
-                          checked === true
-                            ? [...current, category]
-                            : current.filter((kept) => kept !== category),
-                        )
-                      }
-                      disabled={busy}
-                      aria-label={categoryLabel(category)}
-                    >
-                      {categoryLabel(category)}
-                    </Checkbox>
+                    <Field key={category} orientation="horizontal">
+                      <Checkbox
+                        id={`bg-category-${category}`}
+                        checked={categories.includes(category)}
+                        onCheckedChange={(checked) =>
+                          setCategories((current) =>
+                            checked === true
+                              ? [...current, category]
+                              : current.filter((kept) => kept !== category),
+                          )
+                        }
+                        disabled={busy}
+                      />
+                      <FieldLabel htmlFor={`bg-category-${category}`}>
+                        {categoryLabel(category)}
+                      </FieldLabel>
+                    </Field>
                   ))}
-                </span>
+                </div>
               </Field>
 
               {consequence ? (
@@ -491,30 +505,30 @@ export function BreakGlassWindows() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <FieldGroup>
-                <Field orientation="responsive">
-                  <FieldLabel htmlFor={`bg-status-${file.id}`}>Estado</FieldLabel>
+              <dl data-facts>
+                <dt>Estado</dt>
+                <dd>
                   <Badge id={`bg-status-${file.id}`} variant={statusTone(file.status)}>
                     {statusLabel(file.status)}
                   </Badge>
-                </Field>
-                <Field orientation="responsive">
-                  <FieldLabel htmlFor={`bg-tier-${file.id}`}>Alcance</FieldLabel>
+                </dd>
+                <dt>Alcance</dt>
+                <dd>
                   <span id={`bg-tier-${file.id}`}>
                     {tierLabel(file.sensitivity_tier)} · {file.required_approvals}{' '}
                     {file.required_approvals === 1 ? 'aprobación' : 'aprobaciones'} ·{' '}
                     {file.requested_duration_minutes} minutos
                   </span>
-                </Field>
-                <Field orientation="responsive">
-                  <FieldLabel htmlFor={`bg-subject-${file.id}`}>Persona afectada</FieldLabel>
+                </dd>
+                <dt>Persona afectada</dt>
+                <dd>
                   <code id={`bg-subject-${file.id}`}>{file.subject_person_id}</code>
-                </Field>
-                <Field orientation="responsive">
-                  <FieldLabel htmlFor={`bg-exercises-${file.id}`}>Veces ejercida</FieldLabel>
+                </dd>
+                <dt>Veces ejercida</dt>
+                <dd>
                   <span id={`bg-exercises-${file.id}`}>{file.exercise_count}</span>
-                </Field>
-              </FieldGroup>
+                </dd>
+              </dl>
 
               {file.status === 'requested' ? (
                 <Alert live="off" variant="warning">
@@ -541,23 +555,23 @@ export function BreakGlassWindows() {
               ) : null}
 
               {file.approvals.length > 0 ? (
-                <FieldGroup>
+                <dl data-facts>
                   {file.approvals.map((approval) => (
-                    <Field key={approval.approver_person_id} orientation="responsive">
-                      <FieldLabel htmlFor={`bg-approval-${approval.approver_person_id}`}>
-                        {approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}
-                      </FieldLabel>
-                      <span id={`bg-approval-${approval.approver_person_id}`}>
-                        <code>{approval.approver_person_id}</code> ·{' '}
-                        {formatInstant(approval.decided_at)}
-                      </span>
-                    </Field>
+                    <Fragment key={approval.approver_person_id}>
+                      <dt>{approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}</dt>
+                      <dd>
+                        <span id={`bg-approval-${approval.approver_person_id}`}>
+                          <code>{approval.approver_person_id}</code> ·{' '}
+                          {formatInstant(approval.decided_at)}
+                        </span>
+                      </dd>
+                    </Fragment>
                   ))}
-                </FieldGroup>
+                </dl>
               ) : null}
 
               {canDecide(file) ? (
-                <FieldGroup>
+                <div data-form-actions>
                   <Button
                     type="button"
                     disabled={busy}
@@ -577,29 +591,58 @@ export function BreakGlassWindows() {
                   >
                     Aprobar
                   </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          backofficeApi.decideBreakGlass(
-                            file.id,
-                            { decision: 'rejected', reason_code: 'REASON-REJECTED' },
-                            newBackofficeCommand(),
-                          ),
-                        'Rechazada. El rechazo es definitivo: no se puede aprobar después.',
-                      )
-                    }
+                  <AlertDialog
+                    open={rejecting === file.id}
+                    onOpenChange={(next) => {
+                      // Closing mid-flight would hide a request that is still going to land.
+                      if (busy) return
+                      setRejecting(next ? file.id : null)
+                    }}
                   >
-                    Rechazar
-                  </Button>
-                </FieldGroup>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={busy}
+                      onClick={() => setRejecting(file.id)}
+                    >
+                      Rechazar
+                    </Button>
+                    <AlertDialogContent data-reject-break-glass-dialog>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Rechazar esta solicitud?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Rechazarla es definitivo: nadie podrá aprobarla después, ni siquiera quien
+                          ya la había aprobado. Para ver estos datos habría que pedir una ventana
+                          nueva.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={busy}>Dejarla en espera</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () =>
+                                backofficeApi.decideBreakGlass(
+                                  file.id,
+                                  { decision: 'rejected', reason_code: 'REASON-REJECTED' },
+                                  newBackofficeCommand(),
+                                ),
+                              'Rechazada. El rechazo es definitivo: no se puede aprobar después.',
+                            ).then(() => setRejecting(null))
+                          }
+                        >
+                          {busy ? 'Rechazando…' : 'Rechazar la solicitud'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               ) : null}
 
               {canExercise(file, now) ? (
-                <FieldGroup>
+                <div data-form-actions>
                   {file.categories.map((category) => (
                     <Button
                       key={category}
@@ -612,20 +655,48 @@ export function BreakGlassWindows() {
                       Leer {categoryLabel(category).toLowerCase()}
                     </Button>
                   ))}
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () => backofficeApi.closeBreakGlass(file.id, newBackofficeCommand()),
-                        'Ventana cerrada. Ninguna lectura entrega contenido desde ahora.',
-                      )
-                    }
+                  <AlertDialog
+                    open={closing === file.id}
+                    onOpenChange={(next) => {
+                      if (busy) return
+                      setClosing(next ? file.id : null)
+                    }}
                   >
-                    Cerrar la ventana
-                  </Button>
-                </FieldGroup>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={busy}
+                      onClick={() => setClosing(file.id)}
+                    >
+                      Cerrar la ventana
+                    </Button>
+                    <AlertDialogContent data-close-break-glass-dialog>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Cerrar la ventana?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Lo que ya se leyó deja de mostrarse y ninguna lectura vuelve a entregar
+                          contenido. No se puede reabrir ni extender: para continuar habría que
+                          pedir otra ventana y conseguir su aprobación.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={busy}>Dejarla abierta</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          disabled={busy}
+                          onClick={() =>
+                            void run(
+                              () => backofficeApi.closeBreakGlass(file.id, newBackofficeCommand()),
+                              'Ventana cerrada. Ninguna lectura entrega contenido desde ahora.',
+                            ).then(() => setClosing(null))
+                          }
+                        >
+                          {busy ? 'Cerrando…' : 'Cerrar ahora'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               ) : null}
             </CardContent>
           </Card>
