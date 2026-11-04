@@ -247,6 +247,9 @@ test('a withdrawn verification duty is explained as expiry by design', async ({
 
   await expect(page.getByText('No se pudo leer la cola de verificación')).toBeVisible()
   await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  // Reading decides nothing: the refusal names the duty to ask for, not a decision.
+  await expect(page.getByText(/«Verificar credenciales profesionales»/)).toBeVisible()
+  await expect(page.getByText(/No puedes decidir/)).toHaveCount(0)
 })
 
 test('an empty queue says what will fill it', async ({ context, page }) => {

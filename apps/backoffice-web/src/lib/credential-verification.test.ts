@@ -17,6 +17,7 @@ import {
   toDecision,
   validitySentence,
   verificationMessage,
+  verificationQueueMessage,
   type CredentialVerificationRequest,
   type VerificationDraft,
 } from './credential-verification'
@@ -173,6 +174,15 @@ describe('credential verification presentation rules', () => {
     )
     expect(renewalSentence({ ...due, last_valid_to: '2026-09-30T00:00:00.000Z' }, NOW)).toContain(
       'Vence',
+    )
+  })
+
+  // Reading the queue decides nothing, so its refusal names the duty to ask for.
+  test('explains a refused read of the queue apart from a refused decision', () => {
+    expect(verificationQueueMessage('forbidden')).toContain('Verificar credenciales profesionales')
+    expect(verificationQueueMessage('forbidden')).not.toContain('decidir')
+    expect(verificationQueueMessage('upstream-unavailable')).toBe(
+      verificationMessage('upstream-unavailable'),
     )
   })
 
