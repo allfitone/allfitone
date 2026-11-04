@@ -4283,6 +4283,15 @@ export type Database = {
         }[]
       }
       site_projection: { Args: { p_site_id: string }; Returns: Json }
+      studio_guest_quota: {
+        Args: { p_organization_id: string }
+        Returns: {
+          occupied: number
+          over_quota: boolean
+          places_left: number
+          seats: number
+        }[]
+      }
       suspend_organization: {
         Args: {
           p_actor_person_id: string

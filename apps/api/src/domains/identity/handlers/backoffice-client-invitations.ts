@@ -190,6 +190,8 @@ function databaseErrorCode(error: unknown): ApiErrorCode | undefined {
   if (sqlState === '22023' || sqlState === '22P02') return 'validation-failed'
   // 55000 is the state machine; 23514 is the reissue whose offer did not match.
   if (sqlState === '55000' || sqlState === '23505' || sqlState === '23514') return 'conflict'
+  // A reissue takes a new place, and the gym may have none left (HU-STUDIO-087).
+  if (sqlState === 'AF409') return 'guest-quota-exhausted'
   // The only P0001 on these paths is the invitation rate window Studio shares.
   if (sqlState === 'P0001') return 'rate-limited'
   if (sqlState === '40001') return 'idempotency-in-progress'

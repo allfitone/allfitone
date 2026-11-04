@@ -4494,6 +4494,13 @@ paths:
         reads the whole directory and every unanswered invitation. A coach reads
         only the relationships they hold or stand in for, and only the
         invitations they themselves sent.
+
+
+        HU-STUDIO-087. `guest_quota` is how full the gym is, counted over the whole
+        organization whatever the caller may list: a coach is held to the same quota
+        as everyone else and has to be told how much of it is left before inviting.
+        Allfit fixes the number; Studio never changes it, and who set it is not part
+        of the answer.
       security:
         - cookieAuth: []
       parameters:
@@ -10784,6 +10791,12 @@ paths:
         invitation pending answers 409. Resending never changes the gym, the contact
         or what was asked for, and the destination limit Studio enforces applies: 429.
         The command carries no body.
+
+
+        HU-STUDIO-087. A reissue is a new invitation and takes a place in the gym's
+        guest quota; when the gym has none left the answer is `409` with
+        `guest-quota-exhausted` and nothing is reissued. Sending a live invitation again
+        takes no place and is never refused for the quota.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -18853,7 +18866,7 @@ components:
     ClientDirectoryPage:
       type: object
       additionalProperties: false
-      required: [data, page]
+      required: [data, page, guest_quota]
       properties:
         data:
           type: array
@@ -18862,6 +18875,39 @@ components:
             $ref: '#/components/schemas/ClientDirectoryItem'
         page:
           $ref: '#/components/schemas/Page'
+        guest_quota:
+          $ref: '#/components/schemas/StudioGuestQuota'
+    StudioGuestQuota:
+      type: object
+      additionalProperties: false
+      description: >-
+        How full the gym is against the quota Allfit sold it. It carries nothing about
+        who set that number or when.
+      required: [seats, occupied, places_left, over_quota]
+      properties:
+        seats:
+          type: [integer, 'null']
+          minimum: 1
+          description: Null is no limit, which is not the same as a limit of zero.
+        occupied:
+          type: integer
+          minimum: 0
+          description: >-
+            Live relationships plus client invitations still awaiting an answer. An
+            invitation that was rejected, revoked or has run out of time has freed its
+            place, and so has a terminated relationship.
+        places_left:
+          type: [integer, 'null']
+          minimum: 0
+          description: >-
+            Null when there is no limit. Zero when the quota is full or already
+            exceeded, because there is no such thing as a negative place.
+        over_quota:
+          type: boolean
+          description: >-
+            The gym has more taken than it was sold, because Allfit lowered the number.
+            Nobody is removed; new invitations, and acceptances that would add to it,
+            are refused.
     AuthorizedScopeItem:
       description: >-
         One authorization, as the organization sees it. Every field is about the

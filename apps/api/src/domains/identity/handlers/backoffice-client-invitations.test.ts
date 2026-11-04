@@ -254,6 +254,22 @@ describe('Backoffice client invitation resend API contract', () => {
     expect(broken.status).toBe(503)
   })
 
+  // HU-STUDIO-087. The reissue takes a new place, and support has to be told the gym is
+  // full rather than that the service failed.
+  test('T-IDN-CLIENT-RESEND-API-09 a reissue refused by the guest quota says so', async () => {
+    const answer = await routes(
+      resendService({
+        resend: () => Promise.reject(Object.assign(new Error('refused'), { code: 'AF409' })),
+      }),
+    ).fetch(resendRequest())
+
+    expect(answer.status).toBe(409)
+    expect(await answer.json()).toMatchObject({
+      type: 'https://errors.allfit.invalid/guest-quota-exhausted',
+      status: 409,
+    })
+  })
+
   test('T-IDN-CLIENT-RESEND-API-08 never reaches the service without a session that still resolves', async () => {
     const missing = await routes().fetch(resendRequest({ cookie: false }))
     const ended = await routes(

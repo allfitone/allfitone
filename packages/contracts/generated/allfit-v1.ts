@@ -1881,6 +1881,8 @@ export interface paths {
      *     An entry is either a **relationship** — somebody who accepted — or an **invitation** nobody has answered yet. An invitation entry has no person and no name, because until somebody accepts, neither exists; it carries the masked contact instead.
      *
      *     What comes back depends on the caller. A role holding `view_directory` reads the whole directory and every unanswered invitation. A coach reads only the relationships they hold or stand in for, and only the invitations they themselves sent.
+     *
+     *     HU-STUDIO-087. `guest_quota` is how full the gym is, counted over the whole organization whatever the caller may list: a coach is held to the same quota as everyone else and has to be told how much of it is left before inviting. Allfit fixes the number; Studio never changes it, and who set it is not part of the answer.
      */
     get: operations['listStudioOrganizationClients']
     put?: never
@@ -4346,6 +4348,8 @@ export interface paths {
     /**
      * Send a client invitation again
      * @description A live invitation is sent again as it is. An expired one is replaced by a new identical invitation that Allfit signs, asking for exactly the same scopes at exactly the same levels, and the expired one never works again. An accepted, declined or revoked invitation, one already reissued, or one with an equal invitation pending answers 409. Resending never changes the gym, the contact or what was asked for, and the destination limit Studio enforces applies: 429. The command carries no body.
+     *
+     *     HU-STUDIO-087. A reissue is a new invitation and takes a place in the gym's guest quota; when the gym has none left the answer is `409` with `guest-quota-exhausted` and nothing is reissued. Sending a live invitation again takes no place and is never refused for the quota.
      */
     post: operations['resendBackofficeClientInvitation']
     delete?: never
@@ -7465,6 +7469,18 @@ export interface components {
     ClientDirectoryPage: {
       data: components['schemas']['ClientDirectoryItem'][]
       page: components['schemas']['Page']
+      guest_quota: components['schemas']['StudioGuestQuota']
+    }
+    /** @description How full the gym is against the quota Allfit sold it. It carries nothing about who set that number or when. */
+    StudioGuestQuota: {
+      /** @description Null is no limit, which is not the same as a limit of zero. */
+      seats: number | null
+      /** @description Live relationships plus client invitations still awaiting an answer. An invitation that was rejected, revoked or has run out of time has freed its place, and so has a terminated relationship. */
+      occupied: number
+      /** @description Null when there is no limit. Zero when the quota is full or already exceeded, because there is no such thing as a negative place. */
+      places_left: number | null
+      /** @description The gym has more taken than it was sold, because Allfit lowered the number. Nobody is removed; new invitations, and acceptances that would add to it, are refused. */
+      over_quota: boolean
     }
     /** @description One authorization, as the organization sees it. Every field is about the permission and none is from the data it covers: the category it names, the version agreed, whether it still stands, and the dates that bound it. The day a field carrying content is added here, T-PRV-SCOPES-01 fails. */
     AuthorizedScopeItem: {
