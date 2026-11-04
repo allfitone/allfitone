@@ -692,6 +692,135 @@ test('an authorised read of prior training shows each session and what it held',
   await expect(sessions).toHaveCount(0)
 })
 
+test('a session opens to each thing it recorded, and the agenda names each programme', async ({
+  context,
+  page,
+}) => {
+  // HU-BO-008 c2 and c3: intervals, rounds and mobility were recorded and never shown, and
+  // the agenda was not shown at all.
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    breakGlass: {
+      files: [openBreakGlassWindow(10, { categories: ['prior_training_history'] })],
+      sessions: [
+        {
+          id: '019a8000-0000-7000-8000-000000000a09',
+          activity_type_code: 'strength_session',
+          activity_type_name: 'Circuito',
+          discipline_code: 'strength',
+          started_at: '2026-09-15T12:00:00+00:00',
+          ended_at: '2026-09-15T12:40:00+00:00',
+          timezone: 'America/Bogota',
+          status: 'completed',
+          validation_status: 'pending',
+          requested_level: 'detailed',
+          achieved_level: null,
+          revision_number: 1,
+          capture_source: 'manual',
+          contract: { id: '019c0000-0000-7000-8000-000000000031', version: 1 },
+          segments: [],
+          strength_sets: [],
+          endurance_laps: [],
+          interval_results: [
+            {
+              segment_position: null,
+              interval_number: 1,
+              work_duration_seconds: 40,
+              rest_duration_seconds: 20,
+              achieved_repetitions: null,
+              distance: null,
+              completed: false,
+            },
+          ],
+          round_results: [
+            {
+              segment_position: null,
+              round_number: 1,
+              activity_family: 'strength',
+              completed_repetitions: 12,
+              duration_seconds: null,
+              distance: null,
+              load: null,
+            },
+          ],
+          mobility_results: [
+            {
+              segment_position: null,
+              sequence_position: 1,
+              movement_id: null,
+              movement_name: 'Apertura de cadera',
+              side: 'left',
+              hold_duration_seconds: 30,
+              completed_repetitions: null,
+            },
+          ],
+        },
+      ],
+      ownAgenda: [
+        {
+          scheduled_at: '2026-09-17T11:00:00+00:00',
+          timezone: 'America/Bogota',
+          status: 'scheduled',
+          program_day: 2,
+          program_title: 'Mi rutina de casa',
+          from_gym: false,
+        },
+      ],
+    },
+  })
+  await mockBackofficeApi(context, fixture)
+  await page.setViewportSize({ width: 1280, height: 900 })
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Leer historial previo de entrenamiento' }).click()
+
+  const circuit = page.getByRole('row', { name: /Circuito/ })
+  await expect(circuit).toContainText('1 intervalo · 1 ronda · 1 de movilidad')
+  await circuit.getByText('Ver lo registrado').click()
+  await expect(circuit).toContainText(
+    'Intervalo 1 · 40 s de trabajo · 20 s de descanso · sin completar',
+  )
+  await expect(circuit).toContainText('Ronda 1 · fuerza · 12 repeticiones')
+  await expect(circuit).toContainText('Movilidad 1 · Apertura de cadera · izquierda · 30 s')
+
+  const agenda = page.getByRole('row', { name: /Mi rutina de casa/ })
+  await expect(agenda).toContainText('Día 2')
+  await expect(agenda).toContainText('Programada')
+  await expect(agenda).toContainText('Programa propio')
+})
+
+test("a window over a gym's training shows what the gym planned", async ({ context, page }) => {
+  // It used to answer that the platform held no data, although gyms assign programmes.
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      breakGlass: {
+        files: [openBreakGlassWindow(10, { categories: ['relationship_training'] })],
+        gymAgenda: [
+          {
+            scheduled_at: '2026-09-17T11:00:00+00:00',
+            timezone: 'America/Bogota',
+            status: 'scheduled',
+            program_day: 3,
+            program_title: 'Fuerza 8 semanas',
+            from_gym: true,
+          },
+        ],
+      },
+    }),
+  )
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Leer entrenamiento de la relación' }).click()
+
+  const outcome = page.locator('[data-break-glass-outcome]')
+  await expect(outcome.getByText('Lectura autorizada y registrada')).toBeVisible()
+  const agenda = page.getByRole('row', { name: /Fuerza 8 semanas/ })
+  await expect(agenda).toContainText('Asignado por un gimnasio')
+  await expect(outcome).not.toContainText('no tiene sesiones con un gimnasio')
+})
+
 test('an authorised read of someone who never trained says so', async ({ context, page }) => {
   await mockBackofficeApi(
     context,

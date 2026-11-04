@@ -1971,6 +1971,35 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     description: 'Masses in `kg` or `lb`, lengths in `m`, `cm` or `in`, body fat in `percent`.',
     enum: ['kg', 'lb', 'm', 'cm', 'in', 'percent'],
   },
+  BreakGlassAgendaEntry: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['scheduled_at', 'timezone', 'status', 'program_day', 'program_title', 'from_gym'],
+    properties: {
+      scheduled_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      status: {
+        type: 'string',
+        enum: ['scheduled', 'paused', 'cancelled', 'completed'],
+      },
+      program_day: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 7,
+      },
+      program_title: {
+        type: 'string',
+      },
+      from_gym: {
+        type: 'boolean',
+      },
+    },
+  },
   BreakGlassApproval: {
     type: 'object',
     additionalProperties: false,
@@ -2047,6 +2076,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         maxItems: 100,
         items: {
           $ref: '#/components/schemas/ExecutionDetail',
+        },
+      },
+      relationship_training: {
+        type: 'array',
+        maxItems: 100,
+        description: 'Sessions trained under a gym, returned by a `relationship_training` read.',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetail',
+        },
+      },
+      agenda: {
+        type: 'array',
+        maxItems: 100,
+        description:
+          "HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym.",
+        items: {
+          $ref: '#/components/schemas/BreakGlassAgendaEntry',
         },
       },
     },
@@ -3862,6 +3908,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'segments',
       'strength_sets',
       'endurance_laps',
+      'interval_results',
+      'round_results',
+      'mobility_results',
     ],
     properties: {
       id: {
@@ -4012,6 +4061,150 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             },
             duration_seconds: {
               type: 'number',
+            },
+          },
+        },
+      },
+      interval_results: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'segment_position',
+            'interval_number',
+            'work_duration_seconds',
+            'rest_duration_seconds',
+            'achieved_repetitions',
+            'distance',
+            'completed',
+          ],
+          properties: {
+            segment_position: {
+              type: ['integer', 'null'],
+            },
+            interval_number: {
+              type: 'integer',
+              minimum: 1,
+            },
+            work_duration_seconds: {
+              type: 'number',
+            },
+            rest_duration_seconds: {
+              type: ['number', 'null'],
+            },
+            achieved_repetitions: {
+              type: ['integer', 'null'],
+            },
+            distance: {
+              oneOf: [
+                {
+                  $ref: '#/components/schemas/Distance',
+                },
+                {
+                  type: 'null',
+                },
+              ],
+            },
+            completed: {
+              type: ['boolean', 'null'],
+            },
+          },
+        },
+      },
+      round_results: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'segment_position',
+            'round_number',
+            'activity_family',
+            'completed_repetitions',
+            'duration_seconds',
+            'distance',
+            'load',
+          ],
+          properties: {
+            segment_position: {
+              type: ['integer', 'null'],
+            },
+            round_number: {
+              type: 'integer',
+              minimum: 1,
+            },
+            activity_family: {
+              type: 'string',
+              enum: ['strength', 'endurance', 'interval', 'mobility'],
+            },
+            completed_repetitions: {
+              type: ['integer', 'null'],
+            },
+            duration_seconds: {
+              type: ['number', 'null'],
+            },
+            distance: {
+              oneOf: [
+                {
+                  $ref: '#/components/schemas/Distance',
+                },
+                {
+                  type: 'null',
+                },
+              ],
+            },
+            load: {
+              oneOf: [
+                {
+                  $ref: '#/components/schemas/Load',
+                },
+                {
+                  type: 'null',
+                },
+              ],
+            },
+          },
+        },
+      },
+      mobility_results: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'segment_position',
+            'sequence_position',
+            'movement_id',
+            'movement_name',
+            'side',
+            'hold_duration_seconds',
+            'completed_repetitions',
+          ],
+          properties: {
+            segment_position: {
+              type: ['integer', 'null'],
+            },
+            sequence_position: {
+              type: 'integer',
+              minimum: 1,
+            },
+            movement_id: {
+              type: ['string', 'null'],
+              format: 'uuid',
+            },
+            movement_name: {
+              type: ['string', 'null'],
+            },
+            side: {
+              type: ['string', 'null'],
+              enum: ['left', 'right', 'bilateral', 'not_applicable', null],
+            },
+            hold_duration_seconds: {
+              type: ['number', 'null'],
+            },
+            completed_repetitions: {
+              type: ['integer', 'null'],
             },
           },
         },

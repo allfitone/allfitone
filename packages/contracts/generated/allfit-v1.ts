@@ -9749,6 +9749,20 @@ export interface components {
       health_context?: components['schemas']['HealthContextClaim'][]
       nutrition_intake?: components['schemas']['BreakGlassMeal'][]
       prior_training_history?: components['schemas']['ExecutionDetail'][]
+      /** @description Sessions trained under a gym, returned by a `relationship_training` read. */
+      relationship_training?: components['schemas']['ExecutionDetail'][]
+      /** @description HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym. */
+      agenda?: components['schemas']['BreakGlassAgendaEntry'][]
+    }
+    BreakGlassAgendaEntry: {
+      /** Format: date-time */
+      scheduled_at: string
+      timezone: components['schemas']['IanaTimeZone']
+      /** @enum {string} */
+      status: 'scheduled' | 'paused' | 'cancelled' | 'completed'
+      program_day: number
+      program_title: string
+      from_gym: boolean
     }
     BreakGlassPhotoDay: {
       /** Format: date */
@@ -10183,6 +10197,36 @@ export interface components {
         lap_number: number
         distance: components['schemas']['Distance']
         duration_seconds: number
+      }[]
+      interval_results: {
+        segment_position: number | null
+        interval_number: number
+        work_duration_seconds: number
+        rest_duration_seconds: number | null
+        achieved_repetitions: number | null
+        distance: components['schemas']['Distance'] | null
+        completed: boolean | null
+      }[]
+      round_results: {
+        segment_position: number | null
+        round_number: number
+        /** @enum {string} */
+        activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
+        completed_repetitions: number | null
+        duration_seconds: number | null
+        distance: components['schemas']['Distance'] | null
+        load: components['schemas']['Load'] | null
+      }[]
+      mobility_results: {
+        segment_position: number | null
+        sequence_position: number
+        /** Format: uuid */
+        movement_id: string | null
+        movement_name: string | null
+        /** @enum {string|null} */
+        side: 'left' | 'right' | 'bilateral' | 'not_applicable' | null
+        hold_duration_seconds: number | null
+        completed_repetitions: number | null
       }[]
     }
     /**
