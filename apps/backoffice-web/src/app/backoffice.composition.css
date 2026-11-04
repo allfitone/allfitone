@@ -576,3 +576,10 @@
   font-weight: var(--afo-font-weight-semibold);
   text-decoration: underline;
 }
+
+/* A moment's day and time sit side by side, and stack when the form is narrow. */
+[data-moment-field-parts] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 12px;
+}

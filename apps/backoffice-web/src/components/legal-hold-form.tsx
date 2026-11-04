@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from '@allfitone/react/components/select'
 
+import { DayField } from './date-fields'
+
 import {
   HOLDABLE_CATEGORIES,
   HOLD_REASONS,
@@ -166,13 +168,12 @@ export function LegalHoldForm({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="hold-until">Vigente hasta</FieldLabel>
-            <Input
+            <DayField
               id="hold-until"
-              type="date"
+              label="Vigente hasta"
               value={draft.validTo}
               disabled={busy}
-              onChange={(event) => set({ validTo: event.target.value })}
+              onChange={(validTo) => set({ validTo })}
             />
             {issue === 'vigency' ? <FieldError>{holdIssueMessage(issue)}</FieldError> : null}
           </Field>

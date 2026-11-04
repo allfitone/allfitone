@@ -6,6 +6,7 @@ import {
   mockBackofficeApi,
   type ErasureRequestEntryFixture,
 } from './backoffice-api-mock'
+import { typeInto, typedDay } from './date-fields'
 
 const PATH = '/erasure-requests'
 
@@ -212,7 +213,7 @@ test('suspends a category by an obligation, and the panel then says so', async (
   await form.getByRole('button', { name: 'Suspender', exact: true }).click()
   await expect(form).toContainText('No existen suspensiones indefinidas')
 
-  await form.getByLabel('Vigente hasta').fill(day(60).slice(0, 10))
+  await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(60))
   await form.getByRole('button', { name: 'Suspender', exact: true }).click()
 
   const table = page.getByRole('table', { name: 'Solicitudes de eliminación' })
@@ -300,7 +301,7 @@ test('a separation conflict is explained as itself, not as a refusal', async ({
   const form = page.locator('[data-legal-hold-form]')
   await form.getByLabel('Alcance').fill('Mediciones del expediente 2026-114')
   await form.getByLabel('Referencia del requerimiento').fill('JUZGADO-2026-114')
-  await form.getByLabel('Vigente hasta').fill(day(60).slice(0, 10))
+  await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(60))
   await form.getByRole('button', { name: 'Suspender', exact: true }).click()
 
   const failure = page.locator('[data-erasure-failure]')

@@ -125,7 +125,7 @@ export function draftFor(
   }
 }
 
-/** The value a `datetime-local` input expects, in the viewer's own time zone. */
+/** A moment as `MomentField` holds it (`YYYY-MM-DDTHH:MM`), in the viewer's own time zone. */
 export function localDateTime(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0')
   return (
