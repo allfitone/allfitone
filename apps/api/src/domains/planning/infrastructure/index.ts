@@ -3,13 +3,16 @@ import type postgres from 'postgres'
 import { database } from '../../../platform/db/index.js'
 import { measureStudioRequestPhase } from '../../../platform/observability/index.js'
 import type {
+  AssignmentCancellation,
   PlanningCommandResult,
   PlanningDatabase,
   Program,
   ProgramAssignment,
   ProgramDraft,
   ProgramVersion,
+  PrescriptionRevision,
   RelationshipAssignment,
+  RelationshipAssignmentSession,
   SessionTemplate,
   SessionTemplateDraft,
   SessionTemplateVersion,
@@ -173,6 +176,41 @@ export function createPlanningDatabase(): PlanningDatabase {
           )
         `
         return requiredCommand(row, 'assign the program')
+      }),
+    reschedulePlannedSession: (input) =>
+      command(sql, input.personId, async (transaction) => {
+        const [row] = await transaction<CommandRow<RelationshipAssignmentSession>[]>`
+          select * from planning.reschedule_planned_session(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.plannedSessionId}::uuid, ${input.scheduledOn}::date,
+            ${input.expectedRevision}::bigint, ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return requiredCommand(row, 'move the planned session')
+      }),
+    revisePrescription: (input) =>
+      command(sql, input.personId, async (transaction) => {
+        const [row] = await transaction<CommandRow<PrescriptionRevision>[]>`
+          select * from planning.revise_prescription(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.assignmentId}::uuid, ${input.plannedStepId}::uuid, ${input.kind}::text,
+            ${transaction.json(input.value)}::jsonb, ${input.unitCode}::text,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return requiredCommand(row, 'revise the prescription')
+      }),
+    cancelAssignment: (input) =>
+      command(sql, input.personId, async (transaction) => {
+        const [row] = await transaction<CommandRow<AssignmentCancellation>[]>`
+          select * from planning.cancel_managed_assignment(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.assignmentId}::uuid, ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return requiredCommand(row, 'cancel the assignment')
       }),
     listRelationshipAssignments: (input) =>
       query(sql, input.personId, input.requestId, async (transaction) => {

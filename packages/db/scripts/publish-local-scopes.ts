@@ -42,6 +42,9 @@ const TRAINING_PRESCRIPTION = [
   'planning.endurance_targets',
   'planning.interval_targets',
   'planning.mobility_targets',
+  // What the coach changed for this one person: her adjusted targets and moved days.
+  'planning.prescription_revisions',
+  'planning.planned_session_reschedules',
 ]
 
 const TRAINING_EXECUTION = [

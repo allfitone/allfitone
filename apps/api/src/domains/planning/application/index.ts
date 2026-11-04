@@ -58,6 +58,17 @@ export interface StudioPlanningService {
   ) => infer R
     ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
     : never
+  reschedulePlannedSession: PlanningDatabase['reschedulePlannedSession'] extends (
+    input: infer I,
+  ) => infer R
+    ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
+    : never
+  revisePrescription: PlanningDatabase['revisePrescription'] extends (input: infer I) => infer R
+    ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
+    : never
+  cancelAssignment: PlanningDatabase['cancelAssignment'] extends (input: infer I) => infer R
+    ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
+    : never
   listSessionTemplates: PlanningDatabase['listSessionTemplates'] extends (input: infer I) => infer R
     ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
     : never
@@ -107,6 +118,12 @@ export function createStudioPlanningService(database: PlanningDatabase): StudioP
       database.assignProgram({ personId: personId(actor), ...input }),
     listRelationshipAssignments: (actor, input) =>
       database.listRelationshipAssignments({ personId: personId(actor), ...input }),
+    reschedulePlannedSession: (actor, input) =>
+      database.reschedulePlannedSession({ personId: personId(actor), ...input }),
+    revisePrescription: (actor, input) =>
+      database.revisePrescription({ personId: personId(actor), ...input }),
+    cancelAssignment: (actor, input) =>
+      database.cancelAssignment({ personId: personId(actor), ...input }),
     listSessionTemplates: (actor, input) =>
       database.listSessionTemplates({ personId: personId(actor), ...input }),
     listPrograms: (actor, input) => database.listPrograms({ personId: personId(actor), ...input }),

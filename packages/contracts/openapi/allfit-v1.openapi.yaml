@@ -7275,6 +7275,193 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/planned-sessions/{plannedSessionId}:
+    patch:
+      tags: [Studio Planning]
+      operationId: reschedulePlannedSession
+      x-allfit-operation: OP-PLN-012
+      x-allfit-cache: no-store
+      summary: Move a managed session to another day of its week
+      description: >-
+        HU-STUDIO-048. The coach who holds the relationship, or a cover the person
+        accepted, moves a session of a program the organization still manages. Only
+        the day changes: the routine, its targets and the week it belongs to stay, and
+        the move is kept with who made it. The new day is today or later in the
+        person's own zone, never before the program starts, and inside the session's
+        own calendar week, which is what Space offers (ADR-032).
+
+
+        The caller names the `revision_number` she read in `expected_revision`; when
+        the session moved on meanwhile the answer is 409 `stale-draft` with the
+        current session in `current_state`. A session the person started, one that is
+        not scheduled, and one of a program the organization no longer manages answer
+        409 `conflict`. The person must share `relationship_training` at
+        `contribute`; without it the answer is 403 `scope-required`. A session of the
+        person's own program, of another organization, or of a relationship the caller
+        does not attend answers 404. Moving a session to the day it is on changes
+        nothing.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/PlannedSessionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlannedSessionReschedule'
+      responses:
+        '200':
+          description: The session on its day, or unchanged when it already was there
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipAssignmentSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ManagedSessionConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/assignments/{assignmentId}/prescription-revisions:
+    post:
+      tags: [Studio Planning]
+      operationId: revisePrescription
+      x-allfit-operation: OP-PLN-013
+      x-allfit-cache: no-store
+      summary: Adjust a step's prescription for this one person
+      description: >-
+        HU-STUDIO-049. The coach who holds the relationship, or a cover the person
+        accepted, adjusts one target of one step of the version she was given: the
+        published routine and program stay as they are (T-ASG-7). Each revision is
+        typed, kept with the professional assignment that made it, and never
+        rewritten; the latest of each kind is the one in force, and Space trains it
+        wherever it read the program's target. Adjustments outlive the management
+        period, so a detached program keeps them.
+
+
+        `value` takes the type its `kind` needs: a positive integer for sets, reps,
+        rounds and repetitions; a number of seconds for durations; a number with a
+        `unit_code` for load, distance and pace; an effort between 0 and 10; one of
+        `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a
+        note. A step outside the assigned version answers 422 `planned-step`, a kind
+        its target family does not take 422 `kind`. Only while the organization
+        manages the program, else 409 `conflict`; the grant and visibility rules are
+        those of moving a session.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionRevisionCreate'
+      responses:
+        '201':
+          description: The revision, now in force for its kind
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrescriptionRevision'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/assignments/{assignmentId}/cancellation:
+    post:
+      tags: [Studio Planning]
+      operationId: cancelProgramAssignment
+      x-allfit-operation: OP-PLN-014
+      x-allfit-cache: no-store
+      summary: Stop a program the organization manages
+      description: >-
+        HU-STUDIO-050. The coach who attends the person, or an administrator or owner
+        of the organization without attending her, stops a program it still manages.
+        The assignment ends and its management period closes as cancelled; the
+        sessions from today on that nobody started are cancelled. Past sessions, what
+        the person trained and the assignment itself stay (T-ASG-5). Cancelling again
+        answers the same cancellation.
+
+
+        Everyone needs the person's `relationship_training` grant at `contribute`;
+        without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`.
+        A program the organization no longer manages answers 409 `conflict`; the
+        person's own program, another organization's, or one the caller cannot reach
+        answers 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/AssignmentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The cancellation, or the same one again
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentCancellation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /space/v1/programs:
     get:
       tags: [Space Planning]
@@ -12564,6 +12751,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
     ExecutionId:
       name: executionId
       in: path
@@ -13062,6 +13255,25 @@ components:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+    ManagedSessionConflict:
+      description: >-
+        The session moved on since it was read (`stale-draft`, with the current session
+        in `current_state`), it started, or the organization no longer manages it
+        (`conflict`)
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://errors.allfit.invalid/stale-draft
+            title: The local draft is stale
+            status: 409
+            request_id: 01JEXAMPLE0000000000000000
     StaleDraft:
       description: If-Match refers to a stale execution revision
       headers:
@@ -20846,13 +21058,17 @@ components:
       type: object
       additionalProperties: false
       required:
-        [id, status, program_version, starts_on, timezone, assigned_at, management, sessions]
+        [id, status, program_version, starts_on, timezone, assigned_at, management, sessions,
+         adjustments]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         status:
           type: string
-          enum: [active, detached_pending_choice, ended]
+          enum: [active, detached_pending_choice, ended, cancelled]
+          description: >-
+            `cancelled` is an assignment the organization stopped (OP-PLN-014); `ended`
+            one that ended otherwise.
         program_version:
           type: object
           additionalProperties: false
@@ -20889,12 +21105,20 @@ components:
             one week at a time, as the person reaches it.
           items:
             $ref: '#/components/schemas/RelationshipAssignmentSession'
+        adjustments:
+          type: array
+          description: >-
+            The prescription revisions in force, the latest of each kind on each step, by
+            step and kind. Kept after the organization stops managing the program.
+          items:
+            $ref: '#/components/schemas/PrescriptionRevision'
 
     RelationshipAssignmentSession:
       type: object
       additionalProperties: false
       required:
-        [id, template_version_id, title, week_starts_on, program_day, scheduled_on, status]
+        [id, template_version_id, title, week_starts_on, program_day, scheduled_on, status,
+         started, revision_number]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -20916,6 +21140,13 @@ components:
         status:
           type: string
           enum: [scheduled, paused, cancelled, completed]
+        started:
+          type: boolean
+          description: Whether the person started it; a started session no longer moves.
+        revision_number:
+          type: integer
+          minimum: 0
+          description: What to send as `expected_revision` to move it.
     AssignmentManagement:
       type: object
       additionalProperties: false
@@ -20926,6 +21157,108 @@ components:
         since:
           type: string
           format: date-time
+
+    PlannedSessionReschedule:
+      type: object
+      additionalProperties: false
+      required: [scheduled_on, expected_revision]
+      example:
+        scheduled_on: '2026-11-11'
+        expected_revision: 0
+      properties:
+        scheduled_on:
+          type: string
+          format: date
+          description: >-
+            The new day in the person's own zone: today or later, not before the program
+            starts, and inside the session's calendar week.
+        expected_revision:
+          $ref: '#/components/schemas/ExpectedRevision'
+
+    PrescriptionAdjustmentKind:
+      type: string
+      description: >-
+        What one revision adjusts (DD 9.15). Sets, reps and load fit a strength step;
+        distance, duration and pace an endurance one; rounds, work and rest an interval;
+        hold, repetitions and side a mobility one; effort fits strength and intervals,
+        and a note fits any step.
+      enum:
+        - target_sets
+        - target_reps
+        - target_load
+        - target_rpe
+        - target_distance
+        - target_duration
+        - target_pace
+        - rounds
+        - work_duration
+        - rest_duration
+        - hold_duration
+        - target_repetitions
+        - side
+        - notes
+    PrescriptionRevisionCreate:
+      type: object
+      additionalProperties: false
+      required: [planned_step_id, kind, value]
+      example:
+        planned_step_id: 018f6f8d-2b00-7a00-8000-000000000501
+        kind: target_load
+        value: 70
+        unit_code: kg
+      properties:
+        planned_step_id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/PrescriptionAdjustmentKind'
+        value:
+          type: [number, string]
+          description: >-
+            Typed by `kind`: an integer for counts, seconds for durations, a number for
+            load, distance, pace and effort, and text for the side and a note.
+        unit_code:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 64
+          description: Required for load, distance and pace; absent for every other kind.
+    PrescriptionRevision:
+      type: object
+      additionalProperties: false
+      required: [id, assignment_id, planned_step_id, kind, value, unit_code, revised_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        assignment_id:
+          $ref: '#/components/schemas/Uuid'
+        planned_step_id:
+          $ref: '#/components/schemas/Uuid'
+        kind:
+          $ref: '#/components/schemas/PrescriptionAdjustmentKind'
+        value:
+          type: [number, string]
+        unit_code:
+          type: [string, 'null']
+        revised_at:
+          type: string
+          format: date-time
+
+    AssignmentCancellation:
+      type: object
+      additionalProperties: false
+      required: [id, status, cancelled_at, sessions_cancelled]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          type: string
+          enum: [cancelled]
+        cancelled_at:
+          type: string
+          format: date-time
+        sessions_cancelled:
+          type: integer
+          minimum: 0
+          description: How many sessions still to come stopped; the started ones never do.
 
     AgendaPage:
       type: object
@@ -23191,6 +23524,7 @@ components:
           oneOf:
             - $ref: '#/components/schemas/SessionTemplateDraft'
             - $ref: '#/components/schemas/ProgramDraft'
+            - $ref: '#/components/schemas/RelationshipAssignmentSession'
     RequiredScope:
       type: object
       additionalProperties: false
