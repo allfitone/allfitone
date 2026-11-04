@@ -41,6 +41,7 @@ function bodyService(overrides: Partial<BodyProgressService> = {}): BodyProgress
           body_progress_record_id: RECORD_ID,
           disposition_case_id: CASE_ID,
           status: 'deleted',
+          hold: null,
         },
         replayed: false,
       })
@@ -165,6 +166,7 @@ describe('Space body progress API contract', () => {
             body_progress_record_id: RECORD_ID,
             disposition_case_id: CASE_ID,
             status: 'deleted',
+            hold: null,
           },
           replayed: true,
         }),
@@ -177,9 +179,25 @@ describe('Space body progress API contract', () => {
       body_progress_record_id: RECORD_ID,
       disposition_case_id: CASE_ID,
       status: 'deleted',
+      hold: null,
     })
     expect(replay.headers.get('idempotent-replay')).toBe('true')
     expect(captured[0]?.input).toMatchObject({ recordId: RECORD_ID, commandId: RECORD_ID })
+  })
+
+  test('T-IDN-BODY-API-10 a measurement a legal hold keeps answers 202 with the ground and the end', async () => {
+    const held = {
+      body_progress_record_id: RECORD_ID,
+      disposition_case_id: CASE_ID,
+      status: 'suspended' as const,
+      hold: { reason_code: 'judicial_order' as const, valid_to: '2027-02-01T00:00:00.000Z' },
+    }
+    const response = await routes(
+      bodyService({ delete: async () => ({ resource: held, replayed: false }) }),
+    ).fetch(command(`/body-progress/${RECORD_ID}`, 'DELETE'))
+
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual(held)
   })
 
   test('T-IDN-BODY-API-08 maps every declared database verdict to its problem response', async () => {

@@ -38,6 +38,7 @@ import { clockLabel } from '../../src/client/finished'
 import {
   dayAfterDeleting,
   dayTitle,
+  deletionHeldNote,
   goalFigure,
   mealTotals,
   MEAL_NAMES,
@@ -153,7 +154,13 @@ export default function MealDetailScreen() {
     setFailure(undefined)
     flow
       .deleteMeal(meal.id)
-      .then(() => {
+      .then((held) => {
+        // A legal hold keeps it: the person is told why and until when, not that it went.
+        if (held) {
+          setSheet(undefined)
+          setFailure(deletionHeldNote(held))
+          return
+        }
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
         setSheet('deleted')
         setTimeout(() => {

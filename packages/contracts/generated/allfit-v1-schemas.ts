@@ -1864,7 +1864,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   BodyProgressDeletion: {
     type: 'object',
     additionalProperties: false,
-    required: ['body_progress_record_id', 'disposition_case_id', 'status'],
+    required: ['body_progress_record_id', 'disposition_case_id', 'status', 'hold'],
     properties: {
       body_progress_record_id: {
         $ref: '#/components/schemas/UuidV7',
@@ -1873,8 +1873,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         $ref: '#/components/schemas/UuidV7',
       },
       status: {
-        type: 'string',
-        enum: ['deleted'],
+        $ref: '#/components/schemas/DeletionState',
+      },
+      hold: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/DeletionHold',
+          },
+          {
+            type: 'null',
+          },
+        ],
       },
     },
   },
@@ -3548,6 +3557,28 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'string',
     enum: ['operational', 'audit', 'identity_pii', 'training', 'body', 'nutrition', 'health'],
   },
+  DeletionHold: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'What the person is told about a hold keeping their data: the ground and the end. Never the case, its scope or who applied it.',
+    required: ['reason_code', 'valid_to'],
+    properties: {
+      reason_code: {
+        $ref: '#/components/schemas/LegalHoldReason',
+      },
+      valid_to: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  DeletionState: {
+    type: 'string',
+    description:
+      'Deleted; suspended under a legal hold; or pending, about to run because the hold that kept it ended.',
+    enum: ['deleted', 'suspended', 'pending'],
+  },
   DispositionAction: {
     type: 'string',
     enum: ['delete', 'anonymize', 'retain_restricted'],
@@ -4794,7 +4825,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   HealthContextDeletion: {
     type: 'object',
     additionalProperties: false,
-    required: ['health_context_claim_id', 'disposition_case_id', 'status'],
+    required: ['health_context_claim_id', 'disposition_case_id', 'status', 'hold'],
     properties: {
       health_context_claim_id: {
         $ref: '#/components/schemas/UuidV7',
@@ -4803,8 +4834,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         $ref: '#/components/schemas/UuidV7',
       },
       status: {
-        type: 'string',
-        enum: ['deleted'],
+        $ref: '#/components/schemas/DeletionState',
+      },
+      hold: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/DeletionHold',
+          },
+          {
+            type: 'null',
+          },
+        ],
       },
     },
   },
@@ -4901,6 +4941,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     additionalProperties: false,
     required: [
       'id',
+      'subject_person_id',
+      'data_classification_codes',
       'scope_description',
       'reason_code',
       'case_reference',
@@ -4910,12 +4952,32 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'applied_by_person_id',
       'released_at',
       'released_by_person_id',
+      'lapsed_at',
       'suspended_items',
       'items',
     ],
     properties: {
       id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      subject_person_id: {
+        description:
+          'Whose data it keeps. Null only on a hold filed before holds named a person, which named dispositions instead.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      data_classification_codes: {
+        type: 'array',
+        description: "The kinds of that person's data it keeps.",
+        items: {
+          $ref: '#/components/schemas/DataClassificationCode',
+        },
       },
       scope_description: {
         type: 'string',
@@ -4954,15 +5016,20 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
         ],
       },
+      lapsed_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+        description: 'When the worker recorded that it ended on its own date.',
+      },
       suspended_items: {
         type: 'integer',
         minimum: 0,
-        description: 'How many dispositions this hold is stopping right now.',
+        description: 'How many deletions this hold is stopping right now.',
       },
       items: {
         type: 'integer',
-        minimum: 1,
-        description: 'How many it named when it was applied.',
+        minimum: 0,
+        description: 'How many deletions it has stopped since it was applied.',
       },
     },
   },
@@ -4970,13 +5037,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'object',
     additionalProperties: false,
     description:
-      'Scope, reason, vigency and what it covers. Who applies it comes from the session and is never accepted here.',
+      'Scope, reason, vigency, and whose data of which kinds it keeps. Who applies it comes from the session and is never accepted here.',
     required: [
       'scope_description',
       'reason_code',
       'case_reference',
       'valid_to',
-      'disposition_item_ids',
+      'subject_person_id',
+      'data_classification_codes',
     ],
     properties: {
       scope_description: {
@@ -4999,13 +5067,35 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         format: 'date-time',
         description: 'When the hold ends. There are no indefinite holds.',
       },
-      disposition_item_ids: {
+      subject_person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      data_classification_codes: {
         type: 'array',
         minItems: 1,
-        maxItems: 500,
+        maxItems: 3,
+        uniqueItems: true,
+        description: 'Only the kinds the platform disposes of.',
         items: {
-          $ref: '#/components/schemas/Uuid',
+          type: 'string',
+          enum: ['body', 'health', 'nutrition'],
         },
+      },
+    },
+  },
+  LegalHoldPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['items', 'has_more'],
+    properties: {
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/LegalHold',
+        },
+      },
+      has_more: {
+        type: 'boolean',
       },
     },
   },
@@ -5020,9 +5110,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'tax_or_accounting_obligation',
     ],
   },
+  LegalHoldState: {
+    type: 'string',
+    enum: ['active', 'ended'],
+  },
   LegalHoldStatus: {
     type: 'string',
-    enum: ['active', 'released'],
+    description: 'Released by an officer, or lapsed on its own date.',
+    enum: ['active', 'released', 'lapsed'],
   },
   LengthUnit: {
     type: 'string',
@@ -5102,6 +5197,27 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'string',
     enum: ['kg', 'lb'],
     description: 'Kilograms are canonical; a pound is 0.45359237 of one.',
+  },
+  MealDeletionHeld: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'hold'],
+    properties: {
+      status: {
+        type: 'string',
+        enum: ['suspended', 'pending'],
+      },
+      hold: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/DeletionHold',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
   },
   MealType: {
     type: 'string',

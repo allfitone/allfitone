@@ -13,6 +13,7 @@ import { database } from '../../../platform/db/index.js'
 import { measureStudioRequestPhase } from '../../../platform/observability/index.js'
 import type {
   ConsentRow,
+  DeletionHold,
   MealRow,
   MealRowPage,
   NutritionDatabase,
@@ -77,14 +78,22 @@ export function createNutritionDatabase(): NutritionDatabase {
 
     deleteMeal: (input) =>
       transact(sql, input.personId, '', async (transaction) => {
-        const [row] = await transaction<{ outcome: { disposed_media_ref: string | null } }[]>`
+        const [row] = await transaction<
+          {
+            outcome: {
+              deleted: boolean
+              disposed_media_ref: string | null
+              hold: DeletionHold | null
+            }
+          }[]
+        >`
           select nutrition.delete_meal(
             ${input.personId}::uuid, ${input.mealId}::uuid,
             ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
           ) as outcome
         `
         if (!row) throw new Error('PostgreSQL did not delete the meal')
-        return { disposed_media_ref: row.outcome.disposed_media_ref }
+        return row.outcome
       }),
 
     sealDisposal: (input) =>

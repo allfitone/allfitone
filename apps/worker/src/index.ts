@@ -42,6 +42,10 @@ import {
   createPlatformDutyLapseProcessor,
   type PlatformDutyLapseResult,
 } from './platform-duties.js'
+import {
+  createPrivacyDispositionProcessor,
+  type PrivacyDispositionResult,
+} from './privacy-dispositions.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
 export interface WorkerJobProcessors {
@@ -49,6 +53,7 @@ export interface WorkerJobProcessors {
   backofficeAuthCleanup(): Promise<BackofficeAuthBatchResult>
   accountRecoveryDelivery(): Promise<AccountRecoveryBatchResult>
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
+  privacyDisposition(): Promise<PrivacyDispositionResult>
 }
 
 export interface WorkerBatchResult {
@@ -56,6 +61,7 @@ export interface WorkerBatchResult {
   backofficeAuthentication: BackofficeAuthBatchResult
   accountRecovery: AccountRecoveryBatchResult
   platformDuties: PlatformDutyLapseResult
+  privacyDispositions: PrivacyDispositionResult
 }
 
 type WorkerJob =
@@ -64,6 +70,7 @@ type WorkerJob =
   | 'invitation_delivery'
   | 'outbox_batch'
   | 'platform_duty_lapse'
+  | 'privacy_disposition'
 
 let cachedProcessors: WorkerJobProcessors | undefined
 
@@ -108,14 +115,27 @@ export function createWorkerApp(
         'platform_duty_lapse',
         processors.platformDutyLapse,
       )
+      const privacyDispositions = await runJob(
+        telemetry,
+        logs,
+        'privacy_disposition',
+        processors.privacyDisposition,
+      )
 
       const result: WorkerBatchResult = {
         invitations,
         backofficeAuthentication,
         accountRecovery,
         platformDuties,
+        privacyDispositions,
       }
-      const jobs = [invitations, backofficeAuthentication, accountRecovery, platformDuties]
+      const jobs = [
+        invitations,
+        backofficeAuthentication,
+        accountRecovery,
+        platformDuties,
+        privacyDispositions,
+      ]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
       captureJob(
         telemetry,
@@ -340,6 +360,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     backofficeAuthCleanup: backofficeAuthentication,
     accountRecoveryDelivery: accountRecovery,
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
+    privacyDisposition: createPrivacyDispositionProcessor(sql),
   }
   return cachedProcessors
 }

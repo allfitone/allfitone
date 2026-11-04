@@ -8,6 +8,7 @@ import type { InvitationBatchResult } from './invitations.js'
 import type { BackofficeAuthBatchResult } from './backoffice-auth.js'
 import type { AccountRecoveryBatchResult } from './account-recovery.js'
 import type { PlatformDutyLapseResult } from './platform-duties.js'
+import type { PrivacyDispositionResult } from './privacy-dispositions.js'
 
 type WorkerEvent = TelemetryEventFor<'worker.job.completed.v1'>
 
@@ -41,13 +42,15 @@ test('runs the batch after authenticating the Vercel cron', async () => {
     backofficeAuthentication: backofficeResult(),
     accountRecovery: recoveryResult(),
     platformDuties: lapseResult(),
+    privacyDispositions: dispositionResult(),
   })
-  expect(captured).toHaveLength(5)
+  expect(captured).toHaveLength(6)
   for (const job of [
     'invitation_delivery',
     'backoffice_auth_cleanup',
     'account_recovery_delivery',
     'platform_duty_lapse',
+    'privacy_disposition',
   ]) {
     expect(captured).toContainEqual(
       expect.objectContaining({
@@ -56,10 +59,43 @@ test('runs the batch after authenticating the Vercel cron', async () => {
       }),
     )
   }
-  expect(captured[4]).toMatchObject({
+  expect(captured[5]).toMatchObject({
     event: 'worker.job.completed.v1',
     properties: { job: 'outbox_batch', outcome: 'completed', item_count: 0 },
   })
+})
+
+test('lapses the legal holds past their date and executes the deletions they let go', async () => {
+  // HU-BO-033 criteria 1 and 4: nothing else ends a hold, or deletes what it kept.
+  const captured: WorkerEvent[] = []
+  const telemetry: ServerTelemetryAdapter = {
+    capture: (event) => {
+      if (event.event === 'worker.job.completed.v1') captured.push(event)
+    },
+    shutdown: async () => undefined,
+  }
+  const processors = successfulProcessors()
+  processors.privacyDisposition = async () =>
+    dispositionResult({ claimed: 3, lapsed: 1, executed: 2 })
+
+  const response = await createWorkerApp(processors, telemetry, operationalLogs()).request(
+    '/cron/outbox',
+    { headers: { authorization: 'Bearer cron-test-secret' } },
+  )
+
+  expect(response.status).toBe(200)
+  await expect(response.json()).resolves.toMatchObject({
+    privacyDispositions: { claimed: 3, deadOrDelayed: 0, lapsed: 1, executed: 2 },
+  })
+  expect(captured).toContainEqual(
+    expect.objectContaining({
+      properties: expect.objectContaining({
+        job: 'privacy_disposition',
+        outcome: 'completed',
+        item_count: 3,
+      }),
+    }),
+  )
 })
 
 test('lapses the platform duties past their window every minute, and counts them', async () => {
@@ -116,9 +152,10 @@ test('marks individual and aggregate jobs as retrying when work was delayed', as
     ['backoffice_auth_cleanup', 'completed'],
     ['account_recovery_delivery', 'retrying'],
     ['platform_duty_lapse', 'completed'],
+    ['privacy_disposition', 'completed'],
     ['outbox_batch', 'retrying'],
   ])
-  expect(captured[4]?.properties.item_count).toBe(2)
+  expect(captured[5]?.properties.item_count).toBe(2)
 })
 
 test('emits failed job and aggregate events without unreliable item counts', async () => {
@@ -193,7 +230,14 @@ function successfulProcessors() {
     backofficeAuthCleanup: async () => backofficeResult(),
     accountRecoveryDelivery: async () => recoveryResult(),
     platformDutyLapse: async () => lapseResult(),
+    privacyDisposition: async () => dispositionResult(),
   }
+}
+
+function dispositionResult(
+  overrides: Partial<PrivacyDispositionResult> = {},
+): PrivacyDispositionResult {
+  return { claimed: 0, deadOrDelayed: 0, lapsed: 0, executed: 0, ...overrides }
 }
 
 function lapseResult(overrides: Partial<PlatformDutyLapseResult> = {}): PlatformDutyLapseResult {

@@ -20,9 +20,10 @@
  * The person is an identifier here. This screen tracks the request; reading what
  * the person recorded is a break-glass window, and a different screen.
  *
- * Suspending is offered on the categories that are still waiting, and only those.
- * The form will not let a hold leave without an end date, because there are no
- * indefinite holds and finding that out from the server is finding it out late.
+ * Suspending is offered where something of a kind the platform deletes still waits.
+ * It opens the hold form on that person, with those kinds marked: a hold keeps the
+ * person's data of those kinds, this request's and whatever they ask to delete while
+ * it lasts. The form is `legal-hold-form.tsx`, shared with «Retenciones legales».
  * Releasing says what it will do before it does it: the erasure continues.
  *
  * Applying a hold opens no view of anything. The refusal for whoever already asked
@@ -34,19 +35,11 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { Checkbox } from '@allfitone/react/components/checkbox'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
-import { Input } from '@allfitone/react/components/input'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
+import { LegalHoldForm } from './legal-hold-form'
+import { LegalHolds } from './legal-holds'
 import { ScreenEmpty, ScreenLoading, ScreenRefusal } from './screen-state'
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@allfitone/react/components/select'
 import {
   Card,
   CardContent,
@@ -73,23 +66,23 @@ import {
   type ErasureRequestPage,
 } from '@/lib/backoffice-api'
 import {
-  EMPTY_HOLD,
-  HOLD_REASONS,
   emptyMessage,
   erasureMessage,
-  holdIssue,
-  holdIssueMessage,
-  holdReasonLabel,
   holdableCategories,
+  holdableKinds,
   panelSummary,
   requestRows,
   urgencyTone,
   type ErasureRequest,
   type ErasureRequestState,
+} from '@/lib/erasure-requests'
+import {
+  emptyHold,
+  holdApplication,
+  holdIssue,
   type HoldDraft,
   type HoldIssue,
-  type LegalHoldReason,
-} from '@/lib/erasure-requests'
+} from '@/lib/legal-holds'
 import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
@@ -106,10 +99,12 @@ export function ErasureRequests() {
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
   const [holding, setHolding] = useState<ErasureRequest | null>(null)
-  const [draft, setDraft] = useState<HoldDraft>(EMPTY_HOLD)
+  const [draft, setDraft] = useState<HoldDraft>(emptyHold())
   const [issue, setIssue] = useState<HoldIssue | null>(null)
   const [releasing, setReleasing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Remounts the holds section when a hold applied from a request changes it.
+  const [holdsVersion, setHoldsVersion] = useState(0)
 
   const load = useCallback(async (half: ErasureRequestState) => {
     setState('loading')
@@ -143,18 +138,10 @@ export function ErasureRequests() {
     setIssue(null)
     setBusy(true)
     try {
-      await backofficeApi.applyLegalHold(
-        {
-          scope_description: draft.scopeDescription.trim(),
-          reason_code: draft.reasonCode,
-          case_reference: draft.caseReference.trim(),
-          valid_to: new Date(`${draft.validTo}T23:59:59`).toISOString(),
-          disposition_item_ids: draft.itemIds,
-        },
-        newBackofficeCommand(),
-      )
+      await backofficeApi.applyLegalHold(holdApplication(draft), newBackofficeCommand())
       setHolding(null)
-      setDraft(EMPTY_HOLD)
+      setDraft(emptyHold())
+      setHoldsVersion((version) => version + 1)
       setFailure(null)
       await load(status)
     } catch (caught) {
@@ -169,6 +156,7 @@ export function ErasureRequests() {
     try {
       await backofficeApi.releaseLegalHold(holdId, newBackofficeCommand())
       setReleasing(null)
+      setHoldsVersion((version) => version + 1)
       setFailure(null)
       await load(status)
     } catch (caught) {
@@ -176,15 +164,6 @@ export function ErasureRequests() {
     } finally {
       setBusy(false)
     }
-  }
-
-  function toggle(itemIds: readonly string[], checked: boolean) {
-    setDraft((current) => ({
-      ...current,
-      itemIds: checked
-        ? [...new Set([...current.itemIds, ...itemIds])]
-        : current.itemIds.filter((id) => !itemIds.includes(id)),
-    }))
   }
 
   return (
@@ -291,8 +270,13 @@ export function ErasureRequests() {
                             variant="outline"
                             disabled={busy}
                             onClick={() => {
-                              setHolding(byId.get(row.id) ?? null)
-                              setDraft(EMPTY_HOLD)
+                              const request = byId.get(row.id) ?? null
+                              setHolding(request)
+                              setDraft(
+                                request
+                                  ? emptyHold(request.subject_person_id, holdableKinds(request))
+                                  : emptyHold(),
+                              )
                               setIssue(null)
                             }}
                           >
@@ -325,8 +309,9 @@ export function ErasureRequests() {
         <Alert live="polite" variant="warning" data-erasure-release-confirm>
           <AlertTitle>Al liberar, la eliminación sigue su curso</AlertTitle>
           <AlertDescription>
-            La disposición vuelve a quedar pendiente y se ejecutará como estaba previsto. Liberar no
-            borra nada por sí solo, y la suspensión queda registrada.
+            Lo que retiene pasa a otra retención vigente sobre los mismos datos, si la hay; si no,
+            se borra como la persona pidió, en el siguiente minuto. Liberar no se deshace, y la
+            retención queda registrada.
             <div data-erasure-confirm-actions>
               <Button type="button" disabled={busy} onClick={() => void release(releasing)}>
                 Confirmar liberación
@@ -345,126 +330,25 @@ export function ErasureRequests() {
       ) : null}
 
       {holding ? (
-        <Card data-erasure-hold-form>
-          <CardHeader>
-            <CardTitle role="heading" aria-level={2}>
-              Suspender por una obligación legal
-            </CardTitle>
-            <CardDescription>
-              Detiene la eliminación de las categorías que marques, y de ninguna otra. No da acceso
-              a nada: para leer lo que la persona registró hace falta una ventana excepcional. No
-              existen suspensiones indefinidas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="hold-scope">Alcance</FieldLabel>
-                <Input
-                  id="hold-scope"
-                  value={draft.scopeDescription}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, scopeDescription: event.target.value }))
-                  }
-                />
-                {issue === 'scope' ? <FieldError>{holdIssueMessage(issue)}</FieldError> : null}
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="hold-reason">Motivo</FieldLabel>
-                <Select
-                  value={draft.reasonCode}
-                  onValueChange={(next) =>
-                    setDraft((current) => ({
-                      ...current,
-                      reasonCode: (next ?? 'judicial_order') as LegalHoldReason,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="hold-reason" disabled={busy}>
-                    <SelectValue>{holdReasonLabel(draft.reasonCode)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {HOLD_REASONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {holdReasonLabel(option)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="hold-case">Referencia del requerimiento</FieldLabel>
-                <Input
-                  id="hold-case"
-                  value={draft.caseReference}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, caseReference: event.target.value }))
-                  }
-                />
-                {issue === 'case' ? <FieldError>{holdIssueMessage(issue)}</FieldError> : null}
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="hold-until">Vigente hasta</FieldLabel>
-                <Input
-                  id="hold-until"
-                  type="date"
-                  value={draft.validTo}
-                  disabled={busy}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, validTo: event.target.value }))
-                  }
-                />
-                {issue === 'vigency' ? <FieldError>{holdIssueMessage(issue)}</FieldError> : null}
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="hold-categories">Categorías por suspender</FieldLabel>
-                <div id="hold-categories" data-erasure-hold-categories>
-                  {holdableCategories(holding).map((category) => {
-                    const id = `hold-${category.data_classification_code}-${category.action}`
-                    return (
-                      <Field key={id} orientation="horizontal">
-                        <Checkbox
-                          id={id}
-                          disabled={busy}
-                          checked={category.item_ids.every((item) => draft.itemIds.includes(item))}
-                          onCheckedChange={(checked) => toggle(category.item_ids, checked === true)}
-                        />
-                        <FieldLabel htmlFor={id}>
-                          {categoryChoice(category.data_classification_code, category.items)}
-                        </FieldLabel>
-                      </Field>
-                    )
-                  })}
-                </div>
-                {issue === 'categories' ? <FieldError>{holdIssueMessage(issue)}</FieldError> : null}
-              </Field>
-            </FieldGroup>
-
-            <div data-erasure-hold-actions>
-              <Button type="button" disabled={busy} onClick={() => void suspend()}>
-                Suspender
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  setHolding(null)
-                  setIssue(null)
-                }}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <LegalHoldForm
+          draft={draft}
+          onChange={setDraft}
+          issue={issue}
+          busy={busy}
+          subjectFixed
+          submitLabel="Suspender"
+          onSubmit={() => void suspend()}
+          onCancel={() => {
+            setHolding(null)
+            setIssue(null)
+          }}
+        />
       ) : null}
+
+      {/* Same duty: an officer refused the requests is refused the holds, and told once. */}
+      {state === 'failed' && refused ? null : (
+        <LegalHolds key={holdsVersion} onChange={() => void load(status)} />
+      )}
     </div>
   )
 }
@@ -478,19 +362,6 @@ function heldBy(request: ErasureRequest): string[] {
     if (category.hold) holds.add(category.hold.id)
   }
   return [...holds]
-}
-
-function categoryChoice(code: string, items: number): string {
-  const labels: Record<string, string> = {
-    operational: 'Operación',
-    audit: 'Auditoría',
-    identity_pii: 'Identidad',
-    training: 'Entrenamiento',
-    body: 'Cuerpo',
-    nutrition: 'Nutrición',
-    health: 'Salud',
-  }
-  return `${labels[code] ?? code} (${items})`
 }
 
 function hasLate(rows: readonly { urgency: string }[]): boolean {

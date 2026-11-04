@@ -22,6 +22,7 @@ import type {
   ErasureRequestDatabase,
   LegalHold,
   LegalHoldDatabase,
+  LegalHoldPage,
   ScopeCommandResult,
   ScopeDefinition,
   ScopeDefinitionDatabase,
@@ -110,6 +111,18 @@ export function createLegalHoldDatabase(): LegalHoldDatabase {
   const sql = database()
 
   return {
+    list: (input) =>
+      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ page: LegalHoldPage }[]>`
+          select privacy.list_legal_holds(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.status}, ${input.limit}::integer
+          ) as page
+        `
+        if (!row) throw new Error('PostgreSQL did not list the legal holds')
+        return row.page
+      }),
+
     apply: (input) =>
       inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
         const [row] = await transaction<HoldRow[]>`
@@ -117,7 +130,8 @@ export function createLegalHoldDatabase(): LegalHoldDatabase {
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
             ${input.application.scope_description}, ${input.application.reason_code},
             ${input.application.case_reference}, ${input.application.valid_to}::timestamptz,
-            ${input.application.disposition_item_ids}::uuid[],
+            ${input.application.subject_person_id}::uuid,
+            ${input.application.data_classification_codes}::text[],
             ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
           )
         `

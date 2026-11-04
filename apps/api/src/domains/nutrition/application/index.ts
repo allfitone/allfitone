@@ -28,6 +28,7 @@ import { DETAIL_CODES, type Estimate, type FoodRecognizer } from '@allfitone/foo
 import type { ObjectStore } from '@allfitone/object-store'
 
 import type {
+  MealDeletionHeld,
   MealRow,
   MealRowPage,
   NutritionCommand,
@@ -109,7 +110,10 @@ export interface SpaceNutritionService {
       patch: NutritionMealPatch
     },
   ): Promise<NutritionMeal>
-  deleteMeal(input: NutritionCommand & { personId: string; mealId: string }): Promise<void>
+  /** Null once deleted; otherwise why it is not, yet (HU-BO-033 c3). */
+  deleteMeal(
+    input: NutritionCommand & { personId: string; mealId: string },
+  ): Promise<MealDeletionHeld | null>
   readDailySummaries(
     input: Parameters<NutritionDatabase['readDailySummaries']>[0],
   ): Promise<NutritionDailySummaryPage>
@@ -226,8 +230,12 @@ export function createSpaceNutritionService(
     },
 
     async deleteMeal(input) {
-      const { disposed_media_ref } = await database.deleteMeal(input)
-      await dispose(input.personId, disposed_media_ref)
+      const outcome = await database.deleteMeal(input)
+      if (!outcome.deleted) {
+        return { status: outcome.hold ? 'suspended' : 'pending', hold: outcome.hold }
+      }
+      await dispose(input.personId, outcome.disposed_media_ref)
+      return null
     },
 
     readDailySummaries: (input) => database.readDailySummaries(input),

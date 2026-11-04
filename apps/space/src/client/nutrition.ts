@@ -37,6 +37,7 @@ export type FrequentFoodPage = AllfitV1Schemas['NutritionFrequentFoodPage']
 export type RecognitionResult = AllfitV1Schemas['NutritionRecognition']
 export type RecognitionConsentState = AllfitV1Schemas['NutritionRecognitionConsent']
 export type PhotoUpload = AllfitV1Schemas['NutritionPhotoUpload']
+export type MealDeletionHeld = AllfitV1Schemas['MealDeletionHeld']
 
 /** The nutrients a goal can set; the rest are read, never aimed at. */
 export const NUTRIENTS = ['energy', 'protein', 'carbohydrates', 'fat', 'fiber', 'water'] as const
@@ -242,6 +243,26 @@ export const addToMeal = (type: MealType): string =>
 const figure = (value: number) => Math.round(value).toLocaleString('es-CO')
 
 /** The strong validator a correction carries, rebuilt from the meal's own revision. */
+const HOLD_GROUNDS: Readonly<Record<NonNullable<MealDeletionHeld['hold']>['reason_code'], string>> =
+  {
+    judicial_order: 'una orden judicial',
+    regulatory_request: 'un requerimiento de una autoridad',
+    service_dispute: 'una disputa sobre el servicio',
+    tax_or_accounting_obligation: 'una obligación contable o tributaria',
+  }
+
+/**
+ * HU-BO-033 c3: a meal a legal hold keeps was not deleted, and the person is told on what
+ * ground and until when. The request stands: it is deleted once the hold ends.
+ */
+export function deletionHeldNote(held: MealDeletionHeld): string {
+  if (!held.hold) return 'Ya la estamos eliminando; desaparecerá en un momento.'
+  const until = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(
+    new Date(held.hold.valid_to),
+  )
+  return `No la eliminamos todavía: la conservamos por ${HOLD_GROUNDS[held.hold.reason_code]} hasta el ${until}. Se eliminará sola cuando termine.`
+}
+
 export const etagOf = (meal: Pick<NutritionMeal, 'id' | 'revision_number'>) =>
   `"nutrition-meal:${meal.id}:r${String(meal.revision_number)}"`
 
@@ -558,7 +579,8 @@ export interface NutritionTransport {
     ifMatch: string,
     patch: MealPatch,
   ): Promise<NutritionMeal>
-  deleteMeal(command: CommandHeaders, mealId: string): Promise<void>
+  /** Null once deleted; what keeps it otherwise. */
+  deleteMeal(command: CommandHeaders, mealId: string): Promise<MealDeletionHeld | null>
   readDays(from: string, to: string, timezone: string): Promise<DailySummaryPage>
   readGoals(): Promise<Goals>
   publishGoal(command: CommandHeaders, targets: readonly GoalTarget[]): Promise<GoalVersion>
@@ -581,7 +603,8 @@ export interface NutritionFlow {
   listMeals(from: string, to: string): Promise<MealPage>
   /** Corrects the meal as it was read; a 409 means it changed somewhere else. */
   reviseMeal(read: NutritionMeal, patch: MealPatch): Promise<NutritionMeal>
-  deleteMeal(mealId: string): Promise<void>
+  /** Null once deleted; a legal hold may keep it, and then it says why and until when. */
+  deleteMeal(mealId: string): Promise<MealDeletionHeld | null>
   readDays(from: string, to: string, timezone: string): Promise<DailySummaryPage>
   readGoals(): Promise<Goals>
   publishGoal(targets: readonly GoalTarget[]): Promise<GoalVersion>

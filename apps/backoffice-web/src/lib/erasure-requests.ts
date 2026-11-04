@@ -18,13 +18,15 @@
  * subject is an identifier, on purpose: this panel tracks the request, it does not
  * open the file.
  *
- * A legal hold is offered on the categories that are still waiting, and only those:
- * what was already erased cannot be held, and what is already held is released
- * rather than held twice. The form refuses an open-ended hold before it travels,
- * because the database refuses one too and saying so late is worse.
+ * A legal hold is offered from a request on the kinds of data still waiting there:
+ * it opens the hold form on that person with those kinds marked. The hold itself
+ * covers the person's data of those kinds, not just this request, and its rules are
+ * `legal-holds.ts`'s.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+
+import { HOLDABLE_CATEGORIES, holdReasonLabel, type HoldableCategory } from './legal-holds'
 
 export type ErasureRequest = AllfitV1Schemas['ErasureRequest']
 export type ErasureRequestPage = AllfitV1Schemas['ErasureRequestPage']
@@ -32,8 +34,6 @@ export type ErasureRequestState = AllfitV1Schemas['ErasureRequestState']
 export type ErasureRequestCategory = AllfitV1Schemas['ErasureRequestCategory']
 type DataClassificationCode = AllfitV1Schemas['DataClassificationCode']
 type DispositionAction = AllfitV1Schemas['DispositionAction']
-export type LegalHoldReason = AllfitV1Schemas['LegalHoldReason']
-export type LegalHold = AllfitV1Schemas['LegalHold']
 
 /** How close to the limit a request has to be before the panel marks it. */
 export const DUE_SOON_DAYS = 5
@@ -129,67 +129,28 @@ const DONE_LABELS: Record<DispositionAction, string> = {
   retain_restricted: 'conservado',
 }
 
-const HOLD_REASON_LABELS: Record<LegalHoldReason, string> = {
-  judicial_order: 'orden judicial',
-  regulatory_request: 'requerimiento de autoridad',
-  service_dispute: 'disputa por el servicio',
-  tax_or_accounting_obligation: 'obligación contable o tributaria',
-}
-
-export function holdReasonLabel(reason: LegalHoldReason): string {
-  return HOLD_REASON_LABELS[reason]
-}
-
-export const HOLD_REASONS: readonly LegalHoldReason[] = [
-  'judicial_order',
-  'regulatory_request',
-  'service_dispute',
-  'tax_or_accounting_obligation',
-]
-
-/** What can still be suspended: not what was erased, and not what is already held. */
+/**
+ * What can still be suspended: what waits, of a kind the platform deletes. Not what
+ * was erased, and not what a hold already keeps.
+ */
 export function holdableCategories(request: ErasureRequest): ErasureRequestCategory[] {
   return request.categories.filter(
-    (category) => category.status === 'pending' && category.hold === null,
+    (category) =>
+      category.status === 'pending' &&
+      category.hold === null &&
+      HOLDABLE_CATEGORIES.includes(category.data_classification_code as HoldableCategory),
   )
 }
 
-export interface HoldDraft {
-  scopeDescription: string
-  reasonCode: LegalHoldReason
-  caseReference: string
-  validTo: string
-  itemIds: string[]
-}
-
-export const EMPTY_HOLD: HoldDraft = {
-  scopeDescription: '',
-  reasonCode: 'judicial_order',
-  caseReference: '',
-  validTo: '',
-  itemIds: [],
-}
-
-export type HoldIssue = 'scope' | 'case' | 'vigency' | 'categories'
-
-/** The first thing missing, in the order the form asks for it. */
-export function holdIssue(draft: HoldDraft, now = Date.now()): HoldIssue | undefined {
-  if (draft.scopeDescription.trim().length < 3) return 'scope'
-  if (draft.caseReference.trim().length < 3) return 'case'
-  const ends = Date.parse(`${draft.validTo}T23:59:59`)
-  if (!draft.validTo || Number.isNaN(ends) || ends <= now) return 'vigency'
-  if (draft.itemIds.length === 0) return 'categories'
-  return undefined
-}
-
-export function holdIssueMessage(issue: HoldIssue): string {
-  const messages: Record<HoldIssue, string> = {
-    scope: 'Describe qué cubre la suspensión, con tus palabras.',
-    case: 'Anota la referencia del requerimiento u orden que la sustenta.',
-    vigency: 'Di hasta cuándo. No existen suspensiones indefinidas, y una fecha pasada no sirve.',
-    categories: 'Marca al menos una categoría por suspender.',
-  }
-  return messages[issue]
+/** The kinds a hold opened from this request starts with, each once. */
+export function holdableKinds(request: ErasureRequest): HoldableCategory[] {
+  return [
+    ...new Set(
+      holdableCategories(request).map(
+        (category) => category.data_classification_code as HoldableCategory,
+      ),
+    ),
+  ]
 }
 
 /** One line per category: what it held, what happened to it, and how much. */
@@ -244,7 +205,7 @@ export function erasureMessage(code: string): string {
     'separation-of-duties':
       'Pediste o aprobaste un acceso excepcional a los datos de esta persona, así que no puedes decidir qué se conserva de ella. Pídeselo a alguien del equipo que no haya participado.',
     conflict:
-      'Alguna de esas categorías ya tiene otra suspensión vigente, o esta ya fue liberada. Vuelve a abrir la página para ver el estado actual.',
+      'Esa retención ya terminó: alguien la liberó o venció su fecha. Vuelve a abrir la página para ver el estado actual.',
     'not-found': 'Esa suspensión ya no existe.',
     'validation-failed': 'La suspensión no cumple el contrato. Revisa alcance, motivo y vigencia.',
     'idempotency-in-progress': 'El comando anterior sigue procesándose. Reintenta en un momento.',

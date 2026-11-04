@@ -20,10 +20,10 @@
  *
  * A legal hold is a command over the same disposition tables the panel reads, so it
  * lives here too. The handler shapes and rejects: who may apply one, whether that
- * officer already asked to read the person's file, and what happens to the items
+ * officer already asked to read the person's file, and what happens to what it holds
  * are all resolved in the transaction. Nothing about a hold is accepted from the
- * request except its scope, reason, vigency and targets — the officer comes from
- * the session.
+ * request except its scope, reason, vigency, person and kinds of data — the officer
+ * comes from the session.
  *
  * The access log lives here rather than in `support` because the closed queries
  * and the table are the privacy schema's, even though the operation is numbered
@@ -63,11 +63,14 @@ import {
   DATA_CLASSIFICATIONS,
   decodeAccessEventCursor,
   DEFAULT_ERASURE_PAGE,
+  DEFAULT_HOLD_PAGE,
+  HOLDABLE_CLASSIFICATIONS,
+  LEGAL_HOLD_STATES,
+  MAX_HOLD_PAGE,
   MAX_ACCESS_EVENT_PAGE,
   ERASURE_REQUEST_STATES,
   LEGAL_HOLD_REASONS,
   MAX_ERASURE_PAGE,
-  MAX_HELD_ITEMS,
   MAX_HOLD_CASE_REFERENCE,
   MAX_HOLD_SCOPE,
   SCOPE_CODES,
@@ -75,8 +78,11 @@ import {
   type AccessLevel,
   type ErasureRequestFilters,
   type ErasureRequestState,
+  type HoldableClassification,
   type LegalHoldApplication,
+  type LegalHoldFilters,
   type LegalHoldReason,
+  type LegalHoldState,
   type ScopeCode,
   type ScopeDefinitionPublication,
   type ScopeResourceRule,
@@ -160,6 +166,23 @@ export function backofficePrivacyRoutes(
       if (actor instanceof Response) return actor
       return c.json(
         await erasure().list(
+          { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
+          { requestId: randomUUID(), ...filters },
+        ),
+      )
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
+  routes.get('/legal-holds', async (c) => {
+    const filters = legalHoldFilters(c)
+    if (!filters) return problem(c, 'invalid-request')
+    try {
+      const actor = await backofficeActor(c, sessions())
+      if (actor instanceof Response) return actor
+      return c.json(
+        await holds().list(
           { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
           { requestId: randomUUID(), ...filters },
         ),
@@ -354,7 +377,8 @@ function legalHoldApplication(body: unknown): LegalHoldApplication | undefined {
     'reason_code',
     'case_reference',
     'valid_to',
-    'disposition_item_ids',
+    'subject_person_id',
+    'data_classification_codes',
   ])
   if (Object.keys(fields).some((key) => !allowed.has(key))) return undefined
 
@@ -362,29 +386,50 @@ function legalHoldApplication(body: unknown): LegalHoldApplication | undefined {
   const reason = fields['reason_code']
   const reference = fields['case_reference']
   const validTo = fields['valid_to']
-  const targets = fields['disposition_item_ids']
+  const subject = fields['subject_person_id']
+  const codes = fields['data_classification_codes']
 
   if (!isFilled(scope, MAX_HOLD_SCOPE) || !isFilled(reference, MAX_HOLD_CASE_REFERENCE)) {
     return undefined
   }
   if (!LEGAL_HOLD_REASONS.includes(reason as LegalHoldReason)) return undefined
   if (typeof validTo !== 'string' || Number.isNaN(Date.parse(validTo))) return undefined
-  if (!Array.isArray(targets) || targets.length === 0 || targets.length > MAX_HELD_ITEMS) {
-    return undefined
+  if (typeof subject !== 'string' || !UUID_ANY.test(subject)) return undefined
+  if (!Array.isArray(codes) || codes.length === 0) return undefined
+  const kinds = new Set<HoldableClassification>()
+  for (const code of codes) {
+    if (!HOLDABLE_CLASSIFICATIONS.includes(code as HoldableClassification)) return undefined
+    kinds.add(code as HoldableClassification)
   }
-  const items = new Set<string>()
-  for (const target of targets) {
-    if (typeof target !== 'string' || !UUID_V7.test(target)) return undefined
-    items.add(target)
-  }
+  // The contract says each kind once; a repeated one is a malformed request, not a hint.
+  if (kinds.size !== codes.length) return undefined
 
   return {
     scope_description: (scope as string).trim(),
     reason_code: reason as LegalHoldReason,
     case_reference: (reference as string).trim(),
     valid_to: new Date(Date.parse(validTo)).toISOString(),
-    disposition_item_ids: [...items],
+    subject_person_id: subject.toLowerCase(),
+    data_classification_codes: [...kinds],
   }
+}
+
+function legalHoldFilters(c: Context): LegalHoldFilters | undefined {
+  const allowed = new Set(['status', 'limit'])
+  const query = c.req.query()
+  if (Object.keys(query).some((key) => !allowed.has(key))) return undefined
+
+  const status = query['status'] ?? 'active'
+  if (!LEGAL_HOLD_STATES.includes(status as LegalHoldState)) return undefined
+
+  let limit = DEFAULT_HOLD_PAGE
+  const asked = query['limit']
+  if (asked !== undefined) {
+    if (!/^[0-9]{1,3}$/.test(asked)) return undefined
+    limit = Number(asked)
+    if (limit < 1 || limit > MAX_HOLD_PAGE) return undefined
+  }
+  return { status: status as LegalHoldState, limit }
 }
 
 /** Present, a string, and something other than spaces. */

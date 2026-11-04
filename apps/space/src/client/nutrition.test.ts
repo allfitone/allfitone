@@ -10,6 +10,7 @@ import {
   targetText,
   createNutritionFlow,
   dayAfterDeleting,
+  deletionHeldNote,
   dayTitle,
   emptyDaysNote,
   eatenFor,
@@ -200,6 +201,33 @@ describe('deleting a meal (N-4c)', () => {
       energy: { before: 1420, after: 938 },
       protein: { before: 96, after: 45 },
     })
+  })
+
+  test('T-SPC-UNIT-328 a meal a legal hold keeps says so, on what ground and until when', async () => {
+    const held = {
+      status: 'suspended' as const,
+      hold: { reason_code: 'judicial_order' as const, valid_to: '2027-02-01T12:00:00Z' },
+    }
+    const flow = createNutritionFlow({
+      transport: { deleteMeal: async () => held } as unknown as NutritionTransport,
+      newCommand: () => ({ idempotencyKey: 'key-1', commandId: 'command-1' }),
+    })
+
+    await expect(flow.deleteMeal(meal().id)).resolves.toEqual(held)
+    const note = deletionHeldNote(held)
+    expect(note).toContain('No la eliminamos todavía')
+    expect(note).toContain('una orden judicial')
+    expect(note).toContain('2027')
+  })
+
+  test('T-SPC-UNIT-329 a meal whose hold just ended says its deletion is on its way', async () => {
+    const flow = createNutritionFlow({
+      transport: { deleteMeal: async () => null } as unknown as NutritionTransport,
+      newCommand: () => ({ idempotencyKey: 'key-1', commandId: 'command-1' }),
+    })
+
+    await expect(flow.deleteMeal(meal().id)).resolves.toBeNull()
+    expect(deletionHeldNote({ status: 'pending', hold: null })).toContain('en un momento')
   })
 })
 

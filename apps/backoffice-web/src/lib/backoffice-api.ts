@@ -24,6 +24,8 @@ export type AccessEventPage = AllfitV1Schemas['AccessEventPage']
 export type ErasureRequestPage = AllfitV1Schemas['ErasureRequestPage']
 export type LegalHold = AllfitV1Schemas['LegalHold']
 export type LegalHoldApplication = AllfitV1Schemas['LegalHoldApplication']
+export type LegalHoldPage = AllfitV1Schemas['LegalHoldPage']
+export type LegalHoldState = AllfitV1Schemas['LegalHoldState']
 export type BackofficeOrganizationSummary = AllfitV1Schemas['BackofficeOrganizationSummary']
 export type BackofficeOrganizationPage = AllfitV1Schemas['BackofficeOrganizationPage']
 export type OrganizationHandover = AllfitV1Schemas['OrganizationHandover']
@@ -452,6 +454,12 @@ export const backofficeApi = {
       headers: commandHeaders(command),
       body: JSON.stringify(application),
     }),
+
+  legalHolds: (filters: { status?: LegalHoldState | undefined } = {}, signal?: AbortSignal) =>
+    requestJson<LegalHoldPage>(
+      `/backoffice/v1/legal-holds${query(filters)}`,
+      signal ? { signal } : {},
+    ),
 
   releaseLegalHold: (holdId: string, command: BackofficeCommand) =>
     requestJson<LegalHold>(`/backoffice/v1/legal-holds/${holdId}/release`, {

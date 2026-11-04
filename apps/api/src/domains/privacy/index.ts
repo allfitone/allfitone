@@ -31,6 +31,7 @@ export type {
   ErasureRequest,
   ErasureRequestPage,
   LegalHold,
+  LegalHoldPage,
   GrantRevocation,
   MyConsent,
   OfferableScope,

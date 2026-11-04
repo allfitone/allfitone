@@ -4,17 +4,14 @@ import {
   categoryLine,
   emptyMessage,
   erasureMessage,
-  holdIssue,
-  holdIssueMessage,
-  holdReasonLabel,
   holdableCategories,
   panelSummary,
   requestRows,
   urgencyOf,
   type ErasureRequest,
   type ErasureRequestPage,
-  type HoldDraft,
 } from './erasure-requests'
+import { holdReasonLabel } from './legal-holds'
 
 const NOW = Date.parse('2026-09-23T12:00:00.000Z')
 
@@ -279,32 +276,9 @@ describe('erasure request presentation rules', () => {
     ).toEqual(['body'])
   })
 
-  test('the form refuses an open-ended hold, and says which field is missing', () => {
-    const complete: HoldDraft = {
-      scopeDescription: 'Mediciones de la persona en el expediente 2026-114',
-      reasonCode: 'judicial_order',
-      caseReference: 'JUZGADO-2026-114',
-      validTo: '2026-12-22',
-      itemIds: ['019ae000-0000-7000-8000-000000000601'],
-    }
-
-    expect(holdIssue(complete, Date.parse('2026-09-23T12:00:00.000Z'))).toBeUndefined()
-    expect(holdIssue({ ...complete, validTo: '' }, Date.parse('2026-09-23T12:00:00.000Z'))).toBe(
-      'vigency',
-    )
-    expect(
-      holdIssue({ ...complete, validTo: '2026-09-01' }, Date.parse('2026-09-23T12:00:00.000Z')),
-    ).toBe('vigency')
-    expect(holdIssue({ ...complete, scopeDescription: ' ' }, Date.now())).toBe('scope')
-    expect(holdIssue({ ...complete, caseReference: '' }, Date.now())).toBe('case')
-    expect(holdIssue({ ...complete, itemIds: [] }, Date.now())).toBe('categories')
-    expect(holdIssueMessage('vigency')).toContain('hasta cuándo')
-    expect(holdIssueMessage('categories')).toContain('categoría')
-  })
-
   test('a separation conflict is explained as itself, not as a refusal', () => {
     expect(erasureMessage('separation-of-duties')).toContain('acceso excepcional')
     expect(erasureMessage('separation-of-duties')).not.toBe(erasureMessage('forbidden'))
-    expect(erasureMessage('conflict')).toContain('otra suspensión')
+    expect(erasureMessage('conflict')).toContain('ya terminó')
   })
 })
