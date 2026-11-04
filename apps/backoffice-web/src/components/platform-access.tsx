@@ -54,6 +54,7 @@ import {
   type PlatformRoleAssignment,
 } from '@/lib/backoffice-api'
 import {
+  actorModeLabel,
   DEFAULT_DUTY_DAYS,
   MAX_DUTY_DAYS,
   PLATFORM_DUTY_CODES,
@@ -562,7 +563,7 @@ function DutySection({
                   </TableCell>
                   <TableCell>{dutyLabel(assignment.duty_code)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{assignment.actor_mode}</Badge>
+                    <Badge variant="outline">{actorModeLabel(assignment.actor_mode)}</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={dutyStatusTone(assignment.status)}>

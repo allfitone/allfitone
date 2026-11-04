@@ -24,7 +24,10 @@ tags:
   - name: Backoffice Catalogue
     description: Global catalogue curation performed by Allfit staff.
   - name: Global Catalogue
-    description: Global published catalogue shared by every surface.
+    description: >-
+      Global published catalogue, with no subject and no tenant. Studio and
+      Backoffice read it inside their own surface, the only path their session
+      cookie travels to.
   - name: Backoffice Platform Access
     description: Base role and temporary platform duty administration for Allfit staff.
   - name: Backoffice Break Glass
@@ -831,10 +834,10 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
-  /catalog/v1/information-categories:
+  /studio/v1/catalog/information-categories:
     get:
       tags: [Global Catalogue]
-      operationId: listCatalogInformationCategories
+      operationId: listStudioCatalogInformationCategories
       x-allfit-operation: OP-PRV-022
       x-allfit-cache: private-no-store
       summary: List the categories of information a gym can ask a client for
@@ -842,8 +845,8 @@ paths:
         The words for each of the seven categories: what it covers, where it
         stops, and the purpose a professional may state for asking. A gym member
         reads it to know what they can ask for; the person being asked reads the
-        same wording to decide, which is why it is served from the tenant-less
-        catalogue rather than copied into Studio and Space.
+        same wording to decide. It is read on the Studio surface because the
+        Studio session cookie travels nowhere else.
 
 
         This is not `OP-PRV-012`. That one answers which resources and fields a
@@ -869,29 +872,29 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
-  /catalog/v1/disciplines:
+  /backoffice/v1/catalog/disciplines:
     get:
       tags: [Global Catalogue]
-      operationId: listCatalogDisciplines
+      operationId: listBackofficeCatalogDisciplines
       x-allfit-operation: OP-CAT-007
-      x-allfit-cache: private-no-store
+      x-allfit-cache: no-store
       summary: List the published disciplines of the global catalogue
       description: >-
-        The catalogue has no subject and no tenant: it is global published content
-        shared by every surface. It still requires an authenticated active person,
+        The catalogue has no subject and no tenant: it is global published content.
+        It is read on the Backoffice surface because the Backoffice session cookie
+        travels nowhere else, and it still requires an authenticated active person,
         so it is not public. There is no pagination in V1 — the catalogue is small
-        and closed. It is served uncached and never answers 304: both callers today
-        are browsers reading across origins, and a 304 reached them without
+        and closed. It is served uncached and never answers 304: the caller is a
+        browser reading across origins, and a 304 reached it without
         `Access-Control-Allow-Origin`, which the browser blocks.
       security:
-        - cookieAuth: []
         - backofficeCookieAuth: []
       responses:
         '200':
           description: Published disciplines ordered by their stable code
           headers:
             Cache-Control:
-              $ref: '#/components/headers/PrivateNoStore'
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -903,26 +906,25 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
-  /catalog/v1/activity-types:
+  /backoffice/v1/catalog/activity-types:
     get:
       tags: [Global Catalogue]
-      operationId: listCatalogActivityTypes
+      operationId: listBackofficeCatalogActivityTypes
       x-allfit-operation: OP-CAT-008
-      x-allfit-cache: private-no-store
+      x-allfit-cache: no-store
       summary: List the published global activity types
       description: >-
         Only global published content. An organisation's own activity types belong
         to its Studio surface and never appear here. The code is stable and never
         reused, so a client may cache against it.
       security:
-        - cookieAuth: []
         - backofficeCookieAuth: []
       responses:
         '200':
           description: Published global activity types ordered by discipline and code
           headers:
             Cache-Control:
-              $ref: '#/components/headers/PrivateNoStore'
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -934,20 +936,19 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
-  /catalog/v1/activity-types/{activityTypeId}/result-contracts:
+  /backoffice/v1/catalog/activity-types/{activityTypeId}/result-contracts:
     get:
       tags: [Global Catalogue]
-      operationId: listCatalogActivityTypeResultContracts
+      operationId: listBackofficeCatalogActivityTypeResultContracts
       x-allfit-operation: OP-CAT-012
-      x-allfit-cache: private-no-store
+      x-allfit-cache: no-store
       summary: List the effective result contracts of an activity type
       description: >-
         Returns the contracts currently associated with the activity type, their
         versions, which one is the default, and the minimums a session must carry.
-        This exists so a client can explain a rejection before it syncs; the
+        Backoffice reads it to show what a new version would supersede; the
         authoritative validation stays on the server.
       security:
-        - cookieAuth: []
         - backofficeCookieAuth: []
       parameters:
         - $ref: '#/components/parameters/CatalogActivityTypeId'
@@ -956,7 +957,7 @@ paths:
           description: Effective associations, the default first
           headers:
             Cache-Control:
-              $ref: '#/components/headers/PrivateNoStore'
+              $ref: '#/components/headers/NoStore'
           content:
             application/json:
               schema:
@@ -9820,7 +9821,7 @@ paths:
       summary: Read the global catalogue as its curator sees it
       description: >-
         `HU-BO-022`. Every global discipline, activity type and movement, published and
-        archived alike — unlike `/catalog/v1`, which answers only what is published. Each
+        archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each
         entry says how much already depends on it, so archiving is a decision taken with
         the consequence in view. A gym's private content never appears here. Equipment has
         no table in V1 and is declared absent rather than answered as an empty list.

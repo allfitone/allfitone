@@ -43,7 +43,9 @@ test('shows who reaches the data, with the state and window of every duty', asyn
   await expect(page.getByRole('cell', { name: 'Administrar accesos de plataforma' })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Diagnosticar metadatos de soporte' })).toBeVisible()
   // The duty carries its mode and its required assurance, not just its name.
-  await expect(page.getByRole('cell', { name: 'A12', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('cell', { name: 'Seguridad y privacidad', exact: true }),
+  ).toBeVisible()
   await expect(page.getByRole('cell', { name: '2', exact: true }).first()).toBeVisible()
 })
 

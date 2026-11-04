@@ -1,30 +1,30 @@
 /**
- * The global catalogue surface: `OP-CAT-007`, `OP-CAT-008` and `OP-CAT-012`.
+ * The global catalogue as the web products read it: `OP-CAT-007`, `OP-CAT-008`,
+ * `OP-CAT-012` and `OP-PRV-022`.
  *
- * `/catalog/v1` is the one surface with no subject and no tenant. It serves
- * global published content that Space, Studio and Backoffice all read, so it is
- * mounted once rather than duplicated into each product surface — the same
- * reason `application/` holds the use case and the handlers only project it.
+ * The content is global — no subject, no tenant — but a browser only proves who
+ * is reading with its product's session cookie, and that cookie is scoped to its
+ * surface: `/backoffice/v1` or `/studio/v1`. These reads once lived on
+ * `/catalog/v1`, where neither cookie travels, so every one of them answered 401
+ * in production. They are served inside each product surface instead, mounted on
+ * a `catalog/` sub-prefix so their middleware stays theirs. `/catalog/v1` keeps
+ * the reads Space makes with a bearer token (`movements.ts`).
+ *
+ * Each router reads its own cookie and nothing else, so a browser that has signed
+ * into both products can no longer be read as the wrong one. Only the reads a
+ * product uses are mounted on it: Backoffice publishes result contracts, and
+ * Studio shows a member what they may ask a client for.
  *
  * It is still not public. The operation sheets require any authenticated
  * account, and the closed database functions refuse a caller that is not an
  * active person, so an abandoned session stops reading the moment the person is
  * closed.
  *
- * A browser that has signed into both web products sends both session cookies,
- * because both are set by this API. The `Origin` header is what decides which
- * one is the caller's, and CORS has already restricted it to the two known web
- * origins. Space is headless and will arrive with a bearer credential instead;
- * that branch does not exist yet, so a request without a known origin is
- * refused rather than silently resolved from whichever cookie happens to be
- * present.
- *
- * Every read answers `private, no-store` and never 304. Both callers today are
- * browsers reading across origins, and a 304 reached them without
- * `Access-Control-Allow-Origin` although the application sets it, so the
- * browser blocked the revalidation outright. When Space arrives with a bearer
- * credential it is not subject to CORS, and revalidation can be reconsidered
- * for that branch alone.
+ * Every read answers uncached and never 304: the callers are browsers reading
+ * across origins, and a 304 reached them without `Access-Control-Allow-Origin`
+ * although the application sets it, so the browser blocked the revalidation.
+ * Backoffice answers `no-store` like the rest of its surface; Studio keeps
+ * `private, no-store`.
  */
 
 import { Hono, type Context } from 'hono'
@@ -39,7 +39,6 @@ import {
   StudioSessionError,
   studioSessionService,
   trustedBackofficeWebUrl,
-  trustedStudioWebUrl,
   type BackofficeAuthenticationService,
   type StudioSessionService,
 } from '../../identity/index.js'
@@ -48,102 +47,42 @@ import type { GlobalCatalogService } from '../application/index.js'
 import { globalCatalogService } from '../dependencies.js'
 import type { CatalogReader } from '../domain/index.js'
 
-const CACHE_CONTROL = 'private, no-store'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-export function catalogSurfaceRoutes(
+type ReaderOf = (c: Context) => Promise<CatalogReader | Response>
+
+/** Mounted at `/backoffice/v1/catalog`. */
+export function backofficeCatalogReadRoutes(
   injectedCatalog?: GlobalCatalogService,
-  injectedStudioSessions?: StudioSessionService,
-  injectedBackofficeSessions?: BackofficeAuthenticationService,
+  injectedSessions?: BackofficeAuthenticationService,
 ): Hono {
-  const studioOrigin = new URL(trustedStudioWebUrl()).origin
-  const backofficeOrigin = new URL(trustedBackofficeWebUrl()).origin
   const catalog = () => injectedCatalog ?? globalCatalogService()
-  const studioSessions = () => injectedStudioSessions ?? studioSessionService()
-  const backofficeSessions = () => injectedBackofficeSessions ?? backofficeAuthenticationService()
+  const sessions = () => injectedSessions ?? backofficeAuthenticationService()
   const routes = new Hono()
 
   routes.use(
     '*',
     cors({
-      origin: [studioOrigin, backofficeOrigin],
+      origin: new URL(trustedBackofficeWebUrl()).origin,
       credentials: true,
       allowMethods: ['GET', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'If-None-Match'],
-      exposeHeaders: ['ETag', 'Server-Timing'],
+      allowHeaders: ['Content-Type'],
+      exposeHeaders: ['Server-Timing'],
       maxAge: 600,
     }),
   )
-  const surfaces = {
-    studioOrigin,
-    backofficeOrigin,
-    studioSessions,
-    backofficeSessions,
-  }
-
-  /*
-   * `OP-PRV-022`. Mounted here rather than on `/studio/v1` because the same
-   * seven rows are what a member reads to know what they may ask for and what
-   * the person being asked reads to decide. A Backoffice caller reaches this
-   * route like any other on the surface and is refused by the closed function,
-   * which is the honest answer: the wording is person-only by policy, and an
-   * empty list would read as "there are no categories".
-   */
-  routes.get('/information-categories', (c) =>
-    catalogResponse(c, surfaces, (reader) => catalog().listInformationCategories(reader)),
-  )
-
-  routes.get('/disciplines', (c) =>
-    catalogResponse(c, surfaces, (reader) => catalog().listDisciplines(reader)),
-  )
-
-  routes.get('/activity-types', (c) =>
-    catalogResponse(c, surfaces, (reader) => catalog().listActivityTypes(reader)),
-  )
-
-  routes.get('/activity-types/:activityTypeId/result-contracts', (c) => {
-    const activityTypeId = c.req.param('activityTypeId')
-    if (!UUID.test(activityTypeId)) return problem(c, 'invalid-request')
-    return catalogResponse(c, surfaces, (reader) =>
-      catalog().listActivityTypeResultContracts(reader, activityTypeId),
-    )
+  routes.use('*', async (c, next) => {
+    await next()
+    c.header('Cache-Control', 'no-store')
+    c.header('Referrer-Policy', 'no-referrer')
+    c.header('Vary', 'Origin')
   })
 
-  return routes
-}
-
-interface CatalogSurfaces {
-  studioOrigin: string
-  backofficeOrigin: string
-  studioSessions: () => StudioSessionService
-  backofficeSessions: () => BackofficeAuthenticationService
-}
-
-async function catalogResponse(
-  c: Context,
-  surfaces: CatalogSurfaces,
-  load: (reader: CatalogReader) => Promise<unknown[]>,
-) {
-  c.header('Cache-Control', CACHE_CONTROL)
-  try {
-    const reader = await catalogReader(c, surfaces)
-    if (reader instanceof Response) return reader
-    return c.json({ items: await load(reader) })
-  } catch (error) {
-    return operationFailure(c, error)
-  }
-}
-
-async function catalogReader(
-  c: Context,
-  surfaces: CatalogSurfaces,
-): Promise<CatalogReader | Response> {
-  const origin = c.req.header('origin')
-  if (origin === surfaces.backofficeOrigin) {
+  const reader: ReaderOf = async (c) => {
     const token = getCookie(c, BACKOFFICE_SESSION_COOKIE)
     if (!token) return problem(c, 'unauthenticated', 'missing session cookie')
     try {
-      const actor = await surfaces.backofficeSessions().resolveActor(token)
+      const actor = await sessions().resolveActor(token)
       return { personId: actor.personId, actorKind: 'support' }
     } catch (error) {
       if (error instanceof BackofficeAuthenticationError) return problem(c, error.code)
@@ -151,11 +90,39 @@ async function catalogReader(
     }
   }
 
-  if (origin === surfaces.studioOrigin) {
+  routes.get('/disciplines', (c) =>
+    catalogResponse(c, reader, (actor) => catalog().listDisciplines(actor)),
+  )
+
+  routes.get('/activity-types', (c) =>
+    catalogResponse(c, reader, (actor) => catalog().listActivityTypes(actor)),
+  )
+
+  routes.get('/activity-types/:activityTypeId/result-contracts', (c) => {
+    const activityTypeId = c.req.param('activityTypeId')
+    if (!UUID.test(activityTypeId)) return problem(c, 'invalid-request')
+    return catalogResponse(c, reader, (actor) =>
+      catalog().listActivityTypeResultContracts(actor, activityTypeId),
+    )
+  })
+
+  return routes
+}
+
+/** Mounted at `/studio/v1/catalog`, under the CORS the whole Studio surface shares. */
+export function studioCatalogReadRoutes(
+  injectedCatalog?: GlobalCatalogService,
+  injectedSessions?: StudioSessionService,
+): Hono {
+  const catalog = () => injectedCatalog ?? globalCatalogService()
+  const sessions = () => injectedSessions ?? studioSessionService()
+  const routes = new Hono()
+
+  const reader: ReaderOf = async (c) => {
     const token = getCookie(c, STUDIO_SESSION_COOKIE)
     if (!token) return problem(c, 'unauthenticated', 'missing session cookie')
     try {
-      const actor = await surfaces.studioSessions().resolveActor(token)
+      const actor = await sessions().resolveActor(token)
       if (!actor.personId) return problem(c, 'registration-incomplete')
       return { personId: actor.personId, actorKind: 'person' }
     } catch (error) {
@@ -164,7 +131,28 @@ async function catalogReader(
     }
   }
 
-  return problem(c, 'forbidden', 'the global catalogue is read from a known product surface')
+  // `OP-PRV-022`. What a member reads to know what they may ask a client for; the
+  // closed function admits a person alone, so a support actor is refused, never served.
+  routes.get('/information-categories', (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    return catalogResponse(c, reader, (actor) => catalog().listInformationCategories(actor))
+  })
+
+  return routes
+}
+
+async function catalogResponse(
+  c: Context,
+  readerOf: ReaderOf,
+  load: (reader: CatalogReader) => Promise<unknown[]>,
+) {
+  try {
+    const reader = await readerOf(c)
+    if (reader instanceof Response) return reader
+    return c.json({ items: await load(reader) })
+  } catch (error) {
+    return operationFailure(c, error)
+  }
 }
 
 function operationFailure(c: Context, error: unknown) {

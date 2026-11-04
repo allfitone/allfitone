@@ -11,6 +11,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeAccessEvents',
       allfitOperation: 'OP-SUP-009',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -18,6 +19,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getBackofficeAuthenticationAttempt',
       allfitOperation: 'OP-IDN-033',
       responses: ['200', '401', '403', '503'],
+      security: ['backofficeAttemptAuth'],
     },
     {
       method: 'POST',
@@ -25,6 +27,7 @@ export const allfitV1ContractManifest = {
       operationId: 'logoutBackofficeSession',
       allfitOperation: 'OP-IDN-036',
       responses: ['204', '403'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -32,6 +35,7 @@ export const allfitV1ContractManifest = {
       operationId: 'requestBackofficePasswordReset',
       allfitOperation: 'OP-IDN-037',
       responses: ['202', '400', '403', '429'],
+      security: [],
     },
     {
       method: 'POST',
@@ -39,6 +43,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startBackofficePasswordAuthentication',
       allfitOperation: 'OP-IDN-032',
       responses: ['200', '400', '401', '403', '429', '503'],
+      security: [],
     },
     {
       method: 'POST',
@@ -46,6 +51,7 @@ export const allfitV1ContractManifest = {
       operationId: 'verifyBackofficeTotp',
       allfitOperation: 'OP-IDN-034',
       responses: ['204', '400', '401', '403', '409', '429', '503'],
+      security: ['backofficeAttemptAuth'],
     },
     {
       method: 'GET',
@@ -53,6 +59,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeBreakGlassRequests',
       allfitOperation: 'OP-SUP-001',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -60,6 +67,7 @@ export const allfitV1ContractManifest = {
       operationId: 'requestBackofficeBreakGlass',
       allfitOperation: 'OP-SUP-001',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -67,6 +75,7 @@ export const allfitV1ContractManifest = {
       operationId: 'closeBackofficeBreakGlass',
       allfitOperation: 'OP-SUP-004',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -74,6 +83,7 @@ export const allfitV1ContractManifest = {
       operationId: 'decideBackofficeBreakGlass',
       allfitOperation: 'OP-SUP-002',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -81,6 +91,7 @@ export const allfitV1ContractManifest = {
       operationId: 'exerciseBackofficeBreakGlass',
       allfitOperation: 'OP-SUP-003',
       responses: ['200', '400', '401', '403', '404', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -88,6 +99,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reviewBackofficeBreakGlass',
       allfitOperation: 'OP-SUP-006',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -95,6 +107,31 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeBreakGlassReviewQueue',
       allfitOperation: 'OP-SUP-006',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
+      method: 'GET',
+      path: '/backoffice/v1/catalog/activity-types',
+      operationId: 'listBackofficeCatalogActivityTypes',
+      allfitOperation: 'OP-CAT-008',
+      responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
+      method: 'GET',
+      path: '/backoffice/v1/catalog/activity-types/{activityTypeId}/result-contracts',
+      operationId: 'listBackofficeCatalogActivityTypeResultContracts',
+      allfitOperation: 'OP-CAT-012',
+      responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
+      method: 'GET',
+      path: '/backoffice/v1/catalog/disciplines',
+      operationId: 'listBackofficeCatalogDisciplines',
+      allfitOperation: 'OP-CAT-007',
+      responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -102,6 +139,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeGlobalCatalogue',
       allfitOperation: 'NEW-CAT-GLOBAL-PUBLISH',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -109,6 +147,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishCatalogueActivityType',
       allfitOperation: 'OP-CAT-004',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -116,6 +155,7 @@ export const allfitV1ContractManifest = {
       operationId: 'archiveCatalogueActivityType',
       allfitOperation: 'OP-CAT-005',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -123,6 +163,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishCatalogueDiscipline',
       allfitOperation: 'OP-CAT-004',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -130,6 +171,7 @@ export const allfitV1ContractManifest = {
       operationId: 'archiveCatalogueDiscipline',
       allfitOperation: 'OP-CAT-005',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -137,6 +179,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishCatalogueMovement',
       allfitOperation: 'OP-CAT-004',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -144,6 +187,7 @@ export const allfitV1ContractManifest = {
       operationId: 'archiveCatalogueMovement',
       allfitOperation: 'OP-CAT-005',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -151,6 +195,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeErasureRequests',
       allfitOperation: 'OP-PRV-021',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -158,6 +203,7 @@ export const allfitV1ContractManifest = {
       operationId: 'applyBackofficeLegalHold',
       allfitOperation: 'OP-PRV-009',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -165,6 +211,7 @@ export const allfitV1ContractManifest = {
       operationId: 'releaseBackofficeLegalHold',
       allfitOperation: 'OP-PRV-010',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -172,6 +219,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeOrganizations',
       allfitOperation: 'NEW-SUP-ORG-SEARCH',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -179,6 +227,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createBackofficeOrganizationHandover',
       allfitOperation: 'OP-ORG-018',
       responses: ['201', '400', '401', '403', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -186,6 +235,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeOrganizationFile',
       allfitOperation: 'NEW-SUP-ORG-DETAIL',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -193,6 +243,7 @@ export const allfitV1ContractManifest = {
       operationId: 'cancelBackofficeOrganizationHandover',
       allfitOperation: 'OP-ORG-022',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -200,6 +251,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeClientInvitations',
       allfitOperation: 'NEW-IDN-CLIENT-RESEND',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -207,6 +259,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resendBackofficeClientInvitation',
       allfitOperation: 'OP-IDN-051',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '429', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -214,6 +267,7 @@ export const allfitV1ContractManifest = {
       operationId: 'setBackofficeOrganizationGuestQuota',
       allfitOperation: 'OP-ORG-023',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -221,6 +275,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeOrganizationHandover',
       allfitOperation: 'OP-ORG-018',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -228,6 +283,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resendBackofficeOrganizationHandover',
       allfitOperation: 'OP-ORG-021',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -235,6 +291,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reactivateBackofficeOrganization',
       allfitOperation: 'OP-ORG-025',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -242,6 +299,7 @@ export const allfitV1ContractManifest = {
       operationId: 'suspendBackofficeOrganization',
       allfitOperation: 'OP-ORG-024',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -249,6 +307,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeTeamInvitations',
       allfitOperation: 'NEW-IDN-RESEND',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -256,6 +315,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resendBackofficeTeamInvitation',
       allfitOperation: 'OP-IDN-052',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '429', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -263,6 +323,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startBackofficeAccountRecovery',
       allfitOperation: 'OP-IDN-053',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '429', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -270,6 +331,7 @@ export const allfitV1ContractManifest = {
       operationId: 'cancelBackofficeAccountRecovery',
       allfitOperation: 'OP-IDN-055',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -277,6 +339,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resendBackofficeAccountRecovery',
       allfitOperation: 'OP-IDN-054',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '429', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -284,6 +347,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeAccountRecovery',
       allfitOperation: 'NEW-IDN-ACTION',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -291,6 +355,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficePlatformPlans',
       allfitOperation: 'NEW-PAY-PLATFORM-PLAN',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -298,6 +363,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createBackofficePlatformPlan',
       allfitOperation: 'OP-PAY-024',
       responses: ['201', '400', '401', '403', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -305,6 +371,7 @@ export const allfitV1ContractManifest = {
       operationId: 'proposeBackofficePlatformPlanVersion',
       allfitOperation: 'OP-PAY-025',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -312,6 +379,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishBackofficePlatformPlanVersion',
       allfitOperation: 'OP-PAY-017',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -319,6 +387,7 @@ export const allfitV1ContractManifest = {
       operationId: 'withdrawBackofficePlatformPlanVersion',
       allfitOperation: 'OP-PAY-026',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -326,6 +395,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficePlatformDuties',
       allfitOperation: 'OP-SUP-011',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -333,6 +403,7 @@ export const allfitV1ContractManifest = {
       operationId: 'grantBackofficePlatformDuty',
       allfitOperation: 'OP-SUP-010',
       responses: ['201', '400', '401', '403', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -340,6 +411,7 @@ export const allfitV1ContractManifest = {
       operationId: 'revokeBackofficePlatformDuty',
       allfitOperation: 'OP-SUP-010',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -347,6 +419,7 @@ export const allfitV1ContractManifest = {
       operationId: 'suspendBackofficePlatformDuty',
       allfitOperation: 'OP-SUP-010',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -354,6 +427,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficePlatformRoles',
       allfitOperation: 'OP-SUP-008',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -361,6 +435,7 @@ export const allfitV1ContractManifest = {
       operationId: 'grantBackofficePlatformRole',
       allfitOperation: 'OP-SUP-007',
       responses: ['201', '400', '401', '403', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -368,6 +443,7 @@ export const allfitV1ContractManifest = {
       operationId: 'revokeBackofficePlatformRole',
       allfitOperation: 'OP-SUP-007',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -375,6 +451,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishResultContract',
       allfitOperation: 'OP-CAT-006',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -382,6 +459,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deprecateResultContract',
       allfitOperation: 'OP-CAT-006',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -389,6 +467,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeScopeDefinitions',
       allfitOperation: 'OP-PRV-011',
       responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -396,6 +475,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishBackofficeScopeDefinition',
       allfitOperation: 'OP-PRV-011',
       responses: ['201', '400', '401', '403', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -403,6 +483,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getBackofficeSession',
       allfitOperation: 'OP-IDN-035',
       responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -410,6 +491,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeSupportAttention',
       allfitOperation: 'NEW-SUP-ATTENTION',
       responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -417,6 +499,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeSupportBusiness',
       allfitOperation: 'NEW-SUP-DASHBOARD',
       responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -424,6 +507,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeSupportDeliveryCircuits',
       allfitOperation: 'OP-SUP-005',
       responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -431,6 +515,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeSupportOperations',
       allfitOperation: 'OP-SUP-005',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -438,6 +523,7 @@ export const allfitV1ContractManifest = {
       operationId: 'searchBackofficeSupportPeople',
       allfitOperation: 'OP-SUP-005',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -445,6 +531,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeSupportPersonMetadata',
       allfitOperation: 'OP-SUP-005',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -452,6 +539,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readBackofficeSupportPersonPayments',
       allfitOperation: 'NEW-SUP-PERSON-PAYMENTS',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -459,6 +547,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getBackofficeTelemetryConfig',
       allfitOperation: 'OP-SYS-011',
       responses: ['200'],
+      security: [],
     },
     {
       method: 'GET',
@@ -466,6 +555,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeVerificationRenewals',
       allfitOperation: 'OP-IDN-011',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -473,6 +563,7 @@ export const allfitV1ContractManifest = {
       operationId: 'openBackofficeVerificationRenewal',
       allfitOperation: 'OP-IDN-011',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -480,6 +571,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listBackofficeVerificationRequests',
       allfitOperation: 'OP-IDN-011',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'POST',
@@ -487,27 +579,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createBackofficeVerification',
       allfitOperation: 'OP-IDN-011',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
-    },
-    {
-      method: 'GET',
-      path: '/catalog/v1/activity-types',
-      operationId: 'listCatalogActivityTypes',
-      allfitOperation: 'OP-CAT-008',
-      responses: ['200', '401', '403', '503'],
-    },
-    {
-      method: 'GET',
-      path: '/catalog/v1/activity-types/{activityTypeId}/result-contracts',
-      operationId: 'listCatalogActivityTypeResultContracts',
-      allfitOperation: 'OP-CAT-012',
-      responses: ['200', '400', '401', '403', '404', '503'],
-    },
-    {
-      method: 'GET',
-      path: '/catalog/v1/disciplines',
-      operationId: 'listCatalogDisciplines',
-      allfitOperation: 'OP-CAT-007',
-      responses: ['200', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
     },
     {
       method: 'GET',
@@ -515,13 +587,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listEquipment',
       allfitOperation: 'OP-CAT-011',
       responses: ['200', '401', '403', '503'],
-    },
-    {
-      method: 'GET',
-      path: '/catalog/v1/information-categories',
-      operationId: 'listCatalogInformationCategories',
-      allfitOperation: 'OP-PRV-022',
-      responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -529,6 +595,7 @@ export const allfitV1ContractManifest = {
       operationId: 'searchMovements',
       allfitOperation: 'OP-CAT-009',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -536,6 +603,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readMovement',
       allfitOperation: 'OP-CAT-010',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -543,6 +611,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMuscles',
       allfitOperation: 'OP-CAT-015',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -550,6 +619,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyAgenda',
       allfitOperation: 'OP-PLN-016',
       responses: ['200', '304', '400', '401', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -557,6 +627,7 @@ export const allfitV1ContractManifest = {
       operationId: 'selfAssignSpaceProgram',
       allfitOperation: 'OP-PLN-011',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -564,6 +635,7 @@ export const allfitV1ContractManifest = {
       operationId: 'requestSpacePasswordReset',
       allfitOperation: 'OP-IDN-042',
       responses: ['202', '400', '429'],
+      security: [],
     },
     {
       method: 'POST',
@@ -571,6 +643,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startSpaceRegistration',
       allfitOperation: 'OP-IDN-038',
       responses: ['202', '400', '422', '429', '503'],
+      security: [],
     },
     {
       method: 'POST',
@@ -578,6 +651,7 @@ export const allfitV1ContractManifest = {
       operationId: 'verifySpaceRegistration',
       allfitOperation: 'OP-IDN-039',
       responses: ['200', '400', '401', '429', '503'],
+      security: [],
     },
     {
       method: 'DELETE',
@@ -585,6 +659,7 @@ export const allfitV1ContractManifest = {
       operationId: 'signOutOfSpace',
       allfitOperation: 'OP-IDN-048',
       responses: ['204'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -592,6 +667,7 @@ export const allfitV1ContractManifest = {
       operationId: 'signInToSpace',
       allfitOperation: 'OP-IDN-040',
       responses: ['200', '400', '401', '429', '503'],
+      security: [],
     },
     {
       method: 'POST',
@@ -599,6 +675,7 @@ export const allfitV1ContractManifest = {
       operationId: 'refreshSpaceSession',
       allfitOperation: 'OP-IDN-041',
       responses: ['200', '400', '401', '429', '503'],
+      security: [],
     },
     {
       method: 'GET',
@@ -606,6 +683,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyBodyPhotos',
       allfitOperation: 'OP-IDN-058',
       responses: ['200', '401', '403'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -613,6 +691,7 @@ export const allfitV1ContractManifest = {
       operationId: 'recordMyBodyPhoto',
       allfitOperation: 'OP-IDN-056',
       responses: ['201', '400', '401', '403', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'DELETE',
@@ -620,6 +699,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deleteMyBodyPhoto',
       allfitOperation: 'OP-IDN-057',
       responses: ['204', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -627,6 +707,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceBodyProgress',
       allfitOperation: 'OP-IDN-015',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -634,6 +715,7 @@ export const allfitV1ContractManifest = {
       operationId: 'recordSpaceBodyProgress',
       allfitOperation: 'OP-IDN-006',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'DELETE',
@@ -641,6 +723,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deleteSpaceBodyProgress',
       allfitOperation: 'OP-IDN-007',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -648,6 +731,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMySpaceClientInvitations',
       allfitOperation: 'OP-IDN-056',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -655,6 +739,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readMySpaceClientInvitation',
       allfitOperation: 'OP-REL-015',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -662,6 +747,7 @@ export const allfitV1ContractManifest = {
       operationId: 'decideSpaceClientInvitation',
       allfitOperation: 'OP-IDN-009',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -669,6 +755,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resolveSpaceClientInvitation',
       allfitOperation: 'OP-REL-015',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -676,6 +763,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMySpaceConsents',
       allfitOperation: 'OP-PRV-013',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -683,6 +771,7 @@ export const allfitV1ContractManifest = {
       operationId: 'revokeConsentGrant',
       allfitOperation: 'OP-PRV-005',
       responses: ['200', '400', '401', '404', '409', '410'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -690,6 +779,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyExecutions',
       allfitOperation: 'OP-EXE-014',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -697,6 +787,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startFreeSession',
       allfitOperation: 'OP-EXE-004',
       responses: ['201', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -704,6 +795,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyExecution',
       allfitOperation: 'OP-EXE-015',
       responses: ['200', '401', '403', '404', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -711,6 +803,7 @@ export const allfitV1ContractManifest = {
       operationId: 'abandonExecution',
       allfitOperation: 'OP-EXE-003',
       responses: ['200', '400', '401', '403', '404', '409'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -718,6 +811,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyFinishedExecution',
       allfitOperation: 'OP-EXE-023',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -725,6 +819,7 @@ export const allfitV1ContractManifest = {
       operationId: 'finalizeExecution',
       allfitOperation: 'OP-EXE-006',
       responses: ['200', '400', '401', '404', '409', '422', '428'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -732,6 +827,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyInvalidationPreview',
       allfitOperation: 'OP-EXE-024',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -739,6 +835,7 @@ export const allfitV1ContractManifest = {
       operationId: 'annulMyExecution',
       allfitOperation: 'OP-EXE-009',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -746,6 +843,7 @@ export const allfitV1ContractManifest = {
       operationId: 'repeatMyExecution',
       allfitOperation: 'OP-EXE-025',
       responses: ['201', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -753,6 +851,7 @@ export const allfitV1ContractManifest = {
       operationId: 'replaceExecutionResults',
       allfitOperation: 'OP-EXE-005',
       responses: ['200', '400', '401', '404', '409', '422', '428'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -760,6 +859,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reviseMyExecution',
       allfitOperation: 'OP-EXE-007',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -767,6 +867,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyExecutionSummary',
       allfitOperation: 'OP-EXE-021',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -774,6 +875,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceHealthContext',
       allfitOperation: 'OP-IDN-049',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -781,6 +883,7 @@ export const allfitV1ContractManifest = {
       operationId: 'declareSpaceHealthContext',
       allfitOperation: 'OP-IDN-008',
       responses: ['201', '400', '401', '403', '409', '410', '415', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'DELETE',
@@ -788,6 +891,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deleteSpaceHealthContext',
       allfitOperation: 'OP-IDN-050',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -795,6 +899,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyHistoryMonth',
       allfitOperation: 'OP-EXE-022',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -802,6 +907,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyContent',
       allfitOperation: 'OP-PLN-025',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -809,6 +915,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyNutritionDailySummaries',
       allfitOperation: 'OP-NUT-005',
       responses: ['200', '400', '401'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -816,6 +923,7 @@ export const allfitV1ContractManifest = {
       operationId: 'searchNutritionFoods',
       allfitOperation: 'OP-NUT-014',
       responses: ['200', '400', '401'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -823,6 +931,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyFrequentNutritionFoods',
       allfitOperation: 'OP-NUT-015',
       responses: ['200', '401'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -830,6 +939,7 @@ export const allfitV1ContractManifest = {
       operationId: 'decideNutritionGoalVersion',
       allfitOperation: 'OP-NUT-008',
       responses: ['200', '400', '401', '404', '409'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -837,6 +947,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyNutritionGoals',
       allfitOperation: 'OP-NUT-006',
       responses: ['200', '401'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -844,6 +955,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishSelfNutritionGoalVersion',
       allfitOperation: 'OP-NUT-007',
       responses: ['201', '400', '401', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -851,6 +963,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyNutritionMeals',
       allfitOperation: 'OP-NUT-002',
       responses: ['200', '400', '401'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -858,6 +971,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createNutritionMeal',
       allfitOperation: 'OP-NUT-001',
       responses: ['201', '400', '401', '409', '410', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'DELETE',
@@ -865,6 +979,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deleteNutritionMeal',
       allfitOperation: 'OP-NUT-004',
       responses: ['204', '401', '404', '409', '410'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -872,6 +987,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyNutritionMeal',
       allfitOperation: 'OP-NUT-002',
       responses: ['200', '401', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PATCH',
@@ -879,6 +995,7 @@ export const allfitV1ContractManifest = {
       operationId: 'updateNutritionMeal',
       allfitOperation: 'OP-NUT-003',
       responses: ['200', '400', '401', '404', '409', '422', '428'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -886,6 +1003,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getNutritionRecognitionConsent',
       allfitOperation: 'OP-NUT-017',
       responses: ['200', '401'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -893,6 +1011,7 @@ export const allfitV1ContractManifest = {
       operationId: 'acceptNutritionRecognitionConsent',
       allfitOperation: 'OP-NUT-017',
       responses: ['200', '400', '401', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -900,6 +1019,7 @@ export const allfitV1ContractManifest = {
       operationId: 'recognizeNutritionPhoto',
       allfitOperation: 'OP-NUT-016',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -907,6 +1027,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startSpaceOnboardingAttempt',
       allfitOperation: 'OP-IDN-001',
       responses: ['200', '400', '401', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -914,6 +1035,7 @@ export const allfitV1ContractManifest = {
       operationId: 'declareSpaceBiologicalSex',
       allfitOperation: 'OP-IDN-045',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -921,6 +1043,7 @@ export const allfitV1ContractManifest = {
       operationId: 'completeSpaceOnboarding',
       allfitOperation: 'OP-IDN-003',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -928,6 +1051,7 @@ export const allfitV1ContractManifest = {
       operationId: 'recordSpaceAdultEligibilityEvidence',
       allfitOperation: 'OP-IDN-002',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -935,6 +1059,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createSpacePendingFitnessId',
       allfitOperation: 'OP-IDN-043',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -942,6 +1067,7 @@ export const allfitV1ContractManifest = {
       operationId: 'skipSpaceOnboardingStep',
       allfitOperation: 'OP-IDN-047',
       responses: ['204', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -949,6 +1075,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getSpaceCurrentOnboardingAttempt',
       allfitOperation: 'OP-IDN-044',
       responses: ['200', '401', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -956,6 +1083,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceOrganizationPlans',
       allfitOperation: 'OP-PAY-011',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -963,6 +1091,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startPlannedSessionAttempt',
       allfitOperation: 'OP-EXE-001',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -970,6 +1099,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readSpacePro',
       allfitOperation: 'OP-PAY-020',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -977,6 +1107,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceProPayments',
       allfitOperation: 'NEW-PAY-PRO-PAYMENTS',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -984,6 +1115,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceProPlans',
       allfitOperation: 'OP-PAY-018',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -991,6 +1123,7 @@ export const allfitV1ContractManifest = {
       operationId: 'recordSpaceProPurchase',
       allfitOperation: 'OP-PAY-019',
       responses: ['201', '400', '401', '403', '409', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -998,6 +1131,7 @@ export const allfitV1ContractManifest = {
       operationId: 'declareSpaceProfileClaim',
       allfitOperation: 'OP-IDN-004',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1005,6 +1139,7 @@ export const allfitV1ContractManifest = {
       operationId: 'declareSpaceFocusAreas',
       allfitOperation: 'OP-IDN-046',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1012,6 +1147,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpacePrograms',
       allfitOperation: 'OP-PLN-020',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1019,6 +1155,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createMyProgram',
       allfitOperation: 'OP-PLN-006',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -1026,6 +1163,7 @@ export const allfitV1ContractManifest = {
       operationId: 'setMyProgramCover',
       allfitOperation: 'OP-PLN-033',
       responses: ['200', '401', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1033,6 +1171,7 @@ export const allfitV1ContractManifest = {
       operationId: 'discardMyProgram',
       allfitOperation: 'OP-PLN-029',
       responses: ['200', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1040,6 +1179,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readMyProgramDraft',
       allfitOperation: 'OP-PLN-026',
       responses: ['200', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -1047,6 +1187,7 @@ export const allfitV1ContractManifest = {
       operationId: 'replaceMyProgramDraft',
       allfitOperation: 'OP-PLN-007',
       responses: ['200', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1054,6 +1195,7 @@ export const allfitV1ContractManifest = {
       operationId: 'duplicateMyProgram',
       allfitOperation: 'OP-PLN-035',
       responses: ['200', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1061,6 +1203,7 @@ export const allfitV1ContractManifest = {
       operationId: 'removeMyProgram',
       allfitOperation: 'OP-PLN-034',
       responses: ['200', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1068,6 +1211,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishMyProgram',
       allfitOperation: 'OP-PLN-008',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1075,6 +1219,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getSpaceProgramVersion',
       allfitOperation: 'OP-PLN-021',
       responses: ['200', '401', '403', '404', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1082,6 +1227,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyPrograms',
       allfitOperation: 'OP-PLN-020',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -1089,6 +1235,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reorderMyPrograms',
       allfitOperation: 'OP-PLN-024',
       responses: ['200', '400', '401', '403'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1096,6 +1243,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readMyUnpublishedProgram',
       allfitOperation: 'OP-PLN-030',
       responses: ['200', '401', '403'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1103,6 +1251,7 @@ export const allfitV1ContractManifest = {
       operationId: 'compareMyPeriods',
       allfitOperation: 'OP-EXE-026',
       responses: ['200', '400', '401', '403'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1110,6 +1259,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceRelationships',
       allfitOperation: 'OP-REL-012',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1117,6 +1267,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyRelationshipEvents',
       allfitOperation: 'OP-REL-014',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1124,6 +1275,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyRelationshipSubstitutions',
       allfitOperation: 'OP-REL-013',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1131,6 +1283,7 @@ export const allfitV1ContractManifest = {
       operationId: 'decideMyRelationshipSubstitution',
       allfitOperation: 'OP-REL-005',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1138,6 +1291,7 @@ export const allfitV1ContractManifest = {
       operationId: 'endMyRelationshipSubstitution',
       allfitOperation: 'OP-REL-006',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1145,6 +1299,7 @@ export const allfitV1ContractManifest = {
       operationId: 'endMyRelationship',
       allfitOperation: 'OP-REL-007',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1152,6 +1307,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createMySessionTemplate',
       allfitOperation: 'OP-PLN-001',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1159,6 +1315,7 @@ export const allfitV1ContractManifest = {
       operationId: 'discardMySessionTemplate',
       allfitOperation: 'OP-PLN-028',
       responses: ['200', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1166,6 +1323,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readMySessionTemplateDraft',
       allfitOperation: 'OP-PLN-023',
       responses: ['200', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -1173,6 +1331,7 @@ export const allfitV1ContractManifest = {
       operationId: 'replaceMySessionTemplateDraft',
       allfitOperation: 'OP-PLN-002',
       responses: ['200', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1180,6 +1339,7 @@ export const allfitV1ContractManifest = {
       operationId: 'duplicateMySessionTemplate',
       allfitOperation: 'OP-PLN-036',
       responses: ['200', '401', '403', '404', '409'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1187,6 +1347,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishMySessionTemplate',
       allfitOperation: 'OP-PLN-003',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1194,6 +1355,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listSpaceSubscriptions',
       allfitOperation: 'OP-PAY-013',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1201,6 +1363,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createSpaceSubscription',
       allfitOperation: 'OP-PAY-012',
       responses: ['200', '201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1208,6 +1371,7 @@ export const allfitV1ContractManifest = {
       operationId: 'cancelSpaceSubscription',
       allfitOperation: 'OP-PAY-015',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1215,6 +1379,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getSpaceTelemetryConfig',
       allfitOperation: 'OP-SYS-011',
       responses: ['200'],
+      security: [],
     },
     {
       method: 'GET',
@@ -1222,6 +1387,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyToday',
       allfitOperation: 'OP-PLN-022',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1229,6 +1395,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyWeekPlan',
       allfitOperation: 'OP-PLN-022',
       responses: ['200', '401', '403', '503'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1236,6 +1403,7 @@ export const allfitV1ContractManifest = {
       operationId: 'completeStudioAuthentication',
       allfitOperation: 'OP-IDN-026',
       responses: ['303', '400', '401', '403', '503'],
+      security: [],
     },
     {
       method: 'POST',
@@ -1243,6 +1411,7 @@ export const allfitV1ContractManifest = {
       operationId: 'logoutStudioSession',
       allfitOperation: 'OP-IDN-028',
       responses: ['303', '403'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1250,6 +1419,15 @@ export const allfitV1ContractManifest = {
       operationId: 'startStudioAuthentication',
       allfitOperation: 'OP-IDN-025',
       responses: ['302', '503'],
+      security: [],
+    },
+    {
+      method: 'GET',
+      path: '/studio/v1/catalog/information-categories',
+      operationId: 'listStudioCatalogInformationCategories',
+      allfitOperation: 'OP-PRV-022',
+      responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1257,6 +1435,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getStudioEntryContext',
       allfitOperation: 'OP-ORG-020',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1264,6 +1443,7 @@ export const allfitV1ContractManifest = {
       operationId: 'decideStudioTeamInvitation',
       allfitOperation: 'OP-IDN-009',
       responses: ['200', '400', '401', '403', '404', '409', '422', '429', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1271,6 +1451,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resolveStudioTeamInvitation',
       allfitOperation: 'OP-IDN-016',
       responses: ['200', '403', '404', '422', '429', '503'],
+      security: [],
     },
     {
       method: 'GET',
@@ -1278,6 +1459,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getMyStudioProfessionalProfile',
       allfitOperation: 'OP-IDN-017',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1285,6 +1467,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listMyStudioMemberships',
       allfitOperation: 'OP-ORG-014',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1292,6 +1475,7 @@ export const allfitV1ContractManifest = {
       operationId: 'declareMyStudioProfessionalCredential',
       allfitOperation: 'OP-IDN-029',
       responses: ['201', '400', '401', '403', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1299,6 +1483,7 @@ export const allfitV1ContractManifest = {
       operationId: 'retireMyStudioProfessionalCredential',
       allfitOperation: 'OP-IDN-031',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1306,6 +1491,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reviseMyStudioProfessionalCredential',
       allfitOperation: 'OP-IDN-030',
       responses: ['201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'PUT',
@@ -1313,6 +1499,7 @@ export const allfitV1ContractManifest = {
       operationId: 'putMyStudioProfessionalProfile',
       allfitOperation: 'OP-IDN-010',
       responses: ['200', '400', '401', '403', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1320,6 +1507,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioOfferableScopes',
       allfitOperation: 'OP-REL-016',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1327,6 +1515,7 @@ export const allfitV1ContractManifest = {
       operationId: 'startStudioOnboardingAttempt',
       allfitOperation: 'OP-IDN-001',
       responses: ['200', '401', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1334,6 +1523,7 @@ export const allfitV1ContractManifest = {
       operationId: 'completeStudioOnboarding',
       allfitOperation: 'OP-IDN-003',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1341,6 +1531,7 @@ export const allfitV1ContractManifest = {
       operationId: 'recordStudioAdultEligibilityEvidence',
       allfitOperation: 'OP-IDN-002',
       responses: ['200', '400', '401', '403', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1348,6 +1539,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioOrganizationTypes',
       allfitOperation: 'OP-ORG-019',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1355,6 +1547,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createStudioOrganization',
       allfitOperation: 'OP-ORG-001',
       responses: ['201', '400', '401', '403', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1362,6 +1555,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getStudioOrganization',
       allfitOperation: 'OP-ORG-013',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'PATCH',
@@ -1369,6 +1563,7 @@ export const allfitV1ContractManifest = {
       operationId: 'updateStudioOrganization',
       allfitOperation: 'OP-ORG-002',
       responses: ['200', '400', '401', '403', '404', '409', '422', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1376,6 +1571,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioAuthorizedScopes',
       allfitOperation: 'OP-PRV-023',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1383,6 +1579,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createStudioClientInvitation',
       allfitOperation: 'OP-REL-001',
       responses: ['200', '201', '400', '401', '403', '404', '409', '422', '429', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1390,6 +1587,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioOrganizationClients',
       allfitOperation: 'OP-REL-010',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1397,6 +1595,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getAuthorizedClientExecution',
       allfitOperation: 'OP-EXE-018',
       responses: ['200', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1404,6 +1603,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listAuthorizedClientNutritionDailySummaries',
       allfitOperation: 'OP-NUT-010',
       responses: ['200', '400', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1411,6 +1611,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listAuthorizedClientNutritionGoalVersions',
       allfitOperation: 'OP-NUT-011',
       responses: ['200', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1418,6 +1619,7 @@ export const allfitV1ContractManifest = {
       operationId: 'proposeClientNutritionGoalVersion',
       allfitOperation: 'OP-NUT-012',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1425,6 +1627,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listAuthorizedClientNutritionMeals',
       allfitOperation: 'OP-NUT-009',
       responses: ['200', '400', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1432,6 +1635,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getAuthorizedClientNutritionMealPhoto',
       allfitOperation: 'OP-NUT-013',
       responses: ['200', '401', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'POST',
@@ -1439,6 +1643,7 @@ export const allfitV1ContractManifest = {
       operationId: 'closeStudioOrganization',
       allfitOperation: 'OP-ORG-012',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1446,6 +1651,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioTeamInvitations',
       allfitOperation: 'OP-ORG-016',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1453,6 +1659,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createStudioTeamInvitation',
       allfitOperation: 'OP-ORG-005',
       responses: ['200', '201', '400', '401', '403', '404', '409', '422', '429', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1460,6 +1667,7 @@ export const allfitV1ContractManifest = {
       operationId: 'revokeStudioTeamInvitation',
       allfitOperation: 'OP-ORG-006',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1467,6 +1675,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resignStudioOrganizationMembership',
       allfitOperation: 'OP-ORG-010',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1474,6 +1683,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioOrganizationMemberships',
       allfitOperation: 'OP-ORG-015',
       responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1481,6 +1691,7 @@ export const allfitV1ContractManifest = {
       operationId: 'grantStudioOrganizationMembershipRole',
       allfitOperation: 'OP-ORG-007',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'DELETE',
@@ -1488,6 +1699,7 @@ export const allfitV1ContractManifest = {
       operationId: 'revokeStudioOrganizationMembershipRole',
       allfitOperation: 'OP-ORG-008',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1495,6 +1707,7 @@ export const allfitV1ContractManifest = {
       operationId: 'terminateStudioOrganizationMembership',
       allfitOperation: 'OP-ORG-009',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1502,6 +1715,7 @@ export const allfitV1ContractManifest = {
       operationId: 'transferStudioOrganizationOwnership',
       allfitOperation: 'OP-ORG-011',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1509,6 +1723,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listOrganizationPrograms',
       allfitOperation: 'OP-PLN-020',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1516,6 +1731,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createOrganizationProgram',
       allfitOperation: 'OP-PLN-006',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'PUT',
@@ -1523,6 +1739,7 @@ export const allfitV1ContractManifest = {
       operationId: 'replaceOrganizationProgramDraft',
       allfitOperation: 'OP-PLN-007',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1530,6 +1747,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishProgramVersion',
       allfitOperation: 'OP-PLN-008',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1537,6 +1755,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getOrganizationProgramVersion',
       allfitOperation: 'OP-PLN-021',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1544,6 +1763,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deprecateOrganizationProgramVersion',
       allfitOperation: 'OP-PLN-009',
       responses: ['200', '400', '401', '403', '404', '409', '415', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1551,6 +1771,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readStudioRelationship',
       allfitOperation: 'OP-REL-011',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1558,6 +1779,7 @@ export const allfitV1ContractManifest = {
       operationId: 'assignProgramVersion',
       allfitOperation: 'OP-PLN-010',
       responses: ['201', '400', '401', '403', '404', '409', '422'],
+      security: ['bearerAuth'],
     },
     {
       method: 'GET',
@@ -1565,6 +1787,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioRelationshipEvents',
       allfitOperation: 'OP-REL-014',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1572,6 +1795,7 @@ export const allfitV1ContractManifest = {
       operationId: 'assignRelationshipHolder',
       allfitOperation: 'OP-REL-002',
       responses: ['200', '201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1579,6 +1803,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reassignRelationshipHolder',
       allfitOperation: 'OP-REL-003',
       responses: ['200', '201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1586,6 +1811,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listRelationshipSubstitutions',
       allfitOperation: 'OP-REL-013',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1593,6 +1819,7 @@ export const allfitV1ContractManifest = {
       operationId: 'proposeRelationshipSubstitution',
       allfitOperation: 'OP-REL-004',
       responses: ['200', '201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1600,6 +1827,7 @@ export const allfitV1ContractManifest = {
       operationId: 'endRelationshipSubstitution',
       allfitOperation: 'OP-REL-006',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1607,6 +1835,7 @@ export const allfitV1ContractManifest = {
       operationId: 'requestRelationshipTermination',
       allfitOperation: 'OP-REL-009',
       responses: ['201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1614,6 +1843,7 @@ export const allfitV1ContractManifest = {
       operationId: 'rejectRelationshipTerminationRequest',
       allfitOperation: 'OP-REL-018',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1621,6 +1851,7 @@ export const allfitV1ContractManifest = {
       operationId: 'withdrawRelationshipTerminationRequest',
       allfitOperation: 'OP-REL-017',
       responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1628,6 +1859,7 @@ export const allfitV1ContractManifest = {
       operationId: 'terminateRelationship',
       allfitOperation: 'OP-REL-008',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1635,6 +1867,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioOrganizationRoles',
       allfitOperation: 'OP-ORG-017',
       responses: ['200', '400', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1642,6 +1875,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listOrganizationSessionTemplates',
       allfitOperation: 'OP-PLN-019',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1649,6 +1883,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createOrganizationSessionTemplate',
       allfitOperation: 'OP-PLN-001',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1656,6 +1891,7 @@ export const allfitV1ContractManifest = {
       operationId: 'readSessionTemplateDraft',
       allfitOperation: 'OP-PLN-023',
       responses: ['200', '401', '403', '404'],
+      security: ['bearerAuth'],
     },
     {
       method: 'PUT',
@@ -1663,6 +1899,7 @@ export const allfitV1ContractManifest = {
       operationId: 'replaceOrganizationSessionTemplateDraft',
       allfitOperation: 'OP-PLN-002',
       responses: ['200', '400', '401', '403', '404', '409', '415', '422', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1670,6 +1907,7 @@ export const allfitV1ContractManifest = {
       operationId: 'publishOrganizationSessionTemplateVersion',
       allfitOperation: 'OP-PLN-003',
       responses: ['201', '400', '401', '403', '404', '409', '415', '422', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1677,6 +1915,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getOrganizationSessionTemplateVersion',
       allfitOperation: 'OP-PLN-021',
       responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1684,6 +1923,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deprecateOrganizationSessionTemplateVersion',
       allfitOperation: 'OP-PLN-005',
       responses: ['200', '400', '401', '403', '404', '409', '415', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1691,6 +1931,7 @@ export const allfitV1ContractManifest = {
       operationId: 'deriveOrganizationSessionTemplateVersion',
       allfitOperation: 'OP-PLN-004',
       responses: ['200', '400', '401', '403', '404', '409', '415', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1698,6 +1939,7 @@ export const allfitV1ContractManifest = {
       operationId: 'createStudioOrganizationSite',
       allfitOperation: 'OP-ORG-003',
       responses: ['201', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'PATCH',
@@ -1705,6 +1947,7 @@ export const allfitV1ContractManifest = {
       operationId: 'updateStudioOrganizationSite',
       allfitOperation: 'OP-ORG-004',
       responses: ['200', '400', '401', '403', '404', '409', '422', '428', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1712,6 +1955,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioOrganizationSubscriptions',
       allfitOperation: 'OP-PAY-007',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1719,6 +1963,7 @@ export const allfitV1ContractManifest = {
       operationId: 'reactivateStudioSubscription',
       allfitOperation: 'OP-PAY-009',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1726,6 +1971,7 @@ export const allfitV1ContractManifest = {
       operationId: 'suspendStudioSubscription',
       allfitOperation: 'OP-PAY-008',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1733,6 +1979,7 @@ export const allfitV1ContractManifest = {
       operationId: 'endStudioSubscription',
       allfitOperation: 'OP-PAY-010',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1740,6 +1987,7 @@ export const allfitV1ContractManifest = {
       operationId: 'decideStudioOwnershipInvitation',
       allfitOperation: 'OP-IDN-009',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'POST',
@@ -1747,6 +1995,7 @@ export const allfitV1ContractManifest = {
       operationId: 'resolveStudioOwnershipInvitation',
       allfitOperation: 'OP-IDN-016',
       responses: ['200', '403', '404', '422', '503'],
+      security: [],
     },
     {
       method: 'GET',
@@ -1754,6 +2003,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioProfessionalCredentialTypes',
       allfitOperation: 'OP-CAT-014',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1761,6 +2011,7 @@ export const allfitV1ContractManifest = {
       operationId: 'listStudioProfessionalSpecialties',
       allfitOperation: 'OP-CAT-013',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1768,6 +2019,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getStudioSession',
       allfitOperation: 'OP-IDN-027',
       responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',
@@ -1775,6 +2027,7 @@ export const allfitV1ContractManifest = {
       operationId: 'getStudioTelemetryConfig',
       allfitOperation: 'OP-SYS-011',
       responses: ['200'],
+      security: [],
     },
   ],
   exclusions: [

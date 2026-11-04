@@ -271,7 +271,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/catalog/v1/information-categories': {
+  '/studio/v1/catalog/information-categories': {
     parameters: {
       query?: never
       header?: never
@@ -280,11 +280,11 @@ export interface paths {
     }
     /**
      * List the categories of information a gym can ask a client for
-     * @description The words for each of the seven categories: what it covers, where it stops, and the purpose a professional may state for asking. A gym member reads it to know what they can ask for; the person being asked reads the same wording to decide, which is why it is served from the tenant-less catalogue rather than copied into Studio and Space.
+     * @description The words for each of the seven categories: what it covers, where it stops, and the purpose a professional may state for asking. A gym member reads it to know what they can ask for; the person being asked reads the same wording to decide. It is read on the Studio surface because the Studio session cookie travels nowhere else.
      *
      *     This is not `OP-PRV-012`. That one answers which resources and fields a published scope version reaches, and says nothing until the catalogue has been curated. This one is the vocabulary: fixed, unversioned, and available from the first day. Refuses a caller that is not an active person rather than answering an empty list.
      */
-    get: operations['listCatalogInformationCategories']
+    get: operations['listStudioCatalogInformationCategories']
     put?: never
     post?: never
     delete?: never
@@ -293,7 +293,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/catalog/v1/disciplines': {
+  '/backoffice/v1/catalog/disciplines': {
     parameters: {
       query?: never
       header?: never
@@ -302,9 +302,9 @@ export interface paths {
     }
     /**
      * List the published disciplines of the global catalogue
-     * @description The catalogue has no subject and no tenant: it is global published content shared by every surface. It still requires an authenticated active person, so it is not public. There is no pagination in V1 — the catalogue is small and closed. It is served uncached and never answers 304: both callers today are browsers reading across origins, and a 304 reached them without `Access-Control-Allow-Origin`, which the browser blocks.
+     * @description The catalogue has no subject and no tenant: it is global published content. It is read on the Backoffice surface because the Backoffice session cookie travels nowhere else, and it still requires an authenticated active person, so it is not public. There is no pagination in V1 — the catalogue is small and closed. It is served uncached and never answers 304: the caller is a browser reading across origins, and a 304 reached it without `Access-Control-Allow-Origin`, which the browser blocks.
      */
-    get: operations['listCatalogDisciplines']
+    get: operations['listBackofficeCatalogDisciplines']
     put?: never
     post?: never
     delete?: never
@@ -313,7 +313,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/catalog/v1/activity-types': {
+  '/backoffice/v1/catalog/activity-types': {
     parameters: {
       query?: never
       header?: never
@@ -324,7 +324,7 @@ export interface paths {
      * List the published global activity types
      * @description Only global published content. An organisation's own activity types belong to its Studio surface and never appear here. The code is stable and never reused, so a client may cache against it.
      */
-    get: operations['listCatalogActivityTypes']
+    get: operations['listBackofficeCatalogActivityTypes']
     put?: never
     post?: never
     delete?: never
@@ -333,7 +333,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/catalog/v1/activity-types/{activityTypeId}/result-contracts': {
+  '/backoffice/v1/catalog/activity-types/{activityTypeId}/result-contracts': {
     parameters: {
       query?: never
       header?: never
@@ -342,9 +342,9 @@ export interface paths {
     }
     /**
      * List the effective result contracts of an activity type
-     * @description Returns the contracts currently associated with the activity type, their versions, which one is the default, and the minimums a session must carry. This exists so a client can explain a rejection before it syncs; the authoritative validation stays on the server.
+     * @description Returns the contracts currently associated with the activity type, their versions, which one is the default, and the minimums a session must carry. Backoffice reads it to show what a new version would supersede; the authoritative validation stays on the server.
      */
-    get: operations['listCatalogActivityTypeResultContracts']
+    get: operations['listBackofficeCatalogActivityTypeResultContracts']
     put?: never
     post?: never
     delete?: never
@@ -3957,7 +3957,7 @@ export interface paths {
     }
     /**
      * Read the global catalogue as its curator sees it
-     * @description `HU-BO-022`. Every global discipline, activity type and movement, published and archived alike — unlike `/catalog/v1`, which answers only what is published. Each entry says how much already depends on it, so archiving is a decision taken with the consequence in view. A gym's private content never appears here. Equipment has no table in V1 and is declared absent rather than answered as an empty list. Requires `curate_global_catalog`.
+     * @description `HU-BO-022`. Every global discipline, activity type and movement, published and archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each entry says how much already depends on it, so archiving is a decision taken with the consequence in view. A gym's private content never appears here. Equipment has no table in V1 and is declared absent rather than answered as an empty list. Requires `curate_global_catalog`.
      */
     get: operations['readBackofficeGlobalCatalogue']
     put?: never
@@ -11195,7 +11195,7 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
-  listCatalogInformationCategories: {
+  listStudioCatalogInformationCategories: {
     parameters: {
       query?: never
       header?: never
@@ -11219,7 +11219,7 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
-  listCatalogDisciplines: {
+  listBackofficeCatalogDisciplines: {
     parameters: {
       query?: never
       header?: never
@@ -11231,7 +11231,7 @@ export interface operations {
       /** @description Published disciplines ordered by their stable code */
       200: {
         headers: {
-          'Cache-Control': components['headers']['PrivateNoStore']
+          'Cache-Control': components['headers']['NoStore']
           [name: string]: unknown
         }
         content: {
@@ -11243,7 +11243,7 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
-  listCatalogActivityTypes: {
+  listBackofficeCatalogActivityTypes: {
     parameters: {
       query?: never
       header?: never
@@ -11255,7 +11255,7 @@ export interface operations {
       /** @description Published global activity types ordered by discipline and code */
       200: {
         headers: {
-          'Cache-Control': components['headers']['PrivateNoStore']
+          'Cache-Control': components['headers']['NoStore']
           [name: string]: unknown
         }
         content: {
@@ -11267,7 +11267,7 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
-  listCatalogActivityTypeResultContracts: {
+  listBackofficeCatalogActivityTypeResultContracts: {
     parameters: {
       query?: never
       header?: never
@@ -11281,7 +11281,7 @@ export interface operations {
       /** @description Effective associations, the default first */
       200: {
         headers: {
-          'Cache-Control': components['headers']['PrivateNoStore']
+          'Cache-Control': components['headers']['NoStore']
           [name: string]: unknown
         }
         content: {

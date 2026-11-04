@@ -69,6 +69,7 @@ import {
   toDecision,
   validitySentence,
   verificationMessage,
+  verificationQueueMessage,
   type CredentialRenewalDue,
   type CredentialVerificationMethod,
   type CredentialVerificationRequest,
@@ -103,7 +104,7 @@ export function CredentialVerification() {
         window.location.assign('/')
         return
       }
-      setFailure(failureMessage(caught))
+      setFailure(failureMessage(caught, verificationQueueMessage))
       setState('failed')
     }
   }, [])
@@ -489,8 +490,11 @@ export function CredentialVerification() {
   )
 }
 
-function failureMessage(error: unknown): string {
-  if (error instanceof BackofficeNetworkError) return verificationMessage('network-unavailable')
-  if (error instanceof BackofficeApiError) return verificationMessage(error.code)
-  return verificationMessage('upstream-unavailable')
+function failureMessage(
+  error: unknown,
+  messageFor: (code: string) => string = verificationMessage,
+): string {
+  if (error instanceof BackofficeNetworkError) return messageFor('network-unavailable')
+  if (error instanceof BackofficeApiError) return messageFor(error.code)
+  return messageFor('upstream-unavailable')
 }

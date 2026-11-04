@@ -66,6 +66,10 @@ One repository producing six deployables is the normal case, not a compromise.
 `/space/v1`, `/studio/v1`, `/catalog/v1` and `/backoffice/v1` are different views
 of the same domain, not different backends.
 
+`/catalog/v1` serves Space, which authenticates with a bearer token. A web
+product reads the global catalogue under its own surface, because its session
+cookie is scoped to that path; `application.contract.test.ts` enforces it.
+
 Every product flow crosses products: the professional assigns in Studio, the
 person executes in Space, the result returns to Studio. Splitting the backend by
 product would cut along the line of highest coupling.

@@ -5,9 +5,9 @@
  * complete.
  *
  * The activity type is chosen from the global catalogue rather than typed:
- * `OP-CAT-008` and `OP-CAT-012` live on `/catalog/v1`, the one surface with no
- * tenant and no subject, so the operator reads the same published content Studio
- * and Space read. Pasting an identifier was only ever a stand-in for that read.
+ * `OP-CAT-008` and `OP-CAT-012` are read on `/backoffice/v1/catalog`, the same
+ * published content Studio and Space read, served where the Backoffice session
+ * cookie travels. Pasting an identifier was only ever a stand-in for that read.
  *
  * Showing what is already effective before publishing matters: a correction is a
  * new version, never an edit, and the operator should see which version they are

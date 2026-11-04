@@ -182,7 +182,11 @@ test('offers the published catalogue grouped by discipline instead of an identif
   await expect(page.getByText('Resistencia de prueba', { exact: true })).toBeVisible()
 
   await expect
-    .poll(() => fixture.requests.filter((request) => request.path.startsWith('/catalog/v1')).length)
+    .poll(
+      () =>
+        fixture.requests.filter((request) => request.path.startsWith('/backoffice/v1/catalog/'))
+          .length,
+    )
     .toBeGreaterThan(0)
 })
 

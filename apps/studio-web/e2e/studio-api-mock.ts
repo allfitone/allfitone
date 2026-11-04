@@ -883,12 +883,8 @@ export async function installStudioApiMock(
       )
     })
   }
-  /*
-   * Studio reads two surfaces, not one. `/catalog/v1` is the tenant-less
-   * catalogue that Space and Backoffice read as well, and leaving it
-   * unintercepted let a request escape to a server that is not running — which
-   * the screen could only report as a failed load.
-   */
+  // Studio reads one surface: even the global catalogue is read under /studio/v1,
+  // the only path its session cookie travels to.
   const handle = async (route: Route) => {
     const request = toMockRequest(route.request())
     if (request.method === 'OPTIONS') {
@@ -908,7 +904,6 @@ export async function installStudioApiMock(
   }
 
   await page.route(`${API_ORIGIN}/studio/v1/**`, handle)
-  await page.route(`${API_ORIGIN}/catalog/v1/**`, handle)
 }
 
 function defaultResponse(
@@ -973,8 +968,7 @@ function defaultResponse(
   if (request.method === 'GET' && request.path === '/studio/v1/offerable-scopes') {
     return { status: 200, body: { items: fixture.offerableScopes } }
   }
-  // The catalogue surface, not `/studio/v1`: the wording is shared with Space.
-  if (request.method === 'GET' && request.path === '/catalog/v1/information-categories') {
+  if (request.method === 'GET' && request.path === '/studio/v1/catalog/information-categories') {
     return { status: 200, body: { items: fixture.informationCategories } }
   }
   if (

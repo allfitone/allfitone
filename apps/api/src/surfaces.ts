@@ -14,10 +14,11 @@ import { cors } from 'hono/cors'
 import type { Hono } from 'hono'
 
 import {
+  backofficeCatalogReadRoutes,
   backofficeCatalogRoutes,
   backofficeGlobalCatalogueRoutes,
   catalogMovementRoutes,
-  catalogSurfaceRoutes,
+  studioCatalogReadRoutes,
   studioCatalogRoutes,
 } from './domains/catalog/index.js'
 import { spaceExecutionRoutes } from './domains/execution/index.js'
@@ -119,6 +120,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/studio/v1', studioOrganizationRoutes())
   app.route('/studio/v1', studioRelationshipRoutes())
   app.route('/studio/v1', studioCatalogRoutes())
+  app.route('/studio/v1/catalog', studioCatalogReadRoutes())
   app.route('/studio/v1', studioPlanningRoutes())
   app.route('/studio/v1', studioPaymentRoutes())
   app.route('/space/v1', spaceIdentityRoutes())
@@ -145,11 +147,11 @@ export function mountSurfaces(app: Hono): void {
   app.route('/backoffice/v1', backofficePrivacyRoutes())
   app.route('/backoffice/v1', backofficeCatalogRoutes())
   app.route('/backoffice/v1', backofficeGlobalCatalogueRoutes())
+  app.route('/backoffice/v1/catalog', backofficeCatalogReadRoutes())
   app.route('/backoffice/v1', backofficeOrganizationRoutes())
   app.route('/backoffice/v1', backofficePlatformPlanRoutes())
 
-  // The global catalogue is one surface, not a copy per product: it has no
-  // subject and no tenant, so every product reads the same mount.
-  app.route('/catalog/v1', catalogSurfaceRoutes())
+  // Space reads the global catalogue here with a bearer token. A web product reads
+  // it on its own surface, because its session cookie never travels to this path.
   app.route('/catalog/v1', catalogMovementRoutes())
 }

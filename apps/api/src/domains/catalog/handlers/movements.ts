@@ -7,9 +7,9 @@
  * **It verifies a Space token.** `/catalog/v1` is a surface and not an application, so
  * there is no `catalog` client to issue tokens for; the caller's own product is what
  * authenticates. Space is the only caller today, and a Studio token is refused rather
- * than quietly accepted — Studio reads its catalogue through its session cookie, and
- * widening this to accept both is a change to make when Studio needs it, with its own
- * test, not an accident of a permissive check.
+ * than quietly accepted. Studio's session cookie never travels here: if Studio needs
+ * movements, they are mounted under `/studio/v1/catalog` (`catalog.ts`), with their
+ * own test, not reached by widening this check.
  */
 
 import type { VerifiedToken } from '@allfitone/auth-provider'

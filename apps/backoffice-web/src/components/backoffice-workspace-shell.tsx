@@ -44,38 +44,7 @@ import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { backofficeApi } from '@/lib/backoffice-api'
-
-interface WorkspaceRoute {
-  href: string
-  title: string
-  icon: 'permissions' | 'people' | 'operation'
-}
-
-const ROUTES: readonly WorkspaceRoute[] = [
-  { href: '/panel', title: 'Inicio', icon: 'operation' },
-  { href: '/people', title: 'Personas', icon: 'people' },
-  { href: '/organizations', title: 'Gimnasios', icon: 'operation' },
-  { href: '/access-log', title: 'Registro de accesos', icon: 'operation' },
-  { href: '/verifications', title: 'Verificación de títulos', icon: 'people' },
-  { href: '/break-glass', title: 'Acceso excepcional', icon: 'permissions' },
-  { href: '/diagnosis', title: 'Diagnóstico técnico', icon: 'operation' },
-  { href: '/team', title: 'Equipo de Allfit', icon: 'permissions' },
-  { href: '/catalogue/result-contracts', title: 'Reglas de resultados', icon: 'operation' },
-  { href: '/catalogue', title: 'Catálogo global', icon: 'operation' },
-  { href: '/plans', title: 'Planes de Allfit', icon: 'operation' },
-  { href: '/erasure-requests', title: 'Solicitudes de eliminación', icon: 'permissions' },
-  { href: '/permissions', title: 'Definiciones de permiso', icon: 'permissions' },
-]
-
-export function resolveBackofficeRoute(pathname: string): WorkspaceRoute {
-  return (
-    ROUTES.find((route) => pathname === route.href || pathname.startsWith(`${route.href}/`)) ?? {
-      href: '/team',
-      title: 'Backoffice',
-      icon: 'people',
-    }
-  )
-}
+import { BACKOFFICE_ROUTES, currentBackofficeRoute } from '@/lib/backoffice-routes'
 
 export function BackofficeWorkspaceShell({
   children,
@@ -85,7 +54,7 @@ export function BackofficeWorkspaceShell({
   operatorName: string
 }) {
   const pathname = usePathname()
-  const route = resolveBackofficeRoute(pathname)
+  const title = currentBackofficeRoute(pathname)?.title ?? 'Backoffice'
 
   return (
     // The rail steals a fifth of a narrow viewport from the content it frames,
@@ -96,7 +65,7 @@ export function BackofficeWorkspaceShell({
         <WorkspaceHeader data-backoffice-header>
           <SidebarTrigger aria-label="Abrir o cerrar navegación" />
           <WorkspaceHeading>
-            <WorkspaceTitle>{route.title}</WorkspaceTitle>
+            <WorkspaceTitle>{title}</WorkspaceTitle>
           </WorkspaceHeading>
         </WorkspaceHeader>
         <WorkspaceContent data-backoffice-content>{children}</WorkspaceContent>
@@ -108,6 +77,7 @@ export function BackofficeWorkspaceShell({
 function BackofficeSidebar({ pathname, operatorName }: { pathname: string; operatorName: string }) {
   const { setOpenMobile, state, isMobile } = useSidebar()
   const railed = state === 'collapsed' && !isMobile
+  const current = currentBackofficeRoute(pathname)
 
   function closeMobileNavigation() {
     setOpenMobile(false)
@@ -148,10 +118,10 @@ function BackofficeSidebar({ pathname, operatorName }: { pathname: string; opera
           {!railed ? <SidebarGroupLabel>Operación</SidebarGroupLabel> : null}
           <SidebarGroupContent>
             <SidebarMenu>
-              {ROUTES.map((route) => (
+              {BACKOFFICE_ROUTES.map((route) => (
                 <SidebarMenuItem key={route.href}>
                   <SidebarMenuButton
-                    isActive={pathname === route.href || pathname.startsWith(`${route.href}/`)}
+                    isActive={route === current}
                     tooltip={route.title}
                     render={<Link href={route.href} onClick={closeMobileNavigation} />}
                   >

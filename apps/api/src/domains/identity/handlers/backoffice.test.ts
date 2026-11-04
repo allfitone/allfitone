@@ -5,6 +5,7 @@ import type { BackofficeAuthenticationService } from '../application/backoffice.
 import {
   BACKOFFICE_ATTEMPT_COOKIE,
   BACKOFFICE_SESSION_COOKIE,
+  BACKOFFICE_SESSION_COOKIE_PATH,
   backofficeIdentityRoutes,
 } from './backoffice.js'
 
@@ -123,6 +124,12 @@ describe('Backoffice authentication HTTP contract', () => {
     const cookie = response.headers.get('set-cookie') ?? ''
     expect(cookie).toContain(`${BACKOFFICE_SESSION_COOKIE}=session-secret`)
     expect(cookie).toContain('SameSite=Strict')
+    // The path decides which routes the browser authenticates; the contract gate relies on it.
+    const session = response.headers
+      .getSetCookie()
+      .find((value) => value.startsWith(`${BACKOFFICE_SESSION_COOKIE}=`))
+    expect(session?.split('; ')).toContain(`Path=${BACKOFFICE_SESSION_COOKIE_PATH}`)
+    expect(BACKOFFICE_SESSION_COOKIE_PATH).toBe('/backoffice/v1')
   })
 
   test('keeps the attempt cookie after a retryable wrong code and clears it at the terminal limit', async () => {

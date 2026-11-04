@@ -97,7 +97,7 @@ test('a temporary failure offers a retry', async ({ page }) => {
     createStudioApiFixture({
       memberships: [activeMembership],
       intercept: (request) =>
-        request.path === '/catalog/v1/information-categories'
+        request.path === '/studio/v1/catalog/information-categories'
           ? { status: 503, body: { error: 'upstream-unavailable' } }
           : undefined,
     }),

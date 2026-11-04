@@ -2,8 +2,43 @@ import { describe, expect, test } from 'bun:test'
 import { allfitV1ContractManifest } from '@allfitone/contracts'
 
 import { createApp } from './application.js'
+import {
+  BACKOFFICE_ATTEMPT_COOKIE_PATH,
+  BACKOFFICE_SESSION_COOKIE_PATH,
+  STUDIO_SESSION_COOKIE_PATH,
+} from './domains/identity/index.js'
 
 type Route = { method: string; path: string }
+
+// Where each cookie scheme's cookie is set to travel. A browser sends a cookie only
+// to its own path and below, so an operation outside it can never authenticate.
+const COOKIE_SCHEME_PATHS: Readonly<Record<string, string>> = {
+  backofficeAttemptAuth: BACKOFFICE_ATTEMPT_COOKIE_PATH,
+  backofficeCookieAuth: BACKOFFICE_SESSION_COOKIE_PATH,
+  cookieAuth: STUDIO_SESSION_COOKIE_PATH,
+}
+const NON_COOKIE_SCHEMES = new Set(['bearerAuth'])
+
+type SecuredOperation = Route & { security: readonly string[] }
+
+function unreachableCookieOperations(
+  operations: readonly SecuredOperation[],
+  schemePaths: Readonly<Record<string, string>>,
+) {
+  const problems: string[] = []
+  for (const operation of operations) {
+    for (const scheme of operation.security) {
+      const cookiePath = schemePaths[scheme]
+      if (cookiePath === undefined) {
+        if (!NON_COOKIE_SCHEMES.has(scheme)) problems.push(`${routeKey(operation)} ${scheme}?`)
+        continue
+      }
+      const reached = operation.path === cookiePath || operation.path.startsWith(`${cookiePath}/`)
+      if (!reached) problems.push(`${routeKey(operation)} ${scheme}`)
+    }
+  }
+  return problems
+}
 type Handled = Route & { handler: { length: number } }
 
 const HTTP_METHODS = new Set(['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT'])
@@ -67,6 +102,35 @@ describe('OpenAPI route gate', () => {
           operation.path.startsWith('/backoffice/v1/') && /relationship/i.test(operation.path),
       ),
     ).toEqual([])
+  })
+
+  // T-CAT-API-28. The catalogue reads once lived on /catalog/v1, where neither web
+  // session cookie travels, and every one of them answered 401 in production.
+  test('serves every cookie-authenticated operation where its cookie travels', () => {
+    expect(
+      unreachableCookieOperations(allfitV1ContractManifest.operations, COOKIE_SCHEME_PATHS),
+    ).toEqual([])
+  })
+
+  test('rejects a cookie operation outside its path and a scheme it does not know', () => {
+    const operations = [
+      { method: 'GET', path: '/backoffice/v1', security: ['backofficeCookieAuth'] },
+      { method: 'GET', path: '/backoffice/v1/reads', security: ['backofficeCookieAuth'] },
+      { method: 'GET', path: '/backoffice/v1x/reads', security: ['backofficeCookieAuth'] },
+      { method: 'GET', path: '/catalog/v1/reads', security: ['bearerAuth', 'cookieAuth'] },
+      { method: 'GET', path: '/studio/v1/reads', security: ['newCookieAuth'] },
+    ]
+
+    expect(
+      unreachableCookieOperations(operations, {
+        backofficeCookieAuth: '/backoffice/v1',
+        cookieAuth: '/studio/v1',
+      }),
+    ).toEqual([
+      'GET /backoffice/v1x/reads backofficeCookieAuth',
+      'GET /catalog/v1/reads cookieAuth',
+      'GET /studio/v1/reads newCookieAuth?',
+    ])
   })
 
   // Two routers mounted on the same prefix can both claim a path. Hono answers with

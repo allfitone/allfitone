@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  actorModeLabel,
   DEFAULT_DUTY_DAYS,
   MAX_DUTY_DAYS,
   PLATFORM_DUTY_CODES,
@@ -25,6 +26,13 @@ describe('platform access presentation rules', () => {
       expect(dutyLabel(code).length).toBeGreaterThan(0)
       expect(dutyLabel(code)).not.toBe(code)
     }
+  })
+
+  // ADR-037 names the modes; a bare code told the operator nothing about the duty.
+  test('names every actor mode instead of showing its code', () => {
+    expect(actorModeLabel('A10')).toBe('Soporte y operación')
+    expect(actorModeLabel('A11')).toBe('Curaduría y verificación')
+    expect(actorModeLabel('A12')).toBe('Seguridad y privacidad')
   })
 
   test('distinguishes every duty state an operator has to tell apart', () => {

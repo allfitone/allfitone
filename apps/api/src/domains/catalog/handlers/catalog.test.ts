@@ -13,7 +13,7 @@ import {
 import { mountSurfaces } from '../../../surfaces.js'
 import type { GlobalCatalogService } from '../application/index.js'
 import type { CatalogReader } from '../domain/index.js'
-import { catalogSurfaceRoutes } from './catalog.js'
+import { backofficeCatalogReadRoutes, studioCatalogReadRoutes } from './catalog.js'
 
 const STUDIO_ORIGIN = 'https://studio.example.test'
 const BACKOFFICE_ORIGIN = 'https://backoffice.example.test'
@@ -92,23 +92,36 @@ function backofficeSessions(
   } as BackofficeAuthenticationService
 }
 
+const BACKOFFICE_CATALOG = '/backoffice/v1/catalog'
+const STUDIO_CATALOG = '/studio/v1/catalog'
+const BACKOFFICE_COOKIE = `${BACKOFFICE_SESSION_COOKIE}=session-secret`
+const STUDIO_COOKIE = `${STUDIO_SESSION_COOKIE}=opaque`
+
 function routes(
   service: GlobalCatalogService = catalog(),
   studio: StudioSessionService = studioSessions(),
   backoffice: BackofficeAuthenticationService = backofficeSessions(),
 ): Hono {
-  return new Hono().route('/catalog/v1', catalogSurfaceRoutes(service, studio, backoffice))
+  return new Hono()
+    .route(BACKOFFICE_CATALOG, backofficeCatalogReadRoutes(service, backoffice))
+    .route(STUDIO_CATALOG, studioCatalogReadRoutes(service, studio))
 }
 
+// By default, the origin and the cookie a browser of the path's product sends there.
 function request(
   path: string,
   init: { origin?: string | null; cookie?: string | null; ifNoneMatch?: string } = {},
 ): Request {
+  const studio = path.startsWith(STUDIO_CATALOG)
   const headers = new Headers()
-  if (init.origin !== null) headers.set('origin', init.origin ?? STUDIO_ORIGIN)
-  if (init.cookie !== null) headers.set('cookie', init.cookie ?? `${STUDIO_SESSION_COOKIE}=opaque`)
+  if (init.origin !== null) {
+    headers.set('origin', init.origin ?? (studio ? STUDIO_ORIGIN : BACKOFFICE_ORIGIN))
+  }
+  if (init.cookie !== null) {
+    headers.set('cookie', init.cookie ?? (studio ? STUDIO_COOKIE : BACKOFFICE_COOKIE))
+  }
   if (init.ifNoneMatch) headers.set('if-none-match', init.ifNoneMatch)
-  return new Request(`https://api.example.test/catalog/v1${path}`, { headers })
+  return new Request(`https://api.example.test${path}`, { headers })
 }
 
 function colonPath(path: string): string {
@@ -132,67 +145,82 @@ describe('Global catalogue surface', () => {
       )
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
       .sort()
-    const mounted = catalogSurfaceRoutes()
-      .routes.filter((route) => route.method !== 'ALL')
-      .map((route) => `${route.method} /catalog/v1${route.path}`)
+    const mounted = [
+      ...backofficeCatalogReadRoutes().routes.map(
+        (route) => `${route.method} ${BACKOFFICE_CATALOG}${route.path}`,
+      ),
+      ...studioCatalogReadRoutes().routes.map(
+        (route) => `${route.method} ${STUDIO_CATALOG}${route.path}`,
+      ),
+    ]
+      .filter((route) => !route.startsWith('ALL '))
       .sort()
 
     expect(contract).toHaveLength(4)
     expect(mounted).toEqual(contract)
   })
 
-  test('T-CAT-API-14 mounts the catalogue on its own surface, not inside a product', () => {
+  // The web reads moved inside their surfaces: on /catalog/v1 no session cookie
+  // arrives, so each of them answered 401 in production. Space's bearer reads stay.
+  test('T-CAT-API-14 serves the web reads on their product surface and /catalog/v1 to Space', () => {
     const app = new Hono()
     mountSurfaces(app)
     const mounted = app.routes
       .filter((route) => route.method !== 'ALL')
       .map((route) => `${route.method} ${route.path}`)
 
-    expect(mounted).toContain('GET /catalog/v1/information-categories')
-    expect(mounted).toContain('GET /catalog/v1/disciplines')
-    expect(mounted).toContain('GET /catalog/v1/activity-types')
-    expect(mounted).toContain('GET /catalog/v1/activity-types/:activityTypeId/result-contracts')
-    expect(mounted).not.toContain('GET /studio/v1/disciplines')
-    expect(mounted).not.toContain('GET /backoffice/v1/disciplines')
+    expect(mounted).toContain('GET /backoffice/v1/catalog/disciplines')
+    expect(mounted).toContain('GET /backoffice/v1/catalog/activity-types')
+    expect(mounted).toContain(
+      'GET /backoffice/v1/catalog/activity-types/:activityTypeId/result-contracts',
+    )
+    expect(mounted).toContain('GET /studio/v1/catalog/information-categories')
+    expect(mounted.filter((route) => route.startsWith('GET /catalog/v1/')).sort()).toEqual([
+      'GET /catalog/v1/equipment',
+      'GET /catalog/v1/movements',
+      'GET /catalog/v1/movements/:movementId',
+      'GET /catalog/v1/muscles',
+    ])
   })
 
   // Both callers are browsers reading across origins, and a 304 reached them
   // without `Access-Control-Allow-Origin`, so the catalogue is served uncached and
   // a caller still holding an ETag receives the body rather than a 304.
   test('T-CAT-API-15 serves the catalogue uncached and never answers 304', async () => {
-    const first = await routes().fetch(request('/disciplines'))
+    const first = await routes().fetch(request(`${BACKOFFICE_CATALOG}/disciplines`))
     expect(first.status).toBe(200)
-    expect(first.headers.get('cache-control')).toBe('private, no-store')
+    expect(first.headers.get('cache-control')).toBe('no-store')
     expect(first.headers.get('etag')).toBeNull()
     await expect(first.json()).resolves.toEqual({ items: [discipline] })
 
     const revalidation = await routes().fetch(
-      request('/disciplines', { ifNoneMatch: '"a-tab-kept-this"' }),
+      request(`${BACKOFFICE_CATALOG}/disciplines`, { ifNoneMatch: '"a-tab-kept-this"' }),
     )
     expect(revalidation.status).toBe(200)
     await expect(revalidation.json()).resolves.toEqual({ items: [discipline] })
+
+    const studio = await routes().fetch(
+      request(`${STUDIO_CATALOG}/information-categories`, { ifNoneMatch: '"a-tab-kept-this"' }),
+    )
+    expect(studio.status).toBe(200)
+    expect(studio.headers.get('cache-control')).toBe('private, no-store')
   })
 
   test('T-CAT-API-16 serves activity types and their effective result contracts', async () => {
-    const types = await routes().fetch(request('/activity-types'))
+    const types = await routes().fetch(request(`${BACKOFFICE_CATALOG}/activity-types`))
     expect(types.status).toBe(200)
     await expect(types.json()).resolves.toEqual({ items: [activityType] })
 
     const contracts = await routes().fetch(
-      request(`/activity-types/${ACTIVITY_TYPE_ID}/result-contracts`),
+      request(`${BACKOFFICE_CATALOG}/activity-types/${ACTIVITY_TYPE_ID}/result-contracts`),
     )
     expect(contracts.status).toBe(200)
     await expect(contracts.json()).resolves.toEqual({ items: [binding] })
   })
 
   test('T-CAT-API-17 reads as the surface the request came from', async () => {
-    await routes().fetch(request('/disciplines'))
-    await routes().fetch(
-      request('/disciplines', {
-        origin: BACKOFFICE_ORIGIN,
-        cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret`,
-      }),
-    )
+    await routes().fetch(request(`${STUDIO_CATALOG}/information-categories`))
+    await routes().fetch(request(`${BACKOFFICE_CATALOG}/disciplines`))
 
     expect(readers).toEqual([
       { personId: PERSON_ID, actorKind: 'person' },
@@ -200,35 +228,50 @@ describe('Global catalogue surface', () => {
     ])
   })
 
-  test('T-CAT-API-18 picks the cookie of the calling surface when a browser holds both', async () => {
-    const both = `${STUDIO_SESSION_COOKIE}=opaque; ${BACKOFFICE_SESSION_COOKIE}=session-secret`
+  // Each surface reads its own session and ignores the other's, even when both arrive.
+  test('T-CAT-API-18 reads only the cookie of its own surface', async () => {
+    const backofficeWithStudio = await routes().fetch(
+      request(`${BACKOFFICE_CATALOG}/disciplines`, { cookie: STUDIO_COOKIE }),
+    )
+    const studioWithBackoffice = await routes().fetch(
+      request(`${STUDIO_CATALOG}/information-categories`, { cookie: BACKOFFICE_COOKIE }),
+    )
+    expect([backofficeWithStudio.status, studioWithBackoffice.status]).toEqual([401, 401])
+
     const failing = { resolveActor: async () => Promise.reject(new Error('wrong surface')) }
-
+    const both = `${STUDIO_COOKIE}; ${BACKOFFICE_COOKIE}`
     const studio = await routes(catalog(), studioSessions(), backofficeSessions(failing)).fetch(
-      request('/disciplines', { origin: STUDIO_ORIGIN, cookie: both }),
+      request(`${STUDIO_CATALOG}/information-categories`, { cookie: both }),
     )
-    expect(studio.status).toBe(200)
-
     const backoffice = await routes(catalog(), studioSessions(failing), backofficeSessions()).fetch(
-      request('/disciplines', { origin: BACKOFFICE_ORIGIN, cookie: both }),
+      request(`${BACKOFFICE_CATALOG}/disciplines`, { cookie: both }),
     )
-    expect(backoffice.status).toBe(200)
-
+    expect([studio.status, backoffice.status]).toEqual([200, 200])
     expect(readers.map((reader) => reader.actorKind)).toEqual(['person', 'support'])
   })
 
-  test('T-CAT-API-19 refuses an unknown origin and an absent one', async () => {
-    for (const origin of ['https://attacker.test', null] as const) {
-      const response = await routes().fetch(request('/disciplines', { origin }))
-      expect(response.status).toBe(403)
-      expect(response.headers.get('content-type')).toContain('application/problem+json')
-      expect(response.headers.get('access-control-allow-origin')).not.toBe('https://attacker.test')
-    }
-    expect(readers).toEqual([])
+  // The paths no browser ever sent a session cookie to are gone, not left answering 401.
+  test('T-CAT-API-19 no longer answers the web reads on /catalog/v1', async () => {
+    const app = new Hono()
+    mountSurfaces(app)
+    const both = `${STUDIO_COOKIE}; ${BACKOFFICE_COOKIE}`
+    const paths = [
+      '/catalog/v1/disciplines',
+      '/catalog/v1/activity-types',
+      `/catalog/v1/activity-types/${ACTIVITY_TYPE_ID}/result-contracts`,
+      '/catalog/v1/information-categories',
+    ]
+
+    const answers = await Promise.all(
+      paths.map((path) => app.fetch(request(path, { origin: STUDIO_ORIGIN, cookie: both }))),
+    )
+    expect(answers.map((response) => response.status)).toEqual([404, 404, 404, 404])
   })
 
   test('T-CAT-API-20 refuses a caller with no session and one whose session ended', async () => {
-    const missing = await routes().fetch(request('/disciplines', { cookie: null }))
+    const missing = await routes().fetch(
+      request(`${STUDIO_CATALOG}/information-categories`, { cookie: null }),
+    )
     expect(missing.status).toBe(401)
 
     const expired = await routes(
@@ -236,8 +279,13 @@ describe('Global catalogue surface', () => {
       studioSessions({
         resolveActor: async () => Promise.reject(new StudioSessionError('unauthenticated')),
       }),
-    ).fetch(request('/disciplines'))
+    ).fetch(request(`${STUDIO_CATALOG}/information-categories`))
     expect(expired.status).toBe(401)
+
+    const absent = await routes().fetch(
+      request(`${BACKOFFICE_CATALOG}/disciplines`, { cookie: null }),
+    )
+    expect(absent.status).toBe(401)
 
     const ended = await routes(
       catalog(),
@@ -246,12 +294,7 @@ describe('Global catalogue surface', () => {
         resolveActor: async () =>
           Promise.reject(new BackofficeAuthenticationError('unauthenticated')),
       }),
-    ).fetch(
-      request('/disciplines', {
-        origin: BACKOFFICE_ORIGIN,
-        cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret`,
-      }),
-    )
+    ).fetch(request(`${BACKOFFICE_CATALOG}/disciplines`))
     expect(ended.status).toBe(401)
     expect(readers).toEqual([])
   })
@@ -260,14 +303,16 @@ describe('Global catalogue surface', () => {
     const response = await routes(
       catalog(),
       studioSessions({ resolveActor: async () => ({ accountId: 'account' }) }),
-    ).fetch(request('/disciplines'))
+    ).fetch(request(`${STUDIO_CATALOG}/information-categories`))
 
     expect(response.status).toBe(403)
     expect(readers).toEqual([])
   })
 
   test('T-CAT-API-22 rejects a malformed activity type before reaching the database', async () => {
-    const response = await routes().fetch(request('/activity-types/not-a-uuid/result-contracts'))
+    const response = await routes().fetch(
+      request(`${BACKOFFICE_CATALOG}/activity-types/not-a-uuid/result-contracts`),
+    )
     expect(response.status).toBe(400)
     expect(readers).toEqual([])
   })
@@ -280,7 +325,7 @@ describe('Global catalogue surface', () => {
     const answers = await Promise.all(
       [notFound, denied, broken].map((error) =>
         routes(catalog({ listActivityTypeResultContracts: () => Promise.reject(error) })).fetch(
-          request(`/activity-types/${ACTIVITY_TYPE_ID}/result-contracts`),
+          request(`${BACKOFFICE_CATALOG}/activity-types/${ACTIVITY_TYPE_ID}/result-contracts`),
         ),
       ),
     )
@@ -288,28 +333,27 @@ describe('Global catalogue surface', () => {
     expect(answers.map((response) => response.status)).toEqual([404, 403, 503])
   })
 
-  test('T-CAT-API-24 exposes CORS to both web products and to no one else', async () => {
-    const studio = await routes().fetch(request('/disciplines'))
-    expect(studio.headers.get('access-control-allow-origin')).toBe(STUDIO_ORIGIN)
-    expect(studio.headers.get('access-control-allow-credentials')).toBe('true')
-    expect(studio.headers.get('vary')).toContain('Origin')
-
-    const backoffice = await routes().fetch(
-      request('/disciplines', {
-        origin: BACKOFFICE_ORIGIN,
-        cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret`,
-      }),
-    )
+  // Studio's reads answer under the CORS its whole surface shares (surfaces.ts).
+  test('T-CAT-API-24 exposes the Backoffice reads to the Backoffice origin alone', async () => {
+    const backoffice = await routes().fetch(request(`${BACKOFFICE_CATALOG}/disciplines`))
     expect(backoffice.headers.get('access-control-allow-origin')).toBe(BACKOFFICE_ORIGIN)
+    expect(backoffice.headers.get('access-control-allow-credentials')).toBe('true')
+    expect(backoffice.headers.get('vary')).toContain('Origin')
+
+    for (const origin of [STUDIO_ORIGIN, 'https://attacker.test']) {
+      const response = await routes().fetch(
+        request(`${BACKOFFICE_CATALOG}/disciplines`, { origin }),
+      )
+      expect(response.headers.get('access-control-allow-origin')).toBeNull()
+    }
   })
 
   /*
    * `OP-PRV-022`, `HU-STUDIO-034`. The wording a member reads to know what they
-   * may ask a client for. It lives on this surface and not on `/studio/v1`
-   * because the person being asked reads the same seven rows to decide.
+   * may ask a client for.
    */
   test('T-CAT-API-25 serves the information categories to a member of a gym', async () => {
-    const response = await routes().fetch(request('/information-categories'))
+    const response = await routes().fetch(request(`${STUDIO_CATALOG}/information-categories`))
 
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -324,7 +368,7 @@ describe('Global catalogue surface', () => {
    * than instead of it.
    */
   test('T-CAT-API-26 answers both the one-line summary and the limit of each category', async () => {
-    const response = await routes().fetch(request('/information-categories'))
+    const response = await routes().fetch(request(`${STUDIO_CATALOG}/information-categories`))
     const body = (await response.json()) as { items: (typeof category)[] }
 
     expect(body.items[0]?.summary).not.toBeNull()
@@ -332,12 +376,14 @@ describe('Global catalogue surface', () => {
   })
 
   /*
-   * A support actor reaching this route is refused by the closed function, which
-   * is the honest answer: the row-level policy on the wording admits `person`
-   * alone, so an empty list would read as "there are no categories" — a wrong
-   * answer wearing the shape of a right one.
+   * The row-level policy on the wording admits `person` alone, so an empty list
+   * would read as "there are no categories" — a wrong answer wearing the shape of
+   * a right one. Backoffice is not offered the read, and a refusal is never empty.
    */
   test('T-CAT-API-27 refuses a support actor instead of answering an empty list', async () => {
+    const offered = await routes().fetch(request(`${BACKOFFICE_CATALOG}/information-categories`))
+    expect(offered.status).toBe(404)
+
     const forbidden = Object.assign(new Error('active person required'), { code: '42501' })
     const response = await routes(
       catalog({
@@ -345,14 +391,10 @@ describe('Global catalogue surface', () => {
           throw forbidden
         },
       }),
-    ).fetch(
-      request('/information-categories', {
-        origin: BACKOFFICE_ORIGIN,
-        cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret`,
-      }),
-    )
+    ).fetch(request(`${STUDIO_CATALOG}/information-categories`))
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.not.toEqual({ items: [] })
+    expect(readers).toEqual([])
   })
 })

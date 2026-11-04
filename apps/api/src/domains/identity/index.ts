@@ -8,7 +8,7 @@
  */
 
 export { studioIdentityRoutes } from './handlers/studio.js'
-export { STUDIO_SESSION_COOKIE } from './handlers/studio.js'
+export { STUDIO_SESSION_COOKIE, STUDIO_SESSION_COOKIE_PATH } from './handlers/studio.js'
 export { studioOnboardingRoutes } from './handlers/studio-onboarding.js'
 export { studioProfessionalRoutes } from './handlers/studio-professional.js'
 export { studioInvitationRoutes } from './handlers/studio-invitations.js'
@@ -21,7 +21,12 @@ export { spaceBodyProgressRoutes } from './handlers/space-body-progress.js'
 export { spaceBodyPhotoRoutes } from './handlers/space-body-photos.js'
 export { spaceHealthContextRoutes } from './handlers/space-health-context.js'
 export { workosWebhookRoutes } from './handlers/webhooks.js'
-export { backofficeIdentityRoutes, BACKOFFICE_SESSION_COOKIE } from './handlers/backoffice.js'
+export {
+  backofficeIdentityRoutes,
+  BACKOFFICE_ATTEMPT_COOKIE_PATH,
+  BACKOFFICE_SESSION_COOKIE,
+  BACKOFFICE_SESSION_COOKIE_PATH,
+} from './handlers/backoffice.js'
 export { backofficeCredentialVerificationRoutes } from './handlers/backoffice-credential-verification.js'
 export { backofficeTeamInvitationRoutes } from './handlers/backoffice-team-invitations.js'
 export { backofficeClientInvitationRoutes } from './handlers/backoffice-client-invitations.js'
