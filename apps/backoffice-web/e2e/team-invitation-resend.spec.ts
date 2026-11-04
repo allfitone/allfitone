@@ -83,11 +83,11 @@ test('an expired invitation is replaced by a new one Allfit signs, and the old o
   await section.getByRole('button', { name: 'Reenviar la invitación a e***@example.test' }).click()
 
   await expect(section.locator('[data-team-invitation-outcome]')).toContainText(
-    'firmada por Allfit',
+    'firmada por Allfit One',
   )
   await expect(section.locator('[data-team-invitation]')).toHaveCount(2)
   const renewed = section.locator('[data-team-invitation][data-state="pending"]')
-  await expect(renewed.getByText('Allfit, al reenviar una vencida')).toBeVisible()
+  await expect(renewed.getByText('Allfit One, al reenviar una vencida')).toBeVisible()
   await expect(renewed.getByRole('cell', { name: 'Staff', exact: true })).toBeVisible()
   await expect(
     section.locator('[data-team-invitation][data-state="expired"] [data-team-invitation-reason]'),

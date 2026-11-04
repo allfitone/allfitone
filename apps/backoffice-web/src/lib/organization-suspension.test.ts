@@ -49,7 +49,7 @@ const stopped = () =>
 describe('organization suspension presentation', () => {
   test('the panel says what is true right now before anything else', () => {
     expect(stateSentence(suspension())).toContain('nunca ha estado suspendido')
-    expect(stateSentence(stopped())).toBe('Suspendido: no le está pagando a allfit.')
+    expect(stateSentence(stopped())).toBe('Suspendido: no le está pagando a Allfit One.')
   })
 
   // The word invites the reader to imagine deletion. The copy has to refuse that
@@ -101,7 +101,7 @@ describe('organization suspension presentation', () => {
 
     expect(stateSentence(recovered)).toContain('Estuvo suspendido antes')
     const [period] = recovered.history
-    expect(period && periodSentence(period)).toBe('no le está pagando a allfit, levantada')
+    expect(period && periodSentence(period)).toBe('no le está pagando a Allfit One, levantada')
   })
 
   // HU-BO-016 c8: the record kept the person all along; the panel now says who.
@@ -151,7 +151,7 @@ describe('organization suspension presentation', () => {
     for (const reason of SUSPENSION_REASONS) {
       expect(reasonLabel(reason).length).toBeGreaterThan(0)
     }
-    expect(reasonLabel('nonpayment')).toBe('No le está pagando a Allfit')
+    expect(reasonLabel('nonpayment')).toBe('No le está pagando a Allfit One')
   })
 
   test('a refusal names the duty, and a conflict names the states that do not qualify', () => {

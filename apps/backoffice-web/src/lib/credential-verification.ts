@@ -241,7 +241,7 @@ export const RENEWAL_OPENED = 'Renovación abierta. La verificación anterior qu
 /** Reading the queue decides nothing, so a refusal there names the duty to ask for. */
 export function verificationQueueMessage(code: string): string {
   if (code !== 'forbidden') return verificationMessage(code)
-  return 'Leer la cola de verificación exige el deber «Verificar credenciales profesionales» vigente. Los deberes vencen por diseño: pide que te lo asignen en «Equipo de Allfit».'
+  return 'Leer la cola de verificación exige el deber «Verificar credenciales profesionales» vigente. Los deberes vencen por diseño: pide que te lo asignen en «Equipo de Allfit One».'
 }
 
 export function verificationMessage(code: string): string {

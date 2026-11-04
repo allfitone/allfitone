@@ -1,7 +1,4 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
-import type { ClientOperation } from '@allfitone/telemetry'
-
-import { captureBackofficeApiRequest, setBackofficeTelemetryIdentity } from './telemetry'
 
 export type BackofficeAuthenticationAttempt = AllfitV1Schemas['BackofficeAuthenticationAttempt']
 export type BackofficeSession = AllfitV1Schemas['BackofficeSession']
@@ -131,22 +128,14 @@ export const backofficeApi = {
       body: JSON.stringify({ code }),
     }),
 
-  session: async (signal?: AbortSignal) => {
-    const session = await requestJson<BackofficeSession>(
-      '/backoffice/v1/session',
-      signal ? { signal } : {},
-    )
-    setBackofficeTelemetryIdentity(session.analytics?.distinct_id ?? null)
-    return session
-  },
+  session: (signal?: AbortSignal) =>
+    requestJson<BackofficeSession>('/backoffice/v1/session', signal ? { signal } : {}),
 
-  logout: async (reason: BackofficeLogoutReason) => {
-    await requestVoid('/backoffice/v1/auth/logout', {
+  logout: (reason: BackofficeLogoutReason) =>
+    requestVoid('/backoffice/v1/auth/logout', {
       method: 'POST',
       body: JSON.stringify({ reason }),
-    })
-    setBackofficeTelemetryIdentity(null)
-  },
+    }),
 
   platformRoles: (cursor?: string, signal?: AbortSignal) =>
     requestJson<PlatformRoleAssignmentPage>(
@@ -790,9 +779,6 @@ async function requestVoid(
 }
 
 async function fetchApi(path: string, init: RequestInit): Promise<Response> {
-  const startedAt = performance.now()
-  const method = requestMethod(init.method)
-  const operation = backofficeOperation(path, method)
   let response: Response
   try {
     response = await fetch(`${API_URL}${path}`, {
@@ -805,227 +791,16 @@ async function fetchApi(path: string, init: RequestInit): Promise<Response> {
       },
     })
   } catch (error) {
-    captureBackofficeApiRequest({
-      operation,
-      method,
-      durationMs: performance.now() - startedAt,
-    })
     if (error instanceof DOMException && error.name === 'AbortError') throw error
     throw new BackofficeNetworkError()
   }
-  captureBackofficeApiRequest({
-    operation,
-    method,
-    durationMs: performance.now() - startedAt,
-    response,
-  })
-  if (!response.ok) {
-    if (response.status === 401) setBackofficeTelemetryIdentity(null)
-    throw await responseError(response)
-  }
+  if (!response.ok) throw await responseError(response)
   return response
-}
-
-function requestMethod(method: string | undefined): 'DELETE' | 'GET' | 'PATCH' | 'POST' | 'PUT' {
-  return method === 'DELETE' || method === 'PATCH' || method === 'POST' || method === 'PUT'
-    ? method
-    : 'GET'
-}
-
-function backofficeOperation(path: string, method: string): ClientOperation {
-  const operations: Record<string, ClientOperation> = {
-    '/backoffice/v1/auth/password': 'backoffice.auth.password',
-    '/backoffice/v1/auth/attempt': 'backoffice.auth.attempt',
-    '/backoffice/v1/auth/totp/verification': 'backoffice.auth.totp_verification',
-    '/backoffice/v1/session': 'backoffice.session',
-    '/backoffice/v1/auth/logout': 'backoffice.auth.logout',
-    '/backoffice/v1/auth/password-resets': 'backoffice.auth.password_reset',
-  }
-  const [route] = path.split('?')
-  const resolved = route ?? path
-  const breakGlass = breakGlassOperation(resolved)
-  if (breakGlass) return breakGlass
-  if (resolved === '/backoffice/v1/verification-requests') return 'backoffice.verification.list'
-  if (resolved === '/backoffice/v1/verifications') return 'backoffice.verification.decide'
-  if (resolved === '/backoffice/v1/verification-renewals') return 'backoffice.verification.renewals'
-  if (resolved === '/backoffice/v1/access-events') return 'backoffice.access_log.read'
-  const organization = organizationOperation(resolved, method)
-  if (organization) return organization
-  if (resolved === '/backoffice/v1/scope-definitions') {
-    return method === 'POST'
-      ? 'backoffice.privacy.scope_definition_publish'
-      : 'backoffice.privacy.scope_definition_list'
-  }
-  return (
-    catalogueOperation(resolved) ??
-    platformPlanOperation(resolved, method) ??
-    peopleOperation(resolved) ??
-    supportOperation(resolved) ??
-    catalogOperation(resolved) ??
-    platformOperation(resolved, method) ??
-    operations[resolved] ??
-    'backoffice.session'
-  )
-}
-
-/** The organization identifier varies per row, so the handover routes are matched by shape. */
-function organizationOperation(route: string, method: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'organizations') {
-    return undefined
-  }
-  if (segments.length === 3) {
-    return method === 'POST'
-      ? 'backoffice.organization.handover_create'
-      : 'backoffice.organization.directory'
-  }
-  if (segments.length === 4) return 'backoffice.organization.file'
-  if (segments[4] === 'client-invitations') {
-    return segments[6] === 'resends'
-      ? 'backoffice.organization.client_invitation_resend'
-      : 'backoffice.organization.client_invitations'
-  }
-  if (segments[4] === 'team-invitations') {
-    return segments[6] === 'resends'
-      ? 'backoffice.organization.team_invitation_resend'
-      : 'backoffice.organization.team_invitations'
-  }
-  if (segments[4] === 'cancellation') return 'backoffice.organization.handover_cancel'
-  if (segments[4] === 'guest-quota') return 'backoffice.organization.guest_quota_set'
-  if (segments[4] === 'suspension') return 'backoffice.organization.suspended'
-  if (segments[4] === 'reactivation') return 'backoffice.organization.reactivated'
-  if (segments[4] !== 'handover') return undefined
-  return segments[5] === 'resends'
-    ? 'backoffice.organization.handover_resend'
-    : 'backoffice.organization.handover_read'
-}
-
-/** The file identifier varies per row, so these routes are matched by shape. */
-function breakGlassOperation(route: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'break-glass') {
-    return undefined
-  }
-  if (segments.length === 4) {
-    return segments[3] === 'reviews'
-      ? 'backoffice.break_glass.review_queue'
-      : 'backoffice.break_glass.list'
-  }
-  if (segments[5] === 'decisions') return 'backoffice.break_glass.decide'
-  if (segments[5] === 'review') return 'backoffice.break_glass.review'
-  if (segments[5] === 'reads') return 'backoffice.break_glass.exercise'
-  if (segments[5] === 'closure') return 'backoffice.break_glass.close'
-  return undefined
-}
-
-/** The person identifier varies per row, so the card is matched by shape. */
-function supportOperation(route: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'support') {
-    return undefined
-  }
-  if (segments[3] === 'attention') return 'backoffice.support.attention'
-  if (segments[3] === 'business') return 'backoffice.support.business'
-  if (segments[3] === 'billing-follow-up') return 'backoffice.support.billing_follow_up'
-  if (segments[3] === 'operations') return 'backoffice.support.operations'
-  if (segments[3] === 'delivery-circuits') return 'backoffice.support.delivery_circuits'
-  if (segments[3] === 'job-health') return 'backoffice.support.job_health'
-  if (segments[3] !== 'people') return undefined
-  return segments.length === 4
-    ? 'backoffice.support.people_search'
-    : 'backoffice.support.person_metadata'
 }
 
 function catalogueSegment(kind: 'discipline' | 'activity_type' | 'movement'): string {
   if (kind === 'discipline') return 'disciplines'
   return kind === 'activity_type' ? 'activity-types' : 'movements'
-}
-
-/** The entry identifier varies per row, so the curation routes are matched by shape. */
-function catalogueOperation(route: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'catalogue') {
-    return undefined
-  }
-  if (segments.length === 3) return 'backoffice.catalog.global_read'
-  return segments[5] === 'archival'
-    ? 'backoffice.catalog.global_archive'
-    : 'backoffice.catalog.global_publish'
-}
-
-/** The plan and the version vary per row, so these routes are matched by shape. */
-function platformPlanOperation(route: string, method: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'platform-plans') {
-    return undefined
-  }
-  if (segments.length === 3) {
-    return method === 'POST'
-      ? 'backoffice.commercial.plan_create'
-      : 'backoffice.commercial.plans_read'
-  }
-  if (segments[6] === 'publication') return 'backoffice.commercial.plan_version_publish'
-  if (segments[6] === 'withdrawal') return 'backoffice.commercial.plan_version_withdraw'
-  return segments.length === 5 ? 'backoffice.commercial.plan_version_propose' : undefined
-}
-
-/** The person and the recovery vary per row, so these routes are matched by shape. */
-function peopleOperation(route: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'people') {
-    return undefined
-  }
-  if (segments[4] === 'account-recovery') return 'backoffice.support.account_recovery'
-  if (segments[4] !== 'account-recoveries') return undefined
-  if (segments[6] === 'resends') return 'backoffice.support.account_recovery_resend'
-  if (segments[6] === 'cancellation') return 'backoffice.support.account_recovery_cancel'
-  return 'backoffice.support.account_recovery_start'
-}
-
-/** The published catalogue reads keep the names they had when they lived on /catalog/v1. */
-function catalogOperation(route: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'catalog') {
-    return undefined
-  }
-  if (segments[3] === 'disciplines') return 'catalog.disciplines'
-  if (segments[3] !== 'activity-types') return undefined
-  return segments.length === 4 ? 'catalog.activity_types' : 'catalog.activity_type_result_contracts'
-}
-
-/** Assignment identifiers vary per row, so these routes are matched by shape. */
-function platformOperation(route: string, method: string): ClientOperation | undefined {
-  const segments = route.split('/').filter(Boolean)
-  if (segments[0] === 'backoffice' && segments[1] === 'v1' && segments[2] === 'result-contracts') {
-    if (segments.length > 3) return 'backoffice.catalog.result_contract_deprecate'
-    return method === 'GET'
-      ? 'backoffice.catalog.result_contract_versions'
-      : 'backoffice.catalog.result_contract_publish'
-  }
-  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'platform') {
-    return undefined
-  }
-  const resource = segments[3]
-  const action = segments[5]
-  if (segments.length === 4) {
-    if (resource === 'role-assignments') return 'backoffice.platform.role_list'
-    if (resource === 'duty-assignments') return 'backoffice.platform.duty_list'
-    return undefined
-  }
-  if (segments.length !== 6) return undefined
-  if (resource === 'role-assignments' && action === 'revocation') {
-    return 'backoffice.platform.role_revoke'
-  }
-  if (resource === 'duty-assignments' && action === 'suspension') {
-    return 'backoffice.platform.duty_suspend'
-  }
-  if (resource === 'duty-assignments' && action === 'revocation') {
-    return 'backoffice.platform.duty_revoke'
-  }
-  if (resource === 'duty-assignments' && action === 'recertification') {
-    return 'backoffice.platform.duty_recertify'
-  }
-  return undefined
 }
 
 async function responseError(response: Response): Promise<BackofficeApiError> {

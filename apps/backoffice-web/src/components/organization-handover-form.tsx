@@ -110,9 +110,9 @@ export function OrganizationHandoverForm() {
       <Alert live="off" variant="info">
         <AlertTitle>Crear no es entregar</AlertTitle>
         <AlertDescription>
-          El gimnasio queda creado pero no opera hasta que su dueño acepte la invitación. Allfit no
-          lo administra mientras tanto y no crea las cuentas de su equipo: el dueño las invita desde
-          Studio.
+          El gimnasio queda creado pero no opera hasta que su dueño acepte la invitación. Allfit One
+          no lo administra mientras tanto y no crea las cuentas de su equipo: el dueño las invita
+          desde Studio.
         </AlertDescription>
       </Alert>
 

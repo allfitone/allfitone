@@ -30,7 +30,7 @@ export const BACKOFFICE_ROUTES: readonly WorkspaceRoute[] = [
   { href: '/people', title: 'Personas', icon: 'person', area: 'A10' },
   { href: '/organizations', title: 'Gimnasios', icon: 'organization', area: 'A10' },
   { href: '/diagnosis', title: 'Diagnóstico técnico', icon: 'activity', area: 'A10' },
-  { href: '/plans', title: 'Planes de Allfit', icon: 'business', area: 'A10' },
+  { href: '/plans', title: 'Planes de Allfit One', icon: 'business', area: 'A10' },
   { href: '/verifications', title: 'Verificación de títulos', icon: 'check', area: 'A11' },
   { href: '/catalogue', title: 'Catálogo global', icon: 'training', area: 'A11' },
   {
@@ -39,7 +39,7 @@ export const BACKOFFICE_ROUTES: readonly WorkspaceRoute[] = [
     icon: 'operation',
     area: 'A11',
   },
-  { href: '/team', title: 'Equipo de Allfit', icon: 'people', area: 'A12' },
+  { href: '/team', title: 'Equipo de Allfit One', icon: 'people', area: 'A12' },
   { href: '/access-log', title: 'Registro de accesos', icon: 'time', area: 'A12' },
   { href: '/break-glass', title: 'Acceso excepcional', icon: 'warning', area: 'A12' },
   { href: '/erasure-requests', title: 'Solicitudes de eliminación', icon: 'remove', area: 'A12' },

@@ -233,14 +233,14 @@ describe('business panel presentation', () => {
   })
 
   test('the two routes to Pro are labelled apart, because they are not the same number', () => {
-    expect(metricLabel('pro_people_paying_allfit')).toBe('Con Pro, pagándole a Allfit')
+    expect(metricLabel('pro_people_paying_allfit')).toBe('Con Pro, pagándole a Allfit One')
     expect(metricLabel('pro_people_through_organization')).toBe('Con Pro, por su gimnasio')
     expect(metricHint('pro_people_through_organization')).toContain('se cuenta arriba y no aquí')
   })
 
   test("what a gym bills its clients is not Allfit's income, and the hint says it", () => {
     expect(metricLabel('active_organization_subscriptions')).toBe('Planes de gimnasio activos')
-    expect(metricHint('active_organization_subscriptions')).toContain('no es ingreso de Allfit')
+    expect(metricHint('active_organization_subscriptions')).toContain('no es ingreso de Allfit One')
   })
 
   test('the two activity figures are labelled apart, because they are not the same question', () => {

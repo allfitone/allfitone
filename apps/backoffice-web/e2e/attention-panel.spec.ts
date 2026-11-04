@@ -184,7 +184,9 @@ test('nothing pending is said plainly rather than left as an empty board', async
       'Ningún título espera revisión, y ninguna verificación vence pronto sin renovación abierta.',
     ),
   ).toBeVisible()
-  await expect(page.getByText('Todos los gimnasios que Allfit creó ya tienen dueño.')).toBeVisible()
+  await expect(
+    page.getByText('Todos los gimnasios que Allfit One creó ya tienen dueño.'),
+  ).toBeVisible()
   await expect(page.getByText('Nada se está repitiendo en las últimas 24 horas.')).toBeVisible()
   await expect(
     page.getByText(

@@ -304,7 +304,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
           </CardTitle>
           <CardDescription>
             Lo que el gimnasio le cobra a sus clientes, en su propia pasarela. El dinero no pasa por
-            Allfit y aquí no hay ninguna credencial.
+            Allfit One y aquí no hay ninguna credencial.
           </CardDescription>
         </CardHeader>
         <CardContent>

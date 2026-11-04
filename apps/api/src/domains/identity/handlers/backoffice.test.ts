@@ -178,6 +178,8 @@ describe('Backoffice authentication HTTP contract', () => {
     expect(JSON.stringify(body)).not.toContain('email')
     expect(JSON.stringify(body)).not.toContain('factor')
     expect(JSON.stringify(body)).not.toContain('permission')
+    // Staff are not measured, so their session carries no analytics pseudonym.
+    expect(body).not.toHaveProperty('analytics')
   })
 
   test('keeps reset acceptance uniform and logout idempotent', async () => {

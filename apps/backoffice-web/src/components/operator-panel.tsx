@@ -58,7 +58,7 @@ export function OperatorPanel() {
           Lo que puedes hacer lo deciden tus deberes vigentes, no el rol: cada pantalla lo vuelve a
           comprobar. Se otorgan, vencen y se renuevan en{' '}
           <Link href="/team" data-inline-link>
-            Equipo de Allfit
+            Equipo de Allfit One
           </Link>
           .
         </p>

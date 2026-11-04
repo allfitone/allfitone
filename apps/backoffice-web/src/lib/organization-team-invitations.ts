@@ -37,7 +37,7 @@ export function teamInvitationStateTone(state: TeamInvitationState): StateTone {
 }
 
 export function issuedByLabel(invitation: BackofficeTeamInvitation): string {
-  return invitation.issued_by === 'allfit' ? 'Allfit, al reenviar una vencida' : 'El gimnasio'
+  return invitation.issued_by === 'allfit' ? 'Allfit One, al reenviar una vencida' : 'El gimnasio'
 }
 
 /** Why a row offers no resend, so a missing button is never a mystery. */
@@ -61,7 +61,7 @@ export function resendOutcomeMessage(result: BackofficeTeamInvitationResend): st
   if (result.outcome === 'redelivered') {
     return `Se reenvió la misma invitación a ${result.contact_hint}. El primer correo sigue sirviendo, y la invitación vale hasta el ${formatInstant(result.expires_at)}.`
   }
-  return `La invitación había vencido: se envió una nueva, igual, a ${result.contact_hint}, firmada por Allfit. La anterior sigue vencida y no vuelve a funcionar.`
+  return `La invitación había vencido: se envió una nueva, igual, a ${result.contact_hint}, firmada por Allfit One. La anterior sigue vencida y no vuelve a funcionar.`
 }
 
 export function teamInvitationsMessage(code: string): string {

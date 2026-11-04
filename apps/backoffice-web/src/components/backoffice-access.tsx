@@ -1,15 +1,8 @@
 'use client'
 
-import { ProductWordmark } from '@allfitone/react/brand'
+import { BrandLockup } from '@allfitone/react/brand'
 import {
-  AccessDescription,
-  AccessEyebrow,
   AccessHeader,
-  AccessHero,
-  AccessJourney,
-  AccessJourneyIndex,
-  AccessJourneyLabel,
-  AccessJourneyStep,
   AccessMain,
   AccessPanel,
   AccessPanelAction,
@@ -20,7 +13,6 @@ import {
   AccessPanelNote,
   AccessPanelTitle,
   AccessShell,
-  AccessTitle,
 } from '@allfitone/react/components/access-shell'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
@@ -385,12 +377,12 @@ export function BackofficeAccess() {
   return (
     <>
       <div ref={immediateCoverRef} hidden data-backoffice-immediate-cover>
-        <AccessFrame currentStep={1}>
+        <AccessFrame>
           <CheckingPanel protecting />
         </AccessFrame>
       </div>
       <div ref={surfaceRef} data-backoffice-surface>
-        <AccessFrame currentStep={currentJourneyStep(view)}>
+        <AccessFrame>
           {view.kind === 'checking' ? (
             <CheckingPanel />
           ) : view.kind === 'login' ? (
@@ -438,18 +430,16 @@ export function BackofficeAccess() {
   )
 }
 
-function AccessFrame({ children, currentStep }: { children: ReactNode; currentStep: 1 | 2 | 3 }) {
+// Allfit One's own staff sign in here, so the screen is the form alone: no pitch, centred.
+function AccessFrame({ children }: { children: ReactNode }) {
   return (
     <DeviceGate>
-      <DeviceGateFallback aria-labelledby="backoffice-device-gate-title">
+      <DeviceGateFallback
+        data-backoffice-device-gate
+        aria-labelledby="backoffice-device-gate-title"
+      >
         <DeviceGateHeader>
-          <ProductWordmark
-            product="backoffice"
-            surface="dark"
-            title="Allfit Backoffice"
-            width={150}
-            height={30}
-          />
+          <BrandLockup surface="dark" title="Allfit One" width={120} height={40} />
         </DeviceGateHeader>
         <DeviceGateMain>
           <DeviceGateVisual />
@@ -465,41 +455,14 @@ function AccessFrame({ children, currentStep }: { children: ReactNode; currentSt
       </DeviceGateFallback>
 
       <DeviceGateContent>
-        <AccessShell>
+        <AccessShell data-backoffice-access-shell>
           <AccessHeader>
-            <ProductWordmark
-              product="backoffice"
-              surface="dark"
-              title="Allfit Backoffice"
-              width={150}
-              height={30}
-            />
+            {/* With the pitch gone, the brand is the page's one top-level heading. */}
+            <h1 data-backoffice-access-brand>
+              <BrandLockup surface="dark" title="Allfit One" width={120} height={40} />
+            </h1>
           </AccessHeader>
-          <AccessMain>
-            <AccessHero>
-              <AccessEyebrow>Operación interna</AccessEyebrow>
-              <AccessTitle>Control sin atajos.</AccessTitle>
-              <AccessDescription>
-                El acceso del equipo interno exige identidad verificada, un segundo factor y una
-                sesión independiente para cada operación sensible.
-              </AccessDescription>
-            </AccessHero>
-            {children}
-            <AccessJourney aria-label="Progreso de autenticación">
-              <AccessJourneyStep aria-current={currentStep === 1 ? 'step' : undefined}>
-                <AccessJourneyIndex>01</AccessJourneyIndex>
-                <AccessJourneyLabel>Credenciales</AccessJourneyLabel>
-              </AccessJourneyStep>
-              <AccessJourneyStep aria-current={currentStep === 2 ? 'step' : undefined}>
-                <AccessJourneyIndex>02</AccessJourneyIndex>
-                <AccessJourneyLabel>Autenticador</AccessJourneyLabel>
-              </AccessJourneyStep>
-              <AccessJourneyStep aria-current={currentStep === 3 ? 'step' : undefined}>
-                <AccessJourneyIndex>03</AccessJourneyIndex>
-                <AccessJourneyLabel>Sesión AAL2</AccessJourneyLabel>
-              </AccessJourneyStep>
-            </AccessJourney>
-          </AccessMain>
+          <AccessMain data-backoffice-access-main>{children}</AccessMain>
         </AccessShell>
       </DeviceGateContent>
     </DeviceGate>
@@ -570,11 +533,7 @@ function LoginPanel({
   }
 
   return (
-    <Panel
-      eyebrow="Paso 1 de 3"
-      title="Identifica tu acceso."
-      description="Usa la cuenta interna asignada por Allfit. La sesión solo se crea después de confirmar tu autenticador."
-    >
+    <Panel title="Identifica tu acceso.">
       {notice === 'expired' ? (
         <Alert live="polite" variant="warning">
           <AlertTitle>El acceso anterior terminó</AlertTitle>
@@ -620,7 +579,7 @@ function LoginPanel({
           <AccessPanelAction>
             <Button type="submit" disabled={busy || rateLimit.remainingSeconds > 0}>
               {busy ? <Spinner label="Validando credenciales" /> : null}
-              {busy ? 'Validando…' : 'Continuar con autenticador'}
+              {busy ? 'Validando…' : 'Continuar'}
             </Button>
           </AccessPanelAction>
           <AccessPanelAction>
@@ -747,7 +706,6 @@ function TotpPanel({
 
   return (
     <Panel
-      eyebrow="Paso 2 de 3"
       title={enrollment ? 'Conecta tu autenticador.' : 'Confirma el código.'}
       description={
         enrollment
@@ -954,7 +912,6 @@ function AuthenticatedPanel({
   const operatorName = `${session.operator.given_name} ${session.operator.family_name}`.trim()
   return (
     <Panel
-      eyebrow="Paso 3 de 3"
       title="Acceso confirmado."
       description={`La identidad de ${operatorName} fue verificada. Cada módulo operativo comprueba su propio deber al entrar.`}
     >
@@ -1098,21 +1055,21 @@ function Panel({
   title,
 }: {
   children: ReactNode
-  description: string
-  eyebrow: string
+  description?: string
+  eyebrow?: string
   title: string
 }) {
   return (
-    <AccessPanel>
+    <AccessPanel data-backoffice-access-panel>
       <AccessPanelHeader>
-        <AccessPanelEyebrow>{eyebrow}</AccessPanelEyebrow>
+        {eyebrow ? <AccessPanelEyebrow>{eyebrow}</AccessPanelEyebrow> : null}
         <AccessPanelTitle>{title}</AccessPanelTitle>
-        <AccessPanelDescription>{description}</AccessPanelDescription>
+        {description ? <AccessPanelDescription>{description}</AccessPanelDescription> : null}
       </AccessPanelHeader>
       <AccessPanelContent>{children}</AccessPanelContent>
       <AccessPanelNote>
         <FoundationIcon name="permissions" decorative />
-        Acceso exclusivo para el equipo autorizado de Allfit.
+        Acceso exclusivo para el equipo autorizado de Allfit One.
       </AccessPanelNote>
     </AccessPanel>
   )
@@ -1139,12 +1096,6 @@ function useRateLimit(): { remainingSeconds: number; start: (duration?: number) 
     remainingSeconds,
     start: (duration = 60_000) => setUntil(Date.now() + duration),
   }
-}
-
-function currentJourneyStep(view: ViewState): 1 | 2 | 3 {
-  if (view.kind === 'enrollment' || view.kind === 'challenge') return 2
-  if (view.kind === 'authenticated') return 3
-  return 1
 }
 
 function isStatus(error: unknown, status: number): boolean {
