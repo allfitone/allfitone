@@ -1906,7 +1906,9 @@ export async function mockBackofficeApi(
       await routeCatalogue(route, request, fixture)
       return
     }
-    if (/^\/backoffice\/v1\/catalogue(\/[^/]+(\/[^/]+\/archival)?)?$/.test(request.path)) {
+    if (
+      /^\/backoffice\/v1\/catalogue(\/[^/]+(\/[^/]+\/(archival|equipment))?)?$/.test(request.path)
+    ) {
       await routeGlobalCatalogue(route, request, fixture)
       return
     }
@@ -2806,6 +2808,30 @@ export interface GlobalCatalogueFixture {
   disciplines: CatalogueEntryFixture[]
   activityTypes: CatalogueEntryFixture[]
   movements: CatalogueEntryFixture[]
+  equipment: CatalogueEquipmentFixture[]
+}
+
+export interface CatalogueEquipmentFixture {
+  id: string
+  code: string
+  name: string
+  status: 'draft' | 'published' | 'deprecated' | 'archived'
+  created_at: string
+  in_use_count: number
+}
+
+export function catalogueEquipment(
+  overrides: Partial<CatalogueEquipmentFixture> = {},
+): CatalogueEquipmentFixture {
+  return {
+    id: nextAssignmentId(),
+    code: 'test_barbell',
+    name: 'Barra olímpica',
+    status: 'published',
+    created_at: '2026-11-04T12:00:00.000Z',
+    in_use_count: 0,
+    ...overrides,
+  }
 }
 
 export interface CatalogueEntryFixture {
@@ -2817,6 +2843,7 @@ export interface CatalogueEntryFixture {
   status: 'draft' | 'published' | 'deprecated' | 'archived'
   created_at: string
   in_use_count: number
+  equipment?: Array<{ code: string; name: string; requirement: 'required' | 'optional' }>
 }
 
 export function catalogueEntry(
@@ -2839,7 +2866,7 @@ export function catalogueEntry(
 export function globalCatalogueFixture(
   overrides: Partial<GlobalCatalogueFixture> = {},
 ): GlobalCatalogueFixture {
-  return { disciplines: [], activityTypes: [], movements: [], ...overrides }
+  return { disciplines: [], activityTypes: [], movements: [], equipment: [], ...overrides }
 }
 
 /**
@@ -3125,8 +3152,9 @@ async function routeGlobalCatalogue(
     await fulfill(route, 200, {
       disciplines: state.disciplines,
       activity_types: state.activityTypes,
-      movements: state.movements,
-      equipment_availability: 'not_modelled',
+      movements: state.movements.map((entry) => ({ ...entry, equipment: entry.equipment ?? [] })),
+      equipment: state.equipment,
+      equipment_availability: 'available',
     })
     return
   }
@@ -3142,6 +3170,14 @@ async function routeGlobalCatalogue(
   }
 
   const body = (request.body ?? {}) as Record<string, unknown>
+  if (segments[3] === 'equipment') {
+    await routeCatalogueEquipment(route, state, segments, body)
+    return
+  }
+  if (segments[3] === 'movements' && segments[5] === 'equipment') {
+    await routeMovementEquipment(route, state, segments[4] ?? '', body)
+    return
+  }
   const kind =
     segments[3] === 'disciplines'
       ? 'discipline'
@@ -3214,6 +3250,82 @@ async function routeGlobalCatalogue(
   }
   target.status = 'archived'
   await fulfill(route, 200, target)
+}
+
+/** Equipment: a published code is refused, an archived one returns only under its name. */
+async function routeCatalogueEquipment(
+  route: Route,
+  state: GlobalCatalogueFixture,
+  segments: string[],
+  body: Record<string, unknown>,
+): Promise<void> {
+  if (segments.length === 4) {
+    const code = typeof body.code === 'string' ? body.code : ''
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    if (code === '' || name === '') {
+      await fulfillProblem(route, 422, 'validation-failed')
+      return
+    }
+    const existing = state.equipment.find((item) => item.code === code)
+    if (existing && (existing.status === 'published' || existing.name !== name)) {
+      await fulfillProblem(route, 409, 'conflict')
+      return
+    }
+    if (existing) {
+      existing.status = 'published'
+      await fulfill(route, 200, existing)
+      return
+    }
+    const published = catalogueEquipment({ code, name })
+    state.equipment.push(published)
+    await fulfill(route, 200, published)
+    return
+  }
+  const target = state.equipment.find((item) => item.code === segments[4])
+  if (!target) {
+    await fulfillProblem(route, 404, 'not-found')
+    return
+  }
+  if (target.status !== 'published') {
+    await fulfillProblem(route, 409, 'conflict')
+    return
+  }
+  target.status = 'archived'
+  await fulfill(route, 200, target)
+}
+
+/** A published movement's whole list, naming only published equipment. */
+async function routeMovementEquipment(
+  route: Route,
+  state: GlobalCatalogueFixture,
+  movementId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const movement = state.movements.find((entry) => entry.id === movementId)
+  if (!movement) {
+    await fulfillProblem(route, 404, 'not-found')
+    return
+  }
+  const items = Array.isArray(body.items) ? (body.items as Array<Record<string, unknown>>) : []
+  const named = items.map((item) => ({
+    item: state.equipment.find(
+      (equipment) => equipment.code === item.code && equipment.status === 'published',
+    ),
+    requirement: item.requirement === 'required' ? ('required' as const) : ('optional' as const),
+  }))
+  if (named.some(({ item }) => item === undefined)) {
+    await fulfillProblem(route, 422, 'validation-failed')
+    return
+  }
+  movement.equipment = named.flatMap(({ item, requirement }) =>
+    item ? [{ code: item.code, name: item.name, requirement }] : [],
+  )
+  for (const equipment of state.equipment) {
+    equipment.in_use_count = state.movements.filter((entry) =>
+      (entry.equipment ?? []).some((link) => link.code === equipment.code),
+    ).length
+  }
+  await fulfill(route, 200, movement)
 }
 
 async function routeOrganizationFile(

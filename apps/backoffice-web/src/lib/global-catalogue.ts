@@ -13,6 +13,10 @@ export type BackofficeGlobalCatalogue = AllfitV1Schemas['BackofficeGlobalCatalog
 export type GlobalCatalogueEntry = AllfitV1Schemas['GlobalCatalogueEntry']
 export type CatalogueEntryKind = GlobalCatalogueEntry['kind']
 export type CatalogueEntryStatus = GlobalCatalogueEntry['status']
+export type GlobalCatalogueEquipment = AllfitV1Schemas['GlobalCatalogueEquipment']
+export type MovementEquipmentItems = AllfitV1Schemas['CatalogueMovementEquipment']['items']
+/** What the editor holds per published equipment: not used, optional or required. */
+export type EquipmentChoice = 'none' | 'required' | 'optional'
 
 const CODE = /^[a-z][a-z0-9_]{1,63}$/
 const MAX_NAME = 120
@@ -111,9 +115,64 @@ export function catalogueCommandMessage(code: string): string {
   return messages[code] ?? 'No se pudo completar la acción.'
 }
 
-export function equipmentExplanation(
-  availability: BackofficeGlobalCatalogue['equipment_availability'],
+export function publishedEquipment(
+  catalogue: BackofficeGlobalCatalogue,
+): GlobalCatalogueEquipment[] {
+  return catalogue.equipment.filter((item) => item.status === 'published')
+}
+
+/** How many movements would stop showing this equipment if it were archived. */
+export function equipmentInUseExplanation(item: GlobalCatalogueEquipment): string {
+  if (item.in_use_count === 0) return 'Ningún movimiento lo usa todavía.'
+  const movements =
+    item.in_use_count === 1 ? '1 movimiento lo usa' : `${item.in_use_count} movimientos lo usan`
+  return `${movements}. Archivarlo lo retira de las búsquedas; si se vuelve a publicar, vuelve con ellos.`
+}
+
+export function equipmentOutcomeMessage(
+  action: 'publish' | 'archive',
+  item: GlobalCatalogueEquipment,
 ): string {
-  if (availability === 'available') return 'El equipamiento se publica desde aquí.'
-  return 'Allfit todavía no guarda equipamiento: no es que no haya, es que no existe dónde ponerlo. Publicarlo llega con su propia tabla.'
+  if (action === 'publish') {
+    return `Se publicó el equipamiento «${item.name}». Ya se puede asociar a un movimiento y las personas pueden filtrar por él.`
+  }
+  return `Se archivó el equipamiento «${item.name}». Sale de las búsquedas y de la lista de cada movimiento.`
+}
+
+/** What a movement uses, said as a person would read it, required first. */
+export function movementEquipmentSentence(entry: GlobalCatalogueEntry): string {
+  const items = entry.equipment ?? []
+  if (items.length === 0) return 'No necesita equipamiento.'
+  const names = (requirement: 'required' | 'optional') =>
+    items.filter((item) => item.requirement === requirement).map((item) => item.name)
+  const required = names('required')
+  const optional = names('optional')
+  return [
+    required.length > 0 ? `Necesita: ${required.join(', ')}.` : '',
+    optional.length > 0 ? `Opcional: ${optional.join(', ')}.` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+/** The editor starts from what is stored for the movement. */
+export function equipmentDraft(entry: GlobalCatalogueEntry): Record<string, EquipmentChoice> {
+  return Object.fromEntries((entry.equipment ?? []).map((item) => [item.code, item.requirement]))
+}
+
+/** The whole list the command sends: what is used, required first. */
+export function equipmentItems(draft: Record<string, EquipmentChoice>): MovementEquipmentItems {
+  const items: MovementEquipmentItems = []
+  for (const [code, choice] of Object.entries(draft)) {
+    if (choice !== 'none') items.push({ code, requirement: choice })
+  }
+  return items.sort(
+    (left, right) =>
+      (left.requirement === right.requirement ? 0 : left.requirement === 'required' ? -1 : 1) ||
+      left.code.localeCompare(right.code),
+  )
+}
+
+export function movementEquipmentOutcome(entry: GlobalCatalogueEntry): string {
+  return `Se guardó el equipamiento de «${entry.name}». ${movementEquipmentSentence(entry)}`
 }

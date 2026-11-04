@@ -1,5 +1,6 @@
 /**
- * Backoffice global catalogue routes: `NEW-CAT-GLOBAL-PUBLISH`, `OP-CAT-004`, `OP-CAT-005`.
+ * Backoffice global catalogue routes: `NEW-CAT-GLOBAL-PUBLISH`, `OP-CAT-004`, `OP-CAT-005`
+ * and `OP-CAT-016`.
  *
  * `HU-BO-022`. The handler shapes and rejects; the duty, AAL2, the stability of a code and
  * what may be archived are decided inside the transaction.
@@ -25,13 +26,15 @@ import {
 import { problem, type ApiErrorCode } from '../../../platform/http/index.js'
 import type { GlobalCatalogueCurationService } from '../application/global-catalogue.js'
 import { globalCatalogueCurationService } from '../dependencies.js'
-import type { CatalogueEntryResult } from '../domain/global-catalogue.js'
+import type { CatalogueMovementEquipmentItems } from '../domain/global-catalogue.js'
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_ANY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const CATALOGUE_CODE = /^[a-z][a-z0-9_]{1,63}$/
 const MAX_NAME = 120
+const MAX_MOVEMENT_EQUIPMENT = 30
+const REQUIREMENTS: ReadonlySet<string> = new Set(['required', 'optional'])
 
 export function backofficeGlobalCatalogueRoutes(
   injectedCuration?: GlobalCatalogueCurationService,
@@ -135,6 +138,35 @@ export function backofficeGlobalCatalogueRoutes(
     )
   })
 
+  routes.post('/catalogue/movements/:movementId/equipment', async (c) => {
+    const movementId = c.req.param('movementId')
+    if (!UUID_ANY.test(movementId)) return problem(c, 'invalid-request')
+    const body = await movementEquipmentBody(c, origin, movementId)
+    if (body instanceof Response) return body
+    return respond(c, sessions(), (actor) =>
+      curation().setMovementEquipment(actor, { ...body.command, movementId, items: body.items }),
+    )
+  })
+
+  routes.post('/catalogue/equipment', async (c) => {
+    const body = await commandBody(c, origin, ['code', 'name'])
+    if (body instanceof Response) return body
+    const publication = { code: body.value.code, name: body.value.name }
+    return respond(c, sessions(), (actor) =>
+      curation().publishEquipment(actor, { ...body.command, publication }),
+    )
+  })
+
+  routes.post('/catalogue/equipment/:code/archival', async (c) => {
+    const code = c.req.param('code')
+    if (!CATALOGUE_CODE.test(code)) return problem(c, 'invalid-request')
+    const command = await archivalCommand(c, origin, { code })
+    if (command instanceof Response) return command
+    return respond(c, sessions(), (actor) =>
+      curation().archiveEquipment(actor, { ...command, code }),
+    )
+  })
+
   return routes
 }
 
@@ -189,6 +221,52 @@ async function commandBody(
   return { value, command }
 }
 
+/**
+ * The movement's whole list: each item a published code and whether it is required. An
+ * extra field anywhere is refused, and a code named twice is refused here before the
+ * database refuses it again.
+ */
+async function movementEquipmentBody(
+  c: Context,
+  origin: string,
+  movementId: string,
+): Promise<Response | { items: CatalogueMovementEquipmentItems; command: CommandContext }> {
+  if (c.req.header('origin') !== origin) return problem(c, 'forbidden')
+  if (c.req.header('content-type')?.trim().toLowerCase() !== 'application/json') {
+    return problem(c, 'unsupported-media-type')
+  }
+  let body: unknown
+  try {
+    body = await c.req.json<unknown>()
+  } catch {
+    return problem(c, 'validation-failed')
+  }
+  if (!isObject(body) || Object.keys(body).length !== 1 || !Array.isArray(body.items)) {
+    return problem(c, 'validation-failed')
+  }
+  const raw: unknown[] = body.items
+  if (raw.length > MAX_MOVEMENT_EQUIPMENT) return problem(c, 'validation-failed')
+  const items: CatalogueMovementEquipmentItems = []
+  for (const item of raw) {
+    if (!isObject(item) || Object.keys(item).length !== 2) return problem(c, 'validation-failed')
+    const { code, requirement } = item
+    if (typeof code !== 'string' || !CATALOGUE_CODE.test(code)) {
+      return problem(c, 'validation-failed')
+    }
+    if (typeof requirement !== 'string' || !REQUIREMENTS.has(requirement)) {
+      return problem(c, 'validation-failed')
+    }
+    items.push({ code, requirement: requirement === 'required' ? 'required' : 'optional' })
+  }
+  if (new Set(items.map((item) => item.code)).size !== items.length) {
+    return problem(c, 'validation-failed')
+  }
+
+  const command = commandContext(c, { movementId, items })
+  if (!command) return problem(c, 'invalid-request')
+  return { items, command }
+}
+
 async function archivalCommand(
   c: Context,
   origin: string,
@@ -209,10 +287,10 @@ async function archivalCommand(
   return command ?? problem(c, 'invalid-request')
 }
 
-async function respond(
+async function respond<T>(
   c: Context,
   sessions: BackofficeAuthenticationService,
-  operation: (actor: BackofficeActor) => Promise<CatalogueEntryResult>,
+  operation: (actor: BackofficeActor) => Promise<{ resource: T; replayed: boolean }>,
 ): Promise<Response> {
   try {
     const actor = await backofficeActor(c, sessions)

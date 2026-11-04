@@ -17,7 +17,7 @@ const ACTOR_SESSION_ID = '019b2000-0000-7000-8000-000000000023'
 const MOVEMENT_ID = '019b2000-0000-7000-8000-000000000901'
 const IDEMPOTENCY_KEY = 'c0000000-0000-4000-8000-000000000001'
 const COMMAND_ID = '019b2000-0000-7000-8000-000000000601'
-const OPERATIONS = ['NEW-CAT-GLOBAL-PUBLISH', 'OP-CAT-004', 'OP-CAT-005']
+const OPERATIONS = ['NEW-CAT-GLOBAL-PUBLISH', 'OP-CAT-004', 'OP-CAT-005', 'OP-CAT-016']
 
 const entry: AllfitV1Schemas['GlobalCatalogueEntry'] = {
   kind: 'discipline',
@@ -30,11 +30,21 @@ const entry: AllfitV1Schemas['GlobalCatalogueEntry'] = {
   in_use_count: 0,
 }
 
+const equipment: AllfitV1Schemas['GlobalCatalogueEquipment'] = {
+  id: '019b2000-0000-7000-8000-000000000811',
+  code: 'test_barbell',
+  name: 'Barra olímpica',
+  status: 'published',
+  created_at: '2026-11-04T12:00:00.000Z',
+  in_use_count: 0,
+}
+
 const catalogue: AllfitV1Schemas['BackofficeGlobalCatalogue'] = {
   disciplines: [entry],
   activity_types: [],
   movements: [],
-  equipment_availability: 'not_modelled',
+  equipment: [equipment],
+  equipment_availability: 'available',
 }
 
 let captured: { operation: string; actor: unknown; input: unknown }[] = []
@@ -57,6 +67,15 @@ function curationService(
     archiveActivityType: record('archiveActivityType'),
     publishMovement: record('publishMovement'),
     archiveMovement: record('archiveMovement'),
+    setMovementEquipment: record('setMovementEquipment'),
+    publishEquipment: (actor: unknown, input: unknown) => {
+      captured.push({ operation: 'publishEquipment', actor, input })
+      return Promise.resolve({ resource: equipment, replayed: false })
+    },
+    archiveEquipment: (actor: unknown, input: unknown) => {
+      captured.push({ operation: 'archiveEquipment', actor, input })
+      return Promise.resolve({ resource: equipment, replayed: false })
+    },
     ...overrides,
   } as GlobalCatalogueCurationService
 }
@@ -127,7 +146,7 @@ beforeEach(() => {
 })
 
 describe('Backoffice global catalogue API contract', () => {
-  test('T-CAT-GLOBAL-API-01 mounts the read and the six curation commands', () => {
+  test('T-CAT-GLOBAL-API-01 mounts the read and the nine curation commands', () => {
     const contract = allfitV1ContractManifest.operations
       .filter((operation) => OPERATIONS.includes(operation.allfitOperation))
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
@@ -138,7 +157,7 @@ describe('Backoffice global catalogue API contract', () => {
       .sort()
 
     // OP-CAT-006 publishes result contracts and is served by its own router.
-    expect(contract.filter((route) => route.includes('/catalogue'))).toHaveLength(7)
+    expect(contract.filter((route) => route.includes('/catalogue'))).toHaveLength(10)
     expect(mounted).toEqual(contract.filter((route) => route.includes('/catalogue')))
   })
 
@@ -156,6 +175,9 @@ describe('Backoffice global catalogue API contract', () => {
     expect(mounted).toContain('POST /backoffice/v1/catalogue/activity-types/:code/archival')
     expect(mounted).toContain('POST /backoffice/v1/catalogue/movements')
     expect(mounted).toContain('POST /backoffice/v1/catalogue/movements/:movementId/archival')
+    expect(mounted).toContain('POST /backoffice/v1/catalogue/equipment')
+    expect(mounted).toContain('POST /backoffice/v1/catalogue/equipment/:code/archival')
+    expect(mounted).toContain('POST /backoffice/v1/catalogue/movements/:movementId/equipment')
   })
 
   test('T-CAT-GLOBAL-API-03 reads the catalogue out of any cache and refuses a filter', async () => {
@@ -336,6 +358,78 @@ describe('Backoffice global catalogue API contract', () => {
     expect(answers.map((response) => response.status)).toEqual(verdicts.map(([, status]) => status))
     expect(answers[5]?.headers.get('retry-after')).toBe('1')
     expect(broken.status).toBe(503)
+  })
+
+  test('T-CAT-GLOBAL-API-10 publishes and archives equipment with only a code and a name', async () => {
+    const published = await routes().fetch(
+      commandRequest(
+        '/catalogue/equipment',
+        JSON.stringify({ code: 'test_barbell', name: '  Barra olímpica ' }),
+      ),
+    )
+    const archived = await routes().fetch(
+      commandRequest('/catalogue/equipment/test_barbell/archival', '{}'),
+    )
+    const widened = await routes().fetch(
+      commandRequest(
+        '/catalogue/equipment',
+        JSON.stringify({ code: 'test_barbell', name: 'Barra', status: 'published' }),
+      ),
+    )
+    const badCode = await routes().fetch(
+      commandRequest('/catalogue/equipment/Barra%20Ol/archival', '{}'),
+    )
+
+    expect([published.status, archived.status]).toEqual([200, 200])
+    expect(await published.json()).toEqual(equipment)
+    expect([widened.status, badCode.status]).toEqual([422, 400])
+    expect(captured.map(({ operation }) => operation)).toEqual([
+      'publishEquipment',
+      'archiveEquipment',
+    ])
+    expect(captured[0]?.input).toMatchObject({
+      publication: { code: 'test_barbell', name: 'Barra olímpica' },
+    })
+    expect(captured[1]?.input).toMatchObject({ code: 'test_barbell' })
+  })
+
+  test('T-CAT-GLOBAL-API-11 sends a movement its whole equipment list and nothing else', async () => {
+    const path = `/catalogue/movements/${MOVEMENT_ID}/equipment`
+    const items = [
+      { code: 'test_barbell', requirement: 'required' },
+      { code: 'test_bench', requirement: 'optional' },
+    ]
+    const accepted = await routes().fetch(commandRequest(path, JSON.stringify({ items })))
+    const emptied = await routes().fetch(commandRequest(path, JSON.stringify({ items: [] })))
+    const refused = await Promise.all(
+      [
+        { items: [{ code: 'test_barbell', requirement: 'maybe' }] },
+        { items: [{ code: 'Barra', requirement: 'required' }] },
+        { items: [{ code: 'test_barbell', requirement: 'required', name: 'Barra' }] },
+        { items: [items[0], items[0]] },
+        {
+          items: Array.from({ length: 31 }, (_, index) => ({
+            code: `test_e${index}`,
+            requirement: 'optional',
+          })),
+        },
+        { items, movement_id: MOVEMENT_ID },
+        { items: 'test_barbell' },
+      ].map((body) => routes().fetch(commandRequest(path, JSON.stringify(body)))),
+    )
+    const badMovement = await routes().fetch(
+      commandRequest('/catalogue/movements/not-a-uuid/equipment', JSON.stringify({ items })),
+    )
+
+    expect([accepted.status, emptied.status]).toEqual([200, 200])
+    expect(refused.map((response) => response.status)).toEqual([422, 422, 422, 422, 422, 422, 422])
+    expect(badMovement.status).toBe(400)
+    expect(captured.map(({ operation }) => operation)).toEqual([
+      'setMovementEquipment',
+      'setMovementEquipment',
+    ])
+    expect(captured[0]?.input).toMatchObject({ movementId: MOVEMENT_ID, items })
+    expect(captured[1]?.input).toMatchObject({ movementId: MOVEMENT_ID, items: [] })
   })
 
   test('T-CAT-GLOBAL-API-09 never reaches the service without a session that still resolves', async () => {

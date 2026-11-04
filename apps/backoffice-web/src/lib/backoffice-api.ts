@@ -17,6 +17,9 @@ export type GlobalCatalogueEntry = AllfitV1Schemas['GlobalCatalogueEntry']
 export type CataloguePublication = AllfitV1Schemas['CataloguePublication']
 export type CatalogueActivityTypePublication = AllfitV1Schemas['CatalogueActivityTypePublication']
 export type CatalogueMovementPublication = AllfitV1Schemas['CatalogueMovementPublication']
+export type GlobalCatalogueEquipment = AllfitV1Schemas['GlobalCatalogueEquipment']
+export type CatalogueEquipmentPublication = AllfitV1Schemas['CatalogueEquipmentPublication']
+export type CatalogueMovementEquipment = AllfitV1Schemas['CatalogueMovementEquipment']
 export type CatalogDiscipline = AllfitV1Schemas['CatalogDiscipline']
 export type CatalogActivityType = AllfitV1Schemas['CatalogActivityType']
 export type ActivityTypeResultContract = AllfitV1Schemas['ActivityTypeResultContract']
@@ -235,6 +238,38 @@ export const backofficeApi = {
       headers: commandHeaders(command),
       body: JSON.stringify(publication),
     }),
+
+  publishCatalogueEquipment: (
+    publication: CatalogueEquipmentPublication,
+    command: BackofficeCommand,
+  ) =>
+    requestJson<GlobalCatalogueEquipment>('/backoffice/v1/catalogue/equipment', {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(publication),
+    }),
+
+  archiveCatalogueEquipment: (code: string, command: BackofficeCommand) =>
+    requestJson<GlobalCatalogueEquipment>(`/backoffice/v1/catalogue/equipment/${code}/archival`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: '{}',
+    }),
+
+  // The movement's whole list: what the curator sees is exactly what is stored.
+  setCatalogueMovementEquipment: (
+    movementId: string,
+    body: CatalogueMovementEquipment,
+    command: BackofficeCommand,
+  ) =>
+    requestJson<GlobalCatalogueEntry>(
+      `/backoffice/v1/catalogue/movements/${movementId}/equipment`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+      },
+    ),
 
   // No body: archiving takes only which entry, so nothing else can travel with it.
   archiveCatalogueEntry: (

@@ -6,13 +6,20 @@ import {
   catalogueOutcomeMessage,
   catalogueStatusLabel,
   catalogueStatusTone,
-  equipmentExplanation,
+  equipmentDraft,
+  equipmentInUseExplanation,
+  equipmentItems,
+  equipmentOutcomeMessage,
   globalCatalogueMessage,
   inUseExplanation,
   isValidCatalogueCode,
   isValidCatalogueName,
+  movementEquipmentSentence,
   publishedDisciplines,
+  publishedEquipment,
+  type BackofficeGlobalCatalogue,
   type GlobalCatalogueEntry,
+  type GlobalCatalogueEquipment,
 } from './global-catalogue'
 
 function entry(overrides: Partial<GlobalCatalogueEntry> = {}): GlobalCatalogueEntry {
@@ -24,6 +31,18 @@ function entry(overrides: Partial<GlobalCatalogueEntry> = {}): GlobalCatalogueEn
     name: 'Yoga',
     status: 'published',
     created_at: '2026-09-16T12:00:00.000Z',
+    in_use_count: 0,
+    ...overrides,
+  }
+}
+
+function equipment(overrides: Partial<GlobalCatalogueEquipment> = {}): GlobalCatalogueEquipment {
+  return {
+    id: '019b2000-0000-7000-8000-000000000811',
+    code: 'test_barbell',
+    name: 'Barra olímpica',
+    status: 'published',
+    created_at: '2026-11-04T12:00:00.000Z',
     in_use_count: 0,
     ...overrides,
   }
@@ -60,7 +79,8 @@ describe('global catalogue presentation', () => {
       disciplines: [entry(), entry({ id: 'x', code: 'old', status: 'archived' })],
       activity_types: [],
       movements: [],
-      equipment_availability: 'not_modelled' as const,
+      equipment: [],
+      equipment_availability: 'available' as const,
     }
     expect(publishedDisciplines(catalogue).map((item) => item.code)).toEqual(['test_global_yoga'])
   })
@@ -72,9 +92,58 @@ describe('global catalogue presentation', () => {
     expect(archived).toContain('sigue funcionando')
   })
 
-  test('absent equipment is a statement about Allfit, not about the catalogue', () => {
-    expect(equipmentExplanation('not_modelled')).toContain('no existe dónde ponerlo')
-    expect(equipmentExplanation('available')).not.toContain('todavía no guarda')
+  // HU-BO-022: equipment is published here, and a movement says what it uses.
+  test('equipment says how many movements use it before anyone archives it', () => {
+    expect(equipmentInUseExplanation(equipment({ in_use_count: 0 }))).toBe(
+      'Ningún movimiento lo usa todavía.',
+    )
+    expect(equipmentInUseExplanation(equipment({ in_use_count: 1 }))).toContain('1 movimiento')
+    expect(equipmentInUseExplanation(equipment({ in_use_count: 3 }))).toContain('3 movimientos')
+    expect(equipmentOutcomeMessage('publish', equipment())).toContain('«Barra olímpica»')
+    expect(equipmentOutcomeMessage('archive', equipment())).toContain('Sale de las búsquedas')
+  })
+
+  test('a movement says what it needs and what is optional, in words', () => {
+    expect(movementEquipmentSentence(entry({ kind: 'movement', equipment: [] }))).toBe(
+      'No necesita equipamiento.',
+    )
+    expect(
+      movementEquipmentSentence(
+        entry({
+          kind: 'movement',
+          equipment: [
+            { code: 'test_barbell', name: 'Barra olímpica', requirement: 'required' },
+            { code: 'test_rack', name: 'Rack', requirement: 'required' },
+            { code: 'test_bench', name: 'Banco plano', requirement: 'optional' },
+          ],
+        }),
+      ),
+    ).toBe('Necesita: Barra olímpica, Rack. Opcional: Banco plano.')
+  })
+
+  test('the editor starts from what is stored and sends the whole list', () => {
+    const movement = entry({
+      kind: 'movement',
+      equipment: [{ code: 'test_bench', name: 'Banco plano', requirement: 'optional' }],
+    })
+    const draft = equipmentDraft(movement)
+    expect(draft).toEqual({ test_bench: 'optional' })
+    expect(equipmentItems({ ...draft, test_barbell: 'required', test_rack: 'none' })).toEqual([
+      { code: 'test_barbell', requirement: 'required' },
+      { code: 'test_bench', requirement: 'optional' },
+    ])
+    expect(equipmentItems({})).toEqual([])
+  })
+
+  test('only published equipment can be named by a movement', () => {
+    const catalogue: BackofficeGlobalCatalogue = {
+      disciplines: [],
+      activity_types: [],
+      movements: [],
+      equipment: [equipment(), equipment({ id: 'x', code: 'test_old', status: 'archived' })],
+      equipment_availability: 'available',
+    }
+    expect(publishedEquipment(catalogue).map((item) => item.code)).toEqual(['test_barbell'])
   })
 
   test('refusals explain themselves', () => {

@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 import {
   activeSession,
   catalogueEntry,
+  catalogueEquipment,
   createBackofficeFixture,
   globalCatalogueFixture,
   mockBackofficeApi,
@@ -230,15 +231,72 @@ test('a publication lost to the network is retried with the same command', async
   expect(attempts[1]?.headers['command-id']).toBe(attempts[0]?.headers['command-id'])
 })
 
-test('equipment is declared absent instead of shown as an empty catalogue', async ({
+test('Allfit publishes equipment and the list says how many movements use it', async ({
   context,
   page,
 }) => {
-  await mockBackofficeApi(context, fixtureWith(globalCatalogueFixture()))
+  const fixture = fixtureWith(globalCatalogueFixture())
+  await mockBackofficeApi(context, fixture)
 
   await page.goto('/catalogue')
+  await page.locator('#equipment-code').fill('test_barbell')
+  await page.locator('#equipment-name').fill('Barra olímpica')
+  await page.getByRole('button', { name: 'Publicar equipamiento' }).click()
 
-  await expect(page.locator('[data-catalogue-equipment]')).toContainText('no existe dónde ponerlo')
+  await expect(page.locator('[data-catalogue-outcome]')).toContainText('«Barra olímpica»')
+  await expect(page.locator('[data-catalogue-equipment-entry]')).toContainText(
+    'Ningún movimiento lo usa todavía.',
+  )
+  expect(commands(fixture).map((request) => [request.path, request.body])).toEqual([
+    ['/backoffice/v1/catalogue/equipment', { code: 'test_barbell', name: 'Barra olímpica' }],
+  ])
+})
+
+test('a movement says what it uses, and its whole list is sent at once', async ({
+  context,
+  page,
+}) => {
+  const movement = catalogueEntry({
+    kind: 'movement',
+    name: 'Press de banca',
+    equipment: [{ code: 'test_bench', name: 'Banco plano', requirement: 'optional' }],
+  })
+  const fixture = fixtureWith(
+    globalCatalogueFixture({
+      disciplines: [catalogueEntry()],
+      movements: [movement],
+      equipment: [
+        catalogueEquipment(),
+        catalogueEquipment({ code: 'test_bench', name: 'Banco plano', in_use_count: 1 }),
+      ],
+    }),
+  )
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/catalogue')
+  await expect(page.locator('[data-movement-equipment]')).toHaveText('Opcional: Banco plano.')
+  await page.getByRole('button', { name: 'Editar el equipamiento de Press de banca' }).click()
+  await page.locator('#movement-equipment-test_barbell').click()
+  await page.getByRole('option', { name: 'Lo necesita', exact: true }).click()
+  await page.locator('[data-movement-equipment-save]').click()
+
+  await expect(page.locator('[data-catalogue-outcome]')).toContainText(
+    'Necesita: Barra olímpica. Opcional: Banco plano.',
+  )
+  await expect(page.locator('[data-movement-equipment]')).toHaveText(
+    'Necesita: Barra olímpica. Opcional: Banco plano.',
+  )
+  expect(commands(fixture).map((request) => [request.path, request.body])).toEqual([
+    [
+      `/backoffice/v1/catalogue/movements/${movement.id}/equipment`,
+      {
+        items: [
+          { code: 'test_barbell', requirement: 'required' },
+          { code: 'test_bench', requirement: 'optional' },
+        ],
+      },
+    ],
+  ])
 })
 
 test('without the curation duty the screen says which duty it needs', async ({ context, page }) => {

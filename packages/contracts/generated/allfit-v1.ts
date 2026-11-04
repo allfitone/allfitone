@@ -3995,7 +3995,7 @@ export interface paths {
     }
     /**
      * Read the global catalogue as its curator sees it
-     * @description `HU-BO-022`. Every global discipline, activity type and movement, published and archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each entry says how much already depends on it, so archiving is a decision taken with the consequence in view. A gym's private content never appears here. Equipment has no table in V1 and is declared absent rather than answered as an empty list. Requires `curate_global_catalog`.
+     * @description `HU-BO-022`. Every global discipline, activity type and movement, published and archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each entry says how much already depends on it, so archiving is a decision taken with the consequence in view. A gym's private content never appears here. Global equipment is listed with how many movements use it, and each movement says the equipment it uses. Requires `curate_global_catalog`.
      */
     get: operations['readBackofficeGlobalCatalogue']
     put?: never
@@ -4100,6 +4100,66 @@ export interface paths {
      * @description A movement is identified by its name, normalised: the same name written with other spacing or capitalisation is the same movement and answers 409. It belongs to a published discipline and has no owner.
      */
     post: operations['publishCatalogueMovement']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/catalogue/equipment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Publish global equipment
+     * @description `HU-BO-022`. Equipment is what a movement is compatible with, never inventory. A code that is already published answers 409, and an archived code is published again only under the name it had.
+     */
+    post: operations['publishCatalogueEquipment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/catalogue/equipment/{code}/archival': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Withdraw global equipment from the catalogue without deleting it
+     * @description The equipment leaves every search and every movement's list as read by the products; the links stay, so publishing it again under the same name brings them back. The command carries no body.
+     */
+    post: operations['archiveCatalogueEquipment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/catalogue/movements/{movementId}/equipment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Say which equipment a global movement uses
+     * @description Replaces the published movement's whole list, so what the curator sees is what is stored. Only published global equipment is named; an unknown or archived code answers 422, and a movement that is not global answers 404.
+     */
+    post: operations['setCatalogueMovementEquipment']
     delete?: never
     options?: never
     head?: never
@@ -10184,7 +10244,7 @@ export interface components {
       can_start: boolean
       requests: components['schemas']['BackofficeAccountRecoveryRequest'][]
     }
-    /** @description One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name. */
+    /** @description One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name, and only a movement carries `equipment`. */
     GlobalCatalogueEntry: {
       /** @enum {string} */
       kind: 'discipline' | 'activity_type' | 'movement'
@@ -10197,11 +10257,45 @@ export interface components {
       /** Format: date-time */
       created_at: string
       in_use_count: number
+      /** @description What a movement uses, required first. Absent for other kinds. */
+      equipment?: components['schemas']['CatalogueMovementEquipmentItem'][]
+    }
+    CatalogueMovementEquipmentItem: {
+      code: string
+      name: string
+      /** @enum {string} */
+      requirement: 'required' | 'optional'
+    }
+    /** @description Global equipment as its curator sees it. `in_use_count` is how many movements name it, so archiving is taken with the consequence in view. */
+    GlobalCatalogueEquipment: {
+      id: components['schemas']['Uuid']
+      code: string
+      name: string
+      /** @enum {string} */
+      status: 'draft' | 'published' | 'deprecated' | 'archived'
+      /** Format: date-time */
+      created_at: string
+      in_use_count: number
+    }
+    /** @description Global equipment. The code is chosen once and never means anything else. */
+    CatalogueEquipmentPublication: {
+      code: string
+      name: string
+    }
+    /** @description The movement's whole list; an empty one says it needs no equipment. */
+    CatalogueMovementEquipment: {
+      items: {
+        code: string
+        /** @enum {string} */
+        requirement: 'required' | 'optional'
+      }[]
     }
     BackofficeGlobalCatalogue: {
       disciplines: components['schemas']['GlobalCatalogueEntry'][]
       activity_types: components['schemas']['GlobalCatalogueEntry'][]
       movements: components['schemas']['GlobalCatalogueEntry'][]
+      equipment: components['schemas']['GlobalCatalogueEquipment'][]
+      /** @description Always `available` now that equipment is published here. Kept for screens that still read it. */
       equipment_availability: components['schemas']['SupportBlockAvailability']
     }
     /** @description A discipline. The code is chosen once and never means anything else. */
@@ -18428,6 +18522,127 @@ export interface operations {
     }
     responses: {
       /** @description The published movement */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GlobalCatalogueEntry']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  publishCatalogueEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CatalogueEquipmentPublication']
+      }
+    }
+    responses: {
+      /** @description The published equipment */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GlobalCatalogueEquipment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  archiveCatalogueEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        /** @description The stable code of a global catalogue entry. */
+        code: components['parameters']['CatalogueCode']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The archived equipment */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GlobalCatalogueEquipment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  setCatalogueMovementEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        movementId: components['schemas']['Uuid']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CatalogueMovementEquipment']
+      }
+    }
+    responses: {
+      /** @description The movement with the equipment it uses */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']

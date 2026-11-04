@@ -1295,7 +1295,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   BackofficeGlobalCatalogue: {
     type: 'object',
     additionalProperties: false,
-    required: ['disciplines', 'activity_types', 'movements', 'equipment_availability'],
+    required: ['disciplines', 'activity_types', 'movements', 'equipment', 'equipment_availability'],
     properties: {
       disciplines: {
         type: 'array',
@@ -1315,7 +1315,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/GlobalCatalogueEntry',
         },
       },
+      equipment: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/GlobalCatalogueEquipment',
+        },
+      },
       equipment_availability: {
+        description:
+          'Always `available` now that equipment is published here. Kept for screens that still read it.',
         $ref: '#/components/schemas/SupportBlockAvailability',
       },
     },
@@ -2672,6 +2680,70 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         minLength: 1,
         maxLength: 120,
+      },
+    },
+  },
+  CatalogueEquipmentPublication: {
+    type: 'object',
+    additionalProperties: false,
+    description: 'Global equipment. The code is chosen once and never means anything else.',
+    required: ['code', 'name'],
+    properties: {
+      code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+    },
+  },
+  CatalogueMovementEquipment: {
+    type: 'object',
+    additionalProperties: false,
+    description: "The movement's whole list; an empty one says it needs no equipment.",
+    required: ['items'],
+    properties: {
+      items: {
+        type: 'array',
+        maxItems: 30,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['code', 'requirement'],
+          properties: {
+            code: {
+              type: 'string',
+              pattern: '^[a-z][a-z0-9_]{1,63}$',
+            },
+            requirement: {
+              type: 'string',
+              enum: ['required', 'optional'],
+            },
+          },
+        },
+      },
+    },
+  },
+  CatalogueMovementEquipmentItem: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code', 'name', 'requirement'],
+    properties: {
+      code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      requirement: {
+        type: 'string',
+        enum: ['required', 'optional'],
       },
     },
   },
@@ -4665,7 +4737,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'object',
     additionalProperties: false,
     description:
-      'One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name.',
+      'One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name, and only a movement carries `equipment`.',
     required: [
       'kind',
       'id',
@@ -4689,6 +4761,47 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         pattern: '^[a-z][a-z0-9_]{1,63}$',
       },
       discipline_code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      status: {
+        type: 'string',
+        enum: ['draft', 'published', 'deprecated', 'archived'],
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      in_use_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      equipment: {
+        type: 'array',
+        description: 'What a movement uses, required first. Absent for other kinds.',
+        maxItems: 30,
+        items: {
+          $ref: '#/components/schemas/CatalogueMovementEquipmentItem',
+        },
+      },
+    },
+  },
+  GlobalCatalogueEquipment: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'Global equipment as its curator sees it. `in_use_count` is how many movements name it, so archiving is taken with the consequence in view.',
+    required: ['id', 'code', 'name', 'status', 'created_at', 'in_use_count'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      code: {
         type: 'string',
         pattern: '^[a-z][a-z0-9_]{1,63}$',
       },

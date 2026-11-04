@@ -9981,9 +9981,9 @@ paths:
         `HU-BO-022`. Every global discipline, activity type and movement, published and
         archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each
         entry says how much already depends on it, so archiving is a decision taken with
-        the consequence in view. A gym's private content never appears here. Equipment has
-        no table in V1 and is declared absent rather than answered as an empty list.
-        Requires `curate_global_catalog`.
+        the consequence in view. A gym's private content never appears here. Global
+        equipment is listed with how many movements use it, and each movement says the
+        equipment it uses. Requires `curate_global_catalog`.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -10258,6 +10258,159 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /backoffice/v1/catalogue/equipment:
+    post:
+      tags: [Backoffice Catalogue]
+      operationId: publishCatalogueEquipment
+      x-allfit-operation: OP-CAT-004
+      x-allfit-cache: no-store
+      summary: Publish global equipment
+      description: >-
+        `HU-BO-022`. Equipment is what a movement is compatible with, never inventory.
+        A code that is already published answers 409, and an archived code is published
+        again only under the name it had.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogueEquipmentPublication'
+      responses:
+        '200':
+          description: The published equipment
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalCatalogueEquipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+  /backoffice/v1/catalogue/equipment/{code}/archival:
+    post:
+      tags: [Backoffice Catalogue]
+      operationId: archiveCatalogueEquipment
+      x-allfit-operation: OP-CAT-005
+      x-allfit-cache: no-store
+      summary: Withdraw global equipment from the catalogue without deleting it
+      description: >-
+        The equipment leaves every search and every movement's list as read by the
+        products; the links stay, so publishing it again under the same name brings them
+        back. The command carries no body.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/CatalogueCode'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The archived equipment
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalCatalogueEquipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+  /backoffice/v1/catalogue/movements/{movementId}/equipment:
+    post:
+      tags: [Backoffice Catalogue]
+      operationId: setCatalogueMovementEquipment
+      x-allfit-operation: OP-CAT-016
+      x-allfit-cache: no-store
+      summary: Say which equipment a global movement uses
+      description: >-
+        Replaces the published movement's whole list, so what the curator sees is what
+        is stored. Only published global equipment is named; an unknown or archived code
+        answers 422, and a movement that is not global answers 404.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - name: movementId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogueMovementEquipment'
+      responses:
+        '200':
+          description: The movement with the equipment it uses
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalCatalogueEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
   /backoffice/v1/catalogue/movements/{movementId}/archival:
     post:
       tags: [Backoffice Catalogue]
@@ -24367,7 +24520,7 @@ components:
         One entry of the global catalogue as its curator sees it. `in_use_count` is what
         already references it — templates, sessions and result contracts included — so
         archiving is never a blind decision. A movement has no code: it is identified by
-        its normalised name.
+        its normalised name, and only a movement carries `equipment`.
       required: [kind, id, code, discipline_code, name, status, created_at, in_use_count]
       properties:
         kind:
@@ -24394,10 +24547,90 @@ components:
         in_use_count:
           type: integer
           minimum: 0
+        equipment:
+          type: array
+          description: What a movement uses, required first. Absent for other kinds.
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/CatalogueMovementEquipmentItem'
+    CatalogueMovementEquipmentItem:
+      type: object
+      additionalProperties: false
+      required: [code, name, requirement]
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requirement:
+          type: string
+          enum: [required, optional]
+    GlobalCatalogueEquipment:
+      type: object
+      additionalProperties: false
+      description: >-
+        Global equipment as its curator sees it. `in_use_count` is how many movements
+        name it, so archiving is taken with the consequence in view.
+      required: [id, code, name, status, created_at, in_use_count]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          type: string
+          enum: [draft, published, deprecated, archived]
+        created_at:
+          type: string
+          format: date-time
+        in_use_count:
+          type: integer
+          minimum: 0
+    CatalogueEquipmentPublication:
+      type: object
+      additionalProperties: false
+      description: Global equipment. The code is chosen once and never means anything else.
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    CatalogueMovementEquipment:
+      type: object
+      additionalProperties: false
+      description: The movement's whole list; an empty one says it needs no equipment.
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            additionalProperties: false
+            required: [code, requirement]
+            properties:
+              code:
+                type: string
+                pattern: '^[a-z][a-z0-9_]{1,63}$'
+              requirement:
+                type: string
+                enum: [required, optional]
     BackofficeGlobalCatalogue:
       type: object
       additionalProperties: false
-      required: [disciplines, activity_types, movements, equipment_availability]
+      required: [disciplines, activity_types, movements, equipment, equipment_availability]
       properties:
         disciplines:
           type: array
@@ -24411,7 +24644,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GlobalCatalogueEntry'
+        equipment:
+          type: array
+          items:
+            $ref: '#/components/schemas/GlobalCatalogueEquipment'
         equipment_availability:
+          description: >-
+            Always `available` now that equipment is published here. Kept for screens
+            that still read it.
           $ref: '#/components/schemas/SupportBlockAvailability'
     CataloguePublication:
       type: object
