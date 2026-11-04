@@ -12,6 +12,10 @@
  * Owner is not offered. It is not a role this command can grant at all — the
  * server refuses it — because ownership moves through a transfer, which is a
  * different story with different consequences.
+ *
+ * It carries no trigger of its own: the row's action menu owns which dialog is
+ * open, because a menu item cannot hold one — the menu closes on click and
+ * would take the trigger's dialog with it.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -24,7 +28,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@allfitone/react/components/dialog'
 import { Field, FieldDescription, FieldLabel } from '@allfitone/react/components/field'
 import {
@@ -54,13 +57,16 @@ import { studioQueryKeys } from '@/lib/studio-query'
 export function TeamRoleGrant({
   organizationId,
   membership,
+  open,
+  onOpenChange,
 }: {
   organizationId: string
   membership: OrganizationMembership
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }) {
   const fieldId = useId()
   const queryClient = useQueryClient()
-  const [open, setOpen] = useState(false)
   const [role, setRole] = useState('')
   const [refusal, setRefusal] = useState<RoleGrantRefusal | null>(null)
 
@@ -87,7 +93,7 @@ export function TeamRoleGrant({
         queryKey: studioQueryKeys.organizationMembershipsRoot(organizationId),
       })
       setRole('')
-      setOpen(false)
+      onOpenChange(false)
     },
     onError: (error) => {
       setRefusal(roleGrantRefusalFor(error instanceof StudioApiError ? error.status : undefined))
@@ -104,26 +110,13 @@ export function TeamRoleGrant({
       open={open}
       onOpenChange={(next) => {
         if (grant.isPending) return
-        setOpen(next)
+        onOpenChange(next)
         if (!next) {
           setRole('')
           setRefusal(null)
         }
       }}
     >
-      <DialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            data-team-grant-role
-            aria-label={`Añadir un rol a ${membership.display_name}`}
-          />
-        }
-      >
-        Añadir rol
-      </DialogTrigger>
       <DialogContent data-team-role-dialog>
         <DialogHeader>
           <DialogTitle>Añadir un rol a {membership.display_name}</DialogTitle>

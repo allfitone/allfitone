@@ -75,6 +75,8 @@ export type OrganizationRoleCatalog = AllfitV1Schemas['OrganizationRoleCatalog']
 export type OrganizationRoleCode = AllfitV1Schemas['OrganizationRoleCode']
 export type OrganizationRoleGrant = AllfitV1Schemas['OrganizationRoleGrant']
 export type OrganizationRoleGrantCreate = AllfitV1Schemas['OrganizationRoleGrantCreate']
+export type OrganizationRoleRevocation = AllfitV1Schemas['OrganizationRoleRevocation']
+export type AssignableOrganizationRoleCode = AllfitV1Schemas['AssignableOrganizationRoleCode']
 export type OrganizationSubscriptionPage = AllfitV1Schemas['OrganizationSubscriptionPage']
 export type OrganizationSubscription = AllfitV1Schemas['OrganizationSubscription']
 export type SubscriptionStatus = AllfitV1Schemas['SubscriptionStatus']
@@ -540,6 +542,25 @@ export const studioApi = {
         method: 'POST',
         headers: commandHeaders(command),
         body: JSON.stringify(body),
+      },
+    ),
+
+  /*
+   * The role travels in the path, not in a body: `DELETE` is what the contract
+   * publishes for `OP-ORG-008`, and a body on a DELETE is ignored by enough
+   * intermediaries that it cannot carry the one argument the command needs.
+   */
+  revokeMembershipRole: (
+    organizationId: string,
+    membershipId: string,
+    roleCode: AssignableOrganizationRoleCode,
+    command: CommandHeaders,
+  ) =>
+    request<OrganizationRoleRevocation>(
+      `/studio/v1/organizations/${organizationId}/memberships/${membershipId}/roles/${roleCode}`,
+      {
+        method: 'DELETE',
+        headers: commandHeaders(command),
       },
     ),
 

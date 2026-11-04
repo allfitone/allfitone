@@ -23,11 +23,11 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
-import { TeamRoleGrant } from './team-role-grant'
+import { TeamMemberActions } from './team-member-actions'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { canViewTeamDirectory, memberInitials, organizationRoleLabel } from '@/lib/team-directory'
 import { canInviteTeam } from '@/lib/team-invitations'
-import { canManageRoles, canReceiveARole } from '@/lib/team-roles'
+import { canManageRoles } from '@/lib/team-roles'
 import { useCompactTable } from '@/lib/use-compact-table'
 import {
   StudioApiError,
@@ -351,9 +351,9 @@ function MembershipCard({
         {/* Below the facts, in the slot the invitation cards already use, not
             beside the role badges: a 44px control inside that pairing pushed
             the value off its own label. */}
-        {organizationId && canReceiveARole(item) ? (
+        {organizationId ? (
           <div data-team-invitation-actions>
-            <TeamRoleGrant organizationId={organizationId} membership={item} />
+            <TeamMemberActions organizationId={organizationId} membership={item} />
           </div>
         ) : null}
       </CardContent>
@@ -420,8 +420,8 @@ function MembershipRow({
       <TableCell>{formatDate(item.joined_at)}</TableCell>
       <TableCell>{item.ended_at ? formatDate(item.ended_at) : '—'}</TableCell>
       <TableCell>
-        {organizationId && canReceiveARole(item) ? (
-          <TeamRoleGrant organizationId={organizationId} membership={item} />
+        {organizationId ? (
+          <TeamMemberActions organizationId={organizationId} membership={item} />
         ) : null}
       </TableCell>
     </TableRow>

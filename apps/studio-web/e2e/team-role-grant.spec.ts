@@ -26,6 +26,16 @@ function openTeam(page: import('@playwright/test').Page, organizationId: string)
   return page.goto(`/organizations/${organizationId}/team`)
 }
 
+/**
+ * The grant used to be a button of its own in the row. It moved into the row's
+ * action menu when revoking arrived beside it, so every path to the dialog now
+ * goes through two clicks. What each test asserts afterwards is unchanged.
+ */
+async function openGrantDialog(page: import('@playwright/test').Page, member: string) {
+  await page.getByRole('button', { name: `Acciones sobre ${member}` }).click()
+  await page.getByRole('menuitem', { name: 'Añadir rol' }).click()
+}
+
 test('an owner gives a staff member the coach role and the list says so', async ({ page }) => {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership],
@@ -34,7 +44,7 @@ test('an owner gives a staff member the coach role and the list says so', async 
   await installStudioApiMock(page, fixture)
   await openTeam(page, activeMembership.organization_id)
 
-  await page.getByRole('button', { name: 'Añadir un rol a Sara Posada' }).click()
+  await openGrantDialog(page, 'Sara Posada')
   await page.getByRole('combobox', { name: 'Rol' }).click()
   await page.getByRole('option', { name: 'Coach' }).click()
   await page.getByRole('button', { name: 'Otorgar rol' }).click()
@@ -63,7 +73,7 @@ test('the dialog says a role gives access to nobody data', async ({ page }) => {
   })
   await installStudioApiMock(page, fixture)
   await openTeam(page, activeMembership.organization_id)
-  await page.getByRole('button', { name: 'Añadir un rol a Sara Posada' }).click()
+  await openGrantDialog(page, 'Sara Posada')
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toContainText('Un rol no da acceso a los datos de nadie')
@@ -79,7 +89,7 @@ test('owner is not offered as a role', async ({ page }) => {
   })
   await installStudioApiMock(page, fixture)
   await openTeam(page, activeMembership.organization_id)
-  await page.getByRole('button', { name: 'Añadir un rol a Sara Posada' }).click()
+  await openGrantDialog(page, 'Sara Posada')
   await page.getByRole('combobox', { name: 'Rol' }).click()
 
   await expect(page.getByRole('option', { name: 'Administrador' })).toBeVisible()
@@ -96,7 +106,7 @@ test('a role the person already holds is not offered', async ({ page }) => {
   })
   await installStudioApiMock(page, fixture)
   await openTeam(page, activeMembership.organization_id)
-  await page.getByRole('button', { name: 'Añadir un rol a Sara Posada' }).click()
+  await openGrantDialog(page, 'Sara Posada')
   await page.getByRole('combobox', { name: 'Rol' }).click()
 
   await expect(page.getByRole('option', { name: 'Staff' })).toBeHidden()
@@ -110,8 +120,10 @@ test('a membership that ended is not offered the action at all', async ({ page }
   await installStudioApiMock(page, fixture)
   await openTeam(page, activeMembership.organization_id)
 
+  // Nothing can be granted and nothing revoked on an ended membership, so the
+  // row carries no menu at all rather than an empty one.
   await expect(
-    page.getByRole('button', { name: `Añadir un rol a ${terminatedTeamMember.display_name}` }),
+    page.getByRole('button', { name: `Acciones sobre ${terminatedTeamMember.display_name}` }),
   ).toBeHidden()
 })
 
@@ -124,5 +136,5 @@ test('a coach is not offered the action', async ({ page }) => {
   await installStudioApiMock(page, fixture)
   await openTeam(page, secondActiveMembership.organization_id)
 
-  await expect(page.getByRole('button', { name: /Añadir un rol/ })).toBeHidden()
+  await expect(page.getByRole('button', { name: /^Acciones sobre/ })).toBeHidden()
 })
