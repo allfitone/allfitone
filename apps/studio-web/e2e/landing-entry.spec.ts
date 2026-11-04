@@ -160,14 +160,22 @@ test.describe('languages', () => {
   test.describe('an English browser', () => {
     test.use({ locale: 'en-US' })
 
-    test('is taken to the English landing, consent panel included', async ({ page }) => {
+    test('is taken to the Spanish landing too', async ({ page }) => {
+      await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+
+      await page.goto('/')
+
+      await expect(page).toHaveURL('/es')
+      await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+    })
+
+    test('still finds the English landing at /en, consent panel included', async ({ page }) => {
       await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
         consent: 'undecided',
       })
 
-      await page.goto('/')
+      await page.goto('/en')
 
-      await expect(page).toHaveURL('/en')
       await expect(page.locator('html')).toHaveAttribute('lang', 'en')
       await expect(page.getByRole('heading', { level: 1, name: /Your plan/ })).toBeVisible()
       await expect(page.getByRole('link', { name: 'Sign in to Studio' })).toHaveAttribute(
