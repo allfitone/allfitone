@@ -96,7 +96,15 @@ async function cleanup(): Promise<void> {
     await transaction`
       delete from system.outbox_events where aggregate_id in (
         select id from planning.program_assignments where person_id = ${CLIENT_ID}::uuid
+        union all
+        select id from planning.planned_sessions where person_id = ${CLIENT_ID}::uuid
       )
+    `
+    await transaction`
+      delete from planning.prescription_revisions where person_id = ${CLIENT_ID}::uuid
+    `
+    await transaction`
+      delete from planning.planned_session_reschedules where person_id = ${CLIENT_ID}::uuid
     `
     await transaction`delete from planning.planned_sessions where person_id = ${CLIENT_ID}::uuid`
     await transaction`
@@ -185,6 +193,10 @@ interface Projections {
   programPage: unknown[]
   programAssignment: unknown
   relationshipAssignmentPage: unknown[]
+  rescheduledSession: unknown
+  prescriptionRevision: unknown
+  assignmentCancellation: unknown
+  cancelledAssignmentPage: unknown[]
 }
 
 const projections = {} as Projections
@@ -401,6 +413,56 @@ beforeAll(async () => {
   )
   projections.relationshipAssignmentPage = listedAssignments.map((row) => row.result)
 
+  // Managing what was given: a move, an adjustment and the cancellation, as Studio reads them.
+  const managed = listedAssignments[0]?.result
+  const session = managed?.sessions[0]
+  const moved = nextCommand()
+  const [movedRow] = await actorTransaction(
+    (transaction) => transaction`
+      select result from planning.reschedule_planned_session(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${session?.id}::uuid,
+        least(${session?.scheduled_on}::date + 1, ${session?.week_starts_on}::date + 6),
+        ${session?.revision_number}::bigint, ${moved.idempotencyKey}::uuid,
+        ${moved.commandId}::uuid, ${moved.hash})
+    `,
+  )
+  projections.rescheduledSession = movedRow?.result
+
+  const [step] = await admin`
+    select step.id from planning.planned_steps as step
+    where step.template_version_id = ${templateVersionId}::uuid
+    order by step.position limit 1
+  `
+  const revised = nextCommand()
+  const [revisionRow] = await actorTransaction(
+    (transaction) => transaction`
+      select result from planning.revise_prescription(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${managed?.id}::uuid, ${step?.id}::uuid,
+        'target_reps', ${transaction.json(10)}::jsonb, null, ${revised.idempotencyKey}::uuid,
+        ${revised.commandId}::uuid, ${revised.hash})
+    `,
+  )
+  projections.prescriptionRevision = revisionRow?.result
+
+  const cancelled = nextCommand()
+  const [cancellationRow] = await actorTransaction(
+    (transaction) => transaction`
+      select result from planning.cancel_managed_assignment(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${managed?.id}::uuid,
+        ${cancelled.idempotencyKey}::uuid, ${cancelled.commandId}::uuid, ${cancelled.hash})
+    `,
+  )
+  projections.assignmentCancellation = cancellationRow?.result
+
+  const relisted = await actorTransaction(
+    (transaction) => transaction`
+      select result from planning.list_relationship_assignments(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${RELATIONSHIP_ID}::uuid, 25, null, null)
+    `,
+    nextRequestId(),
+  )
+  projections.cancelledAssignmentPage = relisted.map((row) => row.result)
+
   const listedTemplates = await actorTransaction(
     (transaction) => transaction`
       select result from planning.list_session_templates(
@@ -458,6 +520,9 @@ describe('Planning projections against the OpenAPI contract', () => {
       'ProgramVersion',
       'ProgramAssignment',
       'RelationshipAssignment',
+      'RelationshipAssignmentSession',
+      'PrescriptionRevision',
+      'AssignmentCancellation',
     ]) {
       expect(validator.getSchema(`allfit-v1#/components/schemas/${schemaName}`)).toBeDefined()
     }
@@ -522,6 +587,21 @@ describe('Planning projections against the OpenAPI contract', () => {
       schema: 'ProgramAssignment',
       projection: () => projections.programAssignment,
     },
+    {
+      id: 'T-PLN-API-182',
+      schema: 'RelationshipAssignmentSession',
+      projection: () => projections.rescheduledSession,
+    },
+    {
+      id: 'T-PLN-API-183',
+      schema: 'PrescriptionRevision',
+      projection: () => projections.prescriptionRevision,
+    },
+    {
+      id: 'T-PLN-API-184',
+      schema: 'AssignmentCancellation',
+      projection: () => projections.assignmentCancellation,
+    },
   ]
 
   for (const testCase of cases) {
@@ -550,6 +630,15 @@ describe('Planning projections against the OpenAPI contract', () => {
     expect(projections.relationshipAssignmentPage).toHaveLength(1)
     for (const item of projections.relationshipAssignmentPage) {
       assertMatchesContract('RelationshipAssignment', item)
+    }
+  })
+
+  test('T-PLN-API-185 a cancelled assignment with its adjustment still satisfies the contract', () => {
+    expect(projections.cancelledAssignmentPage).toHaveLength(1)
+    for (const item of projections.cancelledAssignmentPage) {
+      assertMatchesContract('RelationshipAssignment', item)
+      expect(item).toMatchObject({ status: 'cancelled', management: null })
+      expect((item as { adjustments: unknown[] }).adjustments).toHaveLength(1)
     }
   })
 })

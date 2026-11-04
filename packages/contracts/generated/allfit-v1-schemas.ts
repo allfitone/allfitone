@@ -398,6 +398,29 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'string',
     enum: ['admin', 'coach', 'staff'],
   },
+  AssignmentCancellation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'status', 'cancelled_at', 'sessions_cancelled'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      status: {
+        type: 'string',
+        enum: ['cancelled'],
+      },
+      cancelled_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      sessions_cancelled: {
+        type: 'integer',
+        minimum: 0,
+        description: 'How many sessions still to come stopped; the started ones never do.',
+      },
+    },
+  },
   AssignmentManagement: {
     type: 'object',
     additionalProperties: false,
@@ -8115,6 +8138,26 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  PlannedSessionReschedule: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['scheduled_on', 'expected_revision'],
+    example: {
+      scheduled_on: '2026-11-11',
+      expected_revision: 0,
+    },
+    properties: {
+      scheduled_on: {
+        type: 'string',
+        format: 'date',
+        description:
+          "The new day in the person's own zone: today or later, not before the program starts, and inside the session's calendar week.",
+      },
+      expected_revision: {
+        $ref: '#/components/schemas/ExpectedRevision',
+      },
+    },
+  },
   PlannedSetContent: {
     type: 'object',
     additionalProperties: false,
@@ -8863,6 +8906,94 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  PrescriptionAdjustmentKind: {
+    type: 'string',
+    description:
+      'What one revision adjusts (DD 9.15). Sets, reps and load fit a strength step; distance, duration and pace an endurance one; rounds, work and rest an interval; hold, repetitions and side a mobility one; effort fits strength and intervals, and a note fits any step.',
+    enum: [
+      'target_sets',
+      'target_reps',
+      'target_load',
+      'target_rpe',
+      'target_distance',
+      'target_duration',
+      'target_pace',
+      'rounds',
+      'work_duration',
+      'rest_duration',
+      'hold_duration',
+      'target_repetitions',
+      'side',
+      'notes',
+    ],
+  },
+  PrescriptionRevision: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'assignment_id',
+      'planned_step_id',
+      'kind',
+      'value',
+      'unit_code',
+      'revised_at',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      assignment_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      planned_step_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      kind: {
+        $ref: '#/components/schemas/PrescriptionAdjustmentKind',
+      },
+      value: {
+        type: ['number', 'string'],
+      },
+      unit_code: {
+        type: ['string', 'null'],
+      },
+      revised_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  PrescriptionRevisionCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['planned_step_id', 'kind', 'value'],
+    example: {
+      planned_step_id: '018f6f8d-2b00-7a00-8000-000000000501',
+      kind: 'target_load',
+      value: 70,
+      unit_code: 'kg',
+    },
+    properties: {
+      planned_step_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      kind: {
+        $ref: '#/components/schemas/PrescriptionAdjustmentKind',
+      },
+      value: {
+        type: ['number', 'string'],
+        description:
+          'Typed by `kind`: an integer for counts, seconds for durations, a number for load, distance, pace and effort, and text for the side and a note.',
+      },
+      unit_code: {
+        type: ['string', 'null'],
+        minLength: 1,
+        maxLength: 64,
+        description: 'Required for load, distance and pace; absent for every other kind.',
+      },
+    },
+  },
   PrimaryTrainingGoal: {
     type: 'string',
     enum: ['lose_weight', 'build_muscle', 'get_fit', 'run_a_race', 'maintain'],
@@ -8932,6 +9063,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
           {
             $ref: '#/components/schemas/ProgramDraft',
+          },
+          {
+            $ref: '#/components/schemas/RelationshipAssignmentSession',
           },
         ],
       },
@@ -9632,6 +9766,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'assigned_at',
       'management',
       'sessions',
+      'adjustments',
     ],
     properties: {
       id: {
@@ -9639,7 +9774,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       status: {
         type: 'string',
-        enum: ['active', 'detached_pending_choice', 'ended'],
+        enum: ['active', 'detached_pending_choice', 'ended', 'cancelled'],
+        description:
+          '`cancelled` is an assignment the organization stopped (OP-PLN-014); `ended` one that ended otherwise.',
       },
       program_version: {
         type: 'object',
@@ -9694,6 +9831,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/RelationshipAssignmentSession',
         },
       },
+      adjustments: {
+        type: 'array',
+        description:
+          'The prescription revisions in force, the latest of each kind on each step, by step and kind. Kept after the organization stops managing the program.',
+        items: {
+          $ref: '#/components/schemas/PrescriptionRevision',
+        },
+      },
     },
   },
   RelationshipAssignmentPage: {
@@ -9723,6 +9868,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'program_day',
       'scheduled_on',
       'status',
+      'started',
+      'revision_number',
     ],
     properties: {
       id: {
@@ -9751,6 +9898,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       status: {
         type: 'string',
         enum: ['scheduled', 'paused', 'cancelled', 'completed'],
+      },
+      started: {
+        type: 'boolean',
+        description: 'Whether the person started it; a started session no longer moves.',
+      },
+      revision_number: {
+        type: 'integer',
+        minimum: 0,
+        description: 'What to send as `expected_revision` to move it.',
       },
     },
   },

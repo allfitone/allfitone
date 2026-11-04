@@ -10,6 +10,10 @@ export type ProgramDraftContent = AllfitV1Schemas['ProgramDraftContent']
 export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
 export type ProgramAssignment = AllfitV1Schemas['ProgramAssignment']
 export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
+export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
+export type PrescriptionAdjustmentKind = AllfitV1Schemas['PrescriptionAdjustmentKind']
+export type PrescriptionRevision = AllfitV1Schemas['PrescriptionRevision']
+export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
 
 export interface PlanningCommand {
   idempotencyKey: string
@@ -110,6 +114,32 @@ export interface PlanningDatabase {
       timezone?: string
     },
   ): Promise<PlanningCommandResult<ProgramAssignment>>
+  /** OP-PLN-012. Only the day moves, inside its week; a stale revision is refused. */
+  reschedulePlannedSession(
+    input: PlanningCommand & {
+      personId: string
+      organizationId: string
+      plannedSessionId: string
+      scheduledOn: string
+      expectedRevision: number
+    },
+  ): Promise<PlanningCommandResult<RelationshipAssignmentSession>>
+  /** OP-PLN-013. Typed by `kind` in PostgreSQL; the latest revision of each kind is in force. */
+  revisePrescription(
+    input: PlanningCommand & {
+      personId: string
+      organizationId: string
+      assignmentId: string
+      plannedStepId: string
+      kind: PrescriptionAdjustmentKind
+      value: number | string
+      unitCode: string | null
+    },
+  ): Promise<PlanningCommandResult<PrescriptionRevision>>
+  /** OP-PLN-014. Cancelling twice answers the same cancellation. */
+  cancelAssignment(
+    input: PlanningCommand & { personId: string; organizationId: string; assignmentId: string },
+  ): Promise<PlanningCommandResult<AssignmentCancellation>>
   /** OP-PLN-018. Logged in the same transaction before anything is returned. */
   listRelationshipAssignments(input: {
     personId: string

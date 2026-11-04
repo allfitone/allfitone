@@ -2844,6 +2844,72 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/planned-sessions/{plannedSessionId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Move a managed session to another day of its week
+     * @description HU-STUDIO-048. The coach who holds the relationship, or a cover the person accepted, moves a session of a program the organization still manages. Only the day changes: the routine, its targets and the week it belongs to stay, and the move is kept with who made it. The new day is today or later in the person's own zone, never before the program starts, and inside the session's own calendar week, which is what Space offers (ADR-032).
+     *
+     *     The caller names the `revision_number` she read in `expected_revision`; when the session moved on meanwhile the answer is 409 `stale-draft` with the current session in `current_state`. A session the person started, one that is not scheduled, and one of a program the organization no longer manages answer 409 `conflict`. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required`. A session of the person's own program, of another organization, or of a relationship the caller does not attend answers 404. Moving a session to the day it is on changes nothing.
+     */
+    patch: operations['reschedulePlannedSession']
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/prescription-revisions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Adjust a step's prescription for this one person
+     * @description HU-STUDIO-049. The coach who holds the relationship, or a cover the person accepted, adjusts one target of one step of the version she was given: the published routine and program stay as they are (T-ASG-7). Each revision is typed, kept with the professional assignment that made it, and never rewritten; the latest of each kind is the one in force, and Space trains it wherever it read the program's target. Adjustments outlive the management period, so a detached program keeps them.
+     *
+     *     `value` takes the type its `kind` needs: a positive integer for sets, reps, rounds and repetitions; a number of seconds for durations; a number with a `unit_code` for load, distance and pace; an effort between 0 and 10; one of `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a note. A step outside the assigned version answers 422 `planned-step`, a kind its target family does not take 422 `kind`. Only while the organization manages the program, else 409 `conflict`; the grant and visibility rules are those of moving a session.
+     */
+    post: operations['revisePrescription']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/cancellation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Stop a program the organization manages
+     * @description HU-STUDIO-050. The coach who attends the person, or an administrator or owner of the organization without attending her, stops a program it still manages. The assignment ends and its management period closes as cancelled; the sessions from today on that nobody started are cancelled. Past sessions, what the person trained and the assignment itself stay (T-ASG-5). Cancelling again answers the same cancellation.
+     *
+     *     Everyone needs the person's `relationship_training` grant at `contribute`; without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one the caller cannot reach answers 404.
+     */
+    post: operations['cancelProgramAssignment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/programs': {
     parameters: {
       query?: never
@@ -8082,8 +8148,11 @@ export interface components {
     }
     RelationshipAssignment: {
       id: components['schemas']['Uuid']
-      /** @enum {string} */
-      status: 'active' | 'detached_pending_choice' | 'ended'
+      /**
+       * @description `cancelled` is an assignment the organization stopped (OP-PLN-014); `ended` one that ended otherwise.
+       * @enum {string}
+       */
+      status: 'active' | 'detached_pending_choice' | 'ended' | 'cancelled'
       program_version: {
         id: components['schemas']['Uuid']
         program_id: components['schemas']['Uuid']
@@ -8100,6 +8169,8 @@ export interface components {
       management: components['schemas']['AssignmentManagement'] | null
       /** @description Every session planted so far, in calendar order. An open-ended version grows one week at a time, as the person reaches it. */
       sessions: components['schemas']['RelationshipAssignmentSession'][]
+      /** @description The prescription revisions in force, the latest of each kind on each step, by step and kind. Kept after the organization stops managing the program. */
+      adjustments: components['schemas']['PrescriptionRevision'][]
     }
     RelationshipAssignmentSession: {
       id: components['schemas']['Uuid']
@@ -8115,11 +8186,83 @@ export interface components {
       scheduled_on: string
       /** @enum {string} */
       status: 'scheduled' | 'paused' | 'cancelled' | 'completed'
+      /** @description Whether the person started it; a started session no longer moves. */
+      started: boolean
+      /** @description What to send as `expected_revision` to move it. */
+      revision_number: number
     }
     AssignmentManagement: {
       relationship_id: components['schemas']['Uuid']
       /** Format: date-time */
       since: string
+    }
+    /**
+     * @example {
+     *       "scheduled_on": "2026-11-11",
+     *       "expected_revision": 0
+     *     }
+     */
+    PlannedSessionReschedule: {
+      /**
+       * Format: date
+       * @description The new day in the person's own zone: today or later, not before the program starts, and inside the session's calendar week.
+       */
+      scheduled_on: string
+      expected_revision: components['schemas']['ExpectedRevision']
+    }
+    /**
+     * @description What one revision adjusts (DD 9.15). Sets, reps and load fit a strength step; distance, duration and pace an endurance one; rounds, work and rest an interval; hold, repetitions and side a mobility one; effort fits strength and intervals, and a note fits any step.
+     * @enum {string}
+     */
+    PrescriptionAdjustmentKind:
+      | 'target_sets'
+      | 'target_reps'
+      | 'target_load'
+      | 'target_rpe'
+      | 'target_distance'
+      | 'target_duration'
+      | 'target_pace'
+      | 'rounds'
+      | 'work_duration'
+      | 'rest_duration'
+      | 'hold_duration'
+      | 'target_repetitions'
+      | 'side'
+      | 'notes'
+    /**
+     * @example {
+     *       "planned_step_id": "018f6f8d-2b00-7a00-8000-000000000501",
+     *       "kind": "target_load",
+     *       "value": 70,
+     *       "unit_code": "kg"
+     *     }
+     */
+    PrescriptionRevisionCreate: {
+      planned_step_id: components['schemas']['Uuid']
+      kind: components['schemas']['PrescriptionAdjustmentKind']
+      /** @description Typed by `kind`: an integer for counts, seconds for durations, a number for load, distance, pace and effort, and text for the side and a note. */
+      value: number | string
+      /** @description Required for load, distance and pace; absent for every other kind. */
+      unit_code?: string | null
+    }
+    PrescriptionRevision: {
+      id: components['schemas']['Uuid']
+      assignment_id: components['schemas']['Uuid']
+      planned_step_id: components['schemas']['Uuid']
+      kind: components['schemas']['PrescriptionAdjustmentKind']
+      value: number | string
+      unit_code: string | null
+      /** Format: date-time */
+      revised_at: string
+    }
+    AssignmentCancellation: {
+      id: components['schemas']['Uuid']
+      /** @enum {string} */
+      status: 'cancelled'
+      /** Format: date-time */
+      cancelled_at: string
+      /** @description How many sessions still to come stopped; the started ones never do. */
+      sessions_cancelled: number
     }
     /**
      * @example {
@@ -9441,7 +9584,9 @@ export interface components {
       feature?: string
       /** @description Current server draft returned only for stale-draft conflicts. */
       current_state?:
-        components['schemas']['SessionTemplateDraft'] | components['schemas']['ProgramDraft']
+        | components['schemas']['SessionTemplateDraft']
+        | components['schemas']['ProgramDraft']
+        | components['schemas']['RelationshipAssignmentSession']
     }
     RequiredScope: {
       code: components['schemas']['ScopeCode']
@@ -10642,6 +10787,25 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The session moved on since it was read (`stale-draft`, with the current session in `current_state`), it started, or the organization no longer manages it (`conflict`) */
+    ManagedSessionConflict: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        'Retry-After': components['headers']['RetryAfter']
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "type": "https://errors.allfit.invalid/stale-draft",
+         *       "title": "The local draft is stale",
+         *       "status": 409,
+         *       "request_id": "01JEXAMPLE0000000000000000"
+         *     }
+         */
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description If-Match refers to a stale execution revision */
     StaleDraft: {
       headers: {
@@ -10790,6 +10954,7 @@ export interface components {
     SubstitutionId: components['schemas']['Uuid']
     TerminationRequestId: components['schemas']['Uuid']
     PlannedSessionId: components['schemas']['Uuid']
+    AssignmentId: components['schemas']['Uuid']
     ExecutionId: components['schemas']['Uuid']
     PersonId: components['schemas']['Uuid']
     GrantId: components['schemas']['Uuid']
@@ -16049,6 +16214,126 @@ export interface operations {
       409: components['responses']['Conflict']
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  reschedulePlannedSession: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        plannedSessionId: components['parameters']['PlannedSessionId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PlannedSessionReschedule']
+      }
+    }
+    responses: {
+      /** @description The session on its day, or unchanged when it already was there */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipAssignmentSession']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      409: components['responses']['ManagedSessionConflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  revisePrescription: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        assignmentId: components['parameters']['AssignmentId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PrescriptionRevisionCreate']
+      }
+    }
+    responses: {
+      /** @description The revision, now in force for its kind */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PrescriptionRevision']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  cancelProgramAssignment: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        assignmentId: components['parameters']['AssignmentId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The cancellation, or the same one again */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AssignmentCancellation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
       503: components['responses']['UpstreamUnavailable']
     }
   }

@@ -4584,12 +4584,64 @@ export type Database = {
           },
         ]
       }
+      planned_session_reschedules: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          id: string
+          moved_from: string
+          moved_to: string
+          person_id: string
+          planned_session_id: string
+          relationship_id: string
+          rescheduled_by_membership_id: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          id?: string
+          moved_from: string
+          moved_to: string
+          person_id: string
+          planned_session_id: string
+          relationship_id: string
+          rescheduled_by_membership_id: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          moved_from?: string
+          moved_to?: string
+          person_id?: string
+          planned_session_id?: string
+          relationship_id?: string
+          rescheduled_by_membership_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_planned_session_reschedules_assignment'
+            columns: ['assignment_id', 'person_id']
+            isOneToOne: false
+            referencedRelation: 'program_assignments'
+            referencedColumns: ['id', 'person_id']
+          },
+          {
+            foreignKeyName: 'fk_planned_session_reschedules_session'
+            columns: ['planned_session_id', 'person_id']
+            isOneToOne: false
+            referencedRelation: 'planned_sessions'
+            referencedColumns: ['id', 'person_id']
+          },
+        ]
+      }
       planned_sessions: {
         Row: {
           assignment_id: string
           id: string
           person_id: string
           program_day: number
+          revision_number: number
           scheduled_at: string
           status: string
           template_version_id: string
@@ -4601,6 +4653,7 @@ export type Database = {
           id?: string
           person_id: string
           program_day: number
+          revision_number?: number
           scheduled_at: string
           status?: string
           template_version_id: string
@@ -4612,6 +4665,7 @@ export type Database = {
           id?: string
           person_id?: string
           program_day?: number
+          revision_number?: number
           scheduled_at?: string
           status?: string
           template_version_id?: string
@@ -4713,6 +4767,63 @@ export type Database = {
             columns: ['template_version_id']
             isOneToOne: false
             referencedRelation: 'session_template_versions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      prescription_revisions: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          created_by_assignment_id: string
+          id: string
+          override_kind: string
+          person_id: string
+          planned_step_id: string
+          unit_code: string | null
+          value_integer: number | null
+          value_numeric: number | null
+          value_text: string | null
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          created_by_assignment_id: string
+          id?: string
+          override_kind: string
+          person_id: string
+          planned_step_id: string
+          unit_code?: string | null
+          value_integer?: number | null
+          value_numeric?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          created_by_assignment_id?: string
+          id?: string
+          override_kind?: string
+          person_id?: string
+          planned_step_id?: string
+          unit_code?: string | null
+          value_integer?: number | null
+          value_numeric?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_prescription_revisions_assignment'
+            columns: ['assignment_id', 'person_id']
+            isOneToOne: false
+            referencedRelation: 'program_assignments'
+            referencedColumns: ['id', 'person_id']
+          },
+          {
+            foreignKeyName: 'fk_prescription_revisions_step'
+            columns: ['planned_step_id']
+            isOneToOne: false
+            referencedRelation: 'planned_steps'
             referencedColumns: ['id']
           },
         ]
@@ -5297,6 +5408,10 @@ export type Database = {
           result: Json
         }[]
       }
+      assigned_step_family: {
+        Args: { p_assignment_id: string; p_step_id: string }
+        Returns: string
+      }
       assignment_overlaps: {
         Args: { p_assignment_id: string }
         Returns: boolean
@@ -5304,6 +5419,40 @@ export type Database = {
       audit_organization_read: {
         Args: { p_organization_id: string; p_person_id: string }
         Returns: undefined
+      }
+      authorize_managed_assignment: {
+        Args: {
+          p_administrators: boolean
+          p_assignment_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_planned_session_id: string
+        }
+        Returns: {
+          assignment_id: string
+          membership_id: string
+          professional_assignment_id: string
+          relationship_id: string
+          subject_person_id: string
+        }[]
+      }
+      cancel_managed_assignment: {
+        Args: {
+          p_assignment_id: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      cancellation_document: {
+        Args: { p_assignment_id: string }
+        Returns: Json
       }
       canonical_program_content: { Args: { p_content: Json }; Returns: Json }
       canonical_session_content: { Args: { p_content: Json }; Returns: Json }
@@ -5472,10 +5621,19 @@ export type Database = {
           template: Json
         }[]
       }
+      effective_sets: {
+        Args: { p_assignment_id: string; p_sets: Json; p_step_id: string }
+        Returns: Json
+      }
+      effective_target: {
+        Args: { p_assignment_id: string; p_step_id: string; p_target: Json }
+        Returns: Json
+      }
       fork_program_version: {
         Args: { p_person_id: string; p_program_version_id: string }
         Returns: string
       }
+      is_managed: { Args: { p_assignment_id: string }; Returns: boolean }
       list_programs: {
         Args: {
           p_cursor_id: string
@@ -5523,6 +5681,10 @@ export type Database = {
         Args: { p_content: Json; p_organization_id: string }
         Returns: undefined
       }
+      managed_session_item: {
+        Args: { p_planned_session_id: string }
+        Returns: Json
+      }
       materialize_target: {
         Args: { p_step_id: string; p_target: Json }
         Returns: undefined
@@ -5536,6 +5698,31 @@ export type Database = {
       plant_my_open_week: {
         Args: { p_person_id: string; p_timezone: string }
         Returns: undefined
+      }
+      prescription_kind_families: {
+        Args: { p_kind: string }
+        Returns: string[]
+      }
+      prescription_revision_document: {
+        Args: { p_revision_id: string }
+        Returns: Json
+      }
+      prescription_target_keys: {
+        Args: { p_kind: string }
+        Returns: {
+          unit_key: string
+          value_key: string
+        }[]
+      }
+      prescription_value_fits: {
+        Args: {
+          p_integer: number
+          p_kind: string
+          p_numeric: number
+          p_text: string
+          p_unit_code: string
+        }
+        Returns: boolean
       }
       program_content_errors: {
         Args: {
@@ -5887,6 +6074,22 @@ export type Database = {
           scope_version: number
         }[]
       }
+      reschedule_planned_session: {
+        Args: {
+          p_command_id: string
+          p_expected_revision: number
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_planned_session_id: string
+          p_request_hash: string
+          p_scheduled_on: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       restate_assignment_onto: {
         Args: { p_person_id: string; p_program_version_id: string }
         Returns: string
@@ -5900,6 +6103,28 @@ export type Database = {
           p_request_hash: string
         }
         Returns: string
+      }
+      resume_contract_scope: {
+        Args: { p_id: string; p_purpose: string; p_token: string }
+        Returns: undefined
+      }
+      revise_prescription: {
+        Args: {
+          p_assignment_id: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_kind: string
+          p_organization_id: string
+          p_person_id: string
+          p_planned_step_id: string
+          p_request_hash: string
+          p_unit_code: string
+          p_value: Json
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
       }
       self_assign_program: {
         Args: {
@@ -5941,6 +6166,10 @@ export type Database = {
           p_program_id: string
           p_request_hash: string
         }
+        Returns: Json
+      }
+      step_adjustments: {
+        Args: { p_assignment_id: string; p_step_id: string }
         Returns: Json
       }
     }

@@ -18,6 +18,8 @@ const PERSON_ID = '019d0000-0000-7000-8000-000000000001'
 const RELATIONSHIP_ID = '019d0000-0000-7000-8000-000000000701'
 const ASSIGNMENT_ID = '019d0000-0000-7000-8000-000000000801'
 const PLANNED_SESSION_ID = '019d0000-0000-7000-8000-000000000802'
+const PLANNED_STEP_ID = '019d0000-0000-7000-8000-000000000803'
+const REVISION_ID = '019d0000-0000-7000-8000-000000000804'
 const ETAG = `"sha256:${'A'.repeat(43)}"`
 const IDEMPOTENCY_KEY = '11111111-1111-4111-8111-111111111111'
 const COMMAND_ID = '019d0000-0000-7000-8000-000000000301'
@@ -132,6 +134,32 @@ const programAssignment: AllfitV1Schemas['ProgramAssignment'] = {
   planned_sessions_created: 1,
   schedule_overlaps: false,
 }
+const managedSession: AllfitV1Schemas['RelationshipAssignmentSession'] = {
+  id: PLANNED_SESSION_ID,
+  template_version_id: TEMPLATE_VERSION_ID,
+  title: 'Strength A',
+  week_starts_on: '2026-08-17',
+  program_day: 1,
+  scheduled_on: '2026-08-19',
+  status: 'scheduled',
+  started: false,
+  revision_number: 1,
+}
+const prescriptionRevision: AllfitV1Schemas['PrescriptionRevision'] = {
+  id: REVISION_ID,
+  assignment_id: ASSIGNMENT_ID,
+  planned_step_id: PLANNED_STEP_ID,
+  kind: 'target_load',
+  value: 70,
+  unit_code: 'kg',
+  revised_at: NOW,
+}
+const assignmentCancellation: AllfitV1Schemas['AssignmentCancellation'] = {
+  id: ASSIGNMENT_ID,
+  status: 'cancelled',
+  cancelled_at: NOW,
+  sessions_cancelled: 3,
+}
 const relationshipAssignment: AllfitV1Schemas['RelationshipAssignment'] = {
   id: ASSIGNMENT_ID,
   status: 'active',
@@ -155,8 +183,21 @@ const relationshipAssignment: AllfitV1Schemas['RelationshipAssignment'] = {
       program_day: 1,
       scheduled_on: '2026-08-17',
       status: 'scheduled',
+      started: false,
+      revision_number: 0,
     },
   ],
+  adjustments: [prescriptionRevision],
+}
+const SESSION_PATH = `/organizations/${ORGANIZATION_ID}/planned-sessions/${PLANNED_SESSION_ID}`
+const REVISIONS_PATH = `/organizations/${ORGANIZATION_ID}/assignments/${ASSIGNMENT_ID}/prescription-revisions`
+const CANCELLATION_PATH = `/organizations/${ORGANIZATION_ID}/assignments/${ASSIGNMENT_ID}/cancellation`
+const rescheduleBody = { scheduled_on: '2026-08-19', expected_revision: 0 }
+const revisionBody = {
+  planned_step_id: PLANNED_STEP_ID,
+  kind: 'target_load',
+  value: 70,
+  unit_code: 'kg',
 }
 const ASSIGNMENTS_PATH = `/organizations/${ORGANIZATION_ID}/relationships/${RELATIONSHIP_ID}/assignments`
 const assignmentBody = {
@@ -214,6 +255,10 @@ describe('Studio planning API contract', () => {
       // Giving a client a program, and reading back what this relationship gave.
       'OP-PLN-010',
       'OP-PLN-018',
+      // Managing what was given: moving a session, adjusting it, stopping the program.
+      'OP-PLN-012',
+      'OP-PLN-013',
+      'OP-PLN-014',
       'OP-PLN-019',
       'OP-PLN-020',
       'OP-PLN-021',
@@ -428,6 +473,50 @@ describe('Studio planning API contract', () => {
         location: `/studio/v1${ASSIGNMENTS_PATH}`,
       },
     },
+    {
+      operation: 'OP-PLN-012',
+      method: 'PATCH',
+      service: 'reschedulePlannedSession',
+      status: 200,
+      path: SESSION_PATH,
+      body: rescheduleBody,
+      expectedId: PLANNED_SESSION_ID,
+      expectedInput: {
+        organizationId: ORGANIZATION_ID,
+        plannedSessionId: PLANNED_SESSION_ID,
+        scheduledOn: '2026-08-19',
+        expectedRevision: 0,
+      },
+      expectedHeaders: { 'cache-control': 'no-store' },
+    },
+    {
+      operation: 'OP-PLN-013',
+      method: 'POST',
+      service: 'revisePrescription',
+      status: 201,
+      path: REVISIONS_PATH,
+      body: revisionBody,
+      expectedId: REVISION_ID,
+      expectedInput: {
+        organizationId: ORGANIZATION_ID,
+        assignmentId: ASSIGNMENT_ID,
+        plannedStepId: PLANNED_STEP_ID,
+        kind: 'target_load',
+        value: 70,
+        unitCode: 'kg',
+      },
+      expectedHeaders: { 'cache-control': 'no-store' },
+    },
+    {
+      operation: 'OP-PLN-014',
+      method: 'POST',
+      service: 'cancelAssignment',
+      status: 200,
+      path: CANCELLATION_PATH,
+      expectedId: ASSIGNMENT_ID,
+      expectedInput: { organizationId: ORGANIZATION_ID, assignmentId: ASSIGNMENT_ID },
+      expectedHeaders: { 'cache-control': 'no-store' },
+    },
   ]
 
   for (const endpoint of endpoints) {
@@ -580,6 +669,9 @@ describe('Studio planning API contract', () => {
       'OP-PLN-009': ['200', '400', '401', '403', '404', '409', '415', '503'],
       'OP-PLN-010': ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
       'OP-PLN-018': ['200', '400', '401', '403', '404', '422', '503'],
+      'OP-PLN-012': ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      'OP-PLN-013': ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      'OP-PLN-014': ['200', '400', '401', '403', '404', '409', '503'],
     }
     for (const [operationId, statuses] of Object.entries(expected)) {
       const operation = allfitV1ContractManifest.operations.find(
@@ -857,6 +949,154 @@ describe('Studio planning API contract', () => {
     expect(invalidPath.status).toBe(400)
   })
 
+  test('T-PLN-API-176 hands a coach who read an old revision the session as it is now', async () => {
+    const stale = Object.assign(new Error('stale-draft'), {
+      code: '40001',
+      detail: JSON.stringify(managedSession),
+    })
+    const response = await studioPlanningRoutes(
+      planningService([], { failure: stale }),
+      sessionService(),
+    ).request(SESSION_PATH, requestInit({ method: 'PATCH', body: rescheduleBody }))
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({
+      type: 'https://errors.allfit.invalid/stale-draft',
+      current_state: managedSession,
+    })
+  })
+
+  test('T-PLN-API-177 refuses a move outside the contract before reaching PostgreSQL', async () => {
+    const calls: CapturedCall[] = []
+    const app = studioPlanningRoutes(planningService(calls), sessionService())
+    const invalid = [
+      { scheduled_on: '2026-08-19' },
+      { expected_revision: 0 },
+      { ...rescheduleBody, scheduled_on: '2026-02-30' },
+      { ...rescheduleBody, expected_revision: -1 },
+      { ...rescheduleBody, expected_revision: 1.5 },
+      { ...rescheduleBody, expected_revision: '0' },
+      { ...rescheduleBody, status: 'cancelled' },
+    ]
+    for (const body of invalid) {
+      const response = await app.request(SESSION_PATH, requestInit({ method: 'PATCH', body }))
+      expect(response.status).toBe(422)
+    }
+    const invalidPath = await app.request(
+      `/organizations/${ORGANIZATION_ID}/planned-sessions/not-a-uuid`,
+      requestInit({ method: 'PATCH', body: rescheduleBody }),
+    )
+    expect(invalidPath.status).toBe(400)
+    expect(calls).toHaveLength(0)
+  })
+
+  test('T-PLN-API-178 refuses an adjustment outside the contract, and passes each typed value', async () => {
+    const calls: CapturedCall[] = []
+    const app = studioPlanningRoutes(planningService(calls), sessionService())
+    const invalid = [
+      { kind: 'target_load', value: 70 },
+      { ...revisionBody, planned_step_id: 'not-a-uuid' },
+      { ...revisionBody, kind: 'tempo' },
+      { ...revisionBody, value: true },
+      { ...revisionBody, value: { amount: 70 } },
+      { ...revisionBody, value: null },
+      { ...revisionBody, unit_code: 7 },
+      { ...revisionBody, unit_code: '' },
+      { ...revisionBody, reason: 'deload' },
+    ]
+    for (const body of invalid) {
+      const response = await app.request(REVISIONS_PATH, requestInit({ method: 'POST', body }))
+      expect(response.status).toBe(422)
+    }
+    expect(calls).toHaveLength(0)
+
+    const note = await app.request(
+      REVISIONS_PATH,
+      requestInit({
+        method: 'POST',
+        body: { planned_step_id: PLANNED_STEP_ID, kind: 'notes', value: 'Easy', unit_code: null },
+      }),
+    )
+    expect(note.status).toBe(201)
+    expect(calls[0]?.input).toMatchObject({ kind: 'notes', value: 'Easy', unitCode: null })
+  })
+
+  test('T-PLN-API-179 points each move and adjustment refusal at the field it concerns', async () => {
+    const moving = await studioPlanningRoutes(
+      planningService([], {
+        failure: databaseValidationError(['scheduled-on', 'scheduled-on-week']),
+      }),
+      sessionService(),
+    ).request(SESSION_PATH, requestInit({ method: 'PATCH', body: rescheduleBody }))
+    expect(moving.status).toBe(422)
+    expect(await moving.json()).toMatchObject({
+      errors: [
+        { code: 'scheduled-on', path: '/scheduled_on' },
+        { code: 'scheduled-on-week', path: '/scheduled_on' },
+      ],
+    })
+    const adjusting = await studioPlanningRoutes(
+      planningService([], {
+        failure: databaseValidationError(['planned-step', 'kind', 'value', 'unit-code']),
+      }),
+      sessionService(),
+    ).request(REVISIONS_PATH, requestInit({ method: 'POST', body: revisionBody }))
+    expect(adjusting.status).toBe(422)
+    expect(await adjusting.json()).toMatchObject({
+      errors: [
+        { code: 'planned-step', path: '/planned_step_id' },
+        { code: 'kind', path: '/kind' },
+        { code: 'value', path: '/value' },
+        { code: 'unit-code', path: '/unit_code' },
+      ],
+    })
+  })
+
+  test('T-PLN-API-180 a cancellation takes no payload, names the missing grant, and conflicts once unmanaged', async () => {
+    const calls: CapturedCall[] = []
+    const withPayload = await studioPlanningRoutes(
+      planningService(calls),
+      sessionService(),
+    ).request(CANCELLATION_PATH, requestInit({ method: 'POST', body: { reason: 'moved away' } }))
+    expect(withPayload.status).toBe(415)
+    expect(calls).toHaveLength(0)
+
+    const missing = Object.assign(
+      new Error('the person does not share her training at this level'),
+      {
+        code: 'AF430',
+        detail: 'relationship_training:contribute',
+      },
+    )
+    const withoutGrant = await studioPlanningRoutes(
+      planningService([], { failure: missing }),
+      sessionService(),
+    ).request(CANCELLATION_PATH, requestInit({ method: 'POST' }))
+    expect(withoutGrant.status).toBe(403)
+    expect(await withoutGrant.json()).toMatchObject({
+      required_scope: { code: 'relationship_training', level: 'contribute' },
+    })
+
+    const unmanaged = await studioPlanningRoutes(
+      planningService([], { failure: databaseError('55000') }),
+      sessionService(),
+    ).request(CANCELLATION_PATH, requestInit({ method: 'POST' }))
+    expect(unmanaged.status).toBe(409)
+  })
+
+  test('T-PLN-API-181 lets Studio send a move from the browser', async () => {
+    const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
+      SESSION_PATH,
+      {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://studio.example.test',
+          'access-control-request-method': 'PATCH',
+        },
+      },
+    )
+    expect(response.headers.get('access-control-allow-methods')).toContain('PATCH')
+  })
+
   test('T-PLN-API-040 rejects an originally overlong padded title', async () => {
     const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
       `/organizations/${ORGANIZATION_ID}/programs`,
@@ -949,6 +1189,18 @@ function planningService(
     assignProgram: (_actor, input) => {
       if (errors.failure) throw errors.failure
       return capture('assignProgram', input, programAssignment)
+    },
+    reschedulePlannedSession: (_actor, input) => {
+      if (errors.failure) throw errors.failure
+      return capture('reschedulePlannedSession', input, managedSession)
+    },
+    revisePrescription: (_actor, input) => {
+      if (errors.failure) throw errors.failure
+      return capture('revisePrescription', input, prescriptionRevision)
+    },
+    cancelAssignment: (_actor, input) => {
+      if (errors.failure) throw errors.failure
+      return capture('cancelAssignment', input, assignmentCancellation)
     },
     listRelationshipAssignments: (_actor, input) => {
       if (errors.failure) return Promise.reject(errors.failure)
