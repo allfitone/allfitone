@@ -1,3 +1,12 @@
+/* @allfitone/react up to 0.15 leaves ghost and link buttons on the browser's grey face. `theme`
+   is the one layer its bundle orders below `utilities`, so hover still paints. Drop on upgrade. */
+@layer theme {
+  [data-variant='ghost'],
+  [data-variant='link'] {
+    background: none;
+  }
+}
+
 [data-analytics-controls] {
   position: fixed;
   z-index: 100;
@@ -6,6 +15,8 @@
   max-width: min(390px, calc(100vw - 32px));
 }
 
+/* Open on the access screen it sits over the wordmark: the form panel fills the
+   right, and at the bottom the notice covered the sign-in action at 1280x720. */
 [data-analytics-controls][data-expanded='true'] {
   top: 16px;
   right: auto;
@@ -13,15 +24,34 @@
   left: 16px;
 }
 
+/* In the workspace it opens where it folds: top-left covered the navigation, and at
+   the top it covered the screen title and its filters at 768px. */
+:root:has([data-backoffice-shell]) [data-analytics-controls][data-expanded='true'] {
+  top: auto;
+  right: 16px;
+  bottom: 16px;
+  left: auto;
+}
+
+/* Room to scroll the end of a screen clear of the notice, folded or open, so no
+   control stays under it. */
+:root:has([data-analytics-controls]) [data-backoffice-content] {
+  padding-block-end: 5rem;
+}
+
+:root:has([data-analytics-controls][data-expanded='true']) [data-backoffice-content] {
+  padding-block-end: 20rem;
+}
+
 [data-analytics-panel] {
   display: grid;
   padding: 16px;
   gap: 10px;
-  border: 1px solid var(--afo-color-border-strong);
+  border: 1px solid var(--afo-color-border-default);
   border-radius: var(--afo-radius-xl);
-  background: var(--afo-color-background-inverse);
+  background: var(--afo-color-background-surface);
   box-shadow: var(--afo-shadow-lg);
-  color: var(--afo-color-text-accent);
+  color: var(--afo-color-text-primary);
 }
 
 [data-analytics-panel] p {
@@ -35,7 +65,7 @@
   min-height: 44px;
   width: fit-content;
   align-items: center;
-  color: var(--afo-color-text-inverse);
+  color: var(--afo-color-text-accent);
   font-size: var(--afo-font-size-sm);
   font-weight: var(--afo-font-weight-semibold);
   text-decoration: underline;
