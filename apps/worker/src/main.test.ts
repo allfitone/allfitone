@@ -291,7 +291,15 @@ function invitationResult(overrides: Partial<InvitationBatchResult> = {}): Invit
 function backofficeResult(
   overrides: Partial<BackofficeAuthBatchResult> = {},
 ): BackofficeAuthBatchResult {
-  return { expired: 0, claimed: 0, completed: 0, deadOrDelayed: 0, skipped: 0, ...overrides }
+  return {
+    expired: 0,
+    sessionsExpired: 0,
+    claimed: 0,
+    completed: 0,
+    deadOrDelayed: 0,
+    skipped: 0,
+    ...overrides,
+  }
 }
 
 function recoveryResult(

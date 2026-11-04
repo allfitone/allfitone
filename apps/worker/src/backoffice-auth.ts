@@ -16,11 +16,14 @@ export interface BackofficeAuthCleanup {
 
 export interface BackofficeAuthCleanupDatabase {
   expire(limit: number): Promise<number>
+  /** Revokes sessions past 15 idle minutes or 8 hours that nobody presented again. */
+  expireSessions(limit: number): Promise<number>
   prepare(eventId: string): Promise<BackofficeAuthCleanup>
 }
 
 export interface BackofficeAuthBatchResult {
   expired: number
+  sessionsExpired: number
   claimed: number
   completed: number
   deadOrDelayed: number
@@ -38,6 +41,16 @@ export function createBackofficeAuthCleanupDatabase(
           select identity.expire_backoffice_authentication_attempts(${limit}::integer) as expired_count
         `
         if (!row) throw new Error('PostgreSQL did not expire Backoffice attempts')
+        return row.expired_count
+      })
+    },
+    async expireSessions(limit) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.actor_kind', 'worker', true)`
+        const [row] = await transaction<Array<{ expired_count: number }>>`
+          select identity.expire_backoffice_sessions(${limit}::integer) as expired_count
+        `
+        if (!row) throw new Error('PostgreSQL did not sweep Backoffice sessions')
         return row.expired_count
       })
     },
@@ -69,11 +82,14 @@ export function createBackofficeAuthBatchProcessor(dependencies: {
 }) {
   return async function processBackofficeAuthBatch(): Promise<BackofficeAuthBatchResult> {
     const expired = await dependencies.database.expire(100)
+    // HU-BO-002 c3: swept before claiming, so the revocations it queues go out this run.
+    const sessionsExpired = await dependencies.database.expireSessions(100)
     const batches = await Promise.all(TOPICS.map((topic) => dependencies.queue.claim(topic, 25)))
     const messages = batches.flat()
     const outcomes = await mapWithConcurrency(messages, 5, cleanup)
     const result = {
       expired,
+      sessionsExpired,
       claimed: messages.length,
       completed: outcomes.filter((outcome) => outcome === 'completed').length,
       deadOrDelayed: outcomes.filter((outcome) => outcome === 'failed').length,
