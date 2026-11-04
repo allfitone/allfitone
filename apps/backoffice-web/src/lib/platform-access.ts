@@ -10,6 +10,7 @@
 import type { PlatformDutyAssignment, PlatformDutyCode } from './backoffice-api'
 
 export type PlatformDutyStatus = PlatformDutyAssignment['status']
+export type PlatformActorMode = PlatformDutyAssignment['actor_mode']
 export type PlatformRoleStatus = 'active' | 'revoked'
 
 /** The closed catalogue of ADR-028, in the order an operator reads it. */
@@ -45,6 +46,13 @@ const DUTY_LABELS: Record<PlatformDutyCode, string> = {
   manage_privacy_requests: 'Gestionar solicitudes de privacidad',
 }
 
+// ADR-037: modes derived from the duty exercised, never organizational roles.
+const ACTOR_MODE_LABELS: Record<PlatformActorMode, string> = {
+  A10: 'Soporte y operación',
+  A11: 'Curaduría y verificación',
+  A12: 'Seguridad y privacidad',
+}
+
 const DUTY_STATUS_LABELS: Record<PlatformDutyStatus, string> = {
   scheduled: 'Programado',
   active: 'Vigente',
@@ -70,6 +78,10 @@ const DUTY_STATUS_TONES: Record<PlatformDutyStatus, StatusTone> = {
 
 export function dutyLabel(code: PlatformDutyCode): string {
   return DUTY_LABELS[code]
+}
+
+export function actorModeLabel(mode: PlatformActorMode): string {
+  return ACTOR_MODE_LABELS[mode]
 }
 
 export function dutyStatusLabel(status: PlatformDutyStatus): string {
