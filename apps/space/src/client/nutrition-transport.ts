@@ -15,6 +15,7 @@ import {
   type GoalDecision,
   type Goals,
   type GoalVersion,
+  type MealDeletionHeld,
   type MealPage,
   type NutritionFlow,
   type NutritionMeal,
@@ -59,16 +60,17 @@ export function createSpaceNutritionFlow(): NutritionFlow {
             ifMatch,
           ),
         ),
+      // 204 when deleted; 202 with the hold when one keeps the meal.
       deleteMeal: (command, mealId) =>
         authenticated((token) =>
-          authorizedSend<undefined>(
+          authorizedSend<MealDeletionHeld | undefined>(
             'DELETE',
             `/space/v1/nutrition/meals/${mealId}`,
             command,
             undefined,
             token,
           ),
-        ),
+        ).then((held) => held ?? null),
       readDays: (from, to, timezone) =>
         authenticated((token) =>
           authorizedGet<DailySummaryPage>(

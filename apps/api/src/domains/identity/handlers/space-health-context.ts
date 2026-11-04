@@ -102,7 +102,8 @@ export function spaceHealthContextRoutes(
     try {
       const result = await claims().delete(token, { ...command, claimId })
       if (result.replayed) c.header('Idempotent-Replay', 'true')
-      return c.json(result.resource, 200)
+      // Recorded but not done: a legal hold keeps the claim, or it is about to go.
+      return c.json(result.resource, result.resource.status === 'deleted' ? 200 : 202)
     } catch (error) {
       return spaceFailure(c, error, OPERATION)
     }

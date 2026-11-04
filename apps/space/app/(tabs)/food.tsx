@@ -42,6 +42,7 @@ import { createSpaceExecutionFlow } from '../../src/client/execution-transport'
 import {
   dayTitle,
   eatenFor,
+  deletionHeldNote,
   goalFigure,
   mealPrompt,
   mealTotals,
@@ -166,7 +167,10 @@ export default function FoodScreen() {
     setSaved(null)
     nutrition
       .deleteMeal(meal.id)
-      .then(() => setVersion((current) => current + 1))
+      .then((held) => {
+        if (held) setFailure(deletionHeldNote(held))
+        setVersion((current) => current + 1)
+      })
       .catch(() => setFailure(READ_FAILED))
   }
 

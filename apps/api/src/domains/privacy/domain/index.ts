@@ -26,6 +26,9 @@ export type ErasureRequestPage = AllfitV1Schemas['ErasureRequestPage']
 export type ErasureRequestState = AllfitV1Schemas['ErasureRequestState']
 export type LegalHold = AllfitV1Schemas['LegalHold']
 export type LegalHoldApplication = AllfitV1Schemas['LegalHoldApplication']
+export type LegalHoldPage = AllfitV1Schemas['LegalHoldPage']
+export type LegalHoldState = AllfitV1Schemas['LegalHoldState']
+export type HoldableClassification = LegalHoldApplication['data_classification_codes'][number]
 export type LegalHoldReason = AllfitV1Schemas['LegalHoldReason']
 export type AuthorizedScope = AllfitV1Schemas['AuthorizedScopeItem']
 export type AuthorizedScopePage = AllfitV1Schemas['AuthorizedScopePage']
@@ -164,7 +167,15 @@ export const LEGAL_HOLD_REASONS: readonly LegalHoldReason[] = [
   'tax_or_accounting_obligation',
 ]
 
-export const MAX_HELD_ITEMS = 500
+/** Only what the platform disposes of: a hold over anything else would keep nothing. */
+export const HOLDABLE_CLASSIFICATIONS: readonly HoldableClassification[] = [
+  'body',
+  'health',
+  'nutrition',
+]
+export const LEGAL_HOLD_STATES: readonly LegalHoldState[] = ['active', 'ended']
+export const DEFAULT_HOLD_PAGE = 50
+export const MAX_HOLD_PAGE = 100
 export const MAX_HOLD_SCOPE = 500
 export const MAX_HOLD_CASE_REFERENCE = 120
 
@@ -173,7 +184,13 @@ export interface LegalHoldResult {
   replayed: boolean
 }
 
+export interface LegalHoldFilters {
+  status: LegalHoldState
+  limit: number
+}
+
 export interface LegalHoldDatabase {
+  list(input: PrivacyCurator & { requestId: string } & LegalHoldFilters): Promise<LegalHoldPage>
   apply(
     input: PrivacyCurator &
       ScopeCommandContext & { requestId: string; application: LegalHoldApplication },

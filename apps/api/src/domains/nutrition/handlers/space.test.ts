@@ -41,7 +41,7 @@ function harness(overrides: Partial<SpaceNutritionService> = {}, actorFails = fa
     readMeal: async () => meal,
     listMeals: async () => ({ data: [meal], page: { next_cursor: null, has_more: false } }),
     reviseMeal: async () => ({ ...meal, revision_number: 3 }),
-    deleteMeal: async () => undefined,
+    deleteMeal: async () => null,
     readDailySummaries: async () => ({ data: [], streak_days: 4, visible_from: null }),
     readGoals: async () => ({ active: null, proposals: [] }),
     publishGoal: async () => {
@@ -326,6 +326,21 @@ describe('correcting a meal (OP-NUT-003)', () => {
 describe('deleting, the day and the goal', () => {
   test('T-NUT-API-12 a deleted meal answers 204', async () => {
     expect((await send(harness(), 'DELETE', `/meals/${MEAL}`, commanded)).status).toBe(204)
+  })
+
+  test('T-NUT-API-23 a meal a legal hold keeps answers 202 with the ground and the end', async () => {
+    const held = {
+      status: 'suspended' as const,
+      hold: { reason_code: 'judicial_order' as const, valid_to: '2027-02-01T00:00:00.000Z' },
+    }
+    const response = await send(
+      harness({ deleteMeal: async () => held }),
+      'DELETE',
+      `/meals/${MEAL}`,
+      commanded,
+    )
+    expect(response.status).toBe(202)
+    expect(await response.json()).toEqual(held)
   })
 
   test('T-NUT-API-13 the days carry the streak, in at most 31 days', async () => {

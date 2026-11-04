@@ -190,14 +190,21 @@ test('suspends a category by an obligation, and the panel then says so', async (
   await page.goto(PATH)
   await page.getByRole('button', { name: 'Suspender', exact: true }).first().click()
 
-  const form = page.locator('[data-erasure-hold-form]')
+  const form = page.locator('[data-legal-hold-form]')
   await expect(form).toContainText('No da acceso a nada')
+  // It opens on the person who asked, with what of theirs still waits already marked.
+  await expect(form.getByLabel('Persona')).toHaveValue('019ac000-0000-7000-8000-000000000005')
+  await expect(form.getByLabel('Persona')).not.toBeEditable()
+  await expect(form.getByRole('checkbox', { name: 'Salud' })).toBeChecked()
+  await expect(form.getByRole('checkbox', { name: 'Cuerpo' })).not.toBeChecked()
 
   // The form will not let a hold leave without an end date.
   await form.getByRole('button', { name: 'Suspender', exact: true }).click()
-  await expect(form).toContainText('Describe qué cubre la suspensión')
+  await expect(form).toContainText('Describe qué cubre la retención')
   expect(
-    fixture.requests.filter((request) => request.path === '/backoffice/v1/legal-holds'),
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path === '/backoffice/v1/legal-holds',
+    ),
   ).toHaveLength(0)
 
   await form.getByLabel('Alcance').fill('Mediciones del expediente 2026-114')
@@ -206,7 +213,6 @@ test('suspends a category by an obligation, and the panel then says so', async (
   await expect(form).toContainText('No existen suspensiones indefinidas')
 
   await form.getByLabel('Vigente hasta').fill(day(60).slice(0, 10))
-  await form.getByRole('checkbox').first().check()
   await form.getByRole('button', { name: 'Suspender', exact: true }).click()
 
   const table = page.getByRole('table', { name: 'Solicitudes de eliminación' })
@@ -216,13 +222,14 @@ test('suspends a category by an obligation, and the panel then says so', async (
   )
 
   const applied = fixture.requests.filter(
-    (request) => request.path === '/backoffice/v1/legal-holds',
+    (request) => request.method === 'POST' && request.path === '/backoffice/v1/legal-holds',
   )
   expect(applied).toHaveLength(1)
   expect(applied[0]?.body).toMatchObject({
     reason_code: 'judicial_order',
     case_reference: 'JUZGADO-2026-114',
-    disposition_item_ids: ['019ae000-0000-7000-8000-000000000603'],
+    subject_person_id: '019ac000-0000-7000-8000-000000000005',
+    data_classification_codes: ['health'],
   })
 })
 
@@ -290,11 +297,10 @@ test('a separation conflict is explained as itself, not as a refusal', async ({
   await page.goto(PATH)
   await page.getByRole('button', { name: 'Suspender', exact: true }).first().click()
 
-  const form = page.locator('[data-erasure-hold-form]')
+  const form = page.locator('[data-legal-hold-form]')
   await form.getByLabel('Alcance').fill('Mediciones del expediente 2026-114')
   await form.getByLabel('Referencia del requerimiento').fill('JUZGADO-2026-114')
   await form.getByLabel('Vigente hasta').fill(day(60).slice(0, 10))
-  await form.getByRole('checkbox').first().check()
   await form.getByRole('button', { name: 'Suspender', exact: true }).click()
 
   const failure = page.locator('[data-erasure-failure]')

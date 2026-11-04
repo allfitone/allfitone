@@ -165,10 +165,12 @@ function erasureService(overrides: Partial<ErasureRequestService> = {}): Erasure
 }
 
 const HOLD_ID = '019ae000-0000-7000-8000-000000000701'
-const ITEM_ID = '019ae000-0000-7000-8000-000000000601'
+const SUBJECT_ID = '019ae000-0000-7000-8000-000000000005'
 
 const hold: AllfitV1Schemas['LegalHold'] = {
   id: HOLD_ID,
+  subject_person_id: SUBJECT_ID,
+  data_classification_codes: ['body'],
   scope_description: 'Mediciones de la persona en el expediente 2026-114',
   reason_code: 'judicial_order',
   case_reference: 'JUZGADO-2026-114',
@@ -178,20 +180,28 @@ const hold: AllfitV1Schemas['LegalHold'] = {
   applied_by_person_id: ACTOR_PERSON_ID,
   released_at: null,
   released_by_person_id: null,
+  lapsed_at: null,
   suspended_items: 2,
   items: 2,
 }
+
+const holdPage: AllfitV1Schemas['LegalHoldPage'] = { items: [hold], has_more: false }
 
 const application = {
   scope_description: 'Mediciones de la persona en el expediente 2026-114',
   reason_code: 'judicial_order',
   case_reference: 'JUZGADO-2026-114',
   valid_to: '2026-12-22T12:00:00.000Z',
-  disposition_item_ids: [ITEM_ID],
+  subject_person_id: SUBJECT_ID,
+  data_classification_codes: ['body', 'nutrition'],
 }
 
 function holdService(overrides: Partial<LegalHoldService> = {}): LegalHoldService {
   return {
+    list: (_officer, input) => {
+      captured.push(input)
+      return Promise.resolve(holdPage)
+    },
     apply: (_officer, input) => {
       captured.push(input)
       return Promise.resolve({ resource: hold, replayed: false })
@@ -227,6 +237,12 @@ function routes(
     '/backoffice/v1',
     backofficePrivacyRoutes(scopes, sessions, log, erasure, holds),
   )
+}
+
+function holdGet(query: string, init: { cookie?: boolean } = {}): Request {
+  const headers = new Headers({ origin: ORIGIN })
+  if (init.cookie !== false) headers.set('cookie', `${BACKOFFICE_SESSION_COOKIE}=session-secret`)
+  return new Request(`https://api.example.test/backoffice/v1/legal-holds${query}`, { headers })
 }
 
 function holdPost(
@@ -313,9 +329,14 @@ describe('Backoffice privacy API contract', () => {
   test('T-PRV-API-01 mounts every operation this router serves, with its contract method', () => {
     const contract = allfitV1ContractManifest.operations
       .filter((operation) =>
-        ['OP-PRV-009', 'OP-PRV-010', 'OP-PRV-011', 'OP-PRV-021', 'OP-SUP-009'].includes(
-          operation.allfitOperation ?? '',
-        ),
+        [
+          'OP-PRV-009',
+          'OP-PRV-010',
+          'OP-PRV-011',
+          'OP-PRV-021',
+          'OP-PRV-024',
+          'OP-SUP-009',
+        ].includes(operation.allfitOperation ?? ''),
       )
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
       .sort()
@@ -324,7 +345,7 @@ describe('Backoffice privacy API contract', () => {
       .map((route) => `${route.method} /backoffice/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(6)
+    expect(contract).toHaveLength(7)
     expect(mounted).toEqual(contract)
   })
 
@@ -720,9 +741,11 @@ describe('Backoffice privacy API contract', () => {
     expect(captured).toEqual([])
   })
 
-  test('T-HOLD-API-01 mounts both hold operations where the contract puts them', () => {
+  test('T-HOLD-API-01 mounts the hold operations and their list where the contract puts them', () => {
     const contract = allfitV1ContractManifest.operations
-      .filter((operation) => ['OP-PRV-009', 'OP-PRV-010'].includes(operation.allfitOperation ?? ''))
+      .filter((operation) =>
+        ['OP-PRV-009', 'OP-PRV-010', 'OP-PRV-024'].includes(operation.allfitOperation ?? ''),
+      )
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
       .sort()
     const app = new Hono()
@@ -732,6 +755,7 @@ describe('Backoffice privacy API contract', () => {
       .map((route) => `${route.method} ${route.path}`)
 
     expect(contract).toEqual([
+      'GET /backoffice/v1/legal-holds',
       'POST /backoffice/v1/legal-holds',
       'POST /backoffice/v1/legal-holds/:holdId/release',
     ])
@@ -756,8 +780,13 @@ describe('Backoffice privacy API contract', () => {
       { ...application, scope_description: '  ' },
       { ...application, case_reference: '' },
       { ...application, valid_to: 'algún día' },
-      { ...application, disposition_item_ids: [] },
-      { ...application, disposition_item_ids: ['not-a-uuid'] },
+      { ...application, subject_person_id: 'not-a-uuid' },
+      { ...application, subject_person_id: undefined },
+      { ...application, data_classification_codes: [] },
+      // Nothing here deletes training data, so nothing here can hold it.
+      { ...application, data_classification_codes: ['training'] },
+      { ...application, data_classification_codes: ['body', 'body'] },
+      { ...application, disposition_item_ids: [HOLD_ID] },
       { ...application, until: '2026-12-22T12:00:00.000Z' },
       { scope_description: 'Sólo el alcance' },
     ]
@@ -835,6 +864,31 @@ describe('Backoffice privacy API contract', () => {
       type: 'https://errors.allfit.invalid/separation-of-duties',
     })
     expect(broken.status).toBe(503)
+  })
+
+  test('T-HOLD-API-08 lists the holds in force unless the ended ones are asked for', async () => {
+    const plain = await routes().fetch(holdGet(''))
+    const ended = await routes().fetch(holdGet('?status=ended&limit=10'))
+
+    expect([plain.status, ended.status]).toEqual([200, 200])
+    await expect(plain.json()).resolves.toEqual(holdPage)
+    expect(captured).toMatchObject([
+      { status: 'active', limit: 50 },
+      { status: 'ended', limit: 10 },
+    ])
+  })
+
+  test('T-HOLD-API-09 refuses a list it cannot read exactly as asked', async () => {
+    const answers = await Promise.all(
+      ['?status=open', '?limit=0', '?limit=101', '?subject=someone'].map((query) =>
+        routes().fetch(holdGet(query)),
+      ),
+    )
+    const missing = await routes().fetch(holdGet('', { cookie: false }))
+
+    expect(answers.map((response) => response.status)).toEqual([400, 400, 400, 400])
+    expect(missing.status).toBe(401)
+    expect(captured).toEqual([])
   })
 
   test('T-HOLD-API-07 never reaches the command without a session', async () => {

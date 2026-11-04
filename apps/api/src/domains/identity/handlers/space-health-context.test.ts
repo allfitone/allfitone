@@ -44,6 +44,7 @@ function healthService(overrides: Partial<HealthContextService> = {}): HealthCon
           health_context_claim_id: CLAIM_ID,
           disposition_case_id: CASE_ID,
           status: 'deleted',
+          hold: null,
         },
         replayed: false,
       })
@@ -257,6 +258,7 @@ describe('Space health context API contract', () => {
             health_context_claim_id: CLAIM_ID,
             disposition_case_id: CASE_ID,
             status: 'deleted',
+            hold: null,
           },
           replayed: true,
         }),
@@ -269,9 +271,25 @@ describe('Space health context API contract', () => {
       health_context_claim_id: CLAIM_ID,
       disposition_case_id: CASE_ID,
       status: 'deleted',
+      hold: null,
     })
     expect(replay.headers.get('idempotent-replay')).toBe('true')
     expect(captured[0]?.input).toMatchObject({ claimId: CLAIM_ID, commandId: CLAIM_ID })
+  })
+
+  test('T-IDN-HEALTH-API-11 a claim a legal hold keeps answers 202 with the ground and the end', async () => {
+    const held = {
+      health_context_claim_id: CLAIM_ID,
+      disposition_case_id: CASE_ID,
+      status: 'suspended' as const,
+      hold: { reason_code: 'judicial_order' as const, valid_to: '2027-02-01T00:00:00.000Z' },
+    }
+    const response = await routes(
+      healthService({ delete: async () => ({ resource: held, replayed: false }) }),
+    ).fetch(command(`/health-context/${CLAIM_ID}`, 'DELETE'))
+
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual(held)
   })
 
   test('T-IDN-HEALTH-API-09 maps every declared database verdict to its problem response', async () => {

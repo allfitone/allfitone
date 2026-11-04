@@ -198,6 +198,14 @@ export const allfitV1ContractManifest = {
       security: ['backofficeCookieAuth'],
     },
     {
+      method: 'GET',
+      path: '/backoffice/v1/legal-holds',
+      operationId: 'listBackofficeLegalHolds',
+      allfitOperation: 'OP-PRV-024',
+      responses: ['200', '400', '401', '403', '422', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
       method: 'POST',
       path: '/backoffice/v1/legal-holds',
       operationId: 'applyBackofficeLegalHold',
@@ -730,7 +738,7 @@ export const allfitV1ContractManifest = {
       path: '/space/v1/body-progress/{recordId}',
       operationId: 'deleteSpaceBodyProgress',
       allfitOperation: 'OP-IDN-007',
-      responses: ['200', '400', '401', '403', '404', '409', '503'],
+      responses: ['200', '202', '400', '401', '403', '404', '409', '503'],
       security: ['bearerAuth'],
     },
     {
@@ -898,7 +906,7 @@ export const allfitV1ContractManifest = {
       path: '/space/v1/health-context/{claimId}',
       operationId: 'deleteSpaceHealthContext',
       allfitOperation: 'OP-IDN-050',
-      responses: ['200', '400', '401', '403', '404', '409', '503'],
+      responses: ['200', '202', '400', '401', '403', '404', '409', '503'],
       security: ['bearerAuth'],
     },
     {
@@ -986,7 +994,7 @@ export const allfitV1ContractManifest = {
       path: '/space/v1/nutrition/meals/{mealId}',
       operationId: 'deleteNutritionMeal',
       allfitOperation: 'OP-NUT-004',
-      responses: ['204', '401', '404', '409', '410'],
+      responses: ['202', '204', '401', '404', '409', '410'],
       security: ['bearerAuth'],
     },
     {

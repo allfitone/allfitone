@@ -181,10 +181,16 @@ describe('a photo is sanitised, stored, committed, and the old one removed', () 
 
   test("T-NUT-API-UNIT-07 deleting removes the meal's photo from storage after the commit", async () => {
     const { service, store, sealed } = harness({
-      deleteMeal: async () => ({ disposed_media_ref: 'nutrition/gone.jpg' }),
+      deleteMeal: async () => ({
+        deleted: true,
+        disposed_media_ref: 'nutrition/gone.jpg',
+        hold: null,
+      }),
     })
     await store.put('nutrition/gone.jpg', new Uint8Array([1]), 'image/jpeg')
-    await service.deleteMeal({ ...command, personId: PERSON, mealId: MEAL })
+    await expect(
+      service.deleteMeal({ ...command, personId: PERSON, mealId: MEAL }),
+    ).resolves.toBeNull()
 
     expect(store.objects.has('nutrition/gone.jpg')).toBe(false)
     expect(sealed).toEqual(['nutrition/gone.jpg'])
@@ -192,14 +198,42 @@ describe('a photo is sanitised, stored, committed, and the old one removed', () 
 
   test('T-NUT-API-UNIT-08 a removal storage refuses stays queued, and the answer is still yes', async () => {
     const { service, store, sealed } = harness({
-      deleteMeal: async () => ({ disposed_media_ref: 'nutrition/gone.jpg' }),
+      deleteMeal: async () => ({
+        deleted: true,
+        disposed_media_ref: 'nutrition/gone.jpg',
+        hold: null,
+      }),
     })
     store.failNext('remove')
 
     await expect(
       service.deleteMeal({ ...command, personId: PERSON, mealId: MEAL }),
-    ).resolves.toBeUndefined()
+    ).resolves.toBeNull()
     expect(sealed).toEqual([])
+  })
+
+  test('T-NUT-API-UNIT-09 a meal a legal hold keeps loses nothing in storage, and says why', async () => {
+    const hold = { reason_code: 'judicial_order' as const, valid_to: '2027-02-01T00:00:00.000Z' }
+    const { service, store, sealed } = harness({
+      deleteMeal: async () => ({ deleted: false, disposed_media_ref: null, hold }),
+    })
+    await store.put('nutrition/kept.jpg', new Uint8Array([1]), 'image/jpeg')
+
+    await expect(
+      service.deleteMeal({ ...command, personId: PERSON, mealId: MEAL }),
+    ).resolves.toEqual({ status: 'suspended', hold })
+    expect(store.objects.has('nutrition/kept.jpg')).toBe(true)
+    expect(sealed).toEqual([])
+  })
+
+  test('T-NUT-API-UNIT-10 a meal whose hold just ended says its deletion is on its way', async () => {
+    const { service } = harness({
+      deleteMeal: async () => ({ deleted: false, disposed_media_ref: null, hold: null }),
+    })
+
+    await expect(
+      service.deleteMeal({ ...command, personId: PERSON, mealId: MEAL }),
+    ).resolves.toEqual({ status: 'pending', hold: null })
   })
 })
 

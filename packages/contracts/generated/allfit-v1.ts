@@ -3763,7 +3763,10 @@ export interface paths {
     get: operations['getMyNutritionMeal']
     put?: never
     post?: never
-    /** Delete one personal meal through governed disposition */
+    /**
+     * Delete one personal meal through governed disposition
+     * @description Under a legal hold over the person's nutrition data the meal and its photo stay and the answer is 202, saying on what ground and until when; the deletion runs once the hold ends.
+     */
     delete: operations['deleteNutritionMeal']
     options?: never
     head?: never
@@ -4422,13 +4425,18 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /**
+     * The legal holds in force, or the ones that ended
+     * @description In force, the one ending soonest first, because it is the one to act on. Ended — released by an officer or lapsed on its own date — the latest first. A hold past its date reads as lapsed even before the worker records it: it already keeps nothing new.
+     *     Each hold names a person by identifier, so reading the list records one access per person it names before anything is returned.
+     */
+    get: operations['listBackofficeLegalHolds']
     put?: never
     /**
-     * Suspend the disposition of specific data
-     * @description Stops named dispositions from running, because an obligation says the data has to be kept for now.
+     * Keep a person's data from being deleted while an obligation lasts
+     * @description Names a person and kinds of their data. What of it already waits to be deleted stops now, and what the person asks to delete while the hold is in force stays, with the person told why and until when. Only kinds the platform disposes of can be held.
      *     A hold suspends; it does not reveal. The answer carries the hold and no field of the data it protects, and holding changes nothing about who may read that person's file.
-     *     There are no indefinite holds: `valid_to` is required and has to be in the future. And whoever requested or approved an exceptional read of that person is refused here — deciding to look and deciding to keep do not belong in the same pair of hands.
+     *     There are no indefinite holds: `valid_to` is required and has to be in the future, and on that date the hold lapses by itself. A second hold over the same data is how an order is renewed without a gap. And whoever requested or approved an exceptional read of that person is refused here — deciding to look and deciding to keep do not belong in the same pair of hands.
      */
     post: operations['applyBackofficeLegalHold']
     delete?: never
@@ -4448,7 +4456,7 @@ export interface paths {
     put?: never
     /**
      * Release a legal hold
-     * @description Puts the suspended dispositions back where they were — waiting their turn — and nowhere else. Releasing never executes what the hold was holding.
+     * @description What the hold kept passes to another hold in force over the same data, or goes back to waiting its turn, and the privacy worker then deletes it as the person asked. Releasing never executes anything by itself. A hold that already lapsed cannot be released.
      */
     post: operations['releaseBackofficeLegalHold']
     delete?: never
@@ -4470,6 +4478,7 @@ export interface paths {
     /**
      * Delete one of my body measurements
      * @description The measurement is deleted physically, now, and a disposition case records that body data was deleted at the person's request and under which policy, without keeping the value. Deleting data is not revoking a permission: grants are untouched. Someone else's measurement and one that does not exist both answer 404.
+     *     Under a legal hold over the person's body data the measurement stays and the answer is 202: the request is recorded, the hold says on what ground and until when, and the deletion runs once the hold ends.
      */
     delete: operations['deleteSpaceBodyProgress']
     options?: never
@@ -4559,6 +4568,7 @@ export interface paths {
     /**
      * Delete one of my health context claims
      * @description The claim is deleted physically, now, and a disposition case records that health data was deleted at the person's request and under which policy, without keeping what it said. Grants are untouched. Someone else's claim and one that does not exist both answer 404.
+     *     Under a legal hold over the person's health data the claim stays and the answer is 202, saying on what ground and until when.
      */
     delete: operations['deleteSpaceHealthContext']
     options?: never
@@ -9517,9 +9527,14 @@ export interface components {
      */
     LegalHoldReason:
       'judicial_order' | 'regulatory_request' | 'service_dispute' | 'tax_or_accounting_obligation'
+    /**
+     * @description Released by an officer, or lapsed on its own date.
+     * @enum {string}
+     */
+    LegalHoldStatus: 'active' | 'released' | 'lapsed'
     /** @enum {string} */
-    LegalHoldStatus: 'active' | 'released'
-    /** @description Scope, reason, vigency and what it covers. Who applies it comes from the session and is never accepted here. */
+    LegalHoldState: 'active' | 'ended'
+    /** @description Scope, reason, vigency, and whose data of which kinds it keeps. Who applies it comes from the session and is never accepted here. */
     LegalHoldApplication: {
       /** @description What this hold covers, in the words of whoever answers for it. */
       scope_description: string
@@ -9531,10 +9546,16 @@ export interface components {
        * @description When the hold ends. There are no indefinite holds.
        */
       valid_to: string
-      disposition_item_ids: components['schemas']['Uuid'][]
+      subject_person_id: components['schemas']['Uuid']
+      /** @description Only the kinds the platform disposes of. */
+      data_classification_codes: ('body' | 'health' | 'nutrition')[]
     }
     LegalHold: {
       id: components['schemas']['Uuid']
+      /** @description Whose data it keeps. Null only on a hold filed before holds named a person, which named dispositions instead. */
+      subject_person_id: components['schemas']['Uuid'] | null
+      /** @description The kinds of that person's data it keeps. */
+      data_classification_codes: components['schemas']['DataClassificationCode'][]
       scope_description: string
       reason_code: components['schemas']['LegalHoldReason']
       case_reference: string
@@ -9547,10 +9568,35 @@ export interface components {
       /** Format: date-time */
       released_at: string | null
       released_by_person_id: components['schemas']['Uuid'] | null
-      /** @description How many dispositions this hold is stopping right now. */
+      /**
+       * Format: date-time
+       * @description When the worker recorded that it ended on its own date.
+       */
+      lapsed_at: string | null
+      /** @description How many deletions this hold is stopping right now. */
       suspended_items: number
-      /** @description How many it named when it was applied. */
+      /** @description How many deletions it has stopped since it was applied. */
       items: number
+    }
+    LegalHoldPage: {
+      items: components['schemas']['LegalHold'][]
+      has_more: boolean
+    }
+    /** @description What the person is told about a hold keeping their data: the ground and the end. Never the case, its scope or who applied it. */
+    DeletionHold: {
+      reason_code: components['schemas']['LegalHoldReason']
+      /** Format: date-time */
+      valid_to: string
+    }
+    /**
+     * @description Deleted; suspended under a legal hold; or pending, about to run because the hold that kept it ended.
+     * @enum {string}
+     */
+    DeletionState: 'deleted' | 'suspended' | 'pending'
+    MealDeletionHeld: {
+      /** @enum {string} */
+      status: 'suspended' | 'pending'
+      hold: components['schemas']['DeletionHold'] | null
     }
     /** @enum {string} */
     DataClassificationCode:
@@ -9657,8 +9703,8 @@ export interface components {
     BodyProgressDeletion: {
       body_progress_record_id: components['schemas']['UuidV7']
       disposition_case_id: components['schemas']['UuidV7']
-      /** @enum {string} */
-      status: 'deleted'
+      status: components['schemas']['DeletionState']
+      hold: components['schemas']['DeletionHold'] | null
     }
     /** @enum {string} */
     HealthContextType: 'pain' | 'limitation' | 'recovery'
@@ -9724,8 +9770,8 @@ export interface components {
     HealthContextDeletion: {
       health_context_claim_id: components['schemas']['UuidV7']
       disposition_case_id: components['schemas']['UuidV7']
-      /** @enum {string} */
-      status: 'deleted'
+      status: components['schemas']['DeletionState']
+      hold: components['schemas']['DeletionHold'] | null
     }
     BreakGlassMeal: {
       id: components['schemas']['Uuid']
@@ -10793,6 +10839,8 @@ export interface components {
     PlatformPlanVersionId: components['schemas']['UuidV7']
     /** @description The recovery, identified by the command that started it. */
     AccountRecoveryRequestId: components['schemas']['UuidV7']
+    /** @description Holds in force, or the ones that ended. Defaults to in force. */
+    LegalHoldState: components['schemas']['LegalHoldState']
     /** @description Which half of the panel to read. Defaults to what is still owed. */
     ErasureRequestState: components['schemas']['ErasureRequestState']
     /** @description Continue after this instant, in the order the chosen half is read: `opened_at` for open requests, `closed_at` for resolved ones. */
@@ -17648,6 +17696,17 @@ export interface operations {
     }
     requestBody?: never
     responses: {
+      /** @description Recorded, and held or about to run; the meal is still there */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MealDeletionHeld']
+        }
+      }
       /** @description Meal disposed */
       204: {
         headers: {
@@ -18954,6 +19013,38 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listBackofficeLegalHolds: {
+    parameters: {
+      query?: {
+        /** @description Holds in force, or the ones that ended. Defaults to in force. */
+        status?: components['parameters']['LegalHoldState']
+        limit?: components['parameters']['Limit']
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description One page of holds */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['LegalHoldPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   applyBackofficeLegalHold: {
     parameters: {
       query?: never
@@ -19044,6 +19135,17 @@ export interface operations {
     responses: {
       /** @description The measurement is gone and the case that recorded it */
       200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BodyProgressDeletion']
+        }
+      }
+      /** @description Recorded, and held or about to run; the measurement is still there */
+      202: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
           'Idempotent-Replay': components['headers']['IdempotentReplay']
@@ -19236,6 +19338,17 @@ export interface operations {
     responses: {
       /** @description The claim is gone and the case that recorded it */
       200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HealthContextDeletion']
+        }
+      }
+      /** @description Recorded, and held or about to run; the claim is still there */
+      202: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
           'Idempotent-Replay': components['headers']['IdempotentReplay']

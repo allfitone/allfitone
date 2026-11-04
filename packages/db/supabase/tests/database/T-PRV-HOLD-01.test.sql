@@ -3,9 +3,8 @@
 -- `HU-BO-033`. A legal hold is the one thing in this system that stops a person's
 -- erasure from running, so the file is mostly about the limits on it.
 --
--- **There are no indefinite holds.** `valid_to` is not nullable, it has to be in
--- the future, and a hold that lapses is still a hold somebody has to release:
--- nothing here quietly resumes a disposition on a date.
+-- **There are no indefinite holds.** `valid_to` is not nullable and has to be in
+-- the future. What happens when it passes is T-PRV-HOLD-02's.
 --
 -- **A hold suspends, it does not reveal.** Applying one returns the hold, never
 -- the data it protects, and it grants nothing: the same officer reading that
@@ -16,13 +15,16 @@
 -- person's data. Concentrating "let me see it" and "nobody may delete it" in one
 -- pair of hands is the failure this rule exists to prevent.
 --
+-- A hold names a person and kinds of their data. It stops what of that is already
+-- waiting, and T-PRV-HOLD-02 proves it stops what the person asks to delete later.
+--
 -- Releasing puts the item back where it was — `pending` — and nowhere else. It
 -- does not execute the disposition, because deciding to delete is not the
--- reviewer's call to make on somebody else's behalf.
+-- reviewer's call to make on somebody else's behalf; the privacy worker does, later.
 
 begin;
 
-select plan(39);
+select plan(40);
 
 -- ---------------------------------------------------------------------------
 -- People, sessions, roles and duties
@@ -167,7 +169,7 @@ select throws_ok(
     '019ae000-0000-7000-8000-000000000004', '019ae000-0000-7000-8000-000000000025',
     'Mediciones de la persona en el expediente 2026-114', 'judicial_order',
     'JUZGADO-2026-114', clock_timestamp() + interval '90 days',
-    array['019ae000-0000-7000-8000-000000000601']::uuid[],
+    '019ae000-0000-7000-8000-000000000005', array['body'],
     '019ae000-0000-4000-8000-000000000901', '019ae000-0000-7000-8000-000000000a01',
     decode(repeat('81', 32), 'hex')
   ) $$,
@@ -193,7 +195,7 @@ select throws_ok(
     '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
     'Mediciones', 'judicial_order', 'JUZGADO-2026-114',
     clock_timestamp() - interval '1 day',
-    array['019ae000-0000-7000-8000-000000000601']::uuid[],
+    '019ae000-0000-7000-8000-000000000005', array['body'],
     '019ae000-0000-4000-8000-000000000902', '019ae000-0000-7000-8000-000000000a02',
     decode(repeat('82', 32), 'hex')
   ) $$,
@@ -207,7 +209,7 @@ select throws_ok(
     '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
     'Mediciones', 'porque_si', 'JUZGADO-2026-114',
     clock_timestamp() + interval '90 days',
-    array['019ae000-0000-7000-8000-000000000601']::uuid[],
+    '019ae000-0000-7000-8000-000000000005', array['body'],
     '019ae000-0000-4000-8000-000000000903', '019ae000-0000-7000-8000-000000000a03',
     decode(repeat('83', 32), 'hex')
   ) $$,
@@ -220,7 +222,7 @@ select throws_ok(
   $$ select * from privacy.apply_legal_hold(
     '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
     '   ', 'judicial_order', 'JUZGADO-2026-114', clock_timestamp() + interval '90 days',
-    array['019ae000-0000-7000-8000-000000000601']::uuid[],
+    '019ae000-0000-7000-8000-000000000005', array['body'],
     '019ae000-0000-4000-8000-000000000904', '019ae000-0000-7000-8000-000000000a04',
     decode(repeat('84', 32), 'hex')
   ) $$,
@@ -233,7 +235,8 @@ select throws_ok(
   $$ select * from privacy.apply_legal_hold(
     '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
     'Mediciones', 'judicial_order', 'JUZGADO-2026-114',
-    clock_timestamp() + interval '90 days', array[]::uuid[],
+    clock_timestamp() + interval '90 days',
+    '019ae000-0000-7000-8000-000000000005', array[]::text[],
     '019ae000-0000-4000-8000-000000000905', '019ae000-0000-7000-8000-000000000a05',
     decode(repeat('85', 32), 'hex')
   ) $$,
@@ -251,10 +254,7 @@ select * from privacy.apply_legal_hold(
   '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
   'Mediciones de la persona en el expediente 2026-114', 'judicial_order',
   'JUZGADO-2026-114', clock_timestamp() + interval '90 days',
-  array[
-    '019ae000-0000-7000-8000-000000000601',
-    '019ae000-0000-7000-8000-000000000602'
-  ]::uuid[],
+  '019ae000-0000-7000-8000-000000000005', array['body'],
   '019ae000-0000-4000-8000-000000000906', '019ae000-0000-7000-8000-000000000a06',
   decode(repeat('86', 32), 'hex')
 );
@@ -298,9 +298,9 @@ select is(
 select is(
   (select array_agg(field order by field) from applied, jsonb_object_keys(result) as field),
   array[
-    'applied_by_person_id', 'case_reference', 'id', 'items', 'reason_code',
-    'released_at', 'released_by_person_id', 'scope_description', 'status',
-    'suspended_items', 'valid_from', 'valid_to'
+    'applied_by_person_id', 'case_reference', 'data_classification_codes', 'id', 'items',
+    'lapsed_at', 'reason_code', 'released_at', 'released_by_person_id', 'scope_description',
+    'status', 'subject_person_id', 'suspended_items', 'valid_from', 'valid_to'
   ]::text[],
   'the answer carries the hold and no field of the data it protects'
 );
@@ -360,18 +360,37 @@ select is(
 -- What a second hold cannot do
 -- ---------------------------------------------------------------------------
 
-select throws_ok(
-  $$ select * from privacy.apply_legal_hold(
-    '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
-    'Otra vez lo mismo', 'regulatory_request', 'SIC-2026-9',
-    clock_timestamp() + interval '30 days',
-    array['019ae000-0000-7000-8000-000000000601']::uuid[],
-    '019ae000-0000-4000-8000-000000000907', '019ae000-0000-7000-8000-000000000a07',
-    decode(repeat('87', 32), 'hex')
-  ) $$,
-  '23505',
-  null,
-  'one disposition is held by one hold, so the second says so instead of hiding'
+create temporary table renewed on commit drop as
+select * from privacy.apply_legal_hold(
+  '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
+  'Otra vez lo mismo', 'regulatory_request', 'SIC-2026-10',
+  clock_timestamp() + interval '30 days',
+  '019ae000-0000-7000-8000-000000000005', array['body'],
+  '019ae000-0000-4000-8000-000000000907', '019ae000-0000-7000-8000-000000000a07',
+  decode(repeat('87', 32), 'hex')
+);
+
+select is(
+  (select count(*)::int from privacy.hold_applications
+    where disposition_item_id = '019ae000-0000-7000-8000-000000000601' and status = 'active'),
+  1,
+  'one disposition is held by one hold at a time, so a second order does not take it twice'
+);
+
+select results_eq(
+  $$ select (result->>'status'),
+            (select count(*)::int from privacy.disposition_items
+              where id in (
+                '019ae000-0000-7000-8000-000000000601', '019ae000-0000-7000-8000-000000000602'
+              ) and status = 'suspended')
+     from privacy.release_legal_hold(
+       '019ae000-0000-7000-8000-000000000007', '019ae000-0000-7000-8000-000000000027',
+       (select (result->>'id')::uuid from renewed),
+       '019ae000-0000-4000-8000-000000000917', '019ae000-0000-7000-8000-000000000a17',
+       decode(repeat('97', 32), 'hex')
+     ) $$,
+  $$ values ('released'::text, 2) $$,
+  'and releasing the second order frees nothing the first still holds'
 );
 
 -- An executed disposition is over; there is nothing left to suspend.
@@ -382,18 +401,22 @@ update privacy.disposition_items
 set status = 'executed', executed_at = clock_timestamp(), target_body_progress_id = null
 where id = '019ae000-0000-7000-8000-000000000603';
 
-select throws_ok(
-  $$ select * from privacy.apply_legal_hold(
-    '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
-    'Lo que ya se borró', 'judicial_order', 'JUZGADO-2026-200',
-    clock_timestamp() + interval '30 days',
-    array['019ae000-0000-7000-8000-000000000603']::uuid[],
-    '019ae000-0000-4000-8000-000000000908', '019ae000-0000-7000-8000-000000000a08',
-    decode(repeat('88', 32), 'hex')
-  ) $$,
-  '55000',
-  null,
-  'what has already been disposed of cannot be held'
+select privacy.apply_legal_hold(
+  '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
+  'Lo que ya se borró', 'judicial_order', 'JUZGADO-2026-200',
+  clock_timestamp() + interval '30 days',
+  '019ae000-0000-7000-8000-000000000006', array['body'],
+  '019ae000-0000-4000-8000-000000000908', '019ae000-0000-7000-8000-000000000a08',
+  decode(repeat('88', 32), 'hex')
+);
+
+select results_eq(
+  $$ select status::text from privacy.disposition_items
+     where id in (
+       '019ae000-0000-7000-8000-000000000603', '019ae000-0000-7000-8000-000000000604'
+     ) order by id $$,
+  $$ values ('executed'::text), ('suspended'::text) $$,
+  'what has already been disposed of stays disposed of: a hold stops only what still waits'
 );
 
 select throws_ok(
@@ -401,13 +424,13 @@ select throws_ok(
     '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
     'Algo que no existe', 'judicial_order', 'JUZGADO-2026-201',
     clock_timestamp() + interval '30 days',
-    array['019ae000-0000-7000-8000-000000000999']::uuid[],
+    '019ae000-0000-7000-8000-000000000999', array['body'],
     '019ae000-0000-4000-8000-000000000909', '019ae000-0000-7000-8000-000000000a09',
     decode(repeat('89', 32), 'hex')
   ) $$,
   'P0002',
   null,
-  'a hold over a disposition that does not exist is refused, not silently empty'
+  'a hold over somebody who does not exist is refused, not silently empty'
 );
 
 -- ---------------------------------------------------------------------------
@@ -419,10 +442,7 @@ select * from privacy.apply_legal_hold(
   '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
   'Mediciones de la persona en el expediente 2026-114', 'judicial_order',
   'JUZGADO-2026-114', clock_timestamp() + interval '90 days',
-  array[
-    '019ae000-0000-7000-8000-000000000601',
-    '019ae000-0000-7000-8000-000000000602'
-  ]::uuid[],
+  '019ae000-0000-7000-8000-000000000005', array['body'],
   '019ae000-0000-4000-8000-000000000906', '019ae000-0000-7000-8000-000000000a06',
   decode(repeat('86', 32), 'hex')
 );
@@ -484,7 +504,7 @@ select throws_ok(
     '019ae000-0000-7000-8000-000000000004', '019ae000-0000-7000-8000-000000000025',
     'Datos de la persona del caso 500', 'service_dispute', 'CASE-2026-500',
     clock_timestamp() + interval '30 days',
-    array['019ae000-0000-7000-8000-000000000604']::uuid[],
+    '019ae000-0000-7000-8000-000000000006', array['body'],
     '019ae000-0000-4000-8000-00000000090a', '019ae000-0000-7000-8000-000000000a0a',
     decode(repeat('8a', 32), 'hex')
   ) $$,
@@ -499,7 +519,7 @@ select lives_ok(
     '019ae000-0000-7000-8000-000000000003', '019ae000-0000-7000-8000-000000000023',
     'Mediciones de la otra persona', 'regulatory_request', 'SIC-2026-9',
     clock_timestamp() + interval '30 days',
-    array['019ae000-0000-7000-8000-000000000604']::uuid[],
+    '019ae000-0000-7000-8000-000000000006', array['body'],
     '019ae000-0000-4000-8000-00000000090b', '019ae000-0000-7000-8000-000000000a0b',
     decode(repeat('8b', 32), 'hex')
   ) $$,

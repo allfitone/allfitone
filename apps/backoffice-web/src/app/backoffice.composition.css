@@ -523,17 +523,31 @@
 /* The actions sit under the lines they act on, and wrap before they shrink. */
 [data-erasure-actions],
 [data-erasure-confirm-actions],
-[data-erasure-hold-actions] {
+[data-legal-hold-actions],
+[data-legal-hold-confirm-actions],
+[data-legal-holds-controls] {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-2, 0.5rem);
   margin-block-start: var(--spacing-2, 0.5rem);
 }
 
-[data-erasure-hold-categories] {
+[data-legal-hold-categories] {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-2, 0.5rem);
+}
+
+/* A hold names a person by identifier: it wraps rather than widening the table. */
+[data-legal-hold-subject] {
+  max-width: 18rem;
+  overflow-wrap: anywhere;
+}
+
+[data-legal-hold-scope] {
+  min-width: 10rem;
+  max-width: 16rem;
+  white-space: normal;
 }
 
 [data-erasure-resolution] {

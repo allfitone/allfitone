@@ -585,8 +585,8 @@ where item.subject_person_id = '019b7000-0000-7000-8000-000000000001'
 
 select is(
   (select result from forgotten),
-  '{"deleted": true, "disposed_media_ref": null}'::jsonb,
-  'T-NUT-DISP-44 a person deletes their own meal'
+  '{"deleted": true, "disposed_media_ref": null, "hold": null}'::jsonb,
+  'T-NUT-DISP-44 a person deletes their own meal, and no legal hold stopped it'
 );
 
 select results_eq(

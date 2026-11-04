@@ -19,6 +19,9 @@ export interface BackofficeFixture {
   scopes?: ScopeFixture
   accessLog?: AccessLogFixture
   erasureRequests?: ErasureRequestFixture
+  /** The holds the legal hold screen lists; a command moves them as the server would. */
+  legalHolds?: LegalHoldFixture[]
+  legalHoldsRefusal?: { status: number; code: string }
   organizationDirectory?: OrganizationDirectoryFixture
   organizationHandover?: OrganizationHandoverFixture
   organizationFiles?: OrganizationFileFixture
@@ -182,6 +185,24 @@ export interface ErasureRequestFixture {
   /** The answer the next hold command gets, consumed once. */
   nextHoldRefusal?: { status: number; code: string } | undefined
   requests: ErasureRequestEntryFixture[]
+}
+
+export interface LegalHoldFixture {
+  id: string
+  subject_person_id: string | null
+  data_classification_codes: string[]
+  scope_description: string
+  reason_code: string
+  case_reference: string
+  valid_from: string
+  valid_to: string
+  status: 'active' | 'released' | 'lapsed'
+  applied_by_person_id: string
+  released_at: string | null
+  released_by_person_id: string | null
+  lapsed_at: string | null
+  suspended_items: number
+  items: number
 }
 
 export interface ErasureRequestEntryFixture {
@@ -2458,6 +2479,34 @@ async function routeLegalHolds(
   request: MockRequest,
   fixture: BackofficeFixture,
 ): Promise<void> {
+  const holds = fixture.legalHolds ?? []
+  fixture.legalHolds = holds
+
+  if (request.method === 'GET') {
+    if (fixture.legalHoldsRefusal) {
+      await fulfillProblem(route, fixture.legalHoldsRefusal.status, fixture.legalHoldsRefusal.code)
+      return
+    }
+    // In force, the one ending soonest first; ended, the latest first. A hold past its
+    // date already counts as ended, as the server answers it.
+    const wanted = new URLSearchParams(request.query).get('status') ?? 'active'
+    const inForce = (hold: LegalHoldFixture) =>
+      hold.status === 'active' && Date.parse(hold.valid_to) > Date.now()
+    const items = holds
+      .filter((hold) => (wanted === 'active' ? inForce(hold) : !inForce(hold)))
+      .map((hold) =>
+        hold.status === 'active' && !inForce(hold) ? { ...hold, status: 'lapsed' } : hold,
+      )
+      .sort((left, right) =>
+        wanted === 'active'
+          ? Date.parse(left.valid_to) - Date.parse(right.valid_to)
+          : Date.parse(right.released_at ?? right.lapsed_at ?? right.valid_to) -
+            Date.parse(left.released_at ?? left.lapsed_at ?? left.valid_to),
+      )
+    await fulfill(route, 200, { items, has_more: false })
+    return
+  }
+
   const panel = fixture.erasureRequests ?? { requests: [] }
   fixture.erasureRequests = panel
   const refusal = panel.nextHoldRefusal
@@ -2470,9 +2519,18 @@ async function routeLegalHolds(
   const release = /^\/backoffice\/v1\/legal-holds\/([^/]+)\/release$/.exec(request.path)
   const holdId = release?.[1] ?? nextAssignmentId()
   const body = request.body as
-    { reason_code?: string; valid_to?: string; disposition_item_ids?: string[] } | undefined
+    | {
+        subject_person_id?: string
+        data_classification_codes?: string[]
+        scope_description?: string
+        reason_code?: string
+        case_reference?: string
+        valid_to?: string
+      }
+    | undefined
 
   // The panel is what the officer sees next, so the fixture moves with the command.
+  let stopped = 0
   for (const entry of panel.requests) {
     for (const category of entry.categories) {
       if (release && category.hold?.id === holdId) {
@@ -2481,33 +2539,81 @@ async function routeLegalHolds(
         entry.pending_items += category.items
         entry.suspended_items = Math.max(0, entry.suspended_items - category.items)
       }
-      if (!release && category.item_ids.some((id) => body?.disposition_item_ids?.includes(id))) {
+      if (
+        !release &&
+        entry.subject_person_id === body?.subject_person_id &&
+        body.data_classification_codes?.includes(category.data_classification_code) &&
+        category.status === 'pending'
+      ) {
         category.status = 'suspended'
         category.hold = {
           id: holdId,
-          reason_code: body?.reason_code ?? 'judicial_order',
-          valid_to: body?.valid_to ?? new Date().toISOString(),
+          reason_code: body.reason_code ?? 'judicial_order',
+          valid_to: body.valid_to ?? new Date().toISOString(),
         }
         entry.pending_items = Math.max(0, entry.pending_items - category.items)
         entry.suspended_items += category.items
+        stopped += category.items
       }
     }
   }
 
-  await fulfill(route, release ? 200 : 201, {
-    id: holdId,
-    scope_description: 'Alcance declarado',
+  if (release) {
+    const held = holds.find((hold) => hold.id === holdId)
+    if (held) {
+      held.status = 'released'
+      held.released_at = new Date().toISOString()
+      held.released_by_person_id = SUPPORT_SUBJECT_ID
+      held.suspended_items = 0
+    }
+    await fulfill(
+      route,
+      200,
+      held ?? {
+        ...appliedHold(holdId, body, 0),
+        status: 'released',
+        released_at: new Date().toISOString(),
+      },
+    )
+    return
+  }
+
+  const applied = appliedHold(holdId, body, stopped)
+  holds.push(applied)
+  await fulfill(route, 201, applied)
+}
+
+function appliedHold(
+  id: string,
+  body:
+    | {
+        subject_person_id?: string
+        data_classification_codes?: string[]
+        scope_description?: string
+        reason_code?: string
+        case_reference?: string
+        valid_to?: string
+      }
+    | undefined,
+  stopped: number,
+): LegalHoldFixture {
+  return {
+    id,
+    subject_person_id: body?.subject_person_id ?? null,
+    data_classification_codes: [...(body?.data_classification_codes ?? [])].sort(),
+    scope_description: body?.scope_description ?? 'Alcance declarado',
     reason_code: body?.reason_code ?? 'judicial_order',
-    case_reference: 'JUZGADO-2026-114',
+    case_reference: body?.case_reference ?? 'JUZGADO-2026-114',
     valid_from: new Date().toISOString(),
     valid_to: body?.valid_to ?? new Date().toISOString(),
-    status: release ? 'released' : 'active',
+    status: 'active',
     applied_by_person_id: SUPPORT_SUBJECT_ID,
-    released_at: release ? new Date().toISOString() : null,
-    released_by_person_id: release ? SUPPORT_SUBJECT_ID : null,
-    suspended_items: release ? 0 : (body?.disposition_item_ids?.length ?? 0),
-    items: body?.disposition_item_ids?.length ?? 1,
-  })
+    released_at: null,
+    released_by_person_id: null,
+    lapsed_at: null,
+    suspended_items: stopped,
+    items: stopped,
+  }
 }
 
 async function routeErasureRequests(

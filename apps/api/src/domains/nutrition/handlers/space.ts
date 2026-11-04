@@ -198,7 +198,9 @@ export function spaceNutritionRoutes(
     if (!UUID.test(mealId) || !command) return fail(c, 'invalid-request')
 
     try {
-      await nutrition().deleteMeal({ personId, mealId, ...command })
+      const held = await nutrition().deleteMeal({ personId, mealId, ...command })
+      // Recorded but not done: a legal hold keeps the meal, or it is about to go.
+      if (held) return c.json(held, 202)
       return c.body(null, 204)
     } catch (cause) {
       return failure(c, cause)

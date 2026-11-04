@@ -29,6 +29,8 @@ export type ConsentRow = Omit<NutritionRecognitionConsent, 'current_version'>
 
 /** A meal as the database holds it: the photo is still a key. */
 export type MealRow = Omit<NutritionMeal, 'photo' | 'applied_scopes'> & { media_ref: string | null }
+export type DeletionHold = AllfitV1Schemas['DeletionHold']
+export type MealDeletionHeld = AllfitV1Schemas['MealDeletionHeld']
 
 export interface MealRowPage {
   readonly data: readonly MealRow[]
@@ -68,9 +70,10 @@ export interface NutritionDatabase {
       media: MediaChange
     },
   ): Promise<MealRow & { disposed_media_ref: string | null }>
+  /** Not deleted while a legal hold keeps it: then there is no photo to remove. */
   deleteMeal(
     input: NutritionCommand & { personId: string; mealId: string },
-  ): Promise<{ disposed_media_ref: string | null }>
+  ): Promise<{ deleted: boolean; disposed_media_ref: string | null; hold: DeletionHold | null }>
   /** Storage removed the object: the disposal is done. */
   sealDisposal(input: { personId: string; mediaRef: string }): Promise<void>
   readDailySummaries(input: {
