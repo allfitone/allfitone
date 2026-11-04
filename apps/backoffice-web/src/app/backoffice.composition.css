@@ -6,8 +6,8 @@
   max-width: min(390px, calc(100vw - 32px));
 }
 
-/* Open on the access screen it sits over the wordmark: the form panel fills the
-   right, and at the bottom the notice covered the sign-in action at 1280x720. */
+/* Open on the access screen it keeps the top-left corner, beside the centred form:
+   at the bottom it covered the sign-in action at 1280x720. */
 [data-analytics-controls][data-expanded='true'] {
   top: 16px;
   right: auto;
@@ -582,4 +582,34 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
   gap: 12px;
+}
+
+/* Allfit's own staff sign in here: the access panel alone, centred, with nothing to sell.
+   The shell's second column is for a hero this screen no longer has. */
+[data-backoffice-access-main] {
+  grid-template-columns: minmax(0, 30rem);
+  grid-template-rows: auto;
+  justify-content: center;
+}
+
+[data-backoffice-access-panel] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+[data-backoffice-access-brand] {
+  margin: 0;
+  line-height: 0;
+}
+
+/* Narrowed, the open notice fits beside the 30rem form from 1248px wide; below
+   that the form moves down, clear of it. */
+:root:not(:has([data-backoffice-shell])) [data-analytics-controls][data-expanded='true'] {
+  max-width: min(360px, calc(100vw - 32px));
+}
+
+@media (max-width: 1247px) {
+  :root:has([data-analytics-controls][data-expanded='true']) [data-backoffice-access-main] {
+    padding-block-start: 14rem;
+  }
 }
