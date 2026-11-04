@@ -160,7 +160,8 @@ module "compute" {
 module "certificate" {
   source = "../modules/certificate"
 
-  domain_names = flatten([for route in values(local.routes) : route.hosts])
+  # Wildcard on purpose: CAA for *.X is checked at X, not at hosts that still CNAME to Vercel.
+  domain_names = ["*.allfit.one"]
 }
 
 # Waits until the CNAMEs exist in GoDaddy and ACM has issued the certificate.
