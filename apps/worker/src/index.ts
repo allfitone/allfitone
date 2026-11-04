@@ -46,7 +46,10 @@ import {
   createPrivacyDispositionProcessor,
   type PrivacyDispositionResult,
 } from './privacy-dispositions.js'
+import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
+
+export type { JobRun } from './job-runs.js'
 
 export interface WorkerJobProcessors {
   invitationDelivery(): Promise<InvitationBatchResult>
@@ -54,6 +57,8 @@ export interface WorkerJobProcessors {
   accountRecoveryDelivery(): Promise<AccountRecoveryBatchResult>
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
   privacyDisposition(): Promise<PrivacyDispositionResult>
+  /** Leaves the run behind for the Backoffice diagnosis (HU-BO-031 c2). */
+  recordJobRun(run: JobRun): Promise<void>
 }
 
 export interface WorkerBatchResult {
@@ -91,33 +96,39 @@ export function createWorkerApp(
     const processors = injectedProcessors ?? processorsFromEnvironment()
     const batchStartedAt = performance.now()
     try {
+      const record = processors.recordJobRun
       const invitations = await runJob(
         telemetry,
         logs,
+        record,
         'invitation_delivery',
         processors.invitationDelivery,
       )
       const backofficeAuthentication = await runJob(
         telemetry,
         logs,
+        record,
         'backoffice_auth_cleanup',
         processors.backofficeAuthCleanup,
       )
       const accountRecovery = await runJob(
         telemetry,
         logs,
+        record,
         'account_recovery_delivery',
         processors.accountRecoveryDelivery,
       )
       const platformDuties = await runJob(
         telemetry,
         logs,
+        record,
         'platform_duty_lapse',
         processors.platformDutyLapse,
       )
       const privacyDispositions = await runJob(
         telemetry,
         logs,
+        record,
         'privacy_disposition',
         processors.privacyDisposition,
       )
@@ -169,19 +180,37 @@ export function createWorkerApp(
 async function runJob<T extends { claimed: number; deadOrDelayed: number }>(
   telemetry: ServerTelemetryAdapter,
   logs: OperationalLogAdapter,
+  record: (run: JobRun) => Promise<void>,
   job: Exclude<WorkerJob, 'outbox_batch'>,
   processor: () => Promise<T>,
 ): Promise<T> {
   const startedAt = performance.now()
+  const startedAtInstant = new Date()
   let result: T
   try {
     result = await processor()
   } catch {
     captureJob(telemetry, logs, job, 'failed', startedAt)
+    await keepRun(record, {
+      job,
+      startedAt: startedAtInstant,
+      outcome: 'failed',
+      errorCode: `${job}_failed`,
+    })
     throw new Error(`${job}_failed`)
   }
   captureJob(telemetry, logs, job, outcomeForResult(result), startedAt, result.claimed)
+  await keepRun(record, { job, startedAt: startedAtInstant, outcome: 'succeeded', errorCode: null })
   return result
+}
+
+/** The run is a trace for the diagnosis; failing to write it never changes the batch. */
+async function keepRun(record: (run: JobRun) => Promise<void>, run: JobRun): Promise<void> {
+  try {
+    await record(run)
+  } catch {
+    console.error(`[worker-outbox] ${run.job} run not recorded`)
+  }
 }
 
 function captureJob(
@@ -361,6 +390,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     accountRecoveryDelivery: accountRecovery,
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
     privacyDisposition: createPrivacyDispositionProcessor(sql),
+    recordJobRun: createJobRunRecorder(sql),
   }
   return cachedProcessors
 }

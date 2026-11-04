@@ -260,7 +260,7 @@ select throws_ok(
     'payments', null, null, 50, null, null
   ) $$,
   '22023',
-  'an operational event is a notification or a command',
+  'an operational event is a notification, a command, a job or a store notice',
   'the source is a closed vocabulary, not free text'
 );
 

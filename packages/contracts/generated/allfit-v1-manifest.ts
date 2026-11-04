@@ -567,6 +567,14 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/backoffice/v1/support/job-health',
+      operationId: 'readBackofficeJobHealth',
+      allfitOperation: 'NEW-SUP-JOB-HEALTH',
+      responses: ['200', '400', '401', '403', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
+      method: 'GET',
       path: '/backoffice/v1/support/operations',
       operationId: 'listBackofficeSupportOperations',
       allfitOperation: 'OP-SUP-005',

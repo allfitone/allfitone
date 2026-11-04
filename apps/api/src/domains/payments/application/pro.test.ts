@@ -47,6 +47,9 @@ function fakes(billing: Partial<StoreBilling>) {
       recorded.push(input)
       return 'processed'
     },
+    recordNotificationRefusal: async (input) => {
+      recorded.push(input)
+    },
   }
   const store: StoreBilling = {
     verifyPurchase: async () => state,
@@ -94,4 +97,12 @@ test('T-PAY-PRO-UNIT-24 a notification about a subscription is applied; one with
   expect(await service.appStoreNotification('jws', 'request')).toBe('processed')
   expect(await service.googlePlayNotification('Bearer oidc', '{}', 'request')).toBe('ignored')
   expect(recorded).toHaveLength(1)
+})
+
+test('T-PAY-PRO-UNIT-25 a refused notice is counted with its store and reason, nothing else', async () => {
+  const { service, recorded } = fakes({})
+  await service.notificationRefused('app_store', 'unverified')
+  expect(recorded).toHaveLength(1)
+  expect(Object.keys(recorded[0] as object).sort()).toEqual(['reason', 'requestId', 'store'])
+  expect(recorded[0]).toMatchObject({ store: 'app_store', reason: 'unverified' })
 })

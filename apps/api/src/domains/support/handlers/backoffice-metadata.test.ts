@@ -198,6 +198,22 @@ function diagnosisService(
         },
       ])
     },
+    jobHealth: (_reader, input) => {
+      diagnosisCalls.push(input)
+      return Promise.resolve({
+        generated_at: '2026-11-04T12:00:00.000Z',
+        items: [
+          {
+            job_name: 'privacy_disposition',
+            last_run_at: '2026-11-04T11:59:00.000Z',
+            last_outcome: 'failed',
+            last_failure_at: '2026-11-04T11:59:00.000Z',
+            last_error_code: 'privacy_disposition_failed',
+            failures_24h: 3,
+          },
+        ],
+      })
+    },
     ...overrides,
   }
 }
@@ -357,6 +373,7 @@ describe('Backoffice support metadata API contract', () => {
           'NEW-SUP-DASHBOARD',
           'NEW-SUP-PERSON-PAYMENTS',
           'NEW-SUP-BILLING-FOLLOW-UP',
+          'NEW-SUP-JOB-HEALTH',
         ].includes(operation.allfitOperation),
       )
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
@@ -366,7 +383,7 @@ describe('Backoffice support metadata API contract', () => {
       .map((route) => `${route.method} /backoffice/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(8)
+    expect(contract).toHaveLength(9)
     expect(mounted).toEqual(contract)
   })
 
@@ -384,6 +401,33 @@ describe('Backoffice support metadata API contract', () => {
     expect(mounted).toContain('GET /backoffice/v1/support/attention')
     expect(mounted).toContain('GET /backoffice/v1/support/business')
     expect(mounted).toContain('GET /backoffice/v1/support/billing-follow-up')
+    expect(mounted).toContain('GET /backoffice/v1/support/job-health')
+  })
+
+  test('T-SUP-API-50 reads the job health without a case reference, and refuses a filter', async () => {
+    const response = await routes().fetch(request('/support/job-health'))
+    const filtered = await routes().fetch(request('/support/job-health?job=privacy_disposition'))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    const body = (await response.json()) as { items: { last_outcome: string }[] }
+    expect(body.items[0]?.last_outcome).toBe('failed')
+    expect(filtered.status).toBe(400)
+  })
+
+  test('T-SUP-API-51 filters the feed by the two new sources and the failed state', async () => {
+    const answers = await Promise.all(
+      ['source=job', 'source=store_notification', 'state=failed'].map((query) =>
+        routes().fetch(request(`/support/operations?${query}`)),
+      ),
+    )
+
+    expect(answers.map((response) => response.status)).toEqual([200, 200, 200])
+    expect(diagnosisCalls).toMatchObject([
+      { source: 'job' },
+      { source: 'store_notification' },
+      { state: 'failed' },
+    ])
   })
 
   test('T-SUP-API-23 finds a person by an exact contact and carries the case through', async () => {

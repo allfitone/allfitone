@@ -26,6 +26,7 @@ import type {
   SupportBusinessDatabase,
   SupportBusinessPanel,
   SupportDeliveryCircuit,
+  SupportJobHealth,
   SupportDiagnosisDatabase,
   SupportOperation,
   SupportMetadataDatabase,
@@ -324,6 +325,17 @@ export function createSupportDiagnosisDatabase(): SupportDiagnosisDatabase {
           )
         `,
       ),
+
+    jobHealth: (input) =>
+      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ list_job_health: SupportJobHealth }[]>`
+          select support.list_job_health(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid
+          )
+        `
+        if (!row) throw new Error('PostgreSQL did not read the job health')
+        return row.list_job_health
+      }),
   }
 }
 

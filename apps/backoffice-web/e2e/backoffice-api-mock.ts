@@ -1354,6 +1354,15 @@ export interface DiagnosisFixture {
   operations: DiagnosisOperationFixture[]
   /** Rows per page, so the feed's cursor can be exercised. */
   pageSize?: number
+  /** When each scheduled job last ran (HU-BO-031 c2). */
+  jobs?: Array<{
+    job_name: string
+    last_run_at: string
+    last_outcome: 'succeeded' | 'failed'
+    last_failure_at: string | null
+    last_error_code: string | null
+    failures_24h: number
+  }>
 }
 
 export interface DiagnosisCircuitFixture {
@@ -1366,7 +1375,7 @@ export interface DiagnosisCircuitFixture {
 }
 
 export interface DiagnosisOperationFixture {
-  source: 'notification' | 'command'
+  source: 'notification' | 'command' | 'job' | 'store_notification'
   reference_id: string
   subject_kind: string | null
   subject_id: string | null
@@ -1961,7 +1970,8 @@ export async function mockBackofficeApi(
     }
     if (
       request.path === '/backoffice/v1/support/operations' ||
-      request.path === '/backoffice/v1/support/delivery-circuits'
+      request.path === '/backoffice/v1/support/delivery-circuits' ||
+      request.path === '/backoffice/v1/support/job-health'
     ) {
       await routeDiagnosis(route, request, fixture)
       return
@@ -4213,6 +4223,13 @@ async function routeDiagnosis(
   }
   if (request.path.endsWith('/delivery-circuits')) {
     await fulfill(route, 200, { items: diagnosis.circuits })
+    return
+  }
+  if (request.path.endsWith('/job-health')) {
+    await fulfill(route, 200, {
+      generated_at: new Date().toISOString(),
+      items: diagnosis.jobs ?? [],
+    })
     return
   }
 

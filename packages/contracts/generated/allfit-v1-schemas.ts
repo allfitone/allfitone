@@ -15904,6 +15904,61 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SupportJobHealth: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['generated_at', 'items'],
+    properties: {
+      generated_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/SupportJobHealthItem',
+        },
+      },
+    },
+  },
+  SupportJobHealthItem: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'job_name',
+      'last_run_at',
+      'last_outcome',
+      'last_failure_at',
+      'last_error_code',
+      'failures_24h',
+    ],
+    properties: {
+      job_name: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{2,63}$',
+      },
+      last_run_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      last_outcome: {
+        type: 'string',
+        enum: ['succeeded', 'failed'],
+      },
+      last_failure_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      last_error_code: {
+        type: ['string', 'null'],
+        maxLength: 120,
+      },
+      failures_24h: {
+        type: 'integer',
+        minimum: 0,
+      },
+    },
+  },
   SupportOperation: {
     type: 'object',
     additionalProperties: false,
@@ -15979,12 +16034,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   },
   SupportOperationSourceKind: {
     type: 'string',
-    enum: ['notification', 'command'],
+    description:
+      '`job` is a scheduled job run that failed; `store_notification` counts the notices a store sent that were refused, per store, reason and hour, with nothing from the notice itself.',
+    enum: ['notification', 'command', 'job', 'store_notification'],
   },
   SupportOperationState: {
     type: 'string',
     description:
-      '`pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started.',
+      '`pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started, or a notification a worker consumes still unsent a quarter of an hour after it was due. `failed` is a job run that failed or a refused store notice.',
     enum: [
       'pending',
       'retrying',
@@ -15994,6 +16051,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'stalled',
       'succeeded',
       'rejected_final',
+      'failed',
     ],
   },
   SupportPeopleSearch: {

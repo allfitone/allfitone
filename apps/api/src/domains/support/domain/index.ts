@@ -203,10 +203,13 @@ export type SupportOperation = AllfitV1Schemas['SupportOperation']
 export type SupportOperationState = AllfitV1Schemas['SupportOperationState']
 export type SupportOperationSourceKind = AllfitV1Schemas['SupportOperationSourceKind']
 export type SupportDeliveryCircuit = AllfitV1Schemas['SupportDeliveryCircuit']
+export type SupportJobHealth = AllfitV1Schemas['SupportJobHealth']
 
 export const SUPPORT_OPERATION_SOURCES: readonly SupportOperationSourceKind[] = [
   'notification',
   'command',
+  'job',
+  'store_notification',
 ]
 
 export const SUPPORT_OPERATION_STATES: readonly SupportOperationState[] = [
@@ -218,6 +221,7 @@ export const SUPPORT_OPERATION_STATES: readonly SupportOperationState[] = [
   'stalled',
   'succeeded',
   'rejected_final',
+  'failed',
 ]
 
 export interface SupportOperationCursor {
@@ -239,6 +243,7 @@ export interface SupportDiagnosisDatabase {
   listDeliveryCircuits(
     input: SupportReader & { requestId: string },
   ): Promise<SupportDeliveryCircuit[]>
+  jobHealth(input: SupportReader & { requestId: string }): Promise<SupportJobHealth>
 }
 
 /**

@@ -460,6 +460,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/backoffice/v1/support/job-health': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read when each scheduled job last ran
+     * @description `HU-BO-031` c2. One row per job the worker has recorded: its last run and how it went, its last failure with the error code, and how many failed in a day. A job whose last run is old is a worker that stopped. No subject and no case reference: nothing here belongs to a person. Requires `diagnose_support_metadata`.
+     */
+    get: operations['readBackofficeJobHealth']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/support/operations': {
     parameters: {
       query?: never
@@ -5447,10 +5467,13 @@ export interface components {
       occurred_at: string
       category?: components['schemas']['BreakGlassCategory']
     }
-    /** @enum {string} */
-    SupportOperationSourceKind: 'notification' | 'command'
     /**
-     * @description `pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started.
+     * @description `job` is a scheduled job run that failed; `store_notification` counts the notices a store sent that were refused, per store, reason and hour, with nothing from the notice itself.
+     * @enum {string}
+     */
+    SupportOperationSourceKind: 'notification' | 'command' | 'job' | 'store_notification'
+    /**
+     * @description `pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started, or a notification a worker consumes still unsent a quarter of an hour after it was due. `failed` is a job run that failed or a refused store notice.
      * @enum {string}
      */
     SupportOperationState:
@@ -5462,6 +5485,23 @@ export interface components {
       | 'stalled'
       | 'succeeded'
       | 'rejected_final'
+      | 'failed'
+    SupportJobHealth: {
+      /** Format: date-time */
+      generated_at: string
+      items: components['schemas']['SupportJobHealthItem'][]
+    }
+    SupportJobHealthItem: {
+      job_name: string
+      /** Format: date-time */
+      last_run_at: string
+      /** @enum {string} */
+      last_outcome: 'succeeded' | 'failed'
+      /** Format: date-time */
+      last_failure_at: string | null
+      last_error_code: string | null
+      failures_24h: number
+    }
     /** @description Identifiers, states, timestamps, error codes and retries. No payload, no stored response, no principal fingerprint and no request hash: this read exists to diagnose without opening anyone's data. */
     SupportOperation: {
       source: components['schemas']['SupportOperationSourceKind']
@@ -11925,6 +11965,33 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readBackofficeJobHealth: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The health of each scheduled job */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SupportJobHealth']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
       503: components['responses']['UpstreamUnavailable']
     }
   }

@@ -25,6 +25,7 @@ import type {
   SupportBusinessDatabase,
   SupportBusinessPanel,
   SupportDeliveryCircuit,
+  SupportJobHealth,
   SupportDiagnosisDatabase,
   SupportOperation,
   SupportOperationCursor,
@@ -201,6 +202,8 @@ export interface SupportDiagnosisService {
     reader: SupportReader,
     input: { requestId: string },
   ): Promise<SupportDeliveryCircuit[]>
+  /** When each scheduled job last ran, so a stopped worker is noticed. */
+  jobHealth(reader: SupportReader, input: { requestId: string }): Promise<SupportJobHealth>
 }
 
 export function createSupportDiagnosisService(
@@ -209,6 +212,7 @@ export function createSupportDiagnosisService(
   return {
     listOperations: (reader, input) => database.listOperations({ ...reader, ...input }),
     listDeliveryCircuits: (reader, input) => database.listDeliveryCircuits({ ...reader, ...input }),
+    jobHealth: (reader, input) => database.jobHealth({ ...reader, ...input }),
   }
 }
 

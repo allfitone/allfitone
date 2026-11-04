@@ -9,6 +9,7 @@ import type { BackofficeAuthBatchResult } from './backoffice-auth.js'
 import type { AccountRecoveryBatchResult } from './account-recovery.js'
 import type { PlatformDutyLapseResult } from './platform-duties.js'
 import type { PrivacyDispositionResult } from './privacy-dispositions.js'
+import type { JobRun, WorkerJobProcessors } from './index.js'
 
 type WorkerEvent = TelemetryEventFor<'worker.job.completed.v1'>
 
@@ -224,15 +225,54 @@ test('stops sequential execution when invitation delivery fails and logs both fa
   expect(logged).toHaveLength(2)
 })
 
-function successfulProcessors() {
+function successfulProcessors(): WorkerJobProcessors {
   return {
     invitationDelivery: async () => invitationResult(),
     backofficeAuthCleanup: async () => backofficeResult(),
     accountRecoveryDelivery: async () => recoveryResult(),
     platformDutyLapse: async () => lapseResult(),
     privacyDisposition: async () => dispositionResult(),
+    recordJobRun: async () => undefined,
   }
 }
+
+// HU-BO-031 c2: the jobs reported to telemetry only, so their failures were visible
+// nowhere in the Backoffice. Each run now leaves a row the diagnosis reads.
+test('records each job it ran, and the one that failed with its error code', async () => {
+  const runs: JobRun[] = []
+  const processors = successfulProcessors()
+  processors.recordJobRun = async (run) => {
+    runs.push(run)
+  }
+  processors.accountRecoveryDelivery = async () => Promise.reject(new Error('provider down'))
+
+  const response = await createWorkerApp(
+    processors,
+    { capture: () => undefined, shutdown: async () => undefined },
+    operationalLogs([]),
+  ).request('/cron/outbox', { headers: { authorization: 'Bearer cron-test-secret' } })
+
+  expect(response.status).toBe(503)
+  expect(runs.map((run) => [run.job, run.outcome, run.errorCode])).toEqual([
+    ['invitation_delivery', 'succeeded', null],
+    ['backoffice_auth_cleanup', 'succeeded', null],
+    ['account_recovery_delivery', 'failed', 'account_recovery_delivery_failed'],
+  ])
+  expect(runs.every((run) => run.startedAt instanceof Date)).toBeTrue()
+})
+
+test('a run that cannot be recorded never changes what the batch did', async () => {
+  const processors = successfulProcessors()
+  processors.recordJobRun = async () => Promise.reject(new Error('database down'))
+
+  const response = await createWorkerApp(
+    processors,
+    { capture: () => undefined, shutdown: async () => undefined },
+    operationalLogs([]),
+  ).request('/cron/outbox', { headers: { authorization: 'Bearer cron-test-secret' } })
+
+  expect(response.status).toBe(200)
+})
 
 function dispositionResult(
   overrides: Partial<PrivacyDispositionResult> = {},

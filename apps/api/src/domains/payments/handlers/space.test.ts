@@ -38,6 +38,8 @@ const status: ProStatus = {
   ],
 }
 
+let refusals: string[] = []
+
 function service(overrides: Partial<ProService> = {}): ProService {
   return {
     read: async () => status,
@@ -46,6 +48,9 @@ function service(overrides: Partial<ProService> = {}): ProService {
     purchase: async () => ({ resource: status, replayed: false }),
     appStoreNotification: async () => 'processed',
     googlePlayNotification: async () => 'processed',
+    notificationRefused: async (store, reason) => {
+      refusals.push(`${store}:${reason}`)
+    },
     ...overrides,
   }
 }
@@ -218,6 +223,49 @@ describe('Allfit Pro on Space', () => {
 })
 
 describe('Store notifications', () => {
+  // HU-BO-031 c2: a refused notice used to leave no trace, so "a charge never arrived"
+  // could not be diagnosed. The store's answer stays exactly what it was.
+  test('T-PAY-PRO-API-13 every refused notice is counted with its store and reason', async () => {
+    refusals = []
+    const json = { 'content-type': 'application/json' }
+    const unsigned = harness({
+      appStoreNotification: async () => {
+        throw new StoreBillingError('invalid')
+      },
+      googlePlayNotification: async () => {
+        throw new Error('database down')
+      },
+    })
+
+    const answers = [
+      (await send(unsigned, 'POST', '/webhooks/app-store', json, 'not json')).status,
+      (await send(unsigned, 'POST', '/webhooks/app-store', json, { signedPayload: 'x' })).status,
+      (await send(unsigned, 'POST', '/webhooks/google-play', {}, '{}')).status,
+    ]
+
+    expect(answers).toEqual([400, 400, 503])
+    expect(refusals).toEqual([
+      'app_store:malformed',
+      'app_store:unverified',
+      'google_play:not_applied',
+    ])
+  })
+
+  test('T-PAY-PRO-API-14 a count that cannot be written never changes what the store hears', async () => {
+    const app = harness({
+      appStoreNotification: async () => {
+        throw new StoreBillingError('invalid')
+      },
+      notificationRefused: async () => {
+        throw new Error('database down')
+      },
+    })
+    const json = { 'content-type': 'application/json' }
+    expect(
+      (await send(app, 'POST', '/webhooks/app-store', json, { signedPayload: 'x' })).status,
+    ).toBe(400)
+  })
+
   test('T-PAY-PRO-API-10 Apple: a notification taken is 200, one without a payload or not signed by Apple is 400', async () => {
     let payload: string | undefined
     const app = harness({

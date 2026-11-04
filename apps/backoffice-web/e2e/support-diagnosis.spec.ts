@@ -132,6 +132,64 @@ test('shows the identifiers of each operation and finds those of one subject', a
   await expect(page.locator('[data-operation-ids]')).toHaveCount(2)
 })
 
+// HU-BO-031 c2: what failed silently — a job, a stopped worker, a refused store notice.
+test('says which job failed, which stopped running, and lists a refused store notice', async ({
+  context,
+  page,
+}) => {
+  const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString()
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      diagnosis: {
+        circuits: [],
+        operations: [
+          diagnosisOperation({
+            source: 'store_notification',
+            subject_kind: null,
+            subject_id: null,
+            label: 'app_store',
+            state: 'failed',
+            attempt_count: 4,
+            last_error_code: 'unverified',
+          }),
+        ],
+        jobs: [
+          {
+            job_name: 'privacy_disposition',
+            last_run_at: minutesAgo(1),
+            last_outcome: 'failed',
+            last_failure_at: minutesAgo(1),
+            last_error_code: 'privacy_disposition_failed',
+            failures_24h: 3,
+          },
+          {
+            job_name: 'platform_duty_lapse',
+            last_run_at: minutesAgo(45),
+            last_outcome: 'succeeded',
+            last_failure_at: null,
+            last_error_code: null,
+            failures_24h: 0,
+          },
+        ],
+      },
+    }),
+  )
+
+  await page.goto(PATH)
+
+  await expect(page.locator('[data-diagnosis-job="privacy_disposition"]')).toContainText(
+    'falló (privacy_disposition_failed). 3 fallos en 24 horas.',
+  )
+  await expect(page.locator('[data-diagnosis-job="platform_duty_lapse"]')).toContainText(
+    'No corre desde hace 45 min',
+  )
+  await expect(page.locator('[data-diagnosis-silent-jobs]')).toContainText('Vencimiento de deberes')
+  await expect(page.getByRole('cell', { name: 'Aviso de la tienda' })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Falló' })).toBeVisible()
+})
+
 test('filters the feed by state without asking for a case reference', async ({ context, page }) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),

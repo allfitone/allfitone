@@ -69,6 +69,7 @@ export type PlatformPlanVersionProposal = AllfitV1Schemas['PlatformPlanVersionPr
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
 export type SupportBillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
+export type SupportJobHealth = AllfitV1Schemas['SupportJobHealth']
 export type ResultContractVersionList = AllfitV1Schemas['ResultContractVersionList']
 export type BackofficeAccountRecovery = AllfitV1Schemas['BackofficeAccountRecovery']
 export type BackofficeAccountRecoveryRequest = AllfitV1Schemas['BackofficeAccountRecoveryRequest']
@@ -421,6 +422,10 @@ export const backofficeApi = {
       })}`,
       signal ? { signal } : {},
     ),
+
+  // No subject and no case: when each scheduled job last ran (HU-BO-031 c2).
+  supportJobHealth: (signal?: AbortSignal) =>
+    requestJson<SupportJobHealth>('/backoffice/v1/support/job-health', signal ? { signal } : {}),
 
   supportDeliveryCircuits: (signal?: AbortSignal) =>
     requestJson<{ items: SupportDeliveryCircuit[] }>(
@@ -924,6 +929,7 @@ function supportOperation(route: string): ClientOperation | undefined {
   if (segments[3] === 'billing-follow-up') return 'backoffice.support.billing_follow_up'
   if (segments[3] === 'operations') return 'backoffice.support.operations'
   if (segments[3] === 'delivery-circuits') return 'backoffice.support.delivery_circuits'
+  if (segments[3] === 'job-health') return 'backoffice.support.job_health'
   if (segments[3] !== 'people') return undefined
   return segments.length === 4
     ? 'backoffice.support.people_search'

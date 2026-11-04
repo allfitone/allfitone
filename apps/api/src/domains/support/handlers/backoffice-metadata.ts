@@ -214,6 +214,23 @@ export function backofficeSupportMetadataRoutes(
     }
   })
 
+  // HU-BO-031 c2: when each scheduled job last ran. No subject, so no case.
+  routes.get('/support/job-health', async (c) => {
+    if (Object.keys(c.req.query()).length > 0) return problem(c, 'invalid-request')
+    try {
+      const actor = await backofficeActor(c, sessions())
+      if (actor instanceof Response) return actor
+      return c.json(
+        await diagnosis().jobHealth(
+          { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
+          { requestId: randomUUID() },
+        ),
+      )
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
   routes.get('/support/delivery-circuits', async (c) => {
     try {
       const actor = await backofficeActor(c, sessions())

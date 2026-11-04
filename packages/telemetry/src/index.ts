@@ -104,6 +104,7 @@ export const clientOperations = [
   'backoffice.support.billing_follow_up',
   'backoffice.support.business',
   'backoffice.support.delivery_circuits',
+  'backoffice.support.job_health',
   'backoffice.support.operations',
   'backoffice.support.people_search',
   'backoffice.support.person_metadata',

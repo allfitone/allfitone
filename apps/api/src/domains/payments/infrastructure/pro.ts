@@ -94,6 +94,13 @@ export function createProDatabase(): ProDatabase {
         if (!row) throw new Error('PostgreSQL did not apply the notification')
         return row.apply_store_notification
       }),
+
+    recordNotificationRefusal: (input) =>
+      as(sql, 'worker', null, input.requestId, async (transaction) => {
+        await transaction`
+          select payments.record_store_notification_rejection(${input.store}, ${input.reason})
+        `
+      }),
   }
 }
 

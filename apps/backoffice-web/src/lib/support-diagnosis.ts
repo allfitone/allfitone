@@ -13,10 +13,13 @@ export type SupportOperation = AllfitV1Schemas['SupportOperation']
 export type SupportOperationState = AllfitV1Schemas['SupportOperationState']
 export type SupportOperationSourceKind = AllfitV1Schemas['SupportOperationSourceKind']
 export type SupportDeliveryCircuit = AllfitV1Schemas['SupportDeliveryCircuit']
+export type SupportJobHealthItem = AllfitV1Schemas['SupportJobHealthItem']
 
 export const SUPPORT_OPERATION_SOURCES: readonly SupportOperationSourceKind[] = [
   'notification',
   'command',
+  'job',
+  'store_notification',
 ]
 
 export const SUPPORT_OPERATION_STATES: readonly SupportOperationState[] = [
@@ -28,11 +31,14 @@ export const SUPPORT_OPERATION_STATES: readonly SupportOperationState[] = [
   'stalled',
   'succeeded',
   'rejected_final',
+  'failed',
 ]
 
 const SOURCE_LABELS: Record<SupportOperationSourceKind, string> = {
   notification: 'Aviso',
   command: 'Comando',
+  job: 'Tarea programada',
+  store_notification: 'Aviso de la tienda',
 }
 
 const STATE_LABELS: Record<SupportOperationState, string> = {
@@ -44,6 +50,7 @@ const STATE_LABELS: Record<SupportOperationState, string> = {
   stalled: 'Atascado',
   succeeded: 'Terminado',
   rejected_final: 'Rechazado',
+  failed: 'Falló',
 }
 
 export function sourceLabel(source: SupportOperationSourceKind): string {
@@ -71,7 +78,12 @@ export type StateTone = 'success' | 'destructive' | 'warning' | 'secondary'
  * working on it — and `pending` is not a problem at all.
  */
 export function operationStateTone(state: SupportOperationState): StateTone {
-  if (state === 'dead_lettered' || state === 'stalled' || state === 'rejected_final')
+  if (
+    state === 'dead_lettered' ||
+    state === 'stalled' ||
+    state === 'rejected_final' ||
+    state === 'failed'
+  )
     return 'destructive'
   if (state === 'retrying') return 'warning'
   if (state === 'delivered' || state === 'succeeded') return 'success'
@@ -80,6 +92,57 @@ export function operationStateTone(state: SupportOperationState): StateTone {
 
 export function needsAttention(operation: SupportOperation): boolean {
   return operationStateTone(operation.state) === 'destructive'
+}
+
+/** The worker runs every minute; a job silent for this long has stopped. */
+export const SILENT_JOB_MINUTES = 10
+
+const JOB_LABELS: Record<string, string> = {
+  invitation_delivery: 'Envío de invitaciones y avisos',
+  backoffice_auth_cleanup: 'Cierre de sesiones del Backoffice',
+  account_recovery_delivery: 'Recuperación de cuentas',
+  platform_duty_lapse: 'Vencimiento de deberes',
+  privacy_disposition: 'Eliminaciones de privacidad',
+}
+
+/** A known job reads as what it does; a new one is named by its code until it has words. */
+export function jobLabel(jobName: string): string {
+  return JOB_LABELS[jobName] ?? jobName
+}
+
+function minutesSince(instant: string, now: number): number {
+  return Math.max(0, Math.round((now - Date.parse(instant)) / 60_000))
+}
+
+function isSilent(job: SupportJobHealthItem, now: number): boolean {
+  return minutesSince(job.last_run_at, now) >= SILENT_JOB_MINUTES
+}
+
+export function jobHealthLine(job: SupportJobHealthItem, now = Date.now()): string {
+  const minutes = minutesSince(job.last_run_at, now)
+  if (isSilent(job, now)) {
+    return `No corre desde hace ${minutes} min: el worker puede haberse detenido.`
+  }
+  const ran = `Corrió hace ${minutes} min`
+  const failures =
+    job.failures_24h === 0
+      ? ''
+      : ` ${job.failures_24h} fallo${job.failures_24h === 1 ? '' : 's'} en 24 horas.`
+  if (job.last_outcome === 'failed') {
+    return `${ran} y falló (${job.last_error_code ?? 'sin código'}).${failures}`
+  }
+  return `${ran} y terminó bien.${failures}`
+}
+
+export function jobHealthTone(job: SupportJobHealthItem, now = Date.now()): StateTone {
+  if (job.last_outcome === 'failed') return 'destructive'
+  if (isSilent(job, now)) return 'warning'
+  return 'success'
+}
+
+/** Jobs that stopped running: nothing else in the Backoffice would say so. */
+export function silentJobs(jobs: readonly SupportJobHealthItem[], now = Date.now()): string[] {
+  return jobs.filter((job) => isSilent(job, now)).map((job) => job.job_name)
 }
 
 export function circuitTone(state: string): StateTone {

@@ -64,7 +64,12 @@ import {
   sourceLabel,
   supportDiagnosisMessage,
   isValidOperationIdentifier,
+  jobHealthLine,
+  jobHealthTone,
+  jobLabel,
   shortIdentifier,
+  silentJobs,
+  type SupportJobHealthItem,
   subjectLine,
   type SupportOperationSourceKind,
   type SupportOperationState,
@@ -86,6 +91,9 @@ export function SupportDiagnosis() {
   const [source, setSource] = useState<SupportOperationSourceKind | typeof ANY>(ANY)
   const [operationState, setOperationState] = useState<SupportOperationState | typeof ANY>(ANY)
   // HU-BO-031 c3: one operation found by the identifier of what it is about.
+  // Read apart from the feed, so a job health read that fails leaves the rest standing.
+  const [jobs, setJobs] = useState<SupportJobHealthItem[] | null>(null)
+  const [jobsFailed, setJobsFailed] = useState(false)
   const [identifier, setIdentifier] = useState('')
   const [identifierDraft, setIdentifierDraft] = useState('')
   const [identifierIssue, setIdentifierIssue] = useState(false)
@@ -142,6 +150,19 @@ export function SupportDiagnosis() {
     return () => controller.abort()
   }, [filters])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        setJobs((await backofficeApi.supportJobHealth(controller.signal)).items)
+        setJobsFailed(false)
+      } catch {
+        if (!controller.signal.aborted) setJobsFailed(true)
+      }
+    })()
+    return () => controller.abort()
+  }, [])
+
   async function loadMore() {
     if (!cursor) return
     setAppending(true)
@@ -170,6 +191,7 @@ export function SupportDiagnosis() {
   }
 
   const summary = circuitSummary(circuits)
+  const silent = jobs ? silentJobs(jobs) : []
 
   return (
     <div data-support-diagnosis>
@@ -179,6 +201,49 @@ export function SupportDiagnosis() {
           <AlertDescription>{summary}</AlertDescription>
         </Alert>
       ) : null}
+
+      {silent.length > 0 ? (
+        <Alert live="polite" variant="warning" data-diagnosis-silent-jobs>
+          <AlertTitle>Una tarea programada dejó de correr</AlertTitle>
+          <AlertDescription>
+            {silent.map(jobLabel).join(', ')} no corre hace rato. El worker puede haberse detenido:
+            nada más en el Backoffice lo diría.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Card data-diagnosis-jobs>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            Tareas programadas
+          </CardTitle>
+          <CardDescription>
+            Lo que el worker corre cada minuto: cuándo corrió por última vez, cómo terminó y sus
+            fallos del último día.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {jobsFailed ? (
+            <p data-diagnosis-jobs-unavailable>
+              No se pudo leer el estado de las tareas. El resto del diagnóstico sigue abajo.
+            </p>
+          ) : jobs === null ? null : jobs.length === 0 ? (
+            <ScreenEmpty icon="activity" title="El worker no ha registrado ninguna corrida">
+              Si la plataforma lleva un rato desplegada, eso quiere decir que el worker no está
+              corriendo.
+            </ScreenEmpty>
+          ) : (
+            <ul>
+              {jobs.map((job) => (
+                <li key={job.job_name} data-diagnosis-job={job.job_name}>
+                  <Badge variant={jobHealthTone(job)}>{jobLabel(job.job_name)}</Badge>{' '}
+                  {jobHealthLine(job)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
