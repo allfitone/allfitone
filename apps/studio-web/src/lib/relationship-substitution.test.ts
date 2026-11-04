@@ -1,17 +1,22 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  canEndSubstitution,
   canProposeSubstitution,
   coversAvailable,
+  coversThatStillMatterFirst,
   proposalRefusalDescription,
   proposalRefusalFor,
   proposalRefusalTitle,
   seesEverySubstitution,
+  terminationRefusalDescription,
+  terminationRefusalFor,
+  terminationRefusalTitle,
   todayAsCalendarDay,
   windowProblem,
   windowProblemMessage,
 } from './relationship-substitution'
-import type { OrganizationMembership } from './studio-api'
+import type { OrganizationMembership, RelationshipSubstitution } from './studio-api'
 
 function member(overrides: Partial<OrganizationMembership> = {}): OrganizationMembership {
   return {
@@ -214,5 +219,159 @@ describe('whether the list the reader sees is the whole list', () => {
   // An accepted substitute reading the screen sees their own row and no other.
   test('is not the whole list for a reader who is neither', () => {
     expect(seesEverySubstitution({ everyClient: false, isHolder: false })).toBe(false)
+  })
+})
+
+describe('quién puede cortar una suplencia', () => {
+  /*
+   * La asimetría, escrita como prueba. `OP-REL-004` acepta al titular y
+   * `OP-REL-006` no: puede pedir que le cubran y no puede cancelarlo. Si
+   * alguien lo «arregla» leyendo al titular en esta regla, el botón aparecerá
+   * en pantalla para quien el comando va a rechazar.
+   */
+  test('el titular no puede, aunque sí pueda proponerla', () => {
+    expect(
+      canEndSubstitution({
+        mayAssignProfessionals: false,
+        relationshipActive: true,
+        status: 'active',
+      }),
+    ).toBe(false)
+  })
+
+  test('quien puede asignar profesionales, sí', () => {
+    expect(
+      canEndSubstitution({
+        mayAssignProfessionals: true,
+        relationshipActive: true,
+        status: 'active',
+      }),
+    ).toBe(true)
+  })
+
+  // Una propuesta sin responder no concede acceso que cortar. Retirarla es otra
+  // operación y todavía no existe (STUDIO-150).
+  test('una suplencia que nadie ha respondido no se termina', () => {
+    expect(
+      canEndSubstitution({
+        mayAssignProfessionals: true,
+        relationshipActive: true,
+        status: 'proposed',
+      }),
+    ).toBe(false)
+  })
+
+  test('una que ya terminó tampoco', () => {
+    expect(
+      canEndSubstitution({
+        mayAssignProfessionals: true,
+        relationshipActive: true,
+        status: 'ended',
+      }),
+    ).toBe(false)
+  })
+
+  test('ni en un vínculo que ya terminó', () => {
+    expect(
+      canEndSubstitution({
+        mayAssignProfessionals: true,
+        relationshipActive: false,
+        status: 'active',
+      }),
+    ).toBe(false)
+  })
+})
+
+describe('qué dice la pantalla cuando no se puede terminar', () => {
+  test('un conflicto es que ya no está corriendo, no que alguien se adelantó', () => {
+    expect(terminationRefusalFor(409)).toBe('already-ended')
+    expect(terminationRefusalTitle('already-ended')).toContain('ya no está corriendo')
+  })
+
+  test('separa la negativa del fallo temporal', () => {
+    expect(terminationRefusalFor(403)).toBe('not-allowed')
+    expect(terminationRefusalFor(404)).toBe('gone')
+    expect(terminationRefusalFor(undefined)).toBe('unavailable')
+  })
+
+  /*
+   * Solo el fallo temporal invita a reintentar, y dice por qué es seguro: no se
+   * escribió nada, así que la suplencia sigue corriendo exactamente igual.
+   */
+  test('ofrece reintentar solo donde no se escribió nada', () => {
+    expect(terminationRefusalDescription('unavailable')).toContain('otra vez')
+    expect(terminationRefusalDescription('already-ended')).not.toContain('otra vez')
+    expect(terminationRefusalDescription('not-allowed')).not.toContain('otra vez')
+  })
+
+  // La negativa explica la asimetría en vez de dejar al lector adivinando por
+  // qué el botón no estaba donde esperaba.
+  test('la negativa explica que el titular propone pero no corta', () => {
+    expect(terminationRefusalDescription('not-allowed')).toContain('no cortarlas')
+  })
+})
+
+describe('en qué orden se leen las suplencias', () => {
+  function cover(
+    status: RelationshipSubstitution['status'],
+    validFrom: string,
+    name: string,
+  ): RelationshipSubstitution {
+    return {
+      assignment_id: `019ad000-0000-7000-8000-0000000004${name.length}`,
+      membership_id: 'm',
+      professional_person_id: 'p',
+      display_name: name,
+      valid_from: validFrom,
+      status,
+      ends_on: null,
+      accepted_by_person_at: null,
+    } as RelationshipSubstitution
+  }
+
+  /*
+   * El problema real: el servidor las entrega de la más vieja a la más nueva,
+   * así que la que está corriendo queda debajo de todas las terminadas. Con
+   * dos no se nota; con unos años de historia, la única que importa es la
+   * última que el lector alcanza.
+   */
+  test('la que está corriendo sale primero, aunque sea la más antigua', () => {
+    const ordered = coversThatStillMatterFirst([
+      cover('ended', '2026-09-01T00:00:00.000Z', 'Vieja'),
+      cover('active', '2026-01-01T00:00:00.000Z', 'Corriendo'),
+      cover('ended', '2026-10-01T00:00:00.000Z', 'Reciente'),
+    ])
+    expect(ordered.map((entry) => entry.display_name)).toEqual(['Corriendo', 'Reciente', 'Vieja'])
+  })
+
+  /*
+   * Y una que espera respuesta va por delante de las terminadas aunque empiece
+   * más tarde: es la única de las tres que lleva una decisión pendiente.
+   */
+  test('la que espera respuesta va antes que las terminadas', () => {
+    const ordered = coversThatStillMatterFirst([
+      cover('ended', '2026-10-01T00:00:00.000Z', 'Terminada'),
+      cover('proposed', '2026-12-01T00:00:00.000Z', 'Esperando'),
+    ])
+    expect(ordered[0]?.display_name).toBe('Esperando')
+  })
+
+  // Corriendo antes que esperando: una da acceso ahora, la otra todavía no.
+  test('corriendo va antes que esperando respuesta', () => {
+    const ordered = coversThatStillMatterFirst([
+      cover('proposed', '2026-12-01T00:00:00.000Z', 'Esperando'),
+      cover('active', '2026-11-01T00:00:00.000Z', 'Corriendo'),
+    ])
+    expect(ordered.map((entry) => entry.display_name)).toEqual(['Corriendo', 'Esperando'])
+  })
+
+  // Ordenar no es filtrar: no se pierde ninguna por el camino.
+  test('no pierde ni añade ninguna', () => {
+    const input = [
+      cover('ended', '2026-09-01T00:00:00.000Z', 'Una'),
+      cover('active', '2026-01-01T00:00:00.000Z', 'Dos'),
+    ]
+    expect(coversThatStillMatterFirst(input)).toHaveLength(2)
+    expect(input[0]?.display_name).toBe('Una')
   })
 })

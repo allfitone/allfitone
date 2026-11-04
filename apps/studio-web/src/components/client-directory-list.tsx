@@ -5,13 +5,8 @@ import { Avatar, AvatarFallback } from '@allfitone/react/components/avatar'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
-import {
-  Empty,
-  EmptyDescription,
-  EmptyTitle,
-  EmptyContent,
-} from '@allfitone/react/components/empty'
 import { Spinner } from '@allfitone/react/components/spinner'
+import { RegisterCardState } from '@/components/register-card-state'
 import {
   Table,
   TableBody,
@@ -37,7 +32,7 @@ import {
   seesEveryClient,
 } from '@/lib/client-directory'
 import { guestQuotaOf, quotaSummary } from '@/lib/guest-quota'
-import { useCompactViewport } from '@/lib/use-compact-viewport'
+import { useCompactTable } from '@/lib/use-compact-table'
 import { StudioApiError, type ClientDirectoryItem } from '@/lib/studio-api'
 import {
   flattenClientPages,
@@ -61,7 +56,7 @@ const FILTERS: ReadonlyArray<{ value: ClientFilter; label: string }> = [
 
 export function ClientDirectoryList() {
   const { current } = useOrganizationContext()
-  const compact = useCompactViewport()
+  const { compact, measuredRef } = useCompactTable<HTMLElement>()
   const queryClient = useQueryClient()
   const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
   const canView = canViewClientDirectory(current.roles, rolesQuery.data?.items)
@@ -150,7 +145,7 @@ export function ClientDirectoryList() {
           : undefined
 
   return (
-    <section data-client-page aria-label="Directorio de clientes">
+    <section ref={measuredRef} data-client-page aria-label="Directorio de clientes">
       <WorkspacePageHeader
         description={
           everyClient
@@ -167,7 +162,7 @@ export function ClientDirectoryList() {
             >
               Invitar cliente
             </Link>
-          ) : null
+          ) : undefined
         }
       />
 
@@ -192,18 +187,16 @@ export function ClientDirectoryList() {
         </p>
       ) : null}
 
-      {/* Four columns do not fit a phone, so narrow viewports get the same data
-          as cards. Only one presentation is rendered — see useCompactViewport. */}
+      {/* Four columns do not fit the space a narrow register has, so it gets the
+          same data as cards. Only one presentation is rendered — see
+          useCompactTable. */}
       {compact ? (
         <div data-client-directory-cards aria-label="Clientes" aria-busy={loading || undefined}>
           {tableState ? (
-            <Empty>
-              <EmptyTitle>{tableState.title}</EmptyTitle>
-              <EmptyDescription>{tableState.description}</EmptyDescription>
-              {'action' in tableState && tableState.action ? (
-                <EmptyContent>{tableState.action}</EmptyContent>
-              ) : null}
-            </Empty>
+            <RegisterCardState
+              {...tableState}
+              action={'action' in tableState ? tableState.action : undefined}
+            />
           ) : (
             <ul data-client-directory-card-list>
               {items.map((entry) => (
@@ -284,6 +277,41 @@ export function ClientDirectoryList() {
           </Button>
         </div>
       ) : null}
+
+      {/*
+       * Two consultations about what the directory lists, not actions taken
+       * from it: one says what may be asked of a client, the other what each
+       * person granted.
+       *
+       * They sat in the header's action row, drawn exactly like "Invitar
+       * cliente". With three children that row split into thirds below 640px,
+       * and the top of the page carried four bands before the list. Down here,
+       * behind a rule rather than inside a box, the top is header, filters and
+       * list.
+       *
+       * Neither depends on the published catalogue or on being able to invite:
+       * a coach who only attends clients still needs to know what may be asked
+       * of them, so the block is not conditioned on `canInvite`.
+       *
+       * Text links, not buttons. The design system's `link` variant keeps the
+       * button's height and padding and only underlines on hover, so it still
+       * read as a control. These carry the same resting underline as the
+       * client's name in the table above.
+       */}
+      <nav data-client-references aria-label="Consultas sobre los clientes">
+        <Link
+          data-client-reference
+          href={`/organizations/${current.organization_id}/clients/information-categories`}
+        >
+          Categorías de información
+        </Link>
+        <Link
+          data-client-reference
+          href={`/organizations/${current.organization_id}/clients/authorizations`}
+        >
+          Autorizaciones
+        </Link>
+      </nav>
     </section>
   )
 }

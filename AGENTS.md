@@ -48,9 +48,9 @@ apply to the database — see [Database](#8-database).
 Do not conflate these:
 
 - **Repository** — where code lives. One monorepo.
-- **Deployable** — what ships as a unit. Five of them.
+- **Deployable** — what ships as a unit. Six of them.
 
-One repository producing five deployables is the normal case, not a compromise.
+One repository producing six deployables is the normal case, not a compromise.
 
 | Deployable       | Source                | How it ships                    |
 | ---------------- | --------------------- | ------------------------------- |
@@ -59,6 +59,7 @@ One repository producing five deployables is the normal case, not a compromise.
 | `studio-web`     | `apps/studio-web`     | Web build                       |
 | `backoffice-web` | `apps/backoffice-web` | Web build                       |
 | `space`          | `apps/space`          | EAS Build to app stores         |
+| `space-web`      | `apps/space-web`      | Web build                       |
 
 ### One backend, four surfaces
 
@@ -83,6 +84,7 @@ apps/
   studio-web/     Client of /studio/v1
   backoffice-web/ Client of /backoffice/v1
   space/          Expo · client of /space/v1
+  space-web/      Public landing of Allfit Space · no API client
 packages/
   auth-provider/  Port and adapter for the identity provider
   queue/          Port and adapter for the job queue
@@ -272,7 +274,7 @@ triggers, and functions. This is deliberate. The last line of defence over healt
 data must not depend on the application being correctly written.
 
 The canonical migration, environment, deployment, backup and naming policy lives
-in [`allfitone-docs/platform/database`](https://github.com/dinnartec/allfitone-docs/tree/main/platform/database).
+in [`allfitone-docs/platform/database`](https://github.com/allfitone/allfitone-docs/tree/main/platform/database).
 Read both `DATABASE_AND_SUPABASE_BEST_PRACTICES.md` and `OPERATIONS.md` before
 changing the schema or deployment workflow. All database changes must pass
 `bun run check:db-policy`; shared migration history is immutable and fixes are

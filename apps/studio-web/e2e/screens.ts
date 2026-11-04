@@ -24,6 +24,7 @@ import {
   error,
   installStudioApiMock,
   professionalCredential,
+  professionalPracticeOrganization,
   endedRelationshipState,
   professionalProfile,
   holderMembership,
@@ -121,6 +122,65 @@ async function settleAnimations(page: Page): Promise<void> {
 
 const workspace = `/organizations/${activeMembership.organization_id}`
 const relationshipId = relationshipState.relationship_id
+
+/** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
+function coversWithHistory() {
+  const cover = (id: string, name: string, status: string, from: string, to: string) => ({
+    assignment_id: id,
+    membership_id: '01991600-7000-7000-8000-000000000003',
+    professional_person_id: '01991600-7000-7000-8000-000000000203',
+    display_name: name,
+    status,
+    valid_from: from,
+    ends_on: to,
+    accepted_by_person_at: from,
+  })
+  return {
+    ...relationshipState,
+    substitutions: [
+      cover(
+        '01991600-7000-7000-8000-000000000420',
+        'Daniela Hoyos',
+        'ended',
+        '2026-03-01T00:00:00.000Z',
+        '2026-03-12',
+      ),
+      cover(
+        '01991600-7000-7000-8000-000000000421',
+        'Sara Posada',
+        'active',
+        '2026-01-10T00:00:00.000Z',
+        '2026-12-20',
+      ),
+      cover(
+        '01991600-7000-7000-8000-000000000422',
+        'Elena Soto',
+        'ended',
+        '2026-08-05T00:00:00.000Z',
+        '2026-08-19',
+      ),
+    ],
+  }
+}
+
+/** The fixture's cover is `proposed`; this one is actually running. */
+function runningCover() {
+  return {
+    ...relationshipState,
+    substitutions: [
+      {
+        assignment_id: '01991600-7000-7000-8000-000000000402',
+        membership_id: '01991600-7000-7000-8000-000000000003',
+        professional_person_id: '01991600-7000-7000-8000-000000000203',
+        display_name: 'Daniela Hoyos',
+        status: 'active',
+        valid_from: '2026-10-10T00:00:00.000Z',
+        ends_on: '2026-10-24',
+        accepted_by_person_at: '2026-10-09T18:00:00.000Z',
+      },
+    ],
+  }
+}
 
 const memberOfTwo = () =>
   createStudioApiFixture({
@@ -463,10 +523,10 @@ function invitationFixture(options: InvitationOptions = {}): StudioApiFixture {
 }
 
 export const SCREENS: Screen[] = [
-  // --- `/` · StudioEntry renders nine screens through one state machine -------
+  // --- `/app` · StudioEntry renders nine screens through one state machine ----
   {
     stories: 'entry · resolving the account',
-    path: '/',
+    path: '/app',
     fixture: stall('/studio/v1/entry-context'),
     hasHeading: false,
     settled: async (page) => {
@@ -475,7 +535,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-001 · access landing',
-    path: '/',
+    path: '/es',
     fixture: () => createStudioApiFixture({ signedOut: true }),
   },
   {
@@ -483,16 +543,32 @@ export const SCREENS: Screen[] = [
     // seeds a denied decision. The open panel is what a first-time visitor
     // actually meets, and until now nothing had measured it.
     stories: 'privacy · the consent panel on a first visit',
-    path: '/',
+    path: '/es',
     fixture: () => createStudioApiFixture({ signedOut: true }),
     consent: 'undecided',
     settled: async (page) => {
       await expect(page.getByText('Analítica opcional')).toBeVisible()
     },
   },
+  // The landing again in English: other words, other line lengths, and a
+  // consent panel that has to clear them just the same.
+  {
+    stories: 'HU-001 · access landing in English',
+    path: '/en',
+    fixture: () => createStudioApiFixture({ signedOut: true }),
+  },
+  {
+    stories: 'privacy · the consent panel on a first visit in English',
+    path: '/en',
+    fixture: () => createStudioApiFixture({ signedOut: true }),
+    consent: 'undecided',
+    settled: async (page) => {
+      await expect(page.getByText('Optional analytics')).toBeVisible()
+    },
+  },
   {
     stories: 'entry · personal activation',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({
         session: {
@@ -507,7 +583,7 @@ export const SCREENS: Screen[] = [
     // The link outlives its window. The form stays on screen with its submit
     // disabled, so the person can read why nothing they type will be accepted.
     stories: 'entry · the activation window closed',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({
         session: {
@@ -540,7 +616,7 @@ export const SCREENS: Screen[] = [
     // The waiting panel checks on demand rather than polling, so its failure is
     // the only one in the product a person provokes by pressing a button.
     stories: 'entry · the membership check did not finish',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({
         intercept: (request) =>
@@ -556,12 +632,12 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-007 · how do you work today',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
   },
   {
     stories: 'HU-007 · name your independent space',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Trabajo por mi cuenta/ }).click()
@@ -572,7 +648,7 @@ export const SCREENS: Screen[] = [
     // The team choice leads somewhere else entirely: a type selector, a radio
     // group and a conditional field the independent form never renders.
     stories: 'HU-007 · name your team space',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Tengo un equipo o centro/ }).click()
@@ -583,7 +659,7 @@ export const SCREENS: Screen[] = [
     // Choosing an entity reveals a required field the natural-person path never
     // shows, so this is a screen of its own rather than the same one toggled.
     stories: 'HU-007 · name your team space for an entity',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Tengo un equipo o centro/ }).click()
@@ -593,7 +669,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-007 · the space is ready',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Trabajo por mi cuenta/ }).click()
@@ -606,7 +682,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'entry · waiting for an invitation',
-    path: '/',
+    path: '/app',
     fixture: createStudioApiFixture,
     reveal: async (page) => {
       await page.getByRole('button', { name: /Esperar una invitación/ }).click()
@@ -614,13 +690,13 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-004 · choose where to work today',
-    path: '/',
+    path: '/app',
     fixture: () =>
       createStudioApiFixture({ memberships: [activeMembership, secondActiveMembership] }),
   },
   {
     stories: 'entry · the identity service is unreachable',
-    path: '/',
+    path: '/app',
     fixture: failing('/studio/v1/entry-context', 503, 'upstream-unavailable'),
   },
 
@@ -1107,6 +1183,104 @@ export const SCREENS: Screen[] = [
       await expect(page.getByRole('button', { name: 'Proponer suplencia' })).toBeVisible()
     },
   },
+  {
+    /*
+     * HU-030. A cover that is running, which is the only kind that can be cut
+     * short — and the row now carries a third thing beside the name and the
+     * badge. Stacked on a phone that is three lines where there were two.
+     */
+    stories: 'HU-030 · una suplencia corriendo, con la acción de terminarla',
+    path: `${workspace}/clients/${relationshipId}`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationMemberships: coachedTeam(),
+        relationshipState: runningCover(),
+      }),
+    reveal: async (page) => {
+      await expect(page.getByRole('button', { name: 'Terminar', exact: true })).toBeVisible()
+    },
+  },
+  {
+    /*
+     * The question itself. It is the one dialog in this card that takes an
+     * access away rather than asking for one, so it is an `AlertDialog` and its
+     * confirm button is destructive — worth looking at beside its siblings.
+     */
+    stories: 'HU-030 · la pregunta antes de cortar un acceso',
+    path: `${workspace}/clients/${relationshipId}`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationMemberships: coachedTeam(),
+        relationshipState: runningCover(),
+      }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Terminar', exact: true }).click()
+      await expect(
+        page.getByText(/dejará de ver los datos de esta persona ahora mismo/),
+      ).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-031. Un vínculo con historia: una suplencia corriendo y dos
+     * terminadas. El servidor las entrega de la más vieja a la más nueva, así
+     * que esta pantalla es donde se ve que la accionable encabeza la lista en
+     * vez de quedar sepultada — y a la vez, cómo se lee una lista larga en un
+     * teléfono.
+     */
+    stories: 'HU-031 · las suplencias de un cliente con historia',
+    path: `${workspace}/clients/${relationshipId}`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationMemberships: coachedTeam(),
+        relationshipState: coversWithHistory(),
+      }),
+    reveal: async (page) => {
+      await expect(
+        page.locator('[data-relationship-substitution-list] > li').first(),
+      ).toContainText('Cubriendo')
+    },
+  },
+  {
+    /*
+     * HU-032. La acción más pesada de Studio, en su sitio: al final de la
+     * ficha, separada del resto, para que nadie la encuentre de camino a otra
+     * cosa.
+     */
+    stories: 'HU-032 · la ficha con la acción de terminar el vínculo',
+    path: `${workspace}/clients/${relationshipId}`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationMemberships: coachedTeam(),
+        relationshipState,
+      }),
+    reveal: async (page) => {
+      await expect(page.getByRole('button', { name: 'Terminar el vínculo' })).toBeVisible()
+    },
+  },
+  {
+    /*
+     * El diálogo. Dice tres cosas que nadie adivina, en dos frases, y además
+     * lleva un campo. En un teléfono es donde se ve si cabe o si el pie se sale
+     * de la pantalla.
+     */
+    stories: 'HU-032 · la pregunta antes de cerrar la atención a alguien',
+    path: `${workspace}/clients/${relationshipId}`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationMemberships: coachedTeam(),
+        relationshipState,
+      }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Terminar el vínculo' }).click()
+      await expect(page.getByText(/Pasa ahora mismo, sin preaviso/)).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---
   {
     // The timeline with every kind in it, including the handover whose two
@@ -1175,6 +1349,57 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No pudimos cargar el estado del vínculo')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/authorizations` · HU-035 ---
+  {
+    // What every client authorized, across the directory. The widest row is a
+    // person's name beside a category name, so this is where a register with
+    // five columns has to decide between a table and cards.
+    stories: 'HU-035 · what each person authorized us to see',
+    path: `${workspace}/clients/authorizations`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    // The same register as cards, which is what a phone gets.
+    stories: 'HU-035 · what each person authorized, as cards',
+    path: `${workspace}/clients/authorizations`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Contexto de salud')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/information-categories` · HU-034 ---
+  {
+    // Seven cards of reference material, each with its own one-line limit. The
+    // widest text on the page is a summary, so this is where a card's title and
+    // its code badge compete for the same row on a phone.
+    stories: 'HU-034 · what each category of information covers',
+    path: `${workspace}/clients/information-categories`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    // One card open. The client wording is quoted behind a rule, and it is the
+    // longest prose the screen ever shows — four lines on a phone.
+    stories: 'HU-034 · the wording the client will read',
+    path: `${workspace}/clients/information-categories`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page
+        .locator('[data-category-card="health_context"]')
+        .getByRole('button', { name: 'Ver lo que lee tu cliente' })
+        .click()
+      await expect(page.getByText('Lo que verá tu cliente')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/invitations/new` · HU-023 ---
@@ -1401,6 +1626,60 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos esta sede')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/organization/edit` · HU-008 ---
+  {
+    stories: 'HU-008 · update the organization',
+    path: `${workspace}/organization/edit`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await expect(page.getByLabel('Nombre')).toHaveValue('Allfit Gym')
+    },
+  },
+  {
+    // Three fields and two actions in one column: the measure and the rhythm
+    // between the fields are the whole layout here.
+    stories: 'HU-008 · update the organization on a phone',
+    path: `${workspace}/organization/edit`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await expect(page.getByLabel('Nombre')).toHaveValue('Allfit Gym')
+    },
+  },
+  {
+    // A gym has no transition out, so the type reads as a settled value with its
+    // reason — a different shape from the field below.
+    stories: 'HU-008 · a type that cannot change',
+    path: `${workspace}/organization/edit`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await expect(page.getByText('El tipo ya no se puede cambiar desde aquí')).toBeVisible()
+    },
+  },
+  {
+    // The one organization that can still become something else, so the only
+    // state in which the type is a control at all.
+    stories: 'HU-008 · a type that can still move',
+    path: `${workspace}/organization/edit`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organization: structuredClone(professionalPracticeOrganization),
+      }),
+    settled: async (page) => {
+      await expect(page.getByRole('combobox')).toBeVisible()
+    },
+  },
+  {
+    // The refusal, which is a different screen from the form: a role that reads
+    // these data but does not change them.
+    stories: 'HU-008 · a role that does not manage the organization',
+    path: `/organizations/${secondActiveMembership.organization_id}/organization/edit`,
+    fixture: () => createStudioApiFixture({ memberships: [secondActiveMembership] }),
+    settled: async (page) => {
+      await expect(page.getByText('Tu rol no administra la organización')).toBeVisible()
+    },
+  },
   {
     stories: 'organization · verifying your access',
     path: workspace,
@@ -1614,8 +1893,9 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // Below 720px the directory renders a card list instead of the table, and
-    // the two are separate markup rather than one behind a CSS toggle.
+    // A register renders a card list instead of its table when its own
+    // container has no room for one, which a phone never does. The two are
+    // separate markup rather than one behind a CSS toggle.
     stories: 'HU-017 · team directory as cards',
     path: `${workspace}/team`,
     fixture: memberOfTwo,
@@ -1718,8 +1998,8 @@ export const SCREENS: Screen[] = [
     fixture: withIssuedInvitations,
   },
   {
-    // Six columns do not fit a phone, so the register renders as cards below
-    // 720px — separate markup, like the directory's, not one behind a toggle.
+    // Six columns never fit a phone, so the register renders as cards —
+    // separate markup, like the directory's, not one behind a toggle.
     stories: 'HU-015 / HU-016 · issued invitations as cards',
     path: `${workspace}/team/invitations`,
     fixture: withIssuedInvitations,
@@ -1771,7 +2051,7 @@ export const SCREENS: Screen[] = [
   // that wording is already asserted per reason in the spec.
   {
     stories: 'HU-002 · the remote logout could not be confirmed',
-    path: '/?logout=partial',
+    path: '/es?logout=partial',
     fixture: () => createStudioApiFixture({ signedOut: true }),
     settled: async (page) => {
       await expect(page.getByText('La sesión se cerró en este equipo')).toBeVisible()

@@ -53,7 +53,9 @@ test('does not load or contact PostHog before explicit consent', async ({ page }
   })
   await installStudioApiMock(page, fixture, { consent: 'undecided' })
 
-  await page.goto('/')
+  // The workspace entry, where a person is identified: the public landing has
+  // no identity to measure, so it never asks for the gate at all.
+  await page.goto('/app')
   await expect(page.getByRole('button', { name: 'Permitir analítica' })).toBeVisible()
   await page.waitForTimeout(300)
 

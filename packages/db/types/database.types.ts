@@ -3,7 +3,24 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   access_control: {
     Tables: {
-      [_ in never]: never
+      contract_scope_keys: {
+        Row: {
+          created_at: string
+          id: number
+          secret: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          secret?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          secret?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -22,9 +39,11 @@ export type Database = {
         Args: { p_membership_id: string }
         Returns: boolean
       }
-      counting_guest_quota: {
-        Args: { p_organization_id: string }
-        Returns: boolean
+      close_contract_scope: { Args: never; Returns: undefined }
+      contract_scope: { Args: { p_purpose: string }; Returns: string }
+      contract_scope_token: {
+        Args: { p_purpose: string; p_scope_id: string }
+        Returns: string
       }
       counts_platform_metrics: { Args: never; Returns: boolean }
       has_active_relationship: {
@@ -50,6 +69,10 @@ export type Database = {
       }
       holds_backoffice_duty: { Args: { p_duty_code: string }; Returns: boolean }
       is_self: { Args: { target_person_id: string }; Returns: boolean }
+      open_contract_scope: {
+        Args: { p_purpose: string; p_scope_id: string }
+        Returns: undefined
+      }
       org: { Args: never; Returns: string }
       owns_membership: { Args: { p_membership_id: string }; Returns: boolean }
       person: { Args: never; Returns: string }
@@ -1137,6 +1160,70 @@ export type Database = {
             columns: ['completed_session_id']
             isOneToOne: false
             referencedRelation: 'access_sessions'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      body_photo_disposals: {
+        Row: {
+          id: string
+          media_ref: string
+          person_id: string
+          requested_at: string
+          sealed_at: string | null
+        }
+        Insert: {
+          id?: string
+          media_ref: string
+          person_id: string
+          requested_at?: string
+          sealed_at?: string | null
+        }
+        Update: {
+          id?: string
+          media_ref?: string
+          person_id?: string
+          requested_at?: string
+          sealed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_body_photo_disposals_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      body_photos: {
+        Row: {
+          created_at: string
+          id: string
+          media_ref: string
+          person_id: string
+          taken_on: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          media_ref: string
+          person_id: string
+          taken_on: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_ref?: string
+          person_id?: string
+          taken_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_body_photos_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
             referencedColumns: ['id']
           },
         ]
@@ -2433,6 +2520,28 @@ export type Database = {
           result: Json
         }[]
       }
+      decide_my_client_invitation: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_intent_id: string
+          p_invitation_id: string
+          p_person_id: string
+          p_relationship_decision: string
+          p_request_hash: string
+          p_scope_decisions: Json
+        }
+        Returns: {
+          granted_scope_codes: string[]
+          intent_status: string
+          invitation_id: string
+          invitation_intent_id: string
+          invitation_status: string
+          organization_id: string
+          relationship_id: string
+          replayed: boolean
+        }[]
+      }
       decide_ownership_invitation: {
         Args: {
           p_command_id: string
@@ -2592,6 +2701,16 @@ export type Database = {
           result: Json
         }[]
       }
+      delete_my_body_photo: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_photo_id: string
+          p_request_hash: string
+        }
+        Returns: string
+      }
       expire_backoffice_authentication_attempts: {
         Args: { p_limit: number }
         Returns: number
@@ -2739,6 +2858,18 @@ export type Database = {
           p_subject: string
         }
         Returns: Json
+      }
+      list_my_body_photos: { Args: { p_person_id: string }; Returns: Json }
+      list_my_client_invitations: {
+        Args: never
+        Returns: {
+          expires_at: string
+          invitation_id: string
+          invitation_intent_id: string
+          invited_by: string
+          organization_id: string
+          organization_name: string
+        }[]
       }
       list_staff_invitations: {
         Args: {
@@ -2951,6 +3082,20 @@ export type Database = {
           status: string
         }[]
       }
+      read_my_client_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: {
+          expires_at: string
+          invitation_id: string
+          invitation_intent_id: string
+          invited_by: string
+          organization_display_name: string
+          organization_id: string
+          responsible_party: Json
+          scope_options: Json
+          status: string
+        }[]
+      }
       read_training_profile: {
         Args: { p_person_id: string }
         Returns: {
@@ -2989,6 +3134,17 @@ export type Database = {
           remaining_attempts: number
           terminal: boolean
         }[]
+      }
+      record_body_photo: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_media_ref: string
+          p_person_id: string
+          p_request_hash: string
+          p_taken_on: string
+        }
+        Returns: string
       }
       record_body_progress: {
         Args: {
@@ -3133,6 +3289,7 @@ export type Database = {
           expires_at: string
           invitation_id: string
           invitation_intent_id: string
+          invited_by: string
           organization_display_name: string
           organization_id: string
           responsible_party: Json
@@ -3211,6 +3368,14 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: boolean
       }
+      revoke_invitations_for_organization_closure: {
+        Args: {
+          p_command_id: string
+          p_effective_at: string
+          p_organization_id: string
+        }
+        Returns: number
+      }
       revoke_staff_invitation: {
         Args: {
           p_command_id: string
@@ -3234,6 +3399,10 @@ export type Database = {
           p_token_ciphertext: string
         }
         Returns: boolean
+      }
+      seal_body_photo_disposal: {
+        Args: { p_media_ref: string; p_person_id: string }
+        Returns: undefined
       }
       skip_onboarding_step: {
         Args: {
@@ -3826,6 +3995,20 @@ export type Database = {
           result: Json
         }[]
       }
+      close_organization: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      closure_receipt: { Args: { p_organization_id: string }; Returns: Json }
       create_organization: {
         Args: {
           p_command_id: string
@@ -3895,6 +4078,10 @@ export type Database = {
           replayed: boolean
           result: Json
         }[]
+      }
+      guest_places_exhausted: {
+        Args: { p_already_held: number; p_organization_id: string }
+        Returns: boolean
       }
       guest_quota_projection: {
         Args: { p_organization_id: string }
@@ -4024,10 +4211,6 @@ export type Database = {
         }
         Returns: Json
       }
-      require_guest_quota_place: {
-        Args: { p_organization_id: string }
-        Returns: undefined
-      }
       require_organization_directory_reader: {
         Args: { p_actor_person_id: string; p_actor_session_id: string }
         Returns: undefined
@@ -4050,6 +4233,34 @@ export type Database = {
           p_request_hash: string
           p_token_hash: string
           p_token_key_version: number
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      resign_membership: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      revoke_membership_role: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_membership_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+          p_role_code: string
         }
         Returns: {
           replayed: boolean
@@ -4089,6 +4300,20 @@ export type Database = {
           p_idempotency_key: string
           p_organization_id: string
           p_reason_code: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      terminate_membership: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_membership_id: string
+          p_organization_id: string
+          p_person_id: string
           p_request_hash: string
         }
         Returns: {
@@ -4696,6 +4921,7 @@ export type Database = {
           routine_cover_icon: Database['planning']['Enums']['routine_cover_icon'] | null
           routine_cover_kind: Database['planning']['Enums']['routine_cover'] | null
           status: Database['catalog']['Enums']['publication_status']
+          unlock_feature_code: string | null
           updated_at: string
         }
         Insert: {
@@ -4709,6 +4935,7 @@ export type Database = {
           routine_cover_icon?: Database['planning']['Enums']['routine_cover_icon'] | null
           routine_cover_kind?: Database['planning']['Enums']['routine_cover'] | null
           status?: Database['catalog']['Enums']['publication_status']
+          unlock_feature_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -4722,6 +4949,7 @@ export type Database = {
           routine_cover_icon?: Database['planning']['Enums']['routine_cover_icon'] | null
           routine_cover_kind?: Database['planning']['Enums']['routine_cover'] | null
           status?: Database['catalog']['Enums']['publication_status']
+          unlock_feature_code?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -4977,6 +5205,7 @@ export type Database = {
       canonical_session_content: { Args: { p_content: Json }; Returns: Json }
       canonical_target: { Args: { p_target: Json }; Returns: Json }
       content_etag: { Args: { p_content: Json }; Returns: string }
+      count_own_routines: { Args: { p_person_id: string }; Returns: number }
       cover_for: {
         Args: { p_person_id: string; p_program_id: string }
         Returns: string
@@ -5122,6 +5351,19 @@ export type Database = {
           replayed: boolean
         }[]
       }
+      duplicate_my_session_template: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_request_hash: string
+          p_template_id: string
+        }
+        Returns: {
+          replayed: boolean
+          template: Json
+        }[]
+      }
       fork_program_version: {
         Args: { p_person_id: string; p_program_version_id: string }
         Returns: string
@@ -5181,6 +5423,10 @@ export type Database = {
         Returns: string[]
       }
       program_draft_projection: { Args: { p_draft_id: string }; Returns: Json }
+      program_nutrition: {
+        Args: { p_person_id: string; p_program_version_id: string }
+        Returns: Json
+      }
       program_projection: { Args: { p_program_id: string }; Returns: Json }
       program_region: { Args: { p_program_id: string }; Returns: string }
       program_regions: {
@@ -5316,6 +5562,15 @@ export type Database = {
         Args: { p_person_id: string }
         Returns: Json
       }
+      read_organization_program_version: {
+        Args: {
+          p_organization_id: string
+          p_person_id: string
+          p_program_id: string
+          p_version_number: number
+        }
+        Returns: Json
+      }
       read_program_catalogue: {
         Args: { p_person_id: string }
         Returns: {
@@ -5324,10 +5579,12 @@ export type Database = {
           emphases: string[]
           goals: string[]
           levels: string[]
+          locked: boolean
           program_id: string
           program_version_id: string
           sex_affinity: string
           title: string
+          unlock_feature: string
           weeks: number
         }[]
       }
@@ -5341,6 +5598,7 @@ export type Database = {
           goals: string[]
           levels: string[]
           notes: string
+          nutrition: Json
           program_version_id: string
           sex_affinity: string
           title: string
@@ -5497,6 +5755,7 @@ export type Database = {
       }
       self_assign_program: {
         Args: {
+          p_adopt_nutrition?: boolean
           p_command_id: string
           p_idempotency_key: string
           p_person_id: string

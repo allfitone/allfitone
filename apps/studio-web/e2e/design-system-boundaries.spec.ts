@@ -32,7 +32,7 @@ function designSystemViolations(page: Page): Promise<string[]> {
 
 test('uses canonical setup choices and one page heading without overflow', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture())
-  await page.goto('/')
+  await page.goto('/app')
 
   const choices = page.locator('[data-slot="choice-card"]')
   await expect(choices).toHaveCount(3)
@@ -83,11 +83,11 @@ for (const screen of SCREENS) {
  * can. The privacy control used an outline variant, whose transparent fill left
  * only a border at roughly 1.24:1 against the entry background — invisible, and
  * not something the WCAG sweep catches, because axe does not automate non-text
- * contrast.
+ * contrast. Only the workspace floats it; the landing keeps it in its footer.
  */
 test('the floating privacy control carries its own surface', async ({ page }) => {
-  await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
-  await page.goto('/')
+  await installStudioApiMock(page, createStudioApiFixture())
+  await page.goto('/app')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   const measured = await page.getByRole('button', { name: 'Privacidad' }).evaluate((element) => ({
@@ -128,7 +128,7 @@ for (const viewport of CONSENT_VIEWPORTS) {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
       consent: 'undecided',
     })
-    await page.goto('/')
+    await page.goto('/es')
     await expect(page.getByText('Analítica opcional')).toBeVisible()
 
     const reachable = (selector: string) =>
@@ -158,7 +158,7 @@ for (const viewport of CONSENT_VIEWPORTS) {
 
     if (viewport.clearsHeader) {
       expect(
-        await reachable('[data-slot="access-header"] svg'),
+        await reachable('[data-slot="site-header"] svg'),
         'the consent panel is covering the wordmark',
       ).toBe(true)
       expect(await reachable('h1'), 'the consent panel is covering the heading').toBe(true)

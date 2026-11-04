@@ -20,7 +20,7 @@
  * "assign a substitute" reads like it takes effect.
  */
 
-import type { OrganizationMembership } from './studio-api'
+import type { OrganizationMembership, RelationshipSubstitution } from './studio-api'
 
 const COACH = 'coach'
 
@@ -170,4 +170,92 @@ export function seesEverySubstitution({
   isHolder: boolean
 }): boolean {
   return everyClient || isHolder
+}
+
+/**
+ * `OP-REL-006`. Who may cut a cover short, and which covers can be cut.
+ *
+ * **Not the holder**, and that is the asymmetry worth stating rather than
+ * smoothing over: the coach in charge may ask for a cover and may not call it
+ * off. The command refuses them, so offering them the button would spend a
+ * click to reach a refusal — and reading the holder into this rule because it
+ * reads nicer would put a button on screen that never works.
+ *
+ * **Only a cover that is running.** One nobody has answered grants no access,
+ * so there is nothing to cut; withdrawing it is a different operation that
+ * does not exist yet (`STUDIO-150`). A cover already over has nothing to end.
+ */
+export function canEndSubstitution({
+  mayAssignProfessionals,
+  relationshipActive,
+  status,
+}: {
+  mayAssignProfessionals: boolean
+  relationshipActive: boolean
+  status: RelationshipSubstitution['status']
+}): boolean {
+  if (!relationshipActive || !mayAssignProfessionals) return false
+  return status === 'active'
+}
+
+export type TerminationRefusal = 'already-ended' | 'not-allowed' | 'gone' | 'unavailable'
+
+/**
+ * `409` here means the cover is not in a state that can be ended — it was
+ * already closed, or it was never running. Either way the reader can see it by
+ * refreshing, so it offers no retry; only the temporary failure does.
+ */
+export function terminationRefusalFor(status: number | undefined): TerminationRefusal {
+  if (status === 409) return 'already-ended'
+  if (status === 403) return 'not-allowed'
+  if (status === 404) return 'gone'
+  return 'unavailable'
+}
+
+export function terminationRefusalTitle(refusal: TerminationRefusal): string {
+  if (refusal === 'already-ended') return 'Esa suplencia ya no está corriendo'
+  if (refusal === 'not-allowed') return 'No puedes terminar suplencias en este vínculo'
+  if (refusal === 'gone') return 'Esa suplencia ya no está'
+  return 'No pudimos terminar la suplencia'
+}
+
+export function terminationRefusalDescription(refusal: TerminationRefusal): string {
+  if (refusal === 'already-ended') {
+    return 'Puede que alguien más la terminara, o que la persona nunca la aceptara. Actualiza para ver cómo está el vínculo ahora.'
+  }
+  if (refusal === 'not-allowed') {
+    return 'Solo alguien que pueda asignar profesionales puede terminar una suplencia. El profesional responsable puede proponerlas, pero no cortarlas.'
+  }
+  if (refusal === 'gone') {
+    return 'Puede que el vínculo o la suplencia hayan terminado. Actualiza para ver cómo está ahora.'
+  }
+  // Nothing was written, so the access is exactly as it was: still running.
+  return 'La conexión falló de forma temporal. La suplencia sigue corriendo, así que puedes intentarlo otra vez.'
+}
+
+/**
+ * The covers of a relationship, ordered so the ones that still matter are
+ * first.
+ *
+ * The server hands them to the relationship document oldest-first, which is
+ * fine for a client with one cover and wrong for a client with a history: the
+ * cover that is **running** ends up below every cover that is **over**, and
+ * the row somebody came to act on is the last one they reach.
+ *
+ * Two keys, not one. Sorting by date alone would put a cover that finished
+ * last week above one that starts tomorrow, and the second is the one with a
+ * decision attached. So: anything unfinished first — running, then waiting on
+ * an answer — and within each group the most recent first.
+ */
+export function coversThatStillMatterFirst(
+  substitutions: readonly RelationshipSubstitution[],
+): readonly RelationshipSubstitution[] {
+  const rank = (status: RelationshipSubstitution['status']) =>
+    status === 'active' ? 0 : status === 'proposed' ? 1 : 2
+
+  return [...substitutions].sort((left, right) => {
+    const byRank = rank(left.status) - rank(right.status)
+    if (byRank !== 0) return byRank
+    return right.valid_from.localeCompare(left.valid_from)
+  })
 }

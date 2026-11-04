@@ -9,6 +9,7 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 
 export type Execution = AllfitV1Schemas['SpaceExecution']
 export type Attempt = AllfitV1Schemas['Attempt']
+export type FreeSession = AllfitV1Schemas['FreeSession']
 export type ResultsState = AllfitV1Schemas['ExecutionResultsState']
 export type Finalized = AllfitV1Schemas['ExecutionFinalized']
 export type Abandoned = AllfitV1Schemas['ExecutionAbandoned']
@@ -27,12 +28,14 @@ export type SummaryRow = Omit<ExecutionSummary, 'cover_url'> & { cover_object_ke
 export type HistoryItem = AllfitV1Schemas['SpaceHistoryItem']
 export type HistoryPage = AllfitV1Schemas['SpaceHistoryPage']
 export type HistoryMonth = AllfitV1Schemas['SpaceHistoryMonth']
+export type PeriodComparison = AllfitV1Schemas['SpacePeriodComparison']
 /** A history row as PostgreSQL answers it: the thumbnail's key, never its address. */
 export type HistoryRow = Omit<HistoryItem, 'thumbnail_url'> & {
   thumbnail_object_key: string | null
 }
 export interface HistoryRowPage {
   readonly data: readonly HistoryRow[]
+  readonly window: HistoryPage['window']
   readonly page: HistoryPage['page']
 }
 export interface HistoryQuery {
@@ -68,6 +71,18 @@ export interface ExecutionDatabase {
       captureSource: string
     },
   ): Promise<Attempt>
+  /** A session with no planned session behind it; one is open at a time (55006 otherwise). */
+  startFreeSession(
+    input: ExecutionCommand & {
+      personId: string
+      disciplineCode: string
+      startedAt: string
+      timezone: string
+      requestedLevel: string
+      captureSource: string
+    },
+  ): Promise<FreeSession>
+  readOpenFreeSession(input: { personId: string; requestId: string }): Promise<string | null>
   replaceResults(
     input: ExecutionCommand & {
       personId: string
@@ -152,4 +167,14 @@ export interface ExecutionDatabase {
     month: string
     requestId: string
   }): Promise<HistoryMonth>
+  /** `OP-EXE-026`. Pro: the database refuses with AF402 when the plan does not open it. */
+  comparePeriods(input: {
+    personId: string
+    timezone: string
+    period: PeriodComparison['period']
+    count: number
+    /** An assignment id, `free`, or null for everything. */
+    program: string | null
+    requestId: string
+  }): Promise<PeriodComparison>
 }

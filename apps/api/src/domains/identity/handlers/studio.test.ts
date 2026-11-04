@@ -140,7 +140,9 @@ describe('GET /auth/callback', () => {
     )
 
     expect(response.status).toBe(303)
-    expect(response.headers.get('location')).toBe('http://localhost:3000')
+    // The workspace entry, not the public landing at the root: signing in is a
+    // request to enter, and the landing no longer decides where a person goes.
+    expect(response.headers.get('location')).toBe('http://localhost:3000/app')
     const cookie = response.headers.get('set-cookie') ?? ''
     expect(cookie).toContain(`${stateCookie.name}=;`)
     expect(cookie).toContain('allfit_studio_session=opaque-session')

@@ -18,6 +18,8 @@ import type {
 
 export interface SpaceExecutionService {
   startAttempt: ExecutionDatabase['startAttempt']
+  startFreeSession: ExecutionDatabase['startFreeSession']
+  readOpenFreeSession: ExecutionDatabase['readOpenFreeSession']
   replaceResults: ExecutionDatabase['replaceResults']
   finalize: ExecutionDatabase['finalize']
   abandon: ExecutionDatabase['abandon']
@@ -28,6 +30,7 @@ export interface SpaceExecutionService {
   ): Promise<ExecutionSummary | null>
   listHistory(input: HistoryQuery): Promise<HistoryPage>
   readHistoryMonth: ExecutionDatabase['readHistoryMonth']
+  comparePeriods: ExecutionDatabase['comparePeriods']
   readFinished: ExecutionDatabase['readFinished']
   revise: ExecutionDatabase['revise']
   annul: ExecutionDatabase['annul']
@@ -46,6 +49,8 @@ export function createSpaceExecutionService(
   const address = (key: string | null) => (key === null ? null : `${base}/${key}`)
   return {
     startAttempt: (input) => database.startAttempt(input),
+    startFreeSession: (input) => database.startFreeSession(input),
+    readOpenFreeSession: (input) => database.readOpenFreeSession(input),
     replaceResults: (input) => database.replaceResults(input),
     finalize: (input) => database.finalize(input),
     abandon: (input) => database.abandon(input),
@@ -61,16 +66,18 @@ export function createSpaceExecutionService(
       }
     },
     async listHistory(input) {
-      const { data, page } = await database.listHistory(input)
+      const { data, window, page } = await database.listHistory(input)
       return {
         data: data.map(({ thumbnail_object_key, ...item }) => ({
           ...item,
           thumbnail_url: address(thumbnail_object_key),
         })),
+        window,
         page,
       }
     },
     readHistoryMonth: (input) => database.readHistoryMonth(input),
+    comparePeriods: (input) => database.comparePeriods(input),
     readFinished: (input) => database.readFinished(input),
     revise: (input) => database.revise(input),
     annul: (input) => database.annul(input),

@@ -1,6 +1,6 @@
 'use client'
 
-import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import { Badge } from '@allfitone/react/components/badge'
 import {
@@ -124,7 +124,7 @@ export function ClientInvitationForm() {
         setCommand(newCommand())
         return
       }
-      if (caught instanceof StudioApiError && caught.code === 'guest-quota-full') {
+      if (caught instanceof StudioApiError && caught.code === 'guest-quota-exhausted') {
         // The figure on screen was stale: read it again so the form explains itself.
         await queryClient.invalidateQueries({
           queryKey: studioQueryKeys.organizationClientsRoot(current.organization_id),
@@ -272,8 +272,21 @@ export function ClientInvitationForm() {
               <Alert variant="warning">
                 <AlertTitle>Todavía no hay permisos publicados</AlertTitle>
                 <AlertDescription>
-                  No se puede invitar hasta que se publique el catálogo de permisos.
+                  No se puede invitar hasta que se publique el catálogo de permisos. Mientras tanto
+                  sí puedes consultar qué abarca cada categoría de información.
                 </AlertDescription>
+                {/* La referencia no depende del catálogo publicado, así que es
+                    lo único útil que ofrecer desde aquí mientras nadie lo cure. */}
+                <AlertAction>
+                  <Link
+                    href={`/organizations/${current.organization_id}/clients/information-categories`}
+                    data-slot="button"
+                    data-variant="outline"
+                    className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  >
+                    Ver las categorías de información
+                  </Link>
+                </AlertAction>
               </Alert>
             ) : (
               catalog.map((scope) => (
@@ -349,7 +362,7 @@ const GENERIC_FAILURE =
 
 function invitationError(error: StudioApiError): string {
   if (error.status === 403) return 'Tu rol ya no permite invitar clientes en esta organización.'
-  if (error.code === 'guest-quota-full') return QUOTA_FULL_MESSAGE
+  if (error.code === 'guest-quota-exhausted') return QUOTA_FULL_MESSAGE
   if (error.status === 409) return 'Esa invitación ya se envió. Revisa el directorio.'
   if (error.status === 422) return 'Revisa el correo y los permisos marcados.'
   if (error.status === 429) {

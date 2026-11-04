@@ -16,6 +16,7 @@ export default {
         'studio-web',
         'backoffice-web',
         'space',
+        'space-web',
         // packages
         'auth-provider',
         'queue',
@@ -42,6 +43,7 @@ export default {
         'repo',
         'ci',
         'deps',
+        'infra',
       ],
     ],
     'scope-empty': [2, 'never'],

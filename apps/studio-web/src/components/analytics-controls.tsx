@@ -4,8 +4,9 @@ import { Button } from '@allfitone/react/components/button'
 import { ANALYTICS_PRIVACY_NOTICE_URL, type TelemetryScreen } from '@allfitone/telemetry'
 import { usePathname } from 'next/navigation'
 import { useReportWebVitals } from 'next/web-vitals'
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
+import { onAnalyticsPreferencesRequested } from '@/lib/analytics-preferences'
 import {
   captureStudioTelemetry,
   initializeStudioTelemetry,
@@ -15,17 +16,71 @@ import {
   studioTelemetrySnapshot,
   subscribeStudioTelemetry,
 } from '@/lib/telemetry'
+import type { Locale } from '@/lib/locale'
 
-export function AnalyticsControls() {
+/**
+ * The panel opens on a visitor's first page, which may be the English landing,
+ * so it speaks the page's language. The workspace always passes Spanish.
+ *
+ * Once a visitor has decided, the workspace keeps a floating control to reopen
+ * the panel. The landing does not float one (`floating={false}`): its footer
+ * asks for the panel through `openAnalyticsPreferences`, and focus moves into
+ * the panel and back to that entry, because the two sit far apart.
+ */
+const COPY = {
+  es: {
+    label: 'Preferencias de analítica',
+    title: 'Analítica opcional',
+    text: 'Ayúdanos a medir rendimiento y uso con un identificador seudónimo. No capturamos contenido, nombres, correos ni datos de salud.',
+    notice: 'Leer el aviso completo',
+    privacySignal: 'La señal de privacidad de este dispositivo mantiene la analítica desactivada.',
+    allow: 'Permitir analítica',
+    deny: 'No permitir',
+    reopen: 'Privacidad',
+  },
+  en: {
+    label: 'Analytics preferences',
+    title: 'Optional analytics',
+    text: 'Help us measure performance and usage with a pseudonymous identifier. We do not capture content, names, emails or health data.',
+    notice: 'Read the full notice',
+    privacySignal: "This device's privacy signal keeps analytics turned off.",
+    allow: 'Allow analytics',
+    deny: 'Do not allow',
+    reopen: 'Privacy',
+  },
+} satisfies Record<Locale, Record<string, string>>
+
+export function AnalyticsControls({
+  locale,
+  floating = true,
+}: {
+  locale: Locale
+  floating?: boolean
+}) {
+  const copy = COPY[locale]
   const telemetry = useSyncExternalStore(
     subscribeStudioTelemetry,
     studioTelemetrySnapshot,
     studioTelemetryServerSnapshot,
   )
   const [expanded, setExpanded] = useState(false)
+  const panel = useRef<HTMLDivElement>(null)
+  const requester = useRef<HTMLElement | null>(null)
   const pathname = usePathname()
 
   useEffect(() => initializeStudioTelemetry(), [])
+  useEffect(
+    () =>
+      onAnalyticsPreferencesRequested(() => {
+        requester.current =
+          document.activeElement instanceof HTMLElement ? document.activeElement : null
+        setExpanded(true)
+      }),
+    [],
+  )
+  useEffect(() => {
+    if (expanded) panel.current?.focus()
+  }, [expanded])
   useEffect(() => {
     if (!telemetry.active) return
     captureStudioTelemetry({
@@ -51,51 +106,38 @@ export function AnalyticsControls() {
   // honest thing to show: it is the steady state of almost every load, and
   // opening the panel first would ask again of everyone who already answered.
   const open = telemetry.resolved && (telemetry.decision === 'undecided' || expanded)
+  if (!open && !floating) return null
+
+  const decide = (decision: 'denied' | 'granted') => {
+    setStudioAnalyticsConsent(decision)
+    setExpanded(false)
+    requester.current?.focus()
+    requester.current = null
+  }
+
   return (
-    <aside
-      data-analytics-controls
-      data-expanded={open ? 'true' : 'false'}
-      aria-label="Preferencias de analítica"
-    >
+    <aside data-analytics-controls data-expanded={open ? 'true' : 'false'} aria-label={copy.label}>
       {open ? (
-        <div data-analytics-panel>
-          <strong>Analítica opcional</strong>
-          <p>
-            Ayúdanos a medir rendimiento y uso con un identificador seudónimo. No capturamos
-            contenido, nombres, correos ni datos de salud.
-          </p>
+        <div data-analytics-panel ref={panel} tabIndex={-1}>
+          <strong>{copy.title}</strong>
+          <p>{copy.text}</p>
           <a
             data-analytics-notice-link
             href={ANALYTICS_PRIVACY_NOTICE_URL}
             target="_blank"
             rel="noopener noreferrer"
           >
-            Leer el aviso completo
+            {copy.notice}
           </a>
           {telemetry.privacySignalDenied ? (
-            <p>La señal de privacidad de este dispositivo mantiene la analítica desactivada.</p>
+            <p>{copy.privacySignal}</p>
           ) : (
             <div data-analytics-actions>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  setStudioAnalyticsConsent('granted')
-                  setExpanded(false)
-                }}
-              >
-                Permitir analítica
+              <Button type="button" size="sm" onClick={() => decide('granted')}>
+                {copy.allow}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setStudioAnalyticsConsent('denied')
-                  setExpanded(false)
-                }}
-              >
-                No permitir
+              <Button type="button" size="sm" variant="outline" onClick={() => decide('denied')}>
+                {copy.deny}
               </Button>
             </div>
           )}
@@ -107,7 +149,7 @@ export function AnalyticsControls() {
         // a boundary that thin delimits nothing and the control reads as loose
         // text. A floating control needs to carry its own surface.
         <Button type="button" size="sm" variant="secondary" onClick={() => setExpanded(true)}>
-          Privacidad
+          {copy.reopen}
         </Button>
       )}
     </aside>

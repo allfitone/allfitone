@@ -34,7 +34,7 @@ const STAGES: Stage[] = [
   {
     name: 'the entry flow cannot reach the identity service',
     heading: 'No pudimos abrir Studio',
-    path: '/',
+    path: '/app',
     open: async (page) => {
       await installStudioApiMock(
         page,

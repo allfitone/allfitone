@@ -11,6 +11,8 @@ import type postgres from 'postgres'
 import { database } from '../../../platform/db/index.js'
 import { measureRequestPhase } from '../../../platform/observability/index.js'
 import type {
+  MyConsent,
+  MyConsentDatabase,
   OfferableScope,
   OfferableScopeDatabase,
   AccessEvent,
@@ -23,6 +25,8 @@ import type {
   ScopeCommandResult,
   ScopeDefinition,
   ScopeDefinitionDatabase,
+  AuthorizedScope,
+  AuthorizedScopeDatabase,
 } from '../domain/index.js'
 
 type CommandRow = { result: ScopeDefinition; replayed: boolean }
@@ -200,5 +204,155 @@ export function createOfferableScopeDatabase(
         })
         return [...result.rows]
       }),
+  }
+}
+
+type ConsentRow = Omit<
+  MyConsent,
+  'started_at' | 'ended_at' | 'decided_at' | 'granted_at' | 'frozen_at' | 'revoked_at'
+> & {
+  started_at: Date
+  ended_at: Date | null
+  decided_at: Date
+  granted_at: Date | null
+  frozen_at: Date | null
+  revoked_at: Date | null
+}
+
+const instant = (value: Date | null): string | null => (value ? value.toISOString() : null)
+
+/**
+ * PostgreSQL access for what the person shares (`OP-PRV-013`, `OP-PRV-005`).
+ *
+ * Runs as the person: both functions answer that actor and nobody else, so a
+ * transaction that skipped the ritual is refused rather than served.
+ */
+export function createMyConsentDatabase(
+  sql: ReturnType<typeof database> = database(),
+): MyConsentDatabase {
+  return {
+    listMine: (personId) =>
+      measureRequestPhase('business-db', async () => {
+        const result = await sql.begin(async (transaction) => {
+          await asPerson(transaction, personId)
+          return {
+            rows: await transaction<ConsentRow[]>`
+              select * from privacy.list_my_consents(${personId}::uuid)
+            `,
+          }
+        })
+        return result.rows.map((row) => ({
+          ...row,
+          started_at: row.started_at.toISOString(),
+          ended_at: instant(row.ended_at),
+          decided_at: row.decided_at.toISOString(),
+          granted_at: instant(row.granted_at),
+          frozen_at: instant(row.frozen_at),
+          revoked_at: instant(row.revoked_at),
+        }))
+      }),
+
+    revoke: (command) =>
+      measureRequestPhase('business-db', async () => {
+        const result = await sql.begin(async (transaction) => {
+          await asPerson(transaction, command.personId)
+          const [row] = await transaction<
+            { grant_id: string; status: string; revoked_at: Date | null; replayed: boolean }[]
+          >`
+            select * from privacy.revoke_my_grant(
+              ${command.personId}::uuid, ${command.grantId}::uuid,
+              ${command.idempotencyKey}::uuid, ${command.commandId}::uuid,
+              ${Buffer.from(command.requestHash)}::bytea
+            )
+          `
+          return { row }
+        })
+        const { row } = result
+        if (!row || row.status !== 'revoked' || !row.revoked_at) {
+          throw new Error('PostgreSQL did not confirm the revocation')
+        }
+        return {
+          resource: {
+            grantId: row.grant_id,
+            status: 'revoked' as const,
+            revokedAt: row.revoked_at.toISOString(),
+          },
+          replayed: row.replayed,
+        }
+      }),
+  }
+}
+
+async function asPerson(transaction: postgres.TransactionSql, personId: string): Promise<void> {
+  await transaction`
+    select set_config('app.actor_kind', 'person', true),
+           set_config('app.actor_person_id', ${personId}, true)
+  `
+}
+
+export function createAuthorizedScopeDatabase(
+  sql: postgres.Sql = database(),
+): AuthorizedScopeDatabase {
+  return {
+    list: (personId, query) =>
+      measureRequestPhase('business-db', () =>
+        sql.begin(async (transaction) => {
+          await asPerson(transaction, personId)
+          // One row over the page, so "is there more" is answered by the read
+          // itself rather than by a second count that could disagree with it.
+          const rows = await transaction<AuthorizedScopeRow[]>`
+            select * from privacy.list_authorized_scopes(
+              ${personId}::uuid,
+              ${query.organizationId}::uuid,
+              ${query.limit + 1}::integer,
+              ${query.cursor?.name ?? null}::text,
+              ${query.cursor?.id ?? null}::uuid
+            )
+          `
+          return {
+            hasMore: rows.length > query.limit,
+            items: rows.slice(0, query.limit).map(toAuthorizedScope),
+          }
+        }),
+      ),
+  }
+}
+
+/**
+ * `sort_name` and `sort_id` stay in the row and never reach the response: they
+ * are how the next page is found, not something a reader asked for. The handler
+ * turns them into the cursor.
+ */
+interface AuthorizedScopeRow {
+  relationship_id: string
+  person_id: string
+  display_name: string
+  grant_id: string
+  scope_code: AuthorizedScope['scope_code']
+  scope_display_name: string | null
+  version_number: number
+  access_level: AuthorizedScope['access_level']
+  status: AuthorizedScope['status']
+  purpose: string
+  granted_at: Date
+  revoked_at: Date | null
+  sort_name: string
+  sort_id: string
+}
+
+function toAuthorizedScope(row: AuthorizedScopeRow): AuthorizedScope {
+  return {
+    relationship_id: row.relationship_id,
+    person_id: row.person_id,
+    display_name: row.display_name,
+    grant_id: row.grant_id,
+    scope_code: row.scope_code,
+    scope_display_name: row.scope_display_name,
+    version_number: row.version_number,
+    access_level: row.access_level,
+    status: row.status,
+    purpose: row.purpose,
+    granted_at: row.granted_at.toISOString(),
+    revoked_at: row.revoked_at ? row.revoked_at.toISOString() : null,
   }
 }

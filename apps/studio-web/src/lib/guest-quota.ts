@@ -39,7 +39,7 @@ export function quotaSummary(quota: StudioGuestQuota | undefined): string | unde
   if (quota.seats === null) return 'Este gimnasio no tiene un cupo de personas fijado.'
   const taken = `${quota.occupied} de ${places(quota.seats)} ocupados`
   if (quota.over_quota) {
-    return `${taken}. Está por encima de su cupo: no puede invitar a nadie nuevo hasta que haya lugar.`
+    return `${taken}. Está por encima de su cupo: hasta que haya lugar no puede invitar a nadie nuevo, y las invitaciones pendientes no se pueden aceptar.`
   }
   if (quota.places_left === 0) return `${taken}. No queda ningún lugar.`
   return quota.places_left === null
@@ -54,7 +54,7 @@ export const QUOTA_RULE_NOTE =
 export function invitationBlockedReason(quota: StudioGuestQuota | undefined): string | undefined {
   if (!quota || quota.seats === null || quota.places_left !== 0) return undefined
   return quota.over_quota
-    ? `${quota.occupied} de ${places(quota.seats)} ocupados: el gimnasio está por encima de su cupo y no puede enviar invitaciones nuevas. Nadie sale por eso.`
+    ? `${quota.occupied} de ${places(quota.seats)} ocupados: el gimnasio está por encima de su cupo. Hasta que se libere un lugar no puede enviar invitaciones nuevas, y las que ya envió no se pueden aceptar. Nadie sale por eso.`
     : `${quota.occupied} de ${places(quota.seats)} ocupados: no queda ningún lugar para una invitación nueva.`
 }
 

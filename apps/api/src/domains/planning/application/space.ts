@@ -41,6 +41,7 @@ export interface SpacePlanningService {
   publishMySessionTemplate: SpacePlanningDatabase['publishMySessionTemplate']
   readMySessionTemplateDraft: SpacePlanningDatabase['readMySessionTemplateDraft']
   discardMySessionTemplate: SpacePlanningDatabase['discardMySessionTemplate']
+  duplicateMySessionTemplate: SpacePlanningDatabase['duplicateMySessionTemplate']
   discardMyProgram: SpacePlanningDatabase['discardMyProgram']
   removeMyProgram: SpacePlanningDatabase['removeMyProgram']
   duplicateMyProgram: SpacePlanningDatabase['duplicateMyProgram']
@@ -86,6 +87,7 @@ export interface SpacePlanningService {
     personId: string
     programVersionId: string
     timezone: string
+    adoptNutrition: boolean
     idempotencyKey: string
     commandId: string
     requestHash: Buffer
@@ -155,6 +157,7 @@ export function createSpacePlanningService(
     },
     readMySessionTemplateDraft: (input) => database.readMySessionTemplateDraft(input),
     discardMySessionTemplate: (input) => database.discardMySessionTemplate(input),
+    duplicateMySessionTemplate: (input) => database.duplicateMySessionTemplate(input),
     discardMyProgram: (input) => database.discardMyProgram(input),
     removeMyProgram: (input) => database.removeMyProgram(input),
     duplicateMyProgram: (input) => database.duplicateMyProgram(input),
@@ -195,6 +198,8 @@ export function createSpacePlanningService(
           personId: input.personId,
           programVersionId: version.id,
           timezone: input.timezone,
+          // A programme of the person's own has no reference goal to adopt.
+          adoptNutrition: false,
           idempotencyKey: input.idempotencyKey,
           commandId: input.commandId,
           requestHash: input.requestHash,

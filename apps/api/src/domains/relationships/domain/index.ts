@@ -137,6 +137,11 @@ export interface RelationshipState {
   readonly holder: RelationshipProfessional | null
   readonly substitutions: readonly RelationshipSubstitution[]
   readonly grants: readonly RelationshipGrant[]
+  /**
+   * The latest request to end it, whatever became of it, or null. Only the coach who
+   * asked and whoever could end the relationship ever see one.
+   */
+  readonly terminationRequest: TerminationRequest | null
 }
 
 export interface RelationshipProfessional {
@@ -223,7 +228,8 @@ export interface RelationshipHistoryDatabase {
   readHistory(
     actorPersonId: string,
     query: {
-      organizationId: string
+      /** Null on Space: the person reads her own, with no organization. */
+      organizationId: string | null
       relationshipId: string
       limit: number | null
       cursor: string | null
@@ -345,11 +351,174 @@ export interface SubstitutionTerminationDatabase {
 }
 
 /**
+ * `OP-REL-008`. A relationship the organization ended, and what stopped with it.
+ *
+ * `endedAt` is the single instant `T` the whole transaction used: the
+ * relationship, every grant it froze and every assignment it closed carry this
+ * same moment. A historical-access case is measured against it, so three
+ * answers to «when did this stop» would be three different boundaries.
+ *
+ * The counts are what the screen reports back. `frozenGrants` is the one that
+ * matters to a reader: freezing is not revoking, and saying how many permissions
+ * stopped is saying what the organization keeps as history and no longer
+ * receives.
+ */
+export interface RelationshipTermination {
+  readonly relationshipId: string
+  readonly personId: string
+  readonly endedAt: Date
+  readonly frozenGrants: number
+  readonly closedAssignments: number
+}
+
+export type RelationshipTerminationResult = CommandResult<RelationshipTermination>
+
+export interface RelationshipTerminationDatabase {
+  terminate(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      /** Optional by the catalogue: a gym need not justify itself to the system. */
+      reason?: string
+    },
+  ): Promise<RelationshipTerminationResult>
+}
+
+/**
+ * `OP-REL-009`, `OP-REL-017`, `OP-REL-018`. A coach asking her organization to end a
+ * relationship she cannot end herself, and how that request was settled.
+ *
+ * `resolvedBy` is null while pending and when the request was superseded: overtaken
+ * by the person ending it, or by the coach ceasing to be the holder, with nobody in
+ * the organization deciding anything.
+ */
+export type TerminationRequestStatus =
+  'pending' | 'withdrawn' | 'rejected' | 'resolved' | 'superseded'
+
+export interface TerminationRequestParty {
+  readonly membershipId: string
+  readonly displayName: string
+}
+
+export interface TerminationRequest {
+  readonly requestId: string
+  readonly relationshipId: string
+  readonly status: TerminationRequestStatus
+  readonly reason: string | null
+  /** The administration's words, present only on a refusal. */
+  readonly resolution: string | null
+  readonly requestedBy: TerminationRequestParty
+  readonly resolvedBy: TerminationRequestParty | null
+  readonly createdAt: Date
+  readonly resolvedAt: Date | null
+}
+
+export type TerminationRequestResult = CommandResult<TerminationRequest>
+
+export interface TerminationRequestDatabase {
+  request(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      reason?: string
+    },
+  ): Promise<TerminationRequestResult>
+  withdraw(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      requestId: string
+    },
+  ): Promise<TerminationRequestResult>
+  reject(
+    input: CommandContext & {
+      actorPersonId: string
+      organizationId: string
+      relationshipId: string
+      requestId: string
+      resolution: string
+    },
+  ): Promise<TerminationRequestResult>
+}
+
+/**
+ * `OP-REL-013`. The covers of one relationship, running and finished, newest
+ * first.
+ *
+ * Newest first is the point rather than a preference: the relationship card
+ * embeds its covers oldest-first, so the one that is running sinks under every
+ * one that is over — unnoticeable with two and a wall after a few years.
+ *
+ * A finished cover appearing here grants nothing. That is not enforced by this
+ * query: `relationships.actor_is_assigned` already refuses an assignment whose
+ * validity has passed, so reading a fact about the past is reading, not
+ * reopening.
+ */
+export interface ListedSubstitution extends RelationshipSubstitution {
+  /**
+   * Present here and not on the card's own shape: a cover that is over has an
+   * instant it stopped, and a list that spans years is where that matters.
+   */
+  readonly validTo: Date | null
+}
+
+export interface SubstitutionPage {
+  readonly items: readonly ListedSubstitution[]
+  readonly hasMore: boolean
+}
+
+export interface SubstitutionQuery {
+  /** Absent on the Space surface, whose route carries no organization. */
+  readonly organizationId?: string
+  readonly relationshipId: string
+  readonly limit: number
+  readonly cursorValidFrom?: string
+  readonly cursorAssignmentId?: string
+}
+
+export interface SubstitutionListDatabase {
+  listSubstitutions(personId: string, query: SubstitutionQuery): Promise<SubstitutionPage>
+}
+
+/**
  * `OP-REL-012`. A page of the caller's own relationships, shaped as the contract sends
  * it: this answer is handed straight to the client, so the row and the DTO are the same
  * thing and a mapping layer between them would only be a place to drop a field.
  */
 export type MyRelationship = AllfitV1Schemas['SpaceRelationship']
+
+/** Her answer to a cover (`OP-REL-005`). */
+export interface SubstitutionDecision {
+  readonly assignmentId: string
+  readonly status: 'active' | 'rejected'
+  readonly acceptedByPersonAt: string | null
+}
+
+/** Her relationship after she ended it (`OP-REL-007`). */
+export interface MyRelationshipEnd {
+  readonly relationshipId: string
+  readonly endedAt: string
+  readonly frozenGrants: number
+  readonly closedAssignments: number
+}
+
+/** What the person does to her own relationships from Space. */
+export interface MyRelationshipCommandDatabase {
+  decideSubstitution(
+    input: CommandContext & {
+      personId: string
+      relationshipId: string
+      assignmentId: string
+      decision: 'accepted' | 'rejected'
+    },
+  ): Promise<CommandResult<SubstitutionDecision>>
+  endRelationship(
+    input: CommandContext & { personId: string; relationshipId: string; reason: string | null },
+  ): Promise<CommandResult<MyRelationshipEnd>>
+}
 
 export interface MyRelationshipPage {
   items: MyRelationship[]

@@ -18,9 +18,16 @@ import type {
   RelationshipStateDatabase,
   RelationshipSubstitution,
   SubstitutionProposalDatabase,
+  SubstitutionListDatabase,
+  RelationshipTerminationDatabase,
   SubstitutionTerminationDatabase,
+  TerminationRequest,
+  TerminationRequestDatabase,
+  TerminationRequestStatus,
   MyRelationship,
+  MyRelationshipCommandDatabase,
   MyRelationshipDatabase,
+  SubstitutionDecision,
 } from '../domain/index.js'
 
 type DirectoryRow = {
@@ -185,6 +192,9 @@ function presentState(document: StateDocument): RelationshipState {
         : null,
     })),
     grants: document.grants.map(presentGrant),
+    terminationRequest: document.termination_request
+      ? presentTerminationRequest(document.termination_request)
+      : null,
   }
 }
 
@@ -206,7 +216,7 @@ export function createRelationshipHistoryDatabase(
           return transaction<{ history: HistoryDocument }[]>`
             select relationships.read_relationship_history(
               ${personId}::uuid,
-              ${query.organizationId}::uuid,
+              ${query.organizationId ?? null}::uuid,
               ${query.relationshipId}::uuid,
               ${query.limit}::integer,
               ${query.cursor}::text
@@ -302,6 +312,7 @@ type StateDocument = {
   holder: ProfessionalRow | null
   substitutions: SubstitutionRow[]
   grants: GrantRow[]
+  termination_request: TerminationRequestDocument | null
 }
 
 type HistoryEventRow = {
@@ -610,6 +621,7 @@ type MyRelationshipRow = {
   started_at: string
   ended_at: string | null
   previous_relationship_id: string | null
+  holder_name: string | null
 }
 
 function presentMyRelationship(row: MyRelationshipRow): MyRelationship {
@@ -622,5 +634,326 @@ function presentMyRelationship(row: MyRelationshipRow): MyRelationship {
     started_at: new Date(row.started_at).toISOString(),
     ended_at: row.ended_at ? new Date(row.ended_at).toISOString() : null,
     previous_relationship_id: row.previous_relationship_id,
+    holder_name: row.holder_name,
+  }
+}
+
+/**
+ * `OP-REL-005` and `OP-REL-007`, the person's own. Timestamps go out as text, cast in
+ * the query, so the server's timezone never leaks into an instant.
+ */
+export function createMyRelationshipCommandDatabase(
+  sql: postgres.Sql = database(),
+): MyRelationshipCommandDatabase {
+  return {
+    decideSubstitution: (input) =>
+      measureStudioRequestPhase('business-db', async () => {
+        const row = await sql.begin(async (transaction) => {
+          await setPersonActor(transaction, input.personId)
+          const [decided] = await transaction<
+            {
+              assignment_id: string
+              status: SubstitutionDecision['status']
+              accepted_by_person_at: string | null
+              replayed: boolean
+            }[]
+          >`
+            select assignment_id, status, accepted_by_person_at::text as accepted_by_person_at, replayed
+            from relationships.decide_substitution(
+              ${input.personId}::uuid, ${input.relationshipId}::uuid, ${input.assignmentId}::uuid,
+              ${input.decision}, ${input.idempotencyKey}::uuid, ${input.commandId}::uuid,
+              ${input.requestHash}
+            )
+          `
+          return decided
+        })
+        if (!row) throw new Error('decide_substitution returned no row')
+        return {
+          resource: {
+            assignmentId: row.assignment_id,
+            status: row.status,
+            acceptedByPersonAt: row.accepted_by_person_at
+              ? new Date(row.accepted_by_person_at).toISOString()
+              : null,
+          },
+          replayed: row.replayed,
+        }
+      }),
+
+    endRelationship: (input) =>
+      measureStudioRequestPhase('business-db', async () => {
+        const row = await sql.begin(async (transaction) => {
+          await setPersonActor(transaction, input.personId)
+          const [ended] = await transaction<
+            {
+              relationship_id: string
+              ended_at: string
+              frozen_grants: number
+              closed_assignments: number
+              replayed: boolean
+            }[]
+          >`
+            select relationship_id, ended_at::text as ended_at, frozen_grants,
+                   closed_assignments, replayed
+            from relationships.end_my_relationship(
+              ${input.personId}::uuid, ${input.relationshipId}::uuid, ${input.reason},
+              ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+            )
+          `
+          return ended
+        })
+        if (!row) throw new Error('end_my_relationship returned no row')
+        return {
+          resource: {
+            relationshipId: row.relationship_id,
+            endedAt: new Date(row.ended_at).toISOString(),
+            frozenGrants: row.frozen_grants,
+            closedAssignments: row.closed_assignments,
+          },
+          replayed: row.replayed,
+        }
+      }),
+  }
+}
+
+/**
+ * `OP-REL-013`. One more than asked for, and its presence is what says another
+ * page exists — the same trick `listMine` uses, and cheaper than counting the
+ * whole set to answer a yes-or-no question.
+ *
+ * The organization goes down as `null` on the Space surface. The command reads
+ * that as «the caller is not claiming to act inside one» and resolves it from
+ * the relationship, so there is no second place where a tenant could be
+ * decided.
+ */
+export function createSubstitutionListDatabase(
+  sql: postgres.Sql = database(),
+): SubstitutionListDatabase {
+  return {
+    listSubstitutions: (personId, query) =>
+      measureStudioRequestPhase('business-db', async () => {
+        const outcome = await sql.begin(async (transaction) => {
+          await setPersonActor(transaction, personId)
+          // A date as text: the driver turns a bare date into a midnight instant.
+          const rows = await transaction<ListedSubstitutionRow[]>`
+            select assignment_id, membership_id, professional_person_id, display_name,
+                   status, valid_from, valid_to, ends_on::text as ends_on, accepted_by_person_at
+            from relationships.list_relationship_substitutions(
+              ${personId}::uuid,
+              ${query.organizationId ?? null}::uuid,
+              ${query.relationshipId}::uuid,
+              ${query.limit + 1}::integer,
+              ${query.cursorValidFrom ?? null}::timestamptz,
+              ${query.cursorAssignmentId ?? null}::uuid
+            )
+          `
+          const hasMore = rows.length > query.limit
+          return {
+            value: {
+              items: rows.slice(0, query.limit).map((row) => ({
+                assignmentId: row.assignment_id,
+                membershipId: row.membership_id,
+                professionalPersonId: row.professional_person_id,
+                displayName: row.display_name,
+                status: row.status,
+                validFrom: row.valid_from,
+                validTo: row.valid_to,
+                endsOn: row.ends_on,
+                acceptedByPersonAt: row.accepted_by_person_at,
+              })),
+              hasMore,
+            },
+          }
+        })
+        return outcome.value
+      }),
+  }
+}
+
+type ListedSubstitutionRow = {
+  assignment_id: string
+  membership_id: string
+  professional_person_id: string
+  display_name: string
+  status: 'proposed' | 'active' | 'ended'
+  valid_from: Date
+  valid_to: Date | null
+  ends_on: string | null
+  accepted_by_person_at: Date | null
+}
+
+/**
+ * `OP-REL-008`. The counts come back as numbers rather than being recomputed
+ * here: the command is the only place that knows how many grants were still
+ * active when `T` happened, and asking again afterwards would answer a
+ * different question.
+ */
+export function createRelationshipTerminationDatabase(
+  sql: postgres.Sql = database(),
+): RelationshipTerminationDatabase {
+  return {
+    terminate: (input) =>
+      measureStudioRequestPhase('business-db', async () => {
+        const row = await sql.begin(async (transaction) => {
+          await setPersonActor(transaction, input.actorPersonId)
+          const [termination] = await transaction<RelationshipTerminationRow[]>`
+            select
+              relationship_id,
+              person_id,
+              ended_at,
+              frozen_grants,
+              closed_assignments,
+              replayed
+            from relationships.terminate_relationship(
+              ${input.actorPersonId}::uuid,
+              ${input.organizationId}::uuid,
+              ${input.relationshipId}::uuid,
+              ${input.reason ?? null}::text,
+              ${input.idempotencyKey}::uuid,
+              ${input.commandId}::uuid,
+              ${input.requestHash}
+            )
+          `
+          return termination
+        })
+
+        if (!row) throw new Error('terminate_relationship returned no row')
+        return {
+          resource: {
+            relationshipId: row.relationship_id,
+            personId: row.person_id,
+            endedAt: row.ended_at,
+            frozenGrants: row.frozen_grants,
+            closedAssignments: row.closed_assignments,
+          },
+          replayed: row.replayed,
+        }
+      }),
+  }
+}
+
+type RelationshipTerminationRow = {
+  relationship_id: string
+  person_id: string
+  ended_at: Date
+  frozen_grants: number
+  closed_assignments: number
+  replayed: boolean
+}
+
+type TerminationRequestParty = { membership_id: string; display_name: string }
+
+/** `relationships.termination_request_document`, the one shape a request is read in. */
+type TerminationRequestDocument = {
+  request_id: string
+  relationship_id: string
+  status: TerminationRequestStatus
+  reason: string | null
+  resolution: string | null
+  requested_by: TerminationRequestParty
+  resolved_by: TerminationRequestParty | null
+  created_at: string
+  resolved_at: string | null
+}
+
+function presentTerminationRequest(document: TerminationRequestDocument): TerminationRequest {
+  return {
+    requestId: document.request_id,
+    relationshipId: document.relationship_id,
+    status: document.status,
+    reason: document.reason,
+    resolution: document.resolution,
+    requestedBy: {
+      membershipId: document.requested_by.membership_id,
+      displayName: document.requested_by.display_name,
+    },
+    resolvedBy: document.resolved_by
+      ? {
+          membershipId: document.resolved_by.membership_id,
+          displayName: document.resolved_by.display_name,
+        }
+      : null,
+    createdAt: new Date(document.created_at),
+    resolvedAt: document.resolved_at ? new Date(document.resolved_at) : null,
+  }
+}
+
+type TerminationRequestRow = { result: TerminationRequestDocument | null; replayed: boolean }
+
+/**
+ * `OP-REL-009`, `OP-REL-017`, `OP-REL-018`. Each command answers with the request as
+ * the actor may read it; a null document means the policy hid it, which no command
+ * that just succeeded should produce, so it is an error rather than an empty answer.
+ */
+export function createTerminationRequestDatabase(
+  sql: postgres.Sql = database(),
+): TerminationRequestDatabase {
+  const run = (
+    actorPersonId: string,
+    name: string,
+    query: (transaction: postgres.TransactionSql) => Promise<TerminationRequestRow[]>,
+  ) =>
+    measureStudioRequestPhase('business-db', async () => {
+      const [row] = await sql.begin(async (transaction) => {
+        await setPersonActor(transaction, actorPersonId)
+        return query(transaction)
+      })
+      if (!row?.result) throw new Error(`${name} returned no request`)
+      return { resource: presentTerminationRequest(row.result), replayed: row.replayed }
+    })
+
+  return {
+    request: (input) =>
+      run(
+        input.actorPersonId,
+        'request_relationship_termination',
+        (transaction) => transaction<TerminationRequestRow[]>`
+          select result, replayed
+          from relationships.request_relationship_termination(
+            ${input.actorPersonId}::uuid,
+            ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid,
+            ${input.reason ?? null}::text,
+            ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `,
+      ),
+    withdraw: (input) =>
+      run(
+        input.actorPersonId,
+        'withdraw_termination_request',
+        (transaction) => transaction<TerminationRequestRow[]>`
+          select result, replayed
+          from relationships.withdraw_termination_request(
+            ${input.actorPersonId}::uuid,
+            ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid,
+            ${input.requestId}::uuid,
+            ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `,
+      ),
+    reject: (input) =>
+      run(
+        input.actorPersonId,
+        'reject_termination_request',
+        (transaction) => transaction<TerminationRequestRow[]>`
+          select result, replayed
+          from relationships.reject_termination_request(
+            ${input.actorPersonId}::uuid,
+            ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid,
+            ${input.requestId}::uuid,
+            ${input.resolution}::text,
+            ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `,
+      ),
   }
 }

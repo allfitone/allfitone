@@ -29,6 +29,7 @@ import {
   backofficeClientInvitationRoutes,
   backofficeTeamInvitationRoutes,
   spaceBodyProgressRoutes,
+  spaceBodyPhotoRoutes,
   spaceHealthContextRoutes,
   spaceIdentityRoutes,
   spaceOnboardingRoutes,
@@ -53,7 +54,11 @@ import {
   studioPaymentRoutes,
 } from './domains/payments/index.js'
 import { spacePlanningRoutes, studioPlanningRoutes } from './domains/planning/index.js'
-import { backofficePrivacyRoutes, studioPrivacyRoutes } from './domains/privacy/index.js'
+import {
+  backofficePrivacyRoutes,
+  spacePrivacyRoutes,
+  studioPrivacyRoutes,
+} from './domains/privacy/index.js'
 import { spaceRelationshipRoutes, studioRelationshipRoutes } from './domains/relationships/index.js'
 import {
   backofficeBreakGlassRoutes,
@@ -88,7 +93,7 @@ export function mountSurfaces(app: Hono): void {
     cors({
       origin: new URL(trustedStudioWebUrl()).origin,
       credentials: true,
-      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id', 'If-Match', 'If-None-Match'],
       exposeHeaders: ['ETag', 'Server-Timing', 'Retry-After', 'Idempotent-Replay'],
       maxAge: 600,
@@ -119,6 +124,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/space/v1', spaceIdentityRoutes())
   app.route('/space/v1', spaceOnboardingRoutes())
   app.route('/space/v1', spaceBodyProgressRoutes())
+  app.route('/space/v1', spaceBodyPhotoRoutes())
   app.route('/space/v1', spaceHealthContextRoutes())
   app.route('/space/v1', spaceClientInvitationRoutes())
   app.route('/space/v1', spacePlanningRoutes())
@@ -127,6 +133,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/space/v1', spaceProRoutes())
   app.route('/space/v1', spacePaymentRoutes())
   app.route('/space/v1', spaceRelationshipRoutes())
+  app.route('/space/v1', spacePrivacyRoutes())
   app.route('/backoffice/v1', backofficeIdentityRoutes())
   app.route('/backoffice/v1', backofficeCredentialVerificationRoutes())
   app.route('/backoffice/v1', backofficeTeamInvitationRoutes())

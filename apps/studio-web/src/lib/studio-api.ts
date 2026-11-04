@@ -35,11 +35,15 @@ export type OrganizationMembership = AllfitV1Schemas['OrganizationMembershipList
 export type OrganizationMembershipPage = AllfitV1Schemas['OrganizationMembershipPage']
 export type OrganizationMembershipStatus = AllfitV1Schemas['OrganizationMembershipStatus']
 export type OfferableScopeCatalog = AllfitV1Schemas['OfferableScopeCatalog']
+export type InformationCategoryList = AllfitV1Schemas['CatalogInformationCategoryList']
+export type InformationCategory = AllfitV1Schemas['CatalogInformationCategory']
 export type OfferableScope = AllfitV1Schemas['OfferableScope']
 export type ClientInvitationCreate = AllfitV1Schemas['ClientInvitationCreate']
 export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
 export type StudioGuestQuota = AllfitV1Schemas['StudioGuestQuota']
+export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
+export type AuthorizedScopePage = AllfitV1Schemas['AuthorizedScopePage']
 export type ClientDirectoryItem = AllfitV1Schemas['ClientDirectoryItem']
 export type ClientDirectoryRelationship = AllfitV1Schemas['ClientDirectoryRelationship']
 export type ClientDirectoryInvitation = AllfitV1Schemas['ClientDirectoryInvitation']
@@ -56,7 +60,12 @@ export type RelationshipReassignment = AllfitV1Schemas['RelationshipReassignment
 export type RelationshipSubstitutionProposalCreate =
   AllfitV1Schemas['RelationshipSubstitutionProposalCreate']
 export type RelationshipSubstitutionProposal = AllfitV1Schemas['RelationshipSubstitutionProposal']
+export type RelationshipTermination = AllfitV1Schemas['RelationshipTermination']
+export type RelationshipTerminationCreate = AllfitV1Schemas['RelationshipTerminationCreate']
+export type RelationshipSubstitutionTermination =
+  AllfitV1Schemas['RelationshipSubstitutionTermination']
 export type Organization = AllfitV1Schemas['Organization']
+export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
 export type OrganizationSiteStatus = AllfitV1Schemas['OrganizationSiteStatus']
 export type OrganizationSiteCreate = AllfitV1Schemas['OrganizationSiteCreate']
@@ -316,6 +325,24 @@ export const studioApi = {
     )
   },
 
+  authorizedScopes: (
+    organizationId: string,
+    options: { limit?: number; cursor?: string } = {},
+    signal?: AbortSignal,
+  ) => {
+    const query = new URLSearchParams()
+    if (options.limit) query.set('limit', String(options.limit))
+    if (options.cursor) query.set('cursor', options.cursor)
+    const suffix = query.size ? `?${query.toString()}` : ''
+    return request<AuthorizedScopePage>(
+      `/studio/v1/organizations/${organizationId}/authorized-scopes${suffix}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    )
+  },
+
   organizationSubscriptions: (
     organizationId: string,
     options: { status?: SubscriptionStatus; limit?: number; cursor?: string } = {},
@@ -395,6 +422,18 @@ export const studioApi = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * `OP-PRV-022`. The catalogue surface and not `/studio/v1`, because the same
+   * seven rows are what a member reads to know what they may ask for and what
+   * the person being asked reads to decide. Unlike `offerableScopes` it answers
+   * before anyone curates the permission catalogue: it reads the wording alone.
+   */
+  informationCategories: (signal?: AbortSignal) =>
+    request<InformationCategoryList>('/catalog/v1/information-categories', {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
+
   createClientInvitation: (
     organizationId: string,
     body: ClientInvitationCreate,
@@ -451,6 +490,44 @@ export const studioApi = {
       },
     ),
 
+  /**
+   * `OP-REL-006`. No body: what the command acts on is entirely in the path, so
+   * the request hash that makes it idempotent is derived there too.
+   */
+  endRelationshipSubstitution: (
+    organizationId: string,
+    relationshipId: string,
+    substitutionId: string,
+    command: CommandHeaders,
+  ) =>
+    request<RelationshipSubstitutionTermination>(
+      `/studio/v1/organizations/${organizationId}/relationships/${relationshipId}` +
+        `/substitutions/${substitutionId}/termination`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+      },
+    ),
+
+  /**
+   * `OP-REL-008`. The body is optional and carries at most a reason: a gym owes
+   * the system no justification for ending a relationship.
+   */
+  terminateRelationship: (
+    organizationId: string,
+    relationshipId: string,
+    body: RelationshipTerminationCreate,
+    command: CommandHeaders,
+  ) =>
+    request<RelationshipTermination>(
+      `/studio/v1/organizations/${organizationId}/relationships/${relationshipId}/termination`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+      },
+    ),
+
   grantMembershipRole: (
     organizationId: string,
     membershipId: string,
@@ -468,6 +545,23 @@ export const studioApi = {
 
   organization: (organizationId: string, signal?: AbortSignal) =>
     request<Organization>(`/studio/v1/organizations/${organizationId}`, signal ? { signal } : {}),
+
+  updateOrganization: (
+    organizationId: string,
+    body: OrganizationUpdate,
+    expectedRevision: number,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<Organization>(`/studio/v1/organizations/${organizationId}`, {
+      method: 'PATCH',
+      headers: commandHeaders(command),
+      // The revision in the body, not in `If-Match`, for the reason spelled out
+      // on `updateOrganizationSite` below: the Edge answers a conditional write
+      // before the function runs.
+      body: JSON.stringify({ ...body, expected_revision: expectedRevision }),
+      ...(signal ? { signal } : {}),
+    }),
 
   createOrganizationSite: (
     organizationId: string,

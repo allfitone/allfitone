@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import type { VerifiedToken } from '@allfitone/auth-provider'
 import { Hono, type Context } from 'hono'
 
-import { fail } from '../../../platform/http/index.js'
+import { fail, failPlanLimit, planLimitFeature } from '../../../platform/http/index.js'
 import {
   SpaceActorError,
   spaceActorResolver,
@@ -78,17 +78,19 @@ export function spacePlanningRoutes(
       const requestId = c.req.header('x-request-id') ?? ''
       // Composed, not centralised: each domain answers for its own, and the surface
       // joins them because the screen cannot draw any of them without the others.
-      const [catalogue, session, week, progress] = await Promise.all([
+      const [catalogue, session, week, progress, openFree] = await Promise.all([
         planning().readCatalogue({ personId, requestId }),
         planning().readTodaySession({ personId, timezone, requestId }),
         executions().readWeekSummary({ personId, timezone, requestId }),
         planning().readWeekProgress({ personId, timezone, requestId }),
+        executions().readOpenFreeSession({ personId, requestId }),
       ])
       return c.json(
         {
           profile: catalogue.profile,
           current_assignment: catalogue.current_assignment,
           session,
+          open_free_session_id: openFree,
           // Execution answers for what was trained; Planning answers for what was
           // planned. Execution's own counts are person-wide — every programme at once —
           // and this screen names one programme, so the counts come from Planning.
@@ -197,6 +199,25 @@ export function spacePlanningRoutes(
         ...command,
       })
       return c.json(template, 200)
+    } catch (cause) {
+      return failure(c, cause)
+    }
+  })
+
+  // The new routine, never the original. Without a body, as duplicating a programme.
+  routes.post('/session-templates/:templateId/duplicate', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    const token = await verified(c, verify)
+    if (!token) return fail(c, 'unauthenticated')
+
+    const templateId = c.req.param('templateId')
+    const command = commandContext(c, undefined)
+    if (!UUID_V7.test(templateId) || !command) return fail(c, 'invalid-request')
+
+    try {
+      const personId = await actors().personFor(token.subject)
+      const copy = await planning().duplicateMySessionTemplate({ personId, templateId, ...command })
+      return c.json(copy, 200)
     } catch (cause) {
       return failure(c, cause)
     }
@@ -577,6 +598,9 @@ export function spacePlanningRoutes(
 
 function failure(c: Context, cause: unknown): Response {
   if (cause instanceof SpaceActorError) return fail(c, 'forbidden')
+  // The plan does not open this: the app offers Pro for exactly the function named.
+  const feature = planLimitFeature(cause)
+  if (feature) return failPlanLimit(c, feature)
   // A version the person may not reach answers `42501` from the database, which is
   // the same thing the policy would have said: not yours.
   if (typeof cause === 'object' && cause !== null && 'code' in cause) {
@@ -623,20 +647,29 @@ async function readJson(c: Context): Promise<unknown> {
   }
 }
 
-/** Exactly two keys. An extra one is a client sending something we do not honour. */
-function readChoice(body: unknown): { programVersionId: string; timezone: string } | undefined {
+const CHOICE_KEYS = new Set(['program_version_id', 'timezone', 'adopt_nutrition'])
+
+/** The keys the contract names and no other: an extra one is something we do not honour. */
+function readChoice(
+  body: unknown,
+): { programVersionId: string; timezone: string; adoptNutrition: boolean } | undefined {
   if (typeof body !== 'object' || body === null) return undefined
-  const keys = Object.keys(body)
-  if (keys.length !== 2) return undefined
-  const { program_version_id: version, timezone } = body as {
+  if (Object.keys(body).some((key) => !CHOICE_KEYS.has(key))) return undefined
+  const {
+    program_version_id: version,
+    timezone,
+    adopt_nutrition: adopt,
+  } = body as {
     program_version_id: unknown
     timezone: unknown
+    adopt_nutrition?: unknown
   }
+  if (adopt !== undefined && typeof adopt !== 'boolean') return undefined
   if (typeof version !== 'string' || !UUID_V7.test(version)) return undefined
   if (typeof timezone !== 'string') return undefined
   const trimmed = timezone.trim()
   if (trimmed === '' || trimmed.length > MAX_TIMEZONE) return undefined
-  return { programVersionId: version, timezone: trimmed }
+  return { programVersionId: version, timezone: trimmed, adoptNutrition: adopt === true }
 }
 
 /**

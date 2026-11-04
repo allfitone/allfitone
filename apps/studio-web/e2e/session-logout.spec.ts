@@ -14,7 +14,7 @@ test('ignores a manual logout form submission without explicit button activation
 }) => {
   const fixture = createStudioApiFixture()
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.getByRole('heading', { name: '¿Cómo trabajas hoy?' })).toBeVisible()
 
   await page.locator('form:has(input[name="reason"][value="manual"])').evaluate((form) => {
@@ -42,7 +42,7 @@ test('clears the browser session and browser history cannot reveal the workspace
 
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
   await page.goBack()
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
   await expect(page.getByText(activeMembership.display_name)).not.toBeVisible()
   await expect(page.locator('[data-session-lock]')).toHaveCount(0)
@@ -111,6 +111,16 @@ test('returning from a manual logout verifies the session once', async ({ page }
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
 
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
+  // The landing paints before the guard answers, so wait for the answer itself:
+  // the record only turns confirmed once the API has said 401.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = localStorage.getItem('allfit-studio-session:v1')
+        return raw ? (JSON.parse(raw) as { confirmedAt?: number }).confirmedAt !== undefined : false
+      }),
+    )
+    .toBe(true)
   expect(
     fixture.requests.filter(
       (request) => request.method === 'GET' && request.path === '/studio/v1/session',
@@ -182,7 +192,7 @@ test('a manual logout covers another Studio tab immediately', async ({ context, 
 
   releaseLogout?.()
   await logoutNavigation
-  await expect(other).toHaveURL('/')
+  await expect(other).toHaveURL('/es')
   await expect(other.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
   await expect(other.locator('[data-session-closing]')).toHaveCount(0)
 })
@@ -198,7 +208,7 @@ test('a new cross-tab session cannot reuse the previous session query cache', as
   })
   await installStudioApiMock(page, fixture)
   await installStudioApiMock(other, fixture)
-  await page.goto('/')
+  await page.goto('/es')
   await other.goto(`/organizations/${activeMembership.organization_id}/team`)
   await expect(other.getByText('Ada Lovelace', { exact: true })).toBeVisible()
   const requestsBeforeSessionChange = fixture.requests.filter(
@@ -278,14 +288,14 @@ test('shows a recoverable notice when only the browser logout can be confirmed',
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto('/')
+  await page.goto('/app')
   await page.getByRole('button', { name: 'Esperar una invitación' }).click()
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
 
   await expect(page.getByText('La sesión se cerró en este equipo')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/es')
 })
 
 test('offers reauthentication when a restored page retains the secure logout lock', async ({
@@ -300,7 +310,7 @@ test('offers reauthentication when a restored page retains the secure logout loc
     )
   })
 
-  await page.goto('/')
+  await page.goto('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
@@ -338,7 +348,7 @@ test('requires explicit recovery when a locally ended session is still authentic
 
   await page.getByRole('button', { name: 'Completar cierre' }).click()
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
   const recovery = fixture.requests.find(
     (request) => request.method === 'POST' && request.path === '/studio/v1/auth/logout',
@@ -382,7 +392,7 @@ test('keeps recovery visible on verification failure and retries without mountin
   fixture.signedOut = true
   await page.getByRole('button', { name: 'Reintentar' }).click()
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
 })
 
@@ -419,7 +429,7 @@ test('keeps recovery locked when session verification has no network', async ({ 
   fixture.signedOut = true
   await page.getByRole('button', { name: 'Reintentar' }).click()
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/es')
   await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
 })
 
@@ -435,7 +445,7 @@ test('preserves a pending team invitation while session recovery completes', asy
     sessionStorage.setItem('allfit-invitation-token:v1', token)
   }, invitationToken)
 
-  await page.goto('/')
+  await page.goto('/es')
   await page.getByRole('button', { name: 'Completar cierre' }).click()
 
   await expect(page).toHaveURL('/invitations')

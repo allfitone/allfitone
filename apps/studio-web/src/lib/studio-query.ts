@@ -9,6 +9,7 @@ import {
   StudioApiError,
   studioApi,
   type ClientDirectoryGroup,
+  type InformationCategoryList,
   type OfferableScopeCatalog,
   type ClientDirectoryItem,
   type ClientDirectoryPage,
@@ -54,10 +55,15 @@ export const studioQueryKeys = {
   organizationMemberships: (organizationId: string, status: MembershipFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'memberships', { status, limit }] as const,
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
+  informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
   organizationClients: (organizationId: string, status: ClientFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients', { status, limit }] as const,
+  authorizedScopesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'authorized-scopes'] as const,
+  authorizedScopes: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'authorized-scopes', { limit }] as const,
   organizationSubscriptionsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions'] as const,
   organizationSubscriptions: (organizationId: string, status: SubscriptionFilter, limit: number) =>
@@ -360,6 +366,27 @@ export function organizationClientsQueryOptions(
 }
 
 /*
+ * Held as briefly as a directory page, and for a sharper reason: a person can
+ * take an authorization back at any moment from Space. A stale page here would
+ * show a permission that no longer stands — and this register exists precisely
+ * to explain why something stopped being visible.
+ */
+export function authorizedScopesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.authorizedScopes(organizationId, limit),
+    queryFn: ({ pageParam, signal }) =>
+      studioApi.authorizedScopes(
+        organizationId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
  * The permission vocabulary changes when Backoffice publishes a new scope
  * version, which is rare and never mid-session, so it is held longer than a
  * directory page.
@@ -368,6 +395,20 @@ export function offerableScopesQueryOptions() {
   return queryOptions({
     queryKey: studioQueryKeys.offerableScopes(),
     queryFn: ({ signal }): Promise<OfferableScopeCatalog> => studioApi.offerableScopes(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/**
+ * The wording of the seven categories. It carries no version and nobody
+ * publishes it, so it is as stale-tolerant as the role catalogue: the only way
+ * it changes is a migration.
+ */
+export function informationCategoriesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.informationCategories(),
+    queryFn: ({ signal }): Promise<InformationCategoryList> =>
+      studioApi.informationCategories(signal),
     staleTime: STUDIO_ROLE_STALE_TIME_MS,
   })
 }

@@ -7,10 +7,16 @@ import type {
   HolderAssignmentDatabase,
   HolderReassignmentDatabase,
   RelationshipHistory,
+  MyRelationshipCommandDatabase,
   RelationshipHistoryDatabase,
   RelationshipState,
   RelationshipStateDatabase,
   SubstitutionProposalDatabase,
+  SubstitutionListDatabase,
+  RelationshipTerminationDatabase,
+  TerminationRequestDatabase,
+  SubstitutionPage,
+  SubstitutionQuery,
   SubstitutionTerminationDatabase,
   MyRelationshipDatabase,
   MyRelationshipPage,
@@ -232,10 +238,135 @@ export function createSubstitutionTerminationService(
 }
 
 /**
+ * `OP-REL-008`. Thin, like its siblings: whether the relationship is live, who
+ * the caller is and what freezing a grant means are all decisions the command
+ * makes, and none of them is visible from here.
+ */
+export interface RelationshipTerminationService {
+  terminate(
+    actor: AccountActor,
+    input: CommandContext & {
+      organizationId: string
+      relationshipId: string
+      reason?: string
+    },
+  ): ReturnType<RelationshipTerminationDatabase['terminate']>
+}
+
+export function createRelationshipTerminationService(
+  database: RelationshipTerminationDatabase,
+): RelationshipTerminationService {
+  return {
+    terminate(actor, input) {
+      if (!actor.personId) throw new RelationshipsError('registration-incomplete')
+      return database.terminate({ actorPersonId: actor.personId, ...input })
+    },
+  }
+}
+
+/**
+ * `OP-REL-009`, `OP-REL-017`, `OP-REL-018`. Thin like its siblings: who is the
+ * holder, who could end the relationship instead, and whether the request is still
+ * pending are all the command's decisions.
+ */
+export interface TerminationRequestService {
+  request(
+    actor: AccountActor,
+    input: CommandContext & { organizationId: string; relationshipId: string; reason?: string },
+  ): ReturnType<TerminationRequestDatabase['request']>
+  withdraw(
+    actor: AccountActor,
+    input: CommandContext & { organizationId: string; relationshipId: string; requestId: string },
+  ): ReturnType<TerminationRequestDatabase['withdraw']>
+  reject(
+    actor: AccountActor,
+    input: CommandContext & {
+      organizationId: string
+      relationshipId: string
+      requestId: string
+      resolution: string
+    },
+  ): ReturnType<TerminationRequestDatabase['reject']>
+}
+
+export function createTerminationRequestService(
+  database: TerminationRequestDatabase,
+): TerminationRequestService {
+  const personId = (actor: AccountActor) => {
+    if (!actor.personId) throw new RelationshipsError('registration-incomplete')
+    return actor.personId
+  }
+
+  return {
+    request: (actor, input) => database.request({ actorPersonId: personId(actor), ...input }),
+    withdraw: (actor, input) => database.withdraw({ actorPersonId: personId(actor), ...input }),
+    reject: (actor, input) => database.reject({ actorPersonId: personId(actor), ...input }),
+  }
+}
+
+/**
+ * `OP-REL-013`. Takes a person id for the same reason `listMine` does: both
+ * surfaces resolve the person before anything else, Studio from the session and
+ * Space from the token, and an actor without one has no relationship to read.
+ */
+export interface SubstitutionListService {
+  /** Studio: a coach, administrator or owner of the organization. */
+  list(
+    actor: AccountActor,
+    query: SubstitutionQuery & { organizationId: string },
+  ): Promise<SubstitutionPage>
+
+  /** Space: the person the relationship belongs to, with no organization. */
+  listMine(
+    personId: string,
+    query: Omit<SubstitutionQuery, 'organizationId'>,
+  ): Promise<SubstitutionPage>
+}
+
+export function createSubstitutionListService(
+  database: SubstitutionListDatabase,
+): SubstitutionListService {
+  return {
+    list(actor, query) {
+      if (!actor.personId) throw new RelationshipsError('registration-incomplete')
+      return database.listSubstitutions(actor.personId, query)
+    },
+    listMine: (personId, query) => database.listSubstitutions(personId, query),
+  }
+}
+
+/**
  * `OP-REL-012`. Takes a person id rather than an actor: Space resolves the person from the
  * token before anything else, and there is no incomplete-registration case to report —
  * somebody without a person has no relationships to list.
  */
+/**
+ * The person's own relationships from Space: the history (`OP-REL-014`), a cover
+ * (`OP-REL-005`) and the end (`OP-REL-007`). The person comes from the token; whose
+ * relationship it is, and whether it can still be answered or ended, is the command's
+ * decision.
+ */
+export interface MyRelationshipCommandService {
+  readHistory(
+    personId: string,
+    query: { relationshipId: string; limit: number | null; cursor: string | null },
+  ): Promise<RelationshipHistory>
+  decideSubstitution: MyRelationshipCommandDatabase['decideSubstitution']
+  endRelationship: MyRelationshipCommandDatabase['endRelationship']
+}
+
+export function createMyRelationshipCommandService(
+  histories: RelationshipHistoryDatabase,
+  commands: MyRelationshipCommandDatabase,
+): MyRelationshipCommandService {
+  return {
+    readHistory: (personId, query) =>
+      histories.readHistory(personId, { organizationId: null, ...query }),
+    decideSubstitution: (input) => commands.decideSubstitution(input),
+    endRelationship: (input) => commands.endRelationship(input),
+  }
+}
+
 export interface MyRelationshipService {
   listMine(personId: string, query: MyRelationshipQuery): Promise<MyRelationshipPage>
 }

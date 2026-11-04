@@ -1,0 +1,24 @@
+# The build context is the whole monorepo, so keep it to what the images build from.
+.git
+**/node_modules
+**/dist
+**/.next
+**/.next-*
+**/.turbo
+**/.vercel
+**/coverage
+**/playwright-report
+**/test-results
+.env
+.env.*
+!.env.example
+
+# The Expo app is 4 GB and ships to the stores, not to a container. Its manifest
+# stays, because a frozen install needs every workspace manifest.
+apps/space/*
+!apps/space/package.json
+
+infra/**/.terraform
+infra/**/*.tfstate*
+infra/**/terraform.tfvars
+infra/**/backend.hcl

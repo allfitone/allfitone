@@ -54,7 +54,9 @@ import { useParams } from 'next/navigation'
 import { useOrganizationContext } from './organization-context'
 import { RelationshipHolderChange } from './relationship-holder-change'
 import { RelationshipHolderForm } from './relationship-holder-form'
+import { RelationshipSubstitutionEnd } from './relationship-substitution-end'
 import { RelationshipSubstitutionPropose } from './relationship-substitution-propose'
+import { RelationshipTermination } from './relationship-termination'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientInitials, seesEveryClient } from '@/lib/client-directory'
 import {
@@ -71,11 +73,14 @@ import {
   substitutionStatusTone,
 } from '@/lib/relationship-state'
 import {
+  canEndSubstitution,
   canProposeSubstitution,
+  coversThatStillMatterFirst,
   coversAvailable,
   seesEverySubstitution,
 } from '@/lib/relationship-substitution'
-import { useCompactViewport } from '@/lib/use-compact-viewport'
+import { canTerminateRelationship } from '@/lib/relationship-termination'
+import { useCompactTable } from '@/lib/use-compact-table'
 import type {
   OrganizationMembership,
   RelationshipGrant,
@@ -99,7 +104,7 @@ const COACH_PAGE_SIZE = 50
 export function RelationshipStateScreen() {
   const { current } = useOrganizationContext()
   const params = useParams<{ relationshipId: string }>()
-  const compact = useCompactViewport()
+  const { compact, measuredRef } = useCompactTable<HTMLDivElement>()
   const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
   const query = useQuery(relationshipQueryOptions(current.organization_id, params.relationshipId))
   const everyClient = seesEveryClient(current.roles, rolesQuery.data?.items)
@@ -131,7 +136,7 @@ export function RelationshipStateScreen() {
   const relationship = query.data
 
   return (
-    <div data-relationship-state>
+    <div ref={measuredRef} data-relationship-state>
       <WorkspacePageHeader
         description={
           relationship.status === 'active'
@@ -187,6 +192,16 @@ export function RelationshipStateScreen() {
         }
       />
       <GrantsPanel grants={relationship.grants} compact={compact} />
+      {canTerminateRelationship({
+        mayAssignProfessionals: mayAssign,
+        relationshipActive: relationship.status === 'active',
+      }) ? (
+        <RelationshipTermination
+          organizationId={current.organization_id}
+          relationship={relationship}
+          clientName={relationship.display_name}
+        />
+      ) : null}
     </div>
   )
 }
@@ -366,8 +381,19 @@ function ProfessionalsPanel({
             </p>
           ) : (
             <ul data-relationship-substitution-list aria-label="Suplencias del vínculo">
-              {substitutions.map((substitution) => (
-                <SubstitutionRow key={substitution.assignment_id} substitution={substitution} />
+              {coversThatStillMatterFirst(substitutions).map((substitution) => (
+                <SubstitutionRow
+                  key={substitution.assignment_id}
+                  substitution={substitution}
+                  organizationId={organizationId}
+                  relationshipId={relationship.relationship_id}
+                  holderName={holder?.display_name ?? 'el profesional responsable'}
+                  mayEnd={canEndSubstitution({
+                    mayAssignProfessionals,
+                    relationshipActive: active,
+                    status: substitution.status,
+                  })}
+                />
               ))}
             </ul>
           )}
@@ -377,7 +403,24 @@ function ProfessionalsPanel({
   )
 }
 
-function SubstitutionRow({ substitution }: { substitution: RelationshipSubstitution }) {
+function SubstitutionRow({
+  substitution,
+  organizationId,
+  relationshipId,
+  holderName,
+  mayEnd,
+}: {
+  substitution: RelationshipSubstitution
+  organizationId: string
+  relationshipId: string
+  holderName: string
+  /*
+   * Decided by the card, not here: the rule needs the relationship's state and
+   * the reader's capability, and a row that worked it out for itself would be
+   * a second copy of `OP-REL-006`'s actors to drift from the first.
+   */
+  mayEnd: boolean
+}) {
   return (
     <li data-relationship-substitution>
       <div data-relationship-substitution-identity>
@@ -387,6 +430,15 @@ function SubstitutionRow({ substitution }: { substitution: RelationshipSubstitut
       <Badge variant={substitutionStatusTone(substitution.status)}>
         {substitutionStatusLabel(substitution.status)}
       </Badge>
+      {mayEnd ? (
+        <RelationshipSubstitutionEnd
+          organizationId={organizationId}
+          relationshipId={relationshipId}
+          substitutionId={substitution.assignment_id}
+          substituteName={substitution.display_name}
+          holderName={holderName}
+        />
+      ) : null}
     </li>
   )
 }

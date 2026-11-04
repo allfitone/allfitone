@@ -52,7 +52,7 @@ for (const viewport of [DESKTOP, MOBILE]) {
  */
 test('the audit detects a contrast failure', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture())
-  await page.goto('/')
+  await page.goto('/es')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
   await page.evaluate(() => {

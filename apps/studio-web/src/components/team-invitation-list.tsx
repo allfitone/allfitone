@@ -14,7 +14,7 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/rea
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
-import { Empty, EmptyDescription, EmptyTitle } from '@allfitone/react/components/empty'
+import { RegisterCardState } from '@/components/register-card-state'
 import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
@@ -35,7 +35,7 @@ import { useOrganizationContext } from './organization-context'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { createCommandIntentManager } from '@/lib/command-intent'
-import { useCompactViewport } from '@/lib/use-compact-viewport'
+import { useCompactTable } from '@/lib/use-compact-table'
 import {
   StudioApiError,
   newCommand,
@@ -68,7 +68,7 @@ const INVITATION_ISSUANCE_ENABLED = process.env.NEXT_PUBLIC_STAFF_INVITATIONS_EN
 
 export function TeamInvitationList() {
   const { current } = useOrganizationContext()
-  const compact = useCompactViewport()
+  const { compact, measuredRef } = useCompactTable<HTMLElement>()
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<Filter>('all')
   const [revokeIntent, setRevokeIntent] = useState<InvitationItem>()
@@ -215,7 +215,7 @@ export function TeamInvitationList() {
         : undefined
 
   return (
-    <section data-team-page aria-label="Invitaciones del equipo">
+    <section ref={measuredRef} data-team-page aria-label="Invitaciones del equipo">
       <WorkspacePageHeader
         description="Consulta el destino, la propuesta y el estado de cada invitación."
         actions={
@@ -251,17 +251,14 @@ export function TeamInvitationList() {
         </p>
       ) : null}
 
-      {/* Six columns do not fit a phone. The directory answered that with a
-          card list and this one did not, so invitations were the section that
-          scrolled sideways on a phone while its sibling did not. Only one
-          presentation is rendered — see useCompactViewport. */}
+      {/* Six columns do not fit the space a narrow register has. The directory
+          answered that with a card list and this one did not, so invitations
+          were the section that scrolled sideways while its sibling did not.
+          Only one presentation is rendered — see useCompactTable. */}
       {compact ? (
         <div data-team-directory-cards aria-label="Invitaciones" aria-busy={loading || undefined}>
           {listState ? (
-            <Empty>
-              <EmptyTitle>{listState.title}</EmptyTitle>
-              <EmptyDescription>{listState.description}</EmptyDescription>
-            </Empty>
+            <RegisterCardState {...listState} />
           ) : (
             <ul data-team-directory-card-list>
               {items.map((item) => (

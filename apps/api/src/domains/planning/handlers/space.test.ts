@@ -62,6 +62,27 @@ const detail: ProgramDetail = {
   goals: ['build_muscle'],
   levels: ['some_practice', 'experienced'],
   emphases: ['back', 'chest', 'legs'],
+  nutrition: {
+    goal_code: 'build_muscle',
+    targets: [
+      {
+        nutrient_code: 'energy',
+        mode: 'range',
+        minimum: 2800,
+        maximum: 3100,
+        exact: null,
+        unit: 'kcal',
+      },
+      {
+        nutrient_code: 'protein',
+        mode: 'exact',
+        minimum: null,
+        maximum: null,
+        exact: 160,
+        unit: 'g',
+      },
+    ],
+  },
   days: [
     {
       day: 1,
@@ -236,6 +257,8 @@ const catalogueProgram: ProgramSummary = {
   levels: ['some_practice', 'experienced'],
   emphases: ['back', 'chest', 'legs'],
   cover_url: 'https://media.test/catalog/programs/p6/male/abc.webp',
+  locked: false,
+  unlock_feature: null,
 }
 
 const catalogue: ProgramCatalogue = {
@@ -285,6 +308,7 @@ function harness(overrides?: {
     discardMyProgram: async () => program,
     removeMyProgram: async () => removedProgram,
     duplicateMyProgram: async () => duplicatedProgram,
+    duplicateMySessionTemplate: async () => template,
     readMyUnpublishedProgram: async () => program,
     createMyProgram: async () => program,
     replaceMyProgramDraft: async () => programDraft,
@@ -309,6 +333,7 @@ function harness(overrides?: {
   }
   const executions = {
     readWeekSummary: async () => weekSummary,
+    readOpenFreeSession: async () => null,
     ...overrides?.executions,
   } as unknown as SpaceExecutionService
   const app = new Hono()
@@ -352,7 +377,7 @@ describe('the Space planning surface honours the contract', () => {
         operation.path.startsWith('/space/v1/week-plan') ||
         operation.path.startsWith('/space/v1/session-templates'),
     )
-    expect(declared).toHaveLength(20)
+    expect(declared).toHaveLength(21)
     expect(declared.map((operation) => operation.allfitOperation).sort()).toEqual([
       'OP-PLN-001',
       'OP-PLN-002',
@@ -389,6 +414,8 @@ describe('the Space planning surface honours the contract', () => {
       // Y copiarlo, que además es la única salida para un programa tomado de Allfit:
       // no tiene borrador y no se puede editar, y la copia sí.
       'OP-PLN-035',
+      // Duplicating one's own routine, which Pro opens.
+      'OP-PLN-036',
     ])
   })
 })
@@ -475,6 +502,22 @@ describe('GET /space/v1/programs/{programVersionId}', () => {
     expect(body.cover_url).toBe('https://media.test/catalog/programs/p6/male/abc.webp')
     expect(body.days[0]?.cover_url).toBe('https://media.test/catalog/programs/p6/male/dia.webp')
     assertMatchesContract('SpaceProgramDetail', body)
+  })
+
+  test("T-PLN-API-170 carries the programme's nutrition goal, or null without one", async () => {
+    const response = await harness().request(`/space/v1/programs/${VERSION_ID}`, {
+      headers: authorized,
+    })
+    const body = (await response.json()) as ProgramDetail
+    expect(body.nutrition?.goal_code).toBe('build_muscle')
+    assertMatchesContract('SpaceProgramDetail', body)
+
+    const none = await harness({
+      service: { readProgram: async () => ({ ...detail, nutrition: null }) },
+    }).request(`/space/v1/programs/${VERSION_ID}`, { headers: authorized })
+    const empty = (await none.json()) as ProgramDetail
+    expect(empty.nutrition).toBeNull()
+    assertMatchesContract('SpaceProgramDetail', empty)
   })
 
   test('T-PLN-API-167 draws a programme with no artwork rather than refusing it', async () => {
@@ -882,6 +925,47 @@ describe('POST /space/v1/assignments', () => {
     expect(response.status).toBe(400)
   })
 
+  test("T-PLN-API-171 passes the choice to adopt the programme's goal, false by default", async () => {
+    const seen: boolean[] = []
+    const app = harness({
+      service: {
+        chooseProgram: async (input) => {
+          seen.push(input.adoptNutrition)
+          return assignment
+        },
+      },
+    })
+    const send = (body: unknown) =>
+      app.request('/space/v1/assignments', {
+        method: 'POST',
+        headers: commanded,
+        body: JSON.stringify(body),
+      })
+
+    expect(
+      (
+        await send({
+          program_version_id: VERSION_ID,
+          timezone: 'America/Bogota',
+          adopt_nutrition: true,
+        })
+      ).status,
+    ).toBe(200)
+    expect(
+      (await send({ program_version_id: VERSION_ID, timezone: 'America/Bogota' })).status,
+    ).toBe(200)
+    expect(seen).toEqual([true, false])
+  })
+
+  test('T-PLN-API-172 refuses an adopt_nutrition that is not a boolean', async () => {
+    const response = await choose({
+      program_version_id: VERSION_ID,
+      timezone: 'America/Bogota',
+      adopt_nutrition: 'yes',
+    })
+    expect(response.status).toBe(400)
+  })
+
   test('T-PLN-API-056 refuses a blank timezone', async () => {
     const response = await choose({ program_version_id: VERSION_ID, timezone: '   ' })
     expect(response.status).toBe(400)
@@ -958,6 +1042,27 @@ describe('GET /space/v1/today', () => {
     const body = (await response.json()) as { week: { tonnage_kg: number | null } }
     expect(body.week.tonnage_kg).toBe(5120.5)
     assertMatchesContract('SpaceToday', body)
+  })
+
+  test('T-PLN-API-168 names the free session still open, so Today resumes it', async () => {
+    const open = '019e4000-0000-7000-8000-000000000999'
+    const response = await harness({
+      executions: { readOpenFreeSession: async () => open },
+    }).request('/space/v1/today?timezone=America/Bogota', { headers: authorized })
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { open_free_session_id: string | null }
+    expect(body.open_free_session_id).toBe(open)
+    assertMatchesContract('SpaceToday', body)
+  })
+
+  test('T-PLN-API-169 and says null when nothing is open', async () => {
+    const response = await harness().request('/space/v1/today?timezone=America/Bogota', {
+      headers: authorized,
+    })
+
+    const body = (await response.json()) as { open_free_session_id: string | null }
+    expect(body.open_free_session_id).toBeNull()
   })
 
   test('T-PLN-API-104 refuses a request with no timezone, because today is local', async () => {
@@ -1481,5 +1586,71 @@ describe('PUT /space/v1/programs/{programId}/cover', () => {
     })
 
     expect(response.status).toBe(401)
+  })
+})
+
+describe('POST /space/v1/session-templates/{templateId}/duplicate', () => {
+  test('T-PLN-API-173 answers the new routine, as the contract describes it', async () => {
+    let asked = ''
+    const watching = harness({
+      service: {
+        duplicateMySessionTemplate: async (input) => {
+          asked = input.templateId
+          return template
+        },
+      },
+    })
+    const response = await watching.request(
+      `/space/v1/session-templates/${TEMPLATE_ID}/duplicate`,
+      {
+        method: 'POST',
+        headers: commanded,
+      },
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(asked).toBe(TEMPLATE_ID)
+    assertMatchesContract('SessionTemplate', await response.json())
+  })
+
+  test('T-PLN-API-174 a plan without duplication says which function it lacks', async () => {
+    const refused = harness({
+      service: {
+        duplicateMySessionTemplate: async () => {
+          throw Object.assign(new Error('this function comes with Pro'), {
+            code: 'AF402',
+            detail: 'routine_duplication',
+          })
+        },
+      },
+    })
+    const response = await refused.request(`/space/v1/session-templates/${TEMPLATE_ID}/duplicate`, {
+      method: 'POST',
+      headers: commanded,
+    })
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({
+      type: 'https://errors.allfit.invalid/plan-limit-reached',
+      feature: 'routine_duplication',
+    })
+  })
+
+  test('T-PLN-API-175 refuses an identifier that is not a UUIDv7, and needs the command headers', async () => {
+    const bad = await harness().request('/space/v1/session-templates/not-a-uuid/duplicate', {
+      method: 'POST',
+      headers: commanded,
+    })
+    const uncommanded = await harness().request(
+      `/space/v1/session-templates/${TEMPLATE_ID}/duplicate`,
+      {
+        method: 'POST',
+        headers: authorized,
+      },
+    )
+
+    expect(bad.status).toBe(400)
+    expect(uncommanded.status).toBe(400)
   })
 })

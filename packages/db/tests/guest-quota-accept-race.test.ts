@@ -5,15 +5,15 @@ import postgres from 'postgres'
 //
 // Accepting takes no place that was not already taken: the invitation being answered
 // was pending, which is what occupies a place, and it becomes an active relationship,
-// which occupies one too. That is why acceptance carries no quota check. But it only
-// holds if the count sees one consistent instant. Counting the two kinds of occupant in
-// two statements gives each its own snapshot under READ COMMITTED, and an acceptance
-// committing in between is counted in neither: the relationship is not active yet for
-// the first, and the invitation is no longer pending for the second. The place goes
-// missing and the gym invites past its quota.
+// which occupies one too. So at a gym exactly at its quota the acceptance converts its
+// own place and is never the one refused. But that only holds if the count sees one
+// consistent instant. Counted in two snapshots, an acceptance committing between them
+// is counted in neither: the relationship is not active yet for the first, and the
+// invitation is no longer pending for the second. The place goes missing and the gym
+// invites past its quota.
 //
-// The acceptance must always win, because refusing a person mid-flight to protect a
-// number is what criterion 6 forbids. It is the invitation that has to be refused.
+// Both commands lock the organization row and the count runs in one snapshot, so the
+// race must end with the acceptance in and the newcomer's invitation refused.
 
 const OWNER_ID = '0199b400-0000-7000-8000-000000000001'
 const INVITEE_ID = '0199b400-0000-7000-8000-000000000002'
@@ -213,8 +213,8 @@ test('an acceptance and a last-place invitation never put two people in one plac
     expect(after?.occupied).toBe(1)
   } else {
     expect(invited.reason).toMatchObject({
-      code: '55000',
-      message: 'the gym has no places left in its guest quota',
+      code: 'AF409',
+      message: 'the organization has no guest places left',
     })
     expect(after?.relationships_active).toBe(1)
     expect(after?.invitations_pending).toBe(0)

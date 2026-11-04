@@ -1,200 +1,131 @@
--- T-REL-QUOTA-02 — OP-IDN-009 against the guest quota (`HU-STUDIO-087`, criterion 5).
+-- T-REL-QUOTA-02 — the guest quota as Studio reads it (`HU-STUDIO-087`, criteria 1 and 2).
 --
--- Accepting an invitation takes no place that was not already taken. The invitation
--- being answered is pending and unexpired, which is exactly what occupies a place;
--- accepting turns it into an active relationship, which occupies one too. So the
--- occupancy before and after an acceptance is the same figure, and the place was
--- reserved when the invitation was issued.
---
--- That is why acceptance carries no quota check, and why this file exists: nobody may
--- later add one without these assertions saying so. The only case such a check could
--- ever refuse is a gym that Allfit cut below what it holds, and refusing a person
--- mid-flight for that would end an offer the gym legitimately made, which is what
--- criterion 6 forbids Allfit's change from doing.
---
--- Both ends are asserted: a gym exactly at its quota and a gym over it. Each time the
--- acceptance succeeds, the occupancy figure is identical, and nothing is half-done:
--- the relationship, the consent record, the grant and the closed invitation all exist.
+-- A gym sees how many places are taken and how many are left, and nothing about who
+-- decided its number: `last_change` carries the Allfit staff member who set it, which
+-- the gym must never learn, so the read has no such column at all. A person with no
+-- seat at the gym reads nothing, and a gym with no quota says so with an absent figure
+-- rather than a zero, because zero places left would read as a gym that cannot invite.
 
 begin;
 
-select plan(16);
+select plan(8);
 
 insert into identity.people (id, given_name, family_name, status)
 values
-  ('019b3100-0000-7000-8000-000000000001', 'Ana', 'Client', 'active'),
-  ('019b3100-0000-7000-8000-000000000011', 'Olivia', 'Owner', 'active'),
-  ('019b3100-0000-7000-8000-000000000021', 'Xavier', 'First', 'active'),
-  ('019b3100-0000-7000-8000-000000000022', 'Yolanda', 'Second', 'active');
+  ('019b3200-0000-7000-8000-000000000001', 'Ana', 'Client', 'active'),
+  ('019b3200-0000-7000-8000-000000000011', 'Olivia', 'Owner', 'active'),
+  ('019b3200-0000-7000-8000-000000000012', 'Camilo', 'Coach', 'active'),
+  ('019b3200-0000-7000-8000-000000000013', 'Xiomara', 'Outsider', 'active');
 
 insert into organizations.organizations (id, type_code, display_name, responsible_party)
-values ('019b3100-0000-7000-8000-000000000101', 'gym', 'Accept Gym',
-  '{"party_kind":"legal_entity","party_name":"Accept SAS","purpose":"studio_operations"}');
+values
+  ('019b3200-0000-7000-8000-000000000101', 'gym', 'Read Gym',
+    '{"party_kind":"legal_entity","party_name":"Read SAS","purpose":"studio_operations"}'),
+  ('019b3200-0000-7000-8000-000000000102', 'gym', 'Free Gym',
+    '{"party_kind":"legal_entity","party_name":"Free SAS","purpose":"studio_operations"}');
 insert into organizations.organization_memberships (id, organization_id, person_id, status)
-values ('019b3100-0000-7000-8000-000000000201', '019b3100-0000-7000-8000-000000000101',
-  '019b3100-0000-7000-8000-000000000011', 'active');
+values
+  ('019b3200-0000-7000-8000-000000000201', '019b3200-0000-7000-8000-000000000101',
+    '019b3200-0000-7000-8000-000000000011', 'active'),
+  ('019b3200-0000-7000-8000-000000000202', '019b3200-0000-7000-8000-000000000101',
+    '019b3200-0000-7000-8000-000000000012', 'active'),
+  ('019b3200-0000-7000-8000-000000000203', '019b3200-0000-7000-8000-000000000102',
+    '019b3200-0000-7000-8000-000000000011', 'active');
 insert into organizations.membership_roles (membership_id, role_code)
-values ('019b3100-0000-7000-8000-000000000201', 'owner');
-
-insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-values ('019b3100-0000-7000-8000-000000000301', 'body_progress', 1, 'published', clock_timestamp());
+values
+  ('019b3200-0000-7000-8000-000000000201', 'owner'),
+  ('019b3200-0000-7000-8000-000000000202', 'coach'),
+  ('019b3200-0000-7000-8000-000000000203', 'owner');
 
 insert into relationships.service_relationships (id, person_id, organization_id, status)
-values ('019b3100-0000-7000-8000-000000000401', '019b3100-0000-7000-8000-000000000001',
-  '019b3100-0000-7000-8000-000000000101', 'active');
+values ('019b3200-0000-7000-8000-000000000401', '019b3200-0000-7000-8000-000000000001',
+  '019b3200-0000-7000-8000-000000000101', 'active');
 
--- One relationship and two invitations out: three places of three.
 update organizations.organizations set guest_quota_seats = 3
-where id = '019b3100-0000-7000-8000-000000000101';
-
-create function pg_temp.invite(p_email text, p_n integer)
-returns void
-language sql
-as $$
-  select issued.invitation_id
-  from identity.issue_client_invitation(
-    '019b3100-0000-7000-8000-000000000011', '019b3100-0000-7000-8000-000000000101',
-    'email', p_email,
-    '[{"scope_code":"body_progress","access_level":"read","purpose":"Seguimiento",
-       "presented_snapshot":{"title":"Progreso"}}]'::jsonb,
-    extensions.digest('token-' || p_email, 'sha256'), 1::smallint,
-    ('019b3100-0000-7000-8000-' || lpad(p_n::text, 12, '0'))::uuid,
-    ('019b3100-0000-7000-8000-' || lpad(p_n::text, 12, '0'))::uuid,
-    extensions.digest('request-' || p_n::text, 'sha256')
-  ) as issued
-$$;
-
-create function pg_temp.accept(p_person uuid, p_email text, p_n integer)
-returns void
-language sql
-as $$
-  select decided.invitation_id
-  from identity.decide_client_invitation(
-    p_person,
-    extensions.digest('token-' || p_email, 'sha256'),
-    (select intent.id from identity.invitation_intents as intent
-       join identity.invitations as invitation on invitation.id = intent.invitation_id
-       where invitation.contact::text = p_email and intent.kind = 'service_relationship'),
-    'accepted', '{"body_progress":"accepted"}'::jsonb,
-    ('019b3100-0000-7000-8000-' || lpad(p_n::text, 12, '0'))::uuid,
-    ('019b3100-0000-7000-8000-' || lpad(p_n::text, 12, '0'))::uuid,
-    extensions.digest('request-' || p_n::text, 'sha256')
-  ) as decided
-$$;
+where id = '019b3200-0000-7000-8000-000000000101';
 
 select set_config('app.actor_kind', 'person', true),
-       set_config('app.actor_person_id', '019b3100-0000-7000-8000-000000000011', true),
-       set_config('app.actor_org_id', '019b3100-0000-7000-8000-000000000101', true),
-       set_config('app.request_id', gen_random_uuid()::text, true);
+       set_config('app.actor_person_id', '019b3200-0000-7000-8000-000000000011', true),
+       set_config('app.actor_org_id', '019b3200-0000-7000-8000-000000000101', true);
 
-select pg_temp.invite('x1@example.test', 9001);
-select pg_temp.invite('x2@example.test', 9002);
-
-select is(
-  (select occupied from organizations.organization_guest_occupancy('019b3100-0000-7000-8000-000000000101')),
-  3,
-  'the gym is exactly at its quota'
+select results_eq(
+  $$select seats, occupied, places_left, over_quota
+    from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000101')$$,
+  $$values (3, 1, 2, false)$$,
+  'the owner reads the seats, what is taken and what is left'
 );
 
--- At the quota: the first person accepts.
-select set_config('app.actor_person_id', '019b3100-0000-7000-8000-000000000021', true),
-       set_config('app.actor_verified_email', 'x1@example.test', true);
-select lives_ok(
-  $$select pg_temp.accept('019b3100-0000-7000-8000-000000000021', 'x1@example.test', 9101)$$,
-  'a person accepts an invitation to a gym that is exactly at its quota'
+-- Whoever invites must be able to be told why before trying, a coach included.
+select set_config('app.actor_person_id', '019b3200-0000-7000-8000-000000000012', true);
+select results_eq(
+  $$select seats, occupied, places_left, over_quota
+    from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000101')$$,
+  $$values (3, 1, 2, false)$$,
+  'a coach with no assignment reads the same whole-gym figure'
 );
 
-select set_config('app.actor_person_id', '019b3100-0000-7000-8000-000000000011', true);
+-- Nothing about who set the number is part of the answer.
 select is(
-  (select occupied from organizations.organization_guest_occupancy('019b3100-0000-7000-8000-000000000101')),
-  3,
-  'the occupancy is the same after the acceptance: the invitation became a relationship'
-);
-select is(
-  (select relationships_active from organizations.organization_guest_occupancy('019b3100-0000-7000-8000-000000000101')),
-  2,
-  'one place moved from an invitation to a relationship'
-);
-select is(
-  (select count(*) from relationships.service_relationships
-   where person_id = '019b3100-0000-7000-8000-000000000021' and status = 'active'),
-  1::bigint,
-  'and the relationship exists'
-);
-select is(
-  (select count(*) from privacy.data_grants
-   where person_id = '019b3100-0000-7000-8000-000000000021' and status = 'active'),
-  1::bigint,
-  'with the grant that was accepted'
-);
-select is(
-  (select invitation.status::text from identity.invitations as invitation
-   where invitation.contact::text = 'x1@example.test'),
-  'completed',
-  'and the invitation is closed, so nothing was left half-done'
+  (select array_agg(arg order by ordinality)
+   from pg_proc as proc,
+        unnest(proc.proargnames, proc.proargmodes::text[]) with ordinality as args(arg, mode, ordinality)
+   where proc.oid = 'organizations.studio_guest_quota(uuid)'::regprocedure
+     and args.mode = 't'),
+  array['seats', 'occupied', 'places_left', 'over_quota'],
+  'the columns are the four figures and carry no last_change, no actor, no duty'
 );
 
--- Allfit now cuts the quota far below what the gym holds.
-update organizations.organizations set guest_quota_seats = 1
-where id = '019b3100-0000-7000-8000-000000000101';
-
-select is(
-  (organizations.guest_quota_projection('019b3100-0000-7000-8000-000000000101')->>'over_quota')::boolean,
-  true,
-  'the gym is over its quota'
-);
-
--- Over the quota: the second person, mid-flight, still accepts.
-select set_config('app.actor_person_id', '019b3100-0000-7000-8000-000000000022', true),
-       set_config('app.actor_verified_email', 'x2@example.test', true);
-select lives_ok(
-  $$select pg_temp.accept('019b3100-0000-7000-8000-000000000022', 'x2@example.test', 9102)$$,
-  'a person accepts an invitation to a gym that Allfit put over its quota'
-);
-
-select set_config('app.actor_person_id', '019b3100-0000-7000-8000-000000000011', true);
-select is(
-  (select occupied from organizations.organization_guest_occupancy('019b3100-0000-7000-8000-000000000101')),
-  3,
-  'the occupancy is still the same figure, over the quota or not'
-);
-select is(
-  (select relationships_active from organizations.organization_guest_occupancy('019b3100-0000-7000-8000-000000000101')),
-  3,
-  'both invitations are now relationships'
-);
-select is(
-  (select count(*) from relationships.service_relationships
-   where person_id = '019b3100-0000-7000-8000-000000000022' and status = 'active'),
-  1::bigint,
-  'and the second relationship exists'
-);
-select is(
-  (select count(*) from identity.invitations
-   where organization_id = '019b3100-0000-7000-8000-000000000101' and status = 'pending'),
-  0::bigint,
-  'with no invitation left pending'
-);
-select is(
-  (select count(*) from privacy.consent_events
-   where person_id in ('019b3100-0000-7000-8000-000000000021',
-                       '019b3100-0000-7000-8000-000000000022')),
-  2::bigint,
-  'and each acceptance recorded its consent'
-);
-select is(
-  (select count(*) from relationships.service_relationships
-   where organization_id = '019b3100-0000-7000-8000-000000000101' and status = 'active'),
-  3::bigint,
-  'lowering the quota ended no relationship'
-);
-
--- The door stays closed to anybody new, which is the only thing a lower quota does.
+-- A person with no seat at this gym reads nothing, whatever they claim.
+select set_config('app.actor_person_id', '019b3200-0000-7000-8000-000000000013', true);
 select throws_ok(
-  $$select pg_temp.invite('x3@example.test', 9003)$$,
-  '55000',
-  'the gym has no places left in its guest quota',
-  'an over-quota gym still invites nobody new'
+  $$select * from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000101')$$,
+  '42501',
+  'guest quota requires a directory or invitation capability',
+  'an outsider cannot read the gym''s quota'
+);
+
+-- Without any actor, closed.
+select set_config('app.actor_kind', '', true), set_config('app.actor_person_id', '', true);
+select throws_ok(
+  $$select * from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000101')$$,
+  '42501',
+  'a person actor is required',
+  'with no actor the read is closed, not open'
+);
+
+-- Another gym's figure is not readable with this gym's seat.
+select set_config('app.actor_kind', 'person', true),
+       set_config('app.actor_person_id', '019b3200-0000-7000-8000-000000000012', true);
+select throws_ok(
+  $$select * from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000102')$$,
+  '42501',
+  'guest quota requires a directory or invitation capability',
+  'a seat at one gym is not a seat at another'
+);
+
+-- No quota is an absent figure, never zero.
+select set_config('app.actor_person_id', '019b3200-0000-7000-8000-000000000011', true);
+select results_eq(
+  $$select seats, occupied, places_left, over_quota
+    from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000102')$$,
+  $$values (null::integer, 0, null::integer, false)$$,
+  'a gym with no quota has no seats and no places-left figure, and is not over'
+);
+
+-- Over the quota: nothing is left, and the gym is told it is over.
+update organizations.organizations set guest_quota_seats = 1
+where id = '019b3200-0000-7000-8000-000000000101';
+insert into identity.people (id, given_name, family_name, status)
+values ('019b3200-0000-7000-8000-000000000002', 'Bruno', 'Client', 'active');
+insert into relationships.service_relationships (id, person_id, organization_id, status)
+values ('019b3200-0000-7000-8000-000000000402', '019b3200-0000-7000-8000-000000000002',
+  '019b3200-0000-7000-8000-000000000101', 'active');
+
+select results_eq(
+  $$select seats, occupied, places_left, over_quota
+    from organizations.studio_guest_quota('019b3200-0000-7000-8000-000000000101')$$,
+  $$values (1, 2, 0, true)$$,
+  'over its quota a gym has no places left and is told it is over, never a negative'
 );
 
 select * from finish();

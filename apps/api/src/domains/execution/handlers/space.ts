@@ -22,7 +22,7 @@ import { createHash } from 'node:crypto'
 import type { VerifiedToken } from '@allfitone/auth-provider'
 import { Hono, type Context } from 'hono'
 
-import { fail } from '../../../platform/http/index.js'
+import { fail, failPlanLimit, planLimitFeature } from '../../../platform/http/index.js'
 import {
   SpaceActorError,
   spaceActorResolver,
@@ -72,6 +72,27 @@ export function spaceExecutionRoutes(
         ...start,
         ...command,
       })
+      c.header('Location', `/space/v1/executions/${started.id}`)
+      return c.json(started, 201)
+    } catch (cause) {
+      return failure(c, cause)
+    }
+  })
+
+  routes.post('/executions', async (c) => {
+    c.header('Cache-Control', 'no-store')
+
+    const token = await verified(c, verify)
+    if (!token) return fail(c, 'unauthenticated')
+
+    const body = await readJson(c)
+    const start = readFreeStart(body)
+    const command = commandContext(c, body)
+    if (!start || !command) return fail(c, 'invalid-request')
+
+    try {
+      const personId = await actors().personFor(token.subject)
+      const started = await execution().startFreeSession({ personId, ...start, ...command })
       c.header('Location', `/space/v1/executions/${started.id}`)
       return c.json(started, 201)
     } catch (cause) {
@@ -172,6 +193,39 @@ export function spaceExecutionRoutes(
         requestId: c.req.header('x-request-id') ?? '',
       })
       return c.json(found, 200)
+    } catch (cause) {
+      return failure(c, cause)
+    }
+  })
+
+  routes.get('/progress/periods', async (c) => {
+    c.header('Cache-Control', 'no-store')
+
+    const token = await verified(c, verify)
+    if (!token) return fail(c, 'unauthenticated')
+
+    const timezone = readTimezone(c)
+    const period = c.req.query('period')
+    const count = Number(c.req.query('count'))
+    if (!timezone || (period !== 'week' && period !== 'month')) return fail(c, 'invalid-request')
+    if (!Number.isInteger(count) || count < 2 || count > 12) return fail(c, 'invalid-request')
+    // One programme, what was trained without one, or everything when absent.
+    const program = c.req.query('program')
+    if (program !== undefined && program !== 'free' && !UUID_V7.test(program)) {
+      return fail(c, 'invalid-request')
+    }
+
+    try {
+      const personId = await actors().personFor(token.subject)
+      const comparison = await execution().comparePeriods({
+        personId,
+        timezone,
+        period,
+        count,
+        program: program ?? null,
+        requestId: c.req.header('x-request-id') ?? '',
+      })
+      return c.json(comparison, 200)
     } catch (cause) {
       return failure(c, cause)
     }
@@ -440,6 +494,9 @@ function readHistoryQuery(c: Context) {
 
 function failure(c: Context, cause: unknown): Response {
   if (cause instanceof SpaceActorError) return fail(c, 'forbidden')
+  // The plan does not open this: the app offers Pro for exactly the function named.
+  const feature = planLimitFeature(cause)
+  if (feature) return failPlanLimit(c, feature)
   if (typeof cause === 'object' && cause !== null && 'code' in cause) {
     const code = (cause as { code: unknown }).code
     // The SQLSTATE, not the message: a refusal without it is a 400 nobody can chase.
@@ -503,6 +560,17 @@ function readStart(
   if (typeof requestedLevel !== 'string' || !LEVELS.has(requestedLevel)) return undefined
   if (typeof captureSource !== 'string' || !SOURCES.has(captureSource)) return undefined
   return { startedAt, timezone: zone, requestedLevel, captureSource }
+}
+
+const DISCIPLINE = /^[a-z][a-z0-9_]{1,63}$/
+
+/** A planned start's four fields, plus the discipline whose contract the session freezes. */
+function readFreeStart(body: unknown) {
+  if (typeof body !== 'object' || body === null) return undefined
+  const { discipline_code: disciplineCode, ...rest } = body as Record<string, unknown>
+  if (typeof disciplineCode !== 'string' || !DISCIPLINE.test(disciplineCode)) return undefined
+  const start = readStart(rest)
+  return start ? { ...start, disciplineCode } : undefined
 }
 
 function readResults(body: unknown): ExecutionResultsReplace | undefined {

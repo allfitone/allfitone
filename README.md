@@ -47,7 +47,7 @@ local database development and for the database integration checks.
 ## Setup
 
 ```bash
-git clone git@github.com:dinnartec/allfitone.git
+git clone git@github.com:allfitone/allfitone.git
 cd allfitone
 
 bun install          # also registers the git hooks via husky
@@ -186,7 +186,7 @@ The API runtime also requires a Supavisor transaction-pooler `DATABASE_URL` for
 the `allfit_api` role and a 32-byte base64 `SESSION_ENCRYPTION_KEY`. Keep staging
 and production values separate. Database migrations are deployed only through
 the protected GitHub workflow documented in
-[`allfitone-docs/platform/database/OPERATIONS.md`](https://github.com/dinnartec/allfitone-docs/blob/main/platform/database/OPERATIONS.md).
+[`allfitone-docs/platform/database/OPERATIONS.md`](https://github.com/allfitone/allfitone-docs/blob/main/platform/database/OPERATIONS.md).
 
 ## Git hooks
 

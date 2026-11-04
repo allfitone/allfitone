@@ -133,6 +133,7 @@
 [data-client-invitation-actions],
 [data-credential-actions],
 [data-card-footer-actions],
+[data-billing-actions],
 [data-profile-form-actions] {
   display: flex;
   flex-wrap: wrap;
@@ -213,6 +214,8 @@
 [data-invitation-waiting],
 [data-team-page],
 [data-client-page],
+[data-billing-page],
+[data-authorized-scope-page],
 [data-client-invite-page],
 [data-team-section],
 [data-profile-section],
@@ -229,6 +232,7 @@
 [data-membership-list],
 [data-ready-later],
 [data-role-register],
+[data-category-register],
 [data-organization-overview],
 [data-organization-details],
 [data-profile-presentation],
@@ -292,6 +296,7 @@
 
 [data-studio-loading-body],
 [data-role-catalog-state],
+[data-category-catalog-state],
 [data-session-ending-body],
 [data-organization-status-body] {
   display: flex;
@@ -462,7 +467,8 @@
 [data-overview-team-roles],
 [data-overview-orientation-roles],
 [data-membership-roles],
-[data-role-disclosure] {
+[data-role-disclosure],
+[data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -482,6 +488,8 @@
 [data-ready-later-item],
 [data-team-member-identity],
 [data-client-identity],
+[data-billing-person],
+[data-authorized-scope-person],
 [data-overview-team-identity] {
   display: flex;
   min-width: 0;
@@ -537,6 +545,8 @@
 [data-ownership-invitation-summary] dt,
 [data-team-member-facts] dt,
 [data-client-facts] dt,
+[data-billing-facts] dt,
+[data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
 [data-credential-details] dt {
   font-family: var(--afo-typography-label-font-family);
@@ -553,12 +563,15 @@
    down the card instead of leaving each one to start wherever its label ends. */
 /* CardContent pads sideways and nothing else, so the action sat against the
    last fact. The gap belongs to Studio's own element, not to the component. */
-[data-team-member-card] [data-team-invitation-actions] {
+[data-team-member-card] [data-team-invitation-actions],
+[data-billing-card] [data-billing-actions] {
   margin-block-start: var(--afo-space-4);
 }
 
 [data-team-member-facts],
 [data-client-facts],
+[data-billing-facts],
+[data-authorized-scope-facts],
 [data-relationship-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -610,6 +623,8 @@
 [data-organization-site-list],
 [data-team-directory-card-list],
 [data-client-directory-card-list],
+[data-billing-card-list],
+[data-authorized-scope-card-list],
 [data-relationship-substitution-list],
 [data-relationship-grant-cards],
 [data-relationship-history-list],
@@ -726,8 +741,14 @@
 
 /* -------------------------------------------------------------------- team */
 
+/* Every register that answers with cards when its table does not fit, so the
+   list, its pagination and its note keep one rhythm. Billing was left out of
+   all three of these rules and had no spacing at all on a phone: the cards sat
+   flush against each other and against the note below them. */
 [data-team-directory-cards],
-[data-client-directory-cards] {
+[data-client-directory-cards],
+[data-billing-cards],
+[data-authorized-scope-cards] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -742,7 +763,9 @@
    keeps the track at its full width and paints straight over the badge in the
    next column, which is what happened here. */
 [data-team-member-identity],
-[data-client-identity] {
+[data-client-identity],
+[data-billing-person],
+[data-authorized-scope-person] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
 }
@@ -752,7 +775,8 @@
 }
 
 [data-team-pagination],
-[data-client-pagination] {
+[data-client-pagination],
+[data-authorized-scope-pagination] {
   display: flex;
   justify-content: center;
 }
@@ -760,6 +784,8 @@
 [data-team-directory-note],
 [data-client-directory-note],
 [data-guest-quota-summary],
+[data-billing-note],
+[data-authorized-scope-note],
 [data-relationship-grant-note] {
   max-width: var(--studio-measure);
 }
@@ -793,6 +819,61 @@
 
 [data-role-capability-list] {
   padding-block: var(--afo-space-3);
+}
+
+/* -------------------------------------------- categorías de información */
+
+/* Las mismas reglas que el registro de roles: la pantalla es la misma clase de
+   referencia y cambiarla aquí sería mantener dos rejillas que deben coincidir. */
+[data-category-register] {
+  grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
+}
+
+[data-category-card] {
+  display: grid;
+}
+
+[data-category-card-body] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+[data-category-disclosure] {
+  justify-content: flex-start;
+  margin-block-start: auto;
+  padding-block-start: var(--afo-space-4);
+}
+
+/* Lo que lee el cliente va sangrado tras un filete: es una cita de otra
+   pantalla, no la voz de esta, y el sangrado lo dice sin necesidad de
+   repetirlo en palabras. */
+[data-category-client-view] {
+  display: grid;
+  gap: var(--afo-space-2);
+  margin-block-start: var(--afo-space-3);
+  padding-inline-start: var(--afo-space-4);
+  border-inline-start: 2px solid var(--afo-color-border);
+}
+
+[data-category-client-label],
+[data-category-purpose-label] {
+  margin: 0;
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--afo-color-text-muted);
+}
+
+[data-category-purpose-label] {
+  margin-block-start: var(--afo-space-2);
+}
+
+[data-category-description],
+[data-category-purpose] {
+  margin: 0;
+  max-width: 62ch;
 }
 
 /* ----------------------------------------------------------------- profile */
@@ -969,6 +1050,7 @@
   [data-profile-setup-actions],
   [data-profile-form-actions],
   [data-card-footer-actions],
+  [data-billing-actions],
   [data-team-invitation-actions] {
     width: 100%;
   }
@@ -982,6 +1064,7 @@
   [data-credential-actions] > *,
   [data-profile-setup-actions] > *,
   [data-card-footer-actions] > *,
+  [data-billing-actions] > *,
   [data-profile-form-actions] > * {
     flex: 1;
   }
@@ -1088,6 +1171,19 @@
   transform: translateX(-50%);
 }
 
+/*
+ * The landing's site header is fixed and carries the language switch. On a
+ * phone the panel spans it, and from 60rem the section links fill its middle,
+ * so in both the panel opens below the 5.25rem bar, where the page scrolls out
+ * from under it. In between the bar holds only the wordmark and the switch, at
+ * its two ends, and the usual place clears both and the headline beneath.
+ */
+@media (max-width: 39.99rem), (min-width: 60rem) {
+  :root:has([data-studio-site]) [data-analytics-controls][data-expanded='true'] {
+    top: calc(5.25rem + 16px);
+  }
+}
+
 [data-analytics-panel] {
   display: grid;
   padding: 16px;
@@ -1176,10 +1272,34 @@
 /* The alert states the refusal and the button acts on it; as bare siblings in
    a section they had no space between them and read as one block. The button
    sizes to its label rather than stretching the width of the alert. */
-[data-site-form-refusal] {
+[data-site-form-refusal],
+[data-organization-form-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);
+}
+
+/* Status and the way to change it share the card's action slot. They are two
+   different kinds of thing, so they get space between them, and they wrap
+   rather than push the card's title out of its own box on a narrow screen. */
+[data-organization-identity-action] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+}
+
+/* The type when it has nowhere to move to. It sits among the form's fields, so
+   it keeps their rhythm, but it is a term and its value — the same pair the read
+   screen shows — rather than a label and a control. */
+[data-organization-type-fixed] {
+  display: grid;
+  gap: var(--afo-space-2);
+}
+
+[data-organization-form-loading] {
+  margin: 0;
+  color: var(--afo-color-text-muted);
 }
 
 /* A site name is one word as often as not, and nothing caps how long that word
@@ -1227,7 +1347,8 @@
   font-size: var(--afo-font-size-lg);
 }
 
-[data-site-status-description] {
+[data-site-status-description],
+[data-organization-type-note] {
   margin: 0;
   max-width: var(--studio-measure);
   color: var(--afo-color-text-muted);
@@ -1238,8 +1359,59 @@
   margin-block-start: var(--afo-space-3);
 }
 
-[data-organization-site-edit] {
+[data-organization-site-edit],
+[data-organization-edit] {
   flex: none;
+}
+
+/* -------------------------------------------------------------- references */
+
+/* The client directory's two consultations, closing the section. A rule and
+   space set them apart from the list rather than a box: the page is a spread
+   and has borders enough already. The pair stacks when it does not fit,
+   instead of taking a third of the width each as it did in the action row. */
+[data-client-references] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--afo-space-1) var(--afo-space-5);
+  padding-block-start: var(--afo-space-3);
+  border-block-start: 1px solid var(--afo-color-border-default);
+}
+
+/*
+ * A text link that announces itself without waiting for the cursor and without
+ * asking for a button's weight: underlined at rest in the border grey, turning
+ * the text's own colour when pointed at.
+ *
+ * The token carries its suffix on purpose. `--afo-color-border` does not exist
+ * in the Design System — the names are `-default`, `-subtle`, `-strong` and
+ * `-accent` — and an invalid custom property in `text-decoration-color` or in
+ * `border-color` falls back to `currentcolor`, meaning full ink, which also
+ * leaves `:hover` with nothing to change. Four more rules in this file still
+ * carry the name that does not exist, `data-client-open` among them: the
+ * pattern this one came from. They go in STUDIO-157, because fixing them
+ * changes how other screens look.
+ */
+[data-client-reference] {
+  color: inherit;
+  font-size: var(--afo-font-size-sm);
+  text-decoration: underline;
+  text-decoration-color: var(--afo-color-border-default);
+  text-underline-offset: 3px;
+}
+
+[data-client-reference]:hover {
+  text-decoration-color: currentcolor;
+}
+
+/* One link per line: on a phone the two of them in a row left the second one
+   broken mid-word. */
+@media (max-width: 640px) {
+  [data-client-references] {
+    flex-direction: column;
+    gap: var(--afo-space-3);
+  }
 }
 
 /* ----------------------------------------------------------- relationship */
@@ -1273,6 +1445,36 @@
 
 /* The form sits under the empty state it resolves, separated the way the
    substitutions block is: a rule and space, not another card inside a card. */
+/* La acción más pesada de la ficha, y por eso suelta del resto: título, una
+   frase y el botón, con dos ritmos distintos. El título y su frase son una sola
+   cosa y van juntos; entre la frase y el botón hay un paso mayor, para que leer
+   y actuar no sean el mismo gesto.
+
+   `justify-items: start` porque el botón se dimensiona a su etiqueta: estirado
+   de lado a lado se leería como el siguiente paso de la página en vez de como
+   lo que es. */
+[data-relationship-termination] {
+  display: grid;
+  justify-items: start;
+  gap: var(--afo-space-2);
+}
+
+[data-relationship-termination-lead] {
+  max-width: 62ch;
+  margin-block: 0;
+  color: var(--afo-color-text-muted);
+}
+
+[data-relationship-termination] > [data-relationship-terminate] {
+  margin-block-start: var(--afo-space-3);
+}
+
+/* Lo que se conserva, lo que se deja de ver y bajo qué condición se lee: una
+   sola frase dentro del diálogo, al mismo ancho que la pregunta. */
+[data-relationship-termination-kept] {
+  margin-block: 0;
+}
+
 [data-relationship-assign-panel] {
   display: grid;
   gap: var(--afo-space-4);
@@ -1378,4 +1580,1194 @@
   margin-block-start: var(--afo-space-4);
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
+}
+
+/* ---------------------------------------------------------- access landing */
+
+/* What a signed-out visitor sees first. The header and footer are the shared
+   site chrome from the Design System, the same component the Allfit Space
+   landing uses; this block lays out everything between them. It follows the
+   Space landing's language — condensed display titles, tall product cards,
+   generous section rhythm — on a white canvas. Anything drawn on a dark surface
+   is a client's data, as it arrives from Space. */
+[data-studio-site] {
+  --afo-site-surface: var(--afo-color-background-surface);
+  --studio-ghost: var(--afo-color-neutral-slate);
+  --studio-card-radius: 28px;
+  --studio-object-radius: 20px;
+  --studio-ease: var(--afo-motion-easing-emphasized);
+  --studio-object-shadow: 0 30px 70px -28px
+    color-mix(in srgb, var(--afo-color-ink-void) 45%, transparent);
+
+  min-height: 100svh;
+  background: var(--afo-color-background-surface);
+  color: var(--afo-color-text-primary);
+}
+
+[data-studio-site] [data-afo-theme='dark'] {
+  --studio-ghost: var(--afo-color-neutral-graphite);
+
+  color: var(--afo-color-text-primary);
+}
+
+/* The footer's privacy entry opens a panel, so it is a button set like its links.
+   The link variant leaves the browser's own button face, so it is cleared here. */
+[data-studio-footer-action] {
+  padding: 0;
+  background: none;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ type */
+
+[data-studio-display] {
+  margin: 0;
+  font-family: var(--afo-font-family-display);
+  font-weight: 800;
+  line-height: 0.86;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+[data-studio-display='hero'] {
+  font-size: clamp(3.5rem, 11vw, 7.5rem);
+}
+
+[data-studio-display='section'] {
+  font-size: clamp(3rem, 8.4vw, 7.5rem);
+}
+
+/* Each line rises out of its own mask, as the Space titles do. */
+[data-studio-display-line] {
+  display: block;
+  overflow: clip;
+  padding-block-end: 0.05em;
+  margin-block-end: -0.05em;
+}
+
+[data-studio-display-line] > span {
+  display: block;
+}
+
+[data-studio-display-line][data-tone='ghost'] {
+  color: var(--studio-ghost);
+}
+
+[data-studio-display-line][data-tone='accent'] {
+  color: var(--afo-color-text-accent);
+}
+
+[data-studio-lead] {
+  margin: 0;
+  max-width: 46ch;
+  color: var(--afo-color-text-secondary);
+  font-size: clamp(1.0625rem, 1.35vw, 1.25rem);
+  line-height: 1.6;
+}
+
+[data-studio-note] {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+  line-height: 1.5;
+}
+
+[data-studio-avatar] {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--afo-color-accent-tonal-border);
+  border-radius: var(--afo-radius-full);
+  background: var(--afo-color-accent-tonal);
+  color: var(--afo-color-text-accent);
+  font-size: var(--afo-font-size-xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* ------------------------------------------------------------------ hero */
+
+[data-studio-hero] {
+  /* Clears the fixed header and the band the consent panel opens over. */
+  padding-block: clamp(9.5rem, 24vh, 13.5rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
+  overflow: clip;
+}
+
+[data-studio-hero-grid] {
+  display: grid;
+  gap: var(--afo-space-16);
+  align-items: center;
+}
+
+[data-studio-hero-copy] {
+  display: grid;
+  gap: var(--afo-space-8);
+  justify-items: start;
+}
+
+[data-studio-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-4) var(--afo-space-6);
+}
+
+/* One object, the client's sheet: the plan beside what she logged is the
+   whole headline, so nothing else competes with it. */
+[data-studio-hero-stage] {
+  margin: 0;
+}
+
+[data-studio-sheet-head],
+[data-studio-object-person] {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-3);
+}
+
+:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) strong {
+  display: block;
+  font-size: var(--afo-font-size-sm);
+  font-weight: 700;
+}
+
+:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) small {
+  display: block;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-studio-sheet] {
+  width: 100%;
+  padding: var(--afo-space-6);
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--studio-card-radius);
+  background: linear-gradient(
+    180deg,
+    var(--afo-color-background-surface-subtle) 0%,
+    var(--afo-color-background-surface) 70%
+  );
+  box-shadow: var(--studio-object-shadow);
+}
+
+[data-studio-sheet-head] strong {
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-2xl);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+[data-studio-sheet-shared] {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-2);
+  margin: var(--afo-space-4) 0 var(--afo-space-5);
+  padding-block-end: var(--afo-space-5);
+  border-bottom: 1px solid var(--afo-color-border-subtle);
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-studio-sheet-shared] svg {
+  flex: none;
+  color: var(--afo-color-text-accent);
+}
+
+[data-studio-sheet-grid] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.25rem 4.75rem;
+  column-gap: var(--afo-space-3);
+}
+
+[data-studio-sheet-column] {
+  padding-block-end: var(--afo-space-2);
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-studio-sheet-column]:not(:first-child) {
+  text-align: end;
+}
+
+[data-studio-sheet-row] {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: start;
+  padding-block: var(--afo-space-3);
+  border-top: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-studio-sheet-exercise] {
+  display: grid;
+  gap: var(--afo-space-0-5);
+  font-size: var(--afo-font-size-sm);
+  font-weight: 600;
+}
+
+[data-studio-sheet-change] {
+  font-size: var(--afo-font-size-xs);
+  font-weight: 700;
+}
+
+[data-studio-sheet-value] {
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+[data-studio-sheet-logged] {
+  color: var(--afo-color-text-primary);
+  font-weight: 700;
+}
+
+/* Over the plan and under it are different news, so they never share a colour. */
+:is([data-studio-sheet-change], [data-studio-sheet-logged])[data-direction='above'] {
+  color: var(--afo-color-text-accent);
+}
+
+:is([data-studio-sheet-change], [data-studio-sheet-logged])[data-direction='below'] {
+  color: var(--afo-color-status-warning);
+}
+
+[data-studio-sheet-foot] {
+  margin: var(--afo-space-4) 0 0;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+/* -------------------------------------------------------------- sections */
+
+[data-studio-section] {
+  padding-block: clamp(var(--afo-space-24), 12vw, 10.5rem);
+}
+
+[data-studio-section-head] {
+  display: grid;
+  gap: var(--afo-space-8);
+  margin-block-end: clamp(var(--afo-space-12), 6vw, var(--afo-space-20));
+}
+
+[data-studio-band] {
+  background: var(--afo-color-background-canvas);
+}
+
+/* ----------------------------------------------------------------- steps */
+
+[data-studio-steps] {
+  display: grid;
+  gap: var(--afo-space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-studio-step] {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--afo-space-3);
+  min-height: 31rem;
+  padding: var(--afo-space-8) var(--afo-space-8) 0;
+  overflow: clip;
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--studio-card-radius);
+  background: linear-gradient(
+    180deg,
+    var(--afo-color-neutral-mist) 0%,
+    var(--afo-color-background-surface) 100%
+  );
+}
+
+/* The step's place in the sequence, drawn in outline like Space's ticker ghosts. */
+[data-studio-step-index] {
+  position: absolute;
+  top: var(--afo-space-5);
+  right: var(--afo-space-6);
+  color: transparent;
+  font-family: var(--afo-font-family-display);
+  font-size: 4rem;
+  font-weight: 800;
+  line-height: 1;
+  -webkit-text-stroke: 1.5px var(--afo-color-border-default);
+}
+
+[data-studio-step] h3 {
+  margin: 0;
+  padding-inline-end: 5rem;
+  font-family: var(--afo-font-family-display);
+  font-size: clamp(1.875rem, 2.5vw, 2.375rem);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+[data-studio-step] > p {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--afo-color-text-secondary);
+  line-height: 1.55;
+}
+
+/* The object sits low and runs off the card's bottom edge, like Space's phones. */
+[data-studio-step-stage] {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: 1;
+  margin-block-start: var(--afo-space-6);
+}
+
+[data-studio-step-stage] > [data-studio-object] {
+  width: min(100%, 21rem);
+  margin-block-end: calc(var(--afo-space-6) * -1);
+  padding-block-end: calc(var(--afo-space-6) + var(--afo-space-5));
+}
+
+[data-studio-object] {
+  padding: var(--afo-space-5);
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--studio-object-radius);
+  background: var(--afo-color-background-surface);
+  box-shadow: var(--studio-object-shadow);
+}
+
+[data-studio-object][data-afo-theme='dark'] {
+  background: linear-gradient(
+    180deg,
+    var(--afo-color-background-surface-subtle) 0%,
+    var(--afo-color-background-surface) 70%
+  );
+}
+
+[data-studio-object-heading] {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--afo-space-3);
+  margin: 0 0 var(--afo-space-4);
+}
+
+[data-studio-object-list] {
+  display: grid;
+  margin: var(--afo-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-studio-object-list] li {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-3);
+  padding-block: var(--afo-space-3);
+  border-top: 1px solid var(--afo-color-border-subtle);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-studio-object-list] li::before {
+  content: '';
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1.5px solid var(--afo-color-text-muted);
+  border-radius: var(--afo-radius-full);
+}
+
+[data-studio-object-list] li[data-shared='true']::before {
+  border-color: var(--afo-color-action-primary);
+  background: var(--afo-color-action-primary);
+}
+
+[data-studio-object-state] {
+  margin-inline-start: auto;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-shared='true'] [data-studio-object-state] {
+  color: var(--afo-color-text-accent);
+  font-weight: 700;
+}
+
+/* Program versions: the current one is the only filled marker. */
+[data-studio-versions] {
+  position: relative;
+  display: grid;
+  gap: var(--afo-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-studio-versions]::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--afo-space-4);
+  inset-inline-start: 1.125rem;
+  width: 1px;
+  background: var(--afo-color-border-subtle);
+}
+
+[data-studio-versions] li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--afo-space-3);
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-studio-version-label] {
+  display: grid;
+  place-items: center;
+  height: 2.25rem;
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--afo-radius-full);
+  background: var(--afo-color-background-surface);
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+  font-weight: 800;
+}
+
+[data-studio-versions] li[data-current='true'] {
+  color: var(--afo-color-text-primary);
+  font-weight: 600;
+}
+
+[data-studio-versions] li[data-current='true'] [data-studio-version-label] {
+  border-color: var(--afo-color-action-primary);
+  background: var(--afo-color-action-primary);
+  color: var(--afo-color-action-on-primary);
+}
+
+[data-studio-version-current] {
+  color: var(--afo-color-text-accent);
+  font-size: var(--afo-font-size-xs);
+  font-weight: 700;
+}
+
+/* The week: an outlined track is what was planned, the fill is what was logged. */
+[data-studio-week] {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--afo-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-studio-week] li {
+  display: grid;
+  justify-items: center;
+  gap: var(--afo-space-2);
+}
+
+[data-studio-week-bar] {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: 7.5rem;
+}
+
+[data-studio-week-bar]::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: var(--studio-planned, 0%);
+  border: 1.5px dashed var(--afo-color-border-default);
+  border-radius: var(--afo-radius-sm);
+}
+
+/* Five blocks is a full day; the scale is set per value because inline styles are off limits here. */
+[data-studio-week] li[data-planned='1'] {
+  --studio-planned: 20%;
+}
+
+[data-studio-week] li[data-planned='2'] {
+  --studio-planned: 40%;
+}
+
+[data-studio-week] li[data-planned='3'] {
+  --studio-planned: 60%;
+}
+
+[data-studio-week] li[data-planned='4'] {
+  --studio-planned: 80%;
+}
+
+[data-studio-week] li[data-planned='5'] {
+  --studio-planned: 100%;
+}
+
+[data-studio-week] li[data-done='1'] {
+  --studio-done: 20%;
+}
+
+[data-studio-week] li[data-done='2'] {
+  --studio-done: 40%;
+}
+
+[data-studio-week] li[data-done='3'] {
+  --studio-done: 60%;
+}
+
+[data-studio-week] li[data-done='4'] {
+  --studio-done: 80%;
+}
+
+[data-studio-week] li[data-done='5'] {
+  --studio-done: 100%;
+}
+
+[data-studio-week-fill] {
+  position: relative;
+  width: 100%;
+  height: var(--studio-done, 0%);
+  border-radius: var(--afo-radius-sm);
+  background: var(--afo-color-action-primary);
+}
+
+[data-studio-week] li[data-rest='true'] [data-studio-week-bar]::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: var(--afo-radius-full);
+  background: var(--afo-color-border-default);
+  transform: translateX(-50%);
+}
+
+[data-studio-week-day] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-studio-object-note] {
+  margin: var(--afo-space-4) 0 0;
+  color: var(--afo-color-status-warning);
+  font-size: var(--afo-font-size-xs);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- privacy */
+
+[data-studio-privacy] {
+  display: grid;
+  gap: var(--afo-space-12);
+  align-items: center;
+}
+
+[data-studio-privacy-copy] {
+  display: grid;
+  gap: var(--afo-space-8);
+}
+
+/* Two long lines; at the section size they would break into four. */
+[data-studio-privacy-copy] [data-studio-display] {
+  font-size: clamp(3rem, 6.4vw, 6.25rem);
+}
+
+[data-studio-privacy-stage] {
+  display: flex;
+  justify-content: center;
+}
+
+[data-studio-privacy-stage] > [data-studio-object] {
+  width: min(100%, 24rem);
+  background: var(--afo-color-background-surface-subtle);
+}
+
+[data-studio-pillars] {
+  display: grid;
+  margin: clamp(var(--afo-space-16), 8vw, var(--afo-space-24)) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--afo-color-border-subtle);
+  list-style: none;
+}
+
+[data-studio-pillar] {
+  display: grid;
+  align-content: start;
+  gap: var(--afo-space-3);
+  padding-block: var(--afo-space-8) var(--afo-space-2);
+}
+
+[data-studio-pillar] + [data-studio-pillar] {
+  border-top: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-studio-pillar-icon] {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-block-end: var(--afo-space-2);
+  border: 1px solid var(--afo-color-accent-tonal-border);
+  border-radius: var(--afo-radius-full);
+  background: var(--afo-color-accent-tonal);
+  color: var(--afo-color-text-accent);
+}
+
+[data-studio-pillar] h3 {
+  margin: 0;
+  font-size: var(--afo-font-size-xl);
+  font-weight: 700;
+}
+
+[data-studio-pillar] p {
+  margin: 0;
+  max-width: 36ch;
+  color: var(--afo-color-text-secondary);
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------- modules */
+
+/* A numbered ledger — the order is the order of the workspace navigation these
+   modules become — beside a drawing of that workspace, open on Personas. */
+[data-studio-modules-grid] {
+  display: grid;
+  gap: var(--afo-space-12);
+  align-items: center;
+}
+
+[data-studio-modules] {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--afo-color-border-subtle);
+  list-style: none;
+  counter-reset: studio-module;
+}
+
+[data-studio-module] {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  column-gap: var(--afo-space-4);
+  row-gap: var(--afo-space-1);
+  align-items: center;
+  padding-block: var(--afo-space-5);
+  border-top: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-studio-module]::before {
+  content: counter(studio-module, decimal-leading-zero);
+  counter-increment: studio-module;
+  grid-row: 1 / 3;
+  grid-column: 1;
+  align-self: start;
+  padding-block-start: 0.2em;
+  color: var(--afo-color-text-muted);
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-studio-module-upcoming]::before {
+  content: '+';
+  counter-increment: none;
+}
+
+[data-studio-module] h3 {
+  grid-row: 1;
+  grid-column: 2;
+  margin: 0;
+  font-family: var(--afo-font-family-display);
+  font-size: clamp(1.75rem, 2.6vw, 2.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+[data-studio-module-upcoming] h3 {
+  color: var(--afo-color-text-muted);
+}
+
+[data-studio-module] p {
+  grid-row: 2;
+  grid-column: 2;
+  margin: 0;
+  max-width: 44ch;
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+  line-height: 1.55;
+}
+
+[data-studio-module-icon] {
+  display: grid;
+  grid-row: 1 / 3;
+  grid-column: 3;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--afo-radius-full);
+  background: var(--afo-color-accent-tonal);
+  color: var(--afo-color-text-accent);
+}
+
+[data-studio-module-upcoming] [data-studio-module-icon] {
+  background: var(--afo-color-neutral-mist);
+  color: var(--afo-color-text-muted);
+}
+
+[data-studio-workspace] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  overflow: clip;
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--studio-card-radius);
+  background: var(--afo-color-background-surface);
+  box-shadow: var(--studio-object-shadow);
+}
+
+[data-studio-workspace-nav] {
+  display: grid;
+  align-content: start;
+  gap: var(--afo-space-6);
+  padding: var(--afo-space-5);
+  background: var(--afo-color-background-canvas);
+}
+
+[data-studio-workspace-nav] > svg {
+  height: 1.5rem;
+  width: auto;
+}
+
+[data-studio-workspace-nav] ul {
+  display: grid;
+  gap: var(--afo-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-studio-workspace-nav] li {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-3);
+  padding: var(--afo-space-2) var(--afo-space-3);
+  border-radius: var(--afo-radius-md);
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+  font-weight: 600;
+  transition:
+    background-color var(--afo-motion-transition-duration) var(--afo-motion-transition-easing),
+    color var(--afo-motion-transition-duration) var(--afo-motion-transition-easing);
+}
+
+[data-studio-workspace-nav] li svg {
+  flex: none;
+  height: 1.125rem;
+  width: auto;
+}
+
+/* Personas is open until a row of the ledger is pointed at; then that one is. */
+[data-studio-modules-grid]:not(:has([data-studio-module]:hover))
+  [data-studio-workspace-nav]
+  li:first-child,
+[data-studio-modules-grid]:has([data-studio-module]:nth-child(1):hover)
+  [data-studio-workspace-nav]
+  li:nth-child(1),
+[data-studio-modules-grid]:has([data-studio-module]:nth-child(2):hover)
+  [data-studio-workspace-nav]
+  li:nth-child(2),
+[data-studio-modules-grid]:has([data-studio-module]:nth-child(3):hover)
+  [data-studio-workspace-nav]
+  li:nth-child(3),
+[data-studio-modules-grid]:has([data-studio-module]:nth-child(4):hover)
+  [data-studio-workspace-nav]
+  li:nth-child(4),
+[data-studio-modules-grid]:has([data-studio-module]:nth-child(5):hover)
+  [data-studio-workspace-nav]
+  li:nth-child(5) {
+  background: var(--afo-color-accent-tonal);
+  color: var(--afo-color-text-accent);
+}
+
+[data-studio-workspace-main] {
+  display: grid;
+  align-content: start;
+  gap: var(--afo-space-4);
+  padding: var(--afo-space-6);
+}
+
+[data-studio-workspace-title] {
+  margin: 0;
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-2xl);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+[data-studio-workspace-list] {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-studio-workspace-list] li {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-3);
+  padding-block: var(--afo-space-3);
+  border-top: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-studio-workspace-list] strong {
+  display: block;
+  font-size: var(--afo-font-size-sm);
+  font-weight: 700;
+}
+
+[data-studio-workspace-list] small {
+  display: block;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+/* The way across to Space, the mirror of Space's own way across to Studio. */
+[data-studio-space] {
+  display: grid;
+  gap: var(--afo-space-6);
+  align-items: center;
+  margin-block-start: clamp(var(--afo-space-16), 8vw, var(--afo-space-24));
+  padding: var(--afo-space-8) var(--afo-space-10);
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--studio-card-radius);
+  background: var(--afo-color-background-canvas);
+  color: var(--afo-color-text-primary);
+}
+
+[data-studio-space] > svg {
+  height: 1.75rem;
+  width: auto;
+}
+
+[data-studio-space] h3 {
+  margin: 0 0 6px;
+  font-size: var(--afo-font-size-xl);
+  font-weight: 700;
+}
+
+[data-studio-space] p {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--afo-color-text-secondary);
+}
+
+/* --------------------------------------------------------------- closing */
+
+[data-studio-closing] {
+  padding-block: clamp(var(--afo-space-24), 14vw, 12rem);
+  border-top: 1px solid var(--afo-color-border-subtle);
+  text-align: center;
+}
+
+[data-studio-closing-inner] {
+  display: grid;
+  justify-items: center;
+  gap: var(--afo-space-10);
+}
+
+[data-studio-closing] [data-studio-display] {
+  font-size: clamp(3rem, 6.4vw, 6.25rem);
+}
+
+[data-studio-closing-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--afo-space-4) var(--afo-space-6);
+}
+
+[data-studio-closing-actions] [data-studio-note] {
+  text-align: start;
+}
+
+/* ---------------------------------------------------------------- motion */
+
+/* The same motion as the Space landing: the hero enters once, on load; every
+   section below reveals the first time it scrolls into view — titles rise out
+   of their masks, cards uncover from the top, the rest lifts in — and a light
+   follows the pointer over the step cards. Reveals are transitions armed by
+   `[data-motion='on']`, so without JavaScript the page is simply whole. The
+   `data-i` indices stagger siblings; inline styles are off limits here. */
+[data-studio-scroll-progress] {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 2px;
+  background: var(--afo-color-action-primary);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--studio-progress, 0));
+}
+
+[data-reveal][data-i='1'] {
+  --i: 1;
+}
+
+[data-reveal][data-i='2'] {
+  --i: 2;
+}
+
+[data-reveal][data-i='3'] {
+  --i: 3;
+}
+
+[data-reveal][data-i='4'] {
+  --i: 4;
+}
+
+[data-reveal][data-i='5'] {
+  --i: 5;
+}
+
+[data-studio-step][data-spotlight] {
+  isolation: isolate;
+}
+
+[data-studio-step][data-spotlight]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    520px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in srgb, var(--afo-color-action-primary) 14%, transparent),
+    transparent 46%
+  );
+  opacity: 0;
+  transition: opacity 0.5s var(--studio-ease);
+}
+
+[data-studio-step][data-spotlight]:hover::before {
+  opacity: 1;
+}
+
+/* One orchestrated entrance and nothing else: the hero title rises, the client's
+   sheet arrives, then what they logged fills in row by row. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-studio-site][data-motion='on'] [data-reveal] {
+    opacity: 0;
+    transform: translate3d(0, 36px, 0);
+    transition:
+      opacity 0.9s var(--studio-ease),
+      transform 1.1s var(--studio-ease);
+    transition-delay: calc(var(--i, 0) * 90ms);
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='mask'] {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='mask'] [data-studio-display-line] > span {
+    transform: translate3d(0, 105%, 0);
+    transition: transform 1.1s var(--studio-ease);
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='mask'] [data-line='1'] > span {
+    transition-delay: 110ms;
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='mask'] [data-line='2'] > span {
+    transition-delay: 220ms;
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='card'] {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(18% 0 0 0 round var(--studio-card-radius));
+    transition: clip-path 1.2s var(--studio-ease);
+    transition-delay: calc(var(--i, 0) * 110ms);
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-studio-site][data-motion='on']
+    [data-reveal='mask'].is-in
+    [data-studio-display-line]
+    > span {
+    transform: none;
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='card'].is-in {
+    clip-path: inset(0 0 0 0 round var(--studio-card-radius));
+  }
+
+  /* The week fills in after its card has uncovered. */
+  [data-studio-site][data-motion='on'] [data-reveal='card'] [data-studio-week-fill] {
+    transform: scaleY(0);
+    transform-origin: 50% 100%;
+    transition: transform 0.9s var(--studio-ease) 700ms;
+  }
+
+  [data-studio-site][data-motion='on'] [data-reveal='card'].is-in [data-studio-week-fill] {
+    transform: none;
+  }
+
+  [data-studio-step-stage] > [data-studio-object] {
+    transition: transform 0.9s var(--studio-ease);
+  }
+
+  [data-studio-step]:hover [data-studio-step-stage] > [data-studio-object] {
+    transform: translate3d(0, -4%, 0);
+  }
+
+  [data-studio-display='hero'] [data-studio-display-line] > span {
+    animation: studio-rise 1.1s var(--studio-ease) both;
+  }
+
+  [data-studio-sheet] {
+    animation: studio-arrive 1.1s var(--studio-ease) both;
+    animation-delay: 320ms;
+  }
+
+  [data-studio-sheet-logged],
+  [data-studio-sheet-change] {
+    animation: studio-log 0.5s var(--studio-ease) both;
+    animation-delay: 1100ms;
+  }
+
+  [data-studio-display-line][data-line='1'] > span {
+    animation-delay: 110ms;
+  }
+
+  [data-studio-display-line][data-line='2'] > span {
+    animation-delay: 220ms;
+  }
+
+  [data-studio-sheet-row][data-row='1']
+    :is([data-studio-sheet-logged], [data-studio-sheet-change]) {
+    animation-delay: 1340ms;
+  }
+
+  [data-studio-sheet-row][data-row='2']
+    :is([data-studio-sheet-logged], [data-studio-sheet-change]) {
+    animation-delay: 1580ms;
+  }
+
+  [data-studio-sheet-row][data-row='3']
+    :is([data-studio-sheet-logged], [data-studio-sheet-change]) {
+    animation-delay: 1820ms;
+  }
+}
+
+@keyframes studio-rise {
+  from {
+    transform: translate3d(0, 105%, 0);
+  }
+}
+
+@keyframes studio-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 48px, 0);
+  }
+}
+
+@keyframes studio-log {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+}
+
+/* ------------------------------------------------------------ breakpoints */
+
+@media (min-width: 48rem) {
+  [data-studio-pillars] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  [data-studio-pillar] {
+    padding-inline-end: var(--afo-space-8);
+  }
+
+  [data-studio-pillar] + [data-studio-pillar] {
+    padding-inline-start: var(--afo-space-8);
+    border-top: 0;
+    border-inline-start: 1px solid var(--afo-color-border-subtle);
+  }
+
+  [data-studio-workspace] {
+    grid-template-columns: 12rem minmax(0, 1fr);
+  }
+
+  [data-studio-space] {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: var(--afo-space-8);
+  }
+}
+
+@media (min-width: 60rem) {
+  [data-studio-section-head][data-split='true'] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    align-items: end;
+    gap: var(--afo-space-10);
+  }
+
+  [data-studio-privacy] {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: var(--afo-space-16);
+  }
+
+  [data-studio-modules-grid] {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: var(--afo-space-16);
+  }
+}
+
+@media (min-width: 67.5rem) {
+  [data-studio-hero-grid] {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--afo-space-12);
+  }
+
+  [data-studio-display='hero'] {
+    font-size: clamp(4.5rem, 7vw, 7.25rem);
+  }
+
+  [data-studio-steps] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 59.99rem) {
+  [data-studio-header-action] {
+    display: none;
+  }
+}
+
+@media (max-width: 30rem) {
+  [data-studio-sheet] {
+    padding: var(--afo-space-5);
+  }
+
+  [data-studio-step] {
+    min-height: 30rem;
+    padding-inline: var(--afo-space-6);
+  }
+
+  [data-studio-space] {
+    padding: var(--afo-space-6);
+  }
 }

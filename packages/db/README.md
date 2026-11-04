@@ -34,5 +34,5 @@ bun run db:stop
 
 The normative rules and deployment runbook live in `allfitone-docs`:
 
-- [Database and Supabase best practices](https://github.com/dinnartec/allfitone-docs/blob/main/platform/database/DATABASE_AND_SUPABASE_BEST_PRACTICES.md)
-- [Database operations](https://github.com/dinnartec/allfitone-docs/blob/main/platform/database/OPERATIONS.md)
+- [Database and Supabase best practices](https://github.com/allfitone/allfitone-docs/blob/main/platform/database/DATABASE_AND_SUPABASE_BEST_PRACTICES.md)
+- [Database operations](https://github.com/allfitone/allfitone-docs/blob/main/platform/database/OPERATIONS.md)

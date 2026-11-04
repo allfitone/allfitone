@@ -271,6 +271,28 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/catalog/v1/information-categories': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the categories of information a gym can ask a client for
+     * @description The words for each of the seven categories: what it covers, where it stops, and the purpose a professional may state for asking. A gym member reads it to know what they can ask for; the person being asked reads the same wording to decide, which is why it is served from the tenant-less catalogue rather than copied into Studio and Space.
+     *
+     *     This is not `OP-PRV-012`. That one answers which resources and fields a published scope version reaches, and says nothing until the catalogue has been curated. This one is the vocabulary: fixed, unversioned, and available from the first day. Refuses a caller that is not an active person rather than answering an empty list.
+     */
+    get: operations['listCatalogInformationCategories']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/catalog/v1/disciplines': {
     parameters: {
       query?: never
@@ -1233,6 +1255,46 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/client-invitations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The invitations waiting for the caller
+     * @description Pending, unexpired client invitations addressed to the caller's verified email — the only key, the same one deciding requires (ADR-001). Somebody still registering may ask: it is how she is told an invitation waits at the end. An invitation addressed to any other email is never listed.
+     */
+    get: operations['listMySpaceClientInvitations']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/client-invitations/{invitationId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * What one of her invitations asks for, by id
+     * @description The same presentation the emailed link resolves to, for an invitation found among her pending ones. The same recipient test applies: another person is refused, and one that does not exist or expired answers `404`.
+     */
+    get: operations['readMySpaceClientInvitation']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/client-invitations/decisions': {
     parameters: {
       query?: never
@@ -1249,6 +1311,8 @@ export interface paths {
      *     **Accepting the relationship grants nothing.** Each scope carries its own answer, and a scope left out of `scope_decisions` counts as rejected. A person may accept the relationship and reject every scope: the relationship is then in force and no professional can read anything of theirs. That is a legitimate outcome, not a broken state.
      *
      *     Rejecting the relationship ends the invitation and no scope is granted, whatever the scope answers say.
+     *
+     *     HU-STUDIO-087: accepting converts the guest place the invitation already held. If the organization is over its quota by another way, acceptance answers `409` with `guest-quota-exhausted` and nothing is decided.
      */
     post: operations['decideSpaceClientInvitation']
     delete?: never
@@ -1818,9 +1882,35 @@ export interface paths {
      *
      *     What comes back depends on the caller. A role holding `view_directory` reads the whole directory and every unanswered invitation. A coach reads only the relationships they hold or stand in for, and only the invitations they themselves sent.
      *
-     *     HU-STUDIO-087. `guest_quota` is how full the gym is, counted over the whole organization whatever the caller may list: a coach is held to the same quota as everyone else and has to be told how much of it is left. Allfit fixes the number; Studio never changes it, and who set it is not part of the answer.
+     *     HU-STUDIO-087. `guest_quota` is how full the gym is, counted over the whole organization whatever the caller may list: a coach is held to the same quota as everyone else and has to be told how much of it is left before inviting. Allfit fixes the number; Studio never changes it, and who set it is not part of the answer.
      */
     get: operations['listStudioOrganizationClients']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/authorized-scopes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List what each client authorized the organization to see
+     * @description Returns one entry per authorization: who granted it, which category it covers, the version agreed, whether it still stands and since when. A withdrawn authorization stays in the list with the date it was withdrawn, because that is what explains no longer seeing that part.
+     *
+     *     It carries the **state** of each permission and nothing the permission covers. Learning that somebody shared their health context is not reading their health context, and no field here crosses that line.
+     *
+     *     What comes back depends on the caller. A role holding `view_directory` reads every client's authorizations. A coach reads only those of the clients they attend — narrowed by the relationship's own policy, not by the grant's, which is organization-wide.
+     *
+     *     This is a report, never the source that decides an access. A reader about to open somebody's data resolves the policy at that moment, inside the transaction that writes the access record; what this returns is already the past by the time it is on screen.
+     */
+    get: operations['listStudioAuthorizedScopes']
     put?: never
     post?: never
     delete?: never
@@ -1840,6 +1930,93 @@ export interface paths {
     put?: never
     /** Grant a non-owner role to an active organization membership */
     post: operations['grantStudioOrganizationMembershipRole']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles/{roleCode}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Revoke a non-owner role and end professional assignments when removing coach */
+    delete: operations['revokeStudioOrganizationMembershipRole']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/termination': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Terminate a member's membership, roles and professional assignments
+     * @description Closes the membership and every open role at one instant, and ends the member's holder and accepted cover assignments in the same transaction.
+     *
+     *     **Terminating a membership does not end the organization's service relationships.** They stay active without a responsible professional and must be reassigned (`OP-REL-005`). Consent grants and authorship survive.
+     *
+     *     A membership that holds `owner` cannot be terminated: ownership leaves only through a transfer (`OP-ORG-011`). The request has no body. Converges without effect on an already terminated membership.
+     */
+    post: operations['terminateStudioOrganizationMembership']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/me/membership/resignation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Resign from your own membership in an organization
+     * @description Ends the authenticated person's own active membership, every open role and their holder and accepted cover assignments at one instant. The membership is resolved from the session, never from the request, and no role is required.
+     *
+     *     **Resigning does not end the organization's service relationships.** They stay active without a responsible professional and must be reassigned (`OP-REL-005`). Consent grants and authorship survive. Every current owner and administrator with a contact on file is notified by email.
+     *
+     *     An owner cannot resign: ownership leaves only through a transfer (`OP-ORG-011`). The request has no body. A new command after resigning converges on the original instant; a membership an administrator terminated answers `404`.
+     */
+    post: operations['resignStudioOrganizationMembership']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/closure': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close the organization
+     * @description Only the owner may close. In one transaction, at one instant, every active service relationship ends with its full effect: consent grants are frozen, not deleted, and professional assignments end. Each client with a contact on file gets a termination notice. Pending invitations are revoked, pending nutrition proposals from the organization are cancelled, and every membership closes, the owner's included.
+     *
+     *     **Closing deletes no Fitness ID and no session.** If any step cannot complete, nothing closes. An organization with a client subscription that is not ended answers `422`: end those first. Only an active organization can be closed; a suspended one answers `422`. The request has no body. A retry, or a new command after the closure, converges on the original instant.
+     */
+    post: operations['closeStudioOrganization']
     delete?: never
     options?: never
     head?: never
@@ -2005,7 +2182,7 @@ export interface paths {
      *
      *     The initial-program proposal in criteria 2, 6 and 7 of the story is not implemented: an organization has no way to publish a program yet.
      *
-     *     HU-STUDIO-087. A gym holds as many people as Allfit sold it. A new invitation that would take a place the gym does not have is refused with 409 `guest-quota-full` before anything is written, for every role that may invite. Reusing a pending invitation is not refused, because it already holds its place, and neither is a retry of a command that went through. A gym with no quota is not limited. The figure is read beforehand from the client directory (`guest_quota`).
+     *     HU-STUDIO-087: a new invitation takes a guest place. When the organization has none left the answer is `409` with `guest-quota-exhausted`; reusing a pending invitation takes no second place. An organization without a quota has no limit.
      */
     post: operations['createStudioClientInvitation']
     delete?: never
@@ -2205,6 +2382,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/programs/{programId}/versions/{versionNumber}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read one complete published program version
+     * @description The version publishing a program names in `Location`: its exact routine version for every day and whether it repeats forever. Only the organization's content managers read it, and the read is audited. The composition is immutable, but deprecation moves the status and the list of retired routine versions this projection carries, so the response is revalidated against its ETag rather than cached as immutable.
+     */
+    get: operations['getOrganizationProgramVersion']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/programs/{programId}/versions/{versionNumber}/deprecation': {
     parameters: {
       query?: never
@@ -2329,7 +2526,7 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/substitutions': {
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination': {
     parameters: {
       query?: never
       header?: never
@@ -2337,6 +2534,104 @@ export interface paths {
       cookie?: never
     }
     get?: never
+    put?: never
+    /**
+     * End a client's relationship with the gym
+     * @description Ends the relationship **at once**, with no notice period, and stops every permission it carried at the same instant.
+     *
+     *     **Freezing is not revoking.** The organization keeps the history it was shown up to that moment and receives nothing created after it. That history is not readable through ordinary screens: it needs a historical-access case, an eligible actor, MFA and a stated purpose.
+     *
+     *     The professional in charge and every accepted cover are closed at the same instant, so nobody keeps reading through an assignment. The person is told, inside the command's own transaction — a termination that cannot be announced does not happen.
+     *
+     *     A `coach` may not call this, even for a client they attend. A reason is optional.
+     */
+    post: operations['terminateRelationship']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ask the organization to end a relationship
+     * @description The holder of a relationship who cannot end it herself asks the administration to. **Asking changes nothing**: the relationship, its permissions and every assignment stay exactly as they were until an administrator, an owner or the person ends it.
+     *
+     *     Only the current holder may ask, and never somebody who could end the relationship directly — an administrator or owner who also coaches ends it with `terminateRelationship` instead (`403`). A second pending request on the same relationship is impossible (`409`). The person attended never sees the request.
+     *
+     *     The request settles on its own: `resolved` when the organization ends the relationship, `superseded` when the person ends it or the coach stops being its holder.
+     */
+    post: operations['requestRelationshipTermination']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests/{terminationRequestId}/withdrawal': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take back a request to end a relationship
+     * @description The coach who asked takes her pending request back; she is recorded as who settled it. Nobody else may, the administration included (`403`). Withdrawing a request already withdrawn answers with it again; any other settled request is a `409`.
+     */
+    post: operations['withdrawRelationshipTerminationRequest']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/termination-requests/{terminationRequestId}/rejection': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Refuse a request to end a relationship
+     * @description An administrator or owner refuses a pending request, in words the coach is told. Who refused and when are recorded. Accepting a request is not an operation: ending the relationship with `terminateRelationship` settles it as `resolved`. A coach may not refuse (`403`); a request already settled is a `409`.
+     */
+    post: operations['rejectRelationshipTerminationRequest']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/substitutions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Who has covered this client, and when
+     * @description Running covers and finished ones together, **newest first** — the relationship's own document lists them oldest-first, so the cover that is running sinks under every cover that is over once a client has a few years of history.
+     *
+     *     A finished cover appearing here **grants nothing**. Whether a professional may read anything is decided from these same dates, so listing one is reading a fact about the past, not reopening it.
+     *
+     *     Which covers come back is the row policy's decision: a coach sees their own and the covers of clients they hold, an administrator sees them all.
+     */
+    get: operations['listRelationshipSubstitutions']
     put?: never
     /**
      * Ask a client to accept somebody covering for their coach
@@ -2351,6 +2646,30 @@ export interface paths {
      *     Asking twice for the same professional over the same days answers `409`.
      */
     post: operations['proposeRelationshipSubstitution']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/relationships/{relationshipId}/substitutions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Who has been authorised over my data, and when
+     * @description Who has covered this client, and when. Running covers and finished ones together, **newest first** — the relationship's own document lists them oldest-first, so the cover that is running sinks under every cover that is over once a client has a few years of history.
+     *
+     *     A finished cover appearing here **grants nothing**. Whether a professional may read anything is decided from these same dates, so listing one is reading a fact about the past, not reopening it.
+     *
+     *     This is the person's own route, and the only way she has of seeing it: the relationship document is a Studio operation. It includes covers still waiting on her answer, because being asked is itself something she is entitled to see.
+     */
+    get: operations['listMyRelationshipSubstitutions']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -2379,6 +2698,66 @@ export interface paths {
      *     Unlike proposing one, the coach in charge may **not** call this: it is for an administrator or an owner. The person being covered has their own route for it in Space.
      */
     post: operations['endRelationshipSubstitution']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/relationships/{relationshipId}/events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * What her relationship has been through
+     * @description The same timeline the gym reads, from her side and only for her own relationships. Each side reads the termination reason it declared and not the other's: if the gym ended it, `reason` is null for her.
+     */
+    get: operations['listMyRelationshipEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/relationships/{relationshipId}/termination': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * End her relationship with a gym
+     * @description Takes effect at once: everything she shared is frozen at one instant, the gym keeps what it was shown up to then and receives nothing after, and nobody stays assigned to her. A reason is optional and only she reads it. Ending one that is already over answers the instant it ended.
+     */
+    post: operations['endMyRelationship']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/relationships/{relationshipId}/substitutions/{substitutionId}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Accept or reject somebody covering for her coach
+     * @description A cover runs only once she says yes, and a no is kept as a no; silence is neither (ADR-022). It is decided once: a second answer is `409`, and a retry of the same command answers the same.
+     */
+    post: operations['decideMyRelationshipSubstitution']
     delete?: never
     options?: never
     head?: never
@@ -2649,6 +3028,28 @@ export interface paths {
      * @description Leaving a named routine asks whether to keep it as a draft or throw it away, and this is the throwing away. **It is a state, not a deletion:** `allfit_api` has no `DELETE` on this resource and will not get one, because what a person wrote is not destroyed from the runtime and a discard has to be explicable afterwards. A routine that was published is discarded just the same: the programmes holding it are republished without it, so nothing is left pointing at a routine its author threw away. Retiring one version from new uses without discarding the routine is still `OP-PLN-005`, which leaves the history alone.
      */
     post: operations['discardMySessionTemplate']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/session-templates/{templateId}/duplicate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Start a routine of my own from one I already have
+     * @description Copies one of the person's own routines into a new draft named after it with a copy suffix, as `OP-PLN-035` does for programmes: what is edited is what is copied, so the draft goes first and the latest version when there is none. The original is left untouched.
+     *
+     *     **It is Pro** (`routine_duplication`), and the copy is one more of the person's routines, so it also counts against `own_routines`. A plan that does not open either answers `plan-limit-reached` naming the function.
+     */
+    post: operations['duplicateMySessionTemplate']
     delete?: never
     options?: never
     head?: never
@@ -2972,7 +3373,11 @@ export interface paths {
      */
     get: operations['listMyExecutions']
     put?: never
-    post?: never
+    /**
+     * Start a free session, with no planned session behind it
+     * @description Training that was not on the agenda (HU-SP-052). The session starts empty and the person adds exercises as they train. It freezes the contract of the one published activity type of the discipline. Only one free session is open at a time: while one is, a new start is a 409, and Today names the open one.
+     */
+    post: operations['startFreeSession']
     delete?: never
     options?: never
     head?: never
@@ -2991,6 +3396,28 @@ export interface paths {
      * @description The month's totals, each ISO week with what was finished, planned and free, the months there is something to see in, and the disciplines present (ADR-037).
      */
     get: operations['getMyHistoryMonth']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/progress/periods': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Compare my training week by week or month by month
+     * @description HU-SP-061. Each period says what was trained, the time, the work sets, the volume and how much of the plan was kept; each movement says its best load against the last earlier period it was trained in. Warm-up sets never count, and a set nobody weighed is not zero lifted. Oldest period first.
+     *
+     *     **It is Pro** (`period_analysis`): a plan that does not open it answers `plan-limit-reached`.
+     */
+    get: operations['compareMyPeriods']
     put?: never
     post?: never
     delete?: never
@@ -3229,6 +3656,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/consents': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * What the caller shares, gym by gym and category by category
+     * @description One row per relationship and category she was asked for: the answer she gave and, where she said yes, how that grant stands now — active, frozen by an ended relationship, or revoked by her. Only her own; nobody else's is ever listed.
+     */
+    get: operations['listMySpaceConsents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/consents/{grantId}/revocation': {
     parameters: {
       query?: never
@@ -3238,7 +3685,10 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Revoke a live or frozen grant and invalidate projections atomically */
+    /**
+     * Revoke a live or frozen grant
+     * @description Only that grant; the others and her own data stay as they were (ADR-012). A revoked grant never comes back: sharing again takes a new consent. Somebody else's grant reads as one that does not exist, and a grant already revoked by another command is a conflict.
+     */
     post: operations['revokeConsentGrant']
     delete?: never
     options?: never
@@ -3985,6 +4435,50 @@ export interface paths {
      * @description The measurement is deleted physically, now, and a disposition case records that body data was deleted at the person's request and under which policy, without keeping the value. Deleting data is not revoking a permission: grants are untouched. Someone else's measurement and one that does not exist both answer 404.
      */
     delete: operations['deleteSpaceBodyProgress']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/body-photos': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * My body photos, newest first
+     * @description HU-SP-026. A body photo is the person's alone: no consent scope covers it, so no gym or professional ever reads it. Each comes with a URL signed for five minutes; the storage key never leaves the API. Reading one's own photos is never limited by a plan.
+     */
+    get: operations['listMyBodyPhotos']
+    put?: never
+    /**
+     * Keep a photo of my body
+     * @description HU-SP-025. The photo is sanitised (no EXIF, longest side 1600 px) and stored privately under the person before the record is written; if the record fails the object is removed. **It is Pro** (`body_photos`).
+     */
+    post: operations['recordMyBodyPhoto']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/body-photos/{photoId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete a photo of my body
+     * @description HU-SP-027. The record goes in the same transaction that queues its object; the API removes the object after the commit. Deleting one's own photos is never limited by a plan.
+     */
+    delete: operations['deleteMyBodyPhoto']
     options?: never
     head?: never
     patch?: never
@@ -5038,6 +5532,28 @@ export interface components {
       data: components['schemas']['PlatformDutyAssignment'][]
       page: components['schemas']['Page']
     }
+    /** @description The fixed wording of one category of information. It carries no version: this is the product's vocabulary, not a published scope definition, and it must not move under the reader's feet. The lengths match the constraints the database already enforces on the row. */
+    CatalogInformationCategory: {
+      /** @enum {string} */
+      scope_code:
+        | 'relationship_training'
+        | 'prior_training_history'
+        | 'body_progress'
+        | 'health_context'
+        | 'nutrition_intake'
+        | 'nutrition_guidance'
+        | 'nutrition_media'
+      display_name: string
+      /** @description One line for the member deciding whether to ask for it. */
+      summary?: string | null
+      /** @description What the category covers and, just as importantly, where it stops. */
+      description: string
+      /** @description The purpose a professional may state for asking. Fixed by the catalogue so that no gym writes its own justification. */
+      default_purpose: string
+    }
+    CatalogInformationCategoryList: {
+      items: components['schemas']['CatalogInformationCategory'][]
+    }
     CatalogDiscipline: {
       code: string
       name: string
@@ -5495,10 +6011,19 @@ export interface components {
       person_id: components['schemas']['UuidV7']
     }
     /**
-     * @description The two metrics V1 records. The `body_` prefix is not decoration: `metric_code` also names execution results, where `weight` is the load on the bar rather than the weight of the person.
+     * @description The metrics a person records. The `body_` prefix is not decoration: `metric_code` also names execution results, where `weight` is the load on the bar rather than the weight of the person. Weight and height are free; the rest are Pro (`body_measurements`).
      * @enum {string}
      */
-    BodyMetric: 'body_weight' | 'body_height'
+    BodyMetric:
+      | 'body_weight'
+      | 'body_height'
+      | 'muscle_mass'
+      | 'body_fat'
+      | 'waist'
+      | 'hip'
+      | 'chest'
+      | 'arm'
+      | 'thigh'
     /**
      * @description Kilograms are canonical; a pound is 0.45359237 of one.
      * @enum {string}
@@ -5513,6 +6038,9 @@ export interface components {
     SpaceBodyProgressDeclaration:
       | components['schemas']['SpaceBodyWeightDeclaration']
       | components['schemas']['SpaceBodyHeightDeclaration']
+      | components['schemas']['SpaceBodyMassDeclaration']
+      | components['schemas']['SpaceBodyLengthDeclaration']
+      | components['schemas']['SpaceBodyFatDeclaration']
     SpaceBodyWeightDeclaration: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -5536,6 +6064,43 @@ export interface components {
       /** Format: date */
       measured_on: string
     }
+    /** @description Pro (`body_measurements`). */
+    SpaceBodyMassDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      metric_code: 'muscle_mass'
+      value: number
+      unit: components['schemas']['MassUnit']
+      /** Format: date */
+      measured_on: string
+    }
+    /** @description Pro (`body_measurements`). */
+    SpaceBodyLengthDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      metric_code: 'waist' | 'hip' | 'chest' | 'arm' | 'thigh'
+      value: number
+      unit: components['schemas']['LengthUnit']
+      /** Format: date */
+      measured_on: string
+    }
+    /** @description Pro (`body_measurements`). */
+    SpaceBodyFatDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      metric_code: 'body_fat'
+      value: number
+      /** @constant */
+      unit: 'percent'
+      /** Format: date */
+      measured_on: string
+    }
     /** @description Everything the first-day screen needs in one answer: what Allfit publishes, what the person told us, and whether they already chose. */
     SpaceProgramCatalogue: {
       profile: components['schemas']['SpaceTrainingProfile']
@@ -5553,6 +6118,10 @@ export interface components {
     }
     /** @description A published version of a global program, with the segmentation it was published with. The segmentation is part of the version and immutable with it: re-aiming a program means publishing another version. */
     SpaceProgramSummary: {
+      /** @description True when the person's plan does not open this programme: it is shown, and taking it answers `plan-limit-reached`. */
+      locked: boolean
+      /** @description The function of the plan catalogue that opens this programme, or null when it is in the free selection. */
+      unlock_feature: string | null
       program_version_id: components['schemas']['UuidV7']
       program_id: components['schemas']['UuidV7']
       title: string
@@ -5573,6 +6142,8 @@ export interface components {
     }
     SpaceToday: {
       profile: components['schemas']['SpaceTrainingProfile']
+      /** @description The free session still open, if there is one: what «Entrenamiento libre» resumes instead of starting another (OP-EXE-004). */
+      open_free_session_id: components['schemas']['UuidV7'] | null
       current_assignment: components['schemas']['SpaceProgramAssignment'] | null
       /** @description Null on a day the program does not ask for anything. A rest day is an answer, not an absence. */
       session: components['schemas']['SpaceTodaySession'] | null
@@ -5692,8 +6263,18 @@ export interface components {
       thumbnail_url: string | null
     }
     SpaceHistoryPage: {
+      window: components['schemas']['SpaceHistoryWindow']
       data: components['schemas']['SpaceHistoryItem'][]
       page: components['schemas']['Page']
+    }
+    /** @description Where the visible history starts under the person's plan, and whether older sessions are kept behind it. Nothing outside the window is deleted: with Pro it is seen again. */
+    SpaceHistoryWindow: {
+      /**
+       * Format: date
+       * @description The first visible day; null when nothing is hidden.
+       */
+      visible_from: string | null
+      has_hidden: boolean
     }
     /** @description An ISO week counted whole, even where it crosses into another month. */
     SpaceHistoryWeek: {
@@ -5729,6 +6310,11 @@ export interface components {
        * @description The first day of the month.
        */
       month: string
+      /**
+       * Format: date
+       * @description The first day the person's plan shows; sessions before it are kept and left out. Null when nothing is hidden.
+       */
+      visible_from: string | null
       sessions: number
       trained_seconds: number
       work_sets: number
@@ -5972,6 +6558,8 @@ export interface components {
     SpaceProgramDetail: {
       program_version_id: components['schemas']['UuidV7']
       title: string
+      /** @description The nutrition goal an Allfit programme brings, sized to the person's latest weight. Null for a programme the person owns, with no weight recorded, or with no reference for its goal. */
+      nutrition: components['schemas']['SpaceProgramNutrition'] | null
       /** @description What the program is, in the words somebody deciding needs. */
       notes: string | null
       /** @description How long the program lasts. Null when it has no end date: its composition repeats instead of running out, and the days below are the week it repeats. */
@@ -6022,8 +6610,17 @@ export interface components {
      * @enum {string}
      */
     SetKind: 'normal' | 'warmup' | 'to_failure' | 'drop'
+    SpaceProgramNutrition: {
+      goal_code: components['schemas']['PrimaryTrainingGoal']
+      targets: components['schemas']['NutritionGoalTarget'][]
+    }
     SpaceProgramChoice: {
       program_version_id: components['schemas']['UuidV7']
+      /**
+       * @description Also publish the programme's nutrition goal as the person's own (OP-NUT-007), in the same command. Ignored when the programme has none for this person.
+       * @default false
+       */
+      adopt_nutrition: boolean
       /** @description An IANA zone. The start date is **not** sent: it is always today in this zone, and a client-supplied date could backdate a plan into a history that never happened. */
       timezone: string
     }
@@ -6274,6 +6871,29 @@ export interface components {
       /** Format: date-time */
       valid_from: string
     }
+    OrganizationRoleRevocation: {
+      membership_id: components['schemas']['Uuid']
+      role_code: components['schemas']['AssignableOrganizationRoleCode']
+      /** Format: date-time */
+      valid_to: string
+    }
+    OrganizationMembershipTermination: {
+      membership_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      ended_at: string
+    }
+    OrganizationMembershipResignation: {
+      membership_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      ended_at: string
+    }
+    OrganizationClosure: {
+      organization_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      closed_at: string
+      /** @description Service relationships this closure ended */
+      relationships_terminated: number
+    }
     TeamInvitationToken: {
       /** @description Opaque token transported in JSON after being removed from the URL fragment. */
       token: string
@@ -6441,6 +7061,8 @@ export interface components {
     }
     ClientInvitationPresentation: {
       id: components['schemas']['UuidV7']
+      /** @description Who sent it, by name. Null when the sender is no longer known. */
+      invited_by: string | null
       invitation_intent_id: components['schemas']['UuidV7']
       status: components['schemas']['TeamInvitationStatus']
       organization: {
@@ -6452,8 +7074,10 @@ export interface components {
       expires_at: string
       scope_options: components['schemas']['ClientInvitationScopeOption'][]
     }
+    /** @description The invitation is named by the emailed token or, for one found among the caller's pending invitations, by its id. Exactly one of the two. Either way only the person whose verified email it was addressed to may decide it. */
     ClientInvitationDecisionCreate: {
-      token: string
+      invitation_id?: components['schemas']['UuidV7']
+      token?: string
       invitation_intent_id: components['schemas']['UuidV7']
       /** @enum {string} */
       relationship_decision: 'accepted' | 'rejected'
@@ -6461,6 +7085,39 @@ export interface components {
       scope_decisions?: {
         [key: string]: 'accepted' | 'rejected'
       }
+    } & (unknown | unknown)
+    /** @description An invitation still waiting for an answer, addressed to the caller's verified email. Enough to say who is waiting and until when; what it asks for is read by id. */
+    ClientInvitationPending: {
+      id: components['schemas']['UuidV7']
+      invitation_intent_id: components['schemas']['UuidV7']
+      organization_id: components['schemas']['UuidV7']
+      organization_name: string
+      invited_by: string | null
+      /** Format: date-time */
+      expires_at: string
+    }
+    ClientInvitationPendingList: {
+      data: components['schemas']['ClientInvitationPending'][]
+    }
+    SubstitutionDecisionCreate: {
+      /** @enum {string} */
+      decision: 'accepted' | 'rejected'
+    }
+    /** @description The cover after her answer. Accepted runs from its first day; rejected grants nothing and stays as the record of a no. */
+    RelationshipSubstitutionDecision: {
+      assignment_id: components['schemas']['UuidV7']
+      /** @enum {string} */
+      status: 'active' | 'rejected'
+      /** Format: date-time */
+      accepted_by_person_at: string | null
+    }
+    /** @description Her relationship after she ended it. `ended_at` is the instant everything it shared was frozen. */
+    MyRelationshipTermination: {
+      relationship_id: components['schemas']['UuidV7']
+      /** Format: date-time */
+      ended_at: string
+      frozen_grants: number
+      closed_assignments: number
     }
     ClientInvitationDecisionResult: {
       invitation_id: components['schemas']['UuidV7']
@@ -6675,6 +7332,21 @@ export interface components {
       /** Format: date */
       ends_on: string
     }
+    /** @description A reason is optional: a gym does not owe the system a justification. An empty one is refused rather than stored, because a blank reason reads as a reason that was given. */
+    RelationshipTerminationCreate: {
+      reason?: string
+    }
+    /** @description The relationship after it ended, and what stopped with it. `ended_at` is the single instant the whole thing used: the relationship, every permission frozen and every assignment closed carry that same moment. */
+    RelationshipTermination: {
+      relationship_id: components['schemas']['UuidV7']
+      person_id: components['schemas']['UuidV7']
+      /** Format: date-time */
+      ended_at: string
+      /** @description Permissions that stopped at that instant. **Frozen is not revoked**: the organization keeps what it was shown up to then and receives nothing after, and reading that history needs its own restricted path. */
+      frozen_grants: number
+      /** @description The holder and every accepted cover. A cover nobody answered granted nothing and is not counted. */
+      closed_assignments: number
+    }
     /** @description The cover after being cut short. `ended_at` is the instant the access stopped, which is now and not the day it was meant to run until — the professional named here reads nothing of this person's from that moment. */
     RelationshipSubstitutionTermination: {
       assignment_id: components['schemas']['UuidV7']
@@ -6696,11 +7368,12 @@ export interface components {
         | 'substitution_ended'
         | 'consent_decided'
         | 'relationship_ended'
+        | 'grant_revoked'
       /** Format: date-time */
       occurred_at: string
       /** @description The row this moment was read from, not an identifier of the moment. One assignment row produces more than one event, so the same `source_id` appears against different types. */
       source_id: components['schemas']['UuidV7']
-      /** @description Keys vary by `type`. `holder_assigned`, `holder_ended` and the substitution kinds carry `assignment_id`, `membership_id`, `professional_person_id` and `display_name`; `consent_decided` carries `scope_code`, `decision` and `scope_definition_id`; `relationship_ended` carries `ended_by_kind`, `declared_by_us` and `reason`; `relationship_started` carries `continues_relationship_id`. */
+      /** @description Keys vary by `type`. `holder_assigned`, `holder_ended` and the substitution kinds carry `assignment_id`, `membership_id`, `professional_person_id` and `display_name`; `consent_decided` carries `scope_code`, `decision` and `scope_definition_id`; `relationship_ended` carries `ended_by_kind`, `declared_by_us` and `reason`; `relationship_started` carries `continues_relationship_id`; `grant_revoked` carries `scope_code`. */
       detail: {
         [key: string]: unknown
       }
@@ -6724,6 +7397,35 @@ export interface components {
       holder: components['schemas']['RelationshipProfessional'] | null
       substitutions: components['schemas']['RelationshipSubstitution'][]
       grants: components['schemas']['RelationshipGrant'][]
+      /** @description The latest request to end this relationship, whatever became of it, or null. Only the coach who asked and an administrator or owner ever receive one; staff and other coaches read null. */
+      termination_request: components['schemas']['RelationshipTerminationRequest'] | null
+    }
+    /** @description A reason is optional. A blank one is refused rather than stored. */
+    RelationshipTerminationRequestCreate: {
+      reason?: string
+    }
+    /** @description A refusal always says why, and the coach is told. */
+    RelationshipTerminationRequestRejection: {
+      resolution: string
+    }
+    RelationshipTerminationRequestParty: {
+      membership_id: components['schemas']['Uuid']
+      display_name: string
+    }
+    /** @description A coach's request that the organization end a relationship, and how it was settled. `pending` until one of: `withdrawn` by the coach, `rejected` by the administration with a `resolution`, `resolved` when the organization ended the relationship, or `superseded` when the person ended it or the coach stopped being its holder. `resolved_by` is null while pending and when superseded, since nobody in the organization decided anything then. */
+    RelationshipTerminationRequest: {
+      request_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      /** @enum {string} */
+      status: 'pending' | 'withdrawn' | 'rejected' | 'resolved' | 'superseded'
+      reason: string | null
+      resolution: string | null
+      requested_by: components['schemas']['RelationshipTerminationRequestParty']
+      resolved_by: components['schemas']['RelationshipTerminationRequestParty'] | null
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      resolved_at: string | null
     }
     /** @description A directory entry is one of two things and says which. A `relationship` entry has a person behind it. An `invitation` entry does not: until somebody accepts, no person and no name exist, so it carries only the masked contact the invitation was sent to. */
     ClientDirectoryItem:
@@ -6775,8 +7477,33 @@ export interface components {
       occupied: number
       /** @description Null when there is no limit. Zero when the quota is full or already exceeded, because there is no such thing as a negative place. */
       places_left: number | null
-      /** @description The gym has more taken than it was sold, because Allfit lowered the number. Nobody is removed; only new invitations are refused. */
+      /** @description The gym has more taken than it was sold, because Allfit lowered the number. Nobody is removed; new invitations, and acceptances that would add to it, are refused. */
       over_quota: boolean
+    }
+    /** @description One authorization, as the organization sees it. Every field is about the permission and none is from the data it covers: the category it names, the version agreed, whether it still stands, and the dates that bound it. The day a field carrying content is added here, T-PRV-SCOPES-01 fails. */
+    AuthorizedScopeItem: {
+      relationship_id: components['schemas']['UuidV7']
+      person_id: components['schemas']['UuidV7']
+      display_name: string
+      grant_id: components['schemas']['UuidV7']
+      scope_code: components['schemas']['ScopeCode']
+      /** @description The words the person was shown for this category. Null when the vocabulary has no presentation row for it, which is a curation gap rather than a missing permission. */
+      scope_display_name: string | null
+      version_number: number
+      access_level: components['schemas']['AccessLevel']
+      status: components['schemas']['GrantStatus']
+      purpose: string
+      /** Format: date-time */
+      granted_at: string
+      /**
+       * Format: date-time
+       * @description When the person took this authorization back, if they did.
+       */
+      revoked_at: string | null
+    }
+    AuthorizedScopePage: {
+      data: components['schemas']['AuthorizedScopeItem'][]
+      page: components['schemas']['Page']
     }
     OrganizationCapability: {
       code: string
@@ -7173,6 +7900,7 @@ export interface components {
      *       "version_number": 1,
      *       "status": "published",
      *       "title": "Bloque de fuerza",
+     *       "repeats_forever": false,
      *       "sessions": [
      *         {
      *           "position": 1,
@@ -7194,6 +7922,8 @@ export interface components {
       status: 'published' | 'deprecated'
       title: string
       notes?: string | null
+      /** @description True when the program has no end: its last week is followed by the first again (ADR-032). Fixed at publication like the rest of the version. */
+      repeats_forever: boolean
       sessions: components['schemas']['ProgramVersionSessionCreate'][]
       /** Format: date-time */
       published_at: string
@@ -7315,6 +8045,43 @@ export interface components {
       requested_level: components['schemas']['CompletenessLevel']
       /** @enum {string} */
       capture_source: 'manual' | 'device'
+    }
+    /**
+     * @example {
+     *       "discipline_code": "strength",
+     *       "started_at": "2026-10-13T18:04:00-05:00",
+     *       "timezone": "America/Bogota",
+     *       "requested_level": "detailed",
+     *       "capture_source": "manual"
+     *     }
+     */
+    FreeSessionCreate: {
+      discipline_code: string
+      /** Format: date-time */
+      started_at: string
+      timezone: components['schemas']['IanaTimeZone']
+      requested_level: components['schemas']['CompletenessLevel']
+      /** @enum {string} */
+      capture_source: 'manual' | 'device'
+    }
+    /**
+     * @example {
+     *       "id": "0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b",
+     *       "status": "in_progress",
+     *       "revision_number": 0,
+     *       "result_contract": {
+     *         "id": "018f6f8d-2b00-7a00-8000-000000000801",
+     *         "version": 1,
+     *         "requested_level": "detailed"
+     *       }
+     *     }
+     */
+    FreeSession: {
+      id: components['schemas']['UuidV7']
+      /** @constant */
+      status: 'in_progress'
+      revision_number: number
+      result_contract: components['schemas']['ResultContractRef']
     }
     /**
      * @example {
@@ -7684,6 +8451,38 @@ export interface components {
     AppliedScope: {
       code: components['schemas']['ScopeCode']
       version: number
+    }
+    /** @description One category one gym asked her for. `decision` is her answer; the grant fields are set only when she said yes. `presented_snapshot` is what the gym showed her, title included. */
+    SpaceConsent: {
+      relationship_id: components['schemas']['UuidV7']
+      organization_id: components['schemas']['UuidV7']
+      organization_name: string
+      /** @enum {string} */
+      relationship_status: 'active' | 'terminated'
+      /** Format: date-time */
+      started_at: string
+      /** Format: date-time */
+      ended_at: string | null
+      scope_code: components['schemas']['ScopeCode']
+      presented_snapshot: {
+        [key: string]: unknown
+      }
+      /** @enum {string} */
+      decision: 'accepted' | 'rejected'
+      /** Format: date-time */
+      decided_at: string
+      grant_id: components['schemas']['Uuid'] | null
+      grant_status: components['schemas']['GrantStatus'] | null
+      access_level: components['schemas']['AccessLevel'] | null
+      /** Format: date-time */
+      granted_at: string | null
+      /** Format: date-time */
+      frozen_at: string | null
+      /** Format: date-time */
+      revoked_at: string | null
+    }
+    SpaceConsentList: {
+      data: components['schemas']['SpaceConsent'][]
     }
     /**
      * @example {
@@ -8117,6 +8916,7 @@ export interface components {
     /**
      * @example {
      *       "local_date": "2026-07-28",
+     *       "hidden": false,
      *       "meal_count": 3,
      *       "nutrient_totals": [
      *         {
@@ -8136,11 +8936,18 @@ export interface components {
     NutritionDailySummary: {
       /** Format: date */
       local_date: string
-      meal_count: number
+      /** @description True for a day before the window the person's plan shows. Its meals are kept; the day carries no count and no totals instead of reading as an empty day. */
+      hidden: boolean
+      meal_count: number | null
       nutrient_totals: components['schemas']['NutrientValue'][]
       applied_scope: components['schemas']['AppliedScope'] | null
     }
     NutritionDailySummaryPage: {
+      /**
+       * Format: date
+       * @description The first day the person's plan shows; null when nothing is hidden.
+       */
+      visible_from: string | null
       /** @description Days in a row with at least one meal, ending today or, while today has none yet, yesterday (ADR-040). Counted over every day, not only the range asked. */
       streak_days: number
       data: components['schemas']['NutritionDailySummary'][]
@@ -8399,6 +9206,76 @@ export interface components {
       /** @constant */
       method: 'GET'
     }
+    SpacePeriodComparison: {
+      /** @enum {string} */
+      period: 'week' | 'month'
+      /** @description Every programme with sessions in the window, whatever was asked for. */
+      programs: components['schemas']['SpacePeriodProgram'][]
+      periods: components['schemas']['SpacePeriod'][]
+      /** @description Each movement's best in its latest period, best first. */
+      movements: components['schemas']['SpacePeriodMovement'][]
+    }
+    SpacePeriod: {
+      /** Format: date */
+      starts_on: string
+      sessions: number
+      active_days: number
+      trained_seconds: number
+      work_sets: number
+      volume_kg: number | null
+      planned: number
+      fulfilled: number
+      /** @description How the period's work sets fall across the muscles, heaviest first. A set belongs to one muscle, the movement's primary, as in a routine's own count. */
+      muscles: components['schemas']['SpacePeriodMuscle'][]
+      /** @description Sessions trained with no plan behind them, whatever programme was asked for. */
+      unplanned: number
+      /** @description The days trained in the period and their volume, oldest first. */
+      days: components['schemas']['SpacePeriodDay'][]
+    }
+    SpacePeriodProgram: {
+      assignment_id: components['schemas']['Uuid']
+      title: string
+      from_gym: boolean
+      /** @description Planned sessions per period, oldest first. */
+      planned: number[]
+      /** @description Planned sessions kept per period, oldest first. */
+      fulfilled: number[]
+    }
+    SpacePeriodDay: {
+      /** Format: date */
+      trained_on: string
+      volume_kg: number | null
+    }
+    SpacePeriodMuscle: {
+      code: string
+      name: string
+      sets: number
+    }
+    SpacePeriodMovement: {
+      movement_id: components['schemas']['Uuid']
+      name: string
+      best_kg: number
+      previous_best_kg: number | null
+      change_kg: number | null
+      /** @description The movement's best in every period, oldest first; null where it was not trained. */
+      bests: (number | null)[]
+    }
+    BodyPhotoCreate: {
+      /** Format: date */
+      taken_on: string
+      photo: components['schemas']['NutritionPhotoUpload']
+    }
+    BodyPhoto: {
+      id: components['schemas']['UuidV7']
+      /** Format: date */
+      taken_on: string
+      /** Format: date-time */
+      created_at: string
+      photo: components['schemas']['SignedMediaUrl']
+    }
+    BodyPhotoPage: {
+      data: components['schemas']['BodyPhoto'][]
+    }
     Problem: {
       /** Format: uri */
       type: string
@@ -8410,6 +9287,8 @@ export interface components {
       request_id: string
       required_scope?: components['schemas']['RequiredScope'] | null
       errors?: components['schemas']['ValidationIssue'][]
+      /** @description Only on `plan-limit-reached`: the function of the plan catalogue that the person's plan does not open or whose limit was reached (DT-018). */
+      feature?: string
       /** @description Current server draft returned only for stale-draft conflicts. */
       current_state?:
         components['schemas']['SessionTemplateDraft'] | components['schemas']['ProgramDraft']
@@ -9262,6 +10141,8 @@ export interface components {
     /** @description One bond between the caller and an organization. `previous_relationship_id` is set when she had another with the same organization before this one. */
     SpaceRelationship: {
       relationship_id: components['schemas']['UuidV7']
+      /** @description The coach in charge of her now, by name. Null when nobody is. */
+      holder_name: string | null
       organization_id: components['schemas']['UuidV7']
       organization_name: string
       organization_type_code: string
@@ -9272,6 +10153,33 @@ export interface components {
       /** Format: date-time */
       ended_at: string | null
       previous_relationship_id: components['schemas']['UuidV7'] | null
+    }
+    /** @description One cover of a relationship, running or finished. A finished one appearing here grants nothing: validity is read from these dates, so this is a fact about the past rather than a key to it. */
+    ListedRelationshipSubstitution: {
+      assignment_id: components['schemas']['UuidV7']
+      membership_id: components['schemas']['UuidV7']
+      professional_person_id: components['schemas']['UuidV7']
+      display_name: string
+      /** @enum {string} */
+      status: 'proposed' | 'active' | 'ended'
+      /** Format: date-time */
+      valid_from: string
+      /**
+       * Format: date-time
+       * @description When the cover stopped, or null while it is still running.
+       */
+      valid_to: string | null
+      /** Format: date */
+      ends_on: string | null
+      /**
+       * Format: date-time
+       * @description Null means nobody has answered. Silence is never acceptance.
+       */
+      accepted_by_person_at: string | null
+    }
+    RelationshipSubstitutionPage: {
+      data: components['schemas']['ListedRelationshipSubstitution'][]
+      page: components['schemas']['Page']
     }
     SpaceRelationshipPage: {
       data: components['schemas']['SpaceRelationship'][]
@@ -9640,8 +10548,10 @@ export interface components {
     ProgramId: components['schemas']['Uuid']
     TemplateId: components['schemas']['Uuid']
     VersionNumber: number
+    InvitationId: components['schemas']['UuidV7']
     RelationshipId: components['schemas']['Uuid']
     SubstitutionId: components['schemas']['Uuid']
+    TerminationRequestId: components['schemas']['Uuid']
     PlannedSessionId: components['schemas']['Uuid']
     ExecutionId: components['schemas']['Uuid']
     PersonId: components['schemas']['Uuid']
@@ -10280,6 +11190,30 @@ export interface operations {
       409: components['responses']['Conflict']
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listCatalogInformationCategories: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The seven categories, in the order the product names them */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CatalogInformationCategoryList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
       503: components['responses']['UpstreamUnavailable']
     }
   }
@@ -11888,6 +12822,60 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listMySpaceClientInvitations: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her pending invitations, the soonest to expire first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientInvitationPendingList']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readMySpaceClientInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        invitationId: components['parameters']['InvitationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description What the invitation asks for */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientInvitationPresentation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   decideSpaceClientInvitation: {
     parameters: {
       query?: never
@@ -12968,6 +13956,37 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listStudioAuthorizedScopes: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Authorized scope page */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuthorizedScopePage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   grantStudioOrganizationMembershipRole: {
     parameters: {
       query?: never
@@ -12999,6 +14018,157 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['OrganizationRoleGrant']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  revokeStudioOrganizationMembershipRole: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        membershipId: components['parameters']['MembershipId']
+        roleCode: components['schemas']['AssignableOrganizationRoleCode']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Closed role period, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationRoleRevocation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  terminateStudioOrganizationMembership: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        membershipId: components['parameters']['MembershipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Terminated membership, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMembershipTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  resignStudioOrganizationMembership: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resigned membership, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMembershipResignation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  closeStudioOrganization: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Closed organization, including convergent duplicate commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationClosure']
         }
       }
       400: components['responses']['BadRequest']
@@ -13321,24 +14491,7 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       404: components['responses']['NotFound']
-      /** @description The gym has no places left in its guest quota (`guest-quota-full`), or the command conflicts with a concurrent one or reuses an idempotency identity. */
-      409: {
-        headers: {
-          'Cache-Control': components['headers']['NoStore']
-          [name: string]: unknown
-        }
-        content: {
-          /**
-           * @example {
-           *       "type": "https://errors.allfit.invalid/guest-quota-full",
-           *       "title": "The gym has no places left in its guest quota",
-           *       "status": 409,
-           *       "request_id": "01JEXAMPLE0000000000000000"
-           *     }
-           */
-          'application/problem+json': components['schemas']['Problem']
-        }
-      }
+      409: components['responses']['Conflict']
       422: components['responses']['ValidationFailed']
       429: components['responses']['RateLimited']
       503: components['responses']['UpstreamUnavailable']
@@ -13849,6 +15002,37 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  getOrganizationProgramVersion: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        programId: components['parameters']['ProgramId']
+        versionNumber: components['parameters']['VersionNumber']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Complete program version with its current status */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateRevalidate']
+          ETag: components['headers']['ETag']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProgramVersion']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   deprecateOrganizationProgramVersion: {
     parameters: {
       query?: never
@@ -14050,6 +15234,200 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  terminateRelationship: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RelationshipTerminationCreate']
+      }
+    }
+    responses: {
+      /** @description The relationship is over, and every permission it carried is frozen */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  requestRelationshipTermination: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['RelationshipTerminationRequestCreate']
+      }
+    }
+    responses: {
+      /** @description The request is pending; nothing about the relationship changed */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTerminationRequest']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  withdrawRelationshipTerminationRequest: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+        terminationRequestId: components['parameters']['TerminationRequestId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The request is withdrawn */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTerminationRequest']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  rejectRelationshipTerminationRequest: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+        terminationRequestId: components['parameters']['TerminationRequestId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RelationshipTerminationRequestRejection']
+      }
+    }
+    responses: {
+      /** @description The request is refused */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipTerminationRequest']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listRelationshipSubstitutions: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The covers of this relationship, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipSubstitutionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   proposeRelationshipSubstitution: {
     parameters: {
       query?: never
@@ -14101,6 +15479,38 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listMyRelationshipSubstitutions: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The covers of this relationship, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipSubstitutionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   endRelationshipSubstitution: {
     parameters: {
       query?: never
@@ -14128,6 +15538,116 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['RelationshipSubstitutionTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listMyRelationshipEvents: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: string
+      }
+      header?: never
+      path: {
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of her relationship's history, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipHistoryPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  endMyRelationship: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RelationshipTerminationCreate']
+      }
+    }
+    responses: {
+      /** @description The relationship is over */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyRelationshipTermination']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  decideMyRelationshipSubstitution: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        relationshipId: components['parameters']['RelationshipId']
+        substitutionId: components['parameters']['SubstitutionId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SubstitutionDecisionCreate']
+      }
+    }
+    responses: {
+      /** @description Her answer, recorded */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipSubstitutionDecision']
         }
       }
       400: components['responses']['BadRequest']
@@ -14621,6 +16141,39 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       422: components['responses']['ValidationFailed']
+    }
+  }
+  duplicateMySessionTemplate: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        templateId: components['parameters']['TemplateId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The new routine and its draft, never the one it was copied from */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SessionTemplate']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
     }
   }
   publishMySessionTemplate: {
@@ -15129,6 +16682,42 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  startFreeSession: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FreeSessionCreate']
+      }
+    }
+    responses: {
+      /** @description Free session started */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          Location: components['headers']['Location']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FreeSession']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   getMyHistoryMonth: {
     parameters: {
       query: {
@@ -15157,6 +16746,36 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  compareMyPeriods: {
+    parameters: {
+      query: {
+        timezone: components['schemas']['IanaTimeZone']
+        period: 'week' | 'month'
+        count: number
+        /** @description One programme (its assignment id) or `free` for what was trained without a plan. Absent reads everything. `programs` lists every programme either way. */
+        program?: components['schemas']['Uuid'] | 'free'
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The periods, oldest first, and each movement's best against the period before */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpacePeriodComparison']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
     }
   }
   getMyExecution: {
@@ -15591,6 +17210,30 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+    }
+  }
+  listMySpaceConsents: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her consents, grouped by relationship */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceConsentList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   revokeConsentGrant: {
@@ -17147,6 +18790,93 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listMyBodyPhotos: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The person's photos */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BodyPhotoPage']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+    }
+  }
+  recordMyBodyPhoto: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BodyPhotoCreate']
+      }
+    }
+    responses: {
+      /** @description The photo, kept */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BodyPhoto']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+    }
+  }
+  deleteMyBodyPhoto: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        photoId: components['schemas']['Uuid']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The photo is gone */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
     }
   }
   listSpaceHealthContext: {

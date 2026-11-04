@@ -10,6 +10,9 @@ import type {
   RelationshipStateService,
   SubstitutionProposalService,
   SubstitutionTerminationService,
+  SubstitutionListService,
+  RelationshipTerminationService,
+  TerminationRequestService,
 } from '../application/index.js'
 import type {
   DirectoryEntry,
@@ -18,6 +21,7 @@ import type {
   RelationshipHistory,
   RelationshipHistoryEvent,
   RelationshipState,
+  TerminationRequest,
 } from '../domain/index.js'
 import { studioRelationshipRoutes } from './studio.js'
 
@@ -528,6 +532,7 @@ function states(overrides: Partial<RelationshipState> = {}): RelationshipStateSe
           revokedAt: null,
         },
       ],
+      terminationRequest: null,
       ...overrides,
     }),
   }
@@ -599,6 +604,21 @@ describe('reading how a relationship stands', () => {
   test('the response is never stored', async () => {
     const response = await stateApp().request(STATE_PATH, { headers: HEADERS })
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+  })
+
+  test('T-REL-API-TERMREQ-01: says nobody asked to end it with null', async () => {
+    const response = await stateApp().request(STATE_PATH, { headers: HEADERS })
+    const payload = (await response.json()) as Record<string, unknown>
+    expect(payload.termination_request).toBeNull()
+  })
+
+  test('T-REL-API-TERMREQ-02: carries the latest request to end it, as the contract shapes it', async () => {
+    const response = await stateApp(states({ terminationRequest: rejectedRequest() })).request(
+      STATE_PATH,
+      { headers: HEADERS },
+    )
+    const payload = (await response.json()) as Record<string, unknown>
+    expect(payload.termination_request).toEqual(REJECTED_REQUEST_JSON)
   })
 
   test('a relationship the caller may not see is a 404, not a 403', async () => {
@@ -1213,5 +1233,524 @@ describe('ending a cover before its last day', () => {
   test('is never stored by a cache', async () => {
     const response = await endApp().fetch(endCover())
     expect(response.headers.get('cache-control')).toBe('no-store')
+  })
+})
+
+const LIST_PATH = `/studio/v1/organizations/${ORGANIZATION}/relationships/${RELATIONSHIP}/substitutions`
+
+function listedCover(overrides: Record<string, unknown> = {}) {
+  return {
+    assignmentId: '019ad000-0000-7000-8000-000000000403',
+    membershipId: MEMBERSHIP,
+    professionalPersonId: '019ad000-0000-7000-8000-000000000014',
+    displayName: 'Daniela Hoyos',
+    status: 'active' as const,
+    validFrom: new Date('2026-11-02T00:00:00.000Z'),
+    validTo: null,
+    endsOn: '2026-11-09',
+    acceptedByPersonAt: new Date('2026-11-01T12:00:00.000Z'),
+    ...overrides,
+  }
+}
+
+function substitutionPages(
+  page: { items: ReturnType<typeof listedCover>[]; hasMore: boolean } = {
+    items: [listedCover()],
+    hasMore: false,
+  },
+  capture?: (query: Record<string, unknown>) => void,
+): SubstitutionListService {
+  return {
+    list: async (_actor, query) => {
+      capture?.(query as unknown as Record<string, unknown>)
+      return page
+    },
+    listMine: async () => page,
+  }
+}
+
+function listApp(service: SubstitutionListService = substitutionPages()): Hono {
+  const routes = new Hono()
+  routes.route(
+    '/studio/v1',
+    studioRelationshipRoutes({ sessions: sessions(), substitutionPages: service }),
+  )
+  return routes
+}
+
+function askList(query = '', headers: Record<string, string> = HEADERS): Request {
+  return new Request(`https://api.example.test${LIST_PATH}${query}`, { headers })
+}
+
+describe('who has covered this client', () => {
+  test('answers the covers with their dates', async () => {
+    const response = await listApp().fetch(askList())
+    expect(response.status).toBe(200)
+    const payload = (await response.json()) as {
+      data: Record<string, unknown>[]
+      page: Record<string, unknown>
+    }
+    expect(payload.data[0]?.display_name).toBe('Daniela Hoyos')
+    expect(payload.data[0]?.valid_from).toBe('2026-11-02T00:00:00.000Z')
+    expect(payload.page.has_more).toBe(false)
+    expect(payload.page.next_cursor).toBeNull()
+  })
+
+  /*
+   * A cover that is over carries the instant it stopped, and the card's own
+   * shape has no room for it. A list spanning years is where that matters.
+   */
+  test('a finished cover carries when it stopped', async () => {
+    const finished = listedCover({
+      status: 'ended',
+      validTo: new Date('2026-11-05T15:20:00.000Z'),
+    })
+    const response = await listApp(substitutionPages({ items: [finished], hasMore: false })).fetch(
+      askList(),
+    )
+    const payload = (await response.json()) as { data: Record<string, unknown>[] }
+    expect(payload.data[0]?.status).toBe('ended')
+    expect(payload.data[0]?.valid_to).toBe('2026-11-05T15:20:00.000Z')
+  })
+
+  test('a running cover has no stopping instant', async () => {
+    const response = await listApp().fetch(askList())
+    const payload = (await response.json()) as { data: Record<string, unknown>[] }
+    expect(payload.data[0]?.valid_to).toBeNull()
+  })
+
+  // The cursor round-trips: what the page hands out is what the next request
+  // can be read back from. A cursor nobody can parse is a list that repeats.
+  test('the cursor it hands out is one it can read back', async () => {
+    const first = await listApp(substitutionPages({ items: [listedCover()], hasMore: true })).fetch(
+      askList(),
+    )
+    const { page } = (await first.json()) as { page: { next_cursor: string } }
+    expect(page.next_cursor).toBeTruthy()
+
+    const seen: Record<string, unknown>[] = []
+    const app = listApp(substitutionPages(undefined, (query) => seen.push(query)))
+    const second = await app.fetch(askList(`?cursor=${page.next_cursor}`))
+    expect(second.status).toBe(200)
+    expect(seen[0]?.cursorValidFrom).toBe('2026-11-02T00:00:00.000Z')
+    expect(seen[0]?.cursorAssignmentId).toBe('019ad000-0000-7000-8000-000000000403')
+  })
+
+  test('a cursor nobody could have issued is refused', async () => {
+    const response = await listApp().fetch(askList('?cursor=not-a-cursor'))
+    expect(response.status).toBe(422)
+  })
+
+  test('a limit that is not a page size is refused', async () => {
+    expect((await listApp().fetch(askList('?limit=0'))).status).toBe(422)
+    expect((await listApp().fetch(askList('?limit=500'))).status).toBe(422)
+  })
+
+  // Read for deciding who has seen somebody's data, so a stale copy is worse
+  // than a slow one.
+  test('is never stored by a cache', async () => {
+    const response = await listApp().fetch(askList())
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+  })
+})
+
+const TERMINATE_PATH = `/studio/v1/organizations/${ORGANIZATION}/relationships/${RELATIONSHIP}/termination`
+
+function relationshipEndings(
+  overrides: Partial<RelationshipTerminationService> = {},
+  capture?: (input: Record<string, unknown>) => void,
+): RelationshipTerminationService {
+  return {
+    terminate: async (_actor, input) => {
+      capture?.(input as unknown as Record<string, unknown>)
+      return {
+        resource: {
+          relationshipId: RELATIONSHIP,
+          personId: '019ad000-0000-7000-8000-000000000001',
+          endedAt: new Date('2026-11-04T15:20:00.000Z'),
+          frozenGrants: 3,
+          closedAssignments: 2,
+        },
+        replayed: false,
+      }
+    },
+    ...overrides,
+  }
+}
+
+function endRelationshipApp(service: RelationshipTerminationService = relationshipEndings()): Hono {
+  const routes = new Hono()
+  routes.route(
+    '/studio/v1',
+    studioRelationshipRoutes({ sessions: sessions(), relationshipTerminations: service }),
+  )
+  return routes
+}
+
+function terminate(body?: unknown, headers: Record<string, string> = ASSIGN_HEADERS): Request {
+  return new Request(`https://api.example.test${TERMINATE_PATH}`, {
+    method: 'POST',
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+}
+
+describe('ending a client relationship', () => {
+  /*
+   * The counts are the answer, not decoration. «Three permissions frozen» is
+   * what tells a reader the organization keeps that history and receives
+   * nothing after — and freezing is not revoking.
+   */
+  test('answers with the instant and what stopped with it', async () => {
+    const response = await endRelationshipApp().fetch(terminate())
+    expect(response.status).toBe(200)
+    const payload = (await response.json()) as Record<string, unknown>
+    expect(payload.ended_at).toBe('2026-11-04T15:20:00.000Z')
+    expect(payload.frozen_grants).toBe(3)
+    expect(payload.closed_assignments).toBe(2)
+  })
+
+  // A gym does not owe the system a justification, so no body is a valid body.
+  test('a request with no body at all is valid', async () => {
+    const response = await endRelationshipApp().fetch(terminate())
+    expect(response.status).toBe(200)
+  })
+
+  test('a reason goes down as the caller wrote it', async () => {
+    const seen: Record<string, unknown>[] = []
+    const app = endRelationshipApp(relationshipEndings({}, (input) => seen.push(input)))
+    await app.fetch(terminate({ reason: 'Se mudó de ciudad' }))
+    expect(seen[0]?.reason).toBe('Se mudó de ciudad')
+  })
+
+  /*
+   * A blank reason is refused rather than trimmed away. A caller who sends one
+   * believes they gave a reason, and storing nothing would quietly disagree.
+   */
+  test('a blank reason is refused, not trimmed away', async () => {
+    const response = await endRelationshipApp().fetch(terminate({ reason: '   ' }))
+    expect(response.status).toBe(422)
+  })
+
+  test('a body carrying a field the contract does not declare', async () => {
+    const response = await endRelationshipApp().fetch(terminate({ reason: 'ok', notify: false }))
+    expect(response.status).toBe(422)
+  })
+
+  /*
+   * The catalogue is explicit that a coach may not do this, even for a client
+   * they attend. The command decides it; this proves the refusal arrives as a
+   * refusal rather than as an outage.
+   */
+  test('a coach is refused, and told so', async () => {
+    const refused = relationshipEndings({
+      terminate: async () => {
+        throw Object.assign(new Error('not allowed'), { code: '42501' })
+      },
+    })
+    const response = await endRelationshipApp(refused).fetch(terminate())
+    expect(response.status).toBe(403)
+  })
+
+  // Two different relationships under one key must not replay each other.
+  test('the relationship is part of what makes the command idempotent', async () => {
+    const seen: Record<string, unknown>[] = []
+    const app = endRelationshipApp(relationshipEndings({}, (input) => seen.push(input)))
+    await app.fetch(terminate())
+    await app.fetch(terminate({ reason: 'otra cosa' }))
+    expect(seen[0]?.requestHash).not.toEqual(seen[1]?.requestHash)
+  })
+
+  test('marks a replayed command', async () => {
+    const replayed = relationshipEndings({
+      terminate: async () => ({
+        resource: {
+          relationshipId: RELATIONSHIP,
+          personId: '019ad000-0000-7000-8000-000000000001',
+          endedAt: new Date('2026-11-04T15:20:00.000Z'),
+          frozenGrants: 0,
+          closedAssignments: 0,
+        },
+        replayed: true,
+      }),
+    })
+    const response = await endRelationshipApp(replayed).fetch(terminate())
+    expect(response.headers.get('Idempotent-Replay')).toBe('true')
+  })
+
+  test('is never stored by a cache', async () => {
+    const response = await endRelationshipApp().fetch(terminate())
+    expect(response.headers.get('cache-control')).toBe('no-store')
+  })
+})
+
+const REQUEST = '019ad000-0000-7000-8000-000000000601'
+const REQUESTS_PATH = `/studio/v1/organizations/${ORGANIZATION}/relationships/${RELATIONSHIP}/termination-requests`
+
+function pendingRequest(overrides: Partial<TerminationRequest> = {}): TerminationRequest {
+  return {
+    requestId: REQUEST,
+    relationshipId: RELATIONSHIP,
+    status: 'pending',
+    reason: 'No puedo seguir atendiéndola',
+    resolution: null,
+    requestedBy: { membershipId: MEMBERSHIP, displayName: 'Camilo Coach' },
+    resolvedBy: null,
+    createdAt: new Date('2026-11-03T10:00:00.000Z'),
+    resolvedAt: null,
+    ...overrides,
+  }
+}
+
+function rejectedRequest(): TerminationRequest {
+  return pendingRequest({
+    status: 'rejected',
+    resolution: 'Ana pidió seguir contigo',
+    resolvedBy: {
+      membershipId: '019ad000-0000-7000-8000-000000000201',
+      displayName: 'Olivia Owner',
+    },
+    resolvedAt: new Date('2026-11-03T12:00:00.000Z'),
+  })
+}
+
+const REJECTED_REQUEST_JSON = {
+  request_id: REQUEST,
+  relationship_id: RELATIONSHIP,
+  status: 'rejected',
+  reason: 'No puedo seguir atendiéndola',
+  resolution: 'Ana pidió seguir contigo',
+  requested_by: { membership_id: MEMBERSHIP, display_name: 'Camilo Coach' },
+  resolved_by: {
+    membership_id: '019ad000-0000-7000-8000-000000000201',
+    display_name: 'Olivia Owner',
+  },
+  created_at: '2026-11-03T10:00:00.000Z',
+  resolved_at: '2026-11-03T12:00:00.000Z',
+}
+
+function terminationRequests(
+  overrides: Partial<TerminationRequestService> = {},
+  capture?: (input: Record<string, unknown>) => void,
+): TerminationRequestService {
+  return {
+    request: async (_actor, input) => {
+      capture?.(input as unknown as Record<string, unknown>)
+      return { resource: pendingRequest(), replayed: false }
+    },
+    withdraw: async (_actor, input) => {
+      capture?.(input as unknown as Record<string, unknown>)
+      return {
+        resource: pendingRequest({
+          status: 'withdrawn',
+          resolvedBy: { membershipId: MEMBERSHIP, displayName: 'Camilo Coach' },
+          resolvedAt: new Date('2026-11-03T11:00:00.000Z'),
+        }),
+        replayed: false,
+      }
+    },
+    reject: async (_actor, input) => {
+      capture?.(input as unknown as Record<string, unknown>)
+      return { resource: rejectedRequest(), replayed: false }
+    },
+    ...overrides,
+  }
+}
+
+function requestApp(service: TerminationRequestService = terminationRequests()): Hono {
+  const routes = new Hono()
+  routes.route(
+    '/studio/v1',
+    studioRelationshipRoutes({ sessions: sessions(), terminationRequests: service }),
+  )
+  return routes
+}
+
+function post(
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = ASSIGN_HEADERS,
+): Request {
+  return new Request(`https://api.example.test${path}`, {
+    method: 'POST',
+    headers,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  })
+}
+
+const refusedWith = (code: string) => async () => {
+  throw Object.assign(new Error(code), { code })
+}
+
+describe('a coach asking to end a relationship (OP-REL-009)', () => {
+  test('T-REL-API-TERMREQ-03: answers 201 with the pending request', async () => {
+    const response = await requestApp().fetch(
+      post(REQUESTS_PATH, { reason: 'No puedo seguir atendiéndola' }),
+    )
+    expect(response.status).toBe(201)
+    const payload = (await response.json()) as Record<string, unknown>
+    expect(payload).toMatchObject({ request_id: REQUEST, status: 'pending', resolved_by: null })
+  })
+
+  test('T-REL-API-TERMREQ-04: a reason is optional, so no body is a valid body', async () => {
+    const seen: Record<string, unknown>[] = []
+    const response = await requestApp(terminationRequests({}, (input) => seen.push(input))).fetch(
+      post(REQUESTS_PATH),
+    )
+    expect(response.status).toBe(201)
+    expect(seen[0]).not.toHaveProperty('reason')
+  })
+
+  test('T-REL-API-TERMREQ-05: a blank reason or an undeclared field is refused', async () => {
+    expect((await requestApp().fetch(post(REQUESTS_PATH, { reason: '  ' }))).status).toBe(422)
+    expect(
+      (await requestApp().fetch(post(REQUESTS_PATH, { reason: 'x', urgent: true }))).status,
+    ).toBe(422)
+  })
+
+  test('T-REL-API-TERMREQ-06: whoever could end it is refused, and told so', async () => {
+    const response = await requestApp(terminationRequests({ request: refusedWith('42501') })).fetch(
+      post(REQUESTS_PATH),
+    )
+    expect(response.status).toBe(403)
+  })
+
+  test('T-REL-API-TERMREQ-07: a second pending request is a conflict', async () => {
+    const response = await requestApp(terminationRequests({ request: refusedWith('23505') })).fetch(
+      post(REQUESTS_PATH),
+    )
+    expect(response.status).toBe(409)
+  })
+
+  test('T-REL-API-TERMREQ-08: a relationship the coach does not attend is a 404', async () => {
+    const response = await requestApp(terminationRequests({ request: refusedWith('P0002') })).fetch(
+      post(REQUESTS_PATH),
+    )
+    expect(response.status).toBe(404)
+  })
+
+  test('T-REL-API-TERMREQ-09: marks a replayed command', async () => {
+    const replayed = terminationRequests({
+      request: async () => ({ resource: pendingRequest(), replayed: true }),
+    })
+    const response = await requestApp(replayed).fetch(post(REQUESTS_PATH))
+    expect(response.status).toBe(201)
+    expect(response.headers.get('Idempotent-Replay')).toBe('true')
+  })
+
+  test('T-REL-API-TERMREQ-10: the relationship is part of what makes it idempotent', async () => {
+    const seen: Record<string, unknown>[] = []
+    const app = requestApp(terminationRequests({}, (input) => seen.push(input)))
+    await app.fetch(post(REQUESTS_PATH))
+    await app.fetch(
+      post(
+        `/studio/v1/organizations/${ORGANIZATION}/relationships/${MEMBERSHIP}/termination-requests`,
+      ),
+    )
+    expect(seen[0]?.requestHash).not.toEqual(seen[1]?.requestHash)
+  })
+
+  test('T-REL-API-TERMREQ-11: refuses another origin, missing headers and no session', async () => {
+    expect(
+      (
+        await requestApp().fetch(
+          post(REQUESTS_PATH, {}, { ...ASSIGN_HEADERS, origin: 'https://evil.test' }),
+        )
+      ).status,
+    ).toBe(403)
+    expect((await requestApp().fetch(post(REQUESTS_PATH, {}, HEADERS))).status).toBe(400)
+    const { cookie: _cookie, ...anonymous } = ASSIGN_HEADERS
+    expect((await requestApp().fetch(post(REQUESTS_PATH, {}, anonymous))).status).toBe(401)
+  })
+})
+
+const WITHDRAWAL_PATH = `${REQUESTS_PATH}/${REQUEST}/withdrawal`
+const REJECTION_PATH = `${REQUESTS_PATH}/${REQUEST}/rejection`
+
+describe('a coach taking her request back (OP-REL-017)', () => {
+  test('T-REL-API-TERMREQ-12: answers with the withdrawn request, settled by her', async () => {
+    const response = await requestApp().fetch(post(WITHDRAWAL_PATH))
+    expect(response.status).toBe(200)
+    const payload = (await response.json()) as Record<string, unknown>
+    expect(payload).toMatchObject({
+      status: 'withdrawn',
+      resolved_by: { membership_id: MEMBERSHIP, display_name: 'Camilo Coach' },
+      resolved_at: '2026-11-03T11:00:00.000Z',
+    })
+  })
+
+  test('T-REL-API-TERMREQ-13: somebody else is refused, and a settled request is a conflict', async () => {
+    expect(
+      (
+        await requestApp(terminationRequests({ withdraw: refusedWith('42501') })).fetch(
+          post(WITHDRAWAL_PATH),
+        )
+      ).status,
+    ).toBe(403)
+    expect(
+      (
+        await requestApp(terminationRequests({ withdraw: refusedWith('P0004') })).fetch(
+          post(WITHDRAWAL_PATH),
+        )
+      ).status,
+    ).toBe(409)
+  })
+
+  test('T-REL-API-TERMREQ-14: a request id that is not one is refused before any write', async () => {
+    const response = await requestApp().fetch(post(`${REQUESTS_PATH}/nope/withdrawal`))
+    expect(response.status).toBe(400)
+  })
+
+  test('T-REL-API-TERMREQ-15: marks a replayed command', async () => {
+    const replayed = terminationRequests({
+      withdraw: async () => ({ resource: pendingRequest({ status: 'withdrawn' }), replayed: true }),
+    })
+    const response = await requestApp(replayed).fetch(post(WITHDRAWAL_PATH))
+    expect(response.headers.get('Idempotent-Replay')).toBe('true')
+  })
+})
+
+describe('the administration refusing a request (OP-REL-018)', () => {
+  test('T-REL-API-TERMREQ-16: answers with the refusal, its words, who and when', async () => {
+    const seen: Record<string, unknown>[] = []
+    const response = await requestApp(terminationRequests({}, (input) => seen.push(input))).fetch(
+      post(REJECTION_PATH, { resolution: 'Ana pidió seguir contigo' }),
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual(REJECTED_REQUEST_JSON)
+    expect(seen[0]?.resolution).toBe('Ana pidió seguir contigo')
+  })
+
+  test('T-REL-API-TERMREQ-17: a refusal without words, blank, or with extra fields is refused', async () => {
+    expect((await requestApp().fetch(post(REJECTION_PATH))).status).toBe(422)
+    expect((await requestApp().fetch(post(REJECTION_PATH, { resolution: '  ' }))).status).toBe(422)
+    expect(
+      (await requestApp().fetch(post(REJECTION_PATH, { resolution: 'no', notify: false }))).status,
+    ).toBe(422)
+  })
+
+  test('T-REL-API-TERMREQ-18: a coach is refused, and a settled request is a conflict', async () => {
+    expect(
+      (
+        await requestApp(terminationRequests({ reject: refusedWith('42501') })).fetch(
+          post(REJECTION_PATH, { resolution: 'no' }),
+        )
+      ).status,
+    ).toBe(403)
+    expect(
+      (
+        await requestApp(terminationRequests({ reject: refusedWith('P0004') })).fetch(
+          post(REJECTION_PATH, { resolution: 'no' }),
+        )
+      ).status,
+    ).toBe(409)
+  })
+
+  test('T-REL-API-TERMREQ-19: the words are part of what makes it idempotent', async () => {
+    const seen: Record<string, unknown>[] = []
+    const app = requestApp(terminationRequests({}, (input) => seen.push(input)))
+    await app.fetch(post(REJECTION_PATH, { resolution: 'una' }))
+    await app.fetch(post(REJECTION_PATH, { resolution: 'otra' }))
+    expect(seen[0]?.requestHash).not.toEqual(seen[1]?.requestHash)
   })
 })

@@ -36,6 +36,7 @@ export interface StudioApiFixture {
    * length of what this caller may read.
    */
   guestQuota: StudioGuestQuotaBody | null
+  authorizedScopes: unknown[]
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -47,6 +48,18 @@ export interface StudioApiFixture {
    * click lands there, which is why the screen offers no retry.
    */
   substitutionOutcome: 'proposed' | 'already-proposed' | 'forbidden'
+  /**
+   * `ended` closes the cover in the fixture, the way the command does — the
+   * screen refetches rather than trusting the answer, so the list has to agree.
+   * `already-ended` is the `409` for a cover that is no longer running.
+   */
+  substitutionEndOutcome: 'ended' | 'already-ended' | 'forbidden'
+  /**
+   * `terminated` closes the relationship in the fixture, the way the command
+   * does: the screen refetches rather than trusting the answer, so the page has
+   * to agree with it.
+   */
+  terminationOutcome: 'terminated' | 'already-ended' | 'forbidden'
   organizationSubscriptions: unknown[]
   /**
    * `applied` moves the row in the fixture, the way the real command does; the other two
@@ -57,6 +70,7 @@ export interface StudioApiFixture {
   subscriptionOutcome: 'applied' | 'no-cause' | 'forbidden'
   roleGrantOutcome: 'granted' | 'rejected' | 'forbidden'
   offerableScopes: unknown[]
+  informationCategories: unknown[]
   organization: unknown
   organizationRoles: unknown[]
   organizationTypes: unknown[]
@@ -132,6 +146,77 @@ export const terminatedMembership = {
  * The permission vocabulary, as Backoffice publishes it. Three of the seven, so
  * the picker has enough to show a list without the screen becoming a wall.
  */
+/*
+ * `OP-PRV-022`. Copied from what `privacy.list_information_categories()`
+ * answers against a real database — the seven rows, their exact wording, the
+ * five keys the contract declares and the order the function returns them in.
+ * Not derived from `offerableScopeCatalog`: that one carries a definition id
+ * and a version this operation deliberately does not have, and a fixture that
+ * is merely plausible hides the defect it was written to catch.
+ */
+export const informationCategoryCatalog = [
+  {
+    scope_code: 'relationship_training',
+    display_name: 'Entrenamiento con nosotros',
+    summary: 'Sesiones que le asignes y sus resultados, nada de lo que entrene por su cuenta.',
+    description:
+      'Las sesiones que te asignemos y sus resultados, solo las que ocurran dentro de esta relación. No incluye lo que entrenes por tu cuenta, ni tu cuerpo, ni tu salud.',
+    default_purpose:
+      'Prescribir tu entrenamiento y revisar cómo te va en las sesiones que te asignamos.',
+  },
+  {
+    scope_code: 'prior_training_history',
+    display_name: 'Tu historial de entrenamiento',
+    summary: 'Entrenamientos anteriores y por su cuenta, sin cuerpo ni salud.',
+    description:
+      'Entrenamientos anteriores y por tu cuenta, y sus resultados. No incluye lo que hayas compartido con otras organizaciones, ni tu cuerpo, ni tu salud.',
+    default_purpose:
+      'Conocer tu punto de partida para no proponerte algo por encima o por debajo de lo que ya haces.',
+  },
+  {
+    scope_code: 'body_progress',
+    display_name: 'Progreso corporal',
+    summary: 'Medidas y las fotos que elija, sin datos de salud.',
+    description:
+      'Medidas, composición corporal, tendencias y las fotos que tú selecciones. No incluye tu galería, ni la ubicación de las fotos, ni datos de salud.',
+    default_purpose:
+      'Seguir cómo cambia tu cuerpo y ajustar el plan a lo que muestren las medidas.',
+  },
+  {
+    scope_code: 'health_context',
+    display_name: 'Contexto de salud',
+    summary: 'Dolores y lesiones que declare, sin historia clínica.',
+    description:
+      'Dolores, lesiones o limitaciones que tú declares, y tu recuperación. No incluye historia clínica, exámenes, medicamentos ni diagnósticos.',
+    default_purpose: 'Adaptar los ejercicios a tus lesiones o limitaciones para no hacerte daño.',
+  },
+  {
+    scope_code: 'nutrition_intake',
+    display_name: 'Lo que comes',
+    summary: 'Las comidas que registre. Nunca podrás editarlas.',
+    description:
+      'Las comidas que registres y lo que contienen. Solo las creas tú: un profesional nunca registra ni corrige una comida tuya.',
+    default_purpose: 'Entender tu alimentación para acompañarte con objetivos realistas.',
+  },
+  {
+    scope_code: 'nutrition_media',
+    display_name: 'Fotos de tus comidas',
+    summary: 'Las fotos de sus comidas. Requiere también ver lo que come.',
+    description:
+      'Las fotos que adjuntes a una comida. Requiere además que nos permitas ver lo que comes; por sí sola no muestra nada.',
+    default_purpose:
+      'Ver las fotos de tus comidas cuando el registro escrito no alcanza para entenderlas.',
+  },
+  {
+    scope_code: 'nutrition_guidance',
+    display_name: 'Objetivos nutricionales',
+    summary: 'Objetivos de nutrición y sus decisiones, sin ver sus comidas.',
+    description:
+      'Los objetivos de nutrición que te propongamos y las decisiones que tomes sobre ellos. No incluye tus comidas ni sus fotos, y nunca es prescripción médica.',
+    default_purpose: 'Proponerte objetivos de nutrición y revisar contigo si te sirven.',
+  },
+] as const
+
 export const offerableScopeCatalog = [
   {
     scope_definition_id: '01991600-7000-7000-8000-000000000301',
@@ -195,6 +280,38 @@ export const activeSubscription = {
   started_at: '2026-10-01T15:12:44.118Z',
   suspended_at: null,
   ended_at: null,
+}
+
+/*
+ * One standing and one withdrawn, which is the pair HU-STUDIO-035 turns on:
+ * criterion 4 says a withdrawn authorization stays visible, because it is what
+ * explains no longer seeing that part. Values copied from what
+ * `privacy.list_authorized_scopes` really returns.
+ */
+export const grantedHealthContext = {
+  relationship_id: '01991600-7000-7000-8000-000000000101',
+  person_id: '01991600-7000-7000-8000-000000000201',
+  display_name: 'Ana Álvarez',
+  grant_id: '01991600-7000-7000-8000-000000000c01',
+  scope_code: 'health_context',
+  scope_display_name: 'Contexto de salud',
+  version_number: 1,
+  access_level: 'read',
+  status: 'active',
+  purpose: 'Adaptar el entrenamiento a lo que la persona reporte.',
+  granted_at: '2025-03-04T15:12:44.118Z',
+  revoked_at: null,
+}
+
+export const withdrawnBodyProgress = {
+  ...grantedHealthContext,
+  grant_id: '01991600-7000-7000-8000-000000000c02',
+  scope_code: 'body_progress',
+  scope_display_name: 'Progreso corporal',
+  status: 'revoked',
+  purpose: 'Seguir cómo cambia el cuerpo y ajustar el plan.',
+  granted_at: '2025-03-04T15:12:44.118Z',
+  revoked_at: '2025-07-19T10:00:00.000Z',
 }
 
 export const activeClient = {
@@ -582,6 +699,28 @@ interface SiteRow {
   revision_number: number
 }
 
+interface OrganizationRow {
+  id: string
+  display_name: string
+  legal_name: string | null
+  type_code: string
+  status: string
+  revision_number: number
+  sites: SiteRow[]
+}
+
+/*
+ * `organizations.organization_type_transitions` as the migration seeds it
+ * (20260817154245_studio_organization_team_core.sql). This is the server's side
+ * of the rule; the client keeps its own in `lib/organization-profile.ts`, and
+ * the point of the pair is that a test fails when they disagree.
+ */
+const MOCK_TYPE_TRANSITIONS: Record<string, readonly string[]> = {
+  professional_practice: ['gym', 'studio'],
+  gym: [],
+  studio: [],
+}
+
 let siteSequence = 900
 
 // Named rather than positional: the specs reach for a particular site, and
@@ -643,6 +782,19 @@ export const organizationWithLongSite = {
   sites: [longestSite],
 }
 
+/*
+ * The only type that can still become another one. Every organization in these
+ * fixtures is a gym or a studio, and both of those have nowhere to move to, so
+ * without this one the type field is never exercised as a field.
+ */
+export const professionalPracticeOrganization = {
+  ...organizationWithSites,
+  display_name: 'Camila Restrepo',
+  legal_name: null,
+  type_code: 'professional_practice',
+  sites: [chapineroSite],
+}
+
 // No legal name and no site registered. Both absences are legitimate, and the
 // screen has to say so rather than drop the rows and leave the reader
 // wondering whether it even asked.
@@ -666,15 +818,19 @@ export function createStudioApiFixture(
     organizationMemberships: [activeTeamMember, terminatedTeamMember],
     organizationClients: [activeClient, pendingClientInvitation, terminatedClient],
     guestQuota: null,
+    authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
     reassignmentOutcome: 'reassigned',
     substitutionOutcome: 'proposed',
+    substitutionEndOutcome: 'ended',
+    terminationOutcome: 'terminated',
     organizationSubscriptions: [structuredClone(activeSubscription)],
     subscriptionOutcome: 'applied',
     roleGrantOutcome: 'granted',
     offerableScopes: [...offerableScopeCatalog],
+    informationCategories: [...informationCategoryCatalog],
     /*
      * A copy, not the shared object. Sites are now editable, and the mock
      * writes the change into this fixture so the screen the form returns to
@@ -725,7 +881,13 @@ export async function installStudioApiMock(
       )
     })
   }
-  await page.route(`${API_ORIGIN}/studio/v1/**`, async (route) => {
+  /*
+   * Studio reads two surfaces, not one. `/catalog/v1` is the tenant-less
+   * catalogue that Space and Backoffice read as well, and leaving it
+   * unintercepted let a request escape to a server that is not running — which
+   * the screen could only report as a failed load.
+   */
+  const handle = async (route: Route) => {
     const request = toMockRequest(route.request())
     if (request.method === 'OPTIONS') {
       await fulfill(route, { status: 204 })
@@ -741,7 +903,10 @@ export async function installStudioApiMock(
 
     const response = defaultResponse(request, fixture)
     await fulfill(route, response ?? { status: 500, body: { error: { code: 'unmocked-route' } } })
-  })
+  }
+
+  await page.route(`${API_ORIGIN}/studio/v1/**`, handle)
+  await page.route(`${API_ORIGIN}/catalog/v1/**`, handle)
 }
 
 function defaultResponse(
@@ -806,6 +971,10 @@ function defaultResponse(
   if (request.method === 'GET' && request.path === '/studio/v1/offerable-scopes') {
     return { status: 200, body: { items: fixture.offerableScopes } }
   }
+  // The catalogue surface, not `/studio/v1`: the wording is shared with Space.
+  if (request.method === 'GET' && request.path === '/catalog/v1/information-categories') {
+    return { status: 200, body: { items: fixture.informationCategories } }
+  }
   if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/client-invitations$/.test(request.path)
@@ -853,6 +1022,18 @@ function defaultResponse(
           places_left: null,
           over_quota: false,
         },
+      },
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/authorized-scopes$/.test(request.path)
+  ) {
+    return {
+      status: 200,
+      body: {
+        data: fixture.authorizedScopes,
+        page: { has_more: false, next_cursor: null },
       },
     }
   }
@@ -916,6 +1097,79 @@ function defaultResponse(
       return { status: 200, body: { subscription_id: subscriptionId, status } }
     }
   }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/relationships\/[^/]+\/termination$/.test(request.path)
+  ) {
+    if (fixture.terminationOutcome !== 'terminated') {
+      return {
+        status: fixture.terminationOutcome === 'already-ended' ? 409 : 403,
+        body: {
+          error: fixture.terminationOutcome === 'already-ended' ? 'conflict' : 'forbidden',
+        },
+      }
+    }
+    const current = fixture.relationshipState as Record<string, unknown>
+    const endedAt = '2026-11-04T15:20:00.000Z'
+    const grants = ((current.grants ?? []) as Array<Record<string, unknown>>).map((grant) =>
+      grant.status === 'active' ? { ...grant, status: 'frozen' } : grant,
+    )
+    fixture.relationshipState = {
+      ...current,
+      status: 'terminated',
+      ended_at: endedAt,
+      holder: null,
+      substitutions: ((current.substitutions ?? []) as Array<Record<string, unknown>>).map(
+        (cover) => (cover.status === 'active' ? { ...cover, status: 'ended' } : cover),
+      ),
+      grants,
+    }
+    return {
+      status: 200,
+      body: {
+        relationship_id: relationshipState.relationship_id,
+        person_id: relationshipState.person_id,
+        ended_at: endedAt,
+        frozen_grants: grants.filter((grant) => grant.status === 'frozen').length,
+        closed_assignments: 1,
+      },
+    }
+  }
+
+  const ending = request.path.match(
+    /^\/studio\/v1\/organizations\/[^/]+\/relationships\/[^/]+\/substitutions\/([^/]+)\/termination$/,
+  )
+  if (request.method === 'POST' && ending) {
+    if (fixture.substitutionEndOutcome !== 'ended') {
+      return {
+        status: fixture.substitutionEndOutcome === 'already-ended' ? 409 : 403,
+        body: {
+          error: fixture.substitutionEndOutcome === 'already-ended' ? 'conflict' : 'forbidden',
+        },
+      }
+    }
+    const current = fixture.relationshipState as Record<string, unknown>
+    const covers = (current.substitutions ?? []) as Array<Record<string, unknown>>
+    const endedAt = '2026-11-04T15:20:00.000Z'
+    fixture.relationshipState = {
+      ...current,
+      substitutions: covers.map((cover) =>
+        cover.assignment_id === ending[1] ? { ...cover, status: 'ended' } : cover,
+      ),
+    }
+    const closed = covers.find((cover) => cover.assignment_id === ending[1])
+    return {
+      status: 200,
+      body: {
+        assignment_id: ending[1],
+        relationship_id: relationshipState.relationship_id,
+        membership_id: closed?.membership_id ?? '',
+        professional_person_id: closed?.professional_person_id ?? '',
+        ended_at: endedAt,
+      },
+    }
+  }
+
   if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/relationships\/[^/]+\/substitutions$/.test(request.path)
@@ -1193,6 +1447,49 @@ function defaultResponse(
     const organization = fixture.organization as { sites: unknown[] } | null
     if (organization) organization.sites = [...organization.sites, site]
     return { status: 201, body: site }
+  }
+  if (request.method === 'PATCH' && /^\/studio\/v1\/organizations\/[^/]+$/.test(request.path)) {
+    const existing = fixture.organization as OrganizationRow | null
+    if (!existing) return { status: 404, body: error('not-found') }
+
+    const patch = request.body as
+      (Partial<OrganizationRow> & { expected_revision?: number }) | undefined
+    if (!patch || Object.keys(patch).length === 0) {
+      return { status: 400, body: error('invalid-request') }
+    }
+
+    // The same comparison the site PATCH above makes, and for the same reason:
+    // without it the conflict state has no way to be reached from a test.
+    const { expected_revision: expectedRevision, ...fields } = patch
+    const ifMatch = request.headers['if-match']
+    if (expectedRevision === undefined && !ifMatch) {
+      return { status: 428, body: error('precondition-required') }
+    }
+    const expected =
+      expectedRevision ?? Number(/:r([0-9]+)"$/.exec(String(ifMatch))?.[1] ?? Number.NaN)
+    if (expected !== existing.revision_number) {
+      return { status: 409, body: error('conflict') }
+    }
+    if (Object.keys(fields).length === 0) {
+      return { status: 400, body: error('invalid-request') }
+    }
+
+    /*
+     * What `trg_organizations_before_update_type_transition` enforces, read off
+     * the migration rather than off the client's copy of the same table. Taking
+     * it from the client would make every test agree with itself: both halves
+     * could be wrong together and nothing would fail.
+     */
+    if (
+      typeof fields.type_code === 'string' &&
+      fields.type_code !== existing.type_code &&
+      !(MOCK_TYPE_TRANSITIONS[existing.type_code] ?? []).includes(fields.type_code)
+    ) {
+      return { status: 422, body: error('validation-failed') }
+    }
+
+    Object.assign(existing, fields, { revision_number: existing.revision_number + 1 })
+    return { status: 200, body: existing }
   }
   if (request.method === 'GET' && /^\/studio\/v1\/organizations\/[^/]+$/.test(request.path)) {
     if (fixture.organization === null) return { status: 404, body: error('not-found') }

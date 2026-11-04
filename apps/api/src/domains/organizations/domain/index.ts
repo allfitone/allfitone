@@ -88,6 +88,23 @@ export interface MembershipRoleGrant {
   validFrom: string
 }
 
+export interface MembershipRoleRevocation {
+  membershipId: string
+  roleCode: Exclude<OrganizationRoleCode, 'owner'>
+  validTo: string
+}
+
+export interface MembershipTermination {
+  membershipId: string
+  endedAt: string
+}
+
+export interface OrganizationClosure {
+  organizationId: string
+  closedAt: string
+  relationshipsTerminated: number
+}
+
 export interface OrganizationCommand {
   idempotencyKey: string
   commandId: string
@@ -164,4 +181,25 @@ export interface OrganizationDatabase {
       roleCode: Exclude<OrganizationRoleCode, 'owner'>
     },
   ): Promise<OrganizationCommandResult<MembershipRoleGrant>>
+  revokeMembershipRole(
+    input: OrganizationCommand & {
+      personId: string
+      organizationId: string
+      membershipId: string
+      roleCode: Exclude<OrganizationRoleCode, 'owner'>
+    },
+  ): Promise<OrganizationCommandResult<MembershipRoleRevocation>>
+  terminateMembership(
+    input: OrganizationCommand & {
+      personId: string
+      organizationId: string
+      membershipId: string
+    },
+  ): Promise<OrganizationCommandResult<MembershipTermination>>
+  resignMembership(
+    input: OrganizationCommand & { personId: string; organizationId: string },
+  ): Promise<OrganizationCommandResult<MembershipTermination>>
+  closeOrganization(
+    input: OrganizationCommand & { personId: string; organizationId: string },
+  ): Promise<OrganizationCommandResult<OrganizationClosure>>
 }

@@ -901,6 +901,90 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  AuthorizedScopeItem: {
+    description:
+      'One authorization, as the organization sees it. Every field is about the permission and none is from the data it covers: the category it names, the version agreed, whether it still stands, and the dates that bound it. The day a field carrying content is added here, T-PRV-SCOPES-01 fails.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'relationship_id',
+      'person_id',
+      'display_name',
+      'grant_id',
+      'scope_code',
+      'scope_display_name',
+      'version_number',
+      'access_level',
+      'status',
+      'purpose',
+      'granted_at',
+      'revoked_at',
+    ],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      person_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      display_name: {
+        type: 'string',
+        minLength: 1,
+      },
+      grant_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      scope_code: {
+        $ref: '#/components/schemas/ScopeCode',
+      },
+      scope_display_name: {
+        description:
+          'The words the person was shown for this category. Null when the vocabulary has no presentation row for it, which is a curation gap rather than a missing permission.',
+        type: ['string', 'null'],
+        minLength: 1,
+      },
+      version_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      access_level: {
+        $ref: '#/components/schemas/AccessLevel',
+      },
+      status: {
+        $ref: '#/components/schemas/GrantStatus',
+      },
+      purpose: {
+        type: 'string',
+        minLength: 1,
+      },
+      granted_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      revoked_at: {
+        description: 'When the person took this authorization back, if they did.',
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  AuthorizedScopePage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        maxItems: 100,
+        items: {
+          $ref: '#/components/schemas/AuthorizedScopeItem',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
   AuthorizedStrengthSet: {
     type: 'object',
     additionalProperties: false,
@@ -1712,9 +1796,67 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   },
   BodyMetric: {
     type: 'string',
-    enum: ['body_weight', 'body_height'],
+    enum: [
+      'body_weight',
+      'body_height',
+      'muscle_mass',
+      'body_fat',
+      'waist',
+      'hip',
+      'chest',
+      'arm',
+      'thigh',
+    ],
     description:
-      'The two metrics V1 records. The `body_` prefix is not decoration: `metric_code` also names execution results, where `weight` is the load on the bar rather than the weight of the person.',
+      'The metrics a person records. The `body_` prefix is not decoration: `metric_code` also names execution results, where `weight` is the load on the bar rather than the weight of the person. Weight and height are free; the rest are Pro (`body_measurements`).',
+  },
+  BodyPhoto: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'taken_on', 'created_at', 'photo'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      taken_on: {
+        type: 'string',
+        format: 'date',
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      photo: {
+        $ref: '#/components/schemas/SignedMediaUrl',
+      },
+    },
+  },
+  BodyPhotoCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['taken_on', 'photo'],
+    properties: {
+      taken_on: {
+        type: 'string',
+        format: 'date',
+      },
+      photo: {
+        $ref: '#/components/schemas/NutritionPhotoUpload',
+      },
+    },
+  },
+  BodyPhotoPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/BodyPhoto',
+        },
+      },
+    },
   },
   BodyProgressDeletion: {
     type: 'object',
@@ -2372,6 +2514,63 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  CatalogInformationCategory: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      "The fixed wording of one category of information. It carries no version: this is the product's vocabulary, not a published scope definition, and it must not move under the reader's feet. The lengths match the constraints the database already enforces on the row.",
+    required: ['scope_code', 'display_name', 'description', 'default_purpose'],
+    properties: {
+      scope_code: {
+        type: 'string',
+        enum: [
+          'relationship_training',
+          'prior_training_history',
+          'body_progress',
+          'health_context',
+          'nutrition_intake',
+          'nutrition_guidance',
+          'nutrition_media',
+        ],
+      },
+      display_name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+      summary: {
+        type: ['string', 'null'],
+        description: 'One line for the member deciding whether to ask for it.',
+        maxLength: 120,
+      },
+      description: {
+        type: 'string',
+        description: 'What the category covers and, just as importantly, where it stops.',
+        minLength: 1,
+        maxLength: 500,
+      },
+      default_purpose: {
+        type: 'string',
+        description:
+          'The purpose a professional may state for asking. Fixed by the catalogue so that no gym writes its own justification.',
+        minLength: 1,
+        maxLength: 500,
+      },
+    },
+  },
+  CatalogInformationCategoryList: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['items'],
+    properties: {
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/CatalogInformationCategory',
+        },
+      },
+    },
+  },
   CatalogueActivityTypePublication: {
     type: 'object',
     additionalProperties: false,
@@ -2627,10 +2826,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     },
   },
   ClientInvitationDecisionCreate: {
+    description:
+      "The invitation is named by the emailed token or, for one found among the caller's pending invitations, by its id. Exactly one of the two. Either way only the person whose verified email it was addressed to may decide it.",
     type: 'object',
     additionalProperties: false,
-    required: ['token', 'invitation_intent_id', 'relationship_decision'],
+    required: ['invitation_intent_id', 'relationship_decision'],
+    oneOf: [
+      {
+        required: ['token'],
+      },
+      {
+        required: ['invitation_id'],
+      },
+    ],
     properties: {
+      invitation_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
       token: {
         type: 'string',
         minLength: 43,
@@ -2712,6 +2924,55 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'string',
     enum: ['pending', 'accepted', 'rejected', 'revoked', 'expired'],
   },
+  ClientInvitationPending: {
+    description:
+      "An invitation still waiting for an answer, addressed to the caller's verified email. Enough to say who is waiting and until when; what it asks for is read by id.",
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'invitation_intent_id',
+      'organization_id',
+      'organization_name',
+      'invited_by',
+      'expires_at',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      invitation_intent_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      organization_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      organization_name: {
+        type: 'string',
+        minLength: 1,
+      },
+      invited_by: {
+        type: ['string', 'null'],
+      },
+      expires_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  ClientInvitationPendingList: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientInvitationPending',
+        },
+      },
+    },
+  },
   ClientInvitationPresentation: {
     type: 'object',
     additionalProperties: false,
@@ -2722,10 +2983,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'organization',
       'expires_at',
       'scope_options',
+      'invited_by',
     ],
     properties: {
       id: {
         $ref: '#/components/schemas/UuidV7',
+      },
+      invited_by: {
+        type: ['string', 'null'],
+        description: 'Who sent it, by name. Null when the sender is no longer known.',
       },
       invitation_intent_id: {
         $ref: '#/components/schemas/UuidV7',
@@ -4061,6 +4327,69 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     description:
       'Always ordered by code so two reads of the same emphasis compare equal without the client sorting first.',
   },
+  FreeSession: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'status', 'revision_number', 'result_contract'],
+    example: {
+      id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b',
+      status: 'in_progress',
+      revision_number: 0,
+      result_contract: {
+        id: '018f6f8d-2b00-7a00-8000-000000000801',
+        version: 1,
+        requested_level: 'detailed',
+      },
+    },
+    properties: {
+      id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      status: {
+        type: 'string',
+        const: 'in_progress',
+      },
+      revision_number: {
+        type: 'integer',
+        minimum: 0,
+      },
+      result_contract: {
+        $ref: '#/components/schemas/ResultContractRef',
+      },
+    },
+  },
+  FreeSessionCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['discipline_code', 'started_at', 'timezone', 'requested_level', 'capture_source'],
+    example: {
+      discipline_code: 'strength',
+      started_at: '2026-10-13T18:04:00-05:00',
+      timezone: 'America/Bogota',
+      requested_level: 'detailed',
+      capture_source: 'manual',
+    },
+    properties: {
+      discipline_code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      requested_level: {
+        $ref: '#/components/schemas/CompletenessLevel',
+      },
+      capture_source: {
+        type: 'string',
+        enum: ['manual', 'device'],
+      },
+    },
+  },
   FrozenContractRef: {
     type: 'object',
     additionalProperties: false,
@@ -4481,6 +4810,59 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     description:
       'Centimetres are canonical. Feet and inches are sent as **total inches**, an integer like any other, and only the label renders them as `5\' 10"` — so no control has to hold two fields that can disagree.',
   },
+  ListedRelationshipSubstitution: {
+    description:
+      'One cover of a relationship, running or finished. A finished one appearing here grants nothing: validity is read from these dates, so this is a fact about the past rather than a key to it.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'assignment_id',
+      'membership_id',
+      'professional_person_id',
+      'display_name',
+      'status',
+      'valid_from',
+      'valid_to',
+      'ends_on',
+      'accepted_by_person_at',
+    ],
+    properties: {
+      assignment_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      membership_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      professional_person_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      display_name: {
+        type: 'string',
+      },
+      status: {
+        type: 'string',
+        enum: ['proposed', 'active', 'ended'],
+      },
+      valid_from: {
+        type: 'string',
+        format: 'date-time',
+      },
+      valid_to: {
+        type: ['string', 'null'],
+        format: 'date-time',
+        description: 'When the cover stopped, or null while it is still running.',
+      },
+      ends_on: {
+        type: ['string', 'null'],
+        format: 'date',
+      },
+      accepted_by_person_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+        description: 'Null means nobody has answered. Silence is never acceptance.',
+      },
+    },
+  },
   Load: {
     type: 'object',
     additionalProperties: false,
@@ -4796,6 +5178,28 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  MyRelationshipTermination: {
+    description:
+      'Her relationship after she ended it. `ended_at` is the instant everything it shared was frozen.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['relationship_id', 'ended_at', 'frozen_grants', 'closed_assignments'],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      frozen_grants: {
+        type: 'integer',
+      },
+      closed_assignments: {
+        type: 'integer',
+      },
+    },
+  },
   NutrientCode: {
     description:
       'The published nutrients. Energy, macros, fibre and water; the detail of a label (saturated and trans fat, cholesterol, sodium, sugars); and vitamins and minerals. Each is written in its own unit only.',
@@ -4939,9 +5343,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   NutritionDailySummary: {
     type: 'object',
     additionalProperties: false,
-    required: ['local_date', 'meal_count', 'nutrient_totals', 'applied_scope'],
+    required: ['local_date', 'hidden', 'meal_count', 'nutrient_totals', 'applied_scope'],
     example: {
       local_date: '2026-07-28',
+      hidden: false,
       meal_count: 3,
       nutrient_totals: [
         {
@@ -4962,8 +5367,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         format: 'date',
       },
+      hidden: {
+        type: 'boolean',
+        description:
+          "True for a day before the window the person's plan shows. Its meals are kept; the day carries no count and no totals instead of reading as an empty day.",
+      },
       meal_count: {
-        type: 'integer',
+        type: ['integer', 'null'],
         minimum: 0,
       },
       nutrient_totals: {
@@ -4988,8 +5398,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   NutritionDailySummaryPage: {
     type: 'object',
     additionalProperties: false,
-    required: ['data', 'streak_days'],
+    required: ['data', 'streak_days', 'visible_from'],
     properties: {
+      visible_from: {
+        type: ['string', 'null'],
+        format: 'date',
+        description: "The first day the person's plan shows; null when nothing is hidden.",
+      },
       streak_days: {
         type: 'integer',
         minimum: 0,
@@ -6236,6 +6651,25 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  OrganizationClosure: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['organization_id', 'closed_at', 'relationships_terminated'],
+    properties: {
+      organization_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      closed_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      relationships_terminated: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Service relationships this closure ended',
+      },
+    },
+  },
   OrganizationCreate: {
     type: 'object',
     additionalProperties: false,
@@ -6656,9 +7090,37 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  OrganizationMembershipResignation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'ended_at'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
   OrganizationMembershipStatus: {
     type: 'string',
     enum: ['active', 'terminated'],
+  },
+  OrganizationMembershipTermination: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'ended_at'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
   },
   OrganizationOwnershipTransfer: {
     type: 'object',
@@ -6836,6 +7298,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     properties: {
       role_code: {
         $ref: '#/components/schemas/AssignableOrganizationRoleCode',
+      },
+    },
+  },
+  OrganizationRoleRevocation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'role_code', 'valid_to'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      role_code: {
+        $ref: '#/components/schemas/AssignableOrganizationRoleCode',
+      },
+      valid_to: {
+        type: 'string',
+        format: 'date-time',
       },
     },
   },
@@ -8103,6 +8582,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/ValidationIssue',
         },
       },
+      feature: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+        description:
+          "Only on `plan-limit-reached`: the function of the plan catalogue that the person's plan does not open or whose limit was reached (DT-018).",
+      },
       current_state: {
         description: 'Current server draft returned only for stale-draft conflicts.',
         oneOf: [
@@ -8631,6 +9116,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'version_number',
       'status',
       'title',
+      'repeats_forever',
       'sessions',
       'published_at',
       'session_count',
@@ -8642,6 +9128,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       version_number: 1,
       status: 'published',
       title: 'Bloque de fuerza',
+      repeats_forever: false,
       sessions: [
         {
           position: 1,
@@ -8675,6 +9162,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       notes: {
         type: ['string', 'null'],
         maxLength: 2000,
+      },
+      repeats_forever: {
+        description:
+          'True when the program has no end: its last week is followed by the first again (ADR-032). Fixed at publication like the rest of the version.',
+        type: 'boolean',
       },
       sessions: {
         type: 'array',
@@ -8843,6 +9335,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           'substitution_ended',
           'consent_decided',
           'relationship_ended',
+          'grant_revoked',
         ],
       },
       occurred_at: {
@@ -8861,7 +9354,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       detail: {
         type: 'object',
         description:
-          'Keys vary by `type`. `holder_assigned`, `holder_ended` and the substitution kinds carry `assignment_id`, `membership_id`, `professional_person_id` and `display_name`; `consent_decided` carries `scope_code`, `decision` and `scope_definition_id`; `relationship_ended` carries `ended_by_kind`, `declared_by_us` and `reason`; `relationship_started` carries `continues_relationship_id`.',
+          'Keys vary by `type`. `holder_assigned`, `holder_ended` and the substitution kinds carry `assignment_id`, `membership_id`, `professional_person_id` and `display_name`; `consent_decided` carries `scope_code`, `decision` and `scope_definition_id`; `relationship_ended` carries `ended_by_kind`, `declared_by_us` and `reason`; `relationship_started` carries `continues_relationship_id`; `grant_revoked` carries `scope_code`.',
         additionalProperties: true,
       },
     },
@@ -9012,6 +9505,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'holder',
       'substitutions',
       'grants',
+      'termination_request',
     ],
     properties: {
       relationship_id: {
@@ -9058,6 +9552,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/RelationshipGrant',
         },
+      },
+      termination_request: {
+        description:
+          'The latest request to end this relationship, whatever became of it, or null. Only the coach who asked and an administrator or owner ever receive one; staff and other coaches read null.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/RelationshipTerminationRequest',
+          },
+          {
+            type: 'null',
+          },
+        ],
       },
     },
   },
@@ -9109,6 +9615,43 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: ['string', 'null'],
         format: 'date-time',
         description: 'Null until the person has accepted this substitution.',
+      },
+    },
+  },
+  RelationshipSubstitutionDecision: {
+    description:
+      'The cover after her answer. Accepted runs from its first day; rejected grants nothing and stays as the record of a no.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['assignment_id', 'status', 'accepted_by_person_at'],
+    properties: {
+      assignment_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      status: {
+        type: 'string',
+        enum: ['active', 'rejected'],
+      },
+      accepted_by_person_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  RelationshipSubstitutionPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        maxItems: 100,
+        items: {
+          $ref: '#/components/schemas/ListedRelationshipSubstitution',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
     },
   },
@@ -9199,6 +9742,145 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       ended_at: {
         type: 'string',
         format: 'date-time',
+      },
+    },
+  },
+  RelationshipTermination: {
+    description:
+      'The relationship after it ended, and what stopped with it. `ended_at` is the single instant the whole thing used: the relationship, every permission frozen and every assignment closed carry that same moment.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['relationship_id', 'person_id', 'ended_at', 'frozen_grants', 'closed_assignments'],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      person_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      ended_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      frozen_grants: {
+        type: 'integer',
+        description:
+          'Permissions that stopped at that instant. **Frozen is not revoked**: the organization keeps what it was shown up to then and receives nothing after, and reading that history needs its own restricted path.',
+      },
+      closed_assignments: {
+        type: 'integer',
+        description:
+          'The holder and every accepted cover. A cover nobody answered granted nothing and is not counted.',
+      },
+    },
+  },
+  RelationshipTerminationCreate: {
+    description:
+      'A reason is optional: a gym does not owe the system a justification. An empty one is refused rather than stored, because a blank reason reads as a reason that was given.',
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      reason: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+    },
+  },
+  RelationshipTerminationRequest: {
+    description:
+      "A coach's request that the organization end a relationship, and how it was settled. `pending` until one of: `withdrawn` by the coach, `rejected` by the administration with a `resolution`, `resolved` when the organization ended the relationship, or `superseded` when the person ended it or the coach stopped being its holder. `resolved_by` is null while pending and when superseded, since nobody in the organization decided anything then.",
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'request_id',
+      'relationship_id',
+      'status',
+      'reason',
+      'resolution',
+      'requested_by',
+      'resolved_by',
+      'created_at',
+      'resolved_at',
+    ],
+    properties: {
+      request_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      status: {
+        type: 'string',
+        enum: ['pending', 'withdrawn', 'rejected', 'resolved', 'superseded'],
+      },
+      reason: {
+        type: ['string', 'null'],
+        maxLength: 2000,
+      },
+      resolution: {
+        type: ['string', 'null'],
+        maxLength: 2000,
+      },
+      requested_by: {
+        $ref: '#/components/schemas/RelationshipTerminationRequestParty',
+      },
+      resolved_by: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/RelationshipTerminationRequestParty',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      resolved_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  RelationshipTerminationRequestCreate: {
+    description: 'A reason is optional. A blank one is refused rather than stored.',
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      reason: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+    },
+  },
+  RelationshipTerminationRequestParty: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'display_name'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      display_name: {
+        type: 'string',
+        minLength: 1,
+      },
+    },
+  },
+  RelationshipTerminationRequestRejection: {
+    description: 'A refusal always says why, and the coach is told.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['resolution'],
+    properties: {
+      resolution: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
       },
     },
   },
@@ -9947,6 +10629,31 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     description:
       'Null declines. It is a value the request must carry explicitly, not an omission, because the server records that the question was answered even when no sex was given — otherwise a screen that skips itself once answered would ask a decliner again on every cold start.',
   },
+  SpaceBodyFatDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['metric_code', 'value', 'unit', 'measured_on'],
+    description: 'Pro (`body_measurements`).',
+    properties: {
+      metric_code: {
+        type: 'string',
+        const: 'body_fat',
+      },
+      value: {
+        type: 'number',
+        exclusiveMinimum: 0,
+        maximum: 100,
+      },
+      unit: {
+        type: 'string',
+        const: 'percent',
+      },
+      measured_on: {
+        type: 'string',
+        format: 'date',
+      },
+    },
+  },
   SpaceBodyHeightDeclaration: {
     type: 'object',
     additionalProperties: false,
@@ -9962,6 +10669,52 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       unit: {
         $ref: '#/components/schemas/LengthUnit',
+      },
+      measured_on: {
+        type: 'string',
+        format: 'date',
+      },
+    },
+  },
+  SpaceBodyLengthDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['metric_code', 'value', 'unit', 'measured_on'],
+    description: 'Pro (`body_measurements`).',
+    properties: {
+      metric_code: {
+        type: 'string',
+        enum: ['waist', 'hip', 'chest', 'arm', 'thigh'],
+      },
+      value: {
+        type: 'number',
+        exclusiveMinimum: 0,
+      },
+      unit: {
+        $ref: '#/components/schemas/LengthUnit',
+      },
+      measured_on: {
+        type: 'string',
+        format: 'date',
+      },
+    },
+  },
+  SpaceBodyMassDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['metric_code', 'value', 'unit', 'measured_on'],
+    description: 'Pro (`body_measurements`).',
+    properties: {
+      metric_code: {
+        type: 'string',
+        const: 'muscle_mass',
+      },
+      value: {
+        type: 'number',
+        exclusiveMinimum: 0,
+      },
+      unit: {
+        $ref: '#/components/schemas/MassUnit',
       },
       measured_on: {
         type: 'string',
@@ -10030,12 +10783,28 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       {
         $ref: '#/components/schemas/SpaceBodyHeightDeclaration',
       },
+      {
+        $ref: '#/components/schemas/SpaceBodyMassDeclaration',
+      },
+      {
+        $ref: '#/components/schemas/SpaceBodyLengthDeclaration',
+      },
+      {
+        $ref: '#/components/schemas/SpaceBodyFatDeclaration',
+      },
     ],
     discriminator: {
       propertyName: 'metric_code',
       mapping: {
         body_weight: '#/components/schemas/SpaceBodyWeightDeclaration',
         body_height: '#/components/schemas/SpaceBodyHeightDeclaration',
+        muscle_mass: '#/components/schemas/SpaceBodyMassDeclaration',
+        waist: '#/components/schemas/SpaceBodyLengthDeclaration',
+        hip: '#/components/schemas/SpaceBodyLengthDeclaration',
+        chest: '#/components/schemas/SpaceBodyLengthDeclaration',
+        arm: '#/components/schemas/SpaceBodyLengthDeclaration',
+        thigh: '#/components/schemas/SpaceBodyLengthDeclaration',
+        body_fat: '#/components/schemas/SpaceBodyFatDeclaration',
       },
     },
     description:
@@ -10104,6 +10873,123 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       measured_on: {
         type: 'string',
         format: 'date',
+      },
+    },
+  },
+  SpaceConsent: {
+    description:
+      'One category one gym asked her for. `decision` is her answer; the grant fields are set only when she said yes. `presented_snapshot` is what the gym showed her, title included.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'relationship_id',
+      'organization_id',
+      'organization_name',
+      'relationship_status',
+      'started_at',
+      'ended_at',
+      'scope_code',
+      'presented_snapshot',
+      'decision',
+      'decided_at',
+      'grant_id',
+      'grant_status',
+      'access_level',
+      'granted_at',
+      'frozen_at',
+      'revoked_at',
+    ],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      organization_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      organization_name: {
+        type: 'string',
+      },
+      relationship_status: {
+        type: 'string',
+        enum: ['active', 'terminated'],
+      },
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      ended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      scope_code: {
+        $ref: '#/components/schemas/ScopeCode',
+      },
+      presented_snapshot: {
+        type: 'object',
+        additionalProperties: true,
+      },
+      decision: {
+        type: 'string',
+        enum: ['accepted', 'rejected'],
+      },
+      decided_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      grant_id: {
+        anyOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      grant_status: {
+        anyOf: [
+          {
+            $ref: '#/components/schemas/GrantStatus',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      access_level: {
+        anyOf: [
+          {
+            $ref: '#/components/schemas/AccessLevel',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      granted_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      frozen_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      revoked_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  SpaceConsentList: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/SpaceConsent',
+        },
       },
     },
   },
@@ -10696,6 +11582,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     additionalProperties: false,
     required: [
       'month',
+      'visible_from',
       'sessions',
       'trained_seconds',
       'work_sets',
@@ -10711,6 +11598,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         format: 'date',
         description: 'The first day of the month.',
+      },
+      visible_from: {
+        type: ['string', 'null'],
+        format: 'date',
+        description:
+          "The first day the person's plan shows; sessions before it are kept and left out. Null when nothing is hidden.",
       },
       sessions: {
         type: 'integer',
@@ -10775,8 +11668,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   SpaceHistoryPage: {
     type: 'object',
     additionalProperties: false,
-    required: ['data', 'page'],
+    required: ['data', 'window', 'page'],
     properties: {
+      window: {
+        $ref: '#/components/schemas/SpaceHistoryWindow',
+      },
       data: {
         type: 'array',
         items: {
@@ -10814,6 +11710,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         minimum: 0,
         description:
           'Of those planned, how many were finished that week, each once however many times it was done.',
+      },
+    },
+  },
+  SpaceHistoryWindow: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['visible_from', 'has_hidden'],
+    description:
+      "Where the visible history starts under the person's plan, and whether older sessions are kept behind it. Nothing outside the window is deleted: with Pro it is seen again.",
+    properties: {
+      visible_from: {
+        type: ['string', 'null'],
+        format: 'date',
+        description: 'The first visible day; null when nothing is hidden.',
+      },
+      has_hidden: {
+        type: 'boolean',
       },
     },
   },
@@ -11340,6 +12253,207 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     description:
       "The email is absent on purpose. It is the credential's address, it already travels with the session, and changing it is another operation with its own verification.",
   },
+  SpacePeriod: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'starts_on',
+      'sessions',
+      'active_days',
+      'trained_seconds',
+      'work_sets',
+      'volume_kg',
+      'planned',
+      'fulfilled',
+      'unplanned',
+      'muscles',
+      'days',
+    ],
+    properties: {
+      starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      sessions: {
+        type: 'integer',
+        minimum: 0,
+      },
+      active_days: {
+        type: 'integer',
+        minimum: 0,
+      },
+      trained_seconds: {
+        type: 'integer',
+        minimum: 0,
+      },
+      work_sets: {
+        type: 'integer',
+        minimum: 0,
+      },
+      volume_kg: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      planned: {
+        type: 'integer',
+        minimum: 0,
+      },
+      fulfilled: {
+        type: 'integer',
+        minimum: 0,
+      },
+      muscles: {
+        type: 'array',
+        description:
+          "How the period's work sets fall across the muscles, heaviest first. A set belongs to one muscle, the movement's primary, as in a routine's own count.",
+        items: {
+          $ref: '#/components/schemas/SpacePeriodMuscle',
+        },
+      },
+      unplanned: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Sessions trained with no plan behind them, whatever programme was asked for.',
+      },
+      days: {
+        type: 'array',
+        description: 'The days trained in the period and their volume, oldest first.',
+        items: {
+          $ref: '#/components/schemas/SpacePeriodDay',
+        },
+      },
+    },
+  },
+  SpacePeriodComparison: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'periods', 'movements', 'programs'],
+    properties: {
+      period: {
+        type: 'string',
+        enum: ['week', 'month'],
+      },
+      programs: {
+        type: 'array',
+        description: 'Every programme with sessions in the window, whatever was asked for.',
+        items: {
+          $ref: '#/components/schemas/SpacePeriodProgram',
+        },
+      },
+      periods: {
+        type: 'array',
+        minItems: 2,
+        maxItems: 12,
+        items: {
+          $ref: '#/components/schemas/SpacePeriod',
+        },
+      },
+      movements: {
+        type: 'array',
+        description: "Each movement's best in its latest period, best first.",
+        items: {
+          $ref: '#/components/schemas/SpacePeriodMovement',
+        },
+      },
+    },
+  },
+  SpacePeriodDay: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['trained_on', 'volume_kg'],
+    properties: {
+      trained_on: {
+        type: 'string',
+        format: 'date',
+      },
+      volume_kg: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+    },
+  },
+  SpacePeriodMovement: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['movement_id', 'name', 'best_kg', 'previous_best_kg', 'change_kg', 'bests'],
+    properties: {
+      movement_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      name: {
+        type: 'string',
+      },
+      best_kg: {
+        type: 'number',
+        minimum: 0,
+      },
+      previous_best_kg: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      change_kg: {
+        type: ['number', 'null'],
+      },
+      bests: {
+        type: 'array',
+        description:
+          "The movement's best in every period, oldest first; null where it was not trained.",
+        items: {
+          type: ['number', 'null'],
+          minimum: 0,
+        },
+      },
+    },
+  },
+  SpacePeriodMuscle: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code', 'name', 'sets'],
+    properties: {
+      code: {
+        type: 'string',
+      },
+      name: {
+        type: 'string',
+      },
+      sets: {
+        type: 'integer',
+        minimum: 1,
+      },
+    },
+  },
+  SpacePeriodProgram: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['assignment_id', 'title', 'from_gym', 'planned', 'fulfilled'],
+    properties: {
+      assignment_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      title: {
+        type: 'string',
+      },
+      from_gym: {
+        type: 'boolean',
+      },
+      planned: {
+        type: 'array',
+        description: 'Planned sessions per period, oldest first.',
+        items: {
+          type: 'integer',
+          minimum: 0,
+        },
+      },
+      fulfilled: {
+        type: 'array',
+        description: 'Planned sessions kept per period, oldest first.',
+        items: {
+          type: 'integer',
+          minimum: 0,
+        },
+      },
+    },
+  },
   SpaceProFeature: {
     type: 'object',
     additionalProperties: false,
@@ -11485,6 +12599,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       program_version_id: {
         $ref: '#/components/schemas/UuidV7',
       },
+      adopt_nutrition: {
+        type: 'boolean',
+        default: false,
+        description:
+          "Also publish the programme's nutrition goal as the person's own (OP-NUT-007), in the same command. Ignored when the programme has none for this person.",
+      },
       timezone: {
         type: 'string',
         minLength: 1,
@@ -11585,6 +12705,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'emphases',
       'days',
       'cover_url',
+      'nutrition',
     ],
     properties: {
       program_version_id: {
@@ -11592,6 +12713,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       title: {
         type: 'string',
+      },
+      nutrition: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/SpaceProgramNutrition',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          "The nutrition goal an Allfit programme brings, sized to the person's latest weight. Null for a programme the person owns, with no weight recorded, or with no reference for its goal.",
       },
       notes: {
         oneOf: [
@@ -11665,6 +12798,24 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         ],
         description:
           "The same photograph the catalogue listed this programme with, so opening it is not meeting a different programme. It is the set of whoever is asking, resolved by `planning.cover_for`, which is why the answer is cacheable per set and never per version: the version is frozen, the cover hangs off the programme, and a cache keyed only by version id would serve one person the other's picture. Null for a programme with no artwork.",
+      },
+    },
+  },
+  SpaceProgramNutrition: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['goal_code', 'targets'],
+    properties: {
+      goal_code: {
+        $ref: '#/components/schemas/PrimaryTrainingGoal',
+      },
+      targets: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 4,
+        items: {
+          $ref: '#/components/schemas/NutritionGoalTarget',
+        },
       },
     },
   },
@@ -11804,10 +12955,22 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'levels',
       'emphases',
       'cover_url',
+      'locked',
+      'unlock_feature',
     ],
     description:
       'A published version of a global program, with the segmentation it was published with. The segmentation is part of the version and immutable with it: re-aiming a program means publishing another version.',
     properties: {
+      locked: {
+        type: 'boolean',
+        description:
+          "True when the person's plan does not open this programme: it is shown, and taking it answers `plan-limit-reached`.",
+      },
+      unlock_feature: {
+        type: ['string', 'null'],
+        description:
+          'The function of the plan catalogue that opens this programme, or null when it is in the free selection.',
+      },
       program_version_id: {
         $ref: '#/components/schemas/UuidV7',
       },
@@ -12288,10 +13451,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'started_at',
       'ended_at',
       'previous_relationship_id',
+      'holder_name',
     ],
     properties: {
       relationship_id: {
         $ref: '#/components/schemas/UuidV7',
+      },
+      holder_name: {
+        type: ['string', 'null'],
+        description: 'The coach in charge of her now, by name. Null when nobody is.',
       },
       organization_id: {
         $ref: '#/components/schemas/UuidV7',
@@ -12604,10 +13772,22 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   SpaceToday: {
     type: 'object',
     additionalProperties: false,
-    required: ['profile', 'current_assignment', 'session', 'week'],
+    required: ['profile', 'current_assignment', 'session', 'week', 'open_free_session_id'],
     properties: {
       profile: {
         $ref: '#/components/schemas/SpaceTrainingProfile',
+      },
+      open_free_session_id: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/UuidV7',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'The free session still open, if there is one: what «Entrenamiento libre» resumes instead of starting another (OP-EXE-004).',
       },
       current_assignment: {
         oneOf: [
@@ -13247,7 +14427,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       over_quota: {
         type: 'boolean',
         description:
-          'The gym has more taken than it was sold, because Allfit lowered the number. Nobody is removed; only new invitations are refused.',
+          'The gym has more taken than it was sold, because Allfit lowered the number. Nobody is removed; new invitations, and acceptances that would add to it, are refused.',
       },
     },
   },
@@ -13619,6 +14799,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       status: {
         $ref: '#/components/schemas/SubscriptionStatus',
+      },
+    },
+  },
+  SubstitutionDecisionCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['decision'],
+    properties: {
+      decision: {
+        type: 'string',
+        enum: ['accepted', 'rejected'],
       },
     },
   },

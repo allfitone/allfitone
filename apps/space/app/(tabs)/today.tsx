@@ -63,6 +63,7 @@ import {
 import { longDateLabel, trainedLabel } from '../../src/client/week'
 import { weekGroups, type HistoryItem } from '../../src/client/history'
 import { deviceTimezone } from '../../src/client/timezone'
+import { freeOfferCaption, openSessionBar } from '../../src/client/free-training'
 import { createSpaceContentFlow } from '../../src/client/content-transport'
 import { readExerciseLibrary, type ExerciseLibrary } from '../../src/client/exercise-library'
 import type { MyRoutine } from '../../src/client/content'
@@ -82,6 +83,7 @@ import {
 } from '../../src/client/week-plan'
 import { elapsedLabel } from '../../src/client/session-form'
 import { HistoryGroupHeader, HistoryPanel, HistoryRow } from '../../src/components/history-row'
+import { PendingInvitationCard } from '../../src/components/gym-ui'
 import { HomeCard } from '../../src/components/home-card'
 import { OfferRow } from '../../src/components/offer-row'
 import { PHOTO_COVER } from '../../src/client/routine-cover'
@@ -102,7 +104,6 @@ const DISCARD_FAILED = 'No pudimos descartar el entrenamiento. Inténtalo otra v
 
 /** What a destination that does not exist yet answers, instead of a blank screen. */
 const PENDING: Record<string, string> = {
-  free: 'Entrenar libre llega con tu contenido personal.',
   routines: 'Tus rutinas llegan con tu contenido personal.',
   food: 'Comida llega con el registro de nutrición.',
   progress: 'Tu progreso llega con el historial.',
@@ -263,6 +264,14 @@ export default function Today() {
   const week = useMemo(() => weekCards(plan, todayIs), [plan, todayIs])
   const days = useMemo(() => weekDays(week, todayIs), [week, todayIs])
   const inProgress = sessionInProgress(week)
+  const openFree = today?.open_free_session_id ?? null
+  const bar = openSessionBar(
+    inProgress?.routine.open_execution_id
+      ? { executionId: inProgress.routine.open_execution_id, title: inProgress.routine.title }
+      : undefined,
+    openFree,
+  )
+  const [startingFree, setStartingFree] = useState(false)
   const [discarding, setDiscarding] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
@@ -301,6 +310,20 @@ export default function Today() {
     },
     [router, training, timezone],
   )
+  /** Training off the plan: back to the free session left open, or a new empty one. */
+  const trainFree = useCallback(() => {
+    if (openFree) {
+      router.push(`/session/${openFree}`)
+      return
+    }
+    if (startingFree) return
+    setStartingFree(true)
+    training
+      .startFree(timezone)
+      .then((id) => router.push(`/session/${id}`))
+      .catch(() => setFailure(START_FAILED))
+      .finally(() => setStartingFree(false))
+  }, [openFree, router, startingFree, training, timezone])
   const openRoutine = useCallback(
     (templateId: string) => router.push(`/routines/${templateId}`),
     [router],
@@ -351,10 +374,14 @@ export default function Today() {
         contentContainerStyle={[
           styles.content,
           assigned ? { paddingHorizontal: 24, paddingTop: 20 } : null,
-          inProgress ? styles.underInProgress : null,
+          bar ? styles.underInProgress : null,
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Above everything: only she can answer it, and it expires. */}
+        {/* Without a programme the list starts flush under the greeting, so it gets air. */}
+        <PendingInvitationCard style={assigned ? null : styles.invitation} />
+
         {/* `FIN-2b`. El carrusel es la semana: una tarjeta por sesión, con la portada
             que su programa le puso, y la de hoy marcada. Sustituye al titular único de
             la sesión de hoy, que dejaba el resto de la semana sin enseñar. */}
@@ -458,16 +485,16 @@ export default function Today() {
         {/* En lugar de los cuatro accesos rápidos, de los que ninguno llevaba a
             ninguna parte. Entrenar libre es lo único de aquellos cuatro que es un acto
             y no una pestaña, así que se queda, con su sitio propio encima del
-            historial. */}
-        {assigned ? (
-          <OfferRow
-            icon="freestyle"
-            label="Entrenamiento libre"
-            caption="Sin programa, registras sobre la marcha"
-            tone="quiet"
-            onPress={() => setPending(PENDING.free)}
-          />
-        ) : null}
+            historial. Sin programa también: no tener plan no impide entrenar
+            (`HU-SP-089` criterio 4). */}
+        <OfferRow
+          icon="freestyle"
+          label="Entrenamiento libre"
+          caption={freeOfferCaption(openFree)}
+          captionColor={openFree ? 'accent' : 'muted'}
+          tone="quiet"
+          onPress={trainFree}
+        />
 
         {assigned && today && recent ? (
           <View style={styles.section}>
@@ -528,13 +555,15 @@ export default function Today() {
         ) : null}
       </ScrollView>
 
-      {inProgress?.routine.open_execution_id ? (
+      {bar ? (
         <InProgress
-          executionId={inProgress.routine.open_execution_id}
-          title={inProgress.routine.title}
+          executionId={bar.executionId}
+          title={bar.title}
           bottom={Math.max(insets.bottom, 12) + DOCK_HEIGHT + 10}
           read={training.readExecution}
-          onResume={() => start(inProgress)}
+          onResume={() =>
+            inProgress ? start(inProgress) : router.push(`/session/${bar.executionId}`)
+          }
           onDiscard={() => setDiscarding(true)}
         />
       ) : null}
@@ -550,8 +579,7 @@ export default function Today() {
             variant="secondary"
             loading={leaving}
             onPress={() => {
-              const id = inProgress?.routine.open_execution_id
-              if (id) discard(id)
+              if (bar) discard(bar.executionId)
             }}
           />
           <Button label="Seguir entrenando" variant="ghost" onPress={() => setDiscarding(false)} />
@@ -956,6 +984,7 @@ const styles = StyleSheet.create({
   greeting: { flex: 1, gap: 4 },
   bell: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   heading: { gap: 8 },
+  invitation: { marginTop: 16 },
   // The photograph carries the space above it, so the session sits well down the frame.
   session: { gap: 8, paddingTop: 124 },
   sessionTitle: { lineHeight: 44 },

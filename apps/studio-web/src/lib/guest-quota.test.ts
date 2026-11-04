@@ -35,6 +35,13 @@ describe('when the invitation form says why it cannot send', () => {
     expect(reason).toContain('Nadie sale')
   })
 
+  // Over its quota, the database also refuses an acceptance, so a gym waiting on an
+  // answer has to know the answer cannot come yet.
+  test('a gym over its quota is told its pending invitations cannot be accepted yet', () => {
+    expect(invitationBlockedReason(OVER)).toContain('no se pueden aceptar')
+    expect(quotaSummary(OVER)).toContain('no se pueden aceptar')
+  })
+
   test('a gym with no quota is never stopped, however many people it has', () => {
     expect(invitationBlockedReason(UNLIMITED)).toBeUndefined()
   })

@@ -63,7 +63,7 @@ export function studioOrganizationRoutes(
     cors({
       origin: studioOrigin,
       credentials: true,
-      allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id', 'If-Match', 'If-None-Match'],
       exposeHeaders: ['ETag', 'Server-Timing', 'Retry-After', 'Idempotent-Replay'],
       maxAge: 600,
@@ -480,6 +480,136 @@ export function studioOrganizationRoutes(
         role_code: grant.roleCode,
         valid_from: grant.validFrom,
       })
+    } catch (error) {
+      return operationFailure(c, error, problem)
+    }
+  })
+
+  routes.delete(
+    '/organizations/:organizationId/memberships/:membershipId/roles/:roleCode',
+    async (c) => {
+      c.header('Cache-Control', 'no-store')
+      if (c.req.header('origin') !== studioOrigin) return problem(c, 'forbidden')
+      const organizationId = c.req.param('organizationId')
+      const membershipId = c.req.param('membershipId')
+      const roleCode = c.req.param('roleCode')
+      if (
+        !UUID.test(organizationId) ||
+        !UUID.test(membershipId) ||
+        (roleCode !== 'admin' && roleCode !== 'coach' && roleCode !== 'staff')
+      ) {
+        return problem(c, 'invalid-request')
+      }
+      if ((await c.req.text()).length !== 0) return problem(c, 'invalid-request')
+      const command = commandContext(c, {
+        organization_id: organizationId,
+        membership_id: membershipId,
+        role_code: roleCode,
+      })
+      if (!command) return problem(c, 'invalid-request')
+      try {
+        const actor = await studioActor(c, sessions(), problem)
+        if (actor instanceof Response) return actor
+        const result = await organizations().revokeMembershipRole(actor, {
+          organizationId,
+          membershipId,
+          roleCode,
+          ...command,
+        })
+        replayHeader(c, result.replayed)
+        const response: AllfitV1Schemas['OrganizationRoleRevocation'] = {
+          membership_id: result.resource.membershipId,
+          role_code: result.resource.roleCode,
+          valid_to: result.resource.validTo,
+        }
+        return c.json(response)
+      } catch (error) {
+        return operationFailure(c, error, problem)
+      }
+    },
+  )
+
+  routes.post('/organizations/:organizationId/memberships/:membershipId/termination', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    if (c.req.header('origin') !== studioOrigin) return problem(c, 'forbidden')
+    const organizationId = c.req.param('organizationId')
+    const membershipId = c.req.param('membershipId')
+    if (!UUID.test(organizationId) || !UUID.test(membershipId)) {
+      return problem(c, 'invalid-request')
+    }
+    if ((await c.req.text()).length !== 0) return problem(c, 'invalid-request')
+    const command = commandContext(c, {
+      organization_id: organizationId,
+      membership_id: membershipId,
+    })
+    if (!command) return problem(c, 'invalid-request')
+    try {
+      const actor = await studioActor(c, sessions(), problem)
+      if (actor instanceof Response) return actor
+      const result = await organizations().terminateMembership(actor, {
+        organizationId,
+        membershipId,
+        ...command,
+      })
+      replayHeader(c, result.replayed)
+      const response: AllfitV1Schemas['OrganizationMembershipTermination'] = {
+        membership_id: result.resource.membershipId,
+        ended_at: result.resource.endedAt,
+      }
+      return c.json(response)
+    } catch (error) {
+      return operationFailure(c, error, problem)
+    }
+  })
+
+  routes.post('/organizations/:organizationId/me/membership/resignation', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    if (c.req.header('origin') !== studioOrigin) return problem(c, 'forbidden')
+    const organizationId = c.req.param('organizationId')
+    if (!UUID.test(organizationId)) return problem(c, 'invalid-request')
+    if ((await c.req.text()).length !== 0) return problem(c, 'invalid-request')
+    const command = commandContext(c, { organization_id: organizationId })
+    if (!command) return problem(c, 'invalid-request')
+    try {
+      const actor = await studioActor(c, sessions(), problem)
+      if (actor instanceof Response) return actor
+      const result = await organizations().resignMembership(actor, {
+        organizationId,
+        ...command,
+      })
+      replayHeader(c, result.replayed)
+      const response: AllfitV1Schemas['OrganizationMembershipResignation'] = {
+        membership_id: result.resource.membershipId,
+        ended_at: result.resource.endedAt,
+      }
+      return c.json(response)
+    } catch (error) {
+      return operationFailure(c, error, problem)
+    }
+  })
+
+  routes.post('/organizations/:organizationId/closure', async (c) => {
+    c.header('Cache-Control', 'no-store')
+    if (c.req.header('origin') !== studioOrigin) return problem(c, 'forbidden')
+    const organizationId = c.req.param('organizationId')
+    if (!UUID.test(organizationId)) return problem(c, 'invalid-request')
+    if ((await c.req.text()).length !== 0) return problem(c, 'invalid-request')
+    const command = commandContext(c, { organization_id: organizationId })
+    if (!command) return problem(c, 'invalid-request')
+    try {
+      const actor = await studioActor(c, sessions(), problem)
+      if (actor instanceof Response) return actor
+      const result = await organizations().closeOrganization(actor, {
+        organizationId,
+        ...command,
+      })
+      replayHeader(c, result.replayed)
+      const response: AllfitV1Schemas['OrganizationClosure'] = {
+        organization_id: result.resource.organizationId,
+        closed_at: result.resource.closedAt,
+        relationships_terminated: result.resource.relationshipsTerminated,
+      }
+      return c.json(response)
     } catch (error) {
       return operationFailure(c, error, problem)
     }

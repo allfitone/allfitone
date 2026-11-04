@@ -45,6 +45,8 @@ interface CatalogueRow {
   emphases: string[]
   // La clave y no la dirección: componerla es trabajo de la superficie.
   cover_object_key: string | null
+  locked: boolean
+  unlock_feature: string | null
 }
 
 interface AssignmentRow {
@@ -69,6 +71,7 @@ interface DetailRow {
   emphases: string[]
   days: StoredProgramDetail['days']
   cover_object_key: string | null
+  nutrition: StoredProgramDetail['nutrition']
 }
 
 interface TodayRow {
@@ -236,6 +239,17 @@ export function createSpacePlanningDatabase(): SpacePlanningDatabase {
         return answered(row?.template, 'discard the session template')
       }),
 
+    duplicateMySessionTemplate: (input) =>
+      command(sql, input.personId, async (transaction) => {
+        const [row] = await transaction<{ template: SessionTemplate }[]>`
+          select template from planning.duplicate_my_session_template(
+            ${input.personId}::uuid, ${input.templateId}::uuid,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return answered(row?.template, 'duplicate the session template')
+      }),
+
     readMyUnpublishedProgram: (input) =>
       transact(sql, input.personId, input.requestId, async (transaction) => {
         const [row] = await transaction<{ program: Program | null }[]>`
@@ -390,7 +404,8 @@ export function createSpacePlanningDatabase(): SpacePlanningDatabase {
         const [chosen] = await transaction<{ assignment_id: string }[]>`
           select planning.self_assign_program(
             ${input.personId}::uuid, ${input.programVersionId}::uuid, ${input.timezone},
-            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash},
+            ${input.adoptNutrition}
           ) as assignment_id
         `
         if (!chosen) throw new Error('PostgreSQL did not assign the program')
@@ -418,6 +433,8 @@ function summary(row: CatalogueRow): StoredProgramSummary {
     levels: row.levels as StoredProgramSummary['levels'],
     emphases: row.emphases as StoredProgramSummary['emphases'],
     cover_object_key: row.cover_object_key,
+    locked: row.locked,
+    unlock_feature: row.unlock_feature,
   }
 }
 
@@ -447,6 +464,7 @@ function detail(row: DetailRow): StoredProgramDetail {
     emphases: row.emphases as StoredProgramDetail['emphases'],
     days: row.days,
     cover_object_key: row.cover_object_key,
+    nutrition: row.nutrition,
   }
 }
 
