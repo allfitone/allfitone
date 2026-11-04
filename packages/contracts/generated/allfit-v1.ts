@@ -678,7 +678,7 @@ export interface paths {
     /**
      * Read the queue of credentials waiting to be verified
      * @description Every pending request for one exact credential version: who asked, what they claim, and which registry or issuer to consult. Declaring or revising a credential puts it here and retiring it takes it out, so nobody has to remember to ask.
-     *     Reading this reaches the holder's data, so each row is recorded against the holder before it is returned. `viewer_can_decide` is false when the caller is the holder or shares an active organization with them. It is a hint for the screen, never authority: the decision revalidates on its own.
+     *     Reading this reaches the holder's data, so each row is recorded against the holder before it is returned. `viewer_can_decide` is false when the caller is the holder, shares an active organization with them, or is their assigned professional or has them as theirs. It is a hint for the screen, never authority: the decision revalidates on its own.
      */
     get: operations['listBackofficeVerificationRequests']
     put?: never
@@ -5154,7 +5154,7 @@ export interface components {
       previous_result: string | null
       /** Format: date-time */
       previous_valid_to: string | null
-      /** @description A hint for the screen, never authority. False when the caller is the holder or shares an active organization with them. */
+      /** @description A hint for the screen, never authority. False when the caller is the holder, shares an active organization with them, or is their assigned professional or has them as theirs (ADR-026). */
       viewer_can_decide: boolean
     }
     CredentialVerificationRequestList: {

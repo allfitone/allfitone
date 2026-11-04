@@ -13,10 +13,8 @@
 -- own — is the same mechanism rather than a separate rule.
 --
 -- **The conflicts are checked against the data, not declared.** ADR-026 lists five.
--- The subject and the shared active membership are checkable today and are
--- asserted here. A professional relationship cannot be checked because
--- `relationships` does not exist — which also means no such relationship can exist
--- yet — and appeals are not built. Both are recorded where the check lives.
+-- The subject and the shared active membership are asserted here. The professional
+-- relationship is T-IDN-VERIFY-02's, and appeals are not built.
 --
 -- **Nothing is verified by omission.** There is no default result, the validity is
 -- derived rather than accepted, and a source that says the credential lapsed cannot

@@ -3530,7 +3530,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       viewer_can_decide: {
         type: 'boolean',
         description:
-          'A hint for the screen, never authority. False when the caller is the holder or shares an active organization with them.',
+          'A hint for the screen, never authority. False when the caller is the holder, shares an active organization with them, or is their assigned professional or has them as theirs (ADR-026).',
       },
     },
   },

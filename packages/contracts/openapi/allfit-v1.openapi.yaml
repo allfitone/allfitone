@@ -1742,8 +1742,9 @@ paths:
 
         Reading this reaches the holder's data, so each row is recorded against
         the holder before it is returned. `viewer_can_decide` is false when the
-        caller is the holder or shares an active organization with them. It is a
-        hint for the screen, never authority: the decision revalidates on its own.
+        caller is the holder, shares an active organization with them, or is
+        their assigned professional or has them as theirs. It is a hint for the
+        screen, never authority: the decision revalidates on its own.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -13707,7 +13708,8 @@ components:
           type: boolean
           description: >-
             A hint for the screen, never authority. False when the caller is the
-            holder or shares an active organization with them.
+            holder, shares an active organization with them, or is their assigned
+            professional or has them as theirs (ADR-026).
     CredentialVerificationRequestList:
       type: object
       additionalProperties: false

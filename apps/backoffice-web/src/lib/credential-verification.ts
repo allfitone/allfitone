@@ -198,7 +198,7 @@ export function validitySentence(): string {
 }
 
 export function conflictSentence(): string {
-  return 'No puedes decidir sobre este título: eres quien lo declaró o compartes un gimnasio activo con esa persona. Tiene que verificarlo otra persona del equipo.'
+  return 'No puedes decidir sobre este título: eres quien lo declaró, compartes un gimnasio activo con esa persona, o eres su profesional asignado o esa persona es el tuyo. Tiene que verificarlo otra persona del equipo.'
 }
 
 export function formatDay(instant: string | null): string {
