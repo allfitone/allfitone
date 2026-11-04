@@ -186,6 +186,8 @@ export interface ErasureRequestFixture {
   /** The answer the next hold command gets, consumed once. */
   nextHoldRefusal?: { status: number; code: string } | undefined
   requests: ErasureRequestEntryFixture[]
+  /** Rows per page; the real read answers 50. */
+  pageSize?: number
 }
 
 export interface LegalHoldFixture {
@@ -2716,7 +2718,8 @@ async function routeErasureRequests(
     return
   }
 
-  const status = new URLSearchParams(request.query).get('status') ?? 'open'
+  const parameters = new URLSearchParams(request.query)
+  const status = parameters.get('status') ?? 'open'
   const matching = panel.requests.filter((entry) => entry.status === status)
   // Open requests oldest first; a resolved one is read newest first.
   const ordered = [...matching].sort((left, right) =>
@@ -2726,7 +2729,15 @@ async function routeErasureRequests(
         Date.parse(left.closed_at ?? left.opened_at),
   )
 
-  await fulfill(route, 200, { items: ordered, has_more: false })
+  // The page continues after the row the cursor names, as the real keyset read does.
+  const after = parameters.get('cursor_id')
+  const start = after === null ? 0 : ordered.findIndex((entry) => entry.id === after) + 1
+  const size = panel.pageSize ?? 50
+  const remaining = ordered.slice(start)
+  await fulfill(route, 200, {
+    items: remaining.slice(0, size),
+    has_more: remaining.length > size,
+  })
 }
 
 async function routeAccessLog(

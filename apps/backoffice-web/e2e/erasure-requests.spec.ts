@@ -125,6 +125,38 @@ test('shows what is still owed, with the ones past the thirty days called out', 
   expect(reads[0]?.query).toContain('status=open')
 })
 
+// HU-BO-032: «Hay más» used to say so and never fetch it.
+test('fetches the next page after the last row and appends it', async ({ context, page }) => {
+  const requests = [0, 1, 2].map((index) =>
+    openRequest({
+      id: `019ac000-0000-7000-8000-00000000051${index}`,
+      subject_person_id: `019ac000-0000-7000-8000-00000000001${index}`,
+      opened_at: day(-27 + index),
+    }),
+  )
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    erasureRequests: { requests, pageSize: 2 },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await expect(page.locator('[data-erasure-summary]')).toContainText(
+    '2 solicitudes abiertas cargadas',
+  )
+  await expect(page.locator('[data-erasure-summary]')).toContainText('por vencer')
+  await page.locator('[data-erasure-more]').click()
+
+  await expect(page.locator('[data-erasure-summary]')).toContainText('3 solicitudes abiertas')
+  await expect(page.locator('[data-erasure-more]')).toHaveCount(0)
+  const reads = fixture.requests.filter(
+    (request) => request.method === 'GET' && request.path === '/backoffice/v1/erasure-requests',
+  )
+  expect(new URLSearchParams(reads[reads.length - 1]?.query).get('cursor_id')).toBe(
+    '019ac000-0000-7000-8000-000000000511',
+  )
+})
+
 test('reads the resolved half only when it is asked for', async ({ context, page }) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),
