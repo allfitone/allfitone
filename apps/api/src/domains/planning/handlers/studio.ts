@@ -13,7 +13,12 @@ import {
   studioSessionService,
   trustedStudioWebUrl,
 } from '../../identity/index.js'
-import { problem, type ApiErrorCode } from '../../../platform/http/index.js'
+import {
+  failScopeRequired,
+  problem,
+  requiredScope,
+  type ApiErrorCode,
+} from '../../../platform/http/index.js'
 import { StudioPlanningError, type StudioPlanningService } from '../application/index.js'
 import { studioPlanningService } from '../dependencies.js'
 
@@ -24,6 +29,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const DRAFT_ETAG = /^"sha256:[A-Za-z0-9_-]{43}"$/
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/
+const IANA_TIME_ZONE = /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/
 
 export function studioPlanningRoutes(
   injectedPlanning?: StudioPlanningService,
@@ -411,6 +418,68 @@ export function studioPlanningRoutes(
       }
     },
   )
+
+  routes.get(
+    '/organizations/:organizationId/relationships/:relationshipId/assignments',
+    async (c) => {
+      const ids = relationshipPath(c, studioOrigin)
+      if (ids instanceof Response) return ids
+      const pagination = parsePagination(c)
+      if (!pagination) return problem(c, 'validation-failed')
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const result = await planning().listRelationshipAssignments(actor, {
+          ...ids,
+          requestId: randomUUID(),
+          ...pagination,
+        })
+        // The person's training under a live grant: never kept to decide access later.
+        c.header('Cache-Control', 'private, no-store')
+        return c.json({
+          data: result.items,
+          page: { has_more: result.hasMore, next_cursor: encodeCursor(result.nextCursor) },
+        })
+      } catch (error) {
+        return operationFailure(c, error)
+      }
+    },
+  )
+
+  routes.post(
+    '/organizations/:organizationId/relationships/:relationshipId/assignments',
+    async (c) => {
+      const ids = relationshipPath(c, studioOrigin)
+      if (ids instanceof Response) return ids
+      const payload = await jsonPayload(c)
+      if (payload instanceof Response) return payload
+      const body = payload.value
+      if (!isAssignmentBody(body)) return problem(c, 'validation-failed')
+      const command = commandContext(c, { ...ids, body })
+      if (!command) return problem(c, 'invalid-request')
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const result = await planning().assignProgram(actor, {
+          ...ids,
+          programVersionId: body.program_version_id,
+          startsOn: body.starts_on,
+          ...(body.timezone === undefined ? {} : { timezone: body.timezone }),
+          ...command,
+        })
+        c.header('Cache-Control', 'no-store')
+        // No single-assignment read exists: it is read where OP-PLN-018 lists it.
+        c.header(
+          'Location',
+          `/studio/v1/organizations/${ids.organizationId}/relationships/${ids.relationshipId}/assignments`,
+        )
+        replay(c, result.replayed)
+        return c.json(result.resource, 201)
+      } catch (error) {
+        return operationFailure(c, error)
+      }
+    },
+  )
   return routes
 }
 
@@ -437,6 +506,15 @@ function programPath(c: Context, origin: string) {
   const programId = c.req.param('programId')
   return programId && UUID.test(programId)
     ? { organizationId, programId }
+    : problem(c, 'invalid-request')
+}
+
+function relationshipPath(c: Context, origin: string) {
+  const organizationId = organization(c, origin)
+  if (organizationId instanceof Response) return organizationId
+  const relationshipId = c.req.param('relationshipId')
+  return relationshipId && UUID.test(relationshipId)
+    ? { organizationId, relationshipId }
     : problem(c, 'invalid-request')
 }
 
@@ -560,6 +638,31 @@ function isCreateBody(
   )
 }
 
+function isAssignmentBody(
+  value: unknown,
+): value is { program_version_id: string; starts_on: string; timezone?: string } {
+  if (!isObject(value)) return false
+  const allowed = new Set(['program_version_id', 'starts_on', 'timezone'])
+  if (!Object.keys(value).every((key) => allowed.has(key))) return false
+  const { program_version_id: versionId, starts_on: startsOn, timezone } = value
+  return (
+    typeof versionId === 'string' &&
+    UUID.test(versionId) &&
+    isCalendarDate(startsOn) &&
+    (timezone === undefined ||
+      (typeof timezone === 'string' &&
+        timezone.length >= 3 &&
+        timezone.length <= 100 &&
+        IANA_TIME_ZONE.test(timezone)))
+  )
+}
+
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !CALENDAR_DATE.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().startsWith(value)
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -600,6 +703,8 @@ function operationFailure(c: Context, error: unknown) {
   if (error instanceof StudioPlanningError || error instanceof StudioSessionError) {
     return problem(c, error.code)
   }
+  const scope = requiredScope(error)
+  if (scope) return failScopeRequired(c, scope)
   const code = databaseErrorCode(error)
   if (code === 'stale-draft') return staleDraftProblem(c, error)
   if (code === 'validation-failed') return validationFailureProblem(c, error)
@@ -643,6 +748,9 @@ function validationIssues(error: unknown) {
 }
 
 function validationPath(code: string): string {
+  if (code === 'program-version') return '/program_version_id'
+  if (code === 'starts-on') return '/starts_on'
+  if (code === 'timezone') return '/timezone'
   if (code === 'title') return '/title'
   if (code === 'activity-type') return '/activity_type_id'
   if (code === 'movement') return '/steps'
@@ -665,6 +773,9 @@ function validationMessage(code: string): string {
     'template-version': 'Each session must reference an accessible published template version.',
     'duplicate-step-position': 'Step positions must be unique.',
     'duplicate-session-position': 'Session positions must be unique.',
+    'program-version': "A published version of one of this organization's programs is required.",
+    'starts-on': "The program must start today or later in the person's own day.",
+    timezone: 'No valid time zone is known for this person.',
   }
   return messages[code] ?? 'The value does not satisfy the Planning content contract.'
 }

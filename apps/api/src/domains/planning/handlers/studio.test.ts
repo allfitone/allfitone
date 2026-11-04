@@ -15,6 +15,9 @@ const PROGRAM_ID = '019d0000-0000-7000-8000-000000000501'
 const PROGRAM_DRAFT_ID = '019d0000-0000-7000-8000-000000000502'
 const PROGRAM_VERSION_ID = '019d0000-0000-7000-8000-000000000503'
 const PERSON_ID = '019d0000-0000-7000-8000-000000000001'
+const RELATIONSHIP_ID = '019d0000-0000-7000-8000-000000000701'
+const ASSIGNMENT_ID = '019d0000-0000-7000-8000-000000000801'
+const PLANNED_SESSION_ID = '019d0000-0000-7000-8000-000000000802'
 const ETAG = `"sha256:${'A'.repeat(43)}"`
 const IDEMPOTENCY_KEY = '11111111-1111-4111-8111-111111111111'
 const COMMAND_ID = '019d0000-0000-7000-8000-000000000301'
@@ -118,6 +121,50 @@ const program: AllfitV1Schemas['Program'] = {
   versions: [programVersion],
 }
 
+const programAssignment: AllfitV1Schemas['ProgramAssignment'] = {
+  id: ASSIGNMENT_ID,
+  status: 'active',
+  origin_relationship_id: RELATIONSHIP_ID,
+  program_version_id: PROGRAM_VERSION_ID,
+  starts_on: '2026-08-17',
+  timezone: 'America/Bogota',
+  management: { relationship_id: RELATIONSHIP_ID, since: NOW },
+  planned_sessions_created: 1,
+  schedule_overlaps: false,
+}
+const relationshipAssignment: AllfitV1Schemas['RelationshipAssignment'] = {
+  id: ASSIGNMENT_ID,
+  status: 'active',
+  program_version: {
+    id: PROGRAM_VERSION_ID,
+    program_id: PROGRAM_ID,
+    version_number: 1,
+    title: 'Program A',
+    repeats_forever: true,
+  },
+  starts_on: '2026-08-17',
+  timezone: 'America/Bogota',
+  assigned_at: NOW,
+  management: { relationship_id: RELATIONSHIP_ID, since: NOW },
+  sessions: [
+    {
+      id: PLANNED_SESSION_ID,
+      template_version_id: TEMPLATE_VERSION_ID,
+      title: 'Strength A',
+      week_starts_on: '2026-08-17',
+      program_day: 1,
+      scheduled_on: '2026-08-17',
+      status: 'scheduled',
+    },
+  ],
+}
+const ASSIGNMENTS_PATH = `/organizations/${ORGANIZATION_ID}/relationships/${RELATIONSHIP_ID}/assignments`
+const assignmentBody = {
+  program_version_id: PROGRAM_VERSION_ID,
+  starts_on: '2026-08-17',
+  timezone: 'America/Bogota',
+}
+
 interface CapturedCall {
   operation: string
   input: Record<string, unknown>
@@ -164,6 +211,9 @@ describe('Studio planning API contract', () => {
       'OP-PLN-007',
       'OP-PLN-008',
       'OP-PLN-009',
+      // Giving a client a program, and reading back what this relationship gave.
+      'OP-PLN-010',
+      'OP-PLN-018',
       'OP-PLN-019',
       'OP-PLN-020',
       'OP-PLN-021',
@@ -348,6 +398,36 @@ describe('Studio planning API contract', () => {
       expectedId: PROGRAM_VERSION_ID,
       expectedInput: { organizationId: ORGANIZATION_ID, programId: PROGRAM_ID, versionNumber: 1 },
     },
+    {
+      operation: 'OP-PLN-018',
+      method: 'GET',
+      service: 'listRelationshipAssignments',
+      status: 200,
+      path: `${ASSIGNMENTS_PATH}?limit=1`,
+      expectedId: ASSIGNMENT_ID,
+      expectedInput: { organizationId: ORGANIZATION_ID, relationshipId: RELATIONSHIP_ID, limit: 1 },
+      expectedHeaders: { 'cache-control': 'private, no-store' },
+    },
+    {
+      operation: 'OP-PLN-010',
+      method: 'POST',
+      service: 'assignProgram',
+      status: 201,
+      path: ASSIGNMENTS_PATH,
+      body: assignmentBody,
+      expectedId: ASSIGNMENT_ID,
+      expectedInput: {
+        organizationId: ORGANIZATION_ID,
+        relationshipId: RELATIONSHIP_ID,
+        programVersionId: PROGRAM_VERSION_ID,
+        startsOn: '2026-08-17',
+        timezone: 'America/Bogota',
+      },
+      expectedHeaders: {
+        'cache-control': 'no-store',
+        location: `/studio/v1${ASSIGNMENTS_PATH}`,
+      },
+    },
   ]
 
   for (const endpoint of endpoints) {
@@ -498,6 +578,8 @@ describe('Studio planning API contract', () => {
       'OP-PLN-007': ['200', '400', '401', '403', '404', '409', '415', '422', '428', '503'],
       'OP-PLN-008': ['201', '400', '401', '403', '404', '409', '415', '422', '428', '503'],
       'OP-PLN-009': ['200', '400', '401', '403', '404', '409', '415', '503'],
+      'OP-PLN-010': ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      'OP-PLN-018': ['200', '400', '401', '403', '404', '422', '503'],
     }
     for (const [operationId, statuses] of Object.entries(expected)) {
       const operation = allfitV1ContractManifest.operations.find(
@@ -689,6 +771,92 @@ describe('Studio planning API contract', () => {
     expect(await response.json()).toMatchObject({ status: 409, current_state: current })
   })
 
+  test('T-PLN-API-046 names the grant a missing permission needs, for assigning and for reading', async () => {
+    const missing = (level: string) =>
+      Object.assign(new Error('the person does not share her training at this level'), {
+        code: 'AF430',
+        detail: `relationship_training:${level}`,
+      })
+    const assigning = await studioPlanningRoutes(
+      planningService([], { failure: missing('contribute') }),
+      sessionService(),
+    ).request(ASSIGNMENTS_PATH, requestInit({ method: 'POST', body: assignmentBody }))
+    const reading = await studioPlanningRoutes(
+      planningService([], { failure: missing('read') }),
+      sessionService(),
+    ).request(ASSIGNMENTS_PATH, requestInit({ method: 'GET' }))
+    for (const [response, level] of [
+      [assigning, 'contribute'],
+      [reading, 'read'],
+    ] as const) {
+      expect(response.status).toBe(403)
+      expect(response.headers.get('content-type')).toContain('application/problem+json')
+      expect(response.headers.get('cache-control')).toBe('no-store')
+      expect(await response.json()).toMatchObject({
+        type: 'https://errors.allfit.invalid/scope-required',
+        required_scope: { code: 'relationship_training', level },
+      })
+    }
+  })
+
+  test('T-PLN-API-047 refuses an assignment body outside the contract before reaching PostgreSQL', async () => {
+    const calls: CapturedCall[] = []
+    const app = studioPlanningRoutes(planningService(calls), sessionService())
+    const invalid = [
+      { starts_on: '2026-08-17' },
+      { ...assignmentBody, starts_on: '2026-02-30' },
+      { ...assignmentBody, starts_on: '17/08/2026' },
+      { ...assignmentBody, program_version_id: 'not-a-uuid' },
+      { ...assignmentBody, timezone: 'Bogota' },
+      { ...assignmentBody, title: 'unexpected' },
+    ]
+    for (const body of invalid) {
+      const response = await app.request(ASSIGNMENTS_PATH, requestInit({ method: 'POST', body }))
+      expect(response.status).toBe(422)
+    }
+    expect(calls).toHaveLength(0)
+
+    const withoutZone = await app.request(
+      ASSIGNMENTS_PATH,
+      requestInit({
+        method: 'POST',
+        body: { program_version_id: PROGRAM_VERSION_ID, starts_on: '2026-08-17' },
+      }),
+    )
+    expect(withoutZone.status).toBe(201)
+    expect(calls[0]?.input).not.toHaveProperty('timezone')
+  })
+
+  test('T-PLN-API-048 points each assignment refusal at the field it concerns', async () => {
+    const response = await studioPlanningRoutes(
+      planningService([], {
+        failure: databaseValidationError(['program-version', 'starts-on', 'timezone']),
+      }),
+      sessionService(),
+    ).request(ASSIGNMENTS_PATH, requestInit({ method: 'POST', body: assignmentBody }))
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({
+      errors: [
+        { code: 'program-version', path: '/program_version_id' },
+        { code: 'starts-on', path: '/starts_on' },
+        { code: 'timezone', path: '/timezone' },
+      ],
+    })
+  })
+
+  test('T-PLN-API-049 a relationship that ended in the meantime is a conflict', async () => {
+    const response = await studioPlanningRoutes(
+      planningService([], { failure: databaseError('55000') }),
+      sessionService(),
+    ).request(ASSIGNMENTS_PATH, requestInit({ method: 'POST', body: assignmentBody }))
+    expect(response.status).toBe(409)
+    const invalidPath = await studioPlanningRoutes(planningService([]), sessionService()).request(
+      `/organizations/${ORGANIZATION_ID}/relationships/not-a-uuid/assignments`,
+      requestInit({ method: 'GET' }),
+    )
+    expect(invalidPath.status).toBe(400)
+  })
+
   test('T-PLN-API-040 rejects an originally overlong padded title', async () => {
     const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
       `/organizations/${ORGANIZATION_ID}/programs`,
@@ -777,6 +945,18 @@ function planningService(
     deprecateProgramVersion: (_actor, input) => {
       if (errors.failure) throw errors.failure
       return capture('deprecateProgramVersion', input, programVersion)
+    },
+    assignProgram: (_actor, input) => {
+      if (errors.failure) throw errors.failure
+      return capture('assignProgram', input, programAssignment)
+    },
+    listRelationshipAssignments: (_actor, input) => {
+      if (errors.failure) return Promise.reject(errors.failure)
+      calls.push({
+        operation: 'listRelationshipAssignments',
+        input: input as Record<string, unknown>,
+      })
+      return Promise.resolve({ items: [relationshipAssignment], hasMore: false })
     },
     listSessionTemplates: (_actor, input) => {
       calls.push({ operation: 'listSessionTemplates', input: input as Record<string, unknown> })
