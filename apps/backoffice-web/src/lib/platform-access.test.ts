@@ -127,6 +127,8 @@ describe('platform access presentation rules', () => {
 
   test('explains a refused command without blaming the request', () => {
     expect(platformAccessMessage('forbidden')).toContain('deber vigente')
+    // A self-assignment is refused with the same code; the message must not blame expiry alone.
+    expect(platformAccessMessage('forbidden')).toContain('a sí mismo')
     expect(platformAccessMessage('conflict')).toContain('último administrador')
     expect(platformAccessMessage('unauthenticated')).toContain('sesión')
     expect(platformAccessMessage('something-new')).toBe('No se pudo completar la operación.')

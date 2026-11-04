@@ -181,12 +181,13 @@ export function isValidPersonId(value: string): boolean {
  *
  * `forbidden` is the interesting one: it means the duty was not effective in the
  * transaction that just ran, which can happen mid-session because a duty expired
- * or was revoked. The message says so instead of blaming the request.
+ * or was revoked. The database answers the same code to an order about oneself, which
+ * nobody may give, so the message names both instead of blaming expiry alone.
  */
 export function platformAccessMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene un deber vigente para esta operación. Puede haber vencido o haber sido revocado.',
+      'No se aplicó. Nadie se asigna ni se retira a sí mismo un rol o un deber: si la persona eras tú, pídeselo a otra persona del equipo. Si era otra persona, tu sesión no tiene un deber vigente para esta operación: puede haber vencido o haber sido revocado.',
     'not-found': 'La asignación ya no existe.',
     conflict:
       'La base de datos rechazó el cambio: puede ser el último administrador base, o una asignación ya cerrada.',
