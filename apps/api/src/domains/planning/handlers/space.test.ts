@@ -227,6 +227,7 @@ const myProgram: MyProgram = {
   routine_cover: null,
   sessions_done: 1,
   sessions_planned: 40,
+  managed_by: null,
 }
 
 const myRoutine: MyRoutine = {

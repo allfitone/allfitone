@@ -8,6 +8,8 @@ export type Program = AllfitV1Schemas['Program']
 export type ProgramDraft = AllfitV1Schemas['ProgramDraft']
 export type ProgramDraftContent = AllfitV1Schemas['ProgramDraftContent']
 export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
+export type ProgramAssignment = AllfitV1Schemas['ProgramAssignment']
+export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
 
 export interface PlanningCommand {
   idempotencyKey: string
@@ -97,6 +99,26 @@ export interface PlanningDatabase {
       versionNumber: number
     },
   ): Promise<PlanningCommandResult<ProgramVersion>>
+  /** OP-PLN-010. `timezone` is a fallback; the person's device zone wins when known. */
+  assignProgram(
+    input: PlanningCommand & {
+      personId: string
+      organizationId: string
+      relationshipId: string
+      programVersionId: string
+      startsOn: string
+      timezone?: string
+    },
+  ): Promise<PlanningCommandResult<ProgramAssignment>>
+  /** OP-PLN-018. Logged in the same transaction before anything is returned. */
+  listRelationshipAssignments(input: {
+    personId: string
+    organizationId: string
+    relationshipId: string
+    requestId: string
+    limit: number
+    cursor?: { updatedAt: string; id: string }
+  }): Promise<PlanningPage<RelationshipAssignment>>
   listSessionTemplates(input: {
     personId: string
     organizationId: string

@@ -1774,12 +1774,20 @@ export const allfitV1ContractManifest = {
       security: ['cookieAuth'],
     },
     {
+      method: 'GET',
+      path: '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/assignments',
+      operationId: 'listRelationshipAssignments',
+      allfitOperation: 'OP-PLN-018',
+      responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
       method: 'POST',
       path: '/studio/v1/organizations/{organizationId}/relationships/{relationshipId}/assignments',
       operationId: 'assignProgramVersion',
       allfitOperation: 'OP-PLN-010',
-      responses: ['201', '400', '401', '403', '404', '409', '422'],
-      security: ['bearerAuth'],
+      responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['cookieAuth'],
     },
     {
       method: 'GET',

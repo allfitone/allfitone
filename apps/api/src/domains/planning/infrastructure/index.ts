@@ -6,8 +6,10 @@ import type {
   PlanningCommandResult,
   PlanningDatabase,
   Program,
+  ProgramAssignment,
   ProgramDraft,
   ProgramVersion,
+  RelationshipAssignment,
   SessionTemplate,
   SessionTemplateDraft,
   SessionTemplateVersion,
@@ -159,6 +161,29 @@ export function createPlanningDatabase(): PlanningDatabase {
           })),
           input.limit,
         )
+      }),
+    assignProgram: (input) =>
+      command(sql, input.personId, async (transaction) => {
+        const [row] = await transaction<CommandRow<ProgramAssignment>[]>`
+          select * from planning.assign_program_from_relationship(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid, ${input.programVersionId}::uuid,
+            ${input.startsOn}::date, ${input.timezone ?? null}::text,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return requiredCommand(row, 'assign the program')
+      }),
+    listRelationshipAssignments: (input) =>
+      query(sql, input.personId, input.requestId, async (transaction) => {
+        const rows = await transaction<PageRow<RelationshipAssignment>[]>`
+          select * from planning.list_relationship_assignments(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.relationshipId}::uuid, ${input.limit + 1}::integer,
+            ${input.cursor?.updatedAt ?? null}::timestamptz, ${input.cursor?.id ?? null}::uuid
+          )
+        `
+        return page(rows, input.limit)
       }),
     readSessionTemplateDraft: (input) =>
       query(sql, input.personId, input.requestId, async (transaction) => {

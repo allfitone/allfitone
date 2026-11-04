@@ -31,6 +31,8 @@ export type ApiErrorCode =
   | 'forbidden'
   /** The person has not accepted the consent this operation needs (ADR-041). */
   | 'consent-required'
+  /** The person does not share the data scope this operation needs, at the level it needs. */
+  | 'scope-required'
   /** The chosen password was refused: too short, or known to be breached. */
   | 'weak-password'
   /** The command conflicts with durable state or a prior idempotent request. */
@@ -66,6 +68,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'account-closed': 403,
   forbidden: 403,
   'consent-required': 403,
+  'scope-required': 403,
   'weak-password': 422,
   conflict: 409,
   'stale-draft': 409,
@@ -91,6 +94,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'account-closed': 'The account is closed',
   forbidden: 'The actor cannot execute this operation',
   'consent-required': 'Consent is required first',
+  'scope-required': 'Required consent is not effective',
   'weak-password': 'The password does not satisfy the security policy',
   conflict: 'The request conflicts with current state',
   'stale-draft': 'The local draft is stale',
@@ -118,7 +122,7 @@ export function problem(
   c: Context,
   code: ApiErrorCode,
   detail?: string,
-  extensions: Readonly<Record<string, string>> = {},
+  extensions: Readonly<Record<string, string | Readonly<Record<string, string>>>> = {},
 ) {
   return c.json(
     {
@@ -150,4 +154,31 @@ export function planLimitFeature(cause: unknown): string | undefined {
 /** A plan limit is always a problem naming the function, whatever envelope the domain uses. */
 export function failPlanLimit(c: Context, feature: string) {
   return problem(c, 'plan-limit-reached', undefined, { feature })
+}
+
+export interface RequiredScope {
+  code: string
+  level: 'read' | 'contribute'
+}
+
+const REQUIRED_SCOPE = /^([a-z][a-z0-9_]{1,63}):(read|contribute)$/
+
+/**
+ * The grant a database function found missing, when it raised AF430. The scope and
+ * level travel in the detail as `code:level`, and only that shape is believed.
+ */
+export function requiredScope(cause: unknown): RequiredScope | undefined {
+  if (typeof cause !== 'object' || cause === null) return undefined
+  if (!('code' in cause) || cause.code !== 'AF430') return undefined
+  const detail = 'detail' in cause ? cause.detail : undefined
+  const match = typeof detail === 'string' ? REQUIRED_SCOPE.exec(detail) : null
+  const [, code, level] = match ?? []
+  return code && (level === 'read' || level === 'contribute') ? { code, level } : undefined
+}
+
+/** A missing grant is a problem naming the scope and level, so the client can ask for it. */
+export function failScopeRequired(c: Context, scope: RequiredScope) {
+  return problem(c, 'scope-required', undefined, {
+    required_scope: { code: scope.code, level: scope.level },
+  })
 }
