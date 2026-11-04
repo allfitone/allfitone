@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   changeLines,
+  chargesWithoutPro,
   featureLimits,
   formatPrice,
   hasFreePlan,
@@ -194,6 +195,16 @@ describe('platform plan presentation', () => {
     expect(isValidPlanCode('premium_anual')).toBe(true)
     expect(isValidPlanCode('Premium')).toBe(false)
     expect(isValidPlanCode('p')).toBe(false)
+  })
+
+  // Pro is the published paid plan whose code is exactly `pro`; any other paid code sells nothing.
+  test('warns that a paid plan with another code charges without giving Pro', () => {
+    expect(chargesWithoutPro('premium', 'paid')).toBe(true)
+    expect(chargesWithoutPro('pro', 'paid')).toBe(false)
+    expect(chargesWithoutPro(' pro ', 'paid')).toBe(false)
+    expect(chargesWithoutPro('premium', 'free')).toBe(false)
+    expect(chargesWithoutPro('', 'paid')).toBe(false)
+    expect(chargesWithoutPro('premium', '')).toBe(false)
   })
 
   test('explains each refusal for the action that met it', () => {

@@ -66,6 +66,7 @@ import {
 import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'failed'
+type MoreState = 'idle' | 'loading' | 'failed'
 
 export function AccessLog() {
   const [state, setState] = useState<LoadState>('idle')
@@ -74,6 +75,9 @@ export function AccessLog() {
   const [refused, setRefused] = useState(false)
   const [filters, setFilters] = useState<AccessLogFilters>(EMPTY_FILTERS)
   const [error, setError] = useState<string | null>(null)
+  // The question the answer on screen was given for; the next page asks it again.
+  const [asked, setAsked] = useState<ReturnType<typeof toQuery> | null>(null)
+  const [more, setMore] = useState<MoreState>('idle')
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -84,8 +88,11 @@ export function AccessLog() {
     }
     setError(null)
     setState('loading')
+    setMore('idle')
+    const query = toQuery(filters)
     try {
-      setPage(await backofficeApi.accessEvents(toQuery(filters)))
+      setPage(await backofficeApi.accessEvents(query))
+      setAsked(query)
       setState('ready')
     } catch (caught) {
       if (caught instanceof BackofficeApiError && caught.status === 401) {
@@ -95,6 +102,23 @@ export function AccessLog() {
       setRefused(isRefusal(caught))
       setFailure(failureMessage(caught))
       setState('failed')
+    }
+  }
+
+  async function readMore() {
+    const cursor = page?.page.next_cursor
+    if (!asked || !cursor) return
+    setMore('loading')
+    try {
+      const next = await backofficeApi.accessEvents({ ...asked, cursor })
+      setPage((current) => (current ? { ...next, items: [...current.items, ...next.items] } : next))
+      setMore('idle')
+    } catch (caught) {
+      if (caught instanceof BackofficeApiError && caught.status === 401) {
+        window.location.assign('/')
+        return
+      }
+      setMore('failed')
     }
   }
 
@@ -196,9 +220,9 @@ export function AccessLog() {
             <AlertDescription>{answerSentence(page)}</AlertDescription>
           </Alert>
 
-          {page.items.map((event) => (
+          {page.items.map((event, index) => (
             <Card
-              key={`${event.occurred_at}-${event.actor_person_id}-${event.resource}`}
+              key={`${index}-${event.occurred_at}`}
               data-access-log-entry
               data-exceptional={isExceptional(event) ? 'true' : 'false'}
             >
@@ -212,36 +236,33 @@ export function AccessLog() {
                 <dl data-facts>
                   <dt>Base del acceso</dt>
                   <dd>
-                    <Badge
-                      id={`al-mode-${event.occurred_at}`}
-                      variant={modeTone(event.access_mode)}
-                    >
+                    <Badge id={`al-mode-${index}`} variant={modeTone(event.access_mode)}>
                       {modeLabel(event.access_mode)}
                     </Badge>
                   </dd>
                   <dt>Quién accedió</dt>
                   <dd>
-                    <code id={`al-actor-${event.occurred_at}`}>{event.actor_person_id}</code>
+                    <code id={`al-actor-${index}`}>{event.actor_person_id}</code>
                   </dd>
                   <dt>Sobre quién</dt>
                   <dd>
-                    <code id={`al-subject-${event.occurred_at}`}>
+                    <code id={`al-subject-${index}`}>
                       {event.subject_person_id ?? 'Sin persona afectada'}
                     </code>
                   </dd>
                   <dt>Resultado</dt>
                   <dd>
-                    <span id={`al-result-${event.occurred_at}`}>{resultLabel(event.result)}</span>
+                    <span id={`al-result-${index}`}>{resultLabel(event.result)}</span>
                   </dd>
                   <dt>Propósito</dt>
                   <dd>
-                    <span id={`al-purpose-${event.occurred_at}`}>{event.purpose}</span>
+                    <span id={`al-purpose-${index}`}>{event.purpose}</span>
                   </dd>
                   {event.scope_code ? (
                     <>
                       <dt>Permiso</dt>
                       <dd>
-                        <span id={`al-scope-${event.occurred_at}`}>
+                        <span id={`al-scope-${index}`}>
                           {event.scope_code} · v{event.scope_version}
                         </span>
                       </dd>
@@ -256,6 +277,29 @@ export function AccessLog() {
               </CardContent>
             </Card>
           ))}
+
+          {more === 'failed' ? (
+            <Alert live="polite" variant="warning" data-access-log-more-failure>
+              <AlertTitle>No se pudieron leer los siguientes accesos</AlertTitle>
+              <AlertDescription>
+                Lo que ves sigue siendo correcto, pero no es todo. Reintenta antes de responder.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {page.page.has_more ? (
+            <div data-form-actions>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void readMore()}
+                disabled={more === 'loading'}
+                data-access-log-more
+              >
+                Ver más accesos
+              </Button>
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>

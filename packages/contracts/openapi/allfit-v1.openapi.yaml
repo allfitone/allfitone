@@ -135,6 +135,11 @@ x-allfit-error-catalog:
     description: >-
       The organization has filled every guest place Allfit sold it (HU-STUDIO-087).
       Live relationships and unanswered invitations occupy a place.
+  - code: organization-not-operating
+    status: 409
+    description: >-
+      The organization is suspended and gains no client until it operates again
+      (HU-BO-016). An invitation it sent stays open; nothing was decided.
 x-allfit-media-url-policy:
   space_owner:
     delivery: signed_storage_url
@@ -1865,6 +1870,11 @@ paths:
         removed for that reason, so an empty list is never mistaken for "nobody
         touched this person's data" — the auditor is told to hand those cases to
         someone else.
+
+
+        HU-BO-030: the log is read a page at a time, newest first. `page.has_more`
+        says whether older records match the same filters, and `page.next_cursor`
+        reads them; a page is never the whole answer unless `has_more` is false.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -1874,6 +1884,7 @@ paths:
         - $ref: '#/components/parameters/AccessEventFrom'
         - $ref: '#/components/parameters/AccessEventTo'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: Access records, newest first
@@ -3223,6 +3234,12 @@ paths:
         HU-STUDIO-087: accepting converts the guest place the invitation already
         held. If the organization is over its quota by another way, acceptance
         answers `409` with `guest-quota-exhausted` and nothing is decided.
+
+
+        HU-BO-016: while the organization is suspended, acceptance answers `409`
+        with `organization-not-operating`. The invitation stays open until it
+        expires and can be accepted once the organization operates again;
+        declining is always allowed.
       security:
         - bearerAuth: []
       parameters:
@@ -13654,12 +13671,14 @@ components:
     AccessEventPage:
       type: object
       additionalProperties: false
-      required: [items, withheld_from_you]
+      required: [items, withheld_from_you, page]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/AccessEvent'
+        page:
+          $ref: '#/components/schemas/Page'
         withheld_from_you:
           type: integer
           minimum: 0
@@ -23055,6 +23074,15 @@ components:
           maxItems: 500
           items:
             $ref: '#/components/schemas/BodyProgressRecord'
+        body_photo_days:
+          type: array
+          maxItems: 500
+          description: >-
+            HU-BO-009 criterion 3, returned with `body_progress`: the days the person has
+            body photos and how many, newest first, a day with no measurement included.
+            That a photo exists, never a reference to it or the photo itself.
+          items:
+            $ref: '#/components/schemas/BreakGlassPhotoDay'
         health_context:
           type: array
           maxItems: 500
@@ -23070,6 +23098,17 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/ExecutionDetail'
+    BreakGlassPhotoDay:
+      type: object
+      additionalProperties: false
+      required: [taken_on, photos]
+      properties:
+        taken_on:
+          type: string
+          format: date
+        photos:
+          type: integer
+          minimum: 1
     PlatformPlanCatalogue:
       type: object
       additionalProperties: false

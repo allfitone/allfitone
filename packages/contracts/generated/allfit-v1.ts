@@ -725,6 +725,8 @@ export interface paths {
      * Read the access log as an independent auditor
      * @description Who from the team looked at whose data, and when. It carries the record of the access and never what was read.
      *     Separation of duties is **per case, not global**: an access that belongs to a break-glass window this auditor requested or approved is absent, and every other window stays auditable. `withheld_from_you` counts what was removed for that reason, so an empty list is never mistaken for "nobody touched this person's data" — the auditor is told to hand those cases to someone else.
+     *
+     *     HU-BO-030: the log is read a page at a time, newest first. `page.has_more` says whether older records match the same filters, and `page.next_cursor` reads them; a page is never the whole answer unless `has_more` is false.
      */
     get: operations['listBackofficeAccessEvents']
     put?: never
@@ -1313,6 +1315,8 @@ export interface paths {
      *     Rejecting the relationship ends the invitation and no scope is granted, whatever the scope answers say.
      *
      *     HU-STUDIO-087: accepting converts the guest place the invitation already held. If the organization is over its quota by another way, acceptance answers `409` with `guest-quota-exhausted` and nothing is decided.
+     *
+     *     HU-BO-016: while the organization is suspended, acceptance answers `409` with `organization-not-operating`. The invitation stays open until it expires and can be accepted once the organization operates again; declining is always allowed.
      */
     post: operations['decideSpaceClientInvitation']
     delete?: never
@@ -5179,6 +5183,7 @@ export interface components {
     }
     AccessEventPage: {
       items: components['schemas']['AccessEvent'][]
+      page: components['schemas']['Page']
       /** @description How many records matching these filters were removed because this auditor requested or approved the break-glass window they belong to. Reported separately from the list so that it survives an empty one. */
       withheld_from_you: number
     }
@@ -9672,9 +9677,16 @@ export interface components {
     /** @description What an allowed read returns, under the category that was read. Only categories whose data the platform stores appear; the rest answer `content_unavailable` instead. */
     BreakGlassContent: {
       body_progress?: components['schemas']['BodyProgressRecord'][]
+      /** @description HU-BO-009 criterion 3, returned with `body_progress`: the days the person has body photos and how many, newest first, a day with no measurement included. That a photo exists, never a reference to it or the photo itself. */
+      body_photo_days?: components['schemas']['BreakGlassPhotoDay'][]
       health_context?: components['schemas']['HealthContextClaim'][]
       nutrition_intake?: components['schemas']['BreakGlassMeal'][]
       prior_training_history?: components['schemas']['ExecutionDetail'][]
+    }
+    BreakGlassPhotoDay: {
+      /** Format: date */
+      taken_on: string
+      photos: number
     }
     PlatformPlanCatalogue: {
       /** Format: date-time */
@@ -12033,6 +12045,7 @@ export interface operations {
         /** @description Exclusive upper bound on when the access happened. */
         to?: components['parameters']['AccessEventTo']
         limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
       }
       header: {
         Origin: components['parameters']['Origin']

@@ -48,16 +48,18 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
-import { backofficeApi } from '@/lib/backoffice-api'
 import { BACKOFFICE_AREAS, currentBackofficeRoute, routesInArea } from '@/lib/backoffice-routes'
 import { actorModeLabel } from '@/lib/platform-access'
 
+/** Signing out belongs to the session gate, which tells every other tab before it asks the API. */
 export function BackofficeWorkspaceShell({
   children,
   operatorName,
+  onSignOut,
 }: {
   children: ReactNode
   operatorName: string
+  onSignOut: () => void
 }) {
   const pathname = usePathname()
   const current = currentBackofficeRoute(pathname)
@@ -66,7 +68,7 @@ export function BackofficeWorkspaceShell({
     // The rail steals a fifth of a narrow viewport from the content it frames,
     // and the offcanvas drawer is still premature there.
     <WorkspaceShell data-backoffice-shell collapseBelow={1100}>
-      <BackofficeSidebar pathname={pathname} operatorName={operatorName} />
+      <BackofficeSidebar pathname={pathname} operatorName={operatorName} onSignOut={onSignOut} />
       <WorkspaceMain data-backoffice-main>
         <WorkspaceHeader data-backoffice-header>
           <SidebarTrigger aria-label="Abrir o cerrar navegación" />
@@ -81,21 +83,21 @@ export function BackofficeWorkspaceShell({
   )
 }
 
-function BackofficeSidebar({ pathname, operatorName }: { pathname: string; operatorName: string }) {
+function BackofficeSidebar({
+  pathname,
+  operatorName,
+  onSignOut,
+}: {
+  pathname: string
+  operatorName: string
+  onSignOut: () => void
+}) {
   const { setOpenMobile, state, isMobile } = useSidebar()
   const railed = state === 'collapsed' && !isMobile
   const current = currentBackofficeRoute(pathname)
 
   function closeMobileNavigation() {
     setOpenMobile(false)
-  }
-
-  async function signOut() {
-    try {
-      await backofficeApi.logout('manual')
-    } finally {
-      window.location.assign('/')
-    }
   }
 
   return (
@@ -145,7 +147,7 @@ function BackofficeSidebar({ pathname, operatorName }: { pathname: string; opera
       </SidebarContent>
       <SidebarFooter>
         {!railed ? <SidebarGroupLabel>{operatorName}</SidebarGroupLabel> : null}
-        <Button type="button" variant="ghost" size="sm" onClick={signOut}>
+        <Button type="button" variant="ghost" size="sm" onClick={onSignOut}>
           Cerrar sesión
         </Button>
       </SidebarFooter>

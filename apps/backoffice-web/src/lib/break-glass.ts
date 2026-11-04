@@ -329,6 +329,20 @@ export function measurementRows(outcome: BreakGlassExerciseOutcome): Measurement
   }))
 }
 
+export interface PhotoDayRow {
+  day: string
+  photos: string
+}
+
+/** The days with body photos an allowed read returned: that they exist, never the photos. */
+export function photoDayRows(outcome: BreakGlassExerciseOutcome): PhotoDayRow[] {
+  if (outcome.outcome !== 'allowed') return []
+  return (outcome.content?.body_photo_days ?? []).map((photoDay) => ({
+    day: calendarDay(photoDay.taken_on),
+    photos: photoDay.photos === 1 ? '1 foto' : `${String(photoDay.photos)} fotos`,
+  }))
+}
+
 function quantity(value: number, unit: BodyProgressUnitCode): string {
   const amount = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 }).format(value)
   return `${amount} ${UNIT_SYMBOLS[unit]}`

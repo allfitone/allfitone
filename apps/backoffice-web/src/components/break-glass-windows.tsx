@@ -88,6 +88,7 @@ import {
   healthContextRows,
   mealRows,
   measurementRows,
+  photoDayRows,
   trainingRows,
   outcomeMessage,
   purposeLabel,
@@ -169,6 +170,7 @@ export function BreakGlassWindows() {
   const readStillOpen = readFile ? canExercise(readFile, now) : false
   const shown = outcome && readStillOpen ? outcome.answer : null
   const rows = shown ? measurementRows(shown) : []
+  const photoDays = shown ? photoDayRows(shown) : []
   const claims = shown ? healthContextRows(shown) : []
   const eaten = shown ? mealRows(shown) : []
   const trained = shown ? trainingRows(shown) : []
@@ -294,6 +296,29 @@ export function BreakGlassWindows() {
                 <TableCell numeric>{row.normalized}</TableCell>
                 <TableCell>{row.measuredOn}</TableCell>
                 <TableCell>{row.photo}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {/* HU-BO-009 criterion 3: a photo's existence is shown, never the photo. */}
+      {photoDays.length > 0 ? (
+        <Table scrollAreaLabel="Días con fotos de progreso" data-break-glass-content>
+          <TableCaption>
+            Días con fotos de progreso. Se sabe que existen; no se abren desde el Backoffice.
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Fotos</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {photoDays.map((photoDay) => (
+              <TableRow key={photoDay.day}>
+                <TableCell>{photoDay.day}</TableCell>
+                <TableCell numeric>{photoDay.photos}</TableCell>
               </TableRow>
             ))}
           </TableBody>

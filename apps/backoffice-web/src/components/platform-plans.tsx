@@ -70,8 +70,10 @@ import {
   BILLING_PERIOD_OPTIONS,
   PLAN_CURRENCIES,
   PLAN_KIND_OPTIONS,
+  PRO_PLAN_CODE,
   currencyLabel,
   changeLines,
+  chargesWithoutPro,
   featureLimits,
   featureName,
   formatPrice,
@@ -330,9 +332,13 @@ export function PlatformPlans() {
                       id="plan-code"
                       value={code}
                       onChange={(event) => setCode(event.target.value)}
-                      placeholder="premium"
+                      placeholder={PRO_PLAN_CODE}
                       disabled={busy !== null}
                     />
+                    <FieldDescription>
+                      Un código no se cambia después. Allfit da Pro solo con el plan de pago cuyo
+                      código es <code>{PRO_PLAN_CODE}</code>.
+                    </FieldDescription>
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="plan-name">Nombre</FieldLabel>
@@ -340,7 +346,7 @@ export function PlatformPlans() {
                       id="plan-name"
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      placeholder="Premium"
+                      placeholder="Pro"
                       disabled={busy !== null}
                     />
                   </Field>
@@ -363,6 +369,15 @@ export function PlatformPlans() {
                       </SelectContent>
                     </Select>
                   </Field>
+                  {chargesWithoutPro(code, kind) ? (
+                    <Alert live="polite" variant="warning" data-plans-create-without-pro>
+                      <AlertTitle>Este plan cobraría sin dar Pro</AlertTitle>
+                      <AlertDescription>
+                        Con el código «{code.trim()}», quien lo pague no recibe Pro. Para vender
+                        Pro, el código debe ser <code>{PRO_PLAN_CODE}</code>.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
                   {createIssue ? <FieldError>{createIssue}</FieldError> : null}
                 </FieldGroup>
                 <Button type="submit" disabled={busy !== null}>

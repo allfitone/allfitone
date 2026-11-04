@@ -15,7 +15,7 @@
 
 begin;
 
-select plan(51);
+select plan(58);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -359,6 +359,27 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- HU-BO-009 criterion 3 — that a photo exists is known, the photo is not
+-- ---------------------------------------------------------------------------
+
+-- Inserted directly: recording one needs Pro, which T-IDN-BODY-PRO-01 covers. Two on the
+-- day of the waist measurement, one on a day with no measurement at all.
+insert into identity.body_photos (id, person_id, taken_on, media_ref) values
+  ('019b5000-0000-7000-8000-000000000901', '019b5000-0000-7000-8000-000000000001', current_date - 1,
+    'body/019b5000-0000-7000-8000-000000000001/a.jpg'),
+  ('019b5000-0000-7000-8000-000000000902', '019b5000-0000-7000-8000-000000000001', current_date - 1,
+    'body/019b5000-0000-7000-8000-000000000001/b.jpg'),
+  ('019b5000-0000-7000-8000-000000000903', '019b5000-0000-7000-8000-000000000001', current_date - 10,
+    'body/019b5000-0000-7000-8000-000000000001/c.jpg');
+
+select results_eq(
+  $$ select taken_on, photos from identity.body_photo_days
+     where person_id = '019b5000-0000-7000-8000-000000000001' order by taken_on desc $$,
+  $$ values (current_date - 1, 2), (current_date - 10, 1) $$,
+  'T-IDN-PHOTO-DAYS-INT-01 each day keeps how many photos it has, kept by the photos themselves'
+);
+
+-- ---------------------------------------------------------------------------
 -- Support reads it through its own restricted window
 -- ---------------------------------------------------------------------------
 
@@ -409,6 +430,27 @@ select ok(
 select ok(
   (select position('019b5000-0000-7000-8000-000000000601' in answer::text) = 0 from body_read),
   'another person''s measurement never enters the window'
+);
+
+select results_eq(
+  $$ select entry->>'taken_on', (entry->>'photos')::integer
+     from body_read, jsonb_array_elements(answer->'content'->'body_photo_days') as entry $$,
+  $$ values ((current_date - 1)::text, 2), ((current_date - 10)::text, 1) $$,
+  'the window says on which days there are photos and how many, a day with no measurement included'
+);
+
+select results_eq(
+  $$ select entry->>'id', (entry->>'has_media')::boolean
+     from body_read, jsonb_array_elements(answer->'content'->'body_progress') as entry $$,
+  $$ values ('019b5000-0000-7000-8000-000000000503'::text, true),
+            ('019b5000-0000-7000-8000-000000000502'::text, false),
+            ('019b5000-0000-7000-8000-000000000501'::text, false) $$,
+  'a measurement taken on a day with photos says a photo exists'
+);
+
+select ok(
+  (select position('body/' in answer::text) = 0 from body_read),
+  'and no photo reference enters the window'
 );
 
 select is(
@@ -651,6 +693,35 @@ select ok(
   and not has_function_privilege('allfit_api',
     'privacy.log_disposition_event(uuid,privacy.disposition_action,text,text)', 'EXECUTE'),
   'it runs the three commands and nothing behind them'
+);
+
+-- ---------------------------------------------------------------------------
+-- The photo days follow the photos, and only the database reads them
+-- ---------------------------------------------------------------------------
+
+delete from identity.body_photos where id = '019b5000-0000-7000-8000-000000000901';
+
+select is(
+  (select photos from identity.body_photo_days
+   where person_id = '019b5000-0000-7000-8000-000000000001' and taken_on = current_date - 1),
+  1,
+  'T-IDN-PHOTO-DAYS-INT-02 deleting a photo takes it off its day'
+);
+
+delete from identity.body_photos where id = '019b5000-0000-7000-8000-000000000902';
+
+select is(
+  (select count(*)::integer from identity.body_photo_days
+   where person_id = '019b5000-0000-7000-8000-000000000001' and taken_on = current_date - 1),
+  0,
+  'T-IDN-PHOTO-DAYS-INT-03 and a day left without photos is no longer a photo day'
+);
+
+select ok(
+  not has_table_privilege('allfit_api', 'identity.body_photo_days', 'SELECT')
+    and (select relforcerowsecurity from pg_class
+         where oid = 'identity.body_photo_days'::regclass),
+  'T-IDN-PHOTO-DAYS-RLS-01 the runtime role never reads the photo days'
 );
 
 select * from finish();

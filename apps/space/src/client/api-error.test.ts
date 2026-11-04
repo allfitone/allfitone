@@ -47,4 +47,24 @@ describe('apiErrorFrom', () => {
     ])
     expect(forbidden.feature).toBeUndefined()
   })
+
+  test('T-SPC-UNIT-GYM-01 a gym that cannot take her says why, not that something conflicted', async () => {
+    const refusal = (code: string) =>
+      apiErrorFrom(
+        new Response(JSON.stringify({ error: { code } }), {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    const paused = await refusal('organization-not-operating')
+    const full = await refusal('guest-quota-exhausted')
+    const other = await refusal('conflict')
+    const empty = await apiErrorFrom(new Response('', { status: 409 }))
+    expect([paused.failure, full.failure, other.failure, empty.failure]).toEqual([
+      'organization-not-operating',
+      'guest-quota-exhausted',
+      'conflict',
+      'conflict',
+    ])
+  })
 })

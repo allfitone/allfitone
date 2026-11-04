@@ -49,6 +49,43 @@ test('sends only the filters that were filled in', async ({ context, page }) => 
   expect(query.get('from')).toBeNull()
 })
 
+test('a long answer is read to the end, a page at a time', async ({ context, page }) => {
+  // HU-BO-030: the log stopped at fifty and said «en total», so an auditor answered from
+  // the first page believing it was everything.
+  const events = Array.from({ length: 55 }, (_, n) =>
+    accessEvent({ occurred_at: new Date(Date.now() - (n + 1) * 60_000).toISOString() }),
+  )
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    accessLog: { events },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByLabel('Persona afectada').fill(SUPPORT_SUBJECT_ID)
+  await page.getByRole('button', { name: 'Consultar' }).click()
+
+  const answer = page.locator('[data-access-log-answer]')
+  await expect(answer).toContainText('Van 50 accesos, los más recientes')
+  await expect(answer).toContainText('Hay más accesos que cumplen estos filtros')
+  await expect(page.locator('[data-access-log-entry]')).toHaveCount(50)
+
+  await page.getByRole('button', { name: 'Ver más accesos' }).click()
+
+  await expect(page.locator('[data-access-log-entry]')).toHaveCount(55)
+  await expect(answer).toContainText('55 accesos en total.')
+  await expect(page.getByRole('button', { name: 'Ver más accesos' })).toHaveCount(0)
+
+  const reads = fixture.requests.filter(
+    (request) => request.path === '/backoffice/v1/access-events',
+  )
+  expect(reads).toHaveLength(2)
+  const next = new URLSearchParams(reads[1]?.query)
+  // The next page asks the same question it was asked first, from where it stopped.
+  expect(next.get('subject_person_id')).toBe(SUPPORT_SUBJECT_ID)
+  expect(next.get('cursor')).not.toBeNull()
+})
+
 test('refuses a malformed identifier before it becomes a query', async ({ context, page }) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),

@@ -25,6 +25,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ApiError } from '../../src/client'
 import {
+  decisionFailure,
   invitationExpiry,
   sharedSummary,
   type Decision,
@@ -40,7 +41,6 @@ import {
 } from '../../src/client/invitation-draft'
 import { GlyphRow, GymMark, RowCard } from '../../src/components/gym-ui'
 
-const CONFIRM_FAILED = 'No pudimos guardar tus decisiones. Revisa tu conexión e inténtalo de nuevo.'
 const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = [
   { value: 'rejected', label: 'No' },
   { value: 'accepted', label: 'Sí' },
@@ -136,8 +136,8 @@ export default function InvitationScreen() {
       } else {
         router.replace('/today')
       }
-    } catch {
-      setFailure(CONFIRM_FAILED)
+    } catch (cause) {
+      setFailure(decisionFailure(cause))
     } finally {
       setBusy(false)
     }

@@ -225,6 +225,32 @@ test('a price written with a thousands dot is refused before it is sent', async 
   expect(commands(fixture, '/versions')).toHaveLength(0)
 })
 
+test('a paid plan under any code but pro is warned that it charges without giving Pro', async ({
+  context,
+  page,
+}) => {
+  const fixture = fixtureWith(platformPlansFixture())
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/plans')
+
+  const create = page.locator('[data-plans-create]')
+  const warning = create.locator('[data-plans-create-without-pro]')
+  await expect(create.getByLabel('Código')).toHaveAttribute('placeholder', 'pro')
+
+  await create.getByLabel('Código').fill('premium')
+  await choose(page, create, 'Tipo', 'De pago')
+  await expect(warning).toContainText('Con el código «premium», quien lo pague no recibe Pro')
+
+  await create.getByLabel('Código').fill('pro')
+  await expect(warning).toHaveCount(0)
+
+  await create.getByLabel('Código').fill('premium')
+  await choose(page, create, 'Tipo', 'Gratis')
+  await expect(warning).toHaveCount(0)
+  expect(commands(fixture)).toHaveLength(0)
+})
+
 test('the free plan is created once, costs nothing, and its limits are what a version changes', async ({
   context,
   page,

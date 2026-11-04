@@ -100,6 +100,45 @@ export interface AccessEventFilters {
   from?: string | undefined
   to?: string | undefined
   limit?: number | undefined
+  cursor?: AccessEventCursor | undefined
+}
+
+export const DEFAULT_ACCESS_EVENT_PAGE = 50
+export const MAX_ACCESS_EVENT_PAGE = 200
+
+/**
+ * The last record a page showed (HU-BO-030). Both halves, because one read writes
+ * several records in the same instant and time alone would skip or repeat them.
+ */
+export interface AccessEventCursor {
+  at: string
+  id: string
+}
+
+const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+// Microseconds, as PostgreSQL stores them: a Date would round them off and skip records.
+const RECORD_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z$/
+
+export function encodeAccessEventCursor(cursor: AccessEventCursor): string {
+  return Buffer.from(JSON.stringify({ at: cursor.at, id: cursor.id }), 'utf8').toString('base64url')
+}
+
+/** It feeds a sort key the database trusts, so anything malformed is no cursor at all. */
+export function decodeAccessEventCursor(value: string): AccessEventCursor | undefined {
+  if (value.length < 16 || value.length > 1024) return undefined
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined
+    const at: unknown = 'at' in parsed ? parsed.at : undefined
+    const id: unknown = 'id' in parsed ? parsed.id : undefined
+    if (typeof at !== 'string' || !RECORD_INSTANT.test(at) || Number.isNaN(Date.parse(at))) {
+      return undefined
+    }
+    if (typeof id !== 'string' || !RECORD_ID.test(id)) return undefined
+    return { at, id }
+  } catch {
+    return undefined
+  }
 }
 
 export const ERASURE_REQUEST_STATES: readonly ErasureRequestState[] = ['open', 'closed']

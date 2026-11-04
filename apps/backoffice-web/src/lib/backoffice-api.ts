@@ -472,6 +472,7 @@ export const backofficeApi = {
       subject_person_id?: string | undefined
       from?: string | undefined
       to?: string | undefined
+      cursor?: string | undefined
     },
     signal?: AbortSignal,
   ) =>

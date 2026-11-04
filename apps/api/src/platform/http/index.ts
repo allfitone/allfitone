@@ -56,6 +56,8 @@ export type ApiErrorCode =
   | 'plan-limit-reached'
   /** The organization has filled every guest place Allfit sold it (HU-STUDIO-087). */
   | 'guest-quota-exhausted'
+  /** The organization is suspended and gains no client until it operates again (HU-BO-016). */
+  | 'organization-not-operating'
 
 const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   unauthenticated: 401,
@@ -81,6 +83,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'separation-of-duties': 403,
   'plan-limit-reached': 403,
   'guest-quota-exhausted': 409,
+  'organization-not-operating': 409,
 }
 
 const TITLE: Record<ApiErrorCode, string> = {
@@ -107,6 +110,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'separation-of-duties': 'This actor already asked to read this person',
   'plan-limit-reached': 'The plan does not include this function',
   'guest-quota-exhausted': 'The organization has no guest places left',
+  'organization-not-operating': 'The organization is not operating',
 }
 
 /**

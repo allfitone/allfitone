@@ -78,6 +78,15 @@ export function isValidPlanCode(value: string): boolean {
   return PLAN_CODE.test(value.trim())
 }
 
+/** `payments.resolve_pro` recognises Pro only as the published paid plan with this code. */
+export const PRO_PLAN_CODE = 'pro'
+
+/** A paid plan under any other code takes money and grants nothing, and a code never changes. */
+export function chargesWithoutPro(code: string, kind: PlatformPlanKind | ''): boolean {
+  const typed = code.trim()
+  return kind === 'paid' && typed !== '' && typed !== PRO_PLAN_CODE
+}
+
 export function isValidPlanName(value: string): boolean {
   const name = value.trim()
   return name.length > 0 && name.length <= MAX_PLAN_NAME

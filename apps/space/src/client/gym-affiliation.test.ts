@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
+import { ApiError } from './api-error'
 import {
   createInvitationFlow,
+  decisionFailure,
   historyLine,
   invitationExpiry,
   pendingCovers,
@@ -173,5 +175,22 @@ describe('the history after taking a category back', () => {
     expect(historyLine({ type: 'grant_revoked', detail: { scope_code: 'nutrition_intake' } })).toBe(
       'Dejaste de compartir tus comidas',
     )
+  })
+})
+
+describe('why answering an invitation did not land', () => {
+  test('T-SPC-UNIT-GYM-02 a gym that cannot take her now says so, and that the invitation waits', () => {
+    expect(decisionFailure(new ApiError('organization-not-operating'))).toBe(
+      'Este gimnasio no está recibiendo personas nuevas por ahora. Tu invitación sigue abierta: inténtalo más tarde.',
+    )
+    expect(decisionFailure(new ApiError('guest-quota-exhausted'))).toBe(
+      'Este gimnasio no tiene lugares libres por ahora. Tu invitación sigue abierta: inténtalo más tarde.',
+    )
+  })
+
+  test('T-SPC-UNIT-GYM-03 anything else keeps the message it had', () => {
+    const generic = 'No pudimos guardar tus decisiones. Revisa tu conexión e inténtalo de nuevo.'
+    expect(decisionFailure(new ApiError('unavailable'))).toBe(generic)
+    expect(decisionFailure(new Error('offline'))).toBe(generic)
   })
 })
