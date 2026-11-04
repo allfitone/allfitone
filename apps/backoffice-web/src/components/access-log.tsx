@@ -28,6 +28,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { MomentField } from './date-fields'
 import { ScreenFailure, ScreenLoading } from './screen-state'
 
 import {
@@ -164,26 +165,22 @@ export function AccessLog() {
                   disabled={state === 'loading'}
                 />
               </Field>
-              <Field>
-                <FieldLabel htmlFor="al-from">Desde</FieldLabel>
-                <Input
-                  id="al-from"
-                  type="datetime-local"
-                  value={filters.from}
-                  onChange={(event) => update('from', event.target.value)}
-                  disabled={state === 'loading'}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="al-to">Hasta</FieldLabel>
-                <Input
-                  id="al-to"
-                  type="datetime-local"
-                  value={filters.to}
-                  onChange={(event) => update('to', event.target.value)}
-                  disabled={state === 'loading'}
-                />
-              </Field>
+              <MomentField
+                id="al-from"
+                legend="Desde"
+                value={filters.from}
+                onChange={(value) => update('from', value)}
+                defaultTime="00:00"
+                disabled={state === 'loading'}
+              />
+              <MomentField
+                id="al-to"
+                legend="Hasta"
+                value={filters.to}
+                onChange={(value) => update('to', value)}
+                defaultTime="23:59"
+                disabled={state === 'loading'}
+              />
               {error ? <FieldError>{error}</FieldError> : null}
               <div data-form-actions>
                 <Button type="submit" disabled={state === 'loading'}>

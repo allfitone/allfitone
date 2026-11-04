@@ -8,6 +8,7 @@ import {
   createBackofficeFixture,
   mockBackofficeApi,
 } from './backoffice-api-mock'
+import { typeInto } from './date-fields'
 
 const PATH = '/access-log'
 
@@ -47,6 +48,41 @@ test('sends only the filters that were filled in', async ({ context, page }) => 
   expect(query.get('subject_person_id')).toBe(SUPPORT_SUBJECT_ID)
   expect(query.get('actor_person_id')).toBeNull()
   expect(query.get('from')).toBeNull()
+})
+
+test("sends the period in the operator's local time; a bare end day covers the whole day", async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    accessLog: { events: [accessEvent()] },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByLabel('Persona afectada').fill(SUPPORT_SUBJECT_ID)
+  const from = page.getByRole('group', { name: 'Desde' })
+  await typeInto(from.getByLabel('Fecha', { exact: true }), '03/11/2026')
+  await from.getByRole('button', { name: 'Abrir horas' }).click()
+  await page.getByRole('option', { name: '08:30' }).click()
+  const to = page.getByRole('group', { name: 'Hasta' })
+  await typeInto(to.getByLabel('Fecha', { exact: true }), '04/11/2026')
+
+  await expect(from.getByLabel('Hora', { exact: true })).toHaveValue('08:30')
+  await expect(to.getByLabel('Hora', { exact: true })).toHaveValue('23:59')
+  await expect(from).toContainText('Formato: DD/MM/AAAA')
+  await page.getByRole('button', { name: 'Consultar' }).click()
+  await expect(page.getByText('1 acceso en total.')).toBeVisible()
+
+  const read = fixture.requests.filter((request) => request.path === '/backoffice/v1/access-events')
+  const query = new URLSearchParams(read[0]?.query)
+  // The browser's own time zone decides the instant, as it did with datetime-local.
+  const expected = await page.evaluate(() => [
+    new Date(2026, 10, 3, 8, 30).toISOString(),
+    new Date(2026, 10, 4, 23, 59).toISOString(),
+  ])
+  expect([query.get('from'), query.get('to')]).toEqual(expected)
 })
 
 test('a long answer is read to the end, a page at a time', async ({ context, page }) => {

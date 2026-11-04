@@ -6,6 +6,7 @@ import {
   mockBackofficeApi,
   type LegalHoldFixture,
 } from './backoffice-api-mock'
+import { typeInto, typedDay } from './date-fields'
 
 // HU-BO-033: the holds an officer answers for, applied before anyone asks to delete. They
 // are the erasure screen's second section: same duty, and the menu is full.
@@ -146,7 +147,7 @@ test('applies a hold over a person before anyone asks to delete anything', async
   await form.getByRole('checkbox', { name: 'Nutrición' }).check()
   await form.getByLabel('Alcance').fill('Mediciones y comidas del expediente 2026-301')
   await form.getByLabel('Referencia del requerimiento').fill('JUZGADO-2026-301')
-  await form.getByLabel('Vigente hasta').fill(day(90).slice(0, 10))
+  await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(90))
   expect(
     fixture.requests.filter(
       (request) => request.method === 'POST' && request.path === '/backoffice/v1/legal-holds',
@@ -230,7 +231,7 @@ test('the separation refusal says why this officer, and not the duty', async ({
   await form.getByRole('checkbox', { name: 'Salud' }).check()
   await form.getByLabel('Alcance').fill('Contexto de salud del expediente 2026-400')
   await form.getByLabel('Referencia del requerimiento').fill('SIC-2026-400')
-  await form.getByLabel('Vigente hasta').fill(day(30).slice(0, 10))
+  await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(30))
   await form.getByRole('button', { name: 'Aplicar retención' }).click()
 
   const failure = page.locator('[data-legal-holds-failure]')

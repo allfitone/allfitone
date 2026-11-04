@@ -7,6 +7,7 @@ import {
   renewalDue,
   verificationRequest,
 } from './backoffice-api-mock'
+import { typeInto } from './date-fields'
 
 const PATH = '/verifications'
 
@@ -15,7 +16,10 @@ async function fillSource(page: Page, validTo?: string) {
   await page.getByLabel('Jurisdicción').fill('CO')
   await page.getByLabel('Referencia en la fuente').fill('TP-12345')
   await page.getByLabel('Lo que dijo la fuente').fill('Vigente')
-  if (validTo) await page.getByLabel('La fuente dice que vence').fill(validTo)
+  if (validTo) {
+    const source = page.getByRole('group', { name: 'La fuente dice que vence' })
+    await typeInto(source.getByLabel('Fecha', { exact: true }), validTo)
+  }
 }
 
 function decisions(fixture: ReturnType<typeof createBackofficeFixture>) {
@@ -175,7 +179,7 @@ test('a source that says the title lapsed cannot verify it', async ({ context, p
   await page.goto(PATH)
   await page.getByRole('button', { name: 'Decidir' }).click()
   await page.getByRole('button', { name: 'Verificado', exact: true }).click()
-  await fillSource(page, '2020-01-01T00:00')
+  await fillSource(page, '01/01/2020')
   await page.getByRole('button', { name: 'Registrar decisión' }).click()
 
   await expect(page.getByText(/ya venció, así que no puede quedar verificado/)).toBeVisible()
