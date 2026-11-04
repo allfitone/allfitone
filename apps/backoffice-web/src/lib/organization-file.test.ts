@@ -55,6 +55,7 @@ function file(overrides: Partial<OrganizationFile> = {}): OrganizationFile {
       places_left: null,
       over_quota: false,
       last_change: null,
+      history: [],
     },
     suspension: {
       organization_id: '019a8000-0000-7000-8000-000000000301',

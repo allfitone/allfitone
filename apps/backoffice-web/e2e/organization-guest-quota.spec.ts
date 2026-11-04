@@ -63,6 +63,12 @@ test('fixes a number and reads back what it replaced', async ({ context, page })
   await expect(page.locator('[data-quota-seats]')).toContainText('Puede tener 50 personas')
   await expect(page.locator('[data-quota-left]')).toContainText('Le quedan 47 lugares.')
   await expect(page.locator('[data-quota-last-change]')).toContainText('antes no tenía límite')
+  // Criterion 3: who made each change, and what it replaced.
+  await expect(page.locator('[data-quota-last-change]')).toContainText('por Lucía Comercial')
+  await expect(page.locator('[data-quota-change]')).toHaveCount(1)
+  await expect(page.locator('[data-quota-change]').first()).toContainText(
+    'Lucía Comercial · Sin límite → 50 personas',
+  )
 
   const commands = fixture.requests.filter(
     (request) =>

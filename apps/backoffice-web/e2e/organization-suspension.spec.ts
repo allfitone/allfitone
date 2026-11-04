@@ -73,6 +73,8 @@ test('stops a gym and reads back how many people it cost', async ({ context, pag
   )
   await expect(page.locator('[data-suspension-state]')).toContainText('Suspendido')
   await expect(page.locator('[data-suspension-blocked]')).toContainText('dejaron de recibir')
+  // Criterion 8: who stopped it, not only when.
+  await expect(page.locator('[data-suspension-started-by]')).toHaveText('Lo suspendió Mateo Ciclo.')
 
   const commands = fixture.requests.filter(
     (request) =>
@@ -107,6 +109,9 @@ test('reactivating is offered as subtractive, never as a restore', async ({ cont
   await expect(page.locator('[data-suspension-outcome]')).toContainText('vuelve a operar')
   // Criterion 8: the record outlives the state.
   await expect(page.locator('[data-suspension-period]').first()).toContainText('levantada')
+  await expect(page.locator('[data-suspension-period-actors]').first()).toHaveText(
+    'La decidió Mateo Ciclo y la levantó Sara Ciclo.',
+  )
   await expect(page.locator('[data-suspension-state]')).toContainText('Estuvo suspendido antes')
 })
 
@@ -133,6 +138,28 @@ test('without the lifecycle duty the panel says which duty it needs', async ({ c
   await expect(page.getByRole('heading', { name: record.organization.display_name })).toBeVisible()
 })
 
+test('a gym that does not operate is offered neither suspending nor reactivating', async ({
+  context,
+  page,
+}) => {
+  const base = organizationFileRecord()
+  const record = organizationFileRecord({
+    organization: { ...base.organization, status: 'unclaimed', claimed_at: null },
+    suspension: { ...base.suspension, status: 'unclaimed' },
+  })
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
+  )
+
+  await page.goto(`/organizations/${record.organization.organization_id}`)
+
+  await expect(page.locator('[data-suspension-out-of-cycle]')).toContainText('sin reclamar')
+  await expect(page.locator('[data-suspension-save]')).toHaveCount(0)
+  await expect(page.locator('[data-suspension-reactivate]')).toHaveCount(0)
+})
+
+// A gym whose state changed meanwhile: the server's 409 still reaches the operator.
 test('a gym that does not qualify is told which states do', async ({ context, page }) => {
   const record = organizationFileRecord()
   await mockBackofficeApi(

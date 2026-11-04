@@ -17,7 +17,10 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { staffName } from './platform-staff'
+
 export type OrganizationGuestQuota = AllfitV1Schemas['OrganizationGuestQuota']
+export type OrganizationGuestQuotaChange = AllfitV1Schemas['OrganizationGuestQuotaChange']
 
 export const MAX_SEATS = 1_000_000
 
@@ -77,7 +80,32 @@ export function lastChangeSentence(quota: OrganizationGuestQuota): string {
       : change.previous_seats === 1
         ? 'antes era 1 persona'
         : `antes eran ${change.previous_seats} personas`
-  return `Último cambio: ${previous}.`
+  return `Último cambio, por ${staffName(change.by_name, change.by_person_id)}: ${previous}.`
+}
+
+function seatsLabel(seats: number | null): string {
+  if (seats === null) return 'sin límite'
+  return seats === 1 ? '1 persona' : `${seats} personas`
+}
+
+export interface QuotaHistoryRow {
+  key: string
+  at: string
+  who: string
+  change: string
+}
+
+/** Every change, newest first, as the server ordered it: who, when and from what to what. */
+export function quotaHistoryRows(quota: OrganizationGuestQuota): QuotaHistoryRow[] {
+  return quota.history.map((entry, index) => {
+    const change = `${seatsLabel(entry.previous_seats)} → ${seatsLabel(entry.seats)}`
+    return {
+      key: `${entry.at}-${index}`,
+      at: entry.at,
+      who: staffName(entry.by_name, entry.by_person_id),
+      change: change.charAt(0).toUpperCase() + change.slice(1),
+    }
+  })
 }
 
 export type SeatsDraft = { seats: number | null } | undefined

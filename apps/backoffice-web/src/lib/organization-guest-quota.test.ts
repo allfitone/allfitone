@@ -8,6 +8,7 @@ import {
   occupancySentence,
   parseSeats,
   placesLeftSentence,
+  quotaHistoryRows,
   quotaMessage,
   quotaOutcomeMessage,
   quotaSentence,
@@ -30,9 +31,19 @@ function quota(overrides: Partial<OrganizationGuestQuota> = {}): OrganizationGue
     last_change: {
       at: '2026-10-15T15:00:00.000Z',
       by_person_id: PERSON,
+      by_name: 'Lucía Comercial',
       by_duty_assignment_id: ASSIGNMENT,
       previous_seats: null,
     },
+    history: [
+      {
+        at: '2026-10-15T15:00:00.000Z',
+        by_person_id: PERSON,
+        by_name: 'Lucía Comercial',
+        seats: 50,
+        previous_seats: null,
+      },
+    ],
     ...overrides,
   }
 }
@@ -77,20 +88,61 @@ describe('what a gym may fill, as the panel says it', () => {
   })
 
   test('the last change says what the number replaced, including no limit', () => {
-    expect(lastChangeSentence(quota())).toBe('Último cambio: antes no tenía límite.')
+    expect(lastChangeSentence(quota())).toBe(
+      'Último cambio, por Lucía Comercial: antes no tenía límite.',
+    )
     expect(
       lastChangeSentence(
         quota({
           last_change: {
             at: '2026-10-15T15:00:00.000Z',
             by_person_id: PERSON,
+            by_name: 'Pablo Comercial',
             by_duty_assignment_id: ASSIGNMENT,
             previous_seats: 20,
           },
         }),
       ),
-    ).toBe('Último cambio: antes eran 20 personas.')
+    ).toBe('Último cambio, por Pablo Comercial: antes eran 20 personas.')
     expect(lastChangeSentence(quota({ last_change: null }))).toContain('Nadie ha fijado el cupo')
+  })
+
+  // HU-BO-034 c3: who, when and the previous value of every change, not only the last.
+  test('every change is listed, newest first, with who made it and what it replaced', () => {
+    const rows = quotaHistoryRows(
+      quota({
+        history: [
+          {
+            at: '2026-10-20T15:00:00.000Z',
+            by_person_id: PERSON,
+            by_name: null,
+            seats: null,
+            previous_seats: 30,
+          },
+          {
+            at: '2026-10-18T15:00:00.000Z',
+            by_person_id: PERSON,
+            by_name: 'Pablo Comercial',
+            seats: 30,
+            previous_seats: 50,
+          },
+          {
+            at: '2026-10-15T15:00:00.000Z',
+            by_person_id: PERSON,
+            by_name: 'Lucía Comercial',
+            seats: 1,
+            previous_seats: null,
+          },
+        ],
+      }),
+    )
+    expect(rows.map((row) => [row.at, row.who, row.change])).toEqual([
+      ['2026-10-20T15:00:00.000Z', 'alguien del equipo (019ab000)', '30 personas → sin límite'],
+      ['2026-10-18T15:00:00.000Z', 'Pablo Comercial', '50 personas → 30 personas'],
+      ['2026-10-15T15:00:00.000Z', 'Lucía Comercial', 'Sin límite → 1 persona'],
+    ])
+    expect(new Set(rows.map((row) => row.key)).size).toBe(3)
+    expect(quotaHistoryRows(quota({ last_change: null, history: [] }))).toEqual([])
   })
 
   test('no limit is a decision, and an empty box is not one', () => {

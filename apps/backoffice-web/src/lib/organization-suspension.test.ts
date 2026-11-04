@@ -6,10 +6,14 @@ import {
   WHAT_SUSPENDING_DOES,
   WHAT_SUSPENDING_DOES_NOT_DO,
   blockedSentence,
+  OUT_OF_CYCLE_NOTE,
   costWarning,
+  periodActorsSentence,
   periodSentence,
   reasonLabel,
+  startedBySentence,
   stateSentence,
+  suspensionAction,
   suspensionMessage,
   suspensionOutcomeMessage,
   type OrganizationSuspension,
@@ -37,6 +41,7 @@ const stopped = () =>
       reason_code: 'nonpayment',
       started_at: '2026-10-18T15:00:00.000Z',
       started_by_person_id: '019af000-0000-7000-8000-000000000003',
+      started_by_name: 'Mateo Ciclo',
       people_blocked: 2,
     },
   })
@@ -86,8 +91,10 @@ describe('organization suspension presentation', () => {
           reason_code: 'nonpayment',
           started_at: '2026-10-18T15:00:00.000Z',
           started_by_person_id: '019af000-0000-7000-8000-000000000003',
+          started_by_name: 'Mateo Ciclo',
           ended_at: '2026-10-18T18:00:00.000Z',
-          ended_by_person_id: '019af000-0000-7000-8000-000000000003',
+          ended_by_person_id: '019af000-0000-7000-8000-000000000006',
+          ended_by_name: 'Sara Ciclo',
         },
       ],
     })
@@ -95,6 +102,49 @@ describe('organization suspension presentation', () => {
     expect(stateSentence(recovered)).toContain('Estuvo suspendido antes')
     const [period] = recovered.history
     expect(period && periodSentence(period)).toBe('no le está pagando a allfit, levantada')
+  })
+
+  // HU-BO-016 c8: the record kept the person all along; the panel now says who.
+  test('who stopped the gym and who brought it back are named', () => {
+    const current = stopped().current
+    expect(current && startedBySentence(current)).toBe('Lo suspendió Mateo Ciclo.')
+
+    const closed = {
+      suspension_id: '019af000-0000-7000-8000-000000000801',
+      reason_code: 'nonpayment' as const,
+      started_at: '2026-10-18T15:00:00.000Z',
+      started_by_person_id: '019af000-0000-7000-8000-000000000003',
+      started_by_name: 'Mateo Ciclo',
+      ended_at: '2026-10-18T18:00:00.000Z',
+      ended_by_person_id: '019af000-0000-7000-8000-000000000006',
+      ended_by_name: 'Sara Ciclo',
+    }
+    expect(periodActorsSentence(closed)).toBe('La decidió Mateo Ciclo y la levantó Sara Ciclo.')
+    expect(
+      periodActorsSentence({
+        ...closed,
+        ended_at: null,
+        ended_by_person_id: null,
+        ended_by_name: null,
+      }),
+    ).toBe('La decidió Mateo Ciclo.')
+  })
+
+  test('a name the record cannot resolve falls back to the person, never to nobody', () => {
+    const current = stopped().current
+    expect(current && startedBySentence({ ...current, started_by_name: null })).toBe(
+      'Lo suspendió alguien del equipo (019af000).',
+    )
+  })
+
+  // The server answers 409 to anything else; the panel should not offer what it refuses.
+  test('only an operating gym is offered suspension, and only a suspended one reactivation', () => {
+    expect(suspensionAction('active')).toBe('suspend')
+    expect(suspensionAction('suspended')).toBe('reactivate')
+    expect(suspensionAction('unclaimed')).toBe('none')
+    expect(suspensionAction('cancelled')).toBe('none')
+    expect(suspensionAction('closed')).toBe('none')
+    expect(OUT_OF_CYCLE_NOTE).toContain('sin reclamar')
   })
 
   test('every agreed reason has a label, because the stored code is not readable', () => {

@@ -47,6 +47,8 @@ const handoverResource: AllfitV1Schemas['OrganizationHandover'] = {
   created_at: '2026-09-13T15:00:00.000Z',
   claimed_at: null,
   cancelled_at: null,
+  created_by: { person_id: ACTOR_PERSON_ID, name: 'Mateo Ciclo' },
+  cancelled_by: null,
   site: { site_id: '019ab000-0000-7000-8000-000000000601', name: 'Sede Principal', address: null },
   invitation: {
     invitation_id: COMMAND_ID,
@@ -73,9 +75,19 @@ const quotaResource: AllfitV1Schemas['OrganizationGuestQuota'] = {
   last_change: {
     at: '2026-10-15T15:00:00.000Z',
     by_person_id: ACTOR_PERSON_ID,
+    by_name: 'Lucía Comercial',
     by_duty_assignment_id: '019ab000-0000-7000-8000-000000000701',
     previous_seats: null,
   },
+  history: [
+    {
+      at: '2026-10-15T15:00:00.000Z',
+      by_person_id: ACTOR_PERSON_ID,
+      by_name: 'Lucía Comercial',
+      seats: 50,
+      previous_seats: null,
+    },
+  ],
 }
 
 const fileSuspension: AllfitV1Schemas['OrganizationSuspension'] = {
@@ -189,6 +201,7 @@ const suspensionResource: AllfitV1Schemas['OrganizationSuspension'] = {
     reason_code: 'nonpayment',
     started_at: '2026-10-18T15:00:00.000Z',
     started_by_person_id: ACTOR_PERSON_ID,
+    started_by_name: 'Mateo Ciclo',
     people_blocked: 2,
   },
   history: [],
@@ -224,8 +237,10 @@ function suspensionService(
               reason_code: 'nonpayment',
               started_at: '2026-10-18T15:00:00.000Z',
               started_by_person_id: ACTOR_PERSON_ID,
+              started_by_name: 'Mateo Ciclo',
               ended_at: '2026-10-18T18:00:00.000Z',
               ended_by_person_id: ACTOR_PERSON_ID,
+              ended_by_name: 'Mateo Ciclo',
             },
           ],
         },

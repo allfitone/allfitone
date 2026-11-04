@@ -4976,10 +4976,14 @@ export interface components {
       started_at: string
       /** Format: uuid */
       started_by_person_id: string
+      /** @description The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be. */
+      started_by_name: string | null
       /** Format: date-time */
       ended_at: string | null
       /** Format: uuid */
       ended_by_person_id: string | null
+      /** @description Who on Allfit's team lifted it. Null while the period is open. */
+      ended_by_name: string | null
     }
     /** @description Whether a gym is stopped, why, and what it cost. `history` outlives the state: a gym back on its feet still says it was stopped, which a status column alone cannot do. */
     OrganizationSuspension: {
@@ -4998,6 +5002,8 @@ export interface components {
         started_at: string
         /** Format: uuid */
         started_by_person_id: string
+        /** @description Who on Allfit's team stopped the gym. */
+        started_by_name: string | null
         /** @description Counted from the causes the decision opened, not from the relationships it did not touch. */
         people_blocked: number
       } | null
@@ -5022,10 +5028,25 @@ export interface components {
         /** Format: date-time */
         at: string
         by_person_id: components['schemas']['Uuid']
+        /** @description Who on Allfit's team set it. */
+        by_name: string | null
         by_duty_assignment_id: components['schemas']['Uuid']
         /** @description What it was before. Null means it had no limit then. */
         previous_seats: number | null
       } | null
+      /** @description Every change, newest first (criterion 3): who, when, the value it set and the one it replaced. Empty when nobody has ever set a quota here. */
+      history: components['schemas']['OrganizationGuestQuotaChange'][]
+    }
+    OrganizationGuestQuotaChange: {
+      /** Format: date-time */
+      at: string
+      by_person_id: components['schemas']['Uuid']
+      /** @description Who on Allfit's team set it. */
+      by_name: string | null
+      /** @description What it was set to. Null is a deal with no cap. */
+      seats: number | null
+      /** @description What it replaced. Null means it had no limit then. */
+      previous_seats: number | null
     }
     /** @description Whether the gym can be paid, and nothing more. The account reference and the vault key live in another table that this reader has no policy for at all, so no credential can travel here even by mistake. */
     OrganizationFilePaymentMethod: {
@@ -5058,6 +5079,12 @@ export interface components {
       /** Format: email */
       owner_email: string
     }
+    /** @description Somebody on Allfit's team who acted on a record. The name is resolved only for people who hold or held a platform role or duty, so this can never name a client or a gym's owner. */
+    PlatformStaffActor: {
+      person_id: components['schemas']['Uuid']
+      /** @description The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be. */
+      name: string | null
+    }
     OrganizationHandover: {
       organization_id: components['schemas']['Uuid']
       display_name: string
@@ -5072,6 +5099,10 @@ export interface components {
       claimed_at: string | null
       /** Format: date-time */
       cancelled_at: string | null
+      /** @description Who on Allfit's team created the gym (HU-BO-014 c7). Null for a gym its owner created in Studio, which nobody at Allfit created. */
+      created_by: components['schemas']['PlatformStaffActor'] | null
+      /** @description Who on Allfit's team cancelled it (HU-BO-015 c3). Null until then. */
+      cancelled_by: components['schemas']['PlatformStaffActor'] | null
       site: {
         site_id: components['schemas']['Uuid']
         name: string

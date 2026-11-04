@@ -7149,6 +7149,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'places_left',
       'over_quota',
       'last_change',
+      'history',
     ],
     properties: {
       organization_id: {
@@ -7191,7 +7192,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         additionalProperties: false,
         description:
           'Null when nobody has ever set a quota here, which is a different answer from somebody having set it to no limit.',
-        required: ['at', 'by_person_id', 'by_duty_assignment_id', 'previous_seats'],
+        required: ['at', 'by_person_id', 'by_name', 'by_duty_assignment_id', 'previous_seats'],
         properties: {
           at: {
             type: 'string',
@@ -7199,6 +7200,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
           by_person_id: {
             $ref: '#/components/schemas/Uuid',
+          },
+          by_name: {
+            type: ['string', 'null'],
+            description: "Who on Allfit's team set it.",
           },
           by_duty_assignment_id: {
             $ref: '#/components/schemas/Uuid',
@@ -7209,6 +7214,42 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             description: 'What it was before. Null means it had no limit then.',
           },
         },
+      },
+      history: {
+        type: 'array',
+        description:
+          'Every change, newest first (criterion 3): who, when, the value it set and the one it replaced. Empty when nobody has ever set a quota here.',
+        items: {
+          $ref: '#/components/schemas/OrganizationGuestQuotaChange',
+        },
+      },
+    },
+  },
+  OrganizationGuestQuotaChange: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['at', 'by_person_id', 'by_name', 'seats', 'previous_seats'],
+    properties: {
+      at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      by_person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      by_name: {
+        type: ['string', 'null'],
+        description: "Who on Allfit's team set it.",
+      },
+      seats: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        description: 'What it was set to. Null is a deal with no cap.',
+      },
+      previous_seats: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        description: 'What it replaced. Null means it had no limit then.',
       },
     },
   },
@@ -7240,6 +7281,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'created_at',
       'claimed_at',
       'cancelled_at',
+      'created_by',
+      'cancelled_by',
       'site',
       'invitation',
     ],
@@ -7276,6 +7319,29 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       cancelled_at: {
         type: ['string', 'null'],
         format: 'date-time',
+      },
+      created_by: {
+        description:
+          "Who on Allfit's team created the gym (HU-BO-014 c7). Null for a gym its owner created in Studio, which nobody at Allfit created.",
+        oneOf: [
+          {
+            $ref: '#/components/schemas/PlatformStaffActor',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      cancelled_by: {
+        description: "Who on Allfit's team cancelled it (HU-BO-015 c3). Null until then.",
+        oneOf: [
+          {
+            $ref: '#/components/schemas/PlatformStaffActor',
+          },
+          {
+            type: 'null',
+          },
+        ],
       },
       site: {
         type: ['object', 'null'],
@@ -7841,6 +7907,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
               'reason_code',
               'started_at',
               'started_by_person_id',
+              'started_by_name',
               'people_blocked',
             ],
             properties: {
@@ -7858,6 +7925,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
               started_by_person_id: {
                 type: 'string',
                 format: 'uuid',
+              },
+              started_by_name: {
+                type: ['string', 'null'],
+                description: "Who on Allfit's team stopped the gym.",
               },
               people_blocked: {
                 type: 'integer',
@@ -7898,8 +7969,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'reason_code',
       'started_at',
       'started_by_person_id',
+      'started_by_name',
       'ended_at',
       'ended_by_person_id',
+      'ended_by_name',
     ],
     properties: {
       suspension_id: {
@@ -7917,6 +7990,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         format: 'uuid',
       },
+      started_by_name: {
+        type: ['string', 'null'],
+        description:
+          "The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be.",
+      },
       ended_at: {
         type: ['string', 'null'],
         format: 'date-time',
@@ -7924,6 +8002,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       ended_by_person_id: {
         type: ['string', 'null'],
         format: 'uuid',
+      },
+      ended_by_name: {
+        type: ['string', 'null'],
+        description: "Who on Allfit's team lifted it. Null while the period is open.",
       },
     },
   },
@@ -8860,6 +8942,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       platform_role: {
         type: 'string',
         enum: ['allfit_admin'],
+      },
+    },
+  },
+  PlatformStaffActor: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      "Somebody on Allfit's team who acted on a record. The name is resolved only for people who hold or held a platform role or duty, so this can never name a client or a gym's owner.",
+    required: ['person_id', 'name'],
+    properties: {
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      name: {
+        type: ['string', 'null'],
+        description:
+          "The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be.",
       },
     },
   },

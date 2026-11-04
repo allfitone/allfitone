@@ -21,9 +21,13 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { staffName } from './platform-staff'
+
 export type OrganizationSuspension = AllfitV1Schemas['OrganizationSuspension']
 export type OrganizationSuspensionReason = AllfitV1Schemas['OrganizationSuspensionReason']
 export type OrganizationSuspensionPeriod = AllfitV1Schemas['OrganizationSuspensionPeriod']
+export type OrganizationLifecycleStatus = AllfitV1Schemas['OrganizationLifecycleStatus']
+type OpenSuspension = NonNullable<OrganizationSuspension['current']>
 
 export const SUSPENSION_REASONS: readonly OrganizationSuspensionReason[] = [
   'nonpayment',
@@ -84,6 +88,33 @@ export function costWarning(peopleServed: number): string {
   const people = peopleServed === 1 ? '1 persona' : `${peopleServed} personas`
   return `Suspenderlo deja de atender a ${people}. Nadie sale del gimnasio y nadie pierde datos: dejan de recibir servicio hasta que se levante.`
 }
+
+/** HU-BO-016 c8: who stopped the gym, said beside when. */
+export function startedBySentence(current: OpenSuspension): string {
+  return `Lo suspendió ${staffName(current.started_by_name, current.started_by_person_id)}.`
+}
+
+/** Who decided a period and, once it closed, who lifted it. */
+export function periodActorsSentence(period: OrganizationSuspensionPeriod): string {
+  const decided = staffName(period.started_by_name, period.started_by_person_id)
+  if (period.ended_by_person_id === null) return `La decidió ${decided}.`
+  return `La decidió ${decided} y la levantó ${staffName(period.ended_by_name, period.ended_by_person_id)}.`
+}
+
+/**
+ * What the panel offers. Only an operating gym is suspended and only a suspended one is
+ * reactivated; the server refuses anything else, so the panel does not offer it.
+ */
+export function suspensionAction(
+  status: OrganizationLifecycleStatus,
+): 'suspend' | 'reactivate' | 'none' {
+  if (status === 'active') return 'suspend'
+  if (status === 'suspended') return 'reactivate'
+  return 'none'
+}
+
+export const OUT_OF_CYCLE_NOTE =
+  'Un gimnasio sin reclamar, cancelado o cerrado no opera, así que no se suspende ni se reactiva desde aquí.'
 
 export function periodSentence(period: OrganizationSuspensionPeriod): string {
   const reason = reasonLabel(period.reason_code).toLowerCase()

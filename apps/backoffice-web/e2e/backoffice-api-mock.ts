@@ -622,9 +622,17 @@ export interface GuestQuotaFixture {
   last_change: {
     at: string
     by_person_id: string
+    by_name: string | null
     by_duty_assignment_id: string
     previous_seats: number | null
   } | null
+  history: Array<{
+    at: string
+    by_person_id: string
+    by_name: string | null
+    seats: number | null
+    previous_seats: number | null
+  }>
 }
 
 /** A gym nobody has sold a number to: no limit, and no decision behind it. */
@@ -633,8 +641,10 @@ export interface SuspensionPeriodFixture {
   reason_code: string
   started_at: string
   started_by_person_id: string
+  started_by_name: string | null
   ended_at: string | null
   ended_by_person_id: string | null
+  ended_by_name: string | null
 }
 
 export interface SuspensionFixture {
@@ -647,6 +657,7 @@ export interface SuspensionFixture {
     reason_code: string
     started_at: string
     started_by_person_id: string
+    started_by_name: string | null
     people_blocked: number
   } | null
   history: SuspensionPeriodFixture[]
@@ -680,6 +691,7 @@ export function guestQuotaRecord(
     places_left: null,
     over_quota: false,
     last_change: null,
+    history: [],
     ...overrides,
   }
 }
@@ -765,6 +777,8 @@ export interface HandoverRecordFixture {
   created_at: string
   claimed_at: string | null
   cancelled_at: string | null
+  created_by: { person_id: string; name: string | null } | null
+  cancelled_by: { person_id: string; name: string | null } | null
   site: { site_id: string; name: string; address: string | null } | null
   invitation: {
     invitation_id: string
@@ -793,6 +807,8 @@ export function handoverRecord(
     created_at: new Date(Date.now() - 86_400_000).toISOString(),
     claimed_at: null,
     cancelled_at: null,
+    created_by: { person_id: '019a7000-0000-7000-8000-000000000004', name: 'Mateo Ciclo' },
+    cancelled_by: null,
     site: null,
     invitation: {
       invitation_id: `019a7100-0000-7000-8000-${suffix}`,
@@ -3261,6 +3277,7 @@ async function routeSuspension(
         reason_code: reason ?? 'nonpayment',
         started_at: startedAt,
         started_by_person_id: '019a9200-0000-7000-8000-000000000003',
+        started_by_name: 'Mateo Ciclo',
         people_blocked: record.relationship_counts.active,
       },
     }
@@ -3280,8 +3297,10 @@ async function routeSuspension(
               reason_code: open.reason_code,
               started_at: open.started_at,
               started_by_person_id: open.started_by_person_id,
+              started_by_name: open.started_by_name,
               ended_at: new Date().toISOString(),
-              ended_by_person_id: '019a9200-0000-7000-8000-000000000003',
+              ended_by_person_id: '019a9200-0000-7000-8000-000000000006',
+              ended_by_name: 'Sara Ciclo',
             },
             ...record.suspension.history,
           ]
@@ -3323,9 +3342,20 @@ async function routeGuestQuota(
     last_change: {
       at: '2026-10-15T15:00:00.000Z',
       by_person_id: '019a9000-0000-7000-8000-000000000003',
+      by_name: 'Lucía Comercial',
       by_duty_assignment_id: '019a9000-0000-7000-8000-000000000703',
       previous_seats: quota.seats,
     },
+    history: [
+      {
+        at: '2026-10-15T15:00:00.000Z',
+        by_person_id: '019a9000-0000-7000-8000-000000000003',
+        by_name: 'Lucía Comercial',
+        seats,
+        previous_seats: quota.seats,
+      },
+      ...quota.history,
+    ],
   }
   record.guest_quota = next
   await fulfill(route, 200, next)
@@ -3768,6 +3798,7 @@ async function routeOrganizationHandover(
   if (isCancel) {
     record.status = 'cancelled'
     record.cancelled_at = new Date().toISOString()
+    record.cancelled_by = { person_id: '019a7000-0000-7000-8000-000000000006', name: 'Sara Ciclo' }
     if (record.invitation?.status === 'pending') {
       record.invitation.status = 'revoked'
       record.invitation.intent_status = 'revoked'
