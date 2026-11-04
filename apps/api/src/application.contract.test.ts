@@ -99,9 +99,39 @@ describe('OpenAPI route gate', () => {
     expect(
       allfitV1ContractManifest.operations.filter(
         (operation) =>
-          operation.path.startsWith('/backoffice/v1/') && /relationship/i.test(operation.path),
+          operation.path.startsWith('/backoffice/v1/') &&
+          (/relationship/i.test(operation.path) ||
+            (operation.path.startsWith('/backoffice/v1/organizations') &&
+              /closure|terminat/i.test(operation.path))),
       ),
     ).toEqual([])
+  })
+
+  // The word test alone let `/organizations/{id}/closure` through under any other name.
+  // What Backoffice may do to a gym is this closed list; a new command fails here until
+  // somebody decides it is not the deferred closure.
+  test('lets Backoffice act on a gym only through its closed list of commands', () => {
+    expect(
+      allfitV1ContractManifest.operations
+        .filter(
+          (operation) =>
+            operation.method.toUpperCase() !== 'GET' &&
+            operation.path.startsWith('/backoffice/v1/organizations'),
+        )
+        .map((operation) => `${operation.method.toUpperCase()} ${operation.path}`)
+        .sort(),
+    ).toEqual(
+      [
+        'POST /backoffice/v1/organizations',
+        'POST /backoffice/v1/organizations/{organizationId}/cancellation',
+        'POST /backoffice/v1/organizations/{organizationId}/client-invitations/{invitationId}/resends',
+        'POST /backoffice/v1/organizations/{organizationId}/guest-quota',
+        'POST /backoffice/v1/organizations/{organizationId}/handover/resends',
+        'POST /backoffice/v1/organizations/{organizationId}/reactivation',
+        'POST /backoffice/v1/organizations/{organizationId}/suspension',
+        'POST /backoffice/v1/organizations/{organizationId}/team-invitations/{invitationId}/resends',
+      ].sort(),
+    )
   })
 
   // T-CAT-API-28. The catalogue reads once lived on /catalog/v1, where neither web

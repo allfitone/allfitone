@@ -16,7 +16,7 @@
 --   · Ending the relationship detaches what it managed: paused, not deleted.
 begin;
 
-select plan(65);
+select plan(66);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -342,6 +342,20 @@ select is((:'finite'::jsonb->>'schedule_overlaps')::boolean, true,
 select is(:'finite'::jsonb->>'status', 'active', 'T-PLN-RELASSIGN-INT-10 and does not stop the assignment');
 select is(:'finite'::jsonb->'management'->>'relationship_id', '019f3900-0000-7000-8000-000000000701',
   'T-PLN-RELASSIGN-INT-11 the gym manages it through this relationship');
+
+-- HU-BO-016 c2: a suspended gym assigns no program. Inside a savepoint, so the gym is
+-- operating again for everything after it.
+savepoint before_suspension;
+reset role;
+update organizations.organizations
+set status = 'suspended', suspended_at = clock_timestamp()
+where id = '019f3900-0000-7000-8000-000000000101';
+set local role allfit_api;
+select pg_temp.act('019f3900-0000-7000-8000-000000000012');
+select is(pg_temp.try_assign('019f3900-0000-7000-8000-000000000012', '019f3900-0000-7000-8000-000000000101',
+  '019f3900-0000-7000-8000-000000000701', '019f3900-0000-7000-8000-000000000332', :'today', 'America/Bogota'),
+  '42501 ', 'T-PLN-RELASSIGN-RLS-28 a suspended gym assigns no program, even through a coach who could');
+rollback to savepoint before_suspension;
 
 select is(
   (select row(replayed, result->>'id', (result->>'planned_sessions_created')::integer)::text
