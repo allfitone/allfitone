@@ -1317,6 +1317,8 @@ export interface paths {
      *
      *     Rejecting the relationship ends the invitation and no scope is granted, whatever the scope answers say.
      *
+     *     Criteria 6 and 7, HU-SP-016 and HU-SP-017: when the invitation offers a first program, `program_decision` answers it separately. Left out, it is declined, so a client that does not know about programs never accepts one. Rejecting the relationship declines it too. Accepted, it is created only if she also accepted the relationship and granted `relationship_training` at `contribute`; otherwise it is recorded as accepted but not created, and `program_proposal.unmaterialized_reason` says why. A version retired since the invitation was sent is never replaced by another. It starts on the proposed day or today, whichever is later, in the `timezone` her device sends, else the zone it last set up, else the one Studio proposed. A `program_decision` on an invitation that offers no program, or a `timezone` that does not exist, answers `422` naming the field in `error.detail`.
+     *
      *     HU-STUDIO-087: accepting converts the guest place the invitation already held. If the organization is over its quota by another way, acceptance answers `409` with `guest-quota-exhausted` and nothing is decided.
      *
      *     HU-BO-016: while the organization is suspended, acceptance answers `409` with `organization-not-operating`. The invitation stays open until it expires and can be accepted once the organization operates again; declining is always allowed.
@@ -2187,7 +2189,9 @@ export interface paths {
      *
      *     Reissuing the same offer to the same contact reuses the pending invitation so the person does not receive two. Asking for a different set of scopes is a different proposal and issues a new one, because the person would be answering a different question.
      *
-     *     The initial-program proposal in criteria 2, 6 and 7 of the story is not implemented: an organization has no way to publish a program yet.
+     *     Criteria 2, 6 and 7: the invitation may also offer a first `program`, which the person answers on its own beside the relationship. Only a member who may assign programs (a coach) proposes one, else `403`. It must be a published version of one of this organization's own programs (`422`, `/program/program_version_id`), start today or later in `timezone` (`/program/starts_on`, `/program/timezone`), and travel with a request for `relationship_training` at `contribute`, without which it could never be created (`/scopes`). A partial proposal answers `/program`. Every refusal refuses the whole invitation; the `422` names the field in `error.detail`. Nothing is assigned until she accepts.
+     *
+     *     The program is part of the proposal: the same scopes with another program, or none, or another start, are a different question and a new invitation.
      *
      *     HU-STUDIO-087: a new invitation takes a guest place. When the organization has none left the answer is `409` with `guest-quota-exhausted`; reusing a pending invitation takes no second place. An organization without a quota has no limit.
      */
@@ -7175,6 +7179,34 @@ export interface components {
       /** Format: email */
       contact: string
       scopes: components['schemas']['ClientInvitationScopeRequest'][]
+      program?: components['schemas']['ClientInvitationProgramRequest']
+    }
+    /**
+     * @description A first program for the person, answered by her on its own. Only a coach may propose one, and only beside a request for `relationship_training` at `contribute`.
+     * @example {
+     *       "program_version_id": "018f6f8d-2b00-7a00-8000-000000000201",
+     *       "starts_on": "2026-11-09",
+     *       "timezone": "America/Bogota"
+     *     }
+     */
+    ClientInvitationProgramRequest: {
+      /** @description A published version of one of this organization's programs. */
+      program_version_id: components['schemas']['Uuid']
+      /**
+       * Format: date
+       * @description Tentative. Today or later in `timezone`; if she accepts after it, the program starts the day she accepts.
+       */
+      starts_on: string
+      /** @description Only the last resort. The calendar uses the zone her device sends with the answer, else the one it last set up. */
+      timezone: components['schemas']['IanaTimeZone']
+    }
+    /** @description The program the invitation offers, as Studio proposed it. */
+    ClientInvitationProgramProposal: {
+      invitation_intent_id: components['schemas']['UuidV7']
+      program_version_id: components['schemas']['Uuid']
+      /** Format: date */
+      starts_on: string
+      timezone: components['schemas']['IanaTimeZone']
     }
     ClientInvitation: {
       id: components['schemas']['UuidV7']
@@ -7187,6 +7219,8 @@ export interface components {
       /** Format: date-time */
       expires_at: string
       scope_codes: components['schemas']['ScopeCode'][]
+      /** @description Null when the invitation offers no program. */
+      program_proposal: components['schemas']['ClientInvitationProgramProposal'] | null
       /** @description True when an equivalent pending invitation already existed. */
       reused: boolean
     }
@@ -7218,6 +7252,35 @@ export interface components {
       /** Format: date-time */
       expires_at: string
       scope_options: components['schemas']['ClientInvitationScopeOption'][]
+      /** @description Null when the invitation offers no program. */
+      program_proposal: components['schemas']['ClientInvitationProgramOffer'] | null
+    }
+    /** @description The first program the organization offers, as she is shown it before answering. It needs `required_scope` granted to be created. */
+    ClientInvitationProgramOffer: {
+      /** @description The proposal she answers with `program_decision`. */
+      invitation_intent_id: components['schemas']['UuidV7']
+      program_version_id: components['schemas']['Uuid']
+      title: string
+      version_number: number
+      /** @description Its length in weeks; null for one that repeats forever. */
+      weeks: number | null
+      repeats_forever: boolean
+      /**
+       * Format: date
+       * @description Tentative; the day she accepts if that is later.
+       */
+      starts_on: string
+      required_scope: {
+        /** @enum {string} */
+        scope_code: 'relationship_training'
+        /** @enum {string} */
+        access_level: 'contribute'
+      }
+      /**
+       * @description Null until she answers.
+       * @enum {string|null}
+       */
+      decision: 'accepted' | 'rejected' | null
     }
     /** @description The invitation is named by the emailed token or, for one found among the caller's pending invitations, by its id. Exactly one of the two. Either way only the person whose verified email it was addressed to may decide it. */
     ClientInvitationDecisionCreate: {
@@ -7230,6 +7293,13 @@ export interface components {
       scope_decisions?: {
         [key: string]: 'accepted' | 'rejected'
       }
+      /**
+       * @description The answer to the program the invitation offers. Left out, it is declined. Only allowed when the invitation offers one.
+       * @enum {string}
+       */
+      program_decision?: 'accepted' | 'rejected'
+      /** @description The zone of her device. The accepted program's calendar uses it, before the zone her device last set up and the one Studio proposed. */
+      timezone?: components['schemas']['IanaTimeZone']
     } & (unknown | unknown)
     /** @description An invitation still waiting for an answer, addressed to the caller's verified email. Enough to say who is waiting and until when; what it asks for is read by id. */
     ClientInvitationPending: {
@@ -7274,7 +7344,21 @@ export interface components {
       relationship_id: components['schemas']['UuidV7'] | null
       /** @description Possibly empty. An accepted relationship with no granted scope is a valid outcome, not a failure. */
       granted_scope_codes: components['schemas']['ScopeCode'][]
+      /** @description Null when the invitation offered no program. */
+      program_proposal: components['schemas']['ClientInvitationProgramOutcome'] | null
       replayed: boolean
+    }
+    /** @description What became of the program the invitation offered. Accepted and created carries `assignment_id`; accepted and not created carries `unmaterialized_reason`; declined carries neither. */
+    ClientInvitationProgramOutcome: {
+      invitation_intent_id: components['schemas']['UuidV7']
+      intent_status: components['schemas']['TeamInvitationIntentStatus']
+      /** @description The gym's managed program, now in her Space. */
+      assignment_id: components['schemas']['Uuid'] | null
+      /**
+       * @description `training_not_granted`: she accepted it without granting `relationship_training` at `contribute`. `program_unavailable`: the version was retired before she answered, and none replaces it.
+       * @enum {string|null}
+       */
+      unmaterialized_reason: 'training_not_granted' | 'program_unavailable' | null
     }
     TeamInvitationCreate: {
       /** @enum {string} */

@@ -2865,6 +2865,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'contact_hint',
       'expires_at',
       'scope_codes',
+      'program_proposal',
       'reused',
     ],
     properties: {
@@ -2895,6 +2896,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/ScopeCode',
         },
       },
+      program_proposal: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientInvitationProgramProposal',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'Null when the invitation offers no program.',
+      },
       reused: {
         type: 'boolean',
         description: 'True when an equivalent pending invitation already existed.',
@@ -2923,6 +2935,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/ClientInvitationScopeRequest',
         },
+      },
+      program: {
+        $ref: '#/components/schemas/ClientInvitationProgramRequest',
       },
     },
   },
@@ -2966,6 +2981,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         description:
           'One answer per scope, keyed by scope code. A scope left out counts as rejected: silence is not consent.',
       },
+      program_decision: {
+        type: 'string',
+        enum: ['accepted', 'rejected'],
+        description:
+          'The answer to the program the invitation offers. Left out, it is declined. Only allowed when the invitation offers one.',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+        description:
+          "The zone of her device. The accepted program's calendar uses it, before the zone her device last set up and the one Studio proposed.",
+      },
     },
   },
   ClientInvitationDecisionResult: {
@@ -2979,6 +3005,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'intent_status',
       'relationship_id',
       'granted_scope_codes',
+      'program_proposal',
       'replayed',
     ],
     properties: {
@@ -3015,6 +3042,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         },
         description:
           'Possibly empty. An accepted relationship with no granted scope is a valid outcome, not a failure.',
+      },
+      program_proposal: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientInvitationProgramOutcome',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'Null when the invitation offered no program.',
       },
       replayed: {
         type: 'boolean',
@@ -3085,6 +3123,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'expires_at',
       'scope_options',
       'invited_by',
+      'program_proposal',
     ],
     properties: {
       id: {
@@ -3126,6 +3165,165 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/ClientInvitationScopeOption',
         },
+      },
+      program_proposal: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientInvitationProgramOffer',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'Null when the invitation offers no program.',
+      },
+    },
+  },
+  ClientInvitationProgramOffer: {
+    description:
+      'The first program the organization offers, as she is shown it before answering. It needs `required_scope` granted to be created.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'invitation_intent_id',
+      'program_version_id',
+      'title',
+      'version_number',
+      'weeks',
+      'repeats_forever',
+      'starts_on',
+      'required_scope',
+      'decision',
+    ],
+    properties: {
+      invitation_intent_id: {
+        $ref: '#/components/schemas/UuidV7',
+        description: 'The proposal she answers with `program_decision`.',
+      },
+      program_version_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      title: {
+        type: 'string',
+      },
+      version_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      weeks: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        description: 'Its length in weeks; null for one that repeats forever.',
+      },
+      repeats_forever: {
+        type: 'boolean',
+      },
+      starts_on: {
+        type: 'string',
+        format: 'date',
+        description: 'Tentative; the day she accepts if that is later.',
+      },
+      required_scope: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['scope_code', 'access_level'],
+        properties: {
+          scope_code: {
+            type: 'string',
+            enum: ['relationship_training'],
+          },
+          access_level: {
+            type: 'string',
+            enum: ['contribute'],
+          },
+        },
+      },
+      decision: {
+        type: ['string', 'null'],
+        enum: ['accepted', 'rejected', null],
+        description: 'Null until she answers.',
+      },
+    },
+  },
+  ClientInvitationProgramOutcome: {
+    description:
+      'What became of the program the invitation offered. Accepted and created carries `assignment_id`; accepted and not created carries `unmaterialized_reason`; declined carries neither.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['invitation_intent_id', 'intent_status', 'assignment_id', 'unmaterialized_reason'],
+    properties: {
+      invitation_intent_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      intent_status: {
+        $ref: '#/components/schemas/TeamInvitationIntentStatus',
+      },
+      assignment_id: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: "The gym's managed program, now in her Space.",
+      },
+      unmaterialized_reason: {
+        type: ['string', 'null'],
+        enum: ['training_not_granted', 'program_unavailable', null],
+        description:
+          '`training_not_granted`: she accepted it without granting `relationship_training` at `contribute`. `program_unavailable`: the version was retired before she answered, and none replaces it.',
+      },
+    },
+  },
+  ClientInvitationProgramProposal: {
+    description: 'The program the invitation offers, as Studio proposed it.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['invitation_intent_id', 'program_version_id', 'starts_on', 'timezone'],
+    properties: {
+      invitation_intent_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      program_version_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+    },
+  },
+  ClientInvitationProgramRequest: {
+    description:
+      'A first program for the person, answered by her on its own. Only a coach may propose one, and only beside a request for `relationship_training` at `contribute`.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['program_version_id', 'starts_on', 'timezone'],
+    example: {
+      program_version_id: '018f6f8d-2b00-7a00-8000-000000000201',
+      starts_on: '2026-11-09',
+      timezone: 'America/Bogota',
+    },
+    properties: {
+      program_version_id: {
+        $ref: '#/components/schemas/Uuid',
+        description: "A published version of one of this organization's programs.",
+      },
+      starts_on: {
+        type: 'string',
+        format: 'date',
+        description:
+          'Tentative. Today or later in `timezone`; if she accepts after it, the program starts the day she accepts.',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+        description:
+          'Only the last resort. The calendar uses the zone her device sends with the answer, else the one it last set up.',
       },
     },
   },

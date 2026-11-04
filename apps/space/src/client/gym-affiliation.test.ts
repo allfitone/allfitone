@@ -38,6 +38,7 @@ function transport(overrides: Partial<InvitationTransport> = {}) {
         intent_status: 'accepted',
         relationship_id: 'rel',
         granted_scope_codes: ['relationship_training'],
+        program_proposal: null,
         replayed: false,
       }
     },
@@ -92,6 +93,7 @@ describe('a gym invitation, as Space says it', () => {
           intent_status: 'accepted',
           relationship_id: 'rel',
           granted_scope_codes: [],
+          program_proposal: null,
           replayed: false,
         }
       },
