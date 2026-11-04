@@ -24,6 +24,7 @@ import { studioPlanningService } from '../dependencies.js'
 
 type SessionTemplateDraftContent = AllfitV1Schemas['SessionTemplateDraftContent']
 type ProgramDraftContent = AllfitV1Schemas['ProgramDraftContent']
+type PrescriptionAdjustmentKind = AllfitV1Schemas['PrescriptionAdjustmentKind']
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -31,6 +32,22 @@ const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 const DRAFT_ETAG = /^"sha256:[A-Za-z0-9_-]{43}"$/
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/
 const IANA_TIME_ZONE = /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/
+const PRESCRIPTION_KINDS: ReadonlySet<string> = new Set([
+  'target_sets',
+  'target_reps',
+  'target_load',
+  'target_rpe',
+  'target_distance',
+  'target_duration',
+  'target_pace',
+  'rounds',
+  'work_duration',
+  'rest_duration',
+  'hold_duration',
+  'target_repetitions',
+  'side',
+  'notes',
+] satisfies PrescriptionAdjustmentKind[])
 
 export function studioPlanningRoutes(
   injectedPlanning?: StudioPlanningService,
@@ -46,7 +63,7 @@ export function studioPlanningRoutes(
     cors({
       origin: studioOrigin,
       credentials: true,
-      allowMethods: ['GET', 'POST', 'PUT', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id', 'If-Match'],
       exposeHeaders: ['ETag', 'Location', 'Idempotent-Replay', 'Retry-After', 'Server-Timing'],
       maxAge: 600,
@@ -480,6 +497,85 @@ export function studioPlanningRoutes(
       }
     },
   )
+
+  routes.patch('/organizations/:organizationId/planned-sessions/:plannedSessionId', async (c) => {
+    const ids = plannedSessionPath(c, studioOrigin)
+    if (ids instanceof Response) return ids
+    const payload = await jsonPayload(c)
+    if (payload instanceof Response) return payload
+    const body = payload.value
+    if (!isRescheduleBody(body)) return problem(c, 'validation-failed')
+    const command = commandContext(c, { ...ids, body })
+    if (!command) return problem(c, 'invalid-request')
+    try {
+      const actor = await studioActor(c, sessions)
+      if (actor instanceof Response) return actor
+      const result = await planning().reschedulePlannedSession(actor, {
+        ...ids,
+        scheduledOn: body.scheduled_on,
+        expectedRevision: body.expected_revision,
+        ...command,
+      })
+      c.header('Cache-Control', 'no-store')
+      replay(c, result.replayed)
+      return c.json(result.resource)
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
+  routes.post(
+    '/organizations/:organizationId/assignments/:assignmentId/prescription-revisions',
+    async (c) => {
+      const ids = assignmentPath(c, studioOrigin)
+      if (ids instanceof Response) return ids
+      const payload = await jsonPayload(c)
+      if (payload instanceof Response) return payload
+      const body = payload.value
+      if (!isRevisionBody(body)) return problem(c, 'validation-failed')
+      const command = commandContext(c, { ...ids, body })
+      if (!command) return problem(c, 'invalid-request')
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const result = await planning().revisePrescription(actor, {
+          ...ids,
+          plannedStepId: body.planned_step_id,
+          kind: body.kind,
+          value: body.value,
+          unitCode: body.unit_code ?? null,
+          ...command,
+        })
+        c.header('Cache-Control', 'no-store')
+        replay(c, result.replayed)
+        return c.json(result.resource, 201)
+      } catch (error) {
+        return operationFailure(c, error)
+      }
+    },
+  )
+
+  routes.post(
+    '/organizations/:organizationId/assignments/:assignmentId/cancellation',
+    async (c) => {
+      const ids = assignmentPath(c, studioOrigin)
+      if (ids instanceof Response) return ids
+      const rejected = await rejectPayload(c)
+      if (rejected) return rejected
+      const command = commandContext(c, ids)
+      if (!command) return problem(c, 'invalid-request')
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const result = await planning().cancelAssignment(actor, { ...ids, ...command })
+        c.header('Cache-Control', 'no-store')
+        replay(c, result.replayed)
+        return c.json(result.resource)
+      } catch (error) {
+        return operationFailure(c, error)
+      }
+    },
+  )
   return routes
 }
 
@@ -515,6 +611,24 @@ function relationshipPath(c: Context, origin: string) {
   const relationshipId = c.req.param('relationshipId')
   return relationshipId && UUID.test(relationshipId)
     ? { organizationId, relationshipId }
+    : problem(c, 'invalid-request')
+}
+
+function plannedSessionPath(c: Context, origin: string) {
+  const organizationId = organization(c, origin)
+  if (organizationId instanceof Response) return organizationId
+  const plannedSessionId = c.req.param('plannedSessionId')
+  return plannedSessionId && UUID.test(plannedSessionId)
+    ? { organizationId, plannedSessionId }
+    : problem(c, 'invalid-request')
+}
+
+function assignmentPath(c: Context, origin: string) {
+  const organizationId = organization(c, origin)
+  if (organizationId instanceof Response) return organizationId
+  const assignmentId = c.req.param('assignmentId')
+  return assignmentId && UUID.test(assignmentId)
+    ? { organizationId, assignmentId }
     : problem(c, 'invalid-request')
 }
 
@@ -657,6 +771,43 @@ function isAssignmentBody(
   )
 }
 
+function isRescheduleBody(
+  value: unknown,
+): value is { scheduled_on: string; expected_revision: number } {
+  if (!isObject(value)) return false
+  const keys = Object.keys(value)
+  return (
+    keys.length === 2 &&
+    isCalendarDate(value.scheduled_on) &&
+    typeof value.expected_revision === 'number' &&
+    Number.isSafeInteger(value.expected_revision) &&
+    value.expected_revision >= 0
+  )
+}
+
+// Only the shape: which type and range each kind takes is PostgreSQL's to judge.
+function isRevisionBody(value: unknown): value is {
+  planned_step_id: string
+  kind: PrescriptionAdjustmentKind
+  value: number | string
+  unit_code?: string | null
+} {
+  if (!isObject(value)) return false
+  const allowed = new Set(['planned_step_id', 'kind', 'value', 'unit_code'])
+  if (!Object.keys(value).every((key) => allowed.has(key))) return false
+  const { planned_step_id: stepId, kind, value: amount, unit_code: unitCode } = value
+  return (
+    typeof stepId === 'string' &&
+    UUID.test(stepId) &&
+    typeof kind === 'string' &&
+    PRESCRIPTION_KINDS.has(kind) &&
+    ((typeof amount === 'number' && Number.isFinite(amount)) || typeof amount === 'string') &&
+    (unitCode === undefined ||
+      unitCode === null ||
+      (typeof unitCode === 'string' && unitCode.length >= 1 && unitCode.length <= 64))
+  )
+}
+
 function isCalendarDate(value: unknown): value is string {
   if (typeof value !== 'string' || !CALENDAR_DATE.test(value)) return false
   const parsed = new Date(`${value}T00:00:00Z`)
@@ -748,6 +899,11 @@ function validationIssues(error: unknown) {
 }
 
 function validationPath(code: string): string {
+  if (code === 'scheduled-on' || code === 'scheduled-on-week') return '/scheduled_on'
+  if (code === 'planned-step') return '/planned_step_id'
+  if (code === 'kind') return '/kind'
+  if (code === 'value') return '/value'
+  if (code === 'unit-code') return '/unit_code'
   if (code === 'program-version') return '/program_version_id'
   if (code === 'starts-on') return '/starts_on'
   if (code === 'timezone') return '/timezone'
@@ -776,6 +932,13 @@ function validationMessage(code: string): string {
     'program-version': "A published version of one of this organization's programs is required.",
     'starts-on': "The program must start today or later in the person's own day.",
     timezone: 'No valid time zone is known for this person.',
+    'scheduled-on':
+      "A session moves to today or later in the person's day, not before its program starts.",
+    'scheduled-on-week': 'A session moves only inside its own calendar week.',
+    'planned-step': 'The step must belong to the assigned program version.',
+    kind: "The adjustment must be one the step's target family takes.",
+    value: 'The value must have the type and range its kind requires.',
+    'unit-code': 'Load, distance and pace need a known unit; every other kind takes none.',
   }
   return messages[code] ?? 'The value does not satisfy the Planning content contract.'
 }
