@@ -22,7 +22,7 @@ const STATE_PATTERN = /^[A-Za-z0-9_-]{43}$/
 export const STUDIO_SESSION_COOKIE = 'allfit_studio_session'
 const STATE_TTL_SECONDS = 600
 const STATE_COOKIE_PATH = '/studio/v1/auth'
-const SESSION_COOKIE_PATH = '/studio/v1'
+export const STUDIO_SESSION_COOKIE_PATH = '/studio/v1'
 
 export function studioIdentityRoutes(injectedService?: StudioSessionService): Hono {
   const callback = callbackUrl()
@@ -130,7 +130,7 @@ export function studioIdentityRoutes(injectedService?: StudioSessionService): Ho
       return c.json({ ...session, analytics: session.analytics ?? { distinct_id: null } })
     } catch (error) {
       if (error instanceof StudioSessionError && error.code !== 'upstream-unavailable') {
-        deleteCookie(c, STUDIO_SESSION_COOKIE, { path: SESSION_COOKIE_PATH })
+        deleteCookie(c, STUDIO_SESSION_COOKIE, { path: STUDIO_SESSION_COOKIE_PATH })
       }
       return sessionFailure(c, error, 'session validation failed')
     }
@@ -143,7 +143,7 @@ export function studioIdentityRoutes(injectedService?: StudioSessionService): Ho
     }
 
     const opaqueToken = getCookie(c, STUDIO_SESSION_COOKIE)
-    deleteCookie(c, STUDIO_SESSION_COOKIE, { path: SESSION_COOKIE_PATH })
+    deleteCookie(c, STUDIO_SESSION_COOKIE, { path: STUDIO_SESSION_COOKIE_PATH })
     const trigger = await logoutTrigger(c.req.parseBody())
 
     try {
@@ -186,7 +186,7 @@ function sessionCookieOptions() {
     httpOnly: true,
     sameSite: 'Lax' as const,
     secure: process.env.NODE_ENV === 'production',
-    path: SESSION_COOKIE_PATH,
+    path: STUDIO_SESSION_COOKIE_PATH,
   }
 }
 

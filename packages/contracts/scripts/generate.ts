@@ -14,6 +14,7 @@ type ContractOperation = {
   operationId: string
   allfitOperation: string
   responses: string[]
+  security: string[]
 }
 
 type ContractExclusion = {
@@ -69,6 +70,7 @@ function operationsFrom(document: Record<string, unknown>): ContractOperation[] 
         operationId: stringProperty(operationValue, 'operationId', context),
         allfitOperation: stringProperty(operationValue, 'x-allfit-operation', context),
         responses: Object.keys(responses).sort(),
+        security: securitySchemesOf(operationValue, document, context),
       })
     }
   }
@@ -76,6 +78,32 @@ function operationsFrom(document: Record<string, unknown>): ContractOperation[] 
   return operations.sort((left, right) =>
     `${left.path}:${left.method}`.localeCompare(`${right.path}:${right.method}`),
   )
+}
+
+/**
+ * Every scheme an operation accepts, whichever requirement names it. A cookie
+ * scheme only works on paths its cookie travels to, and the API checks that
+ * against the manifest; an operation without its own `security` inherits the
+ * document's.
+ */
+function securitySchemesOf(
+  operation: Record<string, unknown>,
+  document: Record<string, unknown>,
+  context: string,
+): string[] {
+  const requirements = operation.security ?? document.security ?? []
+  if (!Array.isArray(requirements)) {
+    throw new Error(`${context}.security must be an array`)
+  }
+
+  const schemes = new Set<string>()
+  for (const requirement of requirements) {
+    if (!isRecord(requirement)) {
+      throw new Error(`${context}.security must hold requirement objects`)
+    }
+    for (const scheme of Object.keys(requirement)) schemes.add(scheme)
+  }
+  return [...schemes].sort()
 }
 
 function exclusionsFrom(document: Record<string, unknown>): ContractExclusion[] {

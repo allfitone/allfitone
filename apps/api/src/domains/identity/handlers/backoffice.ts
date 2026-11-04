@@ -15,8 +15,8 @@ import { backofficeAuthenticationService, trustedBackofficeWebUrl } from '../dep
 export const BACKOFFICE_ATTEMPT_COOKIE = 'allfit_backoffice_auth_attempt'
 export const BACKOFFICE_SESSION_COOKIE = 'allfit_backoffice_session'
 
-const ATTEMPT_COOKIE_PATH = '/backoffice/v1/auth'
-const SESSION_COOKIE_PATH = '/backoffice/v1'
+export const BACKOFFICE_ATTEMPT_COOKIE_PATH = '/backoffice/v1/auth'
+export const BACKOFFICE_SESSION_COOKIE_PATH = '/backoffice/v1'
 const ATTEMPT_TTL_SECONDS = 10 * 60
 const SESSION_TTL_SECONDS = 8 * 60 * 60
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -200,11 +200,11 @@ function terminalAuthenticationError(error: unknown): boolean {
 }
 
 function clearAttempt(c: Context): void {
-  deleteCookie(c, BACKOFFICE_ATTEMPT_COOKIE, { path: ATTEMPT_COOKIE_PATH })
+  deleteCookie(c, BACKOFFICE_ATTEMPT_COOKIE, { path: BACKOFFICE_ATTEMPT_COOKIE_PATH })
 }
 
 function clearSession(c: Context): void {
-  deleteCookie(c, BACKOFFICE_SESSION_COOKIE, { path: SESSION_COOKIE_PATH })
+  deleteCookie(c, BACKOFFICE_SESSION_COOKIE, { path: BACKOFFICE_SESSION_COOKIE_PATH })
 }
 
 function attemptCookieOptions() {
@@ -212,7 +212,7 @@ function attemptCookieOptions() {
     httpOnly: true,
     sameSite: 'Strict' as const,
     secure: process.env.NODE_ENV === 'production',
-    path: ATTEMPT_COOKIE_PATH,
+    path: BACKOFFICE_ATTEMPT_COOKIE_PATH,
     maxAge: ATTEMPT_TTL_SECONDS,
   }
 }
@@ -222,7 +222,7 @@ function sessionCookieOptions() {
     httpOnly: true,
     sameSite: 'Strict' as const,
     secure: process.env.NODE_ENV === 'production',
-    path: SESSION_COOKIE_PATH,
+    path: BACKOFFICE_SESSION_COOKIE_PATH,
     maxAge: SESSION_TTL_SECONDS,
   }
 }

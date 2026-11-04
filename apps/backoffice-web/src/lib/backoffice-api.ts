@@ -197,7 +197,7 @@ export const backofficeApi = {
       { method: 'POST', headers: commandHeaders(command), body: '{}' },
     ),
 
-  // The curator's view: published and archived alike, unlike /catalog/v1.
+  // The curator's view: published and archived alike, unlike /backoffice/v1/catalog.
   globalCatalogue: (signal?: AbortSignal) =>
     requestJson<BackofficeGlobalCatalogue>('/backoffice/v1/catalogue', signal ? { signal } : {}),
 
@@ -252,23 +252,23 @@ export const backofficeApi = {
       body: '{}',
     }),
 
-  // The global catalogue is its own surface: it carries no tenant and no
-  // subject, so Backoffice reads the same mount Studio and Space read.
+  // The published global catalogue, read on this surface because the session
+  // cookie travels nowhere else.
   catalogDisciplines: (signal?: AbortSignal) =>
     requestJson<{ items: CatalogDiscipline[] }>(
-      '/catalog/v1/disciplines',
+      '/backoffice/v1/catalog/disciplines',
       signal ? { signal } : {},
     ),
 
   catalogActivityTypes: (signal?: AbortSignal) =>
     requestJson<{ items: CatalogActivityType[] }>(
-      '/catalog/v1/activity-types',
+      '/backoffice/v1/catalog/activity-types',
       signal ? { signal } : {},
     ),
 
   catalogActivityTypeResultContracts: (activityTypeId: string, signal?: AbortSignal) =>
     requestJson<{ items: ActivityTypeResultContract[] }>(
-      `/catalog/v1/activity-types/${activityTypeId}/result-contracts`,
+      `/backoffice/v1/catalog/activity-types/${activityTypeId}/result-contracts`,
       signal ? { signal } : {},
     ),
 
@@ -909,13 +909,15 @@ function peopleOperation(route: string): ClientOperation | undefined {
   return 'backoffice.support.account_recovery_start'
 }
 
-/** The catalogue surface is shared, so its operations carry no product prefix. */
+/** The published catalogue reads keep the names they had when they lived on /catalog/v1. */
 function catalogOperation(route: string): ClientOperation | undefined {
   const segments = route.split('/').filter(Boolean)
-  if (segments[0] !== 'catalog' || segments[1] !== 'v1') return undefined
-  if (segments[2] === 'disciplines') return 'catalog.disciplines'
-  if (segments[2] !== 'activity-types') return undefined
-  return segments.length === 3 ? 'catalog.activity_types' : 'catalog.activity_type_result_contracts'
+  if (segments[0] !== 'backoffice' || segments[1] !== 'v1' || segments[2] !== 'catalog') {
+    return undefined
+  }
+  if (segments[3] === 'disciplines') return 'catalog.disciplines'
+  if (segments[3] !== 'activity-types') return undefined
+  return segments.length === 4 ? 'catalog.activity_types' : 'catalog.activity_type_result_contracts'
 }
 
 /** Assignment identifiers vary per row, so these routes are matched by shape. */

@@ -423,13 +423,13 @@ export const studioApi = {
     }),
 
   /**
-   * `OP-PRV-022`. The catalogue surface and not `/studio/v1`, because the same
-   * seven rows are what a member reads to know what they may ask for and what
-   * the person being asked reads to decide. Unlike `offerableScopes` it answers
-   * before anyone curates the permission catalogue: it reads the wording alone.
+   * `OP-PRV-022`. The global wording, read under `/studio/v1` because the session
+   * cookie travels nowhere else: on `/catalog/v1` it answered 401 and ended the
+   * session. Unlike `offerableScopes` it answers before anyone curates the
+   * permission catalogue: it reads the wording alone.
    */
   informationCategories: (signal?: AbortSignal) =>
-    request<InformationCategoryList>('/catalog/v1/information-categories', {
+    request<InformationCategoryList>('/studio/v1/catalog/information-categories', {
       cache: 'no-store',
       ...(signal ? { signal } : {}),
     }),

@@ -99,8 +99,9 @@ test('parses both Retry-After forms', () => {
   expect(parseRetryAfter('invalid', now)).toBeUndefined()
 })
 
-describe('the shared catalogue surface', () => {
-  test('reads the catalogue from /catalog/v1 with the session cookie', async () => {
+describe('the global catalogue on the Backoffice surface', () => {
+  // The session cookie is scoped to /backoffice/v1; on /catalog/v1 every read was a 401.
+  test('reads the catalogue under /backoffice/v1 with the session cookie', async () => {
     const calls: { url: string; credentials: RequestCredentials | undefined }[] = []
     globalThis.fetch = (async (input, init) => {
       calls.push({ url: String(input), credentials: init?.credentials })
@@ -112,9 +113,9 @@ describe('the shared catalogue surface', () => {
     await backofficeApi.catalogActivityTypeResultContracts('019f0000-0000-7000-8000-000000000003')
 
     expect(calls.map((call) => new URL(call.url).pathname)).toEqual([
-      '/catalog/v1/disciplines',
-      '/catalog/v1/activity-types',
-      '/catalog/v1/activity-types/019f0000-0000-7000-8000-000000000003/result-contracts',
+      '/backoffice/v1/catalog/disciplines',
+      '/backoffice/v1/catalog/activity-types',
+      '/backoffice/v1/catalog/activity-types/019f0000-0000-7000-8000-000000000003/result-contracts',
     ])
     expect(calls.every((call) => call.credentials === 'include')).toBe(true)
   })

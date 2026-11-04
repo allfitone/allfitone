@@ -1438,10 +1438,9 @@ export function supportPerson(overrides: Partial<SupportPersonFixture> = {}): Su
 }
 
 /**
- * `/catalog/v1` is a surface of its own, not a Backoffice route, so the mock
- * answers it separately. The effective associations are derived from what the
- * curation commands published: two sources would let the screen show a state the
- * server never had.
+ * The published catalogue Backoffice reads under `/backoffice/v1/catalog`. The
+ * effective associations are derived from what the curation commands published:
+ * two sources would let the screen show a state the server never had.
  */
 export interface CatalogueFixture {
   /** Every catalogue read is refused, as it is once the session ends. */
@@ -1599,15 +1598,6 @@ export async function mockBackofficeApi(
       'allfit.analytics-v1',
       JSON.stringify({ decision: 'denied', notice_version: 'analytics-v1' }),
     )
-  })
-  await context.route('http://127.0.0.1:8080/catalog/v1/**', async (route) => {
-    const request = toMockRequest(route)
-    fixture.requests.push(request)
-    if (request.method === 'OPTIONS') {
-      await fulfill(route, 204)
-      return
-    }
-    await routeCatalogue(route, request, fixture)
   })
   await context.route('http://127.0.0.1:8080/backoffice/v1/**', async (route) => {
     const request = toMockRequest(route)
@@ -1789,6 +1779,10 @@ export async function mockBackofficeApi(
       )
     ) {
       await routeAccountRecovery(route, request, fixture)
+      return
+    }
+    if (request.path.startsWith('/backoffice/v1/catalog/')) {
+      await routeCatalogue(route, request, fixture)
       return
     }
     if (/^\/backoffice\/v1\/catalogue(\/[^/]+(\/[^/]+\/archival)?)?$/.test(request.path)) {
@@ -2018,21 +2012,22 @@ async function routeCatalogue(
     await fulfillProblem(route, catalogue.refusal.status, catalogue.refusal.code)
     return
   }
+  // ['backoffice', 'v1', 'catalog', resource, activityTypeId?, 'result-contracts'?]
   const segments = request.path.split('/').filter(Boolean)
-  if (segments[2] === 'disciplines') {
+  if (segments[3] === 'disciplines') {
     await fulfill(route, 200, { items: catalogue.disciplines })
     return
   }
-  if (segments[2] !== 'activity-types') {
+  if (segments[3] !== 'activity-types') {
     await fulfillProblem(route, 404, 'not-found')
     return
   }
-  if (segments.length === 3) {
+  if (segments.length === 4) {
     await fulfill(route, 200, { items: catalogue.activityTypes })
     return
   }
 
-  const activityTypeId = segments[3]
+  const activityTypeId = segments[4]
   if (activityTypeId === undefined) {
     await fulfillProblem(route, 404, 'not-found')
     return
