@@ -152,11 +152,41 @@ test('deprecates the published version without deleting it', async ({ context, p
   await expect(page.getByRole('heading', { name: 'Versión publicada' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Deprecar esta versión' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Deprecar', exact: true }).click()
 
   await expect(page.getByText(/siguen válidas/)).toBeVisible()
   await expect(page.getByText('Deprecado', { exact: true })).toBeVisible()
   // The version is still on screen: deprecating is not deleting.
   await expect(page.getByText('test.backoffice_front · versión 1 · Fuerza')).toBeVisible()
+})
+
+test('keeping the version from the deprecation dialog deprecates nothing', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await fillPublication(page)
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await expect(page.getByRole('heading', { name: 'Versión publicada' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Deprecar esta versión' }).click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('¿Deprecar la versión 1 de test.backoffice_front?')
+  await dialog.getByRole('button', { name: 'Conservar la versión' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('Publicado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Deprecado', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Deprecar esta versión' })).toBeVisible()
+  expect(
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path.endsWith('/deprecation'),
+    ),
+  ).toHaveLength(0)
 })
 
 test('sends an unauthenticated operator back to the access screen', async ({ context, page }) => {

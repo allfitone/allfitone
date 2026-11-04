@@ -28,7 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import {
   Table,
   TableBody,
@@ -130,24 +129,24 @@ export function SupportPaymentsPanel({
       </CardHeader>
       <CardContent>
         {subscription ? (
-          <FieldGroup data-payments-subscription>
-            <Field>
-              <FieldLabel htmlFor="payments-plan">Plan</FieldLabel>
+          <dl data-facts data-payments-subscription>
+            <dt>Plan</dt>
+            <dd>
               <span id="payments-plan">
                 {subscription.plan_name} · versión {subscription.version_number}
               </span>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="payments-price">Precio</FieldLabel>
+            </dd>
+            <dt>Precio</dt>
+            <dd>
               <span id="payments-price">{subscriptionPrice(subscription)}</span>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="payments-state">Estado</FieldLabel>
+            </dd>
+            <dt>Estado</dt>
+            <dd>
               <span id="payments-state" data-payments-state={subscription.status}>
                 {subscriptionState(subscription)}
               </span>
-            </Field>
-          </FieldGroup>
+            </dd>
+          </dl>
         ) : null}
 
         {payments.payments.length > 0 ? (
@@ -183,17 +182,23 @@ export function SupportPaymentsPanel({
         ) : null}
 
         {payments.organization_subscriptions.length > 0 ? (
-          <div data-payments-bonds>
-            <h3>Lo que le paga a su gimnasio</h3>
-            <ul>
-              {payments.organization_subscriptions.map((bond) => (
-                <li key={bond.subscription_id} data-payments-bond>
-                  <strong>{bond.organization_name}</strong> · {bondLine(bond)}
-                </li>
-              ))}
-            </ul>
-            <p data-payments-gym-note>{GYM_CHARGES_NOTE}</p>
-          </div>
+          <Card data-payments-bonds>
+            <CardHeader>
+              <CardTitle role="heading" aria-level={3}>
+                Lo que le paga a su gimnasio
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul>
+                {payments.organization_subscriptions.map((bond) => (
+                  <li key={bond.subscription_id} data-payments-bond>
+                    <strong>{bond.organization_name}</strong> · {bondLine(bond)}
+                  </li>
+                ))}
+              </ul>
+              <p data-payments-gym-note>{GYM_CHARGES_NOTE}</p>
+            </CardContent>
+          </Card>
         ) : null}
 
         {paysNobody(payments) ? (

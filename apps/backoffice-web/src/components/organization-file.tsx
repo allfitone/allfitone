@@ -132,34 +132,38 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
           <CardDescription>{organization.type_name}</CardDescription>
         </CardHeader>
         <CardContent>
-          <FieldGroup>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="file-status">Estado</FieldLabel>
+          <dl data-facts>
+            <dt>Estado</dt>
+            <dd>
               <Badge id="file-status" variant={statusTone(organization.status)}>
                 {statusLabel(organization.status)}
               </Badge>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="file-responsible">Quién responde</FieldLabel>
+            </dd>
+            <dt>Quién responde</dt>
+            <dd>
               <span id="file-responsible">{responsibleLabel(file)}</span>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="file-created">Creado</FieldLabel>
+            </dd>
+            <dt>Creado</dt>
+            <dd>
               <span id="file-created">{formatInstant(organization.created_at)}</span>
-            </Field>
+            </dd>
             {organization.claimed_at ? (
-              <Field orientation="responsive">
-                <FieldLabel htmlFor="file-claimed">Reclamado</FieldLabel>
-                <span id="file-claimed">{formatInstant(organization.claimed_at)}</span>
-              </Field>
+              <>
+                <dt>Reclamado</dt>
+                <dd>
+                  <span id="file-claimed">{formatInstant(organization.claimed_at)}</span>
+                </dd>
+              </>
             ) : null}
             {organization.cancelled_at ? (
-              <Field orientation="responsive">
-                <FieldLabel htmlFor="file-cancelled">Cancelado</FieldLabel>
-                <span id="file-cancelled">{formatInstant(organization.cancelled_at)}</span>
-              </Field>
+              <>
+                <dt>Cancelado</dt>
+                <dd>
+                  <span id="file-cancelled">{formatInstant(organization.cancelled_at)}</span>
+                </dd>
+              </>
             ) : null}
-          </FieldGroup>
+          </dl>
           {handsOverHere(file) ? (
             <Link
               href={`/organizations/${organization.organization_id}/handover`}
@@ -180,7 +184,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="file-case">Referencia de caso para abrir una persona</FieldLabel>
               <Input
                 id="file-case"
@@ -190,8 +194,10 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
                 autoComplete="off"
               />
             </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="file-owner">Dueño</FieldLabel>
+          </FieldGroup>
+          <dl data-facts>
+            <dt>Dueño</dt>
+            <dd>
               {file.owner ? (
                 <span id="file-owner" data-file-owner>
                   <MemberIdentifier personId={file.owner.person_id} href={ownerHref} /> · desde{' '}
@@ -200,8 +206,8 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
               ) : (
                 <span id="file-owner">Sin dueño: nadie ha reclamado el gimnasio.</span>
               )}
-            </Field>
-          </FieldGroup>
+            </dd>
+          </dl>
 
           <Alert live="off" variant="info" data-file-team-summary>
             <AlertTitle>Equipo</AlertTitle>

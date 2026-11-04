@@ -13,6 +13,16 @@
  * mid-session fails the next command instead of the next render.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -271,10 +281,11 @@ function BaseRoleSection({
   appending: boolean
   onLoadMore: () => void
   onGrant: (personId: string) => void
-  onRevoke: (assignmentId: string) => void
+  onRevoke: (assignmentId: string) => Promise<void>
 }) {
   const [personId, setPersonId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<string | null>(null)
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -358,15 +369,46 @@ function BaseRoleSection({
                   <TableCell>{formatInstant(assignment.revoked_at)}</TableCell>
                   <TableCell align="end">
                     {assignment.status === 'active' ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        onClick={() => onRevoke(assignment.id)}
+                      <AlertDialog
+                        open={revoking === assignment.id}
+                        onOpenChange={(next) => {
+                          // Closing mid-flight would hide a request that is still going to land.
+                          if (busy) return
+                          setRevoking(next ? assignment.id : null)
+                        }}
                       >
-                        Retirar
-                      </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy}
+                          onClick={() => setRevoking(assignment.id)}
+                        >
+                          Retirar
+                        </Button>
+                        <AlertDialogContent data-revoke-role-dialog>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Retirar el rol base?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              <code>{assignment.person_id}</code> deja de poder entrar al Backoffice
+                              ahora mismo: se cierran sus deberes vigentes y su sesión. No se puede
+                              deshacer; volver a darle acceso exige otorgar el rol de nuevo.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={busy}>Conservar el rol</AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              disabled={busy}
+                              onClick={() =>
+                                void onRevoke(assignment.id).then(() => setRevoking(null))
+                              }
+                            >
+                              {busy ? 'Retirando…' : 'Retirar el rol'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     ) : (
                       <span>—</span>
                     )}
@@ -409,13 +451,14 @@ function DutySection({
     reasonCode: string
   }) => void
   onSuspend: (assignmentId: string) => void
-  onRevoke: (assignmentId: string) => void
+  onRevoke: (assignmentId: string) => Promise<void>
 }) {
   const [personId, setPersonId] = useState('')
   const [dutyCode, setDutyCode] = useState<PlatformDutyCode>('diagnose_support_metadata')
   const [days, setDays] = useState(String(DEFAULT_DUTY_DAYS))
   const [reasonCode, setReasonCode] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [revoking, setRevoking] = useState<string | null>(null)
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -579,15 +622,48 @@ function DutySection({
                             Suspender
                           </Button>
                         ) : null}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={busy}
-                          onClick={() => onRevoke(assignment.id)}
+                        <AlertDialog
+                          open={revoking === assignment.id}
+                          onOpenChange={(next) => {
+                            if (busy) return
+                            setRevoking(next ? assignment.id : null)
+                          }}
                         >
-                          Revocar
-                        </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            disabled={busy}
+                            onClick={() => setRevoking(assignment.id)}
+                          >
+                            Revocar
+                          </Button>
+                          <AlertDialogContent data-revoke-duty-dialog>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Revocar este deber?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                <code>{assignment.person_id}</code> deja de poder{' '}
+                                {dutyLabel(assignment.duty_code).toLowerCase()} desde la siguiente
+                                transacción. A diferencia de suspender, no se puede deshacer: para
+                                devolvérselo hay que otorgar un deber nuevo.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={busy}>
+                                Conservar el deber
+                              </AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                disabled={busy}
+                                onClick={() =>
+                                  void onRevoke(assignment.id).then(() => setRevoking(null))
+                                }
+                              >
+                                {busy ? 'Revocando…' : 'Revocar el deber'}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </>
                     )}
                   </TableCell>

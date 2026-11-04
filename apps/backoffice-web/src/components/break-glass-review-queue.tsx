@@ -134,13 +134,19 @@ export function BreakGlassReviewQueue() {
   const ordered = queueOrder(reviews)
 
   return (
-    <section data-review-queue>
-      <header>
-        <h2>Revisión de accesos excepcionales</h2>
-        <p data-review-backlog>{backlogSentence(reviews)}</p>
-        <p data-review-why>{WHY_IT_IS_REVIEWED}</p>
-        <p data-review-late-note>{LATE_IS_STILL_REQUIRED}</p>
-      </header>
+    <div data-review-queue>
+      <Card>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            Revisión de accesos excepcionales
+          </CardTitle>
+          <CardDescription data-review-backlog>{backlogSentence(reviews)}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p data-review-why>{WHY_IT_IS_REVIEWED}</p>
+          <p data-review-late-note>{LATE_IS_STILL_REQUIRED}</p>
+        </CardContent>
+      </Card>
 
       {outcome ? (
         <Alert live="polite" variant="success" data-review-outcome>
@@ -202,6 +208,6 @@ export function BreakGlassReviewQueue() {
           </Card>
         )
       })}
-    </section>
+    </div>
   )
 }

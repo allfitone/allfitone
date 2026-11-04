@@ -122,10 +122,11 @@ test('archiving says what depends on the entry and asks before withdrawing it', 
   await expect(movements.getByText('3 referencias', { exact: false })).toBeVisible()
 
   await movements.getByRole('button', { name: 'Archivar Guerrero II' }).click()
-  await expect(movements.locator('[data-catalogue-confirm]')).toContainText('sigue funcionando')
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('sigue funcionando')
   expect(commands(fixture)).toHaveLength(0)
 
-  await movements.getByRole('button', { name: 'Sí, archivar' }).click()
+  await dialog.getByRole('button', { name: 'Sí, archivar' }).click()
 
   await expect(page.locator('[data-catalogue-outcome]')).toContainText('Sale de las búsquedas')
   await expect(movements.locator('[data-catalogue-entry][data-status="archived"]')).toBeVisible()
@@ -133,6 +134,27 @@ test('archiving says what depends on the entry and asks before withdrawing it', 
     `/backoffice/v1/catalogue/movements/${movement.id}/archival`,
   )
   expect(commands(fixture)[0]?.body).toEqual({})
+})
+
+test('keeping the entry from the archive dialog archives nothing', async ({ context, page }) => {
+  const movement = catalogueEntry({ kind: 'movement', code: null, name: 'Guerrero II' })
+  const fixture = fixtureWith(
+    globalCatalogueFixture({ disciplines: [catalogueEntry()], movements: [movement] }),
+  )
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/catalogue')
+  const movements = page.locator('[data-catalogue-section="movement"]')
+  await movements.getByRole('button', { name: 'Archivar Guerrero II' }).click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('¿Archivar movimiento «Guerrero II»?')
+  await dialog.getByRole('button', { name: 'Mantener en las búsquedas' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(movements.locator('[data-catalogue-entry][data-status="published"]')).toBeVisible()
+  await expect(movements.locator('[data-catalogue-entry][data-status="archived"]')).toHaveCount(0)
+  expect(commands(fixture)).toHaveLength(0)
 })
 
 test('a discipline whose content is still published is not archived, and the screen says why', async ({
@@ -154,7 +176,7 @@ test('a discipline whose content is still published is not archived, and the scr
   await page.goto('/catalogue')
   const disciplines = page.locator('[data-catalogue-section="discipline"]')
   await disciplines.getByRole('button', { name: 'Archivar Yoga' }).click()
-  await disciplines.getByRole('button', { name: 'Sí, archivar' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Sí, archivar' }).click()
 
   await expect(page.locator('[data-catalogue-failure]')).toContainText(
     'todavía tiene contenido publicado',

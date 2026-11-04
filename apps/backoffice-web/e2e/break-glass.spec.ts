@@ -190,10 +190,43 @@ test('a rejection is final and offers no second chance', async ({ context, page 
 
   await page.goto(PATH)
   await page.getByRole('button', { name: 'Rechazar' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Rechazar la solicitud' }).click()
 
   await expect(page.getByText(/El rechazo es definitivo/)).toBeVisible()
   await expect(page.getByText('Rechazada', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0)
+})
+
+test('leaving a request waiting from the rejection dialog decides nothing', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    breakGlass: {
+      files: [
+        breakGlassFile({
+          requester_person_id: BREAK_GLASS_PEER_ID,
+          viewer_is_requester: false,
+        }),
+      ],
+    },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Rechazar' }).click()
+
+  const dialog = page.getByRole('alertdialog')
+  // The dialog says what the rejection is before anything is sent: final.
+  await expect(dialog).toContainText('definitivo')
+  await dialog.getByRole('button', { name: 'Dejarla en espera' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('Esperando aprobación')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Aprobar' })).toBeVisible()
+  expect(fixture.requests.filter((request) => request.path.endsWith('/decisions'))).toHaveLength(0)
+  expect(fixture.breakGlass?.files[0]?.status).toBe('requested')
 })
 
 test('a window says how much is left and where it closes', async ({ context, page }) => {
@@ -313,6 +346,7 @@ test('an authorised read of body progress shows the measurements until the windo
 
   // Closing the window takes the content off the screen with it.
   await page.getByRole('button', { name: 'Cerrar la ventana' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(measurements).toHaveCount(0)
   await expect(page.getByText('82 cm')).toHaveCount(0)
@@ -403,6 +437,7 @@ test('an authorised read of health context shows what the person declared, and w
   })
 
   await page.getByRole('button', { name: 'Cerrar la ventana' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(claims).toHaveCount(0)
   await expect(page.getByText('No puedo levantar los brazos por encima de la cabeza')).toHaveCount(
@@ -501,6 +536,7 @@ test('an authorised read of nutrition intake shows what the person ate and what 
   expect(read[0]?.body).toEqual({ category: 'nutrition_intake', resource_type: 'nutrition.meals' })
 
   await page.getByRole('button', { name: 'Cerrar la ventana' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(meals).toHaveCount(0)
   await expect(page.getByText('Pollo a la plancha, 120 g')).toHaveCount(0)
@@ -638,6 +674,7 @@ test('an authorised read of prior training shows each session and what it held',
   })
 
   await page.getByRole('button', { name: 'Cerrar la ventana' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(sessions).toHaveCount(0)
 })
@@ -801,11 +838,33 @@ test('closing a window is final and leaves nothing to read', async ({ context, p
 
   await page.goto(PATH)
   await page.getByRole('button', { name: 'Cerrar la ventana' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
 
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(page.getByText('Cerrada', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Leer guía nutricional' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Cerrar la ventana' })).toHaveCount(0)
+})
+
+test('leaving the window open from the close dialog closes nothing', async ({ context, page }) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    breakGlass: { files: [openBreakGlassWindow(10, { categories: ['nutrition_guidance'] })] },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Cerrar la ventana' }).click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('No se puede reabrir ni extender')
+  await dialog.getByRole('button', { name: 'Dejarla abierta' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('Ventana abierta')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Leer guía nutricional' })).toBeVisible()
+  expect(fixture.requests.filter((request) => request.path.endsWith('/closure'))).toHaveLength(0)
+  expect(fixture.breakGlass?.files[0]?.status).toBe('approved')
 })
 
 test('a file that is not yours offers no way to exercise it', async ({ context, page }) => {

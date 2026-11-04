@@ -16,6 +16,16 @@
  * closed with the window that closed it.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -372,7 +382,7 @@ export function ResultContractPublication() {
       {effective ? <EffectiveContracts contracts={effective} /> : null}
 
       {published ? (
-        <PublishedContract contract={published} busy={busy} onDeprecate={() => void deprecate()} />
+        <PublishedContract contract={published} busy={busy} onDeprecate={deprecate} />
       ) : (
         <Alert live="off" variant="info">
           <AlertTitle>Todavía no publicaste una versión</AlertTitle>
@@ -441,8 +451,9 @@ function PublishedContract({
 }: {
   contract: ResultContract
   busy: boolean
-  onDeprecate: () => void
+  onDeprecate: () => Promise<void>
 }) {
+  const [deprecating, setDeprecating] = useState(false)
   const superseded = contract.activity_type_bindings.filter((binding) => binding.valid_to !== null)
 
   return (
@@ -505,9 +516,45 @@ function PublishedContract({
         ) : null}
 
         {contract.status === 'published' ? (
-          <Button type="button" variant="destructive" disabled={busy} onClick={onDeprecate}>
-            Deprecar esta versión
-          </Button>
+          <AlertDialog
+            open={deprecating}
+            onOpenChange={(next) => {
+              // Closing mid-flight would hide a request that is still going to land.
+              if (busy) return
+              setDeprecating(next)
+            }}
+          >
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={busy}
+              onClick={() => setDeprecating(true)}
+            >
+              Deprecar esta versión
+            </Button>
+            <AlertDialogContent data-deprecate-contract-dialog>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  ¿Deprecar la versión {contract.version_number} de {contract.contract_code}?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Ninguna sesión nueva volverá a validarse con ella. Las sesiones que ya la
+                  congelaron conservan el contrato tal como lo aceptaron. Una versión deprecada no
+                  se vuelve a publicar: corregirla exige publicar la siguiente.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={busy}>Conservar la versión</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => void onDeprecate().then(() => setDeprecating(false))}
+                >
+                  {busy ? 'Deprecando…' : 'Deprecar'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         ) : null}
       </CardContent>
     </Card>
