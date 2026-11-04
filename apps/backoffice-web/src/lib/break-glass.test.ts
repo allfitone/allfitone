@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  APPROVAL_REASONS,
   BREAK_GLASS_CATEGORIES,
+  REJECTION_REASONS,
+  breakGlassRequestHref,
+  decisionReasonLabel,
+  requestPrefill,
   approvalsSoFar,
   breakGlassMessage,
   canDecide,
@@ -822,5 +827,48 @@ describe('training under a window, opened (HU-BO-008)', () => {
       ['Mi rutina de casa', 'Día 1', 'Cancelada', 'Programa propio'],
     ])
     expect(agendaRows({ ...read('prior_training_history', {}), outcome: 'denied' })).toEqual([])
+  })
+})
+
+// The approver could not say why: the screen sent one fixed code per decision.
+describe('why a request was approved or rejected', () => {
+  test('each decision has its own closed reasons, each a code the database accepts', () => {
+    const pattern = /^[A-Z][A-Z0-9_-]{2,63}$/
+    expect(APPROVAL_REASONS.length).toBeGreaterThan(1)
+    expect(REJECTION_REASONS.length).toBeGreaterThan(1)
+    for (const reason of [...APPROVAL_REASONS, ...REJECTION_REASONS]) {
+      expect(pattern.test(reason.code)).toBe(true)
+    }
+    expect(new Set([...APPROVAL_REASONS, ...REJECTION_REASONS].map((r) => r.code)).size).toBe(
+      APPROVAL_REASONS.length + REJECTION_REASONS.length,
+    )
+  })
+
+  test('a recorded reason reads as words, and an old fixed code says nobody gave one', () => {
+    const [first] = APPROVAL_REASONS
+    expect(first && decisionReasonLabel(first.code)).toBe(first?.label)
+    expect(decisionReasonLabel('REASON-APPROVED')).toBe('Sin motivo registrado')
+    expect(decisionReasonLabel('SOMETHING-ELSE')).toBe('SOMETHING-ELSE')
+  })
+})
+
+// The subject was typed as an identifier, with no way there from the person's card.
+describe('a request started from the card of the person', () => {
+  const PERSON = '019a8000-0000-7000-8000-000000000006'
+
+  test('the card links to a request for that person under the same case', () => {
+    expect(breakGlassRequestHref(PERSON, 'CASE-2026-001')).toBe(
+      `/break-glass?subject=${PERSON}&case_reference=CASE-2026-001`,
+    )
+  })
+
+  test('the form starts from what the link carries, and from nothing it cannot trust', () => {
+    expect(
+      requestPrefill(new URLSearchParams(`subject=${PERSON}&case_reference=CASE-2026-001`)),
+    ).toEqual({ subject: PERSON, caseReference: 'CASE-2026-001' })
+    expect(requestPrefill(new URLSearchParams('subject=nobody&case_reference=sin caso'))).toEqual({
+      subject: '',
+      caseReference: '',
+    })
   })
 })

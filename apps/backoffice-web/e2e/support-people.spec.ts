@@ -40,6 +40,11 @@ test('finds a person by an exact contact and carries the case into the card', as
 
   await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
   await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
+  // A window for this person starts here, under the same case, instead of from a typed identifier.
+  await expect(page.locator('[data-person-break-glass-link]')).toHaveAttribute(
+    'href',
+    `/break-glass?subject=${SUPPORT_SUBJECT_ID}&case_reference=${CASE}`,
+  )
 
   const reads = fixture.requests.filter((request) =>
     request.path.startsWith('/backoffice/v1/support/'),
