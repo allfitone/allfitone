@@ -31,6 +31,7 @@ import {
   relationshipState,
   secondActiveMembership,
   terminatedMembership,
+  terminatedTeamMember,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -185,6 +186,22 @@ function runningCover() {
 const memberOfTwo = () =>
   createStudioApiFixture({
     memberships: [activeMembership, secondActiveMembership, terminatedMembership],
+  })
+
+/*
+ * The default team is one owner, who holds no assignable role and so has
+ * nothing to give back. Revoking needs somebody who actually holds one, and
+ * two of them: with coach and admin together the dialog can show both sides of
+ * criteria 2 and 3 from the same row.
+ */
+const teamWithARevocableRole = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationMemberships: [
+      activeTeamMember,
+      { ...activeCoach, roles: ['coach', 'admin'] },
+      terminatedTeamMember,
+    ],
   })
 
 const withProfile = () =>
@@ -1885,11 +1902,32 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/team`,
     fixture: memberOfTwo,
     reveal: async (page) => {
+      // Two clicks since `STUDIO-85`: the grant moved into the row's action
+      // menu when revoking arrived beside it.
       await page
-        .getByRole('button', { name: /Añadir un rol/ })
+        .getByRole('button', { name: /^Acciones sobre/ })
         .first()
         .click()
+      await page.getByRole('menuitem', { name: 'Añadir rol' }).click()
       await expect(page.getByText(/Un rol no da acceso a los datos de nadie/)).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-020. The state worth sweeping is the dialog with **coach** picked,
+     * because that is the one that carries the consequence nobody guesses: the
+     * clients go, what they authorized stays, and giving the role back does not
+     * bring them. Any other role shows the opposite sentence and a shorter box.
+     */
+    stories: 'HU-020 · the warning before taking a role back',
+    path: `${workspace}/team`,
+    fixture: teamWithARevocableRole,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Acciones sobre Camilo Restrepo' }).click()
+      await page.getByRole('menuitem', { name: 'Retirar rol' }).click()
+      await page.getByRole('combobox', { name: 'Rol' }).click()
+      await page.getByRole('option', { name: 'Coach' }).click()
+      await expect(page.getByText(/dejan de estar a su cargo/)).toBeVisible()
     },
   },
   {

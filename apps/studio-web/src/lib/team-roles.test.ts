@@ -2,11 +2,17 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   ASSIGNABLE_ROLES,
+  canLoseARole,
   canManageRoles,
   canReceiveARole,
   grantableRoles,
+  revocableRoles,
   roleGrantRefusalDescription,
   roleGrantRefusalFor,
+  roleRevokeRefusalDescription,
+  roleRevokeRefusalFor,
+  roleRevokeRefusalTitle,
+  whatRevokingStopsSentence,
 } from './team-roles'
 import type { OrganizationMembership, OrganizationRole } from './studio-api'
 
@@ -106,5 +112,93 @@ describe('what the screen says when the command refuses', () => {
   test('anything else is temporary, and says nobody changed', () => {
     expect(roleGrantRefusalFor(500)).toBe('unavailable')
     expect(roleGrantRefusalDescription('unavailable')).toContain('Nadie cambió de rol')
+  })
+})
+
+describe('which roles can be taken back', () => {
+  // Criterion 1, the mirror of the grant's: ownership never moves this way
+  // either, and the contract's path parameter cannot even spell it.
+  test('owner is never offered', () => {
+    expect(revocableRoles(member({ roles: ['owner', 'admin'] }))).toEqual(['admin'])
+  })
+
+  test('only what the person actually holds', () => {
+    expect(revocableRoles(member({ roles: ['coach', 'staff'] }))).toEqual(['coach', 'staff'])
+  })
+
+  test('a membership that ended gives nothing back', () => {
+    expect(
+      revocableRoles(member({ status: 'terminated', ended_at: '2026-07-30T11:56:08.245Z' })),
+    ).toEqual([])
+  })
+
+  // An owner with no other role is offered no action, so the row shows no menu.
+  test('an owner with no other role has nothing to lose here', () => {
+    expect(canLoseARole(member({ roles: ['owner'] }))).toBe(false)
+  })
+})
+
+/*
+ * Criteria 2 and 3 are one fact seen from two sides, and the sentence has to
+ * turn on the same condition the database does: `revoke_membership_role` calls
+ * `relationships.end_assignments_for_membership` only when the role is `coach`.
+ * One sentence for every role would be false three times out of four.
+ */
+describe('what revoking stops, which depends on the role', () => {
+  test('revoking coach warns the clients go, and do not come back', () => {
+    const sentence = whatRevokingStopsSentence('coach', member({ roles: ['coach'] }), 'Diana')
+
+    expect(sentence).toContain('dejan de estar a su cargo')
+    expect(sentence).toContain('no se las devuelve')
+  })
+
+  // The other half, and the one a careless sentence would lose: what the
+  // clients authorized is not revoked, only who may exercise it.
+  test('revoking coach says the authorizations survive', () => {
+    expect(whatRevokingStopsSentence('coach', member({ roles: ['coach'] }), 'Diana')).toContain(
+      'sigue en pie',
+    )
+  })
+
+  test('revoking admin promises the clients stay when coach remains', () => {
+    const sentence = whatRevokingStopsSentence(
+      'admin',
+      member({ roles: ['admin', 'coach'] }),
+      'Diana',
+    )
+
+    expect(sentence).toContain('Sigue siendo coach')
+    expect(sentence).not.toContain('dejan de estar a su cargo')
+  })
+
+  test('somebody who attends nobody is not told about clients at all', () => {
+    const sentence = whatRevokingStopsSentence('staff', member({ roles: ['staff'] }), 'Diana')
+
+    expect(sentence).toContain('No atiende a nadie')
+    expect(sentence).not.toContain('a su cargo')
+  })
+})
+
+/*
+ * The revocation reuses the grant's status mapping and none of its words. "Ya
+ * no está" about a role somebody stopped holding is a different event from the
+ * same phrase about a membership that cannot take one, and a test pins that
+ * the copy was not simply shared.
+ */
+describe('what the screen says when the revocation refuses', () => {
+  test('404 is a role that was already gone, and asks for a re-read', () => {
+    expect(roleRevokeRefusalFor(404)).toBe('gone')
+    expect(roleRevokeRefusalTitle('gone')).toBe('Ese rol ya no estaba')
+    expect(roleRevokeRefusalDescription('gone')).toContain('Actualiza la lista')
+  })
+
+  test('403 is a reader without the capability, and offers no retry', () => {
+    expect(roleRevokeRefusalFor(403)).toBe('not-allowed')
+    expect(roleRevokeRefusalDescription('not-allowed')).not.toContain('intentarlo otra vez')
+  })
+
+  test('a failed connection says nobody lost a role', () => {
+    expect(roleRevokeRefusalFor(undefined)).toBe('unavailable')
+    expect(roleRevokeRefusalDescription('unavailable')).toContain('Nadie perdió ningún rol')
   })
 })

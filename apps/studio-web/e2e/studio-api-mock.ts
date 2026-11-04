@@ -69,6 +69,7 @@ export interface StudioApiFixture {
    */
   subscriptionOutcome: 'applied' | 'no-cause' | 'forbidden'
   roleGrantOutcome: 'granted' | 'rejected' | 'forbidden'
+  roleRevokeOutcome: 'revoked' | 'gone' | 'forbidden'
   offerableScopes: unknown[]
   informationCategories: unknown[]
   organization: unknown
@@ -829,6 +830,7 @@ export function createStudioApiFixture(
     organizationSubscriptions: [structuredClone(activeSubscription)],
     subscriptionOutcome: 'applied',
     roleGrantOutcome: 'granted',
+    roleRevokeOutcome: 'revoked',
     offerableScopes: [...offerableScopeCatalog],
     informationCategories: [...informationCategoryCatalog],
     /*
@@ -1377,6 +1379,47 @@ function defaultResponse(
     }
   }
   if (
+    request.method === 'DELETE' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/memberships\/[^/]+\/roles\/[^/]+$/.test(request.path)
+  ) {
+    if (fixture.roleRevokeOutcome !== 'revoked') {
+      return {
+        status: fixture.roleRevokeOutcome === 'gone' ? 404 : 403,
+        body: { error: fixture.roleRevokeOutcome === 'gone' ? 'not-found' : 'forbidden' },
+      }
+    }
+    const segments = request.path.split('/')
+    const roleCode = segments[segments.length - 1] ?? ''
+    const membershipId = segments[segments.length - 3] ?? ''
+    /*
+     * Drop the role from the fixture, the way the command drops it from the
+     * table. A mock that only echoed the revocation back would leave the
+     * re-read list still showing the badge, and a test asserting the badge is
+     * gone would fail against correct code — or, worse, a test asserting it is
+     * still there would pass against broken code.
+     */
+    fixture.organizationMemberships = fixture.organizationMemberships.map((entry) => {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        !('membership_id' in entry) ||
+        entry.membership_id !== membershipId
+      ) {
+        return entry
+      }
+      const member = entry as unknown as { roles: string[] }
+      return { ...member, roles: member.roles.filter((role) => role !== roleCode) }
+    })
+    return {
+      status: 200,
+      body: {
+        membership_id: membershipId,
+        role_code: roleCode,
+        valid_to: '2026-10-06T10:00:00.000Z',
+      },
+    }
+  }
+  if (
     request.method === 'GET' &&
     /^\/studio\/v1\/organizations\/[^/]+\/roles$/.test(request.path)
   ) {
@@ -1715,7 +1758,10 @@ async function fulfill(route: Route, response: MockResponse): Promise<void> {
       // broken client code rather than a stale fixture.
       'Access-Control-Allow-Headers':
         'Content-Type, Idempotency-Key, Command-Id, If-Match, If-None-Match',
-      'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
+      // DELETE was missing while no Studio command used one. `OP-ORG-008`
+      // revokes a role with it, and the list the API actually sends
+      // (`surfaces.ts`) has always included it.
+      'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
       ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
       ...response.headers,
     },
