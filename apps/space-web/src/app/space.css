@@ -140,15 +140,6 @@ img {
   line-height: 1.6;
 }
 
-.eyebrow {
-  margin: 0;
-  color: var(--cyan);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
 /* Each line of a big title rises out of its own mask. */
 .line {
   display: block;

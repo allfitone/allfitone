@@ -218,7 +218,6 @@ export default async function Landing({ params }: LocaleParams) {
           <div className="wrap">
             <div className="pro" data-reveal="">
               <div className="pro__copy">
-                <p className="eyebrow">{copy.pro.eyebrow}</p>
                 <Title id="pro-title" lines={copy.pro.title} reveal={false} />
                 <p className="lead">{copy.pro.text}</p>
               </div>

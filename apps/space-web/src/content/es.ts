@@ -38,7 +38,7 @@ export const es = {
   },
   hero: {
     lines: ['ENTRENA', 'CON PLAN.', 'NO CON SUERTE.'],
-    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Y tu historial viaja contigo.',
+    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Si cambias de gimnasio, tu historial se va contigo.',
     todayAlt: 'Pantalla Hoy de Allfit Space: la sesión de Tirón del día y el resumen de la semana.',
     programAlt:
       'Detalle del programa Torso y pierna: 10 semanas, 4 días por semana y sus sesiones.',
@@ -118,9 +118,8 @@ export const es = {
     background: 'Atleta revisando su celular en el gimnasio después de entrenar.',
   },
   pro: {
-    eyebrow: 'ALLFIT PRO',
     title: ['ALLFIT PRO,', 'INCLUIDO CON', 'TU GIMNASIO.'],
-    text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle. Si tu gimnasio usa Allfit, Pro te sale incluido mientras sigas con ellos.',
+    text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle. Si tu gimnasio usa Allfit Studio, Pro te sale incluido mientras sigas con ellos.',
     alt: 'Atleta con audífonos concentrado antes de entrenar en el gimnasio.',
   },
   studio: {
@@ -129,7 +128,7 @@ export const es = {
     cta: 'Conocer Allfit Studio',
   },
   closing: {
-    title: ['TU PRÓXIMO RÉCORD', 'EMPIEZA HOY.'],
+    title: ['TU PRÓXIMO RÉCORD', 'YA TIENE PLAN.'],
   },
   nvidia: {
     member: 'Allfit One es miembro de NVIDIA Inception.',
@@ -235,15 +234,15 @@ export const es = {
         {
           heading: '4. Gimnasios y entrenadores',
           body: [
-            'Los gimnasios y entrenadores que usan Allfit Studio son independientes de Allfit. Su servicio y sus cobros se rigen por lo que acuerdes con ellos.',
-            'Allfit no recibe ni maneja el dinero que le pagas a tu gimnasio.',
+            'Los gimnasios y entrenadores que usan Allfit Studio son independientes de Allfit One. Su servicio y sus cobros se rigen por lo que acuerdes con ellos.',
+            'Allfit One no recibe ni maneja el dinero que le pagas a tu gimnasio.',
           ],
         },
         {
           heading: '5. Allfit Pro',
           body: [
             'La app es gratis. Allfit Pro es una suscripción opcional que se compra en la App Store o en Google Play, con sus condiciones de pago y cancelación.',
-            'Si tu gimnasio usa Allfit, Pro te sale incluido mientras sigas activo con ellos. Si Pro termina, conservas todo tu historial.',
+            'Si tu gimnasio usa Allfit Studio, Pro te sale incluido mientras sigas activo con ellos. Si Pro termina, conservas todo tu historial.',
           ],
         },
         {
@@ -255,7 +254,7 @@ export const es = {
         {
           heading: '7. Responsabilidad',
           body: [
-            'Entrenar implica riesgos físicos que asumes al seguir un programa. Allfit responde en los términos de la ley colombiana aplicable.',
+            'Entrenar implica riesgos físicos que asumes al seguir un programa. Allfit One responde en los términos de la ley colombiana aplicable.',
           ],
         },
         {
