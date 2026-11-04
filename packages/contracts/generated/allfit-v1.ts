@@ -9677,9 +9677,16 @@ export interface components {
     /** @description What an allowed read returns, under the category that was read. Only categories whose data the platform stores appear; the rest answer `content_unavailable` instead. */
     BreakGlassContent: {
       body_progress?: components['schemas']['BodyProgressRecord'][]
+      /** @description HU-BO-009 criterion 3, returned with `body_progress`: the days the person has body photos and how many, newest first, a day with no measurement included. That a photo exists, never a reference to it or the photo itself. */
+      body_photo_days?: components['schemas']['BreakGlassPhotoDay'][]
       health_context?: components['schemas']['HealthContextClaim'][]
       nutrition_intake?: components['schemas']['BreakGlassMeal'][]
       prior_training_history?: components['schemas']['ExecutionDetail'][]
+    }
+    BreakGlassPhotoDay: {
+      /** Format: date */
+      taken_on: string
+      photos: number
     }
     PlatformPlanCatalogue: {
       /** Format: date-time */

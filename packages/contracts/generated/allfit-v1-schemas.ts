@@ -2019,6 +2019,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/BodyProgressRecord',
         },
       },
+      body_photo_days: {
+        type: 'array',
+        maxItems: 500,
+        description:
+          'HU-BO-009 criterion 3, returned with `body_progress`: the days the person has body photos and how many, newest first, a day with no measurement included. That a photo exists, never a reference to it or the photo itself.',
+        items: {
+          $ref: '#/components/schemas/BreakGlassPhotoDay',
+        },
+      },
       health_context: {
         type: 'array',
         maxItems: 500,
@@ -2154,6 +2163,21 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/NutritionMealItem',
         },
+      },
+    },
+  },
+  BreakGlassPhotoDay: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['taken_on', 'photos'],
+    properties: {
+      taken_on: {
+        type: 'string',
+        format: 'date',
+      },
+      photos: {
+        type: 'integer',
+        minimum: 1,
       },
     },
   },

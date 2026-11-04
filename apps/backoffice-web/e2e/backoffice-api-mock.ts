@@ -161,6 +161,8 @@ export interface BreakGlassFixture {
   nextExerciseDenial?: string | undefined
   /** What the subject has recorded. Only a body_progress read returns it. */
   bodyProgress?: BodyProgressRecordFixture[]
+  /** The days the subject has body photos, and how many; never a photo. */
+  bodyPhotoDays?: { taken_on: string; photos: number }[]
   /** What the subject has declared. Only a health_context read returns it. */
   healthContext?: HealthContextClaimFixture[]
   /** What the subject has eaten. Only a nutrition_intake read returns it. */
@@ -2294,7 +2296,10 @@ async function routeBreakGlass(
         outcome: 'allowed',
         reason_code: 'authorized_exercise',
         ...event,
-        content: { body_progress: glass.bodyProgress ?? [] },
+        content: {
+          body_progress: glass.bodyProgress ?? [],
+          body_photo_days: glass.bodyPhotoDays ?? [],
+        },
       })
     } else if (category === 'health_context') {
       await fulfill(route, 200, {

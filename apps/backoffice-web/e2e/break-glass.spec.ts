@@ -310,6 +310,11 @@ test('an authorised read of body progress shows the measurements until the windo
           recorded_at: '2026-08-31T11:00:00.000Z',
         },
       ],
+      // A day with photos and no measurement still says it has them.
+      bodyPhotoDays: [
+        { taken_on: '2026-09-01', photos: 2 },
+        { taken_on: '2026-08-15', photos: 1 },
+      ],
     },
   })
   await mockBackofficeApi(context, fixture)
@@ -334,6 +339,14 @@ test('an authorised read of body progress shows the measurements until the windo
   await expect(weight).toContainText('176,37 lb')
   await expect(weight).toContainText('80 kg')
   await expect(measurements.getByRole('img')).toHaveCount(0)
+
+  // HU-BO-009 criterion 3: that photos exist is known, the photos are not.
+  const photoDays = page.getByRole('table', { name: 'Días con fotos de progreso' })
+  await expect(photoDays.getByRole('row', { name: /1 de septiembre de 2026/ })).toContainText(
+    '2 fotos',
+  )
+  await expect(photoDays.getByRole('row', { name: /15 de agosto de 2026/ })).toContainText('1 foto')
+  await expect(photoDays.getByRole('img')).toHaveCount(0)
 
   // The evidence names the table that was opened, not a generic one.
   const read = fixture.requests.filter((request) => request.path.endsWith('/reads'))

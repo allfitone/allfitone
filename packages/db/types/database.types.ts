@@ -1183,6 +1183,32 @@ export type Database = {
           },
         ]
       }
+      body_photo_days: {
+        Row: {
+          person_id: string
+          photos: number
+          taken_on: string
+        }
+        Insert: {
+          person_id: string
+          photos: number
+          taken_on: string
+        }
+        Update: {
+          person_id?: string
+          photos?: number
+          taken_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_body_photo_days_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       body_photo_disposals: {
         Row: {
           id: string

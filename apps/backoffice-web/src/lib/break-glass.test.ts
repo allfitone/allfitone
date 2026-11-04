@@ -14,6 +14,7 @@ import {
   trainingRows,
   measurementRows,
   outcomeMessage,
+  photoDayRows,
   projectedTier,
   purposeLabel,
   quorumSentence,
@@ -298,6 +299,33 @@ describe('break-glass presentation rules', () => {
     const { content: _content, ...withoutContent } = allowed
     expect(measurementRows({ ...withoutContent, outcome: 'content_unavailable' })).toEqual([])
     expect(measurementRows({ ...allowed, outcome: 'denied' })).toEqual([])
+  })
+
+  test('says on which days there are body photos, and never shows one (HU-BO-009 c3)', () => {
+    const read = (days: { taken_on: string; photos: number }[]): BreakGlassExerciseOutcome => ({
+      outcome: 'allowed',
+      reason_code: 'authorized_exercise',
+      break_glass_event_id: '019a8000-0000-7000-8000-000000000603',
+      occurred_at: '2026-09-10T18:07:00.000Z',
+      category: 'body_progress',
+      content: { body_progress: [], body_photo_days: days },
+    })
+
+    expect(
+      photoDayRows(
+        read([
+          { taken_on: '2026-09-01', photos: 2 },
+          { taken_on: '2026-08-15', photos: 1 },
+        ]),
+      ),
+    ).toEqual([
+      { day: '1 de septiembre de 2026', photos: '2 fotos' },
+      { day: '15 de agosto de 2026', photos: '1 foto' },
+    ])
+    expect(photoDayRows(read([]))).toEqual([])
+    expect(
+      photoDayRows({ ...read([{ taken_on: '2026-09-01', photos: 1 }]), outcome: 'denied' }),
+    ).toEqual([])
   })
 
   test('shows a health claim as declared, with where it came from', () => {
