@@ -14,6 +14,10 @@
  * offers to be done again: repeating is legitimate, the repeat is another attempt,
  * and the first one keeps what it earned. A screen that hid it would be telling
  * somebody they cannot do what they are about to do anyway.
+ *
+ * **A suspended gym holds its program back** (HU-BO-016). Its sessions stay in view
+ * and say why they do not start: `paused` while the gym is suspended, `missed` for a
+ * day that passed while it was. The server decides it and refuses the start anyway.
  */
 
 import type { PreviewFigure } from './home-preview'
@@ -21,7 +25,7 @@ import type { WeekPlan, WeekRoutine } from './programs'
 
 export type { WeekPlan, WeekRoutine }
 
-export type RoutineState = 'suggested' | 'pending' | 'done' | 'open'
+export type RoutineState = 'suggested' | 'pending' | 'done' | 'open' | 'paused' | 'missed'
 
 export interface RoutineCard {
   readonly routine: WeekRoutine
@@ -38,24 +42,28 @@ export interface RoutineCard {
 export function cardsFor(plan: WeekPlan | undefined, today: number): readonly RoutineCard[] {
   if (!plan) return []
   const open = plan.sessions.find((session) => session.open_execution_id !== null)
-  const pending = plan.sessions.filter((session) => !session.done)
+  // Only what can start is suggested: a session the gym holds back cannot.
+  const pending = plan.sessions.filter(
+    (session) => !session.done && session.organization_suspension === null,
+  )
   const suggested = pending[nearestFrom(pending, today)]
 
   return plan.sessions.map((routine) => ({
     routine,
-    state:
-      routine.open_execution_id !== null
-        ? 'open'
-        : open
-          ? routine.done
-            ? 'done'
-            : 'pending'
-          : routine === suggested
-            ? 'suggested'
-            : routine.done
-              ? 'done'
-              : 'pending',
+    state: stateOf(routine, open !== undefined, suggested),
   }))
+}
+
+/** An attempt already open is finished whatever the gym: stranding it would lose it. */
+function stateOf(
+  routine: WeekRoutine,
+  anotherOpen: boolean,
+  suggested: WeekRoutine | undefined,
+): RoutineState {
+  if (routine.open_execution_id !== null) return 'open'
+  if (routine.organization_suspension !== null) return routine.organization_suspension
+  if (!anotherOpen && routine === suggested) return 'suggested'
+  return routine.done ? 'done' : 'pending'
 }
 
 /** The session left open, which Hoy keeps in view while it is minimised. */
@@ -168,7 +176,28 @@ export function weekDays(cards: readonly RoutineCard[], today: number): readonly
  */
 export function startLabel(state: RoutineState): string {
   if (state === 'open') return 'Continuar'
+  if (state === 'paused') return 'En pausa'
+  if (state === 'missed') return 'No hecha'
   return state === 'done' ? 'Repetir' : 'Empezar'
+}
+
+/** Whether the button starts anything: a session the gym holds back does not. */
+export function startable(state: RoutineState): boolean {
+  return state !== 'paused' && state !== 'missed'
+}
+
+/**
+ * Why a gym's session does not start, said next to the button that does not.
+ *
+ * The pause reminds her that training does not depend on the gym: its programs pause,
+ * her own and free training go on.
+ */
+export function heldNotice(state: RoutineState | undefined): string | undefined {
+  if (state === 'paused') {
+    return 'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.'
+  }
+  if (state === 'missed') return 'No hecha: tu gimnasio estaba suspendido ese día.'
+  return undefined
 }
 
 /** Cómo fue la última vez que se hizo esta rutina, tal y como la responde la agenda. */

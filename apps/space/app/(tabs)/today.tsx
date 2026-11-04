@@ -73,9 +73,11 @@ import {
   cardsFor as weekCards,
   dayChip,
   firstCardShown,
+  heldNotice,
   lastTimeShown,
   programDayOf,
   sessionInProgress,
+  startable,
   startLabel,
   weekDays,
   type RoutineCard,
@@ -296,6 +298,7 @@ export default function Today() {
   /** Empezar la rutina de una tarjeta, o volver a la que quedó abierta. */
   const start = useCallback(
     (card: RoutineCard) => {
+      if (!startable(card.state)) return
       const open = card.routine.open_execution_id
       if (open) {
         router.push(`/session/${open}`)
@@ -762,6 +765,8 @@ const Carousel = memo(function Carousel({
       if (now !== before) scheduleOnRN(setLeadingIndex, now)
     },
   )
+  // The card in front says why it does not start; the others say it when they lead.
+  const notice = heldNotice(week[leadingIndex]?.state)
 
   return (
     <View style={styles.carousel}>
@@ -805,6 +810,7 @@ const Carousel = memo(function Carousel({
                 onStart: () => onStart(one),
                 startLabel: startLabel(one.state),
                 starting: starting === one.routine.planned_session_id,
+                held: !startable(one.state),
               }}
             />
           )
@@ -820,6 +826,8 @@ const Carousel = memo(function Carousel({
           accessibilityLabel={`Rutina ${String(leadingIndex + 1)} de ${String(week.length)}`}
         />
       ) : null}
+
+      {notice ? <InlineAlert tone="info" message={notice} style={styles.held} /> : null}
     </View>
   )
 })
@@ -956,6 +964,7 @@ const styles = StyleSheet.create({
   // the scroll pays for the status bar instead.
   bare: { paddingHorizontal: 0 },
   carousel: { gap: 14, alignItems: 'center' },
+  held: { alignSelf: 'stretch' },
   // Sangra el margen de la pantalla: el carrusel empieza en el suyo, más estrecho.
   bleed: { marginHorizontal: -GUTTER, alignSelf: 'stretch' },
   // Sangra el margen de la pantalla y lo devuelve por dentro: así la primera tarjeta

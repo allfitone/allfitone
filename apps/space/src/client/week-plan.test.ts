@@ -4,6 +4,7 @@ import {
   cardsFor,
   dayChip,
   firstCardShown,
+  heldNotice,
   LAST_TIME_LABEL,
   lastTimeShown,
   programDayOf,
@@ -28,6 +29,7 @@ function routine(overrides: Partial<WeekRoutine> = {}): WeekRoutine {
     set_count: 16,
     done: false,
     open_execution_id: null,
+    organization_suspension: null,
     last_time: null,
     ...overrides,
   }
@@ -110,6 +112,59 @@ describe('which routine the screen reaches for', () => {
 
     expect(cards).toHaveLength(2)
     expect(cards.every((card) => card.state === 'done')).toBe(true)
+  })
+})
+
+describe('a session the gym holds back (HU-BO-016)', () => {
+  test('T-SPC-UNIT-330 a day missed while the gym was suspended is not suggested again', () => {
+    // Lifted on Wednesday: Monday stays missed and the program goes on from today.
+    const cards = cardsFor(
+      plan([
+        routine({ title: 'Lunes', program_day: 1, organization_suspension: 'missed' }),
+        routine({ title: 'Miércoles', program_day: 3 }),
+      ]),
+      1,
+    )
+
+    expect(cards.map((card) => card.state)).toEqual(['missed', 'suggested'])
+  })
+
+  test('T-SPC-UNIT-331 while the gym is suspended nothing is suggested, not even a repeat', () => {
+    const cards = cardsFor(
+      plan([
+        routine({ program_day: 1, done: true, organization_suspension: 'paused' }),
+        routine({ program_day: 3, organization_suspension: 'paused' }),
+      ]),
+      1,
+    )
+
+    expect(cards.map((card) => card.state)).toEqual(['paused', 'paused'])
+  })
+
+  test('T-SPC-UNIT-332 an attempt already open is still finished, whatever the gym', () => {
+    // Started before the suspension: what was being trained is not stranded.
+    const cards = cardsFor(
+      plan([
+        routine({
+          open_execution_id: '019e4000-0000-7000-8000-000000000501',
+          organization_suspension: 'paused',
+        }),
+      ]),
+      1,
+    )
+
+    expect(cards.map((card) => card.state)).toEqual(['open'])
+  })
+
+  test('T-SPC-UNIT-333 the button says why it does not start, and the notice explains it', () => {
+    expect(startLabel('paused')).toBe('En pausa')
+    expect(startLabel('missed')).toBe('No hecha')
+    expect(heldNotice('paused')).toBe(
+      'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.',
+    )
+    expect(heldNotice('missed')).toBe('No hecha: tu gimnasio estaba suspendido ese día.')
+    expect(heldNotice('pending')).toBeUndefined()
+    expect(heldNotice('open')).toBeUndefined()
   })
 })
 

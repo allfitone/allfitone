@@ -60,7 +60,9 @@ import {
 } from '../../src/client/library'
 import {
   cardsFor,
+  heldNotice,
   programDayOf,
+  startLabel,
   weekPlanFailure,
   type RoutineCard,
 } from '../../src/client/week-plan'
@@ -134,6 +136,8 @@ export default function Train() {
   const [removing, setRemoving] = useState(false)
   const [starting, setStarting] = useState<string | undefined>(undefined)
   const [failure, setFailure] = useState<string | undefined>(undefined)
+  // Why a session of a suspended gym does not start. Not a failure, so not shown as one.
+  const [held, setHeld] = useState<string | undefined>(undefined)
 
   /**
    * Todo de una vez, porque las dos mitades del segmentado se dibujan de lo mismo y
@@ -175,6 +179,11 @@ export default function Train() {
   const shown = filteredRoutines(routines, filter)
 
   const start = (card: RoutineCard) => {
+    const notice = heldNotice(card.state)
+    if (notice) {
+      setHeld(notice)
+      return
+    }
     const open = card.routine.open_execution_id
     if (open) {
       router.push(`/session/${open}`)
@@ -332,6 +341,9 @@ export default function Train() {
         showsVerticalScrollIndicator={false}
       >
         {failure ? <InlineAlert message={failure} onDismiss={() => setFailure(undefined)} /> : null}
+        {held ? (
+          <InlineAlert tone="info" message={held} onDismiss={() => setHeld(undefined)} />
+        ) : null}
 
         {segment === 'programas' ? (
           <>
@@ -655,7 +667,7 @@ function WeekRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${card.state === 'done' ? 'Repetir' : 'Empezar'} ${card.routine.title}`}
+      accessibilityLabel={`${startLabel(card.state)} ${card.routine.title}`}
       accessibilityHint={day}
       disabled={busy}
       onPress={onPress}
@@ -676,6 +688,9 @@ function WeekRow({
             <Badge label="Sigue esta" tone="accent" variant="quiet" />
           ) : null}
           {card.state === 'open' ? <Badge label="A medias" tone="accent" variant="quiet" /> : null}
+          {card.state === 'paused' || card.state === 'missed' ? (
+            <Badge label={startLabel(card.state)} variant="quiet" />
+          ) : null}
         </View>
         <Text role="body" size="xs" color="muted">
           {routineFigures(card.routine)}

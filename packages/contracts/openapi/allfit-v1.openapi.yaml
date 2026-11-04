@@ -16929,7 +16929,7 @@ components:
       additionalProperties: false
       required:
         [planned_session_id, program_title, session_title, discipline_code, status,
-         exercise_count, executed_session_id]
+         exercise_count, executed_session_id, organization_suspension]
       properties:
         planned_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -16953,6 +16953,22 @@ components:
             The attempt already open on today's session, if there is one. It is what
             turns "Empezar" into "Continuar" and what stops a second attempt being
             started by accident.
+        organization_suspension:
+          oneOf:
+            - $ref: '#/components/schemas/SpaceOrganizationSuspension'
+            - type: 'null'
+          description: >-
+            `paused` while the gym that assigned the programme is suspended. Never
+            `missed`: a day missed that way does not start, so it is not offered.
+    SpaceOrganizationSuspension:
+      type: string
+      enum: [paused, missed]
+      description: >-
+        What a gym's suspension does to a session of a programme that gym assigned
+        (HU-BO-016). `paused`: the gym is suspended now, and nothing of the programme
+        starts, repeats included, until it is reactivated. `missed`: the session's day
+        passed while the gym was suspended; it stays not done and does not start later.
+        What she trained before is unaffected, and her own programmes never carry it.
     SpaceExecutionSummary:
       type: object
       additionalProperties: false
@@ -17344,7 +17360,8 @@ components:
       additionalProperties: false
       required:
         [planned_session_id, template_version_id, title, discipline_code, status, program_day,
-         scheduled_at, exercise_count, set_count, done, open_execution_id, last_time]
+         scheduled_at, exercise_count, set_count, done, open_execution_id, last_time,
+         organization_suspension]
       properties:
         planned_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -17395,6 +17412,13 @@ components:
             - $ref: '#/components/schemas/UuidV7'
             - type: 'null'
           description: An attempt already open on this routine, which is what turns "empezar" into "continuar".
+        organization_suspension:
+          oneOf:
+            - $ref: '#/components/schemas/SpaceOrganizationSuspension'
+            - type: 'null'
+          description: >-
+            Whether the gym that assigned the programme holds this session back. Null for
+            her own programmes and for every session of an operating gym.
         last_time:
           oneOf:
             - $ref: '#/components/schemas/SpaceRoutineLastTime'

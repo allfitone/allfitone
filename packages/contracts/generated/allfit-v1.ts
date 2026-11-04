@@ -6515,7 +6515,14 @@ export interface components {
       status: string
       /** @description The attempt already open on today's session, if there is one. It is what turns "Empezar" into "Continuar" and what stops a second attempt being started by accident. */
       executed_session_id: components['schemas']['UuidV7'] | null
+      /** @description `paused` while the gym that assigned the programme is suspended. Never `missed`: a day missed that way does not start, so it is not offered. */
+      organization_suspension: components['schemas']['SpaceOrganizationSuspension'] | null
     }
+    /**
+     * @description What a gym's suspension does to a session of a programme that gym assigned (HU-BO-016). `paused`: the gym is suspended now, and nothing of the programme starts, repeats included, until it is reactivated. `missed`: the session's day passed while the gym was suspended; it stays not done and does not start later. What she trained before is unaffected, and her own programmes never carry it.
+     * @enum {string}
+     */
+    SpaceOrganizationSuspension: 'paused' | 'missed'
     /** @description A finished session as «Compártelo» tells it. Work sets only: a warmup is neither a set here nor kilos lifted, and never a record. */
     SpaceExecutionSummary: {
       /** Format: uuid */
@@ -6728,6 +6735,8 @@ export interface components {
       done: boolean
       /** @description An attempt already open on this routine, which is what turns "empezar" into "continuar". */
       open_execution_id: components['schemas']['UuidV7'] | null
+      /** @description Whether the gym that assigned the programme holds this session back. Null for her own programmes and for every session of an operating gym. */
+      organization_suspension: components['schemas']['SpaceOrganizationSuspension'] | null
       /** @description How the last time went. Null when this routine was never trained: the card's reverse then shows the muscles and says nothing else, because a zero would claim a session in which no work was done. */
       last_time: components['schemas']['SpaceRoutineLastTime'] | null
     }

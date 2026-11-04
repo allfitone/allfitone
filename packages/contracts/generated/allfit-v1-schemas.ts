@@ -13093,6 +13093,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceOrganizationSuspension: {
+    type: 'string',
+    enum: ['paused', 'missed'],
+    description:
+      "What a gym's suspension does to a session of a programme that gym assigned (HU-BO-016). `paused`: the gym is suspended now, and nothing of the programme starts, repeats included, until it is reactivated. `missed`: the session's day passed while the gym was suspended; it stays not done and does not start later. What she trained before is unaffected, and her own programmes never carry it.",
+  },
   SpacePasswordResetCreate: {
     type: 'object',
     additionalProperties: false,
@@ -14721,6 +14727,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'status',
       'exercise_count',
       'executed_session_id',
+      'organization_suspension',
     ],
     properties: {
       planned_session_id: {
@@ -14754,6 +14761,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         ],
         description:
           'The attempt already open on today\'s session, if there is one. It is what turns "Empezar" into "Continuar" and what stops a second attempt being started by accident.',
+      },
+      organization_suspension: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/SpaceOrganizationSuspension',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          '`paused` while the gym that assigned the programme is suspended. Never `missed`: a day missed that way does not start, so it is not offered.',
       },
     },
   },
@@ -14993,6 +15012,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'done',
       'open_execution_id',
       'last_time',
+      'organization_suspension',
     ],
     properties: {
       planned_session_id: {
@@ -15049,6 +15069,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         ],
         description:
           'An attempt already open on this routine, which is what turns "empezar" into "continuar".',
+      },
+      organization_suspension: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/SpaceOrganizationSuspension',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'Whether the gym that assigned the programme holds this session back. Null for her own programmes and for every session of an operating gym.',
       },
       last_time: {
         oneOf: [
