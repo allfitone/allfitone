@@ -1,15 +1,25 @@
 import type { MetadataRoute } from 'next'
 
 import { LOCALES } from '@/lib/locale'
-import { alternates } from '@/lib/site'
+import { alternates, shareImage } from '@/lib/site'
 
-const PATHS = ['', '/privacy', '/terms']
+/**
+ * Only the landing is listed. The privacy policy and the terms are drafts under
+ * legal review that still carry placeholders, so they stay out of search until
+ * they are final; see `LEGAL_ROBOTS`.
+ */
+const LANDING_UPDATED = new Date('2026-11-04')
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return PATHS.flatMap((path) =>
-    LOCALES.map((locale) => {
-      const { canonical, languages } = alternates(locale, path)
-      return { url: canonical, alternates: { languages }, priority: path ? 0.3 : 1 }
-    }),
-  )
+  return LOCALES.map((locale) => {
+    const { canonical, languages } = alternates(locale, '')
+    return {
+      url: canonical,
+      lastModified: LANDING_UPDATED,
+      changeFrequency: 'monthly',
+      priority: 1,
+      alternates: { languages },
+      images: [shareImage(locale).url],
+    }
+  })
 }

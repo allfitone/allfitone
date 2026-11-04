@@ -8,11 +8,17 @@
 
 export const es = {
   meta: {
-    title: 'Allfit Space · Entrena con plan, no con suerte',
+    title: 'Allfit Space · La app para entrenar con plan, no con suerte',
     description:
-      'Tu programa, cada serie y lo que comes, en una sola app. Y tu historial viaja contigo: tus datos son tuyos.',
+      'App de entrenamiento y nutrición: tu programa, cada serie y lo que comes en un solo lugar. Tu historial viaja contigo y tus datos son tuyos.',
+    shareImageAlt:
+      'Una atleta prepara un peso muerto con la barra cargada en un gimnasio en penumbra.',
     privacyTitle: 'Política de tratamiento de datos · Allfit Space',
+    privacyDescription:
+      'Qué datos trata Allfit Space, para qué los usa, qué compartes con tu gimnasio y cómo ejerces tus derechos según la Ley 1581 de 2012.',
     termsTitle: 'Términos y condiciones · Allfit Space',
+    termsDescription:
+      'Las condiciones para usar Allfit Space: quién puede usarla, qué incluyen el servicio y Allfit Pro, y cómo funciona con gimnasios y entrenadores.',
   },
   nav: {
     skip: 'Saltar al contenido',
