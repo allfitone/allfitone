@@ -1402,13 +1402,35 @@ export interface SupportPersonFixture {
   access_account_linked_at: string | null
   active_session_count: number
   last_seen_at: string | null
-  has_professional_profile: boolean
   membership_count: number
   active_membership_count: number
-  relationships_availability: 'available' | 'unknown' | 'not_modelled'
-  plan_availability: 'available' | 'unknown' | 'not_modelled'
-  premium_availability: 'available' | 'unknown' | 'not_modelled'
-  permissions_availability: 'available' | 'unknown' | 'not_modelled'
+  // Optional because a database older than the screen answers without them.
+  professional_profile?: { exists: boolean; created_at: string | null } | undefined
+  relationships?:
+    | {
+        active: number
+        ended: number
+        last_started_at: string | null
+        last_ended_at: string | null
+      }
+    | undefined
+  permissions?:
+    | {
+        active: number
+        frozen: number
+        revoked: number
+        last_granted_at: string | null
+        last_revoked_at: string | null
+      }
+    | undefined
+  plan?:
+    | {
+        status: 'active' | 'grace' | 'suspended' | 'ended' | null
+        started_at: string | null
+        current_period_end: string | null
+      }
+    | undefined
+  pro?: { source: 'subscription' | 'organization' | 'none'; until: string | null } | undefined
 }
 
 export const SUPPORT_SUBJECT_ID = '019a5000-0000-7000-8000-000000000005'
@@ -1428,13 +1450,24 @@ export function supportPerson(overrides: Partial<SupportPersonFixture> = {}): Su
     access_account_linked_at: '2026-01-05T10:01:00.000Z',
     active_session_count: 1,
     last_seen_at: '2026-09-09T18:00:00.000Z',
-    has_professional_profile: false,
     membership_count: 2,
     active_membership_count: 1,
-    relationships_availability: 'not_modelled',
-    plan_availability: 'not_modelled',
-    premium_availability: 'not_modelled',
-    permissions_availability: 'not_modelled',
+    professional_profile: { exists: false, created_at: null },
+    relationships: {
+      active: 1,
+      ended: 1,
+      last_started_at: '2026-08-01T10:00:00.000Z',
+      last_ended_at: '2026-10-01T10:00:00.000Z',
+    },
+    permissions: {
+      active: 2,
+      frozen: 0,
+      revoked: 1,
+      last_granted_at: '2026-08-01T10:00:00.000Z',
+      last_revoked_at: '2026-09-01T10:00:00.000Z',
+    },
+    plan: { status: null, started_at: null, current_period_end: null },
+    pro: { source: 'organization', until: null },
     ...overrides,
   }
 }
@@ -3845,7 +3878,17 @@ async function routeSupport(
   )
   await fulfill(route, 200, {
     outcome: found ? 'found' : 'not_found',
-    items: found ? [found] : [],
+    // HU-BO-006 criterion 2: a match is four fields, as the API answers it.
+    items: found
+      ? [
+          {
+            person_id: found.person_id,
+            account_status: found.account_status,
+            contact_email_masked: found.contact_email_masked,
+            contact_phone_masked: found.contact_phone_masked,
+          },
+        ]
+      : [],
   })
 }
 

@@ -35,13 +35,31 @@ const metadata: AllfitV1Schemas['SupportPersonMetadata'] = {
   access_account_linked_at: '2026-01-05T10:01:00.000Z',
   active_session_count: 1,
   last_seen_at: '2026-09-09T18:00:00.000Z',
-  has_professional_profile: false,
+  professional_profile: { exists: false, created_at: null },
   membership_count: 2,
   active_membership_count: 1,
-  relationships_availability: 'not_modelled',
-  plan_availability: 'not_modelled',
-  premium_availability: 'not_modelled',
-  permissions_availability: 'not_modelled',
+  relationships: {
+    active: 1,
+    ended: 1,
+    last_started_at: '2026-08-01T10:00:00.000Z',
+    last_ended_at: '2026-10-01T10:00:00.000Z',
+  },
+  permissions: {
+    active: 2,
+    frozen: 0,
+    revoked: 1,
+    last_granted_at: '2026-08-01T10:00:00.000Z',
+    last_revoked_at: '2026-09-01T10:00:00.000Z',
+  },
+  plan: { status: null, started_at: null, current_period_end: null },
+  pro: { source: 'organization', until: null },
+}
+
+const match: AllfitV1Schemas['SupportPersonMatch'] = {
+  person_id: SUBJECT_ID,
+  account_status: 'active',
+  contact_email_masked: '••••••••on@example.test',
+  contact_phone_masked: '••••••4567',
 }
 
 interface CapturedCall {
@@ -94,7 +112,7 @@ function metadataService(overrides: Partial<SupportMetadataService> = {}): Suppo
   return {
     search: (reader, input) => {
       captured.push({ operation: 'search', reader, input })
-      return Promise.resolve({ outcome: 'found', items: [metadata] })
+      return Promise.resolve({ outcome: 'found', items: [match] })
     },
     read: (reader, input) => {
       captured.push({ operation: 'read', reader, input })
@@ -345,7 +363,7 @@ describe('Backoffice support metadata API contract', () => {
     )
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ outcome: 'found', items: [metadata] })
+    await expect(response.json()).resolves.toEqual({ outcome: 'found', items: [match] })
     expect(captured[0]?.reader).toEqual({
       actorPersonId: ACTOR_PERSON_ID,
       actorSessionId: ACTOR_SESSION_ID,
@@ -411,7 +429,9 @@ describe('Backoffice support metadata API contract', () => {
     expect(response.headers.get('cache-control')).toBe('no-store')
     const body = (await response.json()) as Record<string, unknown>
     expect(body.person_id).toBe(SUBJECT_ID)
-    expect(body.relationships_availability).toBe('not_modelled')
+    // HU-BO-007 criterion 2: what exists, with states and dates, never which gym or scope.
+    expect(body.relationships).toEqual(metadata.relationships)
+    expect(body.pro).toEqual({ source: 'organization', until: null })
     for (const forbidden of ['given_name', 'family_name', 'display_name', 'username', 'subject']) {
       expect(body).not.toHaveProperty(forbidden)
     }

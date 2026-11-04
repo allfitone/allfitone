@@ -2,9 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   SUPPORT_LOOKUP_KINDS,
-  absentBlocks,
-  availabilityExplanation,
-  availabilityLabel,
+  fileFacts,
   isValidCaseReference,
   isValidLookup,
   lookupIssueMessage,
@@ -27,14 +25,28 @@ const metadata: SupportPersonMetadata = {
   access_account_linked_at: null,
   active_session_count: 0,
   last_seen_at: null,
-  has_professional_profile: false,
+  professional_profile: { exists: false, created_at: null },
   membership_count: 0,
   active_membership_count: 0,
-  relationships_availability: 'not_modelled',
-  plan_availability: 'not_modelled',
-  premium_availability: 'not_modelled',
-  permissions_availability: 'not_modelled',
+  relationships: {
+    active: 1,
+    ended: 1,
+    last_started_at: '2026-08-01T10:00:00.000Z',
+    last_ended_at: '2026-10-01T10:00:00.000Z',
+  },
+  permissions: {
+    active: 2,
+    frozen: 0,
+    revoked: 1,
+    last_granted_at: '2026-08-01T10:00:00.000Z',
+    last_revoked_at: '2026-09-01T10:00:00.000Z',
+  },
+  plan: { status: null, started_at: null, current_period_end: null },
+  pro: { source: 'organization', until: null },
 }
+
+// A fixed rendering, so the sentences are asserted rather than a locale.
+const day = (instant: string) => instant.slice(0, 10)
 
 describe('support metadata presentation rules', () => {
   test('offers exactly the three exact lookups, and no name', () => {
@@ -66,19 +78,74 @@ describe('support metadata presentation rules', () => {
     expect(lookupIssueMessage('phone')).toContain('+')
   })
 
-  test('lists every absent block instead of hiding it', () => {
-    const blocks = absentBlocks(metadata)
-    expect(blocks).toHaveLength(4)
-    expect(blocks.every((block) => block.availability === 'not_modelled')).toBe(true)
+  test('says what exists around the person, with states and dates (HU-BO-007 c2)', () => {
+    expect(fileFacts(metadata, day)).toEqual([
+      { label: 'Perfil profesional', value: 'No tiene' },
+      {
+        label: 'Gimnasios',
+        value: 'Entrena en 1 · dejó 1 · último ingreso 2026-08-01 · última salida 2026-10-01',
+      },
+      {
+        label: 'Permisos concedidos',
+        value: '2 vigentes · 1 retirado · último concedido 2026-08-01 · último retirado 2026-09-01',
+      },
+      { label: 'Plan', value: 'Gratis · nunca se suscribió' },
+      { label: 'Pro', value: 'Sí, se lo da un gimnasio mientras siga en él' },
+    ])
   })
 
-  test('never lets an absent domain read as a fact about the person', () => {
-    expect(availabilityLabel('not_modelled')).toContain('Allfit')
-    expect(availabilityExplanation('not_modelled')).toContain(
-      'no es una afirmación sobre la persona',
+  test('tells nothing from a fact about the person, never as zero', () => {
+    const empty = fileFacts(
+      {
+        ...metadata,
+        professional_profile: { exists: true, created_at: '2026-02-01T10:00:00.000Z' },
+        relationships: { active: 0, ended: 0, last_started_at: null, last_ended_at: null },
+        permissions: {
+          active: 0,
+          frozen: 0,
+          revoked: 0,
+          last_granted_at: null,
+          last_revoked_at: null,
+        },
+        plan: {
+          status: 'active',
+          started_at: '2026-03-01T10:00:00.000Z',
+          current_period_end: '2026-12-01T10:00:00.000Z',
+        },
+        pro: { source: 'subscription', until: '2026-12-01T10:00:00.000Z' },
+      },
+      day,
     )
-    expect(availabilityExplanation('unknown')).toContain('Esta persona')
-    expect(availabilityLabel('unknown')).not.toBe(availabilityLabel('not_modelled'))
+    expect(empty.map((fact) => fact.value)).toEqual([
+      'Existe desde 2026-02-01',
+      'Nunca ha estado en un gimnasio',
+      'No ha concedido ninguno',
+      'De pago, al día · desde 2026-03-01 · periodo hasta 2026-12-01',
+      'Sí, por su suscripción, hasta 2026-12-01',
+    ])
+  })
+
+  test('a block the server did not send reads as unknown (HU-BO-007 c5)', () => {
+    // A database older than the screen answers without the blocks; that is not "none".
+    const { relationships: _r, permissions: _p, plan: _l, pro: _o, ...older } = metadata
+    expect(fileFacts(older, day).map((fact) => fact.value)).toEqual([
+      'No tiene',
+      'Sin dato',
+      'Sin dato',
+      'Sin dato',
+      'Sin dato',
+    ])
+  })
+
+  test('says each subscription state in the words of the case', () => {
+    const plan = (status: 'grace' | 'suspended' | 'ended') =>
+      fileFacts(
+        { ...metadata, plan: { status, started_at: null, current_period_end: null } },
+        day,
+      )[3]?.value
+    expect(plan('grace')).toBe('De pago, en periodo de gracia')
+    expect(plan('suspended')).toBe('De pago, suspendido por un cobro que no llegó')
+    expect(plan('ended')).toBe('Gratis · su suscripción terminó')
   })
 
   test('tells a verified contact from an unverified one without inventing a date', () => {

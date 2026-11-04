@@ -30,6 +30,9 @@ test('finds a person by an exact contact and carries the case into the card', as
 
   await expect(page.getByRole('heading', { name: 'Persona encontrada' })).toBeVisible()
   await expect(page.getByText('••••••••on@example.test').first()).toBeVisible()
+  // The identifier, the masked contact and the state: the rest is in the file.
+  await expect(page.locator('#support-found-phone')).toHaveText('••••••4567')
+  await expect(page.getByText('Verificación del correo')).toHaveCount(0)
 
   // Rendered as a Link but announced as a button: that is how the Design System
   // composes a navigating action, here and everywhere else in this app.
@@ -117,7 +120,7 @@ test('never offers a search by name', async ({ context, page }) => {
   expect(options).toEqual(['Identificador', 'Correo exacto', 'Teléfono exacto'])
 })
 
-test('shows what Allfit does not store instead of leaving the blocks out', async ({
+test('says what exists around the person, with states and dates, never which gym', async ({
   context,
   page,
 }) => {
@@ -128,20 +131,41 @@ test('shows what Allfit does not store instead of leaving the blocks out', async
 
   await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
 
+  // HU-BO-007 criterion 2: relationships, plan, Pro and permissions, by state and date.
+  const blocks = page.locator('[data-support-person-blocks]')
   await expect(
-    page.getByRole('heading', { name: 'Lo que esta ficha todavía no puede decir' }),
+    blocks.getByRole('heading', { name: 'Lo que existe alrededor de la persona' }),
   ).toBeVisible()
-  for (const block of [
-    'Relaciones de servicio',
-    'Plan asignado',
-    'Premium',
-    'Permisos concedidos',
-  ]) {
-    await expect(page.getByRole('cell', { name: block })).toBeVisible()
-  }
-  // The distinction the API preserved has to survive into the screen.
-  await expect(page.getByText('Allfit no lo guarda todavía').first()).toBeVisible()
-  await expect(page.getByText(/no es una afirmación sobre la persona/).first()).toBeVisible()
+  await expect(blocks).toContainText('Entrena en 1 · dejó 1')
+  await expect(blocks).toContainText('2 vigentes · 1 retirado')
+  await expect(blocks).toContainText('Gratis · nunca se suscribió')
+  await expect(blocks).toContainText('Sí, se lo da un gimnasio mientras siga en él')
+  await expect(page.getByText('Allfit no lo guarda todavía')).toHaveCount(0)
+})
+
+test('a file the server sent without its blocks reads as unknown, never as none', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      support: support({
+        relationships: undefined,
+        permissions: undefined,
+        plan: undefined,
+        pro: undefined,
+      }),
+    }),
+  )
+
+  await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
+
+  // HU-BO-007 criterion 5: the file loads, and what it was not told is not a zero.
+  const blocks = page.locator('[data-support-person-blocks]')
+  await expect(blocks.getByText('Sin dato')).toHaveCount(4)
+  await expect(blocks).not.toContainText('Nunca ha estado en un gimnasio')
 })
 
 test('shows what she pays, telling the charge that failed from the one that did not', async ({

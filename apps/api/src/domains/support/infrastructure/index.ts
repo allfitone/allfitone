@@ -29,6 +29,7 @@ import type {
   SupportDiagnosisDatabase,
   SupportOperation,
   SupportMetadataDatabase,
+  SupportPersonMatch,
   SupportPersonMetadata,
   SupportPersonPayments,
   PlatformAccessDatabase,
@@ -224,7 +225,7 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
   return {
     search: (input) =>
       inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
-        const rows = await transaction<{ result: SupportPersonMetadata }[]>`
+        const rows = await transaction<{ result: SupportPersonMatch }[]>`
           select * from support.search_people(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
             ${input.caseReference}, ${input.lookupKind}, ${input.lookupValue}

@@ -50,7 +50,6 @@ import {
   backofficeApi,
   type SupportPeopleSearch,
 } from '@/lib/backoffice-api'
-import { formatInstant } from '@/lib/platform-access'
 import {
   SUPPORT_LOOKUP_KINDS,
   isValidCaseReference,
@@ -59,7 +58,6 @@ import {
   lookupLabel,
   lookupPlaceholder,
   supportMetadataMessage,
-  verificationLabel,
   type SupportLookupKind,
 } from '@/lib/support-metadata'
 
@@ -227,12 +225,11 @@ export function SupportPeopleSearch() {
               <dd>
                 <code id="support-found-email">{person.contact_email_masked ?? 'sin correo'}</code>
               </dd>
-              <dt>Verificación del correo</dt>
+              <dt>Teléfono</dt>
               <dd>
-                <span id="support-found-verified">
-                  {verificationLabel(person.email_verified_at)}
-                  {person.email_verified_at ? ` · ${formatInstant(person.email_verified_at)}` : ''}
-                </span>
+                <code id="support-found-phone">
+                  {person.contact_phone_masked ?? 'sin teléfono'}
+                </code>
               </dd>
             </dl>
             <Button

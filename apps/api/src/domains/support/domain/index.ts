@@ -143,6 +143,8 @@ export type PlatformDutyClosure = PlatformCommandContext & {
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
+/** `HU-BO-006` criterion 2: what a search may answer, and nothing more. */
+export type SupportPersonMatch = AllfitV1Schemas['SupportPersonMatch']
 
 export type SupportLookupKind = 'identifier' | 'email' | 'phone'
 
@@ -167,7 +169,7 @@ export interface SupportMetadataDatabase {
       lookupKind: SupportLookupKind
       lookupValue: string
     },
-  ): Promise<SupportPersonMetadata | undefined>
+  ): Promise<SupportPersonMatch | undefined>
   payments(
     input: SupportReader & {
       requestId: string
