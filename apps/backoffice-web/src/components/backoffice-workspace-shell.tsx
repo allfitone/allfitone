@@ -12,6 +12,10 @@
  * do. Reachability is decided by the API on every request, in its own
  * transaction: hiding a link is presentation, not authorization, and a duty that
  * expires mid-session must fail the next call rather than the next render.
+ *
+ * Entries are grouped by the area of the duty each screen exercises, and the
+ * header names that area above the title: a refusal tells the operator which
+ * duty to ask for, and the menu shows where that duty would take them.
  */
 
 import { BrandLogo, ProductWordmark } from '@allfitone/react/brand'
@@ -32,6 +36,7 @@ import {
 } from '@allfitone/react/components/sidebar'
 import {
   WorkspaceContent,
+  WorkspaceEyebrow,
   WorkspaceHeader,
   WorkspaceHeading,
   WorkspaceMain,
@@ -43,7 +48,8 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
-import { BACKOFFICE_ROUTES, currentBackofficeRoute } from '@/lib/backoffice-routes'
+import { BACKOFFICE_AREAS, currentBackofficeRoute, routesInArea } from '@/lib/backoffice-routes'
+import { actorModeLabel } from '@/lib/platform-access'
 
 /** Signing out belongs to the session gate, which tells every other tab before it asks the API. */
 export function BackofficeWorkspaceShell({
@@ -56,7 +62,7 @@ export function BackofficeWorkspaceShell({
   onSignOut: () => void
 }) {
   const pathname = usePathname()
-  const title = currentBackofficeRoute(pathname)?.title ?? 'Backoffice'
+  const current = currentBackofficeRoute(pathname)
 
   return (
     // The rail steals a fifth of a narrow viewport from the content it frames,
@@ -67,7 +73,8 @@ export function BackofficeWorkspaceShell({
         <WorkspaceHeader data-backoffice-header>
           <SidebarTrigger aria-label="Abrir o cerrar navegación" />
           <WorkspaceHeading>
-            <WorkspaceTitle>{title}</WorkspaceTitle>
+            {current ? <WorkspaceEyebrow>{actorModeLabel(current.area)}</WorkspaceEyebrow> : null}
+            <WorkspaceTitle>{current?.title ?? 'Backoffice'}</WorkspaceTitle>
           </WorkspaceHeading>
         </WorkspaceHeader>
         <WorkspaceContent data-backoffice-content>{children}</WorkspaceContent>
@@ -116,25 +123,27 @@ function BackofficeSidebar({
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          {!railed ? <SidebarGroupLabel>Operación</SidebarGroupLabel> : null}
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {BACKOFFICE_ROUTES.map((route) => (
-                <SidebarMenuItem key={route.href}>
-                  <SidebarMenuButton
-                    isActive={route === current}
-                    tooltip={route.title}
-                    render={<Link href={route.href} onClick={closeMobileNavigation} />}
-                  >
-                    <FoundationIcon name={route.icon} />
-                    <span>{route.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {BACKOFFICE_AREAS.map((area) => (
+          <SidebarGroup key={area} data-backoffice-area={area}>
+            {!railed ? <SidebarGroupLabel>{actorModeLabel(area)}</SidebarGroupLabel> : null}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {routesInArea(area).map((route) => (
+                  <SidebarMenuItem key={route.href}>
+                    <SidebarMenuButton
+                      isActive={route === current}
+                      tooltip={route.title}
+                      render={<Link href={route.href} onClick={closeMobileNavigation} />}
+                    >
+                      <FoundationIcon name={route.icon} />
+                      <span>{route.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         {!railed ? <SidebarGroupLabel>{operatorName}</SidebarGroupLabel> : null}

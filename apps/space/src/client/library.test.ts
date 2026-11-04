@@ -61,6 +61,7 @@ function program(overrides: Partial<MyProgram> = {}): MyProgram {
     routine_cover: null,
     sessions_done: 3,
     sessions_planned: 24,
+    managed_by: null,
     ...overrides,
   }
 }

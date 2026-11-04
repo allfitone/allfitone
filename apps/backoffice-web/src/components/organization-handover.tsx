@@ -20,6 +20,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -28,7 +30,6 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
-import { Spinner } from '@allfitone/react/components/spinner'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -51,6 +52,7 @@ import {
   stageTone,
 } from '@/lib/organization-handover'
 import { formatInstant } from '@/lib/platform-access'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 type Notice = { tone: 'success' | 'danger'; message: string }
@@ -59,6 +61,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   const [state, setState] = useState<LoadState>('loading')
   const [handover, setHandover] = useState<Handover | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -77,6 +80,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
           window.location.assign('/')
           return
         }
+        setRefused(isRefusal(caught))
         setFailure(failureMessage(caught))
         setState('failed')
       }
@@ -120,15 +124,17 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
     }
   }
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed' || !handover) {
     return (
       <div data-organization-handover>
-        <Alert live="assertive" variant="danger">
-          <AlertTitle>No se pudo leer la entrega</AlertTitle>
-          <AlertDescription>{failure ?? handoverMessage('upstream-unavailable')}</AlertDescription>
-        </Alert>
+        <ScreenFailure
+          refused={refused}
+          duties={['manage_organization_lifecycle']}
+          title="No se pudo leer la entrega"
+          message={failure ?? handoverMessage('upstream-unavailable')}
+        />
         <Link href="/organizations" data-handover-link>
           Volver al directorio
         </Link>

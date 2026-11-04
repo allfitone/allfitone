@@ -18,6 +18,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -35,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import { Textarea } from '@allfitone/react/components/textarea'
 import {
   Table,
@@ -77,6 +78,7 @@ import {
   type RuleDraft,
   type ScopeCode,
 } from '@/lib/scope-definitions'
+import { isRefusal } from '@/lib/screen-state'
 
 const PASTE_EXAMPLE =
   '[{"resource":"identity.body_progress_records","field":"value_numeric","data_classification_code":"body","max_action":"read"}]'
@@ -87,6 +89,7 @@ export function ScopeDefinitionPublication() {
   const [state, setState] = useState<LoadState>('loading')
   const [definitions, setDefinitions] = useState<ScopeDefinition[]>([])
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
   const [scope, setScope] = useState<ScopeCode>('body_progress')
@@ -106,6 +109,7 @@ export function ScopeDefinitionPublication() {
         window.location.assign('/')
         return
       }
+      setRefused(isRefusal(caught))
       setFailure(failureMessage(caught))
       setState('failed')
     }
@@ -176,16 +180,17 @@ export function ScopeDefinitionPublication() {
     }
   }
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed') {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudieron leer las definiciones</AlertTitle>
-        <AlertDescription>
-          {failure ?? scopeDefinitionMessage('upstream-unavailable')}
-        </AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={refused}
+        duties={['curate_global_catalog']}
+        title="No se pudieron leer las definiciones"
+        message={failure ?? scopeDefinitionMessage('upstream-unavailable')}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -212,9 +217,9 @@ export function ScopeDefinitionPublication() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} data-scope-form noValidate>
+          <form onSubmit={submit} data-backoffice-form data-scope-form noValidate>
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="scope-code">Permiso</FieldLabel>
                 <Select
                   value={scope}
@@ -340,18 +345,19 @@ export function ScopeDefinitionPublication() {
               ))}
 
               {error ? <FieldError>{error}</FieldError> : null}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busy}
-                onClick={() => setRules((current) => [...current, emptyRule()])}
-              >
-                Añadir otro recurso
-              </Button>
-              <Button type="submit" disabled={busy}>
-                Publicar versión
-              </Button>
+              <div data-form-actions>
+                <Button type="submit" disabled={busy}>
+                  Publicar versión
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setRules((current) => [...current, emptyRule()])}
+                >
+                  Añadir otro recurso
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>

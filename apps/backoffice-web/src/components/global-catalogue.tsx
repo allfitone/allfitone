@@ -21,6 +21,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -37,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -72,12 +73,14 @@ import {
   isValidCatalogueName,
   publishedDisciplines,
 } from '@/lib/global-catalogue'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
 export function GlobalCatalogue() {
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [catalogue, setCatalogue] = useState<BackofficeGlobalCatalogue | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
@@ -107,6 +110,7 @@ export function GlobalCatalogue() {
           window.location.assign('/')
           return
         }
+        setRefused(isRefusal(error))
         setFailure(readFailure(error))
         setState('failed')
       }
@@ -253,15 +257,16 @@ export function GlobalCatalogue() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {state === 'loading' ? <Spinner /> : null}
+          {state === 'loading' ? <ScreenLoading /> : null}
 
           {state === 'failed' ? (
-            <Alert live="polite" variant="warning">
-              <AlertTitle>No se pudo leer el catálogo</AlertTitle>
-              <AlertDescription>
-                {failure ?? globalCatalogueMessage('upstream-unavailable')}
-              </AlertDescription>
-            </Alert>
+            <ScreenFailure
+              refused={refused}
+              duties={['curate_global_catalog']}
+              title="No se pudo leer el catálogo"
+              message={failure ?? globalCatalogueMessage('upstream-unavailable')}
+              onRetry={() => setReload((value) => value + 1)}
+            />
           ) : null}
 
           {outcome ? (
@@ -292,7 +297,11 @@ export function GlobalCatalogue() {
             onConfirm={setConfirming}
             onArchive={archive}
             form={
-              <form onSubmit={publishDiscipline} data-catalogue-form="discipline">
+              <form
+                onSubmit={publishDiscipline}
+                data-backoffice-form
+                data-catalogue-form="discipline"
+              >
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="discipline-code">Código</FieldLabel>
@@ -321,9 +330,11 @@ export function GlobalCatalogue() {
                     ) : null}
                   </Field>
                 </FieldGroup>
-                <Button type="submit" disabled={busy !== null}>
-                  Publicar disciplina
-                </Button>
+                <div data-form-actions>
+                  <Button type="submit" disabled={busy !== null}>
+                    Publicar disciplina
+                  </Button>
+                </div>
               </form>
             }
           />
@@ -338,7 +349,11 @@ export function GlobalCatalogue() {
             onConfirm={setConfirming}
             onArchive={archive}
             form={
-              <form onSubmit={publishActivityType} data-catalogue-form="activity_type">
+              <form
+                onSubmit={publishActivityType}
+                data-backoffice-form
+                data-catalogue-form="activity_type"
+              >
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="activity-discipline">Disciplina</FieldLabel>
@@ -396,9 +411,11 @@ export function GlobalCatalogue() {
                     ) : null}
                   </Field>
                 </FieldGroup>
-                <Button type="submit" disabled={busy !== null}>
-                  Publicar tipo de actividad
-                </Button>
+                <div data-form-actions>
+                  <Button type="submit" disabled={busy !== null}>
+                    Publicar tipo de actividad
+                  </Button>
+                </div>
               </form>
             }
           />
@@ -413,7 +430,7 @@ export function GlobalCatalogue() {
             onConfirm={setConfirming}
             onArchive={archive}
             form={
-              <form onSubmit={publishMovement} data-catalogue-form="movement">
+              <form onSubmit={publishMovement} data-backoffice-form data-catalogue-form="movement">
                 <FieldGroup>
                   <Field>
                     <FieldLabel htmlFor="movement-discipline">Disciplina</FieldLabel>
@@ -457,9 +474,11 @@ export function GlobalCatalogue() {
                     ) : null}
                   </Field>
                 </FieldGroup>
-                <Button type="submit" disabled={busy !== null}>
-                  Publicar movimiento
-                </Button>
+                <div data-form-actions>
+                  <Button type="submit" disabled={busy !== null}>
+                    Publicar movimiento
+                  </Button>
+                </div>
               </form>
             }
           />
@@ -541,7 +560,14 @@ function CatalogueSection({
         ) : null}
 
         {entries.length === 0 ? (
-          <span data-catalogue-empty>Todavía no hay nada publicado aquí.</span>
+          <ScreenEmpty
+            icon="training"
+            title="Todavía no hay nada publicado aquí."
+            data-catalogue-empty
+          >
+            Lo primero que publiques aparece en esta tabla con su código, su estado y cuánto lo usa
+            ya la plataforma.
+          </ScreenEmpty>
         ) : (
           <Table scrollAreaLabel={title}>
             <TableHeader>

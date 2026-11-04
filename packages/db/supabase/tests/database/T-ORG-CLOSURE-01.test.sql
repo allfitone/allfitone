@@ -152,6 +152,40 @@ values
    '019d1100-0000-7000-8000-000000000403', '019d1100-0000-7000-8000-000000000304',
    '019d1100-0000-7000-8000-000000000102', null);
 
+-- The client follows a program from each gym: only the closing gym's is detached.
+insert into planning.session_templates (id, content_scope, owner_organization_id, author_person_id, discipline_code, status)
+values
+  ('019d1100-0000-7000-8000-000000000801', 'organization', '019d1100-0000-7000-8000-000000000101', '019d1100-0000-7000-8000-000000000003', 'test_strength', 'published'),
+  ('019d1100-0000-7000-8000-000000000802', 'organization', '019d1100-0000-7000-8000-000000000102', '019d1100-0000-7000-8000-000000000003', 'test_strength', 'published');
+insert into planning.programs (id, content_scope, owner_organization_id, author_person_id, status)
+values
+  ('019d1100-0000-7000-8000-000000000803', 'organization', '019d1100-0000-7000-8000-000000000101', '019d1100-0000-7000-8000-000000000003', 'published'),
+  ('019d1100-0000-7000-8000-000000000804', 'organization', '019d1100-0000-7000-8000-000000000102', '019d1100-0000-7000-8000-000000000003', 'published');
+select set_config('app.planning_publication', 'true', true);
+insert into planning.session_template_versions (id, template_id, version_number, discipline_code, activity_type_id, title, content_hash)
+values
+  ('019d1100-0000-7000-8000-000000000805', '019d1100-0000-7000-8000-000000000801', 1, 'test_strength', '019c0000-0000-7000-8000-000000000011', 'Closing', decode(repeat('c3', 32), 'hex')),
+  ('019d1100-0000-7000-8000-000000000806', '019d1100-0000-7000-8000-000000000802', 1, 'test_strength', '019c0000-0000-7000-8000-000000000011', 'Other', decode(repeat('c4', 32), 'hex'));
+insert into planning.program_versions (id, program_id, version_number, title, content_hash)
+values
+  ('019d1100-0000-7000-8000-000000000807', '019d1100-0000-7000-8000-000000000803', 1, 'Closing block', decode(repeat('c5', 32), 'hex')),
+  ('019d1100-0000-7000-8000-000000000808', '019d1100-0000-7000-8000-000000000804', 1, 'Other block', decode(repeat('c6', 32), 'hex'));
+select set_config('app.planning_publication', '', true);
+insert into planning.program_assignments (id, person_id, program_version_id, origin_relationship_id, lifecycle, starts_on, timezone, display_order)
+values
+  ('019d1100-0000-7000-8000-000000000811', '019d1100-0000-7000-8000-000000000005', '019d1100-0000-7000-8000-000000000807', '019d1100-0000-7000-8000-000000000301', 'active', current_date, 'UTC', 0),
+  ('019d1100-0000-7000-8000-000000000812', '019d1100-0000-7000-8000-000000000005', '019d1100-0000-7000-8000-000000000808', '019d1100-0000-7000-8000-000000000304', 'active', current_date, 'UTC', 1);
+insert into planning.assignment_management_periods (assignment_id, person_id, relationship_id, started_at)
+values
+  ('019d1100-0000-7000-8000-000000000811', '019d1100-0000-7000-8000-000000000005', '019d1100-0000-7000-8000-000000000301', clock_timestamp() - interval '1 day'),
+  ('019d1100-0000-7000-8000-000000000812', '019d1100-0000-7000-8000-000000000005', '019d1100-0000-7000-8000-000000000304', clock_timestamp() - interval '1 day');
+insert into planning.planned_sessions (id, assignment_id, person_id, template_version_id, scheduled_at, timezone, status, week_starts_on, program_day)
+values
+  ('019d1100-0000-7000-8000-000000000813', '019d1100-0000-7000-8000-000000000811', '019d1100-0000-7000-8000-000000000005', '019d1100-0000-7000-8000-000000000805', clock_timestamp() + interval '2 days', 'UTC', 'scheduled',
+   date_trunc('week', clock_timestamp() + interval '2 days')::date, 1),
+  ('019d1100-0000-7000-8000-000000000814', '019d1100-0000-7000-8000-000000000812', '019d1100-0000-7000-8000-000000000005', '019d1100-0000-7000-8000-000000000806', clock_timestamp() + interval '2 days', 'UTC', 'scheduled',
+   date_trunc('week', clock_timestamp() + interval '2 days')::date, 1);
+
 create temporary table untouched as
   select (select to_jsonb(p) from identity.people p
           where id = '019d1100-0000-7000-8000-000000000005') as person,
@@ -398,12 +432,20 @@ select throws_ok($$select * from access_control.contract_scope_keys$$, '42501', 
   'T-ORG-CLOSURE-RLS-07 the runtime cannot read the scope key');
 reset role;
 
--- ———————————————————————————————————————— what closure cannot reach yet
-select ok(exists (select 1 from pg_constraint
-    where conname = 'ck_program_assignments_no_origin'
-      and conrelid = 'planning.program_assignments'::regclass),
-  'T-ORG-CLOSURE-INT-19 no program assignment originates from an organization yet: when this '
-  || 'fails, add planning.detach_for_organization_closure to OP-ORG-012');
+-- ———————————————————————————————————————— what the organization managed, and what is still to come
+select is((select array_agg(lifecycle::text order by id) from planning.program_assignments
+    where id in ('019d1100-0000-7000-8000-000000000811', '019d1100-0000-7000-8000-000000000812')),
+  array['detached_pending_choice', 'active'],
+  'T-ORG-CLOSURE-INT-19 the programs the closing gym managed are detached; another gym''s are not');
+select is((select count(*)::int from planning.assignment_management_periods as period
+    join relationships.service_relationships as relationship on relationship.id = period.relationship_id
+    where period.assignment_id = '019d1100-0000-7000-8000-000000000811' and period.end_reason = 'relationship_ended'
+      and period.ended_at = relationship.ended_at),
+  1, 'T-ORG-CLOSURE-INT-21 at the instant the closure ended the relationship');
+select is((select array_agg(status order by assignment_id) from planning.planned_sessions
+    where id in ('019d1100-0000-7000-8000-000000000813', '019d1100-0000-7000-8000-000000000814')),
+  array['paused', 'scheduled'],
+  'T-ORG-CLOSURE-INT-22 its sessions ahead pause and the other gym''s stay planned');
 select set_eq($$select table_name::text from information_schema.tables
     where table_schema = 'execution' and table_type = 'BASE TABLE'$$,
   array['endurance_laps', 'executed_sessions', 'execution_revisions', 'interval_results',

@@ -20,6 +20,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -44,7 +46,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
@@ -89,12 +90,14 @@ import {
   type PlatformPlanVersion,
   type PlatformPlanVersionProposal,
 } from '@/lib/platform-plans'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
 export function PlatformPlans() {
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [catalogue, setCatalogue] = useState<PlatformPlanCatalogue | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
@@ -124,6 +127,7 @@ export function PlatformPlans() {
             ? plansMessage('network-unavailable')
             : plansMessage(error instanceof BackofficeApiError ? error.code : 'unknown'),
         )
+        setRefused(isRefusal(error))
         setState('failed')
       }
     })()
@@ -212,13 +216,17 @@ export function PlatformPlans() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {state === 'loading' ? <Spinner /> : null}
+          {state === 'loading' ? <ScreenLoading /> : null}
 
           {state === 'failed' ? (
-            <Alert live="polite" variant="warning" data-plans-failure>
-              <AlertTitle>No se pudieron leer los planes</AlertTitle>
-              <AlertDescription>{failure ?? plansMessage('upstream-unavailable')}</AlertDescription>
-            </Alert>
+            <ScreenFailure
+              refused={refused}
+              duties={['manage_platform_commercial']}
+              title="No se pudieron leer los planes"
+              message={failure ?? plansMessage('upstream-unavailable')}
+              onRetry={() => setReload((value) => value + 1)}
+              data-plans-failure
+            />
           ) : null}
 
           {outcome ? (

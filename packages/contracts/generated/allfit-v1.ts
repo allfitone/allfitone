@@ -2801,9 +2801,20 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /**
+     * Read the programs this relationship gave the person, with their calendar
+     * @description HU-STUDIO-047. Only what this relationship originated: never what the person took on her own, nor what another organization gave her. Each read is logged with the grant and scope version it relied on before anything is returned, and the person can see it.
+     *
+     *     The caller must hold or cover the relationship and the person must share `relationship_training` at least at `read`; without the grant the answer is 403 `scope-required` naming it. Once the relationship ends there is neither, so the detached assignment and its sessions stop being visible. Ordered newest first.
+     */
+    get: operations['listRelationshipAssignments']
     put?: never
-    /** Assign an immutable program version through an active relationship */
+    /**
+     * Assign an immutable program version through an active relationship
+     * @description HU-STUDIO-046. A coach holding the relationship, or a cover the person accepted, gives her a published version of an organization program. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required` naming the scope and level. Staff and administrators who do not coach answer 403 `forbidden`.
+     *
+     *     The assignment, its management period and its calendar are created in one transaction (ADR-032): a finite version is planted whole, an open-ended one only its first week. The calendar uses the time zone the person's device last sent; `timezone` is used only for a person who never opened Space. A start before today in that zone is refused. Overlapping a program she already follows is reported in `schedule_overlaps`, never blocked, and never says with what. A retired version, one of another organization or the person's own answer 422 `program-version`.
+     */
     post: operations['assignProgramVersion']
     delete?: never
     options?: never
@@ -6539,6 +6550,8 @@ export interface components {
       routine_cover: components['schemas']['RoutineCover'] | null
       sessions_done: number
       sessions_planned: number
+      /** @description The organization that gave it and manages it, by its display name. Null for a programme she took herself. A managed programme is never editable here. */
+      managed_by: string | null
     }
     SpaceExecution: {
       executed_session_id: components['schemas']['UuidV7']
@@ -7944,9 +7957,13 @@ export interface components {
      */
     ProgramAssignmentCreate: {
       program_version_id: components['schemas']['Uuid']
-      /** Format: date */
+      /**
+       * Format: date
+       * @description Today or later in the person's own day.
+       */
       starts_on: string
-      timezone: components['schemas']['IanaTimeZone']
+      /** @description Only a fallback. The calendar uses the zone the person's device last sent, and this one only when she never opened Space. */
+      timezone?: components['schemas']['IanaTimeZone']
     }
     /**
      * @example {
@@ -7954,11 +7971,14 @@ export interface components {
      *       "status": "active",
      *       "origin_relationship_id": "018f6f8d-2b00-7a00-8000-000000000301",
      *       "program_version_id": "018f6f8d-2b00-7a00-8000-000000000201",
+     *       "starts_on": "2026-07-27",
+     *       "timezone": "America/Bogota",
      *       "management": {
      *         "relationship_id": "018f6f8d-2b00-7a00-8000-000000000301",
      *         "since": "2026-07-27T09:14:00-05:00"
      *       },
-     *       "planned_sessions_created": 24
+     *       "planned_sessions_created": 24,
+     *       "schedule_overlaps": false
      *     }
      */
     ProgramAssignment: {
@@ -7967,8 +7987,54 @@ export interface components {
       status: 'active'
       origin_relationship_id: components['schemas']['Uuid']
       program_version_id: components['schemas']['Uuid']
+      /** Format: date */
+      starts_on: string
+      /** @description The zone the calendar was planted in, which may not be the one sent. */
+      timezone: components['schemas']['IanaTimeZone']
       management: components['schemas']['AssignmentManagement']
       planned_sessions_created: number
+      /** @description Whether a session still waiting in another program she follows falls inside this one's span. A warning, never a refusal, and never with what. */
+      schedule_overlaps: boolean
+    }
+    RelationshipAssignmentPage: {
+      data: components['schemas']['RelationshipAssignment'][]
+      page: components['schemas']['Page']
+    }
+    RelationshipAssignment: {
+      id: components['schemas']['Uuid']
+      /** @enum {string} */
+      status: 'active' | 'detached_pending_choice' | 'ended'
+      program_version: {
+        id: components['schemas']['Uuid']
+        program_id: components['schemas']['Uuid']
+        version_number: number
+        title: string
+        repeats_forever: boolean
+      }
+      /** Format: date */
+      starts_on: string
+      timezone: components['schemas']['IanaTimeZone']
+      /** Format: date-time */
+      assigned_at: string
+      /** @description Null once the organization no longer manages it. */
+      management: components['schemas']['AssignmentManagement'] | null
+      /** @description Every session planted so far, in calendar order. An open-ended version grows one week at a time, as the person reaches it. */
+      sessions: components['schemas']['RelationshipAssignmentSession'][]
+    }
+    RelationshipAssignmentSession: {
+      id: components['schemas']['Uuid']
+      template_version_id: components['schemas']['Uuid']
+      title: string
+      /** Format: date */
+      week_starts_on: string
+      program_day: number
+      /**
+       * Format: date
+       * @description The day in the person's own time zone.
+       */
+      scheduled_on: string
+      /** @enum {string} */
+      status: 'scheduled' | 'paused' | 'cancelled' | 'completed'
     }
     AssignmentManagement: {
       relationship_id: components['schemas']['Uuid']
@@ -15698,6 +15764,39 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listRelationshipAssignments: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Assignments this relationship originated */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['RelationshipAssignmentPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   assignProgramVersion: {
     parameters: {
       query?: never
@@ -15736,7 +15835,9 @@ export interface operations {
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listSpacePrograms: {

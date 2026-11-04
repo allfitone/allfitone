@@ -17,8 +17,9 @@
  * plain words and the rest of the screen carries on without it.
  */
 
-import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
+import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -26,7 +27,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Spinner } from '@allfitone/react/components/spinner'
 import { useEffect, useState } from 'react'
 
 import {
@@ -77,23 +77,28 @@ export function BusinessPanel() {
     return () => controller.abort()
   }, [])
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'refused') {
     return (
-      <Alert live="polite" variant="info" data-business-refused>
-        <AlertTitle>Cómo va el negocio</AlertTitle>
-        <AlertDescription>{failure ?? businessMessage('forbidden')}</AlertDescription>
-      </Alert>
+      <ScreenRefusal
+        duties={['view_platform_metrics']}
+        title="Cómo va el negocio"
+        data-business-refused
+      >
+        {failure ?? businessMessage('forbidden')}
+      </ScreenRefusal>
     )
   }
 
   if (state === 'failed' || !panel) {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo leer cómo va el negocio</AlertTitle>
-        <AlertDescription>{failure ?? businessMessage('upstream-unavailable')}</AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={false}
+        duties={[]}
+        title="No se pudo leer cómo va el negocio"
+        message={failure ?? businessMessage('upstream-unavailable')}
+      />
     )
   }
 

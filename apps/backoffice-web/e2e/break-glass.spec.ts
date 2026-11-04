@@ -846,7 +846,7 @@ test('a withdrawn duty is explained as expiry by design, not as an error', async
 
   await page.goto(PATH)
 
-  await expect(page.getByText('No se pudo leer la bandeja')).toBeVisible()
+  await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
   await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
 })
 

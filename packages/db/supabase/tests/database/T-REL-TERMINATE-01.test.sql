@@ -16,15 +16,13 @@
 --
 -- La tercera es quién: el catálogo dice que un coach **no** puede ejecutarla.
 --
--- Y la última no mira esta operación sino el futuro. El catálogo pide además
--- cerrar periodos de gestión, pausar sesiones futuras y cancelar propuestas.
--- Hoy nada de eso puede existir, y las dos restricciones que lo impiden se
--- comprueban aquí: el día que alguien las relaje, esta prueba le dirá que la
--- terminación tiene que crecer con ellas.
+-- The last three look at what the relationship managed: the program the gym
+-- gave the person is detached at the same `T` — its management period closes,
+-- what she trained stays trained and what was ahead pauses (ADR-019).
 
 begin;
 
-select plan(20);
+select plan(21);
 
 insert into identity.people (id, given_name, family_name, status, contact_email)
 values
@@ -180,6 +178,28 @@ insert into privacy.data_grants (
   '019c9300-0000-7000-8000-000000000902', 'read', 'Seguir el progreso',
   'revoked', clock_timestamp() - interval '1 day'
 );
+
+-- A program the gym gave Ana through this relationship: one session done, one ahead.
+insert into planning.session_templates (id, content_scope, owner_organization_id, author_person_id, discipline_code, status)
+values ('019c9300-0000-7000-8000-000000000b01', 'organization', '019c9300-0000-7000-8000-000000000101', '019c9300-0000-7000-8000-000000000012', 'test_strength', 'published');
+insert into planning.programs (id, content_scope, owner_organization_id, author_person_id, status)
+values ('019c9300-0000-7000-8000-000000000b02', 'organization', '019c9300-0000-7000-8000-000000000101', '019c9300-0000-7000-8000-000000000012', 'published');
+select set_config('app.planning_publication', 'true', true);
+insert into planning.session_template_versions (id, template_id, version_number, discipline_code, activity_type_id, title, content_hash)
+values ('019c9300-0000-7000-8000-000000000b03', '019c9300-0000-7000-8000-000000000b01', 1, 'test_strength', '019c0000-0000-7000-8000-000000000011', 'Fuerza', decode(repeat('c1', 32), 'hex'));
+insert into planning.program_versions (id, program_id, version_number, title, content_hash)
+values ('019c9300-0000-7000-8000-000000000b04', '019c9300-0000-7000-8000-000000000b02', 1, 'Bloque', decode(repeat('c2', 32), 'hex'));
+select set_config('app.planning_publication', '', true);
+insert into planning.program_assignments (id, person_id, program_version_id, origin_relationship_id, lifecycle, starts_on, timezone, display_order)
+values ('019c9300-0000-7000-8000-000000000b05', '019c9300-0000-7000-8000-000000000001', '019c9300-0000-7000-8000-000000000b04', '019c9300-0000-7000-8000-000000000701', 'active', current_date - 7, 'UTC', 0);
+insert into planning.assignment_management_periods (assignment_id, person_id, relationship_id, started_at)
+values ('019c9300-0000-7000-8000-000000000b05', '019c9300-0000-7000-8000-000000000001', '019c9300-0000-7000-8000-000000000701', clock_timestamp() - interval '7 days');
+insert into planning.planned_sessions (id, assignment_id, person_id, template_version_id, scheduled_at, timezone, status, week_starts_on, program_day)
+values
+  ('019c9300-0000-7000-8000-000000000b06', '019c9300-0000-7000-8000-000000000b05', '019c9300-0000-7000-8000-000000000001', '019c9300-0000-7000-8000-000000000b03', clock_timestamp() - interval '3 days', 'UTC', 'completed',
+   date_trunc('week', clock_timestamp() - interval '3 days')::date, 1),
+  ('019c9300-0000-7000-8000-000000000b07', '019c9300-0000-7000-8000-000000000b05', '019c9300-0000-7000-8000-000000000001', '019c9300-0000-7000-8000-000000000b03', clock_timestamp() + interval '3 days', 'UTC', 'scheduled',
+   date_trunc('week', clock_timestamp() + interval '3 days')::date, 1);
 
 set local role allfit_owner;
 
@@ -391,38 +411,30 @@ select is(
   'terminar lo ya terminado converge en vez de fallar'
 );
 
--- ———————————————————————————————————— Lo que todavía no existe
+-- ———————————————————————————————————— What the gym managed is detached
 
-/*
- * Estas dos no miran esta operación: miran el futuro. El catálogo pide además
- * cerrar el periodo de gestión de cada asignación administrada y pausar las
- * sesiones futuras. Hoy ninguna asignación puede venir de una relación, así que
- * no hay nada que cerrar — y el día que alguien quite estas restricciones, esta
- * prueba le dirá que `terminate_relationship` tiene que crecer con ellas o
- * dejará acceso vivo después de T.
- */
-select ok(
-  exists (
-    select 1 from pg_constraint
-    where conrelid = 'planning.program_assignments'::regclass
-      and pg_get_constraintdef(oid) ilike '%origin_relationship_id IS NULL%'
-  ),
-  'ninguna asignación de programa puede venir de una relación todavía'
+reset role;
+
+select is(
+  (select lifecycle::text from planning.program_assignments where id = '019c9300-0000-7000-8000-000000000b05'),
+  'detached_pending_choice',
+  'the program the gym managed waits for the person to choose, and is not deleted'
 );
 
-/*
- * Por definición y no por nombre: la restricción que comprobaba antes se
- * renombró el 20 de septiembre, y una prueba que vigila un nombre no vigila
- * nada. Lo que importa es que `detached_pending_choice` —el estado en el que
- * esta operación tendría que dejarlas— siga sin caber.
- */
-select ok(
-  not exists (
-    select 1 from pg_constraint
-    where conrelid = 'planning.program_assignments'::regclass
-      and pg_get_constraintdef(oid) ilike '%detached_pending_choice%'
-  ),
-  'y ninguna puede quedar desacoplada: si esto cambia, terminar tiene que cerrarlas'
+select is(
+  (select row(period.end_reason, period.ended_at = relationship.ended_at)::text
+     from planning.assignment_management_periods as period
+     join relationships.service_relationships as relationship on relationship.id = period.relationship_id
+    where period.assignment_id = '019c9300-0000-7000-8000-000000000b05'),
+  row('relationship_ended', true)::text,
+  'its management period closes at the same instant T'
+);
+
+select is(
+  (select array_agg(status order by scheduled_at) from planning.planned_sessions
+    where assignment_id = '019c9300-0000-7000-8000-000000000b05'),
+  array['completed', 'paused'],
+  'what she trained stays trained and what was ahead pauses'
 );
 
 select * from finish();

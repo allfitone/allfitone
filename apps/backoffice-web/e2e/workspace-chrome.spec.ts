@@ -237,3 +237,89 @@ test('lights one navigation entry, the one the screen is', async ({ context, pag
   await expect(active).toHaveCount(1)
   await expect(active).toContainText('Reglas de resultados')
 })
+
+test('groups the navigation by area and names the area over the title', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
+  await page.goto('/erasure-requests')
+
+  const groups = page.locator('[data-backoffice-sidebar] [data-backoffice-area]')
+  await expect(groups).toHaveCount(3)
+  await expect(groups.nth(0)).toContainText('Soporte y operación')
+  await expect(groups.nth(1)).toContainText('Curaduría y verificación')
+  await expect(groups.nth(2)).toContainText('Seguridad y privacidad')
+  await expect(groups.nth(2).locator('a[data-active]:not([data-active="false"])')).toContainText(
+    'Solicitudes de eliminación',
+  )
+
+  const header = page.locator('header')
+  await expect(header).toContainText('Seguridad y privacidad')
+  await expect(header.getByRole('heading', { level: 1 })).toHaveText('Solicitudes de eliminación')
+
+  // Thirteen entries and three labels have to fit above the operator's name.
+  const sidebar = page.locator('[data-backoffice-sidebar]')
+  const overflow = await sidebar.evaluate((element) => {
+    const content = element.querySelector('[data-slot="sidebar-content"]')
+    return content ? content.scrollHeight - content.clientHeight : -1
+  })
+  expect(overflow).toBe(0)
+})
+
+test('a refused screen names the duty that opens it and where to ask', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      verification: { refusal: { status: 403, code: 'forbidden' }, requests: [], renewals: [] },
+    }),
+  )
+  await page.goto('/verifications')
+
+  const refusal = page.locator('[data-screen-refusal]')
+  await expect(refusal).toBeVisible()
+  await expect(refusal).toContainText('Esta pantalla pide un deber vigente')
+  await expect(refusal.locator('[data-screen-duties]')).toContainText(
+    'Verificar credenciales profesionales',
+  )
+  // The library renders a link styled as a button with the button role.
+  await expect(
+    refusal.getByRole('button', { name: 'Pedirlo en Equipo de Allfit' }),
+  ).toHaveAttribute('href', '/team')
+  await expect(page.locator('[data-slot="alert"]')).toHaveCount(0)
+})
+
+test('the home screen says who is signed in and until when', async ({ context, page }) => {
+  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
+  await page.goto('/panel')
+
+  const panel = page.locator('[data-operator-panel]')
+  await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Ada Lovelace')
+  await expect(panel).toContainText('AAL2')
+  await expect(panel).toContainText('Caduca si no la usas')
+  await expect(panel).toContainText('Termina a más tardar')
+  await expect(panel.getByRole('link', { name: 'Equipo de Allfit' })).toHaveAttribute(
+    'href',
+    '/team',
+  )
+})
+
+test('a form keeps a readable measure and its button its own width', async ({ context, page }) => {
+  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
+  await page.goto('/people')
+
+  const form = page.locator('form[data-backoffice-form]')
+  const formBox = await form.boundingBox()
+  const buttonBox = await form.getByRole('button', { name: 'Buscar' }).boundingBox()
+  expect(formBox?.width).toBeLessThanOrEqual(36 * 16)
+  expect(buttonBox?.width).toBeLessThan((formBox?.width ?? 0) / 2)
+  const label = form.getByText('Referencia del caso')
+  const input = form.getByLabel('Referencia del caso')
+  const [labelBox, inputBox] = [await label.boundingBox(), await input.boundingBox()]
+  // Stacked, not side by side: the control starts below its label.
+  expect(inputBox?.y).toBeGreaterThan((labelBox?.y ?? 0) + (labelBox?.height ?? 0) - 1)
+})

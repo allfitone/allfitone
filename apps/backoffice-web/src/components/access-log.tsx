@@ -28,6 +28,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -37,7 +39,6 @@ import {
 } from '@allfitone/react/components/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
-import { Spinner } from '@allfitone/react/components/spinner'
 import { useState, type FormEvent } from 'react'
 
 import {
@@ -62,6 +63,7 @@ import {
   toQuery,
   type AccessLogFilters,
 } from '@/lib/access-log'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'failed'
 
@@ -69,6 +71,7 @@ export function AccessLog() {
   const [state, setState] = useState<LoadState>('idle')
   const [page, setPage] = useState<AccessEventPage | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [filters, setFilters] = useState<AccessLogFilters>(EMPTY_FILTERS)
   const [error, setError] = useState<string | null>(null)
 
@@ -89,6 +92,7 @@ export function AccessLog() {
         window.location.assign('/')
         return
       }
+      setRefused(isRefusal(caught))
       setFailure(failureMessage(caught))
       setState('failed')
     }
@@ -112,9 +116,9 @@ export function AccessLog() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} data-access-log-filters noValidate>
+          <form onSubmit={submit} data-backoffice-form data-access-log-filters noValidate>
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="al-actor">Integrante del equipo</FieldLabel>
                 <Input
                   id="al-actor"
@@ -125,7 +129,7 @@ export function AccessLog() {
                   disabled={state === 'loading'}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="al-subject">Persona afectada</FieldLabel>
                 <Input
                   id="al-subject"
@@ -136,7 +140,7 @@ export function AccessLog() {
                   disabled={state === 'loading'}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="al-from">Desde</FieldLabel>
                 <Input
                   id="al-from"
@@ -146,7 +150,7 @@ export function AccessLog() {
                   disabled={state === 'loading'}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="al-to">Hasta</FieldLabel>
                 <Input
                   id="al-to"
@@ -157,21 +161,25 @@ export function AccessLog() {
                 />
               </Field>
               {error ? <FieldError>{error}</FieldError> : null}
-              <Button type="submit" disabled={state === 'loading'}>
-                Consultar
-              </Button>
+              <div data-form-actions>
+                <Button type="submit" disabled={state === 'loading'}>
+                  Consultar
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>
       </Card>
 
-      {state === 'loading' ? <Spinner /> : null}
+      {state === 'loading' ? <ScreenLoading label="Consultando el registro" /> : null}
 
       {state === 'failed' ? (
-        <Alert live="assertive" variant="danger">
-          <AlertTitle>No se pudo consultar el registro</AlertTitle>
-          <AlertDescription>{failure ?? accessLogMessage('upstream-unavailable')}</AlertDescription>
-        </Alert>
+        <ScreenFailure
+          refused={refused}
+          duties={['audit_platform_access']}
+          title="No se pudo consultar el registro"
+          message={failure ?? accessLogMessage('upstream-unavailable')}
+        />
       ) : null}
 
       {state === 'ready' && page ? (

@@ -15,6 +15,15 @@ const PERSON_ID = '019f2000-0000-7000-8000-000000000001'
 const ORGANIZATION_ID = '019f2000-0000-7000-8000-000000000101'
 const MEMBERSHIP_ID = '019f2000-0000-7000-8000-000000000201'
 const ACTIVITY_TYPE_ID = '019c0000-0000-7000-8000-000000000011'
+// The client the organization gives a program to, and everything her consent needs.
+const CLIENT_ID = '019f2000-0000-7000-8000-000000000002'
+const RELATIONSHIP_ID = '019f2000-0000-7000-8000-000000000301'
+const SCOPE_ID = '019f2000-0000-7000-8000-000000000401'
+const INVITATION_ID = '019f2000-0000-7000-8000-000000000501'
+const INTENT_ID = '019f2000-0000-7000-8000-000000000502'
+const OPTION_ID = '019f2000-0000-7000-8000-000000000503'
+const CONSENT_ID = '019f2000-0000-7000-8000-000000000504'
+const GRANT_ID = '019f2000-0000-7000-8000-000000000505'
 
 const connectionOptions = {
   host: process.env.SUPABASE_DB_HOST ?? '127.0.0.1',
@@ -83,6 +92,31 @@ async function cleanup(): Promise<void> {
   // so only those steps run as `replica`; the rest keeps foreign-key cascades working.
   await admin.begin(async (transaction) => {
     await transaction`set local session_replication_role = replica`
+    // A managed assignment and the consent chain behind it are append-only too.
+    await transaction`
+      delete from system.outbox_events where aggregate_id in (
+        select id from planning.program_assignments where person_id = ${CLIENT_ID}::uuid
+      )
+    `
+    await transaction`delete from planning.planned_sessions where person_id = ${CLIENT_ID}::uuid`
+    await transaction`
+      delete from planning.assignment_management_periods where person_id = ${CLIENT_ID}::uuid
+    `
+    await transaction`delete from planning.program_assignments where person_id = ${CLIENT_ID}::uuid`
+    await transaction`delete from privacy.access_events where subject_person_id = ${CLIENT_ID}::uuid`
+    await transaction`delete from privacy.data_grants where relationship_id = ${RELATIONSHIP_ID}::uuid`
+    await transaction`delete from privacy.consent_events where relationship_id = ${RELATIONSHIP_ID}::uuid`
+    await transaction`delete from privacy.invitation_scope_options where id = ${OPTION_ID}::uuid`
+    await transaction`delete from identity.invitation_intents where id = ${INTENT_ID}::uuid`
+    await transaction`delete from identity.invitations where id = ${INVITATION_ID}::uuid`
+    await transaction`delete from privacy.scope_definitions where id = ${SCOPE_ID}::uuid`
+    await transaction`
+      delete from relationships.relationship_professional_assignments
+      where relationship_id = ${RELATIONSHIP_ID}::uuid
+    `
+    await transaction`
+      delete from relationships.service_relationships where id = ${RELATIONSHIP_ID}::uuid
+    `
     await transaction`
       delete from planning.program_versions where program_id in (
         select id from planning.programs where owner_organization_id = ${ORGANIZATION_ID}::uuid
@@ -129,7 +163,9 @@ async function cleanup(): Promise<void> {
     await transaction`delete from organizations.membership_roles where membership_id = ${MEMBERSHIP_ID}::uuid`
     await transaction`delete from organizations.organization_memberships where id = ${MEMBERSHIP_ID}::uuid`
     await transaction`delete from organizations.organizations where id = ${ORGANIZATION_ID}::uuid`
-    await transaction`delete from identity.people where id = ${PERSON_ID}::uuid`
+    await transaction`
+      delete from identity.people where id in (${PERSON_ID}::uuid, ${CLIENT_ID}::uuid)
+    `
   })
 }
 
@@ -147,6 +183,8 @@ interface Projections {
   deprecatedProgramVersion: unknown
   sessionTemplatePage: unknown[]
   programPage: unknown[]
+  programAssignment: unknown
+  relationshipAssignmentPage: unknown[]
 }
 
 const projections = {} as Projections
@@ -174,7 +212,66 @@ beforeAll(async () => {
     `
     await transaction`
       insert into organizations.membership_roles (membership_id, role_code)
-      values (${MEMBERSHIP_ID}::uuid, 'owner')
+      values (${MEMBERSHIP_ID}::uuid, 'owner'), (${MEMBERSHIP_ID}::uuid, 'coach')
+    `
+    await transaction`
+      insert into identity.people (id, given_name, family_name)
+      values (${CLIENT_ID}::uuid, 'Clara', 'Client')
+    `
+    await transaction`
+      insert into relationships.service_relationships
+        (id, person_id, organization_id, status, started_at)
+      values (${RELATIONSHIP_ID}::uuid, ${CLIENT_ID}::uuid, ${ORGANIZATION_ID}::uuid, 'active',
+        clock_timestamp() - interval '30 days')
+    `
+    await transaction`
+      insert into relationships.relationship_professional_assignments
+        (relationship_id, person_id, organization_id, membership_id, kind, status, valid_from)
+      values (${RELATIONSHIP_ID}::uuid, ${CLIENT_ID}::uuid, ${ORGANIZATION_ID}::uuid,
+        ${MEMBERSHIP_ID}::uuid, 'holder', 'active', clock_timestamp() - interval '29 days')
+    `
+    // A version number no other fixture uses: scope versions are unique per code.
+    await transaction`
+      insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
+      values (${SCOPE_ID}::uuid, 'relationship_training', 9120, 'published', clock_timestamp())
+    `
+    await transaction`
+      insert into identity.invitations (
+        id, organization_id, issued_by_membership_id, channel, contact, token_hash,
+        token_key_version, proposal_hash, responsible_party, status, expires_at)
+      values (${INVITATION_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${MEMBERSHIP_ID}::uuid, 'email',
+        'projection-client@example.test', extensions.digest('projection-token', 'sha256'), 1,
+        extensions.digest('projection-proposal', 'sha256'),
+        '{"party_kind":"legal_entity","party_name":"Projection studio","purpose":"studio_operations"}',
+        'completed', clock_timestamp() + interval '7 days')
+    `
+    await transaction`
+      insert into identity.invitation_intents (id, invitation_id, kind, status)
+      values (${INTENT_ID}::uuid, ${INVITATION_ID}::uuid, 'service_relationship', 'pending')
+    `
+    await transaction`
+      insert into privacy.invitation_scope_options (
+        id, invitation_intent_id, scope_definition_id, scope_code, offered_access_level,
+        purpose, presented_snapshot, decision, decided_at)
+      values (${OPTION_ID}::uuid, ${INTENT_ID}::uuid, ${SCOPE_ID}::uuid, 'relationship_training',
+        'contribute', 'Plan the training', '{"title":"Training"}'::jsonb, 'accepted',
+        clock_timestamp())
+    `
+    await transaction`
+      insert into privacy.consent_events (
+        id, person_id, relationship_id, organization_id, invitation_scope_option_id,
+        scope_definition_id, scope_code, decision, presented_snapshot)
+      values (${CONSENT_ID}::uuid, ${CLIENT_ID}::uuid, ${RELATIONSHIP_ID}::uuid,
+        ${ORGANIZATION_ID}::uuid, ${OPTION_ID}::uuid, ${SCOPE_ID}::uuid, 'relationship_training',
+        'accepted', '{"title":"Training"}'::jsonb)
+    `
+    await transaction`
+      insert into privacy.data_grants (
+        id, person_id, relationship_id, organization_id, scope_definition_id, scope_code,
+        consent_event_id, access_level, purpose)
+      values (${GRANT_ID}::uuid, ${CLIENT_ID}::uuid, ${RELATIONSHIP_ID}::uuid,
+        ${ORGANIZATION_ID}::uuid, ${SCOPE_ID}::uuid, 'relationship_training', ${CONSENT_ID}::uuid,
+        'contribute', 'Plan the training')
     `
   })
 
@@ -282,6 +379,28 @@ beforeAll(async () => {
   )
   projections.readProgramVersion = readProgramRow?.result
 
+  // Assigned before the version is retired below: a retired version cannot be given.
+  const assigned = nextCommand()
+  const [assignmentRow] = await actorTransaction(
+    (transaction) => transaction`
+      select result from planning.assign_program_from_relationship(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${RELATIONSHIP_ID}::uuid,
+        ${programVersionRow?.result.id}::uuid,
+        (clock_timestamp() at time zone 'America/Bogota')::date, 'America/Bogota',
+        ${assigned.idempotencyKey}::uuid, ${assigned.commandId}::uuid, ${assigned.hash})
+    `,
+  )
+  projections.programAssignment = assignmentRow?.result
+
+  const listedAssignments = await actorTransaction(
+    (transaction) => transaction`
+      select result from planning.list_relationship_assignments(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${RELATIONSHIP_ID}::uuid, 25, null, null)
+    `,
+    nextRequestId(),
+  )
+  projections.relationshipAssignmentPage = listedAssignments.map((row) => row.result)
+
   const listedTemplates = await actorTransaction(
     (transaction) => transaction`
       select result from planning.list_session_templates(
@@ -337,6 +456,8 @@ describe('Planning projections against the OpenAPI contract', () => {
       'Program',
       'ProgramDraft',
       'ProgramVersion',
+      'ProgramAssignment',
+      'RelationshipAssignment',
     ]) {
       expect(validator.getSchema(`allfit-v1#/components/schemas/${schemaName}`)).toBeDefined()
     }
@@ -396,6 +517,11 @@ describe('Planning projections against the OpenAPI contract', () => {
       schema: 'ProgramVersion',
       projection: () => projections.readProgramVersion,
     },
+    {
+      id: 'T-PLN-API-065',
+      schema: 'ProgramAssignment',
+      projection: () => projections.programAssignment,
+    },
   ]
 
   for (const testCase of cases) {
@@ -417,6 +543,13 @@ describe('Planning projections against the OpenAPI contract', () => {
     expect(projections.programPage.length).toBeGreaterThan(0)
     for (const item of projections.programPage) {
       assertMatchesContract('Program', item)
+    }
+  })
+
+  test('T-PLN-API-066 every assignment a relationship lists satisfies the contract schema', () => {
+    expect(projections.relationshipAssignmentPage).toHaveLength(1)
+    for (const item of projections.relationshipAssignmentPage) {
+      assertMatchesContract('RelationshipAssignment', item)
     }
   })
 })

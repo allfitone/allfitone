@@ -22,7 +22,9 @@ import { Spinner } from '@allfitone/react/components/spinner'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { flushSync } from 'react-dom'
 
+import { BackofficeSessionProvider } from './backoffice-session-context'
 import { BackofficeWorkspaceShell } from './backoffice-workspace-shell'
+
 import { BackofficeApiError, backofficeApi, type BackofficeSession } from '@/lib/backoffice-api'
 import {
   activeSessionActivity,
@@ -227,10 +229,14 @@ export function BackofficeSessionGate({ children }: { children: ReactNode }) {
   }
 
   const operatorName = `${session.operator.given_name} ${session.operator.family_name}`.trim()
+
+  // The provider reads the session the heartbeat keeps current, so home shows the live deadline.
   return (
-    <BackofficeWorkspaceShell operatorName={operatorName} onSignOut={() => void end('manual')}>
-      {children}
-    </BackofficeWorkspaceShell>
+    <BackofficeSessionProvider session={session}>
+      <BackofficeWorkspaceShell operatorName={operatorName} onSignOut={() => void end('manual')}>
+        {children}
+      </BackofficeWorkspaceShell>
+    </BackofficeSessionProvider>
   )
 }
 
