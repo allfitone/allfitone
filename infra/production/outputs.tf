@@ -21,3 +21,24 @@ output "environment_secret_arn" {
 output "github_oidc_provider_arn" {
   value = module.github_oidc.provider_arn
 }
+
+output "repository_urls" {
+  value = module.registry.repository_urls
+}
+
+output "certificate_validation_records" {
+  description = "CNAMEs to create in GoDaddy before the certificate can be used."
+  value       = module.certificate.validation_records
+}
+
+output "load_balancer_dns_name" {
+  value = module.edge.load_balancer_dns_name
+}
+
+output "distribution_domain_names" {
+  value = module.edge.distribution_domain_names
+}
+
+output "cluster_name" {
+  value = module.compute.cluster_name
+}

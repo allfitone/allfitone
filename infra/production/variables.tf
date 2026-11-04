@@ -25,3 +25,32 @@ variable "budget_alert_emails" {
   description = "Who hears about the bill. Set it in terraform.tfvars, which is not committed."
   type        = list(string)
 }
+
+variable "image_tag" {
+  description = "Commit SHA of the images every service runs. Pushed to ECR before the apply."
+  type        = string
+}
+
+variable "origin_verify_secret" {
+  description = "Header value only CloudFront knows. Set in terraform.tfvars: openssl rand -hex 32."
+  type        = string
+  sensitive   = true
+}
+
+variable "instance_count" {
+  description = "ECS machines. One spot until launch; two at launch."
+  type        = number
+  default     = 1
+}
+
+variable "on_demand_base_capacity" {
+  description = "Machines bought on demand. Zero until launch; one at launch."
+  type        = number
+  default     = 0
+}
+
+variable "service_desired_count" {
+  description = "Copies of the API and each web. One until launch."
+  type        = number
+  default     = 1
+}

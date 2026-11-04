@@ -6,7 +6,9 @@ Terraform for the AWS production environment. Operational policy lives in
 ```
 bootstrap/    state bucket, applied once with local state
 production/   the only environment
-modules/      network, budget, github-oidc
+modules/      network, budget, github-oidc, database,
+              registry, compute, certificate, edge, services
+docker/       images: node-service, next, migrator
 ```
 
 Access is through IAM Identity Center (`aws sso login --profile allfitone`).
