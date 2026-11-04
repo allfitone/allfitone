@@ -530,7 +530,7 @@ function LoginPanel({
   }
 
   return (
-    <Panel eyebrow="Paso 1 de 3" title="Identifica tu acceso.">
+    <Panel title="Identifica tu acceso.">
       {notice === 'expired' ? (
         <Alert live="polite" variant="warning">
           <AlertTitle>El acceso anterior terminó</AlertTitle>
@@ -576,7 +576,7 @@ function LoginPanel({
           <AccessPanelAction>
             <Button type="submit" disabled={busy || rateLimit.remainingSeconds > 0}>
               {busy ? <Spinner label="Validando credenciales" /> : null}
-              {busy ? 'Validando…' : 'Continuar con autenticador'}
+              {busy ? 'Validando…' : 'Continuar'}
             </Button>
           </AccessPanelAction>
           <AccessPanelAction>
@@ -703,7 +703,6 @@ function TotpPanel({
 
   return (
     <Panel
-      eyebrow="Paso 2 de 3"
       title={enrollment ? 'Conecta tu autenticador.' : 'Confirma el código.'}
       description={
         enrollment
@@ -910,7 +909,6 @@ function AuthenticatedPanel({
   const operatorName = `${session.operator.given_name} ${session.operator.family_name}`.trim()
   return (
     <Panel
-      eyebrow="Paso 3 de 3"
       title="Acceso confirmado."
       description={`La identidad de ${operatorName} fue verificada. Cada módulo operativo comprueba su propio deber al entrar.`}
     >
@@ -1055,13 +1053,13 @@ function Panel({
 }: {
   children: ReactNode
   description?: string
-  eyebrow: string
+  eyebrow?: string
   title: string
 }) {
   return (
     <AccessPanel data-backoffice-access-panel>
       <AccessPanelHeader>
-        <AccessPanelEyebrow>{eyebrow}</AccessPanelEyebrow>
+        {eyebrow ? <AccessPanelEyebrow>{eyebrow}</AccessPanelEyebrow> : null}
         <AccessPanelTitle>{title}</AccessPanelTitle>
         {description ? <AccessPanelDescription>{description}</AccessPanelDescription> : null}
       </AccessPanelHeader>

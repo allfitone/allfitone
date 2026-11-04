@@ -16,7 +16,7 @@ test('authenticates an existing factor and creates an AAL2 view', async ({ conte
   await expect(page.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible()
   await page.getByLabel('Correo').fill('operator@example.test')
   await page.getByLabel('Contraseña').fill('Password123!')
-  await page.getByRole('button', { name: 'Continuar con autenticador' }).click()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Confirma el código.' })).toBeVisible()
   await page.getByLabel('Código de seis dígitos').fill('123456')
   await page.getByRole('button', { name: 'Verificar y entrar' }).click()
@@ -41,7 +41,7 @@ test('enrolls the first TOTP factor with QR and manual accessibility fallback', 
   await page.goto('/')
   await page.getByLabel('Correo').fill('operator@example.test')
   await page.getByLabel('Contraseña').fill('Password123!')
-  await page.getByRole('button', { name: 'Continuar con autenticador' }).click()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Conecta tu autenticador.' })).toBeVisible()
   await expect(page.getByAltText('Código QR para enlazar el autenticador')).toBeVisible()
@@ -94,15 +94,15 @@ test('keeps password failure indistinguishable and honors Retry-After', async ({
   await page.goto('/')
   await page.getByLabel('Correo').fill('unknown@example.test')
   await page.getByLabel('Contraseña').fill('wrong')
-  await page.getByRole('button', { name: 'Continuar con autenticador' }).click()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
   await expect(
     page.getByText('No pudimos validar el acceso. Revisa tus datos e inténtalo de nuevo.'),
   ).toBeVisible()
 
   fixture.passwordOutcome = 'rate-limited'
-  await page.getByRole('button', { name: 'Continuar con autenticador' }).click()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
   await expect(page.getByText(/Podrás reintentar en [12] segundos/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Continuar con autenticador' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Continuar', exact: true })).toBeDisabled()
 })
 
 test('ends the TOTP attempt after the fifth invalid code', async ({ context, page }) => {
@@ -260,5 +260,5 @@ test('supports keyboard navigation and reduced motion', async ({ context, page }
   await page.keyboard.press('Tab')
   await expect(page.getByLabel('Contraseña')).toBeFocused()
   await page.keyboard.press('Tab')
-  await expect(page.getByRole('button', { name: 'Continuar con autenticador' })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Continuar', exact: true })).toBeFocused()
 })
