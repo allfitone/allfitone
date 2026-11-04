@@ -4219,10 +4219,12 @@ async function routeDiagnosis(
   const parameters = new URLSearchParams(request.query)
   const source = parameters.get('source')
   const state = parameters.get('state')
+  const aggregate = parameters.get('aggregate_id')
   const matching = diagnosis.operations.filter(
     (operation) =>
       (source === null || operation.source === source) &&
-      (state === null || operation.state === state),
+      (state === null || operation.state === state) &&
+      (aggregate === null || operation.subject_id === aggregate),
   )
   const offset = Number(parameters.get('cursor') ?? 0)
   const size = diagnosis.pageSize ?? matching.length

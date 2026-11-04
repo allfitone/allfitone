@@ -101,6 +101,24 @@ export function circuitSummary(circuits: readonly SupportDeliveryCircuit[]): str
   return `Hay ${tripped.length} canales de entrega interrumpidos. Antes de revisar avisos uno por uno, esa es la causa más probable.`
 }
 
+const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Short enough for a row; the whole identifier travels in the element's title. */
+export function shortIdentifier(id: string): string {
+  return `${id.slice(0, 8)}…`
+}
+
+/** What the operation is about: the kind of thing and which one. */
+export function subjectLine(operation: SupportOperation): string {
+  if (!operation.subject_kind || !operation.subject_id) return 'Sin sujeto'
+  return `${operation.subject_kind} ${shortIdentifier(operation.subject_id)}`
+}
+
+/** Checked before the search travels, so a typo is refused instead of answering nothing. */
+export function isValidOperationIdentifier(value: string): boolean {
+  return IDENTIFIER.test(value.trim())
+}
+
 export function supportDiagnosisMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:

@@ -25,7 +25,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Input } from '@allfitone/react/components/input'
 import {
   Select,
   SelectContent,
@@ -41,7 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import {
   BackofficeApiError,
@@ -62,6 +63,9 @@ import {
   sourceFilterLabel,
   sourceLabel,
   supportDiagnosisMessage,
+  isValidOperationIdentifier,
+  shortIdentifier,
+  subjectLine,
   type SupportOperationSourceKind,
   type SupportOperationState,
 } from '@/lib/support-diagnosis'
@@ -81,14 +85,36 @@ export function SupportDiagnosis() {
   const [appending, setAppending] = useState(false)
   const [source, setSource] = useState<SupportOperationSourceKind | typeof ANY>(ANY)
   const [operationState, setOperationState] = useState<SupportOperationState | typeof ANY>(ANY)
+  // HU-BO-031 c3: one operation found by the identifier of what it is about.
+  const [identifier, setIdentifier] = useState('')
+  const [identifierDraft, setIdentifierDraft] = useState('')
+  const [identifierIssue, setIdentifierIssue] = useState(false)
 
   const filters = useCallback(
     () => ({
       ...(source === ANY ? {} : { source }),
       ...(operationState === ANY ? {} : { state: operationState }),
+      ...(identifier === '' ? {} : { aggregateId: identifier }),
     }),
-    [source, operationState],
+    [source, operationState, identifier],
   )
+
+  function searchIdentifier(event: FormEvent) {
+    event.preventDefault()
+    const value = identifierDraft.trim()
+    if (!isValidOperationIdentifier(value)) {
+      setIdentifierIssue(true)
+      return
+    }
+    setIdentifierIssue(false)
+    setIdentifier(value.toLowerCase())
+  }
+
+  function clearIdentifier() {
+    setIdentifier('')
+    setIdentifierDraft('')
+    setIdentifierIssue(false)
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -260,6 +286,36 @@ export function SupportDiagnosis() {
             </Field>
           </FieldGroup>
 
+          <form onSubmit={searchIdentifier} data-diagnosis-identifier-form noValidate>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="diagnosis-identifier">Identificador del sujeto</FieldLabel>
+                <Input
+                  id="diagnosis-identifier"
+                  value={identifierDraft}
+                  onChange={(event) => setIdentifierDraft(event.target.value)}
+                  placeholder="019a7000-0000-7000-8000-000000000001"
+                  autoComplete="off"
+                />
+                {identifierIssue ? (
+                  <FieldError>
+                    Escribe el identificador completo, como aparece en la operación.
+                  </FieldError>
+                ) : null}
+              </Field>
+            </FieldGroup>
+            <div data-form-actions>
+              <Button type="submit" size="sm">
+                Buscar sus operaciones
+              </Button>
+              {identifier !== '' ? (
+                <Button type="button" size="sm" variant="outline" onClick={clearIdentifier}>
+                  Ver todas
+                </Button>
+              ) : null}
+            </div>
+          </form>
+
           {operations.length === 0 ? (
             <ScreenEmpty icon="search" title="Nada que revisar con esos filtros" role="status">
               Con este tipo y este estado no hay ninguna operación. Cambia los filtros para ampliar
@@ -283,6 +339,30 @@ export function SupportDiagnosis() {
                     <TableCell>{sourceLabel(operation.source)}</TableCell>
                     <TableCell>
                       <code>{operation.label}</code>
+                      {/* c1: the identifiers, whole in the title, so they can be searched. */}
+                      <div data-operation-ids>
+                        <span title={operation.reference_id}>
+                          ref <code>{shortIdentifier(operation.reference_id)}</code>
+                        </span>{' '}
+                        ·{' '}
+                        <span title={operation.subject_id ?? undefined} data-operation-subject>
+                          {subjectLine(operation)}
+                        </span>{' '}
+                        {operation.subject_id && identifier === '' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            aria-label={`Ver solo las operaciones de ${operation.subject_id}`}
+                            onClick={() => {
+                              setIdentifierDraft(operation.subject_id ?? '')
+                              setIdentifier(operation.subject_id ?? '')
+                            }}
+                          >
+                            Solo esta
+                          </Button>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={operationStateTone(operation.state)}>

@@ -11,6 +11,9 @@ import {
   sourceFilterLabel,
   sourceLabel,
   supportDiagnosisMessage,
+  isValidOperationIdentifier,
+  shortIdentifier,
+  subjectLine,
   type SupportDeliveryCircuit,
   type SupportOperation,
 } from './support-diagnosis'
@@ -109,5 +112,30 @@ describe('technical diagnosis vocabulary', () => {
   test('explains a refusal as an expired duty rather than a mistake', () => {
     expect(supportDiagnosisMessage('forbidden')).toContain('vencen por diseño')
     expect(supportDiagnosisMessage('anything-else')).toBe('No se pudo leer el estado técnico.')
+  })
+})
+
+// HU-BO-031 c1 and c3: the identifiers were in the answer and nowhere on screen.
+describe('the identifiers an operation carries', () => {
+  test('an identifier is shortened for the row and kept whole for its title', () => {
+    expect(shortIdentifier('019a7000-0000-7000-8000-000000000001')).toBe('019a7000…')
+  })
+
+  test('the subject says what kind of thing it is and which one', () => {
+    expect(
+      subjectLine(
+        operation({
+          subject_kind: 'organization',
+          subject_id: '019a7000-0000-7000-8000-000000000001',
+        }),
+      ),
+    ).toBe('organization 019a7000…')
+    expect(subjectLine(operation({ subject_kind: null, subject_id: null }))).toBe('Sin sujeto')
+  })
+
+  test('only an identifier is searched for, so a typo never becomes an empty answer', () => {
+    expect(isValidOperationIdentifier(' 019a7000-0000-7000-8000-000000000001 ')).toBe(true)
+    expect(isValidOperationIdentifier('019a7000')).toBe(false)
+    expect(isValidOperationIdentifier('')).toBe(false)
   })
 })
