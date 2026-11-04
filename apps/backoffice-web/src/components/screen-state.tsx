@@ -76,7 +76,7 @@ export function ScreenRefusal({
           </ul>
         ) : null}
         <Button variant="outline" size="sm" render={<Link href="/team" />} nativeButton={false}>
-          Pedirlo en Equipo de Allfit
+          Pedirlo en Equipo de Allfit One
         </Button>
       </EmptyContent>
     </Empty>

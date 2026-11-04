@@ -216,13 +216,13 @@ export function PlatformPlans() {
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            Planes de Allfit
+            Planes de Allfit One
           </CardTitle>
           <CardDescription>
-            Lo que Allfit le vende a las personas, el plan gratuito incluido. Un cambio de precio o
-            de lo que incluye un plan es una versión nueva: la propone una persona y la publica
-            otra, y quien ya estaba suscrito conserva la versión que aceptó. Nada de esto cobra: las
-            funciones de privacidad no se pueden limitar en ningún plan.
+            Lo que Allfit One le vende a las personas, el plan gratuito incluido. Un cambio de
+            precio o de lo que incluye un plan es una versión nueva: la propone una persona y la
+            publica otra, y quien ya estaba suscrito conserva la versión que aceptó. Nada de esto
+            cobra: las funciones de privacidad no se pueden limitar en ningún plan.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -336,8 +336,8 @@ export function PlatformPlans() {
                       disabled={busy !== null}
                     />
                     <FieldDescription>
-                      Un código no se cambia después. Allfit da Pro solo con el plan de pago cuyo
-                      código es <code>{PRO_PLAN_CODE}</code>.
+                      Un código no se cambia después. Allfit One da Pro solo con el plan de pago
+                      cuyo código es <code>{PRO_PLAN_CODE}</code>.
                     </FieldDescription>
                   </Field>
                   <Field>

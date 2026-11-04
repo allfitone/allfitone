@@ -320,7 +320,7 @@ test("a read by Allfit staff is never presented as the person's permission", asy
   await page.getByLabel('Persona afectada').fill(SUPPORT_SUBJECT_ID)
   await page.getByRole('button', { name: 'Consultar' }).click()
 
-  await expect(page.getByText('Lectura del equipo de Allfit')).toBeVisible()
+  await expect(page.getByText('Lectura del equipo de Allfit One')).toBeVisible()
   await expect(page.getByText(/No hubo permiso de la persona/)).toBeVisible()
   await expect(page.getByText(/tenía un permiso vigente/)).toHaveCount(0)
 })

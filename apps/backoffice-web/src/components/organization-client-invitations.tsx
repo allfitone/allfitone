@@ -141,7 +141,7 @@ export function OrganizationClientInvitations({ organizationId }: { organization
         <CardDescription>
           Reenviar nunca cambia a quién va, el gimnasio ni los permisos que pide. Una invitación
           vigente sale igual y su primer correo sigue sirviendo; una vencida se reemplaza por una
-          nueva que firma Allfit y que pide exactamente lo mismo.
+          nueva que firma Allfit One y que pide exactamente lo mismo.
         </CardDescription>
       </CardHeader>
       <CardContent>

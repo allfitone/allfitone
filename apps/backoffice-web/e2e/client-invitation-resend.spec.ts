@@ -106,7 +106,7 @@ test('an expired invitation is replaced by one Allfit signs that asks for exactl
   )
   await expect(section.locator('[data-client-invitation]')).toHaveCount(2)
   const renewed = section.locator('[data-client-invitation][data-state="pending"]')
-  await expect(renewed.getByText('Allfit, al reenviar una vencida')).toBeVisible()
+  await expect(renewed.getByText('Allfit One, al reenviar una vencida')).toBeVisible()
   await expect(renewed.locator('[data-client-invitation-offer]')).toContainText('Contexto de salud')
   await expect(
     section.locator(

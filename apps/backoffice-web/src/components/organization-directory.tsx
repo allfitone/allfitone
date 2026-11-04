@@ -248,8 +248,8 @@ export function OrganizationDirectory() {
               Gimnasios
             </CardTitle>
             <CardDescription>
-              «Sin reclamar» es un gimnasio que Allfit creó y cuyo dueño todavía no aceptó: existe,
-              pero no opera.
+              «Sin reclamar» es un gimnasio que Allfit One creó y cuyo dueño todavía no aceptó:
+              existe, pero no opera.
             </CardDescription>
           </CardHeader>
           <CardContent>

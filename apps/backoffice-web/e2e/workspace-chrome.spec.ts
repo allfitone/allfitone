@@ -170,7 +170,7 @@ for (const viewport of CONSENT_VIEWPORTS) {
   })
 }
 
-// Folded, the control still sat over «Otorgar deber» at the end of «Equipo de Allfit».
+// Folded, the control still sat over «Otorgar deber» at the end of «Equipo de Allfit One».
 test('the folded privacy control leaves room at the end of a screen', async ({ context, page }) => {
   await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
   await page.goto('/team')
@@ -288,7 +288,7 @@ test('a refused screen names the duty that opens it and where to ask', async ({
   )
   // The library renders a link styled as a button with the button role.
   await expect(
-    refusal.getByRole('button', { name: 'Pedirlo en Equipo de Allfit' }),
+    refusal.getByRole('button', { name: 'Pedirlo en Equipo de Allfit One' }),
   ).toHaveAttribute('href', '/team')
   await expect(page.locator('[data-slot="alert"]')).toHaveCount(0)
 })
@@ -302,7 +302,7 @@ test('the home screen says who is signed in and until when', async ({ context, p
   await expect(panel).toContainText('AAL2')
   await expect(panel).toContainText('Caduca si no la usas')
   await expect(panel).toContainText('Termina a más tardar')
-  await expect(panel.getByRole('link', { name: 'Equipo de Allfit' })).toHaveAttribute(
+  await expect(panel.getByRole('link', { name: 'Equipo de Allfit One' })).toHaveAttribute(
     'href',
     '/team',
   )

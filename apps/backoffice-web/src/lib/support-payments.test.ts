@@ -65,7 +65,7 @@ function payments(overrides: Partial<SupportPersonPayments> = {}): SupportPerson
 
 describe('what a person pays, as the panel says it', () => {
   test('whoever pays Allfit is told through which store', () => {
-    expect(proSentence(payments())).toBe('Tiene Pro porque se lo paga a Allfit por Apple.')
+    expect(proSentence(payments())).toBe('Tiene Pro porque se lo paga a Allfit One por Apple.')
   })
 
   test('whoever has Pro through a gym is told which gym, and that Allfit charges nothing', () => {
@@ -79,7 +79,7 @@ describe('what a person pays, as the panel says it', () => {
       }),
     )
     expect(line).toContain('Gimnasio Pagos')
-    expect(line).toContain('No le paga nada a Allfit')
+    expect(line).toContain('No le paga nada a Allfit One')
   })
 
   test('and whoever pays nobody is on the free plan, which is a fact and not a gap', () => {

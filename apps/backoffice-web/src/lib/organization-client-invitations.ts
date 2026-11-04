@@ -41,7 +41,7 @@ export function clientInvitationStateTone(state: ClientInvitationState): StateTo
 }
 
 export function issuedByLabel(invitation: BackofficeClientInvitation): string {
-  return invitation.issued_by === 'allfit' ? 'Allfit, al reenviar una vencida' : 'El gimnasio'
+  return invitation.issued_by === 'allfit' ? 'Allfit One, al reenviar una vencida' : 'El gimnasio'
 }
 
 /** What the gym asked for, named. An invitation that asked for nothing says so. */
@@ -71,7 +71,7 @@ export function resendOutcomeMessage(result: BackofficeClientInvitationResend): 
   if (result.outcome === 'redelivered') {
     return `Se reenvió la misma invitación a ${result.contact_hint}. El primer correo sigue sirviendo, y la invitación vale hasta el ${formatInstant(result.expires_at)}.`
   }
-  return `La invitación había vencido: se envió una nueva, igual, a ${result.contact_hint}, firmada por Allfit. Pide exactamente los mismos permisos, y la anterior sigue vencida.`
+  return `La invitación había vencido: se envió una nueva, igual, a ${result.contact_hint}, firmada por Allfit One. Pide exactamente los mismos permisos, y la anterior sigue vencida.`
 }
 
 export function clientInvitationsMessage(code: string): string {

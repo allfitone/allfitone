@@ -180,7 +180,7 @@ test('shows what she pays, telling the charge that failed from the one that did 
   await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
 
   const panel = page.locator('[data-payments-panel]')
-  await expect(panel.getByText(/Tiene Pro porque se lo paga a Allfit por Apple/)).toBeVisible()
+  await expect(panel.getByText(/Tiene Pro porque se lo paga a Allfit One por Apple/)).toBeVisible()
   // The amount is read from the ISO minor unit: 1.990.000 centavos are $19.900.
   await expect(panel.locator('[data-payments-charge]').first()).toContainText('19.900')
   await expect(panel.getByText('Cobrado', { exact: true })).toBeVisible()

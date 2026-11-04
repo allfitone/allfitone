@@ -130,11 +130,11 @@ export function BusinessPanel() {
         <Card data-business-section="billed">
           <CardHeader>
             <CardTitle role="heading" aria-level={3}>
-              Facturado por Allfit
+              Facturado por Allfit One
             </CardTitle>
             <CardDescription>
               Lo que las tiendas cobraron por Pro. Un gimnasio cobra en su propia pasarela, así que
-              lo que sus clientes le pagan no aparece aquí y no es ingreso de Allfit.
+              lo que sus clientes le pagan no aparece aquí y no es ingreso de Allfit One.
             </CardDescription>
           </CardHeader>
           <CardContent>

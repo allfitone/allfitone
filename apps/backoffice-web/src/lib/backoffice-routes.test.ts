@@ -49,7 +49,7 @@ describe('the areas the menu is grouped by', () => {
 
   test('keep the menu order inside an area', () => {
     expect(routesInArea('A12').map((route) => route.title)).toEqual([
-      'Equipo de Allfit',
+      'Equipo de Allfit One',
       'Registro de accesos',
       'Acceso excepcional',
       'Solicitudes de eliminación',

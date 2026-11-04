@@ -242,6 +242,6 @@ test('an empty directory says there are no gyms yet rather than that a search fa
 
   await page.goto(PATH)
 
-  await expect(page.getByText('Todavía no hay ningún gimnasio en Allfit.')).toBeVisible()
+  await expect(page.getByText('Todavía no hay ningún gimnasio en Allfit One.')).toBeVisible()
   await expect(page.locator('[data-organization-people-served-note]')).toHaveCount(0)
 })
