@@ -11,10 +11,10 @@ export interface AnalyticsPseudonymConfig {
   encodedKey: string
 }
 
-export type AnalyticsClientSurface = 'backoffice' | 'space' | 'studio'
+/** The Backoffice is staff-only and measures nothing in the browser, so it has no gate. */
+export type AnalyticsClientSurface = 'space' | 'studio'
 
 const CLIENT_GATE: Record<AnalyticsClientSurface, string> = {
-  backoffice: 'ANALYTICS_BACKOFFICE_CLIENT_ENABLED',
   space: 'ANALYTICS_SPACE_CLIENT_ENABLED',
   studio: 'ANALYTICS_STUDIO_CLIENT_ENABLED',
 }

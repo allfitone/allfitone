@@ -6,10 +6,6 @@ import {
   type PasswordCredentials,
   type SessionTokens,
 } from '@allfitone/auth-provider'
-import {
-  analyticsIdentityForSurfaceFromEnvironment,
-  type AnalyticsIdentity,
-} from '@allfitone/telemetry/node'
 import { measureRequestPhase } from '../../../platform/observability/index.js'
 
 import type {
@@ -51,8 +47,6 @@ export interface BackofficeSessionPresentation {
   assurance_verified_at: string
   inactivity_expires_at: string
   absolute_expires_at: string
-  /** Optional only for injected test seams; production session resolution always sets it. */
-  analytics?: AnalyticsIdentity
 }
 
 export interface BackofficeAuthenticationService {
@@ -295,11 +289,6 @@ export function createBackofficeAuthenticationService(dependencies: {
           resolved.session.lastActivityAt.getTime() + 15 * 60 * 1000,
         ).toISOString(),
         absolute_expires_at: resolved.session.absoluteExpiresAt.toISOString(),
-        analytics: analyticsIdentityForSurfaceFromEnvironment(
-          'backoffice',
-          dependencies.issuer,
-          resolved.session.externalSubject,
-        ),
       }
     },
 

@@ -20,8 +20,7 @@ export {
 
 export type TelemetryEnvironment = 'development' | 'preview' | 'production'
 export type TelemetrySurface = 'backoffice' | 'space' | 'studio' | 'system'
-export type TelemetryService =
-  'allfit-api' | 'allfit-worker' | 'backoffice-web' | 'space' | 'studio-web'
+export type TelemetryService = 'allfit-api' | 'allfit-worker' | 'space' | 'studio-web'
 export type TelemetryPlatform = 'android' | 'ios' | 'node' | 'web'
 export type TelemetryOutcome =
   | 'cancelled'
@@ -42,69 +41,6 @@ export interface TelemetryCommonProperties {
 }
 
 export const clientOperations = [
-  'backoffice.auth.attempt',
-  'backoffice.catalog.global_archive',
-  'backoffice.catalog.global_publish',
-  'backoffice.catalog.global_read',
-  'backoffice.catalog.result_contract_deprecate',
-  'backoffice.catalog.result_contract_publish',
-  'backoffice.commercial.plan_create',
-  'backoffice.commercial.plan_version_propose',
-  'backoffice.commercial.plan_version_publish',
-  'backoffice.commercial.plan_version_withdraw',
-  'backoffice.commercial.plans_read',
-  'backoffice.platform.duty_grant',
-  'backoffice.platform.duty_list',
-  'backoffice.platform.duty_revoke',
-  'backoffice.platform.duty_suspend',
-  'backoffice.platform.duty_recertify',
-  'backoffice.platform.role_grant',
-  'backoffice.platform.role_list',
-  'backoffice.platform.role_revoke',
-  'backoffice.auth.logout',
-  'backoffice.auth.password',
-  'backoffice.auth.password_reset',
-  'backoffice.auth.totp_verification',
-  'backoffice.session',
-  'catalog.activity_type_result_contracts',
-  'catalog.activity_types',
-  'catalog.disciplines',
-  'backoffice.access_log.read',
-  'backoffice.break_glass.close',
-  'backoffice.break_glass.decide',
-  'backoffice.break_glass.exercise',
-  'backoffice.break_glass.list',
-  'backoffice.break_glass.request',
-  'backoffice.break_glass.review',
-  'backoffice.break_glass.review_queue',
-  'backoffice.organization.client_invitation_resend',
-  'backoffice.organization.client_invitations',
-  'backoffice.organization.directory',
-  'backoffice.organization.file',
-  'backoffice.organization.handover_cancel',
-  'backoffice.organization.handover_create',
-  'backoffice.organization.handover_read',
-  'backoffice.organization.handover_resend',
-  'backoffice.organization.guest_quota_set',
-  'backoffice.organization.reactivated',
-  'backoffice.organization.suspended',
-  'backoffice.organization.team_invitation_resend',
-  'backoffice.organization.team_invitations',
-  'backoffice.verification.decide',
-  'backoffice.verification.list',
-  'backoffice.verification.renewals',
-  'backoffice.privacy.scope_definition_list',
-  'backoffice.privacy.scope_definition_publish',
-  'backoffice.support.account_recovery',
-  'backoffice.support.account_recovery_cancel',
-  'backoffice.support.account_recovery_resend',
-  'backoffice.support.account_recovery_start',
-  'backoffice.support.attention',
-  'backoffice.support.business',
-  'backoffice.support.delivery_circuits',
-  'backoffice.support.operations',
-  'backoffice.support.people_search',
-  'backoffice.support.person_metadata',
   'space.auth.password_reset',
   'space.auth.registration',
   'space.auth.registration_verification',
@@ -137,22 +73,6 @@ export const clientOperations = [
 export type ClientOperation = (typeof clientOperations)[number]
 
 export const telemetryScreens = [
-  'backoffice.access',
-  'backoffice.catalogue_contracts',
-  'backoffice.platform_access',
-  'backoffice.access_log',
-  'backoffice.attention_panel',
-  'backoffice.break_glass',
-  'backoffice.credential_verification',
-  'backoffice.organization_directory',
-  'backoffice.organization_file',
-  'backoffice.organization_handover',
-  'backoffice.scope_definitions',
-  'backoffice.support_diagnosis',
-  'backoffice.support_people',
-  'backoffice.support_person',
-  'backoffice.authentication_attempt',
-  'backoffice.session',
   'space.create_account',
   'space.sign_in',
   'space.verify_email',
@@ -171,7 +91,6 @@ export const telemetryScreens = [
 export type TelemetryScreen = (typeof telemetryScreens)[number]
 
 export const telemetryFlows = [
-  'backoffice.authentication',
   'space.registration',
   'space.sign_in',
   'space.password_reset',
@@ -472,10 +391,7 @@ function validateSpecific(name: TelemetryEventName, properties: Record<string, u
 function validCommon(properties: Record<string, unknown>): boolean {
   return (
     includes(['backoffice', 'space', 'studio', 'system'] as const, properties.surface) &&
-    includes(
-      ['allfit-api', 'allfit-worker', 'backoffice-web', 'space', 'studio-web'] as const,
-      properties.service,
-    ) &&
+    includes(['allfit-api', 'allfit-worker', 'space', 'studio-web'] as const, properties.service) &&
     includes(['development', 'preview', 'production'] as const, properties.environment) &&
     typeof properties.release === 'string' &&
     RELEASE.test(properties.release) &&

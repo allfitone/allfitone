@@ -3,10 +3,10 @@ import { telemetryEnvironmentFromRuntime } from '@allfitone/telemetry/node'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 
-type ClientSurface = 'backoffice' | 'space' | 'studio'
+// The Backoffice is staff-only, so it measures nothing in the browser and has no gate.
+type ClientSurface = 'space' | 'studio'
 
 const ENABLED_ENVIRONMENT_VARIABLE: Record<ClientSurface, string> = {
-  backoffice: 'ANALYTICS_BACKOFFICE_CLIENT_ENABLED',
   space: 'ANALYTICS_SPACE_CLIENT_ENABLED',
   studio: 'ANALYTICS_STUDIO_CLIENT_ENABLED',
 }

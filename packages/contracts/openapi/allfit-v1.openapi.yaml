@@ -16,7 +16,9 @@ servers:
   - url: /
 tags:
   - name: Platform Telemetry
-    description: Public, non-identifying client telemetry gates for each product surface.
+    description: >-
+      Public, non-identifying client telemetry gates for Studio and Space. The
+      Backoffice is staff-only and measures nothing in the browser, so it has no gate.
   - name: Studio Identity
     description: Hosted authentication and opaque browser sessions for Allfit Studio.
   - name: Backoffice Identity
@@ -158,27 +160,6 @@ x-allfit-media-url-policy:
     failure_without_effective_access: 404
 
 paths:
-  /backoffice/v1/telemetry-config:
-    get:
-      tags: [Platform Telemetry]
-      operationId: getBackofficeTelemetryConfig
-      x-allfit-operation: OP-SYS-011
-      x-allfit-cache: public-300
-      summary: Read the public Backoffice telemetry gate
-      security: []
-      responses:
-        '200':
-          description: Current Backoffice client telemetry gate and notice version
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                const: public, max-age=300
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TelemetryClientConfig'
-
   /backoffice/v1/auth/password:
     post:
       tags: [Backoffice Identity]
@@ -15530,7 +15511,6 @@ components:
         - assurance_level
         - authentication_method
         - operator
-        - analytics
         - assurance_verified_at
         - inactivity_expires_at
         - absolute_expires_at
@@ -15557,8 +15537,6 @@ components:
               type: string
               minLength: 1
               maxLength: 100
-        analytics:
-          $ref: '#/components/schemas/AnalyticsIdentity'
         assurance_verified_at:
           type: string
           format: date-time

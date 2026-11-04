@@ -41,7 +41,6 @@ import {
   studioClientInvitationRoutes,
   spaceClientInvitationRoutes,
   studioProfessionalRoutes,
-  trustedBackofficeWebUrl,
   trustedStudioWebUrl,
 } from './domains/identity/index.js'
 import {
@@ -104,10 +103,6 @@ export function mountSurfaces(app: Hono): void {
   app.route(
     '/studio/v1',
     clientTelemetryConfigRoutes('studio', new URL(trustedStudioWebUrl()).origin),
-  )
-  app.route(
-    '/backoffice/v1',
-    clientTelemetryConfigRoutes('backoffice', new URL(trustedBackofficeWebUrl()).origin),
   )
   app.route('/space/v1', clientTelemetryConfigRoutes('space'))
   app.route('/studio/v1', studioIdentityRoutes())

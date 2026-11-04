@@ -4,23 +4,6 @@
  */
 
 export interface paths {
-  '/backoffice/v1/telemetry-config': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    /** Read the public Backoffice telemetry gate */
-    get: operations['getBackofficeTelemetryConfig']
-    put?: never
-    post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/backoffice/v1/auth/password': {
     parameters: {
       query?: never
@@ -5928,7 +5911,6 @@ export interface components {
         given_name: string
         family_name: string
       }
-      analytics: components['schemas']['AnalyticsIdentity']
       /** Format: date-time */
       assurance_verified_at: string
       /** Format: date-time */
@@ -11030,27 +11012,6 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
-  getBackofficeTelemetryConfig: {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Current Backoffice client telemetry gate and notice version */
-      200: {
-        headers: {
-          'Cache-Control'?: 'public, max-age=300'
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['TelemetryClientConfig']
-        }
-      }
-    }
-  }
   startBackofficePasswordAuthentication: {
     parameters: {
       query?: never
