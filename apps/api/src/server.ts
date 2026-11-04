@@ -7,12 +7,13 @@
  */
 import { serve } from '@hono/node-server'
 import { createApp } from './application.js'
+import { keepAliveOptions } from './keep-alive.js'
 import { shutdownServerTelemetry } from './platform/telemetry/server.js'
 import { shutdownGracefully } from './shutdown.js'
 
 const port = Number(process.env.PORT ?? 8080)
 
-const server = serve({ fetch: createApp().fetch, port })
+const server = serve({ fetch: createApp().fetch, port, serverOptions: keepAliveOptions })
 console.log(`API listening on :${port}`)
 
 process.once('SIGTERM', () => {
