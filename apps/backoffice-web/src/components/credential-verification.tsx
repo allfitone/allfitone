@@ -24,6 +24,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -40,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import {
@@ -75,6 +76,7 @@ import {
   type CredentialVerificationRequest,
   type VerificationDraft,
 } from '@/lib/credential-verification'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -83,6 +85,7 @@ export function CredentialVerification() {
   const [requests, setRequests] = useState<CredentialVerificationRequest[]>([])
   const [renewals, setRenewals] = useState<CredentialRenewalDue[]>([])
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState<VerificationDraft | null>(null)
@@ -104,6 +107,7 @@ export function CredentialVerification() {
         window.location.assign('/')
         return
       }
+      setRefused(isRefusal(caught))
       setFailure(failureMessage(caught, verificationQueueMessage))
       setState('failed')
     }
@@ -177,16 +181,17 @@ export function CredentialVerification() {
     }
   }
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed') {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo leer la cola de verificación</AlertTitle>
-        <AlertDescription>
-          {failure ?? verificationMessage('upstream-unavailable')}
-        </AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={refused}
+        duties={['verify_professional_credentials']}
+        title="No se pudo leer la cola de verificación"
+        message={failure ?? verificationMessage('upstream-unavailable')}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -213,12 +218,9 @@ export function CredentialVerification() {
       </Card>
 
       {requests.length === 0 ? (
-        <Alert live="off" variant="info">
-          <AlertTitle>No hay títulos esperando verificación</AlertTitle>
-          <AlertDescription>
-            Cuando alguien declare o corrija un título aparecerá aquí, sin que tenga que pedirlo.
-          </AlertDescription>
-        </Alert>
+        <ScreenEmpty title="No hay títulos esperando verificación">
+          Cuando alguien declare o corrija un título aparecerá aquí, sin que tenga que pedirlo.
+        </ScreenEmpty>
       ) : (
         requests.map((request) => {
           const previous = previousSentence(request)
@@ -454,12 +456,9 @@ export function CredentialVerification() {
       </Card>
 
       {renewals.length === 0 ? (
-        <Alert live="off" variant="info">
-          <AlertTitle>Ninguna verificación por vencer</AlertTitle>
-          <AlertDescription>
-            Cuando una vigencia esté por terminar aparecerá aquí, para abrir su renovación a tiempo.
-          </AlertDescription>
-        </Alert>
+        <ScreenEmpty icon="time" title="Ninguna verificación por vencer">
+          Cuando una vigencia esté por terminar aparecerá aquí, para abrir su renovación a tiempo.
+        </ScreenEmpty>
       ) : (
         renewals.map((due) => (
           <Card key={due.credential_id} data-verification-renewal>

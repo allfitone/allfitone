@@ -255,9 +255,9 @@ export function ResultContractPublication() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} data-result-contract-form noValidate>
+          <form onSubmit={submit} data-backoffice-form data-result-contract-form noValidate>
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="contract-code">Código del contrato</FieldLabel>
                 <Input
                   id="contract-code"
@@ -268,7 +268,7 @@ export function ResultContractPublication() {
                   disabled={busy}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="contract-family">Familia de actividad</FieldLabel>
                 <Select
                   value={activityFamily}
@@ -286,7 +286,7 @@ export function ResultContractPublication() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="contract-activity-type">Tipo de actividad</FieldLabel>
                 <Select
                   value={activityTypeId}
@@ -359,9 +359,11 @@ export function ResultContractPublication() {
                 </Field>
               ))}
               {error ? <FieldError>{error}</FieldError> : null}
-              <Button type="submit" disabled={busy}>
-                Publicar versión
-              </Button>
+              <div data-form-actions>
+                <Button type="submit" disabled={busy}>
+                  Publicar versión
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>

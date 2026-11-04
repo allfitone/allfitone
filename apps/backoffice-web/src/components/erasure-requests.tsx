@@ -37,6 +37,8 @@ import { Button } from '@allfitone/react/components/button'
 import { Checkbox } from '@allfitone/react/components/checkbox'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import { ScreenEmpty, ScreenLoading, ScreenRefusal } from './screen-state'
+
 import {
   Select,
   SelectContent,
@@ -51,7 +53,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -88,6 +89,7 @@ import {
   type HoldIssue,
   type LegalHoldReason,
 } from '@/lib/erasure-requests'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -101,6 +103,7 @@ export function ErasureRequests() {
   const [state, setState] = useState<LoadState>('loading')
   const [page, setPage] = useState<ErasureRequestPage | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [holding, setHolding] = useState<ErasureRequest | null>(null)
   const [draft, setDraft] = useState<HoldDraft>(EMPTY_HOLD)
   const [issue, setIssue] = useState<HoldIssue | null>(null)
@@ -117,6 +120,7 @@ export function ErasureRequests() {
         window.location.assign('/')
         return
       }
+      setRefused(isRefusal(caught))
       setFailure(failureMessage(caught))
       setState('failed')
     }
@@ -212,16 +216,13 @@ export function ErasureRequests() {
         </CardContent>
       </Card>
 
-      {state === 'loading' ? (
-        <Alert live="polite" variant="info">
-          <AlertTitle>Leyendo el seguimiento</AlertTitle>
-          <AlertDescription>
-            <Spinner /> Cada lectura queda registrada antes de mostrarse.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {state === 'loading' ? <ScreenLoading label="Leyendo el seguimiento" /> : null}
 
-      {failure ? (
+      {state === 'failed' && failure && refused ? (
+        <ScreenRefusal duties={['manage_privacy_requests']} data-erasure-failure>
+          {failure}
+        </ScreenRefusal>
+      ) : failure ? (
         <Alert live="assertive" variant="danger" data-erasure-failure>
           <AlertTitle>
             {state === 'failed' ? 'No se pudo leer el seguimiento' : 'No se pudo completar'}
@@ -241,10 +242,14 @@ export function ErasureRequests() {
           </Alert>
 
           {rows.length === 0 ? (
-            <Alert live="polite" variant="info" data-erasure-empty>
-              <AlertTitle>Nada que seguir aquí</AlertTitle>
-              <AlertDescription>{emptyMessage(status)}</AlertDescription>
-            </Alert>
+            <ScreenEmpty
+              icon="remove"
+              title="Nada que seguir aquí"
+              role="status"
+              data-erasure-empty
+            >
+              {emptyMessage(status)}
+            </ScreenEmpty>
           ) : (
             <Table scrollAreaLabel="Solicitudes de eliminación" data-erasure-table>
               <TableCaption>Solicitudes de eliminación</TableCaption>

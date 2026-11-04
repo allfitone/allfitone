@@ -22,6 +22,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenEmpty, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -38,7 +40,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
@@ -130,9 +131,9 @@ export function SupportPeopleSearch() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} data-support-search-form noValidate>
+          <form onSubmit={submit} data-backoffice-form data-support-search-form noValidate>
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="support-case">Referencia del caso</FieldLabel>
                 <Input
                   id="support-case"
@@ -143,7 +144,7 @@ export function SupportPeopleSearch() {
                   disabled={busy}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="support-kind">Buscar por</FieldLabel>
                 <Select
                   value={kind}
@@ -164,7 +165,7 @@ export function SupportPeopleSearch() {
                   </SelectContent>
                 </Select>
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="support-value">Dato exacto</FieldLabel>
                 <Input
                   id="support-value"
@@ -176,25 +177,24 @@ export function SupportPeopleSearch() {
                 />
               </Field>
               {error ? <FieldError>{error}</FieldError> : null}
-              <Button type="submit" disabled={busy}>
-                Buscar
-              </Button>
+              <div data-form-actions>
+                <Button type="submit" disabled={busy}>
+                  Buscar
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>
       </Card>
 
-      {busy ? <Spinner /> : null}
+      {busy ? <ScreenLoading label="Buscando" /> : null}
 
       {result && result.outcome === 'not_found' && searched ? (
-        <Alert live="polite" variant="info">
-          <AlertTitle>No hay ninguna persona con ese dato</AlertTitle>
-          <AlertDescription>
-            La coincidencia es exacta: si la persona escribió el{' '}
-            {lookupLabel(searched.kind).toLowerCase().replace(' exacto', '')} de otra forma, no
-            aparece. La búsqueda quedó registrada de todos modos.
-          </AlertDescription>
-        </Alert>
+        <ScreenEmpty icon="search" title="No hay ninguna persona con ese dato" role="status">
+          La coincidencia es exacta: si la persona escribió el{' '}
+          {lookupLabel(searched.kind).toLowerCase().replace(' exacto', '')} de otra forma, no
+          aparece. La búsqueda quedó registrada de todos modos.
+        </ScreenEmpty>
       ) : null}
 
       {person ? (

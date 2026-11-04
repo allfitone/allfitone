@@ -19,6 +19,8 @@
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
+import { ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -27,7 +29,6 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -95,7 +96,7 @@ export function SupportPaymentsPanel({
     return () => controller.abort()
   }, [personId, caseReference])
 
-  if (state === 'loading') return <Spinner />
+  if (state === 'loading') return <ScreenLoading />
 
   if (state === 'failed' || !payments) {
     return (

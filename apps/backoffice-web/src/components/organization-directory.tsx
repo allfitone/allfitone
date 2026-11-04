@@ -21,6 +21,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -37,7 +39,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -73,6 +74,7 @@ import {
   type OrganizationStatus,
 } from '@/lib/organization-directory'
 import { formatInstant } from '@/lib/platform-access'
+import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -83,6 +85,7 @@ export function OrganizationDirectory() {
   const initial = directoryFiltersFromStatus(useSearchParams().get('status'))
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
+  const [refused, setRefused] = useState(false)
   const [organizations, setOrganizations] = useState<BackofficeOrganizationSummary[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
   const [appending, setAppending] = useState(false)
@@ -105,6 +108,7 @@ export function OrganizationDirectory() {
           window.location.assign('/')
           return
         }
+        setRefused(isRefusal(error))
         setFailure(failureMessage(error))
         setState('failed')
       }
@@ -157,9 +161,14 @@ export function OrganizationDirectory() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={submit} data-organization-directory-filters noValidate>
+          <form
+            onSubmit={submit}
+            data-backoffice-form
+            data-organization-directory-filters
+            noValidate
+          >
             <FieldGroup>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="org-query">Nombre</FieldLabel>
                 <Input
                   id="org-query"
@@ -173,7 +182,7 @@ export function OrganizationDirectory() {
                   disabled={state === 'loading'}
                 />
               </Field>
-              <Field orientation="responsive">
+              <Field>
                 <FieldLabel htmlFor="org-status">Estado</FieldLabel>
                 {/* Without the labels the trigger shows the raw state until the popup
                     has opened once, which is exactly what a filtered link lands on. */}
@@ -207,9 +216,11 @@ export function OrganizationDirectory() {
                 </Select>
               </Field>
               {issue ? <FieldError>{issue}</FieldError> : null}
-              <Button type="submit" disabled={state === 'loading'}>
-                Buscar
-              </Button>
+              <div data-form-actions>
+                <Button type="submit" disabled={state === 'loading'}>
+                  Buscar
+                </Button>
+              </div>
             </FieldGroup>
           </form>
         </CardContent>
@@ -219,13 +230,15 @@ export function OrganizationDirectory() {
         Crear un gimnasio para una venta
       </Link>
 
-      {state === 'loading' ? <Spinner /> : null}
+      {state === 'loading' ? <ScreenLoading /> : null}
 
       {state === 'failed' ? (
-        <Alert live="assertive" variant="danger">
-          <AlertTitle>No se pudo leer el directorio</AlertTitle>
-          <AlertDescription>{failure ?? directoryMessage('upstream-unavailable')}</AlertDescription>
-        </Alert>
+        <ScreenFailure
+          refused={refused}
+          duties={['manage_organization_lifecycle', 'diagnose_support_metadata']}
+          title="No se pudo leer el directorio"
+          message={failure ?? directoryMessage('upstream-unavailable')}
+        />
       ) : null}
 
       {state === 'ready' ? (

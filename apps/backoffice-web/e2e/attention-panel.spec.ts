@@ -208,7 +208,7 @@ test('an operator whose duties resolve no notice is told the base role grants no
 
   await page.goto('/panel')
 
-  await expect(page.getByText('No se pudo leer lo que necesita atención')).toBeVisible()
+  await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
   await expect(page.getByText(/no basta por sí solo/)).toBeVisible()
 })
 

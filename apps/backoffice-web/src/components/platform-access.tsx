@@ -16,6 +16,8 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
+
 import {
   Card,
   CardContent,
@@ -32,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -171,45 +172,29 @@ export function PlatformAccess() {
     [load],
   )
 
-  if (state === 'loading') {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Equipo de Allfit
-          </CardTitle>
-          <CardDescription>Cargando el inventario de acceso.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Spinner />
-        </CardContent>
-      </Card>
-    )
-  }
+  if (state === 'loading') return <ScreenLoading label="Cargando el inventario de acceso" />
 
   if (state === 'forbidden') {
     return (
-      <Alert live="polite" variant="warning">
-        <AlertTitle>No puedes ver este inventario</AlertTitle>
-        <AlertDescription>
-          Consultarlo exige un deber vigente de administración o de auditoría de accesos, con AAL2.
-          El rol base por sí solo no alcanza.
-        </AlertDescription>
-      </Alert>
+      <ScreenRefusal
+        title="No puedes ver este inventario"
+        duties={['manage_platform_access', 'audit_platform_access']}
+      >
+        Consultarlo exige un deber vigente de administración o de auditoría de accesos, con AAL2. El
+        rol base por sí solo no alcanza.
+      </ScreenRefusal>
     )
   }
 
   if (state === 'error') {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo cargar el inventario</AlertTitle>
-        <AlertDescription>
-          El servicio no respondió.{' '}
-          <Button type="button" size="sm" variant="ghost" onClick={() => void load()}>
-            Reintentar
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <ScreenFailure
+        refused={false}
+        duties={[]}
+        title="No se pudo cargar el inventario"
+        message={'El servicio no respondió.'}
+        onRetry={() => void load()}
+      />
     )
   }
 
@@ -314,9 +299,9 @@ function BaseRoleSection({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} data-platform-form noValidate>
+        <form onSubmit={submit} data-backoffice-form data-platform-form noValidate>
           <FieldGroup>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="platform-role-person">Persona que recibe el rol</FieldLabel>
               <Input
                 id="platform-role-person"
@@ -326,11 +311,13 @@ function BaseRoleSection({
                 autoComplete="off"
                 disabled={busy}
               />
+            </Field>
+            {error ? <FieldError>{error}</FieldError> : null}
+            <div data-form-actions>
               <Button type="submit" disabled={busy}>
                 Otorgar rol base
               </Button>
-            </Field>
-            {error ? <FieldError>{error}</FieldError> : null}
+            </div>
           </FieldGroup>
         </form>
 
@@ -347,14 +334,12 @@ function BaseRoleSection({
           </TableHeader>
           <TableBody>
             {assignments.length === 0 ? (
-              <TableRow>
-                <TableState
-                  colSpan={6}
-                  state="empty"
-                  title="Nadie tiene rol base"
-                  description="Sólo la ceremonia de arranque puede crear los primeros dos administradores."
-                />
-              </TableRow>
+              <TableState
+                colSpan={6}
+                state="empty"
+                title="Nadie tiene rol base"
+                description="Sólo la ceremonia de arranque puede crear los primeros dos administradores."
+              />
             ) : (
               assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
@@ -470,9 +455,9 @@ function DutySection({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} data-platform-form noValidate>
+        <form onSubmit={submit} data-backoffice-form data-platform-form noValidate>
           <FieldGroup>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="platform-duty-person">Persona que recibe el deber</FieldLabel>
               <Input
                 id="platform-duty-person"
@@ -483,7 +468,7 @@ function DutySection({
                 disabled={busy}
               />
             </Field>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="platform-duty-code">Deber</FieldLabel>
               <Select
                 value={dutyCode}
@@ -501,7 +486,7 @@ function DutySection({
                 </SelectContent>
               </Select>
             </Field>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="platform-duty-days">Vigencia en días</FieldLabel>
               <Input
                 id="platform-duty-days"
@@ -513,7 +498,7 @@ function DutySection({
                 disabled={busy}
               />
             </Field>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="platform-duty-reason">Referencia</FieldLabel>
               <Input
                 id="platform-duty-reason"
@@ -523,11 +508,13 @@ function DutySection({
                 autoComplete="off"
                 disabled={busy}
               />
+            </Field>
+            {error ? <FieldError>{error}</FieldError> : null}
+            <div data-form-actions>
               <Button type="submit" disabled={busy}>
                 Otorgar deber
               </Button>
-            </Field>
-            {error ? <FieldError>{error}</FieldError> : null}
+            </div>
           </FieldGroup>
         </form>
 
@@ -547,14 +534,12 @@ function DutySection({
           </TableHeader>
           <TableBody>
             {assignments.length === 0 ? (
-              <TableRow>
-                <TableState
-                  colSpan={9}
-                  state="empty"
-                  title="Nadie tiene deberes vigentes"
-                  description="Sin un deber, quien tenga rol base puede entrar pero no ejecutar nada."
-                />
-              </TableRow>
+              <TableState
+                colSpan={9}
+                state="empty"
+                title="Nadie tiene deberes vigentes"
+                description="Sin un deber, quien tenga rol base puede entrar pero no ejecutar nada."
+              />
             ) : (
               assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
