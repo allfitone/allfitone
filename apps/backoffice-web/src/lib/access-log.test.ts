@@ -37,7 +37,12 @@ function event(overrides: Partial<AccessEvent> = {}): AccessEvent {
 }
 
 function page(overrides: Partial<AccessEventPage> = {}): AccessEventPage {
-  return { items: [event()], withheld_from_you: 0, ...overrides }
+  return {
+    items: [event()],
+    withheld_from_you: 0,
+    page: { has_more: false, next_cursor: null },
+    ...overrides,
+  }
 }
 
 describe('access log presentation rules', () => {
@@ -86,6 +91,19 @@ describe('access log presentation rules', () => {
     expect(partial).toContain('2 accesos más que no te corresponde auditar')
     expect(partial).toContain('pásale el caso a otra persona')
     expect(hasWithheld(page({ withheld_from_you: 2 }))).toBe(true)
+  })
+
+  test('a first page never reads as the whole answer (HU-BO-030)', () => {
+    // The log used to stop at fifty and say «en total»; an auditor would answer from it.
+    const more = { has_more: true, next_cursor: 'eyJhdCI6IjIwMjYtMDktMTAifQ' }
+    const first = answerSentence(page({ items: [event(), event()], page: more }))
+    expect(first).toContain('2 accesos, los más recientes')
+    expect(first).toContain('Hay más accesos que cumplen estos filtros')
+    expect(first).not.toContain('en total')
+
+    const partial = answerSentence(page({ withheld_from_you: 2, page: more }))
+    expect(partial).toContain('2 accesos más que no te corresponde auditar')
+    expect(partial).toContain('Hay más accesos que cumplen estos filtros')
   })
 
   test('an empty list with withheld records never reads as "nobody looked"', () => {

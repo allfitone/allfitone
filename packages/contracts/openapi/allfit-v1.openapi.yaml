@@ -1870,6 +1870,11 @@ paths:
         removed for that reason, so an empty list is never mistaken for "nobody
         touched this person's data" — the auditor is told to hand those cases to
         someone else.
+
+
+        HU-BO-030: the log is read a page at a time, newest first. `page.has_more`
+        says whether older records match the same filters, and `page.next_cursor`
+        reads them; a page is never the whole answer unless `has_more` is false.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -1879,6 +1884,7 @@ paths:
         - $ref: '#/components/parameters/AccessEventFrom'
         - $ref: '#/components/parameters/AccessEventTo'
         - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
         '200':
           description: Access records, newest first
@@ -13665,12 +13671,14 @@ components:
     AccessEventPage:
       type: object
       additionalProperties: false
-      required: [items, withheld_from_you]
+      required: [items, withheld_from_you, page]
       properties:
         items:
           type: array
           items:
             $ref: '#/components/schemas/AccessEvent'
+        page:
+          $ref: '#/components/schemas/Page'
         withheld_from_you:
           type: integer
           minimum: 0

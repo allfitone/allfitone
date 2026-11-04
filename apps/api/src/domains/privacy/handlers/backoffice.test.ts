@@ -76,6 +76,7 @@ const page: AllfitV1Schemas['AccessEventPage'] = {
     },
   ],
   withheld_from_you: 1,
+  page: { has_more: true, next_cursor: 'eyJhdCI6IjIwMjYtMDktMTBUMTg6MDA6MDAuMDAwWiJ9' },
 }
 
 let captured: unknown[] = []
@@ -510,11 +511,20 @@ describe('Backoffice privacy API contract', () => {
       scopeService(),
       sessionService(),
       logService({
-        read: () => Promise.resolve({ items: [], withheld_from_you: 3 }),
+        read: () =>
+          Promise.resolve({
+            items: [],
+            withheld_from_you: 3,
+            page: { has_more: false, next_cursor: null },
+          }),
       }),
     ).fetch(auditGet())
 
-    await expect(response.json()).resolves.toEqual({ items: [], withheld_from_you: 3 })
+    await expect(response.json()).resolves.toEqual({
+      items: [],
+      withheld_from_you: 3,
+      page: { has_more: false, next_cursor: null },
+    })
   })
 
   test('T-AUD-API-03 passes every filter to the query rather than trimming after', async () => {
@@ -549,13 +559,33 @@ describe('Backoffice privacy API contract', () => {
         '?limit=201',
         '?limit=twenty',
         '?everything=true',
+        '?cursor=not-a-cursor-at-all',
       ].map((query) => routes().fetch(auditGet(query))),
     )
 
     expect(answers.map((response) => response.status)).toEqual([
-      400, 400, 400, 400, 400, 400, 400, 400,
+      400, 400, 400, 400, 400, 400, 400, 400, 400,
     ])
     expect(captured).toEqual([])
+  })
+
+  test('T-AUD-API-07 reads the next page from where the last one ended', async () => {
+    // HU-BO-030: the first page is not the whole log, and the auditor can reach the rest.
+    const cursor = Buffer.from(
+      JSON.stringify({
+        at: '2026-10-01T12:00:00.000Z',
+        id: '019a9100-0000-7000-8000-000000000502',
+      }),
+      'utf8',
+    ).toString('base64url')
+    const response = await routes().fetch(auditGet(`?cursor=${cursor}&limit=25`))
+
+    expect(response.status).toBe(200)
+    expect(captured[0]).toMatchObject({
+      limit: 25,
+      cursor: { at: '2026-10-01T12:00:00.000Z', id: '019a9100-0000-7000-8000-000000000502' },
+    })
+    await expect(response.json()).resolves.toMatchObject({ page: page.page })
   })
 
   test('T-AUD-API-05 refuses an inverted range rather than answering empty', async () => {

@@ -62,13 +62,16 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   AccessEventPage: {
     type: 'object',
     additionalProperties: false,
-    required: ['items', 'withheld_from_you'],
+    required: ['items', 'withheld_from_you', 'page'],
     properties: {
       items: {
         type: 'array',
         items: {
           $ref: '#/components/schemas/AccessEvent',
         },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
       withheld_from_you: {
         type: 'integer',

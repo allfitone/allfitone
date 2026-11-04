@@ -28,8 +28,10 @@ import type {
   AuthorizedScope,
   AuthorizedScopeDatabase,
 } from '../domain/index.js'
+import { DEFAULT_ACCESS_EVENT_PAGE, encodeAccessEventCursor } from '../domain/index.js'
 
 type CommandRow = { result: ScopeDefinition; replayed: boolean }
+type AccessEventRow = AccessEvent & { access_event_id: string; cursor_at: string }
 
 /**
  * The log and the count of what was withheld are read in **one** transaction. Two
@@ -43,15 +45,25 @@ export function createAccessLogDatabase(): AccessLogDatabase {
   return {
     read: (input) =>
       inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
-        const items = await transaction<AccessEvent[]>`
-          select * from privacy.list_access_events(
+        const limit = input.limit ?? DEFAULT_ACCESS_EVENT_PAGE
+        // One row more than the page answers "is there another" in the same query. The
+        // cursor keeps PostgreSQL's microseconds, which a Date would round away.
+        const rows = await transaction<AccessEventRow[]>`
+          select page.*,
+            to_char(page.occurred_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+              as cursor_at
+          from privacy.page_access_events(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
             ${input.filterActorPersonId ?? null}::uuid,
             ${input.filterSubjectPersonId ?? null}::uuid,
             ${input.from ?? null}::timestamptz, ${input.to ?? null}::timestamptz,
-            ${input.limit ?? null}::integer
-          )
+            ${limit + 1}::integer,
+            ${input.cursor?.at ?? null}::timestamptz, ${input.cursor?.id ?? null}::uuid
+          ) as page
         `
+        const hasMore = rows.length > limit
+        const visible = rows.slice(0, limit)
+        const last = visible.at(-1)
         const [withheld] = await transaction<{ count_withheld_access_events: number }[]>`
           select * from privacy.count_withheld_access_events(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
@@ -62,8 +74,27 @@ export function createAccessLogDatabase(): AccessLogDatabase {
         `
         if (!withheld) throw new Error('PostgreSQL did not count the withheld access events')
         return {
-          items,
+          // Named field by field: the record's id is for the cursor and is not shown.
+          items: visible.map((row): AccessEvent => ({
+            actor_person_id: row.actor_person_id,
+            subject_person_id: row.subject_person_id,
+            resource: row.resource,
+            resource_id: row.resource_id,
+            purpose: row.purpose,
+            result: row.result,
+            scope_code: row.scope_code,
+            scope_version: row.scope_version,
+            access_mode: row.access_mode,
+            occurred_at: row.occurred_at,
+          })),
           withheld_from_you: withheld.count_withheld_access_events,
+          page: {
+            has_more: hasMore,
+            next_cursor:
+              hasMore && last
+                ? encodeAccessEventCursor({ at: last.cursor_at, id: last.access_event_id })
+                : null,
+          },
         } satisfies AccessEventPage
       }),
   }

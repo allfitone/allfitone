@@ -61,7 +61,9 @@ import {
 import {
   ACCESS_LEVELS,
   DATA_CLASSIFICATIONS,
+  decodeAccessEventCursor,
   DEFAULT_ERASURE_PAGE,
+  MAX_ACCESS_EVENT_PAGE,
   ERASURE_REQUEST_STATES,
   LEGAL_HOLD_REASONS,
   MAX_ERASURE_PAGE,
@@ -425,7 +427,7 @@ function erasureRequestFilters(c: Context): ErasureRequestFilters | undefined {
 }
 
 function accessEventFilters(c: Context): AccessEventFilters | undefined {
-  const allowed = new Set(['actor_person_id', 'subject_person_id', 'from', 'to', 'limit'])
+  const allowed = new Set(['actor_person_id', 'subject_person_id', 'from', 'to', 'limit', 'cursor'])
   const query = c.req.query()
   if (Object.keys(query).some((key) => !allowed.has(key))) return undefined
 
@@ -462,8 +464,15 @@ function accessEventFilters(c: Context): AccessEventFilters | undefined {
   if (limit !== undefined) {
     if (!/^[0-9]{1,3}$/.test(limit)) return undefined
     const parsed = Number(limit)
-    if (parsed < 1 || parsed > 200) return undefined
+    if (parsed < 1 || parsed > MAX_ACCESS_EVENT_PAGE) return undefined
     filters.limit = parsed
+  }
+
+  const cursor = query['cursor']
+  if (cursor !== undefined) {
+    const decoded = decodeAccessEventCursor(cursor)
+    if (!decoded) return undefined
+    filters.cursor = decoded
   }
 
   return filters

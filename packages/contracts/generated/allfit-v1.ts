@@ -725,6 +725,8 @@ export interface paths {
      * Read the access log as an independent auditor
      * @description Who from the team looked at whose data, and when. It carries the record of the access and never what was read.
      *     Separation of duties is **per case, not global**: an access that belongs to a break-glass window this auditor requested or approved is absent, and every other window stays auditable. `withheld_from_you` counts what was removed for that reason, so an empty list is never mistaken for "nobody touched this person's data" — the auditor is told to hand those cases to someone else.
+     *
+     *     HU-BO-030: the log is read a page at a time, newest first. `page.has_more` says whether older records match the same filters, and `page.next_cursor` reads them; a page is never the whole answer unless `has_more` is false.
      */
     get: operations['listBackofficeAccessEvents']
     put?: never
@@ -5181,6 +5183,7 @@ export interface components {
     }
     AccessEventPage: {
       items: components['schemas']['AccessEvent'][]
+      page: components['schemas']['Page']
       /** @description How many records matching these filters were removed because this auditor requested or approved the break-glass window they belong to. Reported separately from the list so that it survives an empty one. */
       withheld_from_you: number
     }
@@ -12035,6 +12038,7 @@ export interface operations {
         /** @description Exclusive upper bound on when the access happened. */
         to?: components['parameters']['AccessEventTo']
         limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
       }
       header: {
         Origin: components['parameters']['Origin']

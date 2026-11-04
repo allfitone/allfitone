@@ -2449,13 +2449,27 @@ async function routeAccessLog(
       (to === null || Date.parse(event.occurred_at) < Date.parse(to)),
   )
 
+  // Newest first, a page at a time, like the real read. The mock's cursor is the next
+  // offset; the screen treats every cursor as opaque, so it cannot tell.
+  const visible = matching
+    .filter((event) => event.withheld_from_viewer !== true)
+    .sort((a, b) => Date.parse(b.occurred_at) - Date.parse(a.occurred_at))
+  const limit = Number(parameters.get('limit') ?? 50)
+  const cursor = parameters.get('cursor')
+  const offset = cursor === null ? 0 : Number(Buffer.from(cursor, 'base64url').toString('utf8'))
+  const items = visible.slice(offset, offset + limit)
+  const hasMore = offset + limit < visible.length
   // The count describes the same filtered set as the list, which is the whole
   // reason the real queries share one predicate.
   await fulfill(route, 200, {
-    items: matching
-      .filter((event) => event.withheld_from_viewer !== true)
-      .map(({ withheld_from_viewer: _withheld, ...row }) => row),
+    items: items.map(({ withheld_from_viewer: _withheld, ...row }) => row),
     withheld_from_you: matching.filter((event) => event.withheld_from_viewer === true).length,
+    page: {
+      has_more: hasMore,
+      next_cursor: hasMore
+        ? Buffer.from(String(offset + limit).padStart(16, '0'), 'utf8').toString('base64url')
+        : null,
+    },
   })
 }
 

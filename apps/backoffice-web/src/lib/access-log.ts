@@ -149,11 +149,14 @@ export function toQuery(filters: AccessLogFilters): Record<string, string | unde
 /**
  * What the screen says about the answer as a whole. The withheld count is part of
  * the answer, not a footnote: an auditor who cannot see it will report a finding
- * that is wrong.
+ * that is wrong. Neither is a page the whole answer while older records remain.
  */
 export function answerSentence(page: AccessEventPage): string {
   const shown = page.items.length
   const withheld = page.withheld_from_you
+  const more = page.page.has_more
+    ? ' Hay más accesos que cumplen estos filtros: carga los siguientes antes de dar una respuesta.'
+    : ''
 
   if (shown === 0 && withheld === 0) {
     return 'No hay ningún acceso registrado que cumpla estos filtros.'
@@ -162,9 +165,11 @@ export function answerSentence(page: AccessEventPage): string {
     return `Ninguno de los accesos que cumplen estos filtros te corresponde auditar: hay ${countPhrase(withheld)} de una ventana excepcional que pediste o aprobaste. Esta consulta no responde la pregunta — pásala a otra persona.`
   }
   if (withheld === 0) {
-    return `${countPhrase(shown)} en total.`
+    return more
+      ? `Van ${countPhrase(shown)}, los más recientes.${more}`
+      : `${countPhrase(shown)} en total.`
   }
-  return `${countPhrase(shown)}, y ${countPhrase(withheld)} más que no te corresponde auditar porque pediste o aprobaste su ventana excepcional. Para esos, pásale el caso a otra persona.`
+  return `${countPhrase(shown)}, y ${countPhrase(withheld)} más que no te corresponde auditar porque pediste o aprobaste su ventana excepcional. Para esos, pásale el caso a otra persona.${more}`
 }
 
 function countPhrase(count: number): string {

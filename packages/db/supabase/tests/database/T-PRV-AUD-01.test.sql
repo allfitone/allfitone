@@ -23,7 +23,7 @@
 
 begin;
 
-select plan(18);
+select plan(20);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -376,6 +376,36 @@ select is(
    where row.access_mode = 'break_glass'),
   0,
   'whoever approved a window cannot audit it either'
+);
+
+-- The paged read (HU-BO-030) is the read the API serves now. It must withhold exactly
+-- what the list withholds, so it is compared row for row for both disqualified auditors.
+select results_eq(
+  $$ select actor_person_id, subject_person_id, resource, occurred_at
+     from privacy.page_access_events(
+       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
+       null, null, null, null, 200, null, null
+     ) $$,
+  $$ select actor_person_id, subject_person_id, resource, occurred_at
+     from privacy.list_access_events(
+       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
+       null, null, null, null, 200
+     ) $$,
+  'the paged log withholds the requester''s own window exactly as the list does'
+);
+
+select results_eq(
+  $$ select actor_person_id, subject_person_id, resource, occurred_at
+     from privacy.page_access_events(
+       '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
+       null, null, null, null, 200, null, null
+     ) $$,
+  $$ select actor_person_id, subject_person_id, resource, occurred_at
+     from privacy.list_access_events(
+       '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
+       null, null, null, null, 200
+     ) $$,
+  'and the approver''s, row for row'
 );
 
 -- ---------------------------------------------------------------------------
