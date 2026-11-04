@@ -28,7 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Spinner } from '@allfitone/react/components/spinner'
 import {
   Table,
   TableBody,
@@ -38,6 +37,8 @@ import {
   TableRow,
 } from '@allfitone/react/components/table'
 import { useEffect, useRef, useState } from 'react'
+
+import { ScreenLoading } from './screen-state'
 
 import {
   BackofficeApiError,
@@ -144,7 +145,7 @@ export function OrganizationClientInvitations({ organizationId }: { organization
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {state === 'loading' ? <Spinner /> : null}
+        {state === 'loading' ? <ScreenLoading /> : null}
 
         {state === 'failed' ? (
           <Alert live="polite" variant="warning">

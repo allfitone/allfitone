@@ -136,14 +136,16 @@ export function OrganizationSuspensionPanel({
         {suspension.suspended ? (
           <div data-suspension-reactivate-form>
             <p data-suspension-reactivate-note>{WHAT_REACTIVATING_DOES}</p>
-            <Button
-              type="button"
-              disabled={busy}
-              data-suspension-reactivate
-              onClick={() => void run('reactivate')}
-            >
-              {busy ? 'Guardando…' : 'Levantar la suspensión'}
-            </Button>
+            <div data-form-actions>
+              <Button
+                type="button"
+                disabled={busy}
+                data-suspension-reactivate
+                onClick={() => void run('reactivate')}
+              >
+                {busy ? 'Guardando…' : 'Levantar la suspensión'}
+              </Button>
+            </div>
           </div>
         ) : (
           <FieldGroup data-suspension-form>
@@ -171,14 +173,16 @@ export function OrganizationSuspensionPanel({
               <AlertTitle>Lo que cuesta esta decisión</AlertTitle>
               <AlertDescription>{costWarning(peopleServed)}</AlertDescription>
             </Alert>
-            <Button
-              type="button"
-              disabled={busy}
-              data-suspension-save
-              onClick={() => void run('suspend')}
-            >
-              {busy ? 'Guardando…' : 'Suspender el gimnasio'}
-            </Button>
+            <div data-form-actions>
+              <Button
+                type="button"
+                disabled={busy}
+                data-suspension-save
+                onClick={() => void run('suspend')}
+              >
+                {busy ? 'Guardando…' : 'Suspender el gimnasio'}
+              </Button>
+            </div>
           </FieldGroup>
         )}
 

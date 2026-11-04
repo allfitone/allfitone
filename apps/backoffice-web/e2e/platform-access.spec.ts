@@ -135,6 +135,7 @@ test('withdrawing the base role closes the duties it carried', async ({ context,
     .first()
     .getByRole('button', { name: 'Retirar' })
     .click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Retirar el rol' }).click()
 
   await expect(page.getByText(/Rol base retirado/)).toBeVisible()
   await expect(page.getByRole('row').filter({ hasText: SUBJECT_PERSON_ID }).first()).toContainText(
@@ -142,6 +143,66 @@ test('withdrawing the base role closes the duties it carried', async ({ context,
   )
   // The duty the person carried is now revoked, not silently missing.
   await expect(page.getByRole('cell', { name: 'Revocado' }).first()).toBeVisible()
+})
+
+test('keeping the base role from the confirmation withdraws nothing', async ({ context, page }) => {
+  const access = seeded()
+  const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/team')
+  await expect(page.getByRole('heading', { name: 'Rol base' })).toBeVisible()
+
+  await page
+    .getByRole('row')
+    .filter({ hasText: SUBJECT_PERSON_ID })
+    .first()
+    .getByRole('button', { name: 'Retirar' })
+    .click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('No se puede deshacer')
+  await dialog.getByRole('button', { name: 'Conservar el rol' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('row').filter({ hasText: SUBJECT_PERSON_ID }).first()).toContainText(
+    'Vigente',
+  )
+  expect(
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path.endsWith('/revocation'),
+    ),
+  ).toHaveLength(0)
+  expect(access.roles[1]?.status).toBe('active')
+})
+
+test('keeping a duty from the confirmation revokes nothing', async ({ context, page }) => {
+  const access = seeded()
+  const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/team')
+  await expect(page.getByRole('heading', { name: 'Deberes de plataforma' })).toBeVisible()
+
+  await page
+    .getByRole('row')
+    .filter({ hasText: SUBJECT_PERSON_ID })
+    .filter({ has: page.getByRole('button', { name: 'Revocar' }) })
+    .getByRole('button', { name: 'Revocar' })
+    .click()
+
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog).toContainText('diagnosticar metadatos de soporte')
+  await dialog.getByRole('button', { name: 'Conservar el deber' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('cell', { name: 'Revocado' })).toHaveCount(0)
+  expect(
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path.endsWith('/revocation'),
+    ),
+  ).toHaveLength(0)
+  expect(access.duties[1]?.status).toBe('active')
 })
 
 test('explains a refused command as an expired duty rather than a bad request', async ({

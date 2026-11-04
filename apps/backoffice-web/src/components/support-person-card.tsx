@@ -27,7 +27,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import {
   Table,
   TableBody,
@@ -130,30 +129,30 @@ export function SupportPersonCard({ personId }: { personId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FieldGroup>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-id">Identificador</FieldLabel>
+          <dl data-facts>
+            <dt>Identificador</dt>
+            <dd>
               <code id="person-id">{metadata.person_id}</code>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-status">Estado de la cuenta</FieldLabel>
+            </dd>
+            <dt>Estado de la cuenta</dt>
+            <dd>
               <Badge
                 id="person-status"
                 variant={metadata.account_status === 'active' ? 'success' : 'secondary'}
               >
                 {metadata.account_status}
               </Badge>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-since">Antigüedad</FieldLabel>
+            </dd>
+            <dt>Antigüedad</dt>
+            <dd>
               <span id="person-since">
                 Creada el {formatInstant(metadata.created_at)}
                 {metadata.activated_at
                   ? ` · activada el ${formatInstant(metadata.activated_at)}`
                   : ''}
               </span>
-            </Field>
-          </FieldGroup>
+            </dd>
+          </dl>
 
           <Table scrollAreaLabel="Contacto y verificación">
             <TableHeader>
@@ -203,38 +202,38 @@ export function SupportPersonCard({ personId }: { personId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FieldGroup>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-account">Cuenta de acceso</FieldLabel>
+          <dl data-facts>
+            <dt>Cuenta de acceso</dt>
+            <dd>
               <span id="person-account">
                 {metadata.has_access_account
                   ? `Vinculada${metadata.access_account_linked_at ? ` el ${formatInstant(metadata.access_account_linked_at)}` : ''}`
                   : 'Sin cuenta vinculada'}
               </span>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-sessions">Sesiones activas</FieldLabel>
+            </dd>
+            <dt>Sesiones activas</dt>
+            <dd>
               <span id="person-sessions">{metadata.active_session_count}</span>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-seen">Última actividad</FieldLabel>
+            </dd>
+            <dt>Última actividad</dt>
+            <dd>
               <span id="person-seen">
                 {metadata.last_seen_at ? formatInstant(metadata.last_seen_at) : 'Nunca'}
               </span>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-memberships">Pertenencia a organizaciones</FieldLabel>
+            </dd>
+            <dt>Pertenencia a organizaciones</dt>
+            <dd>
               <span id="person-memberships">
                 {metadata.active_membership_count} vigentes de {metadata.membership_count}
               </span>
-            </Field>
-            <Field orientation="responsive">
-              <FieldLabel htmlFor="person-professional">Perfil profesional</FieldLabel>
+            </dd>
+            <dt>Perfil profesional</dt>
+            <dd>
               <span id="person-professional">
                 {metadata.has_professional_profile ? 'Existe' : 'No tiene'}
               </span>
-            </Field>
-          </FieldGroup>
+            </dd>
+          </dl>
         </CardContent>
       </Card>
 

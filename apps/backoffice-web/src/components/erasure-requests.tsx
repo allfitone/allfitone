@@ -37,6 +37,7 @@ import { Button } from '@allfitone/react/components/button'
 import { Checkbox } from '@allfitone/react/components/checkbox'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import { ScreenEmpty, ScreenLoading, ScreenRefusal } from './screen-state'
 
 import {
@@ -200,19 +201,21 @@ export function ErasureRequests() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div data-erasure-halves>
+          <ToggleGroup
+            value={[status]}
+            onValueChange={(values) => {
+              const next = values[0]
+              if (next && next !== status) setStatus(next)
+            }}
+            aria-label="Qué mitad del seguimiento ver"
+            data-erasure-halves
+          >
             {HALVES.map((half) => (
-              <Button
-                key={half.status}
-                type="button"
-                variant={half.status === status ? 'default' : 'outline'}
-                aria-pressed={half.status === status}
-                onClick={() => setStatus(half.status)}
-              >
+              <ToggleGroupItem key={half.status} value={half.status}>
                 {half.label}
-              </Button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </CardContent>
       </Card>
 
@@ -422,16 +425,22 @@ export function ErasureRequests() {
               <Field>
                 <FieldLabel htmlFor="hold-categories">Categorías por suspender</FieldLabel>
                 <div id="hold-categories" data-erasure-hold-categories>
-                  {holdableCategories(holding).map((category) => (
-                    <label key={category.data_classification_code + category.action}>
-                      <Checkbox
-                        disabled={busy}
-                        checked={category.item_ids.every((id) => draft.itemIds.includes(id))}
-                        onCheckedChange={(checked) => toggle(category.item_ids, checked === true)}
-                      />
-                      {categoryChoice(category.data_classification_code, category.items)}
-                    </label>
-                  ))}
+                  {holdableCategories(holding).map((category) => {
+                    const id = `hold-${category.data_classification_code}-${category.action}`
+                    return (
+                      <Field key={id} orientation="horizontal">
+                        <Checkbox
+                          id={id}
+                          disabled={busy}
+                          checked={category.item_ids.every((item) => draft.itemIds.includes(item))}
+                          onCheckedChange={(checked) => toggle(category.item_ids, checked === true)}
+                        />
+                        <FieldLabel htmlFor={id}>
+                          {categoryChoice(category.data_classification_code, category.items)}
+                        </FieldLabel>
+                      </Field>
+                    )
+                  })}
                 </div>
                 {issue === 'categories' ? <FieldError>{holdIssueMessage(issue)}</FieldError> : null}
               </Field>

@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
+import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import {
@@ -236,44 +237,38 @@ export function CredentialVerification() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <FieldGroup>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`vr-kind-${request.request_id}`}>Solicitud</FieldLabel>
+                <dl data-facts>
+                  <dt>Solicitud</dt>
+                  <dd>
                     <Badge id={`vr-kind-${request.request_id}`} variant="secondary">
                       {kindLabel(request.kind)}
                     </Badge>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`vr-issuer-${request.request_id}`}>Emisor</FieldLabel>
+                  </dd>
+                  <dt>Emisor</dt>
+                  <dd>
                     <span id={`vr-issuer-${request.request_id}`}>{request.issuer}</span>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`vr-identifier-${request.request_id}`}>
-                      Identificador
-                    </FieldLabel>
+                  </dd>
+                  <dt>Identificador</dt>
+                  <dd>
                     <code id={`vr-identifier-${request.request_id}`}>
                       {request.credential_identifier ?? 'Sin identificador declarado'}
                     </code>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`vr-dates-${request.request_id}`}>
-                      Fechas declaradas
-                    </FieldLabel>
+                  </dd>
+                  <dt>Fechas declaradas</dt>
+                  <dd>
                     <span id={`vr-dates-${request.request_id}`}>
                       Expedido: {request.issued_on ?? 'sin fecha'} · Vence:{' '}
                       {request.expires_on ?? 'sin fecha'}
                     </span>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`vr-where-${request.request_id}`}>
-                      Dónde verificar
-                    </FieldLabel>
+                  </dd>
+                  <dt>Dónde verificar</dt>
+                  <dd>
                     <span id={`vr-where-${request.request_id}`}>
                       {methodLabel(request.suggested_method)}.{' '}
                       {methodHint(request.suggested_method)}
                     </span>
-                  </Field>
-                </FieldGroup>
+                  </dd>
+                </dl>
 
                 {/* A plain anchor, not a Button rendered as one: opening the registry is
                     navigation, and the Button primitive exposes its element as a button. */}
@@ -303,29 +298,30 @@ export function CredentialVerification() {
                 ) : editing ? (
                   <form
                     onSubmit={(event) => void submit(event, request)}
+                    data-backoffice-form
                     data-verification-form
                     noValidate
                   >
                     <FieldGroup>
                       <Field>
                         <FieldLabel htmlFor="vr-result">Resultado</FieldLabel>
-                        <span id="vr-result" data-verification-choice>
-                          {VERIFICATION_RESULTS.map((result) => {
-                            const selected = draft.result === result
-                            return (
-                              <Button
-                                key={result}
-                                type="button"
-                                aria-pressed={selected}
-                                disabled={busy}
-                                onClick={() => update('result', result)}
-                                {...(selected ? {} : { variant: 'outline' as const })}
-                              >
-                                {resultLabel(result)}
-                              </Button>
-                            )
-                          })}
-                        </span>
+                        <ToggleGroup
+                          id="vr-result"
+                          data-verification-choice
+                          aria-label="Resultado"
+                          value={draft.result ? [draft.result] : []}
+                          onValueChange={(values) => {
+                            const next = values[0]
+                            if (next && next !== draft.result) update('result', next)
+                          }}
+                          disabled={busy}
+                        >
+                          {VERIFICATION_RESULTS.map((result) => (
+                            <ToggleGroupItem key={result} value={result}>
+                              {resultLabel(result)}
+                            </ToggleGroupItem>
+                          ))}
+                        </ToggleGroup>
                         {draft.result ? (
                           <span data-verification-explanation>
                             {resultExplanation(draft.result)}
@@ -333,7 +329,7 @@ export function CredentialVerification() {
                         ) : null}
                       </Field>
 
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-method">Cómo lo verificaste</FieldLabel>
                         <Select
                           value={draft.method}
@@ -353,7 +349,7 @@ export function CredentialVerification() {
                           </SelectContent>
                         </Select>
                       </Field>
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-authority">Autoridad consultada</FieldLabel>
                         <Input
                           id="vr-authority"
@@ -363,7 +359,7 @@ export function CredentialVerification() {
                           disabled={busy}
                         />
                       </Field>
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-jurisdiction">Jurisdicción</FieldLabel>
                         <Input
                           id="vr-jurisdiction"
@@ -374,7 +370,7 @@ export function CredentialVerification() {
                           disabled={busy}
                         />
                       </Field>
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-reference">Referencia en la fuente</FieldLabel>
                         <Input
                           id="vr-reference"
@@ -384,7 +380,7 @@ export function CredentialVerification() {
                           disabled={busy}
                         />
                       </Field>
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-status">Lo que dijo la fuente</FieldLabel>
                         <Input
                           id="vr-status"
@@ -395,7 +391,7 @@ export function CredentialVerification() {
                           disabled={busy}
                         />
                       </Field>
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-checked">Consultado el</FieldLabel>
                         <Input
                           id="vr-checked"
@@ -405,7 +401,7 @@ export function CredentialVerification() {
                           disabled={busy}
                         />
                       </Field>
-                      <Field orientation="responsive">
+                      <Field>
                         <FieldLabel htmlFor="vr-source-valid-to">
                           La fuente dice que vence
                         </FieldLabel>
@@ -424,12 +420,14 @@ export function CredentialVerification() {
                       </Alert>
 
                       {issue ? <FieldError>{issue}</FieldError> : null}
-                      <Button type="submit" disabled={busy}>
-                        Registrar decisión
-                      </Button>
-                      <Button type="button" variant="outline" disabled={busy} onClick={close}>
-                        Cancelar
-                      </Button>
+                      <div data-form-actions>
+                        <Button type="submit" disabled={busy}>
+                          Registrar decisión
+                        </Button>
+                        <Button type="button" variant="outline" disabled={busy} onClick={close}>
+                          Cancelar
+                        </Button>
+                      </div>
                     </FieldGroup>
                   </form>
                 ) : (

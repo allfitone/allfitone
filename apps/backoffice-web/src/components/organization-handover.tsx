@@ -17,6 +17,16 @@
  * again rather than showing a state it no longer has.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -64,7 +74,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   const [refused, setRefused] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
 
   const load = useCallback(
@@ -106,7 +116,6 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
           : await backofficeApi.cancelOrganizationHandover(organizationId, newBackofficeCommand())
       setHandover(next)
       setNow(Date.now())
-      setConfirming(false)
       setNotice({
         tone: 'success',
         message: action === 'resend' ? resendNotice(stageBefore) : CANCELLED_NOTICE,
@@ -117,7 +126,6 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
         return
       }
       setNotice({ tone: 'danger', message: failureMessage(caught) })
-      setConfirming(false)
       if (caught instanceof BackofficeApiError && caught.code === 'conflict') await load()
     } finally {
       setBusy(false)
@@ -190,47 +198,47 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
           </FieldGroup>
 
           {canActOn(stage) ? (
-            confirming ? (
-              <Alert live="assertive" variant="warning" data-handover-confirm>
-                <AlertTitle>¿Cancelar la creación?</AlertTitle>
-                <AlertDescription>
-                  El gimnasio queda cancelado y su invitación retirada. Nadie podrá reclamarlo y no
-                  se puede deshacer.
-                </AlertDescription>
-                <span data-handover-actions>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    disabled={busy}
-                    onClick={() => void run('cancel')}
-                  >
-                    {busy ? 'Cancelando…' : 'Sí, cancelar la creación'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => setConfirming(false)}
-                  >
-                    No, dejarlo como está
-                  </Button>
-                </span>
-              </Alert>
-            ) : (
-              <span data-handover-actions>
-                <Button type="button" disabled={busy} onClick={() => void run('resend')}>
-                  {busy ? 'Enviando…' : 'Enviar la invitación de nuevo'}
-                </Button>
+            <span data-handover-actions>
+              <Button type="button" disabled={busy} onClick={() => void run('resend')}>
+                {busy ? 'Enviando…' : 'Enviar la invitación de nuevo'}
+              </Button>
+              <AlertDialog
+                open={cancelling}
+                onOpenChange={(next) => {
+                  // Closing mid-flight would hide a request that is still going to land.
+                  if (busy) return
+                  setCancelling(next)
+                }}
+              >
                 <Button
                   type="button"
                   variant="outline"
                   disabled={busy}
-                  onClick={() => setConfirming(true)}
+                  onClick={() => setCancelling(true)}
                 >
                   Cancelar la creación
                 </Button>
-              </span>
-            )
+                <AlertDialogContent data-cancel-handover-dialog>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>¿Cancelar la creación?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      El gimnasio queda cancelado y su invitación retirada. Nadie podrá reclamarlo y
+                      no se puede deshacer.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={busy}>No, dejarlo como está</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={busy}
+                      onClick={() => void run('cancel').then(() => setCancelling(false))}
+                    >
+                      {busy ? 'Cancelando…' : 'Sí, cancelar la creación'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </span>
           ) : null}
         </CardContent>
       </Card>

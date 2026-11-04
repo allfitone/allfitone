@@ -16,6 +16,16 @@
  * answer arrives, so retrying after a network failure replays instead of mailing again.
  */
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -72,7 +82,6 @@ export function AccountRecoveryPanel({
   const [recovery, setRecovery] = useState<BackofficeAccountRecovery | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
-  const [confirmingCancel, setConfirmingCancel] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<string | null>(null)
   const [commandFailure, setCommandFailure] = useState<string | null>(null)
   const pending = useRef(new Map<string, BackofficeCommand>())
@@ -104,7 +113,6 @@ export function AccountRecoveryPanel({
     const command = pending.current.get(key) ?? newBackofficeCommand()
     pending.current.set(key, command)
     setBusy(key)
-    setConfirmingCancel(null)
     setOutcome(null)
     setCommandFailure(null)
     try {
@@ -256,35 +264,12 @@ export function AccountRecoveryPanel({
                   <TableCell>{request.send_count}</TableCell>
                   <TableCell>{recoveryStateExplanation(request)}</TableCell>
                   <TableCell>
-                    {confirmingCancel === request.request_id ? (
-                      <div data-account-recovery-confirm>
-                        <span>¿Cancelarla? Si el correo ya salió, no se puede retirar.</span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={busy !== null}
-                          onClick={() => void cancel(request)}
-                        >
-                          Sí, cancelar
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setConfirmingCancel(null)}
-                        >
-                          No
-                        </Button>
-                      </div>
-                    ) : (
-                      <RequestActions
-                        request={request}
-                        busy={busy}
-                        onResend={() => void resend(request)}
-                        onCancel={() => setConfirmingCancel(request.request_id)}
-                      />
-                    )}
+                    <RequestActions
+                      request={request}
+                      busy={busy}
+                      onResend={() => void resend(request)}
+                      onCancel={() => cancel(request)}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -305,8 +290,9 @@ function RequestActions({
   request: BackofficeAccountRecoveryRequest
   busy: string | null
   onResend: () => void
-  onCancel: () => void
+  onCancel: () => Promise<void>
 }) {
+  const [cancelling, setCancelling] = useState(false)
   if (!request.resendable && !request.cancellable) return <span>—</span>
   return (
     <div data-account-recovery-actions>
@@ -323,16 +309,47 @@ function RequestActions({
         </Button>
       ) : null}
       {request.cancellable ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={busy !== null}
-          aria-label={`Cancelar la recuperación enviada a ${request.contact_hint}`}
-          onClick={onCancel}
+        <AlertDialog
+          open={cancelling}
+          onOpenChange={(next) => {
+            // Closing mid-flight would hide a request that is still going to land.
+            if (busy !== null) return
+            setCancelling(next)
+          }}
         >
-          Cancelar
-        </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null}
+            aria-label={`Cancelar la recuperación enviada a ${request.contact_hint}`}
+            onClick={() => setCancelling(true)}
+          >
+            Cancelar
+          </Button>
+          <AlertDialogContent data-cancel-recovery-dialog>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Cancelar la recuperación?</AlertDialogTitle>
+              <AlertDialogDescription>
+                El enlace enviado a <code>{request.contact_hint}</code> deja de confirmar nada. Si
+                el correo ya salió, no se puede retirar: la persona lo verá, pero usarlo no le
+                devolverá el acceso. No se puede deshacer; habría que enviar una recuperación nueva.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy !== null}>
+                Conservar la recuperación
+              </AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                disabled={busy !== null}
+                onClick={() => void onCancel().then(() => setCancelling(false))}
+              >
+                {busy === `cancel:${request.request_id}` ? 'Cancelando…' : 'Sí, cancelar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       ) : null}
     </div>
   )

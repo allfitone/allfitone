@@ -16,7 +16,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenFailure, ScreenLoading } from './screen-state'
+import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
 import {
   Card,
@@ -166,13 +166,10 @@ export function SupportDiagnosis() {
         </CardHeader>
         <CardContent>
           {circuits.length === 0 ? (
-            <Alert live="off" variant="info">
-              <AlertTitle>Ningún canal ha reportado entregas</AlertTitle>
-              <AlertDescription>
-                Todavía no hay ventanas de entrega registradas. No es una falla: es que aún no se ha
-                enviado nada.
-              </AlertDescription>
-            </Alert>
+            <ScreenEmpty icon="activity" title="Ningún canal ha reportado entregas">
+              Todavía no hay ventanas de entrega registradas. No es una falla: es que aún no se ha
+              enviado nada.
+            </ScreenEmpty>
           ) : (
             <Table scrollAreaLabel="Canales de entrega">
               <TableHeader>
@@ -219,7 +216,7 @@ export function SupportDiagnosis() {
         </CardHeader>
         <CardContent>
           <FieldGroup>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="diagnosis-source">Tipo</FieldLabel>
               <Select
                 value={source}
@@ -240,7 +237,7 @@ export function SupportDiagnosis() {
                 </SelectContent>
               </Select>
             </Field>
-            <Field orientation="responsive">
+            <Field>
               <FieldLabel htmlFor="diagnosis-state">Estado</FieldLabel>
               <Select
                 value={operationState}
@@ -264,13 +261,10 @@ export function SupportDiagnosis() {
           </FieldGroup>
 
           {operations.length === 0 ? (
-            <Alert live="polite" variant="info">
-              <AlertTitle>Nada que revisar con esos filtros</AlertTitle>
-              <AlertDescription>
-                Con este tipo y este estado no hay ninguna operación. Cambia los filtros para
-                ampliar la búsqueda.
-              </AlertDescription>
-            </Alert>
+            <ScreenEmpty icon="search" title="Nada que revisar con esos filtros" role="status">
+              Con este tipo y este estado no hay ninguna operación. Cambia los filtros para ampliar
+              la búsqueda.
+            </ScreenEmpty>
           ) : (
             <Table scrollAreaLabel="Operaciones">
               <TableHeader>

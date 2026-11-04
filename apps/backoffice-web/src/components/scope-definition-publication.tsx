@@ -18,7 +18,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenFailure, ScreenLoading } from './screen-state'
+import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
 import {
   Card,
@@ -364,13 +364,10 @@ export function ScopeDefinitionPublication() {
       </Card>
 
       {histories.length === 0 ? (
-        <Alert live="off" variant="info">
-          <AlertTitle>Todavía no hay ningún permiso publicado</AlertTitle>
-          <AlertDescription>
-            Cuando publiques la primera versión aparecerá aquí, y cada versión posterior quedará
-            junto a ella: el historial es lo que dice bajo qué versión está cada persona.
-          </AlertDescription>
-        </Alert>
+        <ScreenEmpty icon="permissions" title="Todavía no hay ningún permiso publicado">
+          Cuando publiques la primera versión aparecerá aquí, y cada versión posterior quedará junto
+          a ella: el historial es lo que dice bajo qué versión está cada persona.
+        </ScreenEmpty>
       ) : (
         histories.map((history) => (
           <Card key={history.code}>
@@ -387,9 +384,9 @@ export function ScopeDefinitionPublication() {
             <CardContent>
               {history.versions.map((version) => (
                 <div key={version.id} data-scope-version>
-                  <FieldGroup>
-                    <Field orientation="responsive">
-                      <FieldLabel htmlFor={`version-${version.id}`}>Versión</FieldLabel>
+                  <dl data-facts>
+                    <dt>Versión</dt>
+                    <dd>
                       <Badge
                         id={`version-${version.id}`}
                         variant={
@@ -399,14 +396,14 @@ export function ScopeDefinitionPublication() {
                         v{version.version_number}
                         {version.id === effectiveVersion(history)?.id ? ' · la más nueva' : ''}
                       </Badge>
-                    </Field>
-                    <Field orientation="responsive">
-                      <FieldLabel htmlFor={`published-${version.id}`}>Publicada</FieldLabel>
+                    </dd>
+                    <dt>Publicada</dt>
+                    <dd>
                       <span id={`published-${version.id}`}>
                         {version.published_at ? formatInstant(version.published_at) : '—'}
                       </span>
-                    </Field>
-                  </FieldGroup>
+                    </dd>
+                  </dl>
 
                   <Table scrollAreaLabel={`Contenido de la versión ${version.version_number}`}>
                     <TableHeader>

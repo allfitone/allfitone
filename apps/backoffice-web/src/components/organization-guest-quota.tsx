@@ -144,19 +144,20 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
               onChange={(event) => setSeats(event.target.value)}
             />
           </Field>
-          <Field>
-            <label data-quota-unlimited>
-              <Checkbox
-                checked={unlimited}
-                disabled={busy}
-                onCheckedChange={(checked) => setUnlimited(checked === true)}
-              />
-              Sin límite
-            </label>
+          <Field orientation="horizontal" data-quota-unlimited>
+            <Checkbox
+              id="quota-unlimited"
+              checked={unlimited}
+              disabled={busy}
+              onCheckedChange={(checked) => setUnlimited(checked === true)}
+            />
+            <FieldLabel htmlFor="quota-unlimited">Sin límite</FieldLabel>
           </Field>
-          <Button type="button" onClick={() => void save()} disabled={busy} data-quota-save>
-            {busy ? 'Guardando…' : 'Fijar el cupo'}
-          </Button>
+          <div data-form-actions>
+            <Button type="button" onClick={() => void save()} disabled={busy} data-quota-save>
+              {busy ? 'Guardando…' : 'Fijar el cupo'}
+            </Button>
+          </div>
         </FieldGroup>
 
         <p data-quota-lowering-note>{LOWERING_NOTE}</p>

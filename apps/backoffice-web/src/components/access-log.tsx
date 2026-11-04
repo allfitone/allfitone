@@ -209,45 +209,45 @@ export function AccessLog() {
                 <CardDescription>{formatInstant(event.occurred_at)}</CardDescription>
               </CardHeader>
               <CardContent>
-                <FieldGroup>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-mode-${event.occurred_at}`}>
-                      Base del acceso
-                    </FieldLabel>
+                <dl data-facts>
+                  <dt>Base del acceso</dt>
+                  <dd>
                     <Badge
                       id={`al-mode-${event.occurred_at}`}
                       variant={modeTone(event.access_mode)}
                     >
                       {modeLabel(event.access_mode)}
                     </Badge>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-actor-${event.occurred_at}`}>Quién accedió</FieldLabel>
+                  </dd>
+                  <dt>Quién accedió</dt>
+                  <dd>
                     <code id={`al-actor-${event.occurred_at}`}>{event.actor_person_id}</code>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-subject-${event.occurred_at}`}>Sobre quién</FieldLabel>
+                  </dd>
+                  <dt>Sobre quién</dt>
+                  <dd>
                     <code id={`al-subject-${event.occurred_at}`}>
                       {event.subject_person_id ?? 'Sin persona afectada'}
                     </code>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-result-${event.occurred_at}`}>Resultado</FieldLabel>
+                  </dd>
+                  <dt>Resultado</dt>
+                  <dd>
                     <span id={`al-result-${event.occurred_at}`}>{resultLabel(event.result)}</span>
-                  </Field>
-                  <Field orientation="responsive">
-                    <FieldLabel htmlFor={`al-purpose-${event.occurred_at}`}>Propósito</FieldLabel>
+                  </dd>
+                  <dt>Propósito</dt>
+                  <dd>
                     <span id={`al-purpose-${event.occurred_at}`}>{event.purpose}</span>
-                  </Field>
+                  </dd>
                   {event.scope_code ? (
-                    <Field orientation="responsive">
-                      <FieldLabel htmlFor={`al-scope-${event.occurred_at}`}>Permiso</FieldLabel>
-                      <span id={`al-scope-${event.occurred_at}`}>
-                        {event.scope_code} · v{event.scope_version}
-                      </span>
-                    </Field>
+                    <>
+                      <dt>Permiso</dt>
+                      <dd>
+                        <span id={`al-scope-${event.occurred_at}`}>
+                          {event.scope_code} · v{event.scope_version}
+                        </span>
+                      </dd>
+                    </>
                   ) : null}
-                </FieldGroup>
+                </dl>
 
                 <Alert live="off" variant={isExceptional(event) ? 'warning' : 'info'}>
                   <AlertTitle>Qué autorizó esta lectura</AlertTitle>

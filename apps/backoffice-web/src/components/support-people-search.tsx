@@ -209,42 +209,42 @@ export function SupportPeopleSearch() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <FieldGroup>
-              <Field orientation="responsive">
-                <FieldLabel htmlFor="support-found-id">Identificador</FieldLabel>
+            <dl data-facts>
+              <dt>Identificador</dt>
+              <dd>
                 <code id="support-found-id">{person.person_id}</code>
-              </Field>
-              <Field orientation="responsive">
-                <FieldLabel htmlFor="support-found-status">Estado de la cuenta</FieldLabel>
+              </dd>
+              <dt>Estado de la cuenta</dt>
+              <dd>
                 <Badge
                   id="support-found-status"
                   variant={person.account_status === 'active' ? 'success' : 'secondary'}
                 >
                   {person.account_status}
                 </Badge>
-              </Field>
-              <Field orientation="responsive">
-                <FieldLabel htmlFor="support-found-email">Correo</FieldLabel>
+              </dd>
+              <dt>Correo</dt>
+              <dd>
                 <code id="support-found-email">{person.contact_email_masked ?? 'sin correo'}</code>
-              </Field>
-              <Field orientation="responsive">
-                <FieldLabel htmlFor="support-found-verified">Verificación del correo</FieldLabel>
+              </dd>
+              <dt>Verificación del correo</dt>
+              <dd>
                 <span id="support-found-verified">
                   {verificationLabel(person.email_verified_at)}
                   {person.email_verified_at ? ` · ${formatInstant(person.email_verified_at)}` : ''}
                 </span>
-              </Field>
-              <Button
-                render={
-                  <Link
-                    href={`/people/${person.person_id}?case_reference=${encodeURIComponent(caseReference.trim())}`}
-                  />
-                }
-                nativeButton={false}
-              >
-                Abrir estado operativo
-              </Button>
-            </FieldGroup>
+              </dd>
+            </dl>
+            <Button
+              render={
+                <Link
+                  href={`/people/${person.person_id}?case_reference=${encodeURIComponent(caseReference.trim())}`}
+                />
+              }
+              nativeButton={false}
+            >
+              Abrir estado operativo
+            </Button>
           </CardContent>
         </Card>
       ) : null}
