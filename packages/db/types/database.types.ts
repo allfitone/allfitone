@@ -35,6 +35,14 @@ export type Database = {
         Args: never
         Returns: Database['identity']['Enums']['actor_kind']
       }
+      can_access: {
+        Args: {
+          p_level: 'read' | 'contribute'
+          p_relationship_id: string
+          p_scope_code: string
+        }
+        Returns: boolean
+      }
       can_read_membership_event: {
         Args: { p_membership_id: string }
         Returns: boolean
@@ -46,6 +54,17 @@ export type Database = {
         Returns: string
       }
       counts_platform_metrics: { Args: never; Returns: boolean }
+      grant_of: {
+        Args: { p_relationship_id: string; p_scope_code: string }
+        Returns: {
+          access_level: 'read' | 'contribute'
+          grant_id: string
+          organization_id: string
+          person_id: string
+          purpose: string
+          scope_definition_id: string
+        }[]
+      }
       has_active_relationship: {
         Args: { p_organization_id: string }
         Returns: boolean
@@ -4393,6 +4412,44 @@ export type Database = {
   }
   planning: {
     Tables: {
+      assignment_management_periods: {
+        Row: {
+          assignment_id: string
+          end_reason: string | null
+          ended_at: string | null
+          id: string
+          person_id: string
+          relationship_id: string
+          started_at: string
+        }
+        Insert: {
+          assignment_id: string
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          person_id: string
+          relationship_id: string
+          started_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          end_reason?: string | null
+          ended_at?: string | null
+          id?: string
+          person_id?: string
+          relationship_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_assignment_management_periods_assignment'
+            columns: ['assignment_id', 'person_id']
+            isOneToOne: false
+            referencedRelation: 'program_assignments'
+            referencedColumns: ['id', 'person_id']
+          },
+        ]
+      }
       endurance_targets: {
         Row: {
           id: string
@@ -5197,6 +5254,27 @@ export type Database = {
         Returns: string
       }
       assert_own_content: { Args: { p_person_id: string }; Returns: undefined }
+      assign_program_from_relationship: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_organization_id: string
+          p_person_id: string
+          p_program_version_id: string
+          p_relationship_id: string
+          p_request_hash: string
+          p_starts_on: string
+          p_timezone: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      assignment_overlaps: {
+        Args: { p_assignment_id: string }
+        Returns: boolean
+      }
       audit_organization_read: {
         Args: { p_organization_id: string; p_person_id: string }
         Returns: undefined
@@ -5312,6 +5390,10 @@ export type Database = {
           result: Json
         }[]
       }
+      detach_relationship_assignments: {
+        Args: { p_effective_at: string; p_relationship_id: string }
+        Returns: number
+      }
       discard_my_program: {
         Args: {
           p_command_id: string
@@ -5378,6 +5460,21 @@ export type Database = {
         }
         Returns: {
           program_id: string
+          result: Json
+          updated_at: string
+        }[]
+      }
+      list_relationship_assignments: {
+        Args: {
+          p_cursor_id: string
+          p_cursor_updated_at: string
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_relationship_id: string
+        }
+        Returns: {
+          resource_id: string
           result: Json
           updated_at: string
         }[]
@@ -5544,6 +5641,7 @@ export type Database = {
           cover_object_key: string
           days_per_week: number
           editable: boolean
+          managed_by: string
           program_id: string
           program_version_id: string
           routine_cover: Json
@@ -5653,6 +5751,14 @@ export type Database = {
         Args: { p_template_version_id: string }
         Returns: string
       }
+      relationship_assignment_item: {
+        Args: { p_assignment_id: string }
+        Returns: Json
+      }
+      relationship_assignment_projection: {
+        Args: { p_assignment_id: string }
+        Returns: Json
+      }
       remove_my_program: {
         Args: {
           p_command_id: string
@@ -5737,6 +5843,22 @@ export type Database = {
         Returns: {
           replayed: boolean
           result: Json
+        }[]
+      }
+      require_effective_coach: {
+        Args: {
+          p_capability: string
+          p_organization_id: string
+          p_person_id: string
+          p_relationship_id: string
+        }
+        Returns: string
+      }
+      require_training_grant: {
+        Args: { p_level: 'read' | 'contribute'; p_relationship_id: string }
+        Returns: {
+          grant_id: string
+          scope_version: number
         }[]
       }
       restate_assignment_onto: {
