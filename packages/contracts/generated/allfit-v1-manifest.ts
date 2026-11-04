@@ -1582,6 +1582,22 @@ export const allfitV1ContractManifest = {
       security: ['cookieAuth'],
     },
     {
+      method: 'POST',
+      path: '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/cancellation',
+      operationId: 'cancelProgramAssignment',
+      allfitOperation: 'OP-PLN-014',
+      responses: ['200', '400', '401', '403', '404', '409', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'POST',
+      path: '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/prescription-revisions',
+      operationId: 'revisePrescription',
+      allfitOperation: 'OP-PLN-013',
+      responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
       method: 'GET',
       path: '/studio/v1/organizations/{organizationId}/authorized-scopes',
       operationId: 'listStudioAuthorizedScopes',
@@ -1731,6 +1747,14 @@ export const allfitV1ContractManifest = {
       operationId: 'transferStudioOrganizationOwnership',
       allfitOperation: 'OP-ORG-011',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'PATCH',
+      path: '/studio/v1/organizations/{organizationId}/planned-sessions/{plannedSessionId}',
+      operationId: 'reschedulePlannedSession',
+      allfitOperation: 'OP-PLN-012',
+      responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
       security: ['cookieAuth'],
     },
     {
