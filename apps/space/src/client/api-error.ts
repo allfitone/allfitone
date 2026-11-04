@@ -38,6 +38,13 @@ export type ApiFailure =
    * carries the function, so the screen offers Pro for exactly that.
    */
   | 'plan-limit'
+  /** The gym has no guest place left for her right now (HU-STUDIO-087). */
+  | 'guest-quota-exhausted'
+  /** The gym is suspended and takes nobody new until it operates again (HU-BO-016). */
+  | 'organization-not-operating'
+
+/** The `409`s a person can do something about, told apart by the code in the body. */
+const GYM_REFUSALS: readonly ApiFailure[] = ['guest-quota-exhausted', 'organization-not-operating']
 
 export class ApiError extends Error {
   constructor(
@@ -61,8 +68,9 @@ export function failureFor(status: number): ApiFailure {
 
 const PLAN_LIMIT = 'https://errors.allfit.invalid/plan-limit-reached'
 
-/** The error a refused response means, reading the problem only for a plan limit. */
+/** The error a refused response means, reading the body only for a plan limit or a gym. */
 export async function apiErrorFrom(response: Response): Promise<ApiError> {
+  if (response.status === 409) return new ApiError(await gymRefusal(response))
   if (response.status !== 403) return new ApiError(failureFor(response.status))
   let body: unknown
   try {
@@ -75,4 +83,17 @@ export async function apiErrorFrom(response: Response): Promise<ApiError> {
     if (typeof feature === 'string') return new ApiError('plan-limit', feature)
   }
   return new ApiError('forbidden')
+}
+
+/** Any other `409`, or one whose body cannot be read, stays a plain conflict. */
+async function gymRefusal(response: Response): Promise<ApiFailure> {
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    return 'conflict'
+  }
+  const error = typeof body === 'object' && body !== null && 'error' in body ? body.error : null
+  const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
+  return GYM_REFUSALS.find((failure) => failure === code) ?? 'conflict'
 }

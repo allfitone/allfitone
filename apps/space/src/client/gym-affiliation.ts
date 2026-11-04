@@ -11,6 +11,7 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
+import { ApiError } from './api-error'
 import { shortDate } from './pro'
 
 export type InvitationPresentation = AllfitV1Schemas['ClientInvitationPresentation']
@@ -107,6 +108,25 @@ export function sharedSummary(
 }
 
 export const invitationExpiry = (instant: string): string => `vence el ${shortDate(instant)}`
+
+const DECISION_FAILED =
+  'No pudimos guardar tus decisiones. Revisa tu conexión e inténtalo de nuevo.'
+const LATER = 'Tu invitación sigue abierta: inténtalo más tarde.'
+
+/**
+ * Why her answer did not land. A gym that cannot take her now is not a connection
+ * problem, and the invitation it sent is still open; why the gym is paused is not hers.
+ */
+export function decisionFailure(cause: unknown): string {
+  if (!(cause instanceof ApiError)) return DECISION_FAILED
+  if (cause.failure === 'organization-not-operating') {
+    return `Este gimnasio no está recibiendo personas nuevas por ahora. ${LATER}`
+  }
+  if (cause.failure === 'guest-quota-exhausted') {
+    return `Este gimnasio no tiene lugares libres por ahora. ${LATER}`
+  }
+  return DECISION_FAILED
+}
 
 /** Covers still waiting on her: proposed, and not already past their last day. */
 export function pendingCovers<

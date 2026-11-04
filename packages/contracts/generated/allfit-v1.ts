@@ -1313,6 +1313,8 @@ export interface paths {
      *     Rejecting the relationship ends the invitation and no scope is granted, whatever the scope answers say.
      *
      *     HU-STUDIO-087: accepting converts the guest place the invitation already held. If the organization is over its quota by another way, acceptance answers `409` with `guest-quota-exhausted` and nothing is decided.
+     *
+     *     HU-BO-016: while the organization is suspended, acceptance answers `409` with `organization-not-operating`. The invitation stays open until it expires and can be accepted once the organization operates again; declining is always allowed.
      */
     post: operations['decideSpaceClientInvitation']
     delete?: never

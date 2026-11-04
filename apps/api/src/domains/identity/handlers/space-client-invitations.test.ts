@@ -364,6 +364,17 @@ describe('what answering refuses', () => {
     expect(response.status).toBe(409)
     expect(await response.json()).toEqual({ error: { code: 'guest-quota-exhausted' } })
   })
+
+  test('T-ORG-SUSPEND-API-01 accepting into a suspended gym says it is not operating', async () => {
+    const service = invitations({
+      decide: async () => {
+        throw Object.assign(new Error('the organization is not operating'), { code: 'AF423' })
+      },
+    })
+    const response = await app(service).fetch(post('decisions', DECISION_BODY))
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: { code: 'organization-not-operating' } })
+  })
 })
 
 const INVITATION = '0199d000-0000-7000-8000-000000000031'
