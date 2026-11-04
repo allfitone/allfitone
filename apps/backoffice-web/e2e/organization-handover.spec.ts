@@ -40,7 +40,7 @@ test('creates a gym for a company and shows that it waits for its owner', async 
   await expect(page.locator('#ho-invited')).toHaveText('d***@example.test')
   // HU-BO-014 c7: who on the team created it.
   await expect(page.locator('[data-handover-created-by]')).toHaveText(
-    'Lo creó Mateo Ciclo, del equipo de Allfit.',
+    'Lo creó Mateo Ciclo, del equipo de Allfit One.',
   )
 
   const created = fixture.requests.find(

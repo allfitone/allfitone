@@ -196,8 +196,8 @@ export function siteLine(handover: OrganizationHandover): string {
 /** HU-BO-014 c7: who on Allfit's team created the gym. */
 export function createdBySentence(handover: OrganizationHandover): string {
   const actor = handover.created_by
-  if (actor === null) return 'No lo creó nadie del equipo de Allfit.'
-  return `Lo creó ${staffName(actor.name, actor.person_id)}, del equipo de Allfit.`
+  if (actor === null) return 'No lo creó nadie del equipo de Allfit One.'
+  return `Lo creó ${staffName(actor.name, actor.person_id)}, del equipo de Allfit One.`
 }
 
 /** HU-BO-015 c3: who cancelled it, once somebody did. */

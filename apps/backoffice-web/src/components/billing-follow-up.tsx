@@ -120,9 +120,9 @@ export function BillingFollowUp() {
             Cobros por seguir
           </CardTitle>
           <CardDescription>
-            Suscripciones a Allfit suspendidas o en gracia, y cobros que fallaron en los últimos 30
-            días. Nombra a quien paga, así que pide el caso y queda registrado contra cada persona
-            de la lista.
+            Suscripciones a Allfit One suspendidas o en gracia, y cobros que fallaron en los últimos
+            30 días. Nombra a quien paga, así que pide el caso y queda registrado contra cada
+            persona de la lista.
           </CardDescription>
         </CardHeader>
         <CardContent>

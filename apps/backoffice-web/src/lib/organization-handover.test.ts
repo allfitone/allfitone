@@ -68,7 +68,7 @@ describe('the site of a handover', () => {
 // HU-BO-014 c7 and HU-BO-015 c3: who on Allfit's team created it, and who cancelled it.
 describe('who on the team created and cancelled a gym', () => {
   test('the creator is named', () => {
-    expect(createdBySentence(handover())).toBe('Lo creó Mateo Ciclo, del equipo de Allfit.')
+    expect(createdBySentence(handover())).toBe('Lo creó Mateo Ciclo, del equipo de Allfit One.')
     expect(cancelledBySentence(handover())).toBeUndefined()
   })
 
@@ -83,7 +83,7 @@ describe('who on the team created and cancelled a gym', () => {
 
   test('a gym nobody at Allfit created says so instead of naming somebody', () => {
     expect(createdBySentence(handover({ created_by: null }))).toBe(
-      'No lo creó nadie del equipo de Allfit.',
+      'No lo creó nadie del equipo de Allfit One.',
     )
   })
 
