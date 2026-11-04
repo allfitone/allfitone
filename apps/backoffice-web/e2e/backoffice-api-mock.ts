@@ -169,6 +169,11 @@ export interface BreakGlassFixture {
   meals?: BreakGlassMealFixture[]
   /** What the subject has trained. Only a prior_training_history read returns it. */
   sessions?: BreakGlassSessionFixture[]
+  /** What her own programmes plan; a prior_training_history read returns it. */
+  ownAgenda?: BreakGlassAgendaFixture[]
+  /** Sessions and plan under a gym; a relationship_training read returns them. */
+  gymSessions?: BreakGlassSessionFixture[]
+  gymAgenda?: BreakGlassAgendaFixture[]
   files: BreakGlassFileFixture[]
 }
 
@@ -221,6 +226,15 @@ export interface BreakGlassMealFixture {
   }>
 }
 
+export interface BreakGlassAgendaFixture {
+  scheduled_at: string
+  timezone: string
+  status: 'scheduled' | 'paused' | 'cancelled' | 'completed'
+  program_day: number
+  program_title: string
+  from_gym: boolean
+}
+
 export interface BreakGlassSessionFixture {
   id: string
   activity_type_code: string
@@ -251,6 +265,34 @@ export interface BreakGlassSessionFixture {
     lap_number: number
     distance: { value: number; unit: string }
     duration_seconds: number
+  }>
+  // Optional: a server older than the screen answers without them.
+  interval_results?: Array<{
+    segment_position: number | null
+    interval_number: number
+    work_duration_seconds: number
+    rest_duration_seconds: number | null
+    achieved_repetitions: number | null
+    distance: { value: number; unit: string } | null
+    completed: boolean | null
+  }>
+  round_results?: Array<{
+    segment_position: number | null
+    round_number: number
+    activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
+    completed_repetitions: number | null
+    duration_seconds: number | null
+    distance: { value: number; unit: string } | null
+    load: { value: number; unit: string } | null
+  }>
+  mobility_results?: Array<{
+    segment_position: number | null
+    sequence_position: number
+    movement_id: string | null
+    movement_name: string | null
+    side: 'left' | 'right' | 'bilateral' | 'not_applicable' | null
+    hold_duration_seconds: number | null
+    completed_repetitions: number | null
   }>
 }
 
@@ -2317,6 +2359,7 @@ async function routeBreakGlass(
       health_context: 'identity.health_context_claims',
       nutrition_intake: 'nutrition.meals',
       prior_training_history: 'execution.executed_sessions',
+      relationship_training: 'execution.executed_sessions',
     }
     const ownTable = readable[category]
     const forced = glass.nextExerciseDenial
@@ -2371,7 +2414,20 @@ async function routeBreakGlass(
         outcome: 'allowed',
         reason_code: 'authorized_exercise',
         ...event,
-        content: { prior_training_history: glass.sessions ?? [] },
+        content: {
+          prior_training_history: glass.sessions ?? [],
+          agenda: glass.ownAgenda ?? [],
+        },
+      })
+    } else if (category === 'relationship_training') {
+      await fulfill(route, 200, {
+        outcome: 'allowed',
+        reason_code: 'authorized_exercise',
+        ...event,
+        content: {
+          relationship_training: glass.gymSessions ?? [],
+          agenda: glass.gymAgenda ?? [],
+        },
       })
     } else {
       await fulfill(route, 200, {

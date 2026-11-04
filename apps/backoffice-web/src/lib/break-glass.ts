@@ -39,6 +39,7 @@ type NutrientCode = AllfitV1Schemas['NutrientCode']
 type ExecutionStatus = AllfitV1Schemas['ExecutionStatus']
 type ExecutionValidationStatus = AllfitV1Schemas['ExecutionValidationStatus']
 type CompletenessLevel = AllfitV1Schemas['CompletenessLevel']
+type BreakGlassAgendaEntry = AllfitV1Schemas['BreakGlassAgendaEntry']
 
 /** Only what can be approved. The forbidden set is absent, not disabled. */
 export const BREAK_GLASS_CATEGORIES: readonly BreakGlassCategory[] = [
@@ -532,12 +533,19 @@ export interface TrainingRow {
   done: string
   state: string
   level: string
+  /** HU-BO-008 c2: each thing the session recorded, one line each. */
+  detail: string[]
 }
 
-/** The sessions an allowed read returned, most recent first as the server sent them. */
+/**
+ * The sessions an allowed read returned, most recent first as the server sent them:
+ * her own with `prior_training_history`, under a gym with `relationship_training`.
+ */
 export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] {
   if (outcome.outcome !== 'allowed') return []
-  return (outcome.content?.prior_training_history ?? []).map((session) => {
+  const sessions =
+    outcome.content?.prior_training_history ?? outcome.content?.relationship_training ?? []
+  return sessions.map((session) => {
     const zone = String(session.timezone)
     return {
       id: session.id,
@@ -545,12 +553,125 @@ export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] 
       when: `${mealMoment(session.started_at, zone)} · ${zone}`,
       activity: session.activity_type_name,
       duration: sessionLength(session.started_at, session.ended_at),
-      done: whatWasDone(session.strength_sets, session.endurance_laps),
+      done: whatWasDone(session),
       state: `${EXECUTION_STATUS_LABELS[session.status]} · ${VALIDATION_LABELS[session.validation_status]}`,
       level:
         session.achieved_level === null
           ? 'Sin nivel certificado'
           : LEVEL_LABELS[session.achieved_level],
+      detail: detailLines(session),
+    }
+  })
+}
+
+type SessionResults = Partial<
+  Pick<
+    ExecutionDetail,
+    'strength_sets' | 'endurance_laps' | 'interval_results' | 'round_results' | 'mobility_results'
+  >
+>
+
+const ROUND_FAMILIES: Record<ExecutionDetail['round_results'][number]['activity_family'], string> =
+  {
+    strength: 'fuerza',
+    endurance: 'resistencia',
+    interval: 'intervalos',
+    mobility: 'movilidad',
+  }
+
+const SIDES: Record<NonNullable<ExecutionDetail['mobility_results'][number]['side']>, string> = {
+  left: 'izquierda',
+  right: 'derecha',
+  bilateral: 'ambos lados',
+  not_applicable: 'sin lado',
+}
+
+const seconds = (value: number) => `${amount(value)} s`
+const repetitions = (value: number) => `${value} ${value === 1 ? 'repetición' : 'repeticiones'}`
+const measure = (value: { value: number; unit: string }) => `${amount(value.value)} ${value.unit}`
+const joined = (parts: (string | null | false)[]) => parts.filter(Boolean).join(' · ')
+
+/**
+ * One line per thing recorded, in the order the person did it. Partial on purpose: a
+ * server older than this screen answers without the three newer lists.
+ */
+function detailLines(session: SessionResults): string[] {
+  return [
+    ...(session.strength_sets ?? []).map((set) =>
+      joined([
+        `Serie ${set.order}`,
+        set.movement_name ?? 'Movimiento sin nombre',
+        set.achieved_reps !== null && repetitions(set.achieved_reps),
+        set.load !== null && measure(set.load),
+        set.rpe !== null && `RPE ${amount(set.rpe)}`,
+      ]),
+    ),
+    ...(session.endurance_laps ?? []).map((lap) =>
+      joined([`Tramo ${lap.lap_number}`, measure(lap.distance), clock(lap.duration_seconds)]),
+    ),
+    ...(session.interval_results ?? []).map((interval) =>
+      joined([
+        `Intervalo ${interval.interval_number}`,
+        `${seconds(interval.work_duration_seconds)} de trabajo`,
+        interval.rest_duration_seconds !== null &&
+          `${seconds(interval.rest_duration_seconds)} de descanso`,
+        interval.achieved_repetitions !== null && repetitions(interval.achieved_repetitions),
+        interval.distance !== null && measure(interval.distance),
+        interval.completed === true && 'completo',
+        interval.completed === false && 'sin completar',
+      ]),
+    ),
+    ...(session.round_results ?? []).map((round) =>
+      joined([
+        `Ronda ${round.round_number}`,
+        ROUND_FAMILIES[round.activity_family],
+        round.completed_repetitions !== null && repetitions(round.completed_repetitions),
+        round.duration_seconds !== null && clock(round.duration_seconds),
+        round.distance !== null && measure(round.distance),
+        round.load !== null && measure(round.load),
+      ]),
+    ),
+    ...(session.mobility_results ?? []).map((hold) =>
+      joined([
+        `Movilidad ${hold.sequence_position}`,
+        hold.movement_name ?? 'Movimiento sin nombre',
+        hold.side !== null && SIDES[hold.side],
+        hold.hold_duration_seconds !== null && seconds(hold.hold_duration_seconds),
+        hold.completed_repetitions !== null && repetitions(hold.completed_repetitions),
+      ]),
+    ),
+  ]
+}
+
+export interface AgendaRow {
+  when: string
+  program: string
+  day: string
+  status: string
+  origin: string
+}
+
+const AGENDA_STATUS: Record<BreakGlassAgendaEntry['status'], string> = {
+  scheduled: 'Programada',
+  paused: 'En pausa',
+  cancelled: 'Cancelada',
+  completed: 'Hecha',
+}
+
+/**
+ * HU-BO-008 c3, as decided: what is planned and from which programme, by its name only.
+ * The hour is the one where the session is planned, with the zone that makes it true.
+ */
+export function agendaRows(outcome: BreakGlassExerciseOutcome): AgendaRow[] {
+  if (outcome.outcome !== 'allowed') return []
+  return (outcome.content?.agenda ?? []).map((entry) => {
+    const zone = String(entry.timezone)
+    return {
+      when: `${mealMoment(entry.scheduled_at, zone)} · ${zone}`,
+      program: entry.program_title,
+      day: `Día ${entry.program_day}`,
+      status: AGENDA_STATUS[entry.status],
+      origin: entry.from_gym ? 'Asignado por un gimnasio' : 'Programa propio',
     }
   })
 }
@@ -567,10 +688,12 @@ function sessionLength(startedAt: string, endedAt: string | null): string {
 }
 
 /** What the session held, summed the way a reviewer reads it rather than set by set. */
-function whatWasDone(
-  sets: ExecutionDetail['strength_sets'],
-  laps: ExecutionDetail['endurance_laps'],
-): string {
+function whatWasDone(session: SessionResults): string {
+  const sets = session.strength_sets ?? []
+  const laps = session.endurance_laps ?? []
+  const intervals = session.interval_results ?? []
+  const rounds = session.round_results ?? []
+  const holds = session.mobility_results ?? []
   const parts: string[] = []
   if (sets.length > 0) {
     const reps = sets.reduce((total, set) => total + (set.achieved_reps ?? 0), 0)
@@ -585,6 +708,11 @@ function whatWasDone(
     parts.push(coveredByUnit(laps))
     parts.push(clock(seconds))
   }
+  if (intervals.length > 0) {
+    parts.push(`${intervals.length} ${intervals.length === 1 ? 'intervalo' : 'intervalos'}`)
+  }
+  if (rounds.length > 0) parts.push(`${rounds.length} ${rounds.length === 1 ? 'ronda' : 'rondas'}`)
+  if (holds.length > 0) parts.push(`${holds.length} de movilidad`)
   return parts.length > 0 ? parts.join(' · ') : 'Sin resultados registrados'
 }
 
@@ -622,6 +750,9 @@ export function emptyReadMessage(category: BreakGlassCategory | undefined): stri
   if (category === 'nutrition_intake') return 'La persona no ha registrado comidas.'
   if (category === 'prior_training_history') {
     return 'La persona no tiene sesiones de entrenamiento registradas.'
+  }
+  if (category === 'relationship_training') {
+    return 'La persona no tiene sesiones con un gimnasio ni nada planeado por uno.'
   }
   return 'La lectura no devolvió registros.'
 }

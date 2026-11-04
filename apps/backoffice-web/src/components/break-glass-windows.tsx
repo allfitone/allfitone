@@ -90,6 +90,7 @@ import {
   measurementRows,
   photoDayRows,
   trainingRows,
+  agendaRows,
   outcomeMessage,
   purposeLabel,
   quorumSentence,
@@ -174,6 +175,7 @@ export function BreakGlassWindows() {
   const claims = shown ? healthContextRows(shown) : []
   const eaten = shown ? mealRows(shown) : []
   const trained = shown ? trainingRows(shown) : []
+  const agenda = shown ? agendaRows(shown) : []
 
   async function run(operation: () => Promise<unknown>, success: string) {
     setBusy(true)
@@ -269,7 +271,8 @@ export function BreakGlassWindows() {
             rows.length === 0 &&
             claims.length === 0 &&
             eaten.length === 0 &&
-            trained.length === 0
+            trained.length === 0 &&
+            agenda.length === 0
               ? ` ${emptyReadMessage(shown.category)}`
               : null}
           </AlertDescription>
@@ -400,9 +403,52 @@ export function BreakGlassWindows() {
                 <TableCell data-break-glass-moment>{session.when}</TableCell>
                 <TableCell>{session.activity}</TableCell>
                 <TableCell>{session.duration}</TableCell>
-                <TableCell data-break-glass-done>{session.done}</TableCell>
+                <TableCell data-break-glass-done>
+                  {session.done}
+                  {/* HU-BO-008 c2: the session opens to each thing it recorded. */}
+                  {session.detail.length > 0 ? (
+                    <details data-break-glass-session-detail>
+                      <summary>Ver lo registrado</summary>
+                      <ul>
+                        {session.detail.map((line, index) => (
+                          <li key={index}>{line}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </TableCell>
                 <TableCell data-break-glass-origin>{session.state}</TableCell>
                 <TableCell data-break-glass-level>{session.level}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {/* HU-BO-008 c3: what is planned and from which programme, by its name only. */}
+      {agenda.length > 0 ? (
+        <Table scrollAreaLabel="Agenda de la persona" data-break-glass-content>
+          <TableCaption>
+            Agenda de la persona. Cada programa aparece por su nombre; su contenido no se abre desde
+            aquí.
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cuándo</TableHead>
+              <TableHead>Programa</TableHead>
+              <TableHead>Día</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Origen</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {agenda.map((entry, index) => (
+              <TableRow key={`${index}-${entry.when}`}>
+                <TableCell>{entry.when}</TableCell>
+                <TableCell>{entry.program}</TableCell>
+                <TableCell>{entry.day}</TableCell>
+                <TableCell>{entry.status}</TableCell>
+                <TableCell>{entry.origin}</TableCell>
               </TableRow>
             ))}
           </TableBody>

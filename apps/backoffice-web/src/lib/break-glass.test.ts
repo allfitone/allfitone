@@ -12,6 +12,7 @@ import {
   healthContextRows,
   mealRows,
   trainingRows,
+  agendaRows,
   measurementRows,
   outcomeMessage,
   photoDayRows,
@@ -528,6 +529,9 @@ describe('break-glass presentation rules', () => {
               },
             ],
             endurance_laps: [],
+            interval_results: [],
+            round_results: [],
+            mobility_results: [],
           },
           {
             id: '019a8000-0000-7000-8000-000000000a02',
@@ -560,6 +564,9 @@ describe('break-glass presentation rules', () => {
                 duration_seconds: 275,
               },
             ],
+            interval_results: [],
+            round_results: [],
+            mobility_results: [],
           },
         ],
       },
@@ -645,5 +652,175 @@ describe('break-glass presentation rules', () => {
     expect(breakGlassMessage('conflict')).toContain('no se reabre')
     expect(breakGlassMessage('forbidden')).toContain('vencen por diseño')
     expect(breakGlassMessage('anything-else')).toBe('No se pudo completar la operación.')
+  })
+})
+
+describe('training under a window, opened (HU-BO-008)', () => {
+  const session: NonNullable<
+    NonNullable<BreakGlassExerciseOutcome['content']>['prior_training_history']
+  >[number] = {
+    id: '019a8000-0000-7000-8000-000000000a09',
+    activity_type_code: 'test_strength_session',
+    activity_type_name: 'Circuito',
+    discipline_code: 'test_strength',
+    started_at: '2026-09-15T12:00:00+00:00',
+    ended_at: '2026-09-15T12:40:00+00:00',
+    timezone: 'America/Bogota',
+    status: 'completed',
+    validation_status: 'pending',
+    requested_level: 'detailed',
+    achieved_level: null,
+    revision_number: 1,
+    capture_source: 'manual',
+    contract: { id: '019c0000-0000-7000-8000-000000000031', version: 1 },
+    segments: [],
+    strength_sets: [
+      {
+        segment_position: 1,
+        order: 1,
+        movement_id: null,
+        movement_name: 'Sentadilla',
+        achieved_reps: 8,
+        load: { value: 80, unit: 'kg' },
+        rpe: 7,
+      },
+    ],
+    endurance_laps: [
+      {
+        segment_position: 1,
+        lap_number: 1,
+        distance: { value: 1, unit: 'km' },
+        duration_seconds: 330,
+      },
+    ],
+    interval_results: [
+      {
+        segment_position: null,
+        interval_number: 1,
+        work_duration_seconds: 40,
+        rest_duration_seconds: 20,
+        achieved_repetitions: null,
+        distance: null,
+        completed: true,
+      },
+      {
+        segment_position: null,
+        interval_number: 2,
+        work_duration_seconds: 40,
+        rest_duration_seconds: 20,
+        achieved_repetitions: null,
+        distance: null,
+        completed: false,
+      },
+    ],
+    round_results: [
+      {
+        segment_position: null,
+        round_number: 1,
+        activity_family: 'strength',
+        completed_repetitions: 12,
+        duration_seconds: null,
+        distance: null,
+        load: null,
+      },
+    ],
+    mobility_results: [
+      {
+        segment_position: null,
+        sequence_position: 1,
+        movement_id: null,
+        movement_name: 'Apertura de cadera',
+        side: 'left',
+        hold_duration_seconds: 30,
+        completed_repetitions: null,
+      },
+    ],
+  }
+
+  const read = (
+    category: 'prior_training_history' | 'relationship_training',
+    content: NonNullable<BreakGlassExerciseOutcome['content']>,
+  ): BreakGlassExerciseOutcome => ({
+    outcome: 'allowed',
+    reason_code: 'authorized_exercise',
+    break_glass_event_id: '019a8000-0000-7000-8000-000000000607',
+    occurred_at: '2026-09-15T18:00:00.000Z',
+    category,
+    content,
+  })
+
+  test('opens a session to every set, lap, interval, round and hold it recorded (c2)', () => {
+    const [row] = trainingRows(
+      read('prior_training_history', { prior_training_history: [session] }),
+    )
+
+    expect(row?.done).toBe(
+      '1 serie · 8 repeticiones · hasta 80 kg · 1 tramo · 1 km · 5:30 · 2 intervalos · 1 ronda · 1 de movilidad',
+    )
+    expect(row?.detail).toEqual([
+      'Serie 1 · Sentadilla · 8 repeticiones · 80 kg · RPE 7',
+      'Tramo 1 · 1 km · 5:30',
+      'Intervalo 1 · 40 s de trabajo · 20 s de descanso · completo',
+      'Intervalo 2 · 40 s de trabajo · 20 s de descanso · sin completar',
+      'Ronda 1 · fuerza · 12 repeticiones',
+      'Movilidad 1 · Apertura de cadera · izquierda · 30 s',
+    ])
+  })
+
+  test('a session from a server older than the screen still opens to its sets', () => {
+    // A database not yet migrated answers without the three newer lists; that is not a failure.
+    const {
+      interval_results: _intervals,
+      round_results: _rounds,
+      mobility_results: _mobility,
+      ...older
+    } = session
+    const [row] = trainingRows(
+      read('prior_training_history', {
+        prior_training_history: [older as typeof session],
+      }),
+    )
+    expect(row?.detail).toEqual([
+      'Serie 1 · Sentadilla · 8 repeticiones · 80 kg · RPE 7',
+      'Tramo 1 · 1 km · 5:30',
+    ])
+  })
+
+  test('reads the training under a gym the same way', () => {
+    const rows = trainingRows(read('relationship_training', { relationship_training: [session] }))
+    expect(rows.map((row) => row.activity)).toEqual(['Circuito'])
+  })
+
+  test('the agenda names each programme and nothing of its content (c3)', () => {
+    const rows = agendaRows(
+      read('relationship_training', {
+        relationship_training: [],
+        agenda: [
+          {
+            scheduled_at: '2026-09-17T11:00:00+00:00',
+            timezone: 'America/Bogota',
+            status: 'scheduled',
+            program_day: 3,
+            program_title: 'Fuerza 8 semanas',
+            from_gym: true,
+          },
+          {
+            scheduled_at: '2026-09-18T11:00:00+00:00',
+            timezone: 'America/Bogota',
+            status: 'cancelled',
+            program_day: 1,
+            program_title: 'Mi rutina de casa',
+            from_gym: false,
+          },
+        ],
+      }),
+    )
+
+    expect(rows[0]?.when).toContain('6:00')
+    expect(rows.map(({ program, day, status, origin }) => [program, day, status, origin])).toEqual([
+      ['Fuerza 8 semanas', 'Día 3', 'Programada', 'Asignado por un gimnasio'],
+      ['Mi rutina de casa', 'Día 1', 'Cancelada', 'Programa propio'],
+    ])
+    expect(agendaRows({ ...read('prior_training_history', {}), outcome: 'denied' })).toEqual([])
   })
 })
