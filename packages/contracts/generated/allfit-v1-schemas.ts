@@ -8956,19 +8956,25 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'status',
       'origin_relationship_id',
       'program_version_id',
+      'starts_on',
+      'timezone',
       'management',
       'planned_sessions_created',
+      'schedule_overlaps',
     ],
     example: {
       id: '018f6f8d-2b00-7a00-8000-000000000401',
       status: 'active',
       origin_relationship_id: '018f6f8d-2b00-7a00-8000-000000000301',
       program_version_id: '018f6f8d-2b00-7a00-8000-000000000201',
+      starts_on: '2026-07-27',
+      timezone: 'America/Bogota',
       management: {
         relationship_id: '018f6f8d-2b00-7a00-8000-000000000301',
         since: '2026-07-27T09:14:00-05:00',
       },
       planned_sessions_created: 24,
+      schedule_overlaps: false,
     },
     properties: {
       id: {
@@ -8984,6 +8990,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       program_version_id: {
         $ref: '#/components/schemas/Uuid',
       },
+      starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+        description: 'The zone the calendar was planted in, which may not be the one sent.',
+      },
       management: {
         $ref: '#/components/schemas/AssignmentManagement',
       },
@@ -8991,12 +9005,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'integer',
         minimum: 1,
       },
+      schedule_overlaps: {
+        type: 'boolean',
+        description:
+          "Whether a session still waiting in another program she follows falls inside this one's span. A warning, never a refusal, and never with what.",
+      },
     },
   },
   ProgramAssignmentCreate: {
     type: 'object',
     additionalProperties: false,
-    required: ['program_version_id', 'starts_on', 'timezone'],
+    required: ['program_version_id', 'starts_on'],
     example: {
       program_version_id: '018f6f8d-2b00-7a00-8000-000000000201',
       starts_on: '2026-07-27',
@@ -9009,9 +9028,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       starts_on: {
         type: 'string',
         format: 'date',
+        description: "Today or later in the person's own day.",
       },
       timezone: {
         $ref: '#/components/schemas/IanaTimeZone',
+        description:
+          "Only a fallback. The calendar uses the zone the person's device last sent, and this one only when she never opened Space.",
       },
     },
   },
@@ -9259,6 +9281,140 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         minLength: 1,
         maxLength: 200,
+      },
+    },
+  },
+  RelationshipAssignment: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'status',
+      'program_version',
+      'starts_on',
+      'timezone',
+      'assigned_at',
+      'management',
+      'sessions',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      status: {
+        type: 'string',
+        enum: ['active', 'detached_pending_choice', 'ended'],
+      },
+      program_version: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'program_id', 'version_number', 'title', 'repeats_forever'],
+        properties: {
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          program_id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          version_number: {
+            type: 'integer',
+            minimum: 1,
+          },
+          title: {
+            type: 'string',
+          },
+          repeats_forever: {
+            type: 'boolean',
+          },
+        },
+      },
+      starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      assigned_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      management: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/AssignmentManagement',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'Null once the organization no longer manages it.',
+      },
+      sessions: {
+        type: 'array',
+        description:
+          'Every session planted so far, in calendar order. An open-ended version grows one week at a time, as the person reaches it.',
+        items: {
+          $ref: '#/components/schemas/RelationshipAssignmentSession',
+        },
+      },
+    },
+  },
+  RelationshipAssignmentPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/RelationshipAssignment',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  RelationshipAssignmentSession: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'template_version_id',
+      'title',
+      'week_starts_on',
+      'program_day',
+      'scheduled_on',
+      'status',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      template_version_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      title: {
+        type: 'string',
+      },
+      week_starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      program_day: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 7,
+      },
+      scheduled_on: {
+        type: 'string',
+        format: 'date',
+        description: "The day in the person's own time zone.",
+      },
+      status: {
+        type: 'string',
+        enum: ['scheduled', 'paused', 'cancelled', 'completed'],
       },
     },
   },
@@ -11768,6 +11924,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'sessions_planned',
       'cover_url',
       'routine_cover',
+      'managed_by',
     ],
     properties: {
       assignment_id: {
@@ -11842,6 +11999,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       sessions_planned: {
         type: 'integer',
         minimum: 0,
+      },
+      managed_by: {
+        oneOf: [
+          {
+            type: 'string',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'The organization that gave it and manages it, by its display name. Null for a programme she took herself. A managed programme is never editable here.',
       },
     },
   },
