@@ -37,7 +37,7 @@ import {
 } from '@allfitone/react/components/table'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 
 import { AccountRecoveryPanel } from '@/components/account-recovery'
 import { SupportPaymentsPanel } from '@/components/support-payments'
@@ -49,9 +49,7 @@ import {
 } from '@/lib/backoffice-api'
 import { formatInstant } from '@/lib/platform-access'
 import {
-  absentBlocks,
-  availabilityExplanation,
-  availabilityLabel,
+  fileFacts,
   isValidCaseReference,
   supportMetadataMessage,
   verificationLabel,
@@ -227,12 +225,6 @@ export function SupportPersonCard({ personId }: { personId: string }) {
                 {metadata.active_membership_count} vigentes de {metadata.membership_count}
               </span>
             </dd>
-            <dt>Perfil profesional</dt>
-            <dd>
-              <span id="person-professional">
-                {metadata.has_professional_profile ? 'Existe' : 'No tiene'}
-              </span>
-            </dd>
           </dl>
         </CardContent>
       </Card>
@@ -241,39 +233,25 @@ export function SupportPersonCard({ personId }: { personId: string }) {
 
       <AccountRecoveryPanel personId={personId} caseReference={caseReference} />
 
-      <Card>
+      <Card data-support-person-blocks>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            Lo que esta ficha todavía no puede decir
+            Lo que existe alrededor de la persona
           </CardTitle>
           <CardDescription>
-            Estos bloques aparecen aunque estén vacíos, porque no verlos haría creer que la persona
-            no tiene nada. La diferencia importa: aquí falta el dónde guardarlo, no el dato.
+            Que existe, en qué estado y desde cuándo. No dice en qué gimnasio, qué permiso ni cuánto
+            paga: para eso no es esta ficha.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table scrollAreaLabel="Bloques sin información">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Bloque</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Qué significa</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {absentBlocks(metadata).map((block) => (
-                <TableRow key={block.title}>
-                  <TableCell>{block.title}</TableCell>
-                  <TableCell>
-                    <Badge variant={block.availability === 'available' ? 'success' : 'secondary'}>
-                      {availabilityLabel(block.availability)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{availabilityExplanation(block.availability)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <dl data-facts>
+            {fileFacts(metadata, formatInstant).map((fact) => (
+              <Fragment key={fact.label}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </Fragment>
+            ))}
+          </dl>
         </CardContent>
       </Card>
     </div>

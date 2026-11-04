@@ -34,6 +34,7 @@ export type {
   SupportOperation,
   SupportPersonMetadata,
   SupportPeopleSearch,
+  SupportPersonMatch,
   PlatformDutyAssignment,
   PlatformDutyCode,
   PlatformDutyStatus,

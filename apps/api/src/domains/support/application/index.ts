@@ -33,6 +33,7 @@ import type {
   SupportMetadataDatabase,
   SupportPersonPayments,
   SupportPeopleSearch,
+  SupportPersonMatch,
   SupportPersonMetadata,
   SupportLookupKind,
   SupportReader,
@@ -152,7 +153,15 @@ export function createSupportMetadataService(
   return {
     search: async (reader, input) => {
       const found = await database.search({ ...reader, ...input })
-      return found ? { outcome: 'found', items: [found] } : { outcome: 'not_found', items: [] }
+      if (!found) return { outcome: 'not_found', items: [] }
+      // Named field by field: whatever else a database answers never travels.
+      const match: SupportPersonMatch = {
+        person_id: found.person_id,
+        account_status: found.account_status,
+        contact_email_masked: found.contact_email_masked,
+        contact_phone_masked: found.contact_phone_masked,
+      }
+      return { outcome: 'found', items: [match] }
     },
     read: (reader, input) => database.read({ ...reader, ...input }),
     payments: (reader, input) => database.payments({ ...reader, ...input }),

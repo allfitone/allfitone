@@ -362,7 +362,7 @@ export interface paths {
     }
     /**
      * Find a person by something they handed over in their own case
-     * @description Exact match on exactly one of an identifier, an email or a phone. There is no exploratory search by name, so no parameter offers one. The search is recorded whether or not it matched: a fruitless search is the one most worth being able to review later.
+     * @description Exact match on exactly one of an identifier, an email or a phone. There is no exploratory search by name, so no parameter offers one. The search is recorded whether or not it matched: a fruitless search is the one most worth being able to review later. A match answers only what HU-BO-006 criterion 2 lists, and is also recorded in the person's own access log.
      */
     get: operations['searchBackofficeSupportPeople']
     put?: never
@@ -382,7 +382,7 @@ export interface paths {
     }
     /**
      * Open the minimised operational state of a person
-     * @description Identifiers, account and verification states, timestamps and counters. To resolve a training case use the break-glass operations; no screen widens the approved category silently. The read is recorded against the person before its content is returned.
+     * @description Identifiers, account and verification states, timestamps and counters, and whether a professional profile, relationships, a plan, Pro and permissions exist, with their states and dates (HU-BO-007 criterion 2). Never what was shared, paid, or who receives it. To resolve a training case use the break-glass operations; no screen widens the approved category silently. The read is recorded against the person before its content is returned.
      */
     get: operations['readBackofficeSupportPersonMetadata']
     put?: never
@@ -5528,19 +5528,66 @@ export interface components {
       active_session_count: number
       /** Format: date-time */
       last_seen_at: string | null
-      has_professional_profile: boolean
+      professional_profile: components['schemas']['SupportPersonFileProfile']
       membership_count: number
       active_membership_count: number
-      relationships_availability: components['schemas']['SupportBlockAvailability']
-      plan_availability: components['schemas']['SupportBlockAvailability']
-      premium_availability: components['schemas']['SupportBlockAvailability']
-      permissions_availability: components['schemas']['SupportBlockAvailability']
+      relationships: components['schemas']['SupportPersonFileRelationships']
+      permissions: components['schemas']['SupportPersonFilePermissions']
+      plan: components['schemas']['SupportPersonFilePlan']
+      pro: components['schemas']['SupportPersonFilePro']
+    }
+    SupportPersonFileProfile: {
+      exists: boolean
+      /** Format: date-time */
+      created_at: string | null
+    }
+    /** @description The gyms the person trains at and has left, counted; never which. */
+    SupportPersonFileRelationships: {
+      active: number
+      ended: number
+      /** Format: date-time */
+      last_started_at: string | null
+      /** Format: date-time */
+      last_ended_at: string | null
+    }
+    /** @description The permissions the person granted, by state; never what or to whom. */
+    SupportPersonFilePermissions: {
+      active: number
+      frozen: number
+      revoked: number
+      /** Format: date-time */
+      last_granted_at: string | null
+      /** Format: date-time */
+      last_revoked_at: string | null
+    }
+    /** @description The person's latest platform subscription. A null status is the free plan with no subscription ever; no amount is carried. */
+    SupportPersonFilePlan: {
+      /** @enum {string|null} */
+      status: 'active' | 'grace' | 'suspended' | 'ended' | null
+      /** Format: date-time */
+      started_at: string | null
+      /** Format: date-time */
+      current_period_end: string | null
+    }
+    /** @description Pro as the platform resolves it now. `until` is set only for a subscription; Pro given by a gym lasts while that relationship stays active. */
+    SupportPersonFilePro: {
+      /** @enum {string} */
+      source: 'subscription' | 'organization' | 'none'
+      /** Format: date-time */
+      until: string | null
+    }
+    /** @description HU-BO-006 criterion 2: the identifier, the masked contact and the operational state of the account, and nothing else. */
+    SupportPersonMatch: {
+      person_id: components['schemas']['Uuid']
+      account_status: string
+      contact_email_masked: string | null
+      contact_phone_masked: string | null
     }
     /** @description The outcome travels beside the items so a client cannot render an unexplained empty list. `HU-BO-006` criterion 3 is a contract obligation here, not a copy decision in one screen. */
     SupportPeopleSearch: {
       /** @enum {string} */
       outcome: 'found' | 'not_found'
-      items: components['schemas']['SupportPersonMetadata'][]
+      items: components['schemas']['SupportPersonMatch'][]
     }
     PlatformRoleAssignmentPage: {
       data: components['schemas']['PlatformRoleAssignment'][]

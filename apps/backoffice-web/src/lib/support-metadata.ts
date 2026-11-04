@@ -3,17 +3,15 @@
  *
  * Nothing here decides access and nothing here hides data: the server already
  * removed what must not travel. What lives here is the vocabulary an operator
- * reads, and one distinction the API went out of its way to preserve — the
- * difference between "this person has none" and "Allfit does not store this
- * yet". A screen that flattens the two tells the operator a fact about the
- * person that is really a fact about us.
+ * reads, and one distinction worth keeping — the difference between "this person
+ * has none" and "the screen was not told". A block the server did not send reads
+ * as unknown, never as zero (`HU-BO-007` criterion 5).
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
-export type SupportBlockAvailability = AllfitV1Schemas['SupportBlockAvailability']
 
 export type SupportLookupKind = 'identifier' | 'email' | 'phone'
 
@@ -66,39 +64,98 @@ export function lookupIssueMessage(kind: SupportLookupKind): string {
   return 'El teléfono va en formato internacional, empezando por «+».'
 }
 
-export interface SupportBlock {
-  title: string
-  availability: SupportBlockAvailability
+export interface FileFact {
+  label: string
+  value: string
+}
+
+const UNKNOWN = 'Sin dato'
+
+const PLAN_STATUS: Record<'active' | 'grace' | 'suspended' | 'ended', string> = {
+  active: 'De pago, al día',
+  grace: 'De pago, en periodo de gracia',
+  suspended: 'De pago, suspendido por un cobro que no llegó',
+  ended: 'Gratis · su suscripción terminó',
 }
 
 /**
- * The four blocks `HU-BO-007` criterion 2 asks for that have nothing behind them
- * yet. They are listed rather than omitted: an operator who does not see
- * "relaciones" cannot tell whether the screen forgot it or the platform lacks it.
+ * `HU-BO-007` criterion 2: that each block exists, its state and its dates, never
+ * which gym, which permission or how much. Partial on purpose: a server older than
+ * the screen answers without the blocks, and that reads as unknown, not as none.
  */
-export function absentBlocks(metadata: SupportPersonMetadata): SupportBlock[] {
+export function fileFacts(
+  metadata: Partial<SupportPersonMetadata>,
+  day: (instant: string) => string,
+): FileFact[] {
+  const { professional_profile: profile, relationships, permissions, plan, pro } = metadata
+  const dated = (parts: (string | false)[]) => parts.filter(Boolean).join(' · ')
+
+  const profileValue = !profile
+    ? UNKNOWN
+    : !profile.exists
+      ? 'No tiene'
+      : profile.created_at !== null
+        ? `Existe desde ${day(profile.created_at)}`
+        : 'Existe'
+
+  const relationshipsValue = !relationships
+    ? UNKNOWN
+    : relationships.active + relationships.ended === 0
+      ? 'Nunca ha estado en un gimnasio'
+      : dated([
+          relationships.active > 0
+            ? `Entrena en ${String(relationships.active)}`
+            : 'No entrena en ninguno ahora',
+          relationships.ended > 0 && `dejó ${String(relationships.ended)}`,
+          relationships.last_started_at !== null &&
+            `último ingreso ${day(relationships.last_started_at)}`,
+          relationships.last_ended_at !== null &&
+            `última salida ${day(relationships.last_ended_at)}`,
+        ])
+
+  const permissionsValue = !permissions
+    ? UNKNOWN
+    : permissions.active + permissions.frozen + permissions.revoked === 0
+      ? 'No ha concedido ninguno'
+      : dated([
+          `${String(permissions.active)} ${permissions.active === 1 ? 'vigente' : 'vigentes'}`,
+          permissions.frozen > 0 &&
+            `${String(permissions.frozen)} ${permissions.frozen === 1 ? 'congelado' : 'congelados'}`,
+          permissions.revoked > 0 &&
+            `${String(permissions.revoked)} ${permissions.revoked === 1 ? 'retirado' : 'retirados'}`,
+          permissions.last_granted_at !== null &&
+            `último concedido ${day(permissions.last_granted_at)}`,
+          permissions.last_revoked_at !== null &&
+            `último retirado ${day(permissions.last_revoked_at)}`,
+        ])
+
+  const planValue = !plan
+    ? UNKNOWN
+    : plan.status === null
+      ? 'Gratis · nunca se suscribió'
+      : dated([
+          PLAN_STATUS[plan.status],
+          plan.status === 'active' && plan.started_at !== null && `desde ${day(plan.started_at)}`,
+          plan.status === 'active' &&
+            plan.current_period_end !== null &&
+            `periodo hasta ${day(plan.current_period_end)}`,
+        ])
+
+  const proValue = !pro
+    ? UNKNOWN
+    : pro.source === 'subscription'
+      ? `Sí, por su suscripción${pro.until !== null ? `, hasta ${day(pro.until)}` : ''}`
+      : pro.source === 'organization'
+        ? 'Sí, se lo da un gimnasio mientras siga en él'
+        : 'No'
+
   return [
-    { title: 'Relaciones de servicio', availability: metadata.relationships_availability },
-    { title: 'Plan asignado', availability: metadata.plan_availability },
-    { title: 'Premium', availability: metadata.premium_availability },
-    { title: 'Permisos concedidos', availability: metadata.permissions_availability },
+    { label: 'Perfil profesional', value: profileValue },
+    { label: 'Gimnasios', value: relationshipsValue },
+    { label: 'Permisos concedidos', value: permissionsValue },
+    { label: 'Plan', value: planValue },
+    { label: 'Pro', value: proValue },
   ]
-}
-
-const AVAILABILITY_LABELS: Record<SupportBlockAvailability, string> = {
-  available: 'Disponible',
-  unknown: 'Sin datos',
-  not_modelled: 'Allfit no lo guarda todavía',
-}
-
-export function availabilityLabel(availability: SupportBlockAvailability): string {
-  return AVAILABILITY_LABELS[availability]
-}
-
-export function availabilityExplanation(availability: SupportBlockAvailability): string {
-  if (availability === 'available') return 'Hay información y se muestra arriba.'
-  if (availability === 'unknown') return 'Esta persona no tiene nada registrado aquí.'
-  return 'Todavía no existe dónde guardarlo, así que no es una afirmación sobre la persona.'
 }
 
 export function verificationLabel(verifiedAt: string | null): string {

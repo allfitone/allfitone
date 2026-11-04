@@ -15375,7 +15375,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'array',
         maxItems: 1,
         items: {
-          $ref: '#/components/schemas/SupportPersonMetadata',
+          $ref: '#/components/schemas/SupportPersonMatch',
         },
       },
     },
@@ -15411,6 +15411,135 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SupportPersonFilePermissions: {
+    type: 'object',
+    additionalProperties: false,
+    description: 'The permissions the person granted, by state; never what or to whom.',
+    required: ['active', 'frozen', 'revoked', 'last_granted_at', 'last_revoked_at'],
+    properties: {
+      active: {
+        type: 'integer',
+        minimum: 0,
+      },
+      frozen: {
+        type: 'integer',
+        minimum: 0,
+      },
+      revoked: {
+        type: 'integer',
+        minimum: 0,
+      },
+      last_granted_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      last_revoked_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  SupportPersonFilePlan: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      "The person's latest platform subscription. A null status is the free plan with no subscription ever; no amount is carried.",
+    required: ['status', 'started_at', 'current_period_end'],
+    properties: {
+      status: {
+        type: ['string', 'null'],
+        enum: ['active', 'grace', 'suspended', 'ended', null],
+      },
+      started_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      current_period_end: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  SupportPersonFilePro: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'Pro as the platform resolves it now. `until` is set only for a subscription; Pro given by a gym lasts while that relationship stays active.',
+    required: ['source', 'until'],
+    properties: {
+      source: {
+        type: 'string',
+        enum: ['subscription', 'organization', 'none'],
+      },
+      until: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  SupportPersonFileProfile: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['exists', 'created_at'],
+    properties: {
+      exists: {
+        type: 'boolean',
+      },
+      created_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  SupportPersonFileRelationships: {
+    type: 'object',
+    additionalProperties: false,
+    description: 'The gyms the person trains at and has left, counted; never which.',
+    required: ['active', 'ended', 'last_started_at', 'last_ended_at'],
+    properties: {
+      active: {
+        type: 'integer',
+        minimum: 0,
+      },
+      ended: {
+        type: 'integer',
+        minimum: 0,
+      },
+      last_started_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      last_ended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  SupportPersonMatch: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'HU-BO-006 criterion 2: the identifier, the masked contact and the operational state of the account, and nothing else.',
+    required: ['person_id', 'account_status', 'contact_email_masked', 'contact_phone_masked'],
+    properties: {
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      account_status: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 32,
+      },
+      contact_email_masked: {
+        type: ['string', 'null'],
+        maxLength: 254,
+      },
+      contact_phone_masked: {
+        type: ['string', 'null'],
+        maxLength: 32,
+      },
+    },
+  },
   SupportPersonMetadata: {
     type: 'object',
     additionalProperties: false,
@@ -15429,13 +15558,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'access_account_linked_at',
       'active_session_count',
       'last_seen_at',
-      'has_professional_profile',
+      'professional_profile',
       'membership_count',
       'active_membership_count',
-      'relationships_availability',
-      'plan_availability',
-      'premium_availability',
-      'permissions_availability',
+      'relationships',
+      'permissions',
+      'plan',
+      'pro',
     ],
     properties: {
       person_id: {
@@ -15485,8 +15614,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: ['string', 'null'],
         format: 'date-time',
       },
-      has_professional_profile: {
-        type: 'boolean',
+      professional_profile: {
+        $ref: '#/components/schemas/SupportPersonFileProfile',
       },
       membership_count: {
         type: 'integer',
@@ -15496,17 +15625,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'integer',
         minimum: 0,
       },
-      relationships_availability: {
-        $ref: '#/components/schemas/SupportBlockAvailability',
+      relationships: {
+        $ref: '#/components/schemas/SupportPersonFileRelationships',
       },
-      plan_availability: {
-        $ref: '#/components/schemas/SupportBlockAvailability',
+      permissions: {
+        $ref: '#/components/schemas/SupportPersonFilePermissions',
       },
-      premium_availability: {
-        $ref: '#/components/schemas/SupportBlockAvailability',
+      plan: {
+        $ref: '#/components/schemas/SupportPersonFilePlan',
       },
-      permissions_availability: {
-        $ref: '#/components/schemas/SupportBlockAvailability',
+      pro: {
+        $ref: '#/components/schemas/SupportPersonFilePro',
       },
     },
   },

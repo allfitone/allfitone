@@ -7,7 +7,7 @@
 
 begin;
 
-select plan(22);
+select plan(31);
 
 insert into identity.people (
   id, given_name, family_name, contact_email, contact_phone, status
@@ -76,6 +76,10 @@ select support.assign_platform_duty(
   decode(repeat('33', 32), 'hex')
 );
 
+-- The API opens every support read as the operator who asked, transaction-local.
+select set_config('app.actor_kind', 'support', true),
+       set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
+
 -- ---------------------------------------------------------------------------
 -- The base role opens nothing on its own
 -- ---------------------------------------------------------------------------
@@ -135,6 +139,23 @@ select is(
   ))::integer,
   1,
   'an exact phone finds the person too'
+);
+
+select is(
+  (select array_agg(key order by key)
+   from support.search_people(
+     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023', 'CASE-2026-110', 'identifier', '019a5000-0000-7000-8000-000000000005'
+   ) as found, jsonb_object_keys(found.result) as key),
+  array['account_status', 'contact_email_masked', 'contact_phone_masked', 'person_id'],
+  'T-SUP-SEARCH-INT-01 a match carries the identifier, the masked contact and the account state, nothing else'
+);
+
+select is(
+  (select count(*)::integer from privacy.access_events
+   where subject_person_id = '019a5000-0000-7000-8000-000000000005' and resource = 'support.person_search'
+     and purpose = 'support_diagnosis' and access_mode = 'support_metadata'::privacy.access_mode),
+  3,
+  'T-SUP-SEARCH-INT-02 every search that found the person is in her own access log'
 );
 
 select throws_ok(
@@ -200,6 +221,124 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- HU-BO-007 criterion 2 — what exists around the person, with states and dates
+-- ---------------------------------------------------------------------------
+
+-- A gym she trains at, where she granted one permission, and a gym she left.
+insert into organizations.organizations (id, type_code, display_name, responsible_party)
+values
+  ('019a5000-0000-7000-8000-000000000301', 'gym', 'Ficha Activa',
+    '{"party_kind":"legal_entity","party_name":"Ficha Activa","purpose":"studio_operations"}'),
+  ('019a5000-0000-7000-8000-000000000302', 'gym', 'Ficha Anterior',
+    '{"party_kind":"legal_entity","party_name":"Ficha Anterior","purpose":"studio_operations"}');
+insert into organizations.organization_memberships (id, organization_id, person_id)
+values ('019a5000-0000-7000-8000-000000000311', '019a5000-0000-7000-8000-000000000301', '019a5000-0000-7000-8000-000000000001'), ('019a5000-0000-7000-8000-000000000312', '019a5000-0000-7000-8000-000000000302', '019a5000-0000-7000-8000-000000000001');
+insert into organizations.membership_roles (membership_id, role_code)
+values ('019a5000-0000-7000-8000-000000000311', 'owner'), ('019a5000-0000-7000-8000-000000000312', 'owner');
+insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
+values ('019a5000-0000-7000-8000-000000000401', 'relationship_training', 1, 'published', clock_timestamp());
+
+select set_config('app.actor_kind', 'person', true),
+       set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000001', true),
+       set_config('app.request_id', gen_random_uuid()::text, true);
+create temporary table issued on commit drop as
+select invitation_id from identity.issue_client_invitation(
+  '019a5000-0000-7000-8000-000000000001', '019a5000-0000-7000-8000-000000000301', 'email', 'subject.epsilon@example.test',
+  '[{"scope_code":"relationship_training","access_level":"contribute","purpose":"Entrenar",
+     "presented_snapshot":{"title":"Entrenamiento"}}]'::jsonb,
+  extensions.digest('T-SUP-RLS-03 invitation', 'sha256'), 1::smallint,
+  'c0000000-0000-4000-8000-000000000501', '019a5000-0000-7000-8000-000000000501', decode(repeat('e1', 32), 'hex')
+);
+select set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000005', true),
+       set_config('app.actor_verified_email', 'subject.epsilon@example.test', true);
+select relationship_id from identity.decide_client_invitation(
+  '019a5000-0000-7000-8000-000000000005', extensions.digest('T-SUP-RLS-03 invitation', 'sha256'),
+  (select intent.id from identity.invitation_intents as intent
+   join issued on intent.invitation_id = issued.invitation_id),
+  'accepted', '{"relationship_training":"accepted"}'::jsonb,
+  'c0000000-0000-4000-8000-000000000502', '019a5000-0000-7000-8000-000000000502', decode(repeat('e2', 32), 'hex')
+);
+insert into relationships.service_relationships (
+  id, person_id, organization_id, status, started_at, ended_at, ended_reason, ended_by_kind
+) values (
+  '019a5000-0000-7000-8000-000000000321', '019a5000-0000-7000-8000-000000000005', '019a5000-0000-7000-8000-000000000302', 'terminated', clock_timestamp() - interval '40 days',
+  clock_timestamp() - interval '2 days', 'person_left', 'person'
+);
+
+select set_config('app.actor_kind', 'support', true),
+       set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
+
+create temporary table opened on commit drop as
+select support.person_metadata('019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023', 'CASE-2026-111', '019a5000-0000-7000-8000-000000000005') as file;
+
+select results_eq(
+  $$ select (file->'relationships'->>'active')::integer, (file->'relationships'->>'ended')::integer,
+            file->'relationships'->>'last_started_at' is not null,
+            file->'relationships'->>'last_ended_at' is not null
+     from opened $$,
+  $$ values (1, 1, true, true) $$,
+  'T-SUP-FILE-INT-01 the file says how many gyms she trains at and has left, and when'
+);
+
+select results_eq(
+  $$ select (file->'permissions'->>'active')::integer, (file->'permissions'->>'frozen')::integer,
+            (file->'permissions'->>'revoked')::integer,
+            file->'permissions'->>'last_granted_at' is not null,
+            file->'permissions'->>'last_revoked_at' is null
+     from opened $$,
+  $$ values (1, 0, 0, true, true) $$,
+  'T-SUP-FILE-INT-02 and how many permissions she has granted, by state, with their dates'
+);
+
+select results_eq(
+  $$ select file->'plan'->>'status', file->'pro'->>'source',
+            (file->'professional_profile'->>'exists')::boolean
+     from opened $$,
+  $$ values (null::text, 'none'::text, false) $$,
+  'T-SUP-FILE-INT-03 never subscribed reads as the free plan, and with no Pro plan published nobody has Pro'
+);
+
+select ok(
+  (select position('Ficha' in file::text) = 0
+     and position('019a5000-0000-7000-8000-000000000301' in file::text) = 0
+     and position('relationship_training' in file::text) = 0
+   from opened),
+  'T-SUP-FILE-INT-04 the file never names the gyms or what was shared: existence, states and dates only'
+);
+
+select set_config('app.actor_kind', 'person', true);
+select throws_ok(
+  $$ select support.person_metadata('019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023', 'CASE-2026-112', '019a5000-0000-7000-8000-000000000005') $$,
+  '42501',
+  null,
+  'T-SUP-FILE-RLS-01 the file opens only as the operator asking, or its counts could not be trusted'
+);
+select set_config('app.actor_kind', 'support', true);
+
+-- The policy that lets the file count permissions: the operator with the duty, nobody else.
+set local role allfit_owner;
+select is(
+  (select count(*)::integer from privacy.data_grants where person_id = '019a5000-0000-7000-8000-000000000005'),
+  1,
+  'T-SUP-FILE-RLS-02 a diagnostician reads that her permission exists'
+);
+select set_config('app.actor_kind', 'person', true);
+select is(
+  (select count(*)::integer from privacy.data_grants where person_id = '019a5000-0000-7000-8000-000000000005'),
+  0,
+  'T-SUP-FILE-RLS-03 the same staff member outside a support request reads none of it'
+);
+select set_config('app.actor_kind', 'support', true),
+       set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000004', true);
+select is(
+  (select count(*)::integer from privacy.data_grants where person_id = '019a5000-0000-7000-8000-000000000005'),
+  0,
+  'T-SUP-FILE-RLS-04 nor does a colleague without the duty'
+);
+reset role;
+select set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
+
+-- ---------------------------------------------------------------------------
 -- HU-BO-007 — minimisation
 -- ---------------------------------------------------------------------------
 
@@ -229,15 +368,6 @@ select is(
   )->>'contact_email_masked'),
   '••••••••on@example.test',
   'the contact is masked to what confirms a case, not to what identifies a person'
-);
-
-select is(
-  (select support.person_metadata(
-    '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
-    'CASE-2026-108', '019a5000-0000-7000-8000-000000000005'
-  )->>'relationships_availability'),
-  'not_modelled',
-  'an absent domain says so, instead of reading as a person with no relationships'
 );
 
 select throws_ok(
