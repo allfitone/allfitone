@@ -186,4 +186,10 @@ resource "aws_ecs_service" "this" {
   }
 
   health_check_grace_period_seconds = each.value.port == null ? null : 30
+
+  # The pipeline rolls each release onto a new revision; Terraform must not roll it back.
+  # A Terraform change to a definition reaches the service with the next deploy.
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
 }

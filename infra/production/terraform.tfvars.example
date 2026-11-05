@@ -2,4 +2,3 @@ budget_alert_emails = ["someone@example.com"]
 # openssl rand -hex 32
 origin_verify_secret = "replace-me"
 # The commit SHA the images in ECR were built from.
-image_tag = "replace-me"

@@ -26,11 +26,6 @@ variable "budget_alert_emails" {
   type        = list(string)
 }
 
-variable "image_tag" {
-  description = "Commit SHA of the images every service runs. Pushed to ECR before the apply."
-  type        = string
-}
-
 variable "origin_verify_secret" {
   description = "Header value only CloudFront knows. Set in terraform.tfvars: openssl rand -hex 32."
   type        = string

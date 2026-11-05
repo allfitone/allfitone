@@ -6,7 +6,8 @@
   "description": "Allfit One platform monorepo: API, worker, clients and shared libraries",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "infra/scripts"
   ],
   "overrides": {
     "react": "19.2.3",
