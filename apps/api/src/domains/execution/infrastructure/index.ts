@@ -21,6 +21,10 @@ import type postgres from 'postgres'
 import { database } from '../../../platform/db/index.js'
 import { measureStudioRequestPhase } from '../../../platform/observability/index.js'
 import type {
+  AuthorizedExecution,
+  AuthorizedExecutionRead,
+  AuthorizedExecutionSummary,
+  ExecutionReviewDatabase,
   Abandoned,
   Attempt,
   FreeSession,
@@ -467,6 +471,93 @@ function week(row: WeekRow | undefined): WeekSummary {
     tonnage_kg: row.tonnage_kg === null ? null : Number(row.tonnage_kg),
     history: row.history ?? [],
     work_sets: row.work_sets ?? 0,
+  }
+}
+
+interface AuthorizedRow {
+  id: string
+  started_at: Date
+  ended_at: Date | null
+  timezone: string
+  activity_type_code: string
+  activity_type_name: string
+  discipline_code: string
+  achieved_level: AuthorizedExecutionSummary['achieved_level']
+  origin: AuthorizedExecutionSummary['origin']
+  planned_session_id: string | null
+  scope_code: AuthorizedExecutionSummary['applied_scope']['code']
+  scope_version: number
+}
+
+type AuthorizedDocument =
+  | { outcome: 'found'; execution: AuthorizedExecution }
+  | { outcome: 'not_found' }
+  | { outcome: 'scope_required'; required_scope: { code: string; level: 'read' | 'contribute' } }
+
+/**
+ * PostgreSQL access for the coach's review of a client (`OP-EXE-017`, `OP-EXE-018`).
+ *
+ * Both reads record the access themselves, inside this transaction and before they
+ * answer, so the request id travels with the actor. A page is keyed on the millisecond
+ * the cursor can carry; a finer key would skip sessions between pages.
+ */
+export function createExecutionReviewDatabase(
+  sql: ReturnType<typeof database> = database(),
+): ExecutionReviewDatabase {
+  return {
+    listAuthorized: (input) =>
+      transact(sql, input.personId, input.requestId, async (transaction) => {
+        const rows = await transaction<AuthorizedRow[]>`
+          select * from execution.list_authorized_executions(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.subjectPersonId}::uuid, ${input.limit + 1}::integer,
+            ${input.cursor?.startedAt ?? null}::timestamptz, ${input.cursor?.id ?? null}::uuid
+          )
+        `
+        const hasMore = rows.length > input.limit
+        const visible = rows.slice(0, input.limit)
+        const last = visible.at(-1)
+        return {
+          items: visible.map((row) => ({
+            id: row.id,
+            started_at: row.started_at.toISOString(),
+            ended_at: row.ended_at ? row.ended_at.toISOString() : null,
+            timezone: row.timezone,
+            activity_type_code: row.activity_type_code,
+            activity_type_name: row.activity_type_name,
+            discipline_code: row.discipline_code,
+            achieved_level: row.achieved_level,
+            origin: row.origin,
+            planned_session_id: row.planned_session_id,
+            applied_scope: { code: row.scope_code, version: row.scope_version },
+          })),
+          hasMore,
+          ...(hasMore && last
+            ? { nextCursor: { startedAt: last.started_at.toISOString(), id: last.id } }
+            : {}),
+        }
+      }),
+
+    readAuthorized: (input) =>
+      transact(
+        sql,
+        input.personId,
+        input.requestId,
+        async (transaction): Promise<AuthorizedExecutionRead> => {
+          const [row] = await transaction<{ document: AuthorizedDocument | null }[]>`
+          select execution.read_authorized_execution(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.subjectPersonId}::uuid, ${input.executionId}::uuid
+          ) as document
+        `
+          const document = row?.document
+          if (!document) throw new Error('PostgreSQL did not answer the authorized execution')
+          if (document.outcome === 'scope_required') {
+            return { outcome: 'scope_required', requiredScope: document.required_scope }
+          }
+          return document
+        },
+      ),
   }
 }
 

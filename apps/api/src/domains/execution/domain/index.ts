@@ -178,3 +178,43 @@ export interface ExecutionDatabase {
     requestId: string
   }): Promise<PeriodComparison>
 }
+
+/**
+ * What the coach who attends a person may read of her training (`OP-EXE-017`,
+ * `OP-EXE-018`). Which sessions, under which category, is PostgreSQL's answer.
+ */
+export type AuthorizedExecution = AllfitV1Schemas['AuthorizedExecution']
+export type AuthorizedExecutionSummary = AllfitV1Schemas['AuthorizedExecutionSummary']
+
+export interface AuthorizedExecutionQuery {
+  /** The coach, resolved from the Studio session. */
+  personId: string
+  organizationId: string
+  subjectPersonId: string
+  requestId: string
+}
+
+export interface AuthorizedExecutionCursor {
+  startedAt: string
+  id: string
+}
+
+export interface AuthorizedExecutionPage {
+  items: AuthorizedExecutionSummary[]
+  hasMore: boolean
+  nextCursor?: AuthorizedExecutionCursor
+}
+
+export type AuthorizedExecutionRead =
+  | { outcome: 'found'; execution: AuthorizedExecution }
+  | { outcome: 'not_found' }
+  | { outcome: 'scope_required'; requiredScope: { code: string; level: 'read' | 'contribute' } }
+
+export interface ExecutionReviewDatabase {
+  listAuthorized(
+    input: AuthorizedExecutionQuery & { limit: number; cursor?: AuthorizedExecutionCursor },
+  ): Promise<AuthorizedExecutionPage>
+  readAuthorized(
+    input: AuthorizedExecutionQuery & { executionId: string },
+  ): Promise<AuthorizedExecutionRead>
+}
