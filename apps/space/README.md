@@ -8,4 +8,4 @@ Not scaffolded yet, Expo. Client of `/space/v1`.
 - Tokens in `expo-secure-store`, never `AsyncStorage`.
 - Social login does open a browser: Google and Apple require it, not the provider.
 - Local drafts for execution, profile and structured nutrition capture.
-- Not deployed to Vercel: EAS Build to the stores, EAS Update for JS.
+- Not deployed with the web apps: EAS Build to the stores, EAS Update for JS.

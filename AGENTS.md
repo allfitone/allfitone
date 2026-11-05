@@ -52,14 +52,14 @@ Do not conflate these:
 
 One repository producing six deployables is the normal case, not a compromise.
 
-| Deployable       | Source                | How it ships                    |
-| ---------------- | --------------------- | ------------------------------- |
-| `api`            | `apps/api`            | Vercel Functions (Node runtime) |
-| `worker`         | `apps/worker`         | Cron-invoked consumers          |
-| `studio-web`     | `apps/studio-web`     | Web build                       |
-| `backoffice-web` | `apps/backoffice-web` | Web build                       |
-| `space`          | `apps/space`          | EAS Build to app stores         |
-| `space-web`      | `apps/space-web`      | Web build                       |
+| Deployable       | Source                | How it ships                                |
+| ---------------- | --------------------- | ------------------------------------------- |
+| `api`            | `apps/api`            | Node container on ECS, behind the ALB       |
+| `worker`         | `apps/worker`         | Node container on ECS with its own schedule |
+| `studio-web`     | `apps/studio-web`     | Next container on ECS, behind CloudFront    |
+| `backoffice-web` | `apps/backoffice-web` | Next container on ECS, behind CloudFront    |
+| `space`          | `apps/space`          | EAS Build to app stores                     |
+| `space-web`      | `apps/space-web`      | Next container on ECS, behind CloudFront    |
 
 ### One backend, four surfaces
 

@@ -14,17 +14,10 @@ bun run dev --filter=@allfitone/backoffice-web
 The app runs at `http://localhost:3001` and reads the API origin from
 `NEXT_PUBLIC_API_URL`.
 
-## Vercel
+## Deployment
 
-- Project name: `allfitone-backoffice`
-- Root Directory: `apps/backoffice-web`
-- Production branch: `main`
-- Production domain: `backoffice.allfit.one`
-- Environment variable: `NEXT_PUBLIC_API_URL=https://api.allfit.one`
-
-Keep **Include source files outside of the Root Directory** enabled. The app
-consumes the generated contract from `@allfitone/contracts` and the published UI
-library from `@allfitone/react`.
+Merging to `main` builds this app's image and rolls it out on ECS, behind
+CloudFront. See [`infra/README.md`](../../infra/README.md).
 
 Backoffice authenticates directly against `/backoffice/v1` with email, password
 and TOTP. Hosted AuthKit is used only for the password-reset page reached from the
