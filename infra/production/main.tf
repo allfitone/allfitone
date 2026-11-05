@@ -251,9 +251,10 @@ module "services" {
 module "deploy_role" {
   source = "../modules/deploy-role"
 
-  name                = "allfitone-production-deploy"
-  oidc_provider_arn   = module.github_oidc.provider_arn
-  github_repository   = "allfitone/allfitone"
+  name              = "allfitone-production-deploy"
+  oidc_provider_arn = module.github_oidc.provider_arn
+  # The repository sends immutable subjects: owner and repository ids, not just names.
+  github_repository   = "allfitone@163363230/allfitone@1323545815"
   github_environment  = "Production"
   region              = var.region
   account_id          = var.account_id

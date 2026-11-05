@@ -8,7 +8,7 @@ variable "oidc_provider_arn" {
 }
 
 variable "github_repository" {
-  description = "owner/name of the only repository whose jobs may assume the role."
+  description = "Repository as it appears in the OIDC subject: owner/name, or owner@id/name@id when immutable."
   type        = string
 }
 
