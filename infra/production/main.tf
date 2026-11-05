@@ -185,6 +185,19 @@ module "edge" {
   apps                       = local.routes
 }
 
+# The commit SHA the services run. The pipeline writes it on every release; Terraform
+# only creates it, then reads it back so an apply never rolls a service onto an old image.
+resource "aws_ssm_parameter" "image_tag" {
+  name = "/allfitone/production/image-tag"
+  type = "String"
+  # A commit SHA is not a secret; `value` would mark every task definition sensitive.
+  insecure_value = "992c0792b64f3f2d767434778109773740e950e7"
+
+  lifecycle {
+    ignore_changes = [insecure_value]
+  }
+}
+
 module "services" {
   source = "../modules/services"
 
@@ -194,7 +207,7 @@ module "services" {
   capacity_provider_name = module.compute.capacity_provider_name
   secret_arn             = aws_secretsmanager_secret.environment.arn
   repository_urls        = module.registry.repository_urls
-  image_tag              = var.image_tag
+  image_tag              = aws_ssm_parameter.image_tag.insecure_value
   target_group_arns      = module.edge.target_group_arns
 
   services = {
@@ -235,3 +248,19 @@ module "services" {
   }
 }
 
+module "deploy_role" {
+  source = "../modules/deploy-role"
+
+  name                = "allfitone-production-deploy"
+  oidc_provider_arn   = module.github_oidc.provider_arn
+  github_repository   = "allfitone/allfitone"
+  github_environment  = "Production"
+  region              = var.region
+  account_id          = var.account_id
+  cluster_name        = module.compute.cluster_name
+  migrator_family     = module.services.task_definition_families["migrator"]
+  pass_role_arns      = [module.services.execution_role_arn]
+  ecr_repository_arns = values(module.registry.repository_arns)
+  image_tag_parameter = aws_ssm_parameter.image_tag.name
+  migrator_log_group  = module.services.log_group_names["migrator"]
+}

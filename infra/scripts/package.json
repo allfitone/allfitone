@@ -1,0 +1,12 @@
+{
+  "name": "@allfitone/infra-scripts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deployment helpers the AWS pipeline runs",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src"
+  }
+}

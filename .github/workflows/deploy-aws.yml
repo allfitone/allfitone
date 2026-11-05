@@ -1,0 +1,185 @@
+# Ships main to the ECS services in AWS.
+#
+# A merge to main builds the six images, tagged with the commit SHA, and rolls
+# the five services onto them. CI already ran on the pull request: a commit only
+# reaches main green, which is why this does not wait for another run.
+#
+# Run it by hand to redeploy what is already released, without building — after
+# a change to the environment secret or to a task definition, which Terraform
+# registers but leaves for the next deploy to put in service.
+#
+# Migrations never run from here. `Deploy database (AWS)` is dispatched by hand,
+# after someone has read its dry-run.
+
+name: Deploy AWS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# One release at a time, and never cancel one halfway through a rollout.
+concurrency:
+  group: aws-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER: allfitone-production
+  FAMILY_PREFIX: allfitone-production-
+  TAG_PARAMETER: /allfitone/production/image-tag
+
+jobs:
+  build:
+    name: Build ${{ matrix.image }}
+    if: github.event_name == 'push'
+    # Graviton instances run arm64 images; building natively avoids emulation.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    environment: Production
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { image: api, dockerfile: node-service, args: 'APP=api ENTRY=server.js' }
+          - { image: worker, dockerfile: node-service, args: 'APP=worker ENTRY=container.js' }
+          - { image: studio-web, dockerfile: next, args: 'APP=studio-web' }
+          - { image: backoffice-web, dockerfile: next, args: 'APP=backoffice-web' }
+          - { image: space-web, dockerfile: next, args: 'APP=space-web' }
+          - { image: migrator, dockerfile: migrator, args: '' }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to ECR
+        id: registry
+        run: |
+          registry="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${AWS_REGION}.amazonaws.com"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          echo "registry=$registry" >> "$GITHUB_OUTPUT"
+
+      # Tags are immutable, so an image that exists is the one this commit built.
+      - name: Skip if already pushed
+        id: existing
+        run: |
+          if aws ecr describe-images --repository-name "allfitone/${{ matrix.image }}" \
+              --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push
+        if: steps.existing.outputs.pushed != 'true'
+        env:
+          IMAGE: ${{ steps.registry.outputs.registry }}/allfitone/${{ matrix.image }}:${{ github.sha }}
+          DOCKERFILE: infra/docker/${{ matrix.dockerfile }}.Dockerfile
+          APP_ARGS: ${{ matrix.args }}
+          # Public by design: Next inlines them into the browser bundle.
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_POSTHOG_KEY: ${{ vars.NEXT_PUBLIC_POSTHOG_KEY }}
+          NEXT_PUBLIC_POSTHOG_HOST: ${{ vars.NEXT_PUBLIC_POSTHOG_HOST }}
+          NEXT_PUBLIC_ANALYTICS_ENVIRONMENT: ${{ vars.NEXT_PUBLIC_ANALYTICS_ENVIRONMENT }}
+          NEXT_PUBLIC_STAFF_INVITATIONS_ENABLED: ${{ vars.NEXT_PUBLIC_STAFF_INVITATIONS_ENABLED }}
+          NEXT_PUBLIC_APP_STORE_URL: ${{ vars.NEXT_PUBLIC_APP_STORE_URL }}
+          NEXT_PUBLIC_PLAY_STORE_URL: ${{ vars.NEXT_PUBLIC_PLAY_STORE_URL }}
+        run: |
+          args=()
+          for arg in $APP_ARGS; do args+=(--build-arg "$arg"); done
+          if [ "${{ matrix.dockerfile }}" = next ]; then
+            for name in NEXT_PUBLIC_API_URL NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST \
+                NEXT_PUBLIC_ANALYTICS_ENVIRONMENT NEXT_PUBLIC_STAFF_INVITATIONS_ENABLED \
+                NEXT_PUBLIC_APP_STORE_URL NEXT_PUBLIC_PLAY_STORE_URL; do
+              args+=(--build-arg "$name=${!name}")
+            done
+            args+=(--build-arg "NEXT_PUBLIC_APP_RELEASE=$GITHUB_SHA")
+          fi
+          docker buildx build --platform linux/arm64 --provenance=false \
+            -f "$DOCKERFILE" "${args[@]}" -t "$IMAGE" --push .
+
+  deploy:
+    name: Roll out
+    needs: build
+    # Runs after a build, or alone when dispatched by hand.
+    if: always() && (needs.build.result == 'success' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.16
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # A push releases its own commit; a dispatch re-releases what is already out.
+      - name: Choose the release
+        id: release
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            tag="$GITHUB_SHA"
+          else
+            tag=$(aws ssm get-parameter --name "$TAG_PARAMETER" --query Parameter.Value --output text)
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag"
+
+      # The migrator gets the new image too, so the next migration run matches the code.
+      - name: Register revisions
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          for app in api worker studio-web backoffice-web space-web migrator; do
+            family="${FAMILY_PREFIX}${app}"
+            aws ecs describe-task-definition --task-definition "$family" --output json \
+              | bun infra/scripts/src/render.ts "$TAG" > "next-${app}.json"
+            arn=$(aws ecs register-task-definition --cli-input-json "file://next-${app}.json" \
+              --query taskDefinition.taskDefinitionArn --output text)
+            echo "${app}=${arn}" >> revisions.env
+            echo "$app -> $arn"
+          done
+
+      # One service at a time, backend first: a web never runs against an older API.
+      # The circuit breaker rolls a failing service back; the loop stops there.
+      - name: Roll the services
+        run: |
+          for app in worker api studio-web backoffice-web space-web; do
+            arn=$(grep "^${app}=" revisions.env | cut -d= -f2-)
+            aws ecs update-service --cluster "$CLUSTER" --service "$app" \
+              --task-definition "$arn" --query service.serviceName --output text
+            stable=false
+            for attempt in 1 2 3; do
+              if aws ecs wait services-stable --cluster "$CLUSTER" --services "$app"; then
+                stable=true
+                break
+              fi
+            done
+            running=$(aws ecs describe-services --cluster "$CLUSTER" --services "$app" \
+              --query 'services[0].deployments[?status==`PRIMARY`].taskDefinition | [0]' --output text)
+            if [ "$stable" != true ] || [ "$running" != "$arn" ]; then
+              echo "::error::$app did not settle on $arn (now on $running); stopping the release"
+              aws ecs describe-services --cluster "$CLUSTER" --services "$app" \
+                --query 'services[0].events[0:5].message' --output text
+              exit 1
+            fi
+            echo "$app is on $arn"
+          done
+
+      - name: Record the release
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: aws ssm put-parameter --name "$TAG_PARAMETER" --value "$TAG" --overwrite

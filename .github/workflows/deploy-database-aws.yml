@@ -1,0 +1,129 @@
+# Applies migrations to the RDS database in AWS. Dispatched by hand, never on merge.
+#
+# The same local gate as `Deploy database` runs first: policy, a clean reset, lint,
+# tests and generated types. Then the migrator task runs inside the VPC — RDS is
+# private, so a runner on the internet cannot reach it — first `plan`, which prints
+# the pending migrations and the order a push would use, then `push`.
+#
+# The migrator must carry this commit's migrations. `Deploy AWS` registers it with
+# every release, so dispatch this after that run has finished.
+
+name: Deploy database (AWS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_all:
+        # Same decision as in `Deploy database`: read the plan output first.
+        description: >-
+          Apply migrations older than the newest one already applied.
+          Only after reading the plan.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: database-aws-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER: allfitone-production
+  FAMILY: allfitone-production-migrator
+  LOG_GROUP: /allfitone-production/migrator
+
+jobs:
+  deploy:
+    name: Migrate production (AWS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require main
+        run: test "$GITHUB_REF_NAME" = main
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.16
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Validate database policy
+        run: bun run check:db-policy
+
+      # There is no shared staging database yet, so production promotion repeats
+      # the complete local database gate before any remote credentials are used.
+      - name: Start local Supabase
+        run: bun run db:start
+
+      - name: Reset local database
+        run: bun run db:reset
+
+      - name: Lint local database
+        run: bun run db:lint
+
+      - name: Test local database
+        run: bun run db:test
+
+      - name: Test local database concurrency
+        run: bun run db:test:concurrency
+
+      # Same preload as the Database job in ci.yml, and here it matters more:
+      # this step is the last local gate before production credentials are used,
+      # so an image pull that fails stops the whole deploy. That is what happened
+      # on 2026-10-05 (run 37266771279) — the database stayed 19 migrations
+      # behind for a day over a registry limit, not a defect.
+      #
+      # postgres-meta is pulled from public.ecr.aws, which limits anonymous
+      # pulls. The same image — identical layer digests — is on Docker Hub, so
+      # take it there and tag it with the name the Supabase CLI looks for; the
+      # CLI then finds it already on the machine and never calls ECR.
+      #
+      # The tag belongs to the CLI pinned in package.json ("supabase":
+      # "2.110.0"). If a CLI bump asks for a different one, this turns into a
+      # no-op and the CLI pulls from ECR as before, which is what
+      # continue-on-error protects: this step must never be what fails a deploy.
+      - name: Preload the type generator image
+        continue-on-error: true
+        run: |
+          image=supabase/postgres-meta:v0.96.6
+          docker pull "$image"
+          docker tag "$image" "public.ecr.aws/$image"
+
+      - name: Validate generated database types
+        run: bun run check:db-types
+
+      - name: Stop local Supabase
+        if: always()
+        run: bun run db:stop
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Require the migrator of this commit
+        run: |
+          image=$(aws ecs describe-task-definition --task-definition "$FAMILY" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ "${image##*:}" != "$GITHUB_SHA" ]; then
+            echo "::error::The migrator runs ${image##*:}, not $GITHUB_SHA. Wait for Deploy AWS on this commit to finish."
+            exit 1
+          fi
+
+      - name: Plan
+        env:
+          INCLUDE_ALL: ${{ inputs.include_all }}
+        run: bash infra/scripts/run-migrator.sh plan
+
+      - name: Push
+        env:
+          INCLUDE_ALL: ${{ inputs.include_all }}
+        run: bash infra/scripts/run-migrator.sh push

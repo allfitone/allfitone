@@ -42,3 +42,8 @@ output "distribution_domain_names" {
 output "cluster_name" {
   value = module.compute.cluster_name
 }
+
+output "deploy_role_arn" {
+  description = "AWS_DEPLOY_ROLE_ARN in the Production GitHub environment."
+  value       = module.deploy_role.role_arn
+}

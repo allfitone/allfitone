@@ -159,6 +159,10 @@
         "postgres": "3.4.9",
       },
     },
+    "infra/scripts": {
+      "name": "@allfitone/infra-scripts",
+      "version": "0.0.0",
+    },
     "packages/auth-provider": {
       "name": "@allfitone/auth-provider",
       "version": "0.0.0",
@@ -254,6 +258,8 @@
     "@allfitone/food-recognition": ["@allfitone/food-recognition@workspace:packages/food-recognition"],
 
     "@allfitone/icons": ["@allfitone/icons@0.5.1", "", { "dependencies": { "lucide-react": "^1.25.0" }, "peerDependencies": { "react": ">=19" } }, "sha512-TY0kgR9cQIztHSfguLn7BeT2E9MApU7UhO7HdbOR+qydGn4Z41TJKgNJhO+3jVw5yQhSSTnnYzmhlYf062ez1g=="],
+
+    "@allfitone/infra-scripts": ["@allfitone/infra-scripts@workspace:infra/scripts"],
 
     "@allfitone/notifications": ["@allfitone/notifications@workspace:packages/notifications"],
 
