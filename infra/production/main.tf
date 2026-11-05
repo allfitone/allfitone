@@ -228,8 +228,7 @@ module "services" {
       desired_count      = 1
       single_instance    = true
       secret_keys        = local.worker_secret_keys
-      # The image's CMD runs dist/${ENTRY}; container.js is the one that starts the clock.
-      environment = { WORKER_PORT = "8090", ENTRY = "container.js" }
+      environment        = { WORKER_PORT = "8090" }
       # The image has Node and no curl.
       health_command = "node -e \"fetch('http://127.0.0.1:8090/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))\""
     }
@@ -251,9 +250,10 @@ module "services" {
 module "deploy_role" {
   source = "../modules/deploy-role"
 
-  name                = "allfitone-production-deploy"
-  oidc_provider_arn   = module.github_oidc.provider_arn
-  github_repository   = "allfitone/allfitone"
+  name              = "allfitone-production-deploy"
+  oidc_provider_arn = module.github_oidc.provider_arn
+  # The repository sends immutable subjects: owner and repository ids, not just names.
+  github_repository   = "allfitone@163363230/allfitone@1323545815"
   github_environment  = "Production"
   region              = var.region
   account_id          = var.account_id
