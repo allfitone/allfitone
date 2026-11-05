@@ -7,6 +7,9 @@
  * account yet. This one returns the health-data categories an organization is
  * asking for, so the database compares the invited contact against the email
  * the provider verified, and the transaction has to carry it.
+ *
+ * The program an invitation offers travels as three trailing arguments when it
+ * is issued and two when it is answered; the database defaults them to null.
  */
 
 import { database } from '../../../platform/db/index.js'
@@ -15,8 +18,11 @@ import type {
   ClientInvitationDatabase,
   ClientInvitationIntentStatus,
   ClientInvitationPresentation,
+  ClientInvitationProgramOutcome,
+  ClientInvitationProgramProposal,
   ClientInvitationStatus,
   ConsentDecision,
+  ProgramUnmaterializedReason,
   ScopeCode,
 } from '../domain/client-invitations.js'
 
@@ -28,6 +34,12 @@ type IssueRow = {
   contact_hint: string
   expires_at: Date
   scope_codes: ScopeCode[]
+  program_proposal: {
+    invitation_intent_id: string
+    program_version_id: string
+    starts_on: string
+    timezone: string
+  } | null
   reused: boolean
   replayed: boolean
 }
@@ -51,6 +63,17 @@ type PresentationRow = {
   invitation_intent_id: string
   scope_options: ScopeOptionRow[]
   invited_by: string | null
+  program_proposal: {
+    invitation_intent_id: string
+    program_version_id: string
+    title: string
+    version_number: number
+    weeks: number | null
+    repeats_forever: boolean
+    starts_on: string
+    required_scope: { scope_code: 'relationship_training'; access_level: 'contribute' }
+    decision: ConsentDecision | null
+  } | null
 }
 
 type PendingRow = {
@@ -70,6 +93,12 @@ type DecisionRow = {
   intent_status: ClientInvitationIntentStatus
   relationship_id: string | null
   granted_scope_codes: ScopeCode[]
+  program_proposal: {
+    invitation_intent_id: string
+    intent_status: ClientInvitationIntentStatus
+    assignment_id: string | null
+    unmaterialized_reason: ProgramUnmaterializedReason | null
+  } | null
   replayed: boolean
 }
 
@@ -103,7 +132,10 @@ export function createClientInvitationDatabase(): ClientInvitationDatabase {
             ${input.tokenKeyVersion}::smallint,
             ${input.idempotencyKey}::uuid,
             ${input.commandId}::uuid,
-            ${input.requestHash}
+            ${input.requestHash},
+            ${input.program?.programVersionId ?? null}::uuid,
+            ${input.program?.startsOn ?? null}::date,
+            ${input.program?.timezone ?? null}
           )
         `
         return issued
@@ -119,6 +151,7 @@ export function createClientInvitationDatabase(): ClientInvitationDatabase {
           contactHint: row.contact_hint,
           expiresAt: new Date(row.expires_at),
           scopeCodes: row.scope_codes ?? [],
+          programProposal: proposalFrom(row.program_proposal),
           reused: row.reused,
         },
         replayed: row.replayed,
@@ -195,14 +228,16 @@ export function createClientInvitationDatabase(): ClientInvitationDatabase {
                 select * from identity.decide_client_invitation(
                   ${input.personId}::uuid, ${input.invitation.tokenHash}, ${input.intentId}::uuid,
                   ${input.relationshipDecision}, ${decisions}::text::jsonb,
-                  ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+                  ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash},
+                  ${input.programDecision}, ${input.timezone}
                 )
               `
             : await transaction<DecisionRow[]>`
                 select * from identity.decide_my_client_invitation(
                   ${input.personId}::uuid, ${input.invitation.invitationId}::uuid,
                   ${input.intentId}::uuid, ${input.relationshipDecision}, ${decisions}::text::jsonb,
-                  ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+                  ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash},
+                  ${input.programDecision}, ${input.timezone}
                 )
               `
         return decided
@@ -218,6 +253,7 @@ export function createClientInvitationDatabase(): ClientInvitationDatabase {
           intentStatus: row.intent_status,
           relationshipId: row.relationship_id,
           grantedScopeCodes: row.granted_scope_codes ?? [],
+          programProposal: outcomeFrom(row.program_proposal),
         },
         replayed: row.replayed,
       }
@@ -245,5 +281,41 @@ function presentInvitation(row: PresentationRow): ClientInvitationPresentation {
       presentedSnapshot: option.presented_snapshot,
       decision: option.decision,
     })),
+    programProposal: row.program_proposal
+      ? {
+          intentId: row.program_proposal.invitation_intent_id,
+          programVersionId: row.program_proposal.program_version_id,
+          title: row.program_proposal.title,
+          versionNumber: row.program_proposal.version_number,
+          weeks: row.program_proposal.weeks,
+          repeatsForever: row.program_proposal.repeats_forever,
+          startsOn: row.program_proposal.starts_on,
+          requiredScope: {
+            scopeCode: row.program_proposal.required_scope.scope_code,
+            accessLevel: row.program_proposal.required_scope.access_level,
+          },
+          decision: row.program_proposal.decision,
+        }
+      : null,
+  }
+}
+
+function proposalFrom(row: IssueRow['program_proposal']): ClientInvitationProgramProposal | null {
+  if (!row) return null
+  return {
+    intentId: row.invitation_intent_id,
+    programVersionId: row.program_version_id,
+    startsOn: row.starts_on,
+    timezone: row.timezone,
+  }
+}
+
+function outcomeFrom(row: DecisionRow['program_proposal']): ClientInvitationProgramOutcome | null {
+  if (!row) return null
+  return {
+    intentId: row.invitation_intent_id,
+    intentStatus: row.intent_status,
+    assignmentId: row.assignment_id,
+    unmaterializedReason: row.unmaterialized_reason,
   }
 }

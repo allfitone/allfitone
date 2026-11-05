@@ -10,6 +10,11 @@
  *
  * Nothing in this file carries the address the invitation was sent to. What
  * comes back is a hint, and the full contact never leaves PostgreSQL.
+ *
+ * An invitation may also offer a first program (criteria 2, 6 and 7). It is a
+ * proposal of its own, answered apart from the relationship, and declined when
+ * left unanswered. Accepted, it exists only if the relationship and her
+ * training at `contribute` were granted too; otherwise it says why it does not.
  */
 
 import type { CommandContext, CommandResult } from './index.js'
@@ -35,6 +40,19 @@ export interface ClientInvitationScopeRequest {
   presentedSnapshot: Record<string, unknown>
 }
 
+/** A coach's proposal: a published version of the organization's own program. */
+export interface ClientInvitationProgramRequest {
+  programVersionId: string
+  /** `YYYY-MM-DD`, today or later in `timezone`. */
+  startsOn: string
+  /** Studio's zone, used only when her device never sent one. */
+  timezone: string
+}
+
+export interface ClientInvitationProgramProposal extends ClientInvitationProgramRequest {
+  intentId: string
+}
+
 export interface ClientInvitation {
   id: string
   intentId: string
@@ -43,6 +61,7 @@ export interface ClientInvitation {
   contactHint: string
   expiresAt: Date
   scopeCodes: ScopeCode[]
+  programProposal: ClientInvitationProgramProposal | null
   reused: boolean
 }
 
@@ -52,6 +71,20 @@ export interface ClientInvitationScopeOption {
   purpose: string
   presentedSnapshotSchemaVersion: number
   presentedSnapshot: Record<string, unknown>
+  decision: ConsentDecision | null
+}
+
+/** The program as she is shown it before answering. */
+export interface ClientInvitationProgramOffer {
+  intentId: string
+  programVersionId: string
+  title: string
+  versionNumber: number
+  /** Null for a program that repeats forever. */
+  weeks: number | null
+  repeatsForever: boolean
+  startsOn: string
+  requiredScope: { scopeCode: 'relationship_training'; accessLevel: 'contribute' }
   decision: ConsentDecision | null
 }
 
@@ -68,6 +101,7 @@ export interface ClientInvitationPresentation {
   /** Who sent it, by name; null when that is no longer known. */
   invitedBy: string | null
   scopeOptions: ClientInvitationScopeOption[]
+  programProposal: ClientInvitationProgramOffer | null
 }
 
 /** An invitation still waiting, addressed to the caller's verified email. */
@@ -80,6 +114,16 @@ export interface ClientInvitationPending {
   expiresAt: Date
 }
 
+export type ProgramUnmaterializedReason = 'training_not_granted' | 'program_unavailable'
+
+/** What became of the program: created, accepted with a reason, or declined. */
+export interface ClientInvitationProgramOutcome {
+  intentId: string
+  intentStatus: ClientInvitationIntentStatus
+  assignmentId: string | null
+  unmaterializedReason: ProgramUnmaterializedReason | null
+}
+
 export interface ClientInvitationDecisionResult {
   invitationId: string
   invitationStatus: ClientInvitationStatus
@@ -89,6 +133,8 @@ export interface ClientInvitationDecisionResult {
   /** Null when the relationship was rejected: nothing was created. */
   relationshipId: string | null
   grantedScopeCodes: ScopeCode[]
+  /** Null when the invitation offered no program. */
+  programProposal: ClientInvitationProgramOutcome | null
 }
 
 export interface ClientInvitationDatabase {
@@ -99,6 +145,7 @@ export interface ClientInvitationDatabase {
       channel: 'email'
       contact: string
       scopes: ClientInvitationScopeRequest[]
+      program: ClientInvitationProgramRequest | null
       tokenHash: Uint8Array
       tokenKeyVersion: number
     },
@@ -132,6 +179,10 @@ export interface ClientInvitationDatabase {
       intentId: string
       relationshipDecision: ConsentDecision
       scopeDecisions: Record<string, ConsentDecision>
+      /** Null when she did not answer it, which declines it. */
+      programDecision: ConsentDecision | null
+      /** Her device's zone, for the program's calendar. */
+      timezone: string | null
     },
   ): Promise<CommandResult<ClientInvitationDecisionResult>>
 }

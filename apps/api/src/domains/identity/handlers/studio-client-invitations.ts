@@ -19,6 +19,8 @@ import type { AccessLevel, ScopeCode } from '../domain/client-invitations.js'
 import { STUDIO_SESSION_COOKIE } from './studio.js'
 
 type ClientInvitationCreate = AllfitV1Schemas['ClientInvitationCreate']
+// The generated zone is `unknown`: the schema's `anyOf` is not expressible as a type.
+type ProgramRequestBody = { program_version_id: string; starts_on: string; timezone: string }
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -35,6 +37,16 @@ const SCOPE_CODES = new Set<ScopeCode>([
 const ACCESS_LEVELS = new Set<AccessLevel>(['read', 'contribute'])
 const MAX_PURPOSE = 500
 const MAX_CONTACT = 254
+const DATE = /^\d{4}-\d{2}-\d{2}$/
+const TIME_ZONE = /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/
+// What PostgreSQL names in a 22023 detail, as the field of this request it refers to.
+const FIELDS: Readonly<Record<string, string>> = {
+  program: '/program',
+  'program-version': '/program/program_version_id',
+  'program-starts-on': '/program/starts_on',
+  'program-timezone': '/program/timezone',
+  scopes: '/scopes',
+}
 
 export function studioClientInvitationRoutes(
   injectedService?: ClientInvitationService,
@@ -63,9 +75,9 @@ export function studioClientInvitationRoutes(
   })
 
   /*
-   * OP-REL-001. Offering is not granting: this writes an invitation and one
-   * option per scope, and nothing else. The relationship, the grants and the
-   * person's own record only exist once they answer.
+   * OP-REL-001. Offering is not granting: this writes an invitation, one option
+   * per scope and, when a coach offers one, a first program, and nothing else.
+   * The relationship, the grants and the program only exist once they answer.
    */
   routes.post('/organizations/:organizationId/client-invitations', async (c) => {
     if (c.req.header('origin') !== studioOrigin) {
@@ -91,6 +103,13 @@ export function studioClientInvitationRoutes(
           purpose: scope.purpose.trim(),
           presentedSnapshot: scope.presented_snapshot as Record<string, unknown>,
         })),
+        program: body.program
+          ? {
+              programVersionId: body.program.program_version_id,
+              startsOn: body.program.starts_on,
+              timezone: body.program.timezone,
+            }
+          : null,
         ...command,
       })
       if (result.replayed) c.header('Idempotent-Replay', 'true')
@@ -103,6 +122,14 @@ export function studioClientInvitationRoutes(
           contact_hint: result.resource.contactHint,
           expires_at: result.resource.expiresAt.toISOString(),
           scope_codes: result.resource.scopeCodes,
+          program_proposal: result.resource.programProposal
+            ? {
+                invitation_intent_id: result.resource.programProposal.intentId,
+                program_version_id: result.resource.programProposal.programVersionId,
+                starts_on: result.resource.programProposal.startsOn,
+                timezone: result.resource.programProposal.timezone,
+              }
+            : null,
           reused: result.resource.reused,
         },
         result.resource.reused ? 200 : 201,
@@ -161,10 +188,13 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value)
 }
 
-function isClientInvitationCreate(value: unknown): value is ClientInvitationCreate {
-  if (!isObject(value) || Object.keys(value).sort().join(',') !== 'channel,contact,scopes') {
-    return false
-  }
+function isClientInvitationCreate(
+  value: unknown,
+): value is ClientInvitationCreate & { program?: ProgramRequestBody } {
+  if (!isObject(value)) return false
+  const keys = Object.keys(value).sort().join(',')
+  if (keys !== 'channel,contact,scopes' && keys !== 'channel,contact,program,scopes') return false
+  if ('program' in value && !isProgramRequest(value.program)) return false
   if (value.channel !== 'email') return false
   if (
     typeof value.contact !== 'string' ||
@@ -203,6 +233,39 @@ function isScopeRequest(value: unknown): value is {
   )
 }
 
+function isProgramRequest(value: unknown): value is ProgramRequestBody {
+  return (
+    isObject(value) &&
+    Object.keys(value).sort().join(',') === 'program_version_id,starts_on,timezone' &&
+    typeof value.program_version_id === 'string' &&
+    UUID.test(value.program_version_id) &&
+    typeof value.starts_on === 'string' &&
+    isCalendarDate(value.starts_on) &&
+    typeof value.timezone === 'string' &&
+    value.timezone.length >= 3 &&
+    value.timezone.length <= 100 &&
+    TIME_ZONE.test(value.timezone)
+  )
+}
+
+function isCalendarDate(value: string): boolean {
+  if (!DATE.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+/** The request field a refusal names, when PostgreSQL named one it knows. */
+function refusedField(error: unknown): string | undefined {
+  if (!isObject(error) || typeof error.detail !== 'string') return undefined
+  try {
+    const codes: unknown = JSON.parse(error.detail)
+    const [first] = Array.isArray(codes) ? codes : []
+    return typeof first === 'string' ? FIELDS[first] : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function operationFailure(c: Context, error: unknown) {
   if (error instanceof StudioSessionError || error instanceof StudioInvitationError) {
     return fail(c, error.code)
@@ -218,7 +281,7 @@ function operationFailure(c: Context, error: unknown) {
   if (sqlState === 'AF409') return fail(c, 'guest-quota-exhausted')
   if (sqlState === '23505' || sqlState === '40001') return fail(c, 'conflict')
   if (sqlState === '22023' || sqlState === '23514' || sqlState === '22P02') {
-    return fail(c, 'validation-failed')
+    return fail(c, 'validation-failed', refusedField(error))
   }
   console.error('[studio-client-invitations] operation failed')
   return fail(c, 'upstream-unavailable')

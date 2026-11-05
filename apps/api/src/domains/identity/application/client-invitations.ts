@@ -24,6 +24,7 @@ import type {
   ClientInvitationDatabase,
   ClientInvitationPending,
   ClientInvitationPresentation,
+  ClientInvitationProgramRequest,
   ClientInvitationScopeRequest,
   ConsentDecision,
 } from '../domain/client-invitations.js'
@@ -43,6 +44,7 @@ export interface ClientInvitationService {
       channel: 'email'
       contact: string
       scopes: ClientInvitationScopeRequest[]
+      program: ClientInvitationProgramRequest | null
     },
   ): ReturnType<ClientInvitationDatabase['issue']>
 
@@ -68,6 +70,8 @@ export interface ClientInvitationService {
         intentId: string
         relationshipDecision: ConsentDecision
         scopeDecisions: Record<string, ConsentDecision>
+        programDecision: ConsentDecision | null
+        timezone: string | null
       },
   ): ReturnType<ClientInvitationDatabase['decide']>
 }
@@ -134,6 +138,8 @@ export function createClientInvitationService(
         intentId: input.intentId,
         relationshipDecision: input.relationshipDecision,
         scopeDecisions: input.scopeDecisions,
+        programDecision: input.programDecision,
+        timezone: input.timezone,
         idempotencyKey: input.idempotencyKey,
         commandId: input.commandId,
         requestHash: input.requestHash,

@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { allfitV1ContractSchemas } from '@allfitone/contracts'
+import Ajv2020 from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
 import { Hono } from 'hono'
 
 import { StudioInvitationError } from '../application/invitations.js'
@@ -12,6 +15,20 @@ import {
   type TokenVerifier,
 } from './space-client-invitations.js'
 
+// The DTOs only prove the handler compiles; the published schema proves what the wire carries.
+const validator = new Ajv2020({ strict: false, allErrors: true })
+addFormats(validator)
+validator.addSchema({ $id: 'allfit-v1', components: { schemas: allfitV1ContractSchemas } })
+
+function assertMatchesContract(schemaName: string, projection: unknown): void {
+  const validate = validator.getSchema(`allfit-v1#/components/schemas/${schemaName}`)
+  if (!validate) throw new Error(`The contract declares no schema named ${schemaName}`)
+  if (validate(projection)) return
+  const failures = (validate.errors ?? [])
+    .map((error) => `${error.instancePath || '/'} ${error.message ?? 'is invalid'}`)
+    .join('; ')
+  throw new Error(`${schemaName} violates the contract: ${failures}`)
+}
 const INTENT = '0199d000-0000-7000-8000-000000000041'
 const TOKEN = 'a'.repeat(43)
 
@@ -66,6 +83,7 @@ function invitations(overrides: Partial<ClientInvitationService> = {}): ClientIn
           decision: null,
         },
       ],
+      programProposal: null,
     }),
     listMine: async () => [
       {
@@ -89,6 +107,7 @@ function invitations(overrides: Partial<ClientInvitationService> = {}): ClientIn
         intentStatus: 'accepted' as const,
         relationshipId: '0199d000-0000-7000-8000-000000000061',
         grantedScopeCodes: ['body_progress' as const],
+        programProposal: null,
       },
       replayed: false,
     }),
@@ -200,6 +219,7 @@ describe('answering an invitation', () => {
             intentStatus: 'accepted',
             relationshipId: '0199d000-0000-7000-8000-000000000061',
             grantedScopeCodes: ['body_progress'],
+            programProposal: null,
           },
           replayed: false,
         }
@@ -223,6 +243,7 @@ describe('answering an invitation', () => {
             intentStatus: 'accepted',
             relationshipId: '0199d000-0000-7000-8000-000000000061',
             grantedScopeCodes: [],
+            programProposal: null,
           },
           replayed: false,
         }
@@ -254,6 +275,7 @@ describe('answering an invitation', () => {
           intentStatus: 'accepted',
           relationshipId: '0199d000-0000-7000-8000-000000000061',
           grantedScopeCodes: [],
+          programProposal: null,
         },
         replayed: false,
       }),
@@ -276,6 +298,7 @@ describe('answering an invitation', () => {
           intentStatus: 'rejected',
           relationshipId: null,
           grantedScopeCodes: [],
+          programProposal: null,
         },
         replayed: false,
       }),
@@ -299,6 +322,7 @@ describe('answering an invitation', () => {
           intentStatus: 'accepted',
           relationshipId: '0199d000-0000-7000-8000-000000000061',
           grantedScopeCodes: ['body_progress'],
+          programProposal: null,
         },
         replayed: true,
       }),
@@ -461,5 +485,148 @@ describe('her pending invitations', () => {
       post('decisions', { ...DECISION_BODY, invitation_id: INVITATION }),
     )
     expect(response.status).toBe(422)
+  })
+})
+
+describe('HU-SP-016 and HU-SP-017: the first program an invitation offers', () => {
+  const OFFER = {
+    intentId: '0199d000-0000-7000-8000-000000000042',
+    programVersionId: '0199d000-0000-7000-8000-000000000201',
+    title: 'Bloque A',
+    versionNumber: 1,
+    weeks: 2,
+    repeatsForever: false,
+    startsOn: '2026-11-09',
+    requiredScope: {
+      scopeCode: 'relationship_training' as const,
+      accessLevel: 'contribute' as const,
+    },
+    decision: null,
+  }
+  const DECISION = {
+    token: TOKEN,
+    invitation_intent_id: INTENT,
+    relationship_decision: 'accepted',
+    scope_decisions: { relationship_training: 'accepted' },
+  }
+
+  function offering(): ClientInvitationService {
+    const service = invitations()
+    const resolve = service.resolve
+    service.resolve = async (who, input) => ({
+      ...(await resolve(who, input)),
+      programProposal: OFFER,
+    })
+    return service
+  }
+
+  test('T-REL-INVITE-PROGRAM-API-07 she reads the program, its length and what it needs', async () => {
+    const response = await app(offering()).fetch(post('resolve', { token: TOKEN }))
+    const payload = (await response.json()) as { program_proposal: unknown }
+    // Only the offer: `responsible_party` predates this and does not match its schema yet.
+    assertMatchesContract('ClientInvitationProgramOffer', payload.program_proposal)
+    expect(payload.program_proposal).toEqual({
+      invitation_intent_id: OFFER.intentId,
+      program_version_id: OFFER.programVersionId,
+      title: 'Bloque A',
+      version_number: 1,
+      weeks: 2,
+      repeats_forever: false,
+      starts_on: '2026-11-09',
+      required_scope: { scope_code: 'relationship_training', access_level: 'contribute' },
+      decision: null,
+    })
+  })
+
+  test('T-REL-INVITE-PROGRAM-API-08 an invitation without one shows none', async () => {
+    const response = await app().fetch(post('resolve', { token: TOKEN }))
+    const payload = (await response.json()) as Record<string, unknown>
+    expect('program_proposal' in payload).toBe(true)
+    expect(payload.program_proposal).toBeNull()
+  })
+
+  test('T-REL-INVITE-PROGRAM-API-09 her answer and her zone reach the use case, and the outcome comes back', async () => {
+    let seen: unknown
+    const service = invitations({
+      decide: async (_identity, input) => {
+        seen = { programDecision: input.programDecision, timezone: input.timezone }
+        return {
+          resource: {
+            invitationId: '0199d000-0000-7000-8000-000000000031',
+            invitationStatus: 'completed',
+            organizationId: '0199d000-0000-7000-8000-000000000010',
+            intentId: INTENT,
+            intentStatus: 'accepted',
+            relationshipId: '0199d000-0000-7000-8000-000000000061',
+            grantedScopeCodes: ['relationship_training'],
+            programProposal: {
+              intentId: OFFER.intentId,
+              intentStatus: 'accepted',
+              assignmentId: '0199d000-0000-7000-8000-000000000071',
+              unmaterializedReason: null,
+            },
+          },
+          replayed: false,
+        }
+      },
+    })
+    const response = await app(service).fetch(
+      post('decisions', { ...DECISION, program_decision: 'accepted', timezone: 'Europe/Madrid' }),
+    )
+    expect(response.status).toBe(200)
+    expect(seen).toEqual({ programDecision: 'accepted', timezone: 'Europe/Madrid' })
+    const payload = await response.json()
+    assertMatchesContract('ClientInvitationDecisionResult', payload)
+    expect((payload as { program_proposal: unknown }).program_proposal).toEqual({
+      invitation_intent_id: OFFER.intentId,
+      intent_status: 'accepted',
+      assignment_id: '0199d000-0000-7000-8000-000000000071',
+      unmaterialized_reason: null,
+    })
+  })
+
+  test('T-REL-INVITE-PROGRAM-API-10 a client that says nothing about the program declines it', async () => {
+    let seen: unknown
+    const service = invitations()
+    const decide = service.decide
+    service.decide = async (who, input) => {
+      seen = { programDecision: input.programDecision, timezone: input.timezone }
+      return decide(who, input)
+    }
+    const response = await app(service).fetch(post('decisions', DECISION))
+    expect(response.status).toBe(200)
+    expect(seen).toEqual({ programDecision: null, timezone: null })
+    assertMatchesContract('ClientInvitationDecisionResult', await response.json())
+  })
+
+  test.each([
+    ['a program answer other than the two', { program_decision: 'maybe' }],
+    ['a zone that is not one', { timezone: 'Madrid' }],
+    ['a field the contract does not declare', { program_version_id: OFFER.programVersionId }],
+  ])('T-REL-INVITE-PROGRAM-API-11 refuses %s before asking anyone', async (_, extra) => {
+    let called = false
+    const service = invitations({
+      decide: async () => {
+        called = true
+        throw new Error('must not be reached')
+      },
+    })
+    const response = await app(service).fetch(post('decisions', { ...DECISION, ...extra }))
+    expect(response.status).toBe(422)
+    expect(called).toBe(false)
+  })
+
+  test.each([
+    ['["program-decision"]', '/program_decision'],
+    ['["timezone"]', '/timezone'],
+  ])('T-REL-INVITE-PROGRAM-API-12 a refusal naming %s points at %s', async (detail, field) => {
+    const service = invitations({
+      decide: async () => {
+        throw Object.assign(new Error('refused'), { code: '22023', detail })
+      },
+    })
+    const response = await app(service).fetch(post('decisions', DECISION))
+    expect(response.status).toBe(422)
+    expect(await response.json()).toEqual({ error: { code: 'validation-failed', detail: field } })
   })
 })
