@@ -1,4 +1,5 @@
 var redirects = ${redirects};
+var reasons = { 301: 'Moved Permanently', 302: 'Found', 307: 'Temporary Redirect', 308: 'Permanent Redirect' };
 
 // Next exports `/es` as `es.html`; the URLs the site links to stay as they are.
 function handler(event) {
@@ -8,7 +9,7 @@ function handler(event) {
   if (target) {
     return {
       statusCode: target.status,
-      statusDescription: target.status === 301 ? 'Moved Permanently' : 'Found',
+      statusDescription: reasons[target.status],
       headers: { location: { value: target.location } },
     };
   }

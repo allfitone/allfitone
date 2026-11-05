@@ -24,14 +24,19 @@ function handlerFor(redirects: Record<string, { location: string; status: number
 
 describe('the static site request function', () => {
   const request = handlerFor({
-    '/': { location: '/es', status: 302 },
-    '/privacy/analytics': { location: '/es/privacy/analytics', status: 301 },
+    '/': { location: '/es', status: 307 },
+    '/privacy/analytics': { location: '/es/privacy/analytics', status: 308 },
   })
 
   test('answers a configured redirect with its status and location', () => {
-    expect(request('/')).toMatchObject({ statusCode: 302, headers: { location: { value: '/es' } } })
+    expect(request('/')).toMatchObject({
+      statusCode: 307,
+      statusDescription: 'Temporary Redirect',
+      headers: { location: { value: '/es' } },
+    })
     expect(request('/privacy/analytics')).toMatchObject({
-      statusCode: 301,
+      statusCode: 308,
+      statusDescription: 'Permanent Redirect',
       headers: { location: { value: '/es/privacy/analytics' } },
     })
   })
