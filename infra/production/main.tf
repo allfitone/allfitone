@@ -124,7 +124,7 @@ locals {
     api            = { hosts = ["api.allfit.one"], port = 8080, health_path = "/health", behind_cdn = false, rule_ordinal = 10 }
     studio-web     = { hosts = ["studio.allfit.one"], port = 3000, health_path = "/", behind_cdn = true, rule_ordinal = 20 }
     backoffice-web = { hosts = ["backoffice.allfit.one"], port = 3000, health_path = "/", behind_cdn = true, rule_ordinal = 30 }
-    space-web      = { hosts = ["www.allfit.one", "space.allfit.one"], port = 3000, health_path = "/es", behind_cdn = true, rule_ordinal = 40 }
+    space-web      = { hosts = ["space.allfit.one"], port = 3000, health_path = "/es", behind_cdn = true, rule_ordinal = 40 }
   }
 
   web_service = {
@@ -263,4 +263,33 @@ module "deploy_role" {
   ecr_repository_arns = values(module.registry.repository_arns)
   image_tag_parameter = aws_ssm_parameter.image_tag.name
   migrator_log_group  = module.services.log_group_names["migrator"]
+}
+
+# Static sites from other repositories: no server, so S3 behind CloudFront.
+module "landing" {
+  source = "../modules/static-site"
+
+  name              = "allfitone-www-${var.account_id}"
+  host              = "www.allfit.one"
+  certificate_arn   = aws_acm_certificate_validation.this.certificate_arn
+  oidc_provider_arn = module.github_oidc.provider_arn
+  github_repository = "allfitone@163363230/allfitone-landing-page@1297734568"
+  redirects = {
+    "/"                    = { location = "/es", status = 302 }
+    "/privacy/analytics"   = { location = "/es/privacy/analytics", status = 301 }
+    "/ambassadors/william" = { location = "/es/ambassadors/william", status = 301 }
+  }
+}
+
+module "design_system" {
+  source = "../modules/static-site"
+
+  name              = "allfitone-ds-${var.account_id}"
+  host              = "ds.allfit.one"
+  certificate_arn   = aws_acm_certificate_validation.this.certificate_arn
+  oidc_provider_arn = module.github_oidc.provider_arn
+  github_repository = "allfitone@163363230/allfitone-design-system@1309167856"
+  redirects = {
+    "/" = { location = "/ui-foundation", status = 302 }
+  }
 }

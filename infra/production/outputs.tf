@@ -47,3 +47,15 @@ output "deploy_role_arn" {
   description = "AWS_DEPLOY_ROLE_ARN in the Production GitHub environment."
   value       = module.deploy_role.role_arn
 }
+
+output "static_sites" {
+  description = "Per site: the CNAME target, and the values for its repository's Production environment."
+  value = {
+    for key, site in { landing = module.landing, design_system = module.design_system } : key => {
+      cname                    = site.domain_name
+      bucket                   = site.bucket
+      distribution_id          = site.distribution_id
+      deploy_role_arn          = site.deploy_role_arn
+    }
+  }
+}

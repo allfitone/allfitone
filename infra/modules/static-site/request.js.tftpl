@@ -1,0 +1,28 @@
+var redirects = ${redirects};
+
+// Next exports `/es` as `es.html`; the URLs the site links to stay as they are.
+function handler(event) {
+  var request = event.request;
+  var uri = request.uri;
+  var target = redirects[uri];
+  if (target) {
+    return {
+      statusCode: target.status,
+      statusDescription: target.status === 301 ? 'Moved Permanently' : 'Found',
+      headers: { location: { value: target.location } },
+    };
+  }
+  if (uri.length > 1 && uri.charAt(uri.length - 1) === '/') {
+    return {
+      statusCode: 301,
+      statusDescription: 'Moved Permanently',
+      headers: { location: { value: uri.slice(0, -1) } },
+    };
+  }
+  if (uri === '/') {
+    request.uri = '/index.html';
+  } else if (uri.lastIndexOf('.') <= uri.lastIndexOf('/')) {
+    request.uri = uri + '.html';
+  }
+  return request;
+}
