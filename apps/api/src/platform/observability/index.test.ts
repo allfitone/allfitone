@@ -130,6 +130,25 @@ describe('Studio request timing', () => {
     }
   })
 
+  test('tags measurements with the AWS region the container runs in', async () => {
+    const app = new Hono()
+    const info = spyOn(console, 'info').mockImplementation(() => undefined)
+    const previous = process.env.AWS_REGION
+    process.env.AWS_REGION = 'us-east-1'
+    try {
+      app.use('/studio/v1/*', studioRequestTiming())
+      app.get('/studio/v1/session', (c) => c.json({ ok: true }))
+
+      await app.request('/studio/v1/session')
+
+      expect(JSON.parse(String(info.mock.calls[0]?.[0])).dimensions.region).toBe('us-east-1')
+    } finally {
+      if (previous === undefined) delete process.env.AWS_REGION
+      else process.env.AWS_REGION = previous
+      info.mockRestore()
+    }
+  })
+
   test('emits the closed slow-request alert above one second', async () => {
     const app = new Hono()
     const info = spyOn(console, 'info').mockImplementation(() => undefined)

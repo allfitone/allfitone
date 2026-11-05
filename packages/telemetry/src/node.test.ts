@@ -52,7 +52,7 @@ describe('analytics pseudonyms', () => {
 
   test('returns no client identity while its surface gate is disabled', () => {
     const environment = {
-      VERCEL_ENV: 'production',
+      NODE_ENV: 'production',
       ANALYTICS_PSEUDONYM_ACTIVE_VERSION: '1',
       ANALYTICS_PSEUDONYM_KEY_V1: KEY,
       ANALYTICS_STUDIO_CLIENT_ENABLED: 'false',
@@ -71,8 +71,7 @@ describe('analytics pseudonyms', () => {
 
   test('allows client identities only in production', () => {
     const environment = {
-      VERCEL_ENV: 'preview',
-      NODE_ENV: 'production',
+      NODE_ENV: 'test',
       ANALYTICS_PSEUDONYM_ACTIVE_VERSION: '1',
       ANALYTICS_PSEUDONYM_KEY_V1: KEY,
       ANALYTICS_STUDIO_CLIENT_ENABLED: 'true',
@@ -85,18 +84,15 @@ describe('analytics pseudonyms', () => {
 })
 
 describe('telemetry runtime environments', () => {
-  test('gives Vercel environment precedence over NODE_ENV', () => {
-    expect(telemetryEnvironmentFromRuntime({ VERCEL_ENV: 'preview', NODE_ENV: 'production' })).toBe(
-      'preview',
-    )
-    expect(
-      telemetryEnvironmentFromRuntime({ VERCEL_ENV: 'development', NODE_ENV: 'production' }),
-    ).toBe('development')
-  })
-
-  test('falls back to production NODE_ENV and otherwise development', () => {
+  test('is production only when NODE_ENV says so', () => {
     expect(telemetryEnvironmentFromRuntime({ NODE_ENV: 'production' })).toBe('production')
     expect(telemetryEnvironmentFromRuntime({ NODE_ENV: 'test' })).toBe('development')
-    expect(telemetryEnvironmentFromRuntime({ VERCEL_ENV: 'unexpected' })).toBe('development')
+    expect(telemetryEnvironmentFromRuntime({})).toBe('development')
+  })
+
+  test('ignores the variables of the former host', () => {
+    expect(telemetryEnvironmentFromRuntime({ VERCEL_ENV: 'production', NODE_ENV: 'test' })).toBe(
+      'development',
+    )
   })
 })

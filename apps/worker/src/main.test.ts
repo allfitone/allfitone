@@ -24,7 +24,14 @@ test('rejects cron requests without the exact bearer secret', async () => {
   expect(response.headers.has('access-control-allow-origin')).toBeFalse()
 })
 
-test('runs the batch after authenticating the Vercel cron', async () => {
+test('serves the batch on one path only', async () => {
+  const response = await createWorkerApp(successfulProcessors()).request('/api/cron/outbox', {
+    headers: { authorization: 'Bearer cron-test-secret' },
+  })
+  expect(response.status).toBe(404)
+})
+
+test('runs the batch after authenticating the scheduler', async () => {
   const captured: unknown[] = []
   const telemetry: ServerTelemetryAdapter = {
     capture: (event) => captured.push(event),

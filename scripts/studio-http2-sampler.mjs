@@ -1,8 +1,6 @@
 import { connect, constants } from 'node:http2'
 import { URL } from 'node:url'
 
-import { vercelExecutionRegion } from './vercel-region.mjs'
-
 const {
   HTTP2_HEADER_ACCEPT,
   HTTP2_HEADER_COOKIE,
@@ -44,7 +42,6 @@ export function createStudioHttp2Sampler({ apiUrl, sessionCookie, studioOrigin }
       status: Number(headers[HTTP2_HEADER_STATUS]),
       durationMs,
       usedWorkos: /(?:^|,)\s*workos-refresh;dur=/.test(serverTiming ?? ''),
-      region: vercelExecutionRegion(headerValue(headers['x-vercel-id'])),
     }
   }
 

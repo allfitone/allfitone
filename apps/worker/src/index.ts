@@ -172,7 +172,6 @@ export function createWorkerApp(
     }
   }
   app.get('/cron/outbox', cron)
-  app.get('/api/cron/outbox', cron)
   return app
 }
 
@@ -244,7 +243,7 @@ function outcomeForResult(result: { deadOrDelayed: number }): 'completed' | 'ret
 }
 
 function telemetryRelease(): string {
-  const raw = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RELEASE ?? 'local'
+  const raw = process.env.RELEASE ?? 'local'
   return raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80) || 'local'
 }
 
@@ -402,4 +401,3 @@ function required(name: string): string {
 }
 
 export const app = createWorkerApp()
-export default app

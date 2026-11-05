@@ -1,9 +1,8 @@
 /**
- * Entry point in a container (Railway, Fly, ECS, k8s).
+ * Entry point in a container: `node dist/server.js` on ECS, and `bun run dev`.
  *
- * Exists from day one even though it is unused: it is the proof that the app does
- * not depend on the hosting provider. Migrating means changing the pipeline, not
- * the code.
+ * Nothing in the app depends on the host, so moving it means changing the
+ * pipeline, not the code.
  */
 import { serve } from '@hono/node-server'
 import { createApp } from './application.js'

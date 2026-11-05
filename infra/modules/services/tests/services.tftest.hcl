@@ -146,3 +146,16 @@ run "logs_last_fourteen_days" {
     error_message = "Every service and task writes to a group of its own."
   }
 }
+
+run "containers_know_their_region_and_release" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for td in values(aws_ecs_task_definition.service) :
+      contains(jsondecode(td.container_definitions)[0].environment, { name = "AWS_REGION", value = "us-east-1" })
+      && contains(jsondecode(td.container_definitions)[0].environment, { name = "RELEASE", value = "abc1234" })
+    ])
+    error_message = "Measurements are tagged with the region and the release the container runs."
+  }
+}
