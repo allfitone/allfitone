@@ -51,7 +51,7 @@ describe('what she shares', () => {
   test('T-SPC-UNIT-322 each category says how it stands, in her words', () => {
     expect(consentLine(consent())).toBe('Lectura · desde el 12 sep')
     expect(consentLine(consent({ access_level: 'contribute' }))).toBe(
-      'Lectura y propuestas · desde el 12 sep',
+      'Lectura y cambios a tu plan · desde el 12 sep',
     )
     expect(consentLine(consent({ decision: 'rejected', grant_id: null, grant_status: null }))).toBe(
       'Elegiste no compartirlo',

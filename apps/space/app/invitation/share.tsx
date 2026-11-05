@@ -21,7 +21,12 @@ import { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { scopeDescription, scopeTitle, type Decision } from '../../src/client/gym-affiliation'
+import {
+  accessLevelLabel,
+  scopeDescription,
+  scopeTitle,
+  type Decision,
+} from '../../src/client/gym-affiliation'
 import { currentDraft } from '../../src/client/invitation-draft'
 import { GlyphRow, GymMark, RowCard, scopeIcon } from '../../src/components/gym-ui'
 
@@ -29,7 +34,6 @@ const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = 
   { value: 'rejected', label: 'No' },
   { value: 'accepted', label: 'Sí' },
 ]
-const LEVEL: Record<string, string> = { read: 'Lectura', contribute: 'Lectura y propuestas' }
 
 export default function InvitationShare() {
   const router = useRouter()
@@ -81,7 +85,7 @@ export default function InvitationShare() {
                 <GlyphRow
                   icon={scopeIcon(option.scope_code)}
                   title={title}
-                  caption={LEVEL[option.offered_access_level] ?? option.offered_access_level}
+                  caption={accessLevelLabel(option.offered_access_level)}
                 >
                   <SegmentedControl
                     items={ANSWER}

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { ApiError } from './api-error'
 import {
+  accessLevelLabel,
   createInvitationFlow,
   decisionFailure,
   historyLine,
@@ -95,6 +96,13 @@ describe('a gym invitation, as Space says it', () => {
     expect(scopeName('body_progress')).toBe('Tu progreso corporal')
     expect(scopeName('nutrition_intake')).toBe('Tus comidas')
     expect(scopeName('unknown_scope')).toBe('unknown_scope')
+  })
+
+  test('T-SPC-UNIT-338 contributing reads as changes to her plan, not as proposals', () => {
+    expect(accessLevelLabel('contribute')).toBe('Lectura y cambios a tu plan')
+    expect(accessLevelLabel('read')).toBe('Lectura')
+    // An unknown level never reads as more than the least a gym can hold.
+    expect(accessLevelLabel(null)).toBe('Lectura')
   })
 
   test('T-SPC-UNIT-312 what she shares is counted out of what was asked', () => {

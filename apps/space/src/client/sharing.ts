@@ -12,7 +12,7 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
-import { scopeName } from './gym-affiliation'
+import { accessLevelLabel, scopeName } from './gym-affiliation'
 import { shortDate } from './pro'
 
 export type Consent = AllfitV1Schemas['SpaceConsent']
@@ -75,12 +75,10 @@ export function groupConsents(consents: readonly Consent[]): SharingGroup[] {
   )
 }
 
-const LEVEL: Record<string, string> = { read: 'Lectura', contribute: 'Lectura y propuestas' }
-
 export function consentLine(consent: Consent): string {
   switch (consent.grant_status) {
     case 'active':
-      return `${LEVEL[consent.access_level ?? 'read'] ?? 'Lectura'} · desde el ${shortDate(consent.granted_at ?? consent.decided_at)}`
+      return `${accessLevelLabel(consent.access_level)} · desde el ${shortDate(consent.granted_at ?? consent.decided_at)}`
     case 'frozen':
       return `Aún pueden ver lo compartido hasta el ${shortDate(consent.frozen_at ?? consent.decided_at)}`
     case 'revoked':

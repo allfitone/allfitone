@@ -120,6 +120,15 @@ export function scopeDescription(option: PresentedOption): string | null {
   return presented(option, 'description')
 }
 
+/**
+ * The level a gym asks for, or holds, in her words. Contributing is offerable only where
+ * the published scope admits it, which in V1 is her training with them: assigning
+ * programs, moving sessions, adjusting and cancelling. "Propuestas" said less than that.
+ */
+export function accessLevelLabel(level: string | null): string {
+  return level === 'contribute' ? 'Lectura y cambios a tu plan' : 'Lectura'
+}
+
 export function sharedSummary(
   decisions: Readonly<Record<string, Decision>>,
   asked: number,
