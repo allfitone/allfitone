@@ -33,7 +33,7 @@ export const en: Dictionary = {
   },
   hero: {
     lines: ['TRAIN', 'WITH A PLAN.', 'NOT WITH LUCK.'],
-    lead: 'Your programme, every set and what you eat, in one app. And your history goes with you.',
+    lead: 'Your programme, every set and what you eat, in one app. If you change gyms, your history comes with you.',
     todayAlt: "Allfit Space Today screen: the day's Pull session and the week at a glance.",
     programAlt: 'Upper and lower programme detail: 10 weeks, 4 days a week and its sessions.',
     scroll: 'Scroll',
@@ -112,9 +112,8 @@ export const en: Dictionary = {
     background: 'Athlete checking her phone at the gym after training.',
   },
   pro: {
-    eyebrow: 'ALLFIT PRO',
     title: ['ALLFIT PRO,', 'INCLUDED WITH', 'YOUR GYM.'],
-    text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym uses Allfit, Pro is included for as long as you stay with them.',
+    text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym uses Allfit Studio, Pro is included for as long as you stay with them.',
     alt: 'Athlete with headphones focusing before training at the gym.',
   },
   studio: {
@@ -123,7 +122,7 @@ export const en: Dictionary = {
     cta: 'Discover Allfit Studio',
   },
   closing: {
-    title: ['YOUR NEXT RECORD', 'STARTS TODAY.'],
+    title: ['YOUR NEXT RECORD', 'HAS A PLAN.'],
   },
   nvidia: {
     member: 'Allfit One is a member of NVIDIA Inception.',
@@ -228,15 +227,15 @@ export const en: Dictionary = {
         {
           heading: '4. Gyms and coaches',
           body: [
-            'Gyms and coaches using Allfit Studio are independent from Allfit. Their service and their fees are governed by what you agree with them.',
-            'Allfit does not receive or handle the money you pay your gym.',
+            'Gyms and coaches using Allfit Studio are independent from Allfit One. Their service and their fees are governed by what you agree with them.',
+            'Allfit One does not receive or handle the money you pay your gym.',
           ],
         },
         {
           heading: '5. Allfit Pro',
           body: [
             'The app is free. Allfit Pro is an optional subscription bought on the App Store or Google Play, under their payment and cancellation terms.',
-            'If your gym uses Allfit, Pro is included while you stay active with them. If Pro ends, you keep your whole history.',
+            'If your gym uses Allfit Studio, Pro is included while you stay active with them. If Pro ends, you keep your whole history.',
           ],
         },
         {
@@ -248,7 +247,7 @@ export const en: Dictionary = {
         {
           heading: '7. Liability',
           body: [
-            'Training involves physical risks that you assume when following a programme. Allfit is liable under the applicable Colombian law.',
+            'Training involves physical risks that you assume when following a programme. Allfit One is liable under the applicable Colombian law.',
           ],
         },
         {

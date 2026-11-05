@@ -36,8 +36,8 @@ export const es = {
   hero: {
     title: ['Tu plan.', 'Su sesión.', 'Un solo panel.'],
     lead: 'Allfit Studio reúne a tus clientes, sus programas y lo que registran en cada sesión. Comparas el plan con lo que pasó y ajustas sin perder el hilo.',
-    cta: 'Entrar a Studio',
-    note: '¿Primera vez? Con el mismo acceso creas tu cuenta y configuras tu espacio.',
+    cta: 'Crear mi espacio',
+    note: '¿Ya tienes cuenta? El mismo botón te lleva a tu espacio.',
   },
   people: {
     title: 'Personas',
@@ -110,8 +110,8 @@ export const es = {
         text: 'Aceptar tu invitación no comparte nada por sí solo. La persona elige qué ves, categoría por categoría.',
       },
       purpose: {
-        title: 'El acceso tiene un motivo',
-        text: 'Ver un dato exige una relación, una autorización y una asignación vigentes. Ser dueño o administrador no basta.',
+        title: 'Tu equipo ve solo lo necesario',
+        text: 'Cada miembro de tu equipo ve a las personas que tiene asignadas, y solo lo que ellas comparten. Ser dueño o administrador no da acceso por sí solo.',
       },
       history: {
         title: 'Su historial es suyo',
@@ -121,7 +121,7 @@ export const es = {
   },
   modules: {
     title: ['Lo que gestionas', 'desde Studio.'],
-    lead: 'Cinco áreas, en el mismo orden en que las encuentras dentro de tu espacio.',
+    lead: 'Lo que hoy llevas en hojas de cálculo y chats, en un solo lugar.',
     items: {
       people: {
         name: 'Personas',
@@ -154,8 +154,8 @@ export const es = {
   },
   closing: {
     title: ['Tu próximo cliente', 'empieza con una invitación.'],
-    cta: 'Crear cuenta o entrar',
-    note: 'El acceso se completa con el proveedor de identidad de Allfit One.',
+    cta: 'Crear mi espacio',
+    note: 'Tu cuenta de Allfit One sirve para Studio y para Space.',
   },
   footer: {
     nvidia: 'Allfit One es miembro de NVIDIA Inception.',

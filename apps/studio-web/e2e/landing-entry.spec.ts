@@ -45,7 +45,7 @@ test('a browser without a Studio session goes straight to the provider', async (
   await installStudioApiMock(page, fixture)
   await page.goto('/es')
 
-  await page.getByRole('link', { name: 'Entrar a Studio' }).click()
+  await page.getByRole('link', { name: 'Crear mi espacio' }).first().click()
 
   await expect(page).toHaveURL(AUTH_START)
   expect(fixture.requests.map((request) => request.path)).toEqual(['/studio/v1/auth/start'])
@@ -66,7 +66,7 @@ test('a signed-in browser enters its workspace without the provider', async ({ p
   await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
   await expect(page).toHaveURL('/es')
 
-  await page.getByRole('link', { name: 'Entrar a Studio' }).click()
+  await page.getByRole('link', { name: 'Crear mi espacio' }).first().click()
 
   await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}`)
   expect(fixture.requests.some((request) => request.path === '/studio/v1/auth/start')).toBe(false)
@@ -88,7 +88,7 @@ test('a session ended here but still open is closed before anyone can enter', as
 
   await expect(page.getByRole('heading', { name: 'Tu sesión está protegida' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Completar cierre' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toHaveCount(0)
 })
 
 test('the workspace entry without a session returns to the landing', async ({ page }) => {
@@ -98,7 +98,7 @@ test('the workspace entry without a session returns to the landing', async ({ pa
   await page.goto('/app')
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Entrar a Studio' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
 })
 
 test('a tab holding an invitation is taken back to it from the landing', async ({ page }) => {
@@ -160,17 +160,25 @@ test.describe('languages', () => {
   test.describe('an English browser', () => {
     test.use({ locale: 'en-US' })
 
-    test('is taken to the English landing, consent panel included', async ({ page }) => {
+    test('is taken to the Spanish landing too', async ({ page }) => {
+      await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+
+      await page.goto('/')
+
+      await expect(page).toHaveURL('/es')
+      await expect(page.locator('html')).toHaveAttribute('lang', 'es')
+    })
+
+    test('still finds the English landing at /en, consent panel included', async ({ page }) => {
       await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
         consent: 'undecided',
       })
 
-      await page.goto('/')
+      await page.goto('/en')
 
-      await expect(page).toHaveURL('/en')
       await expect(page.locator('html')).toHaveAttribute('lang', 'en')
       await expect(page.getByRole('heading', { level: 1, name: /Your plan/ })).toBeVisible()
-      await expect(page.getByRole('link', { name: 'Sign in to Studio' })).toHaveAttribute(
+      await expect(page.getByRole('link', { name: 'Create my space' }).first()).toHaveAttribute(
         'href',
         '/app',
       )

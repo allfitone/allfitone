@@ -1151,7 +1151,7 @@
 /*
  * The open panel sits at the top, away from the collapsed control, because the
  * access landing puts its primary action low: a bottom-anchored panel covers
- * "Entrar a Studio" at 1280x720 and 390x844, and nobody should have to answer a
+ * "Crear mi espacio" at 1280x720 and 390x844, and nobody should have to answer a
  * question about optional analytics before they can sign in.
  *
  * Centred rather than tucked left, which was where it started. Left put it on

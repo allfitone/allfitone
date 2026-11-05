@@ -29,8 +29,8 @@ export const en: Dictionary = {
   hero: {
     title: ['Your plan.', 'Their session.', 'One panel.'],
     lead: 'Allfit Studio brings together your clients, their programs and what they log in every session. Compare the plan with what happened and adjust without losing the thread.',
-    cta: 'Sign in to Studio',
-    note: 'First time? The same sign-in creates your account and sets up your space.',
+    cta: 'Create my space',
+    note: 'Already have an account? The same button takes you to your space.',
   },
   people: {
     title: 'People',
@@ -103,8 +103,8 @@ export const en: Dictionary = {
         text: 'Accepting your invitation shares nothing on its own. The person chooses what you see, category by category.',
       },
       purpose: {
-        title: 'Access needs a reason',
-        text: 'Seeing any data takes a current relationship, authorization and assignment. Being an owner or an administrator is not enough.',
+        title: 'Your team sees only what it needs',
+        text: 'Each team member sees the people assigned to them, and only what those people share. Being an owner or an administrator grants no access on its own.',
       },
       history: {
         title: 'Their history is theirs',
@@ -114,7 +114,7 @@ export const en: Dictionary = {
   },
   modules: {
     title: ['What you manage', 'from Studio.'],
-    lead: 'Five areas, in the same order you find them inside your space.',
+    lead: 'What you keep in spreadsheets and chats today, in one place.',
     items: {
       people: {
         name: 'People',
@@ -147,8 +147,8 @@ export const en: Dictionary = {
   },
   closing: {
     title: ['Your next client', 'starts with an invitation.'],
-    cta: 'Create an account or sign in',
-    note: 'Access is completed with the Allfit One identity provider.',
+    cta: 'Create my space',
+    note: 'Your Allfit One account works in both Studio and Space.',
   },
   footer: {
     nvidia: 'Allfit One is a member of NVIDIA Inception.',

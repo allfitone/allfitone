@@ -107,7 +107,7 @@ test('the floating privacy control carries its own surface', async ({ page }) =>
  * Analytics is optional, so the panel asking about it may never stand between a
  * person and signing in. This is the constraint that decides where the panel
  * opens: moving it to the corner the collapsed control uses looks tidier and
- * puts it straight on top of "Entrar a Studio" at 1280x720 and 390x844, because
+ * puts it straight on top of "Crear mi espacio" at 1280x720 and 390x844, because
  * the access landing places its primary action low.
  *
  * The check is what the browser would actually dispatch a click to, not a box
@@ -145,15 +145,18 @@ for (const viewport of CONSENT_VIEWPORTS) {
         })
 
     expect(
-      await page.getByRole('link', { name: /Entrar a Studio/ }).evaluate((element) => {
-        const box = element.getBoundingClientRect()
-        const topmost = document.elementFromPoint(
-          box.left + box.width / 2,
-          box.top + box.height / 2,
-        )
-        return topmost === element || element.contains(topmost)
-      }),
-      'the consent panel is covering "Entrar a Studio"',
+      await page
+        .getByRole('link', { name: 'Crear mi espacio' })
+        .first()
+        .evaluate((element) => {
+          const box = element.getBoundingClientRect()
+          const topmost = document.elementFromPoint(
+            box.left + box.width / 2,
+            box.top + box.height / 2,
+          )
+          return topmost === element || element.contains(topmost)
+        }),
+      'the consent panel is covering "Crear mi espacio"',
     ).toBe(true)
 
     if (viewport.clearsHeader) {
