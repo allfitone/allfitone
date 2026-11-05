@@ -9,7 +9,7 @@
 # Next inlines NEXT_PUBLIC_* at build time, so they are build arguments, not
 # runtime settings: with a single environment there is one image per app.
 # NEXT_OUTPUT=standalone makes Next emit a self-contained server with only the
-# files it traced; the Vercel build does not set it and stays as it was.
+# files it traced; local builds do not set it.
 
 ARG BUN_VERSION=1.2.16
 ARG NODE_VERSION=22-bookworm-slim

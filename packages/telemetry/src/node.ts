@@ -73,13 +73,5 @@ export function analyticsIdentityForSurfaceFromEnvironment(
 export function telemetryEnvironmentFromRuntime(
   environment: NodeJS.ProcessEnv = process.env,
 ): TelemetryEnvironment {
-  const vercelEnvironment = environment.VERCEL_ENV
-  if (
-    vercelEnvironment === 'production' ||
-    vercelEnvironment === 'preview' ||
-    vercelEnvironment === 'development'
-  ) {
-    return vercelEnvironment
-  }
   return environment.NODE_ENV === 'production' ? 'production' : 'development'
 }

@@ -178,7 +178,7 @@ export function requestTiming(surface: Exclude<TelemetrySurface, 'system'>): Mid
           method: c.req.method,
           status: String(status),
           outcome,
-          region: process.env.VERCEL_REGION ?? 'local',
+          region: safeRegion(),
           external_dependency: externalDependency,
         },
         phases_ms: Object.fromEntries(
@@ -221,7 +221,7 @@ export function requestTiming(surface: Exclude<TelemetrySurface, 'system'>): Mid
           kind: 'alert',
           name: `${surface}.http.slow_request`,
           value_ms: roundDuration(totalMs),
-          dimensions: { operation, outcome, region: process.env.VERCEL_REGION ?? 'local' },
+          dimensions: { operation, outcome, region: safeRegion() },
         }),
       )
     }
@@ -273,21 +273,17 @@ function telemetryMethod(method: string): 'DELETE' | 'GET' | 'PATCH' | 'POST' | 
 }
 
 function telemetryEnvironment(): TelemetryEnvironment {
-  if (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production') {
-    return 'production'
-  }
-  if (process.env.VERCEL_ENV === 'preview') return 'preview'
-  return 'development'
+  return process.env.NODE_ENV === 'production' ? 'production' : 'development'
 }
 
 function telemetryRelease(): string {
-  const raw = process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RELEASE ?? 'local'
+  const raw = process.env.RELEASE ?? 'local'
   const safe = raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 80)
   return safe || 'local'
 }
 
 function safeRegion(): string {
-  const raw = process.env.VERCEL_REGION ?? 'local'
+  const raw = process.env.AWS_REGION ?? 'local'
   const safe = raw.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 32)
   return safe || 'local'
 }

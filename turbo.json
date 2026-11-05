@@ -19,7 +19,7 @@
         "EXPO_PUBLIC_ANALYTICS_ENVIRONMENT",
         "EXPO_PUBLIC_APP_RELEASE"
       ],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**", ".vercel/output/**"]
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "dev": {
       "cache": false,

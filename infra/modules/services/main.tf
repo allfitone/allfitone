@@ -51,7 +51,7 @@ locals {
         memoryReservation = w.memory_reservation
         memory            = w.memory
         environment = [
-          for name, value in merge(w.environment, { RELEASE = var.image_tag }) : { name = name, value = value }
+          for name, value in merge(w.environment, { AWS_REGION = var.region, RELEASE = var.image_tag }) : { name = name, value = value }
         ]
         secrets = [
           for secret_key in w.secret_keys : { name = secret_key, valueFrom = "${var.secret_arn}:${secret_key}::" }

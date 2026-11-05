@@ -2,7 +2,6 @@ const apiUrl = requiredEnvironment('STUDIO_API_URL').replace(/\/$/, '')
 const studioOrigin = new URL(process.env.STUDIO_WEB_URL ?? 'https://studio.allfit.one').origin
 const sessionCookie = requiredEnvironment('STUDIO_SESSION_COOKIE')
 const organizationId = process.env.STUDIO_TECHNICAL_ORGANIZATION_ID
-const expectedRegion = process.env.STUDIO_EXPECTED_VERCEL_REGION
 const samples = positiveInteger(process.env.STUDIO_LATENCY_SAMPLES, 200)
 const warmups = positiveInteger(process.env.STUDIO_LATENCY_WARMUPS, 20)
 const idleCycles = positiveInteger(process.env.STUDIO_LATENCY_IDLE_CYCLES, 10)
@@ -31,7 +30,6 @@ const endpoints = [
 ]
 
 let failed = false
-const observedRegions = new Set()
 const sampler = createStudioHttp2Sampler({ apiUrl, sessionCookie, studioOrigin })
 try {
   for (const endpoint of endpoints) {
@@ -44,7 +42,6 @@ try {
     let errors = 0
     for (let index = 0; index < samples; index += 1) {
       const result = await sampler.sample(endpoint.path)
-      if (result.region) observedRegions.add(result.region)
       assertStudioBenchmarkAccess(endpoint.name, result)
       if (result.status < 200 || result.status >= 400) {
         errors += 1
@@ -81,7 +78,6 @@ try {
       for (let index = 0; index < idleCycles; index += 1) {
         await delay(idleMs)
         const result = await sampler.sample(endpoint.path)
-        if (result.region) observedRegions.add(result.region)
         assertStudioBenchmarkAccess(endpoint.name, result)
         if (result.status < 200 || result.status >= 400) {
           idleErrors += 1
@@ -117,19 +113,6 @@ try {
 
 if (!organizationId) {
   console.warn('STUDIO_TECHNICAL_ORGANIZATION_ID was not set; organization endpoints were skipped.')
-}
-if (expectedRegion) {
-  const accepted =
-    observedRegions.size > 0 && [...observedRegions].every((item) => item === expectedRegion)
-  failed ||= !accepted
-  console.log(
-    JSON.stringify({
-      check: 'vercel-region',
-      expected: expectedRegion,
-      observed: [...observedRegions],
-      accepted,
-    }),
-  )
 }
 if (failed) process.exitCode = 1
 

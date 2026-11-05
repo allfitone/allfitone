@@ -1,11 +1,11 @@
 /**
- * Checks that what gets deployed can actually run on Node, which is the only
- * thing Vercel runs.
+ * Checks that what gets deployed can actually run on Node, which is what the
+ * ECS containers run.
  *
  * Everything else in this repository runs on Bun: the dev servers, every test
  * suite, every script. Bun loads a workspace package straight from its
- * TypeScript source. Node cannot, and Vercel does not even ship those `.ts`
- * files to the function. So a package whose `exports` serve `./src/index.ts`
+ * TypeScript source. Node cannot, and the container image does not even ship
+ * those `.ts` files. So a package whose `exports` serve `./src/index.ts`
  * passes lint, typecheck, tests and build, and then fails to load in
  * production — taking down every route behind it, because the failure happens
  * at import rather than on a path.
@@ -24,7 +24,7 @@
  * **Loading the built entry point** then catches what a manifest cannot see.
  * It is the weaker of the two: on a developer's machine the `.ts` files exist
  * on disk and Node 22 will strip their types, so this check alone passes for a
- * package that Vercel would never ship. Run it, but do not trust it on its own.
+ * package the image would never ship. Run it, but do not trust it on its own.
  */
 
 import fs from 'node:fs/promises'
@@ -35,7 +35,8 @@ import { fileURLToPath } from 'node:url'
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
 const apps = [
-  { name: 'apps/api', entry: 'apps/api/dist/index.js' },
+  // The module graph of dist/server.js, without opening a port.
+  { name: 'apps/api', entry: 'apps/api/dist/application.js' },
   { name: 'apps/worker', entry: 'apps/worker/dist/main.js' },
 ]
 

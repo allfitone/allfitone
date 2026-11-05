@@ -11,7 +11,7 @@
 #   test   the pgTAP suite against this database
 #
 # INCLUDE_ALL=true applies migrations older than the newest one applied. It is
-# a decision, not a retry: read `plan` first, as in deploy-database.yml.
+# a decision, not a retry: read `plan` first, as in deploy-database-aws.yml.
 
 set -eu
 

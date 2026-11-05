@@ -1,10 +1,8 @@
 /**
- * The worker as a long-lived container (ECS), instead of a function woken by
- * Vercel Cron.
+ * The worker as a long-lived container (ECS).
  *
- * It reuses the cron route as it is: the scheduler sends the same request the
- * cron sent, with the same secret, to the same Hono app, in process. Nothing
- * about the jobs changes; only what triggers them does.
+ * The scheduler runs the batch by calling the `/cron/outbox` route with its
+ * secret, in process, so the jobs keep a single entry point.
  *
  * The only port it opens answers `/health`, through `node:http`, because that
  * is all the orchestrator needs and it keeps the worker free of a server

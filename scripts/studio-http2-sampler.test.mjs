@@ -20,7 +20,6 @@ describe('createStudioHttp2Sampler', () => {
       stream.respond({
         ':status': 200,
         'server-timing': 'session-db;dur=12.5, workos-refresh;dur=40',
-        'x-vercel-id': 'iad1::pdx1::request-id',
       })
       stream.end('{}')
     })
@@ -45,7 +44,6 @@ describe('createStudioHttp2Sampler', () => {
 
     expect(first.status).toBe(200)
     expect(first.usedWorkos).toBe(true)
-    expect(first.region).toBe('pdx1')
     expect(second.status).toBe(200)
     expect(requests.map((headers) => headers[':path'])).toEqual([
       '/api/studio/v1/session',

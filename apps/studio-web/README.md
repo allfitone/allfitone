@@ -14,17 +14,10 @@ bun run dev --filter=@allfitone/studio-web
 The app runs at `http://localhost:3000` and reads the API origin from
 `NEXT_PUBLIC_API_URL`.
 
-## Vercel
+## Deployment
 
-- Project name: `allfitone-studio`
-- Root Directory: `apps/studio-web`
-- Production branch: `main`
-- Production domain: `studio.allfit.one`
-- Environment variable: `NEXT_PUBLIC_API_URL=https://api.allfit.one`
-
-Keep **Include source files outside of the Root Directory** enabled. The app will
-consume workspace packages such as `@allfitone/contracts` as product features
-land.
+Merging to `main` builds this app's image and rolls it out on ECS, behind
+CloudFront. See [`infra/README.md`](../../infra/README.md).
 
 Studio uses hosted login. The organization travels explicitly in the path under
 `/organizations/{orgId}`; it is never resolved from the token or a stored

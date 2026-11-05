@@ -1,8 +1,8 @@
 /**
  * Local entry point.
  *
- * The worker is cron-invoked in production and needs no port there, but `bun run dev`
- * serves whatever a module default-exports. Without a port of its own it takes `PORT` —
+ * Production starts `container.ts`; `bun run dev` serves whatever this module
+ * default-exports. Without a port of its own it takes `PORT` —
  * the API's — and the second process to start dies with "port in use". Hence
  * `WORKER_PORT`, defaulted so nobody has to set it.
  */

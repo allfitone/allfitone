@@ -164,7 +164,7 @@ module "compute" {
 module "certificate" {
   source = "../modules/certificate"
 
-  # Wildcard on purpose: CAA for *.X is checked at X, not at hosts that still CNAME to Vercel.
+  # Wildcard on purpose: CAA for *.X is checked at X, not at each host's CNAME target.
   domain_names = ["*.allfit.one"]
 }
 

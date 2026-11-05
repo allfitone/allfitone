@@ -4,7 +4,7 @@ import { clientTelemetryConfigRoutes } from './client-config.js'
 
 afterEach(() => {
   delete process.env.ANALYTICS_STUDIO_CLIENT_ENABLED
-  delete process.env.VERCEL_ENV
+  process.env.NODE_ENV = 'test'
 })
 
 describe('client telemetry config', () => {
@@ -17,7 +17,7 @@ describe('client telemetry config', () => {
   })
 
   test('enables only from the exact surface gate', async () => {
-    process.env.VERCEL_ENV = 'production'
+    process.env.NODE_ENV = 'production'
     process.env.ANALYTICS_STUDIO_CLIENT_ENABLED = 'true'
 
     const response = await clientTelemetryConfigRoutes('studio').request('/telemetry-config')
@@ -26,7 +26,7 @@ describe('client telemetry config', () => {
   })
 
   test('stays disabled outside production even when the surface flag is true', async () => {
-    process.env.VERCEL_ENV = 'preview'
+    process.env.NODE_ENV = 'test'
     process.env.ANALYTICS_STUDIO_CLIENT_ENABLED = 'true'
 
     const response = await clientTelemetryConfigRoutes('studio').request('/telemetry-config')

@@ -1,10 +1,9 @@
 /**
  * Runs the worker's batch on a fixed interval inside a long-lived container.
  *
- * On Vercel an external cron woke the worker every minute. In a container
- * nothing calls it, so it keeps its own clock. The next wait only starts once
- * the previous run has finished, which is what rules out two batches at once
- * without any locking here (the queue's SKIP LOCKED covers other replicas).
+ * Nothing calls the container from outside, so it keeps its own clock. The
+ * next wait only starts once the previous run has finished, which is what rules
+ * out two batches at once without any locking here (the queue's SKIP LOCKED covers other replicas).
  *
  * `stop` is for SIGTERM: it cancels the wait, lets the run in flight finish and
  * starts nothing new, so a deploy never cuts a batch in half.

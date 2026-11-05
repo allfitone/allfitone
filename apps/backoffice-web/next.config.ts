@@ -3,7 +3,7 @@ import path from 'node:path'
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  // Only the container build sets this; Vercel keeps its own output.
+  // Only the container build sets this; local builds keep the default output.
   ...(process.env.NEXT_OUTPUT === 'standalone'
     ? { output: 'standalone', outputFileTracingRoot: path.resolve(process.cwd(), '../..') }
     : {}),

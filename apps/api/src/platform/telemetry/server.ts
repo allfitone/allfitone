@@ -7,7 +7,6 @@ import {
   type OperationalLogAdapter,
 } from '@allfitone/telemetry/posthog-otlp-logs'
 import { telemetryEnvironmentFromRuntime } from '@allfitone/telemetry/node'
-import { waitUntil } from '@vercel/functions'
 
 let cached: ServerTelemetryAdapter | undefined
 let cachedLogs: OperationalLogAdapter | undefined
@@ -15,14 +14,11 @@ let cachedLogs: OperationalLogAdapter | undefined
 export function serverTelemetry(): ServerTelemetryAdapter {
   if (cached) return cached
 
-  const isVercel = process.env.VERCEL === '1'
   const apiKey = serverApiKey()
   const host = process.env.POSTHOG_HOST
   cached = createPostHogServerTelemetry({
     ...(apiKey ? { apiKey } : {}),
     ...(host ? { host } : {}),
-    immediate: isVercel,
-    ...(isVercel ? { schedule: (work) => waitUntil(work) } : {}),
   })
   return cached
 }
@@ -35,12 +31,9 @@ export function serverOperationalLogs(): OperationalLogAdapter {
   if (cachedLogs) return cachedLogs
   const apiKey = serverApiKey()
   const host = process.env.POSTHOG_HOST
-  const isVercel = process.env.VERCEL === '1'
   cachedLogs = createPostHogOtlpLogs({
     ...(apiKey ? { apiKey } : {}),
     ...(host ? { host } : {}),
-    immediate: isVercel,
-    ...(isVercel ? { schedule: (work) => waitUntil(work) } : {}),
     serviceName: 'allfit-api',
   })
   return cachedLogs

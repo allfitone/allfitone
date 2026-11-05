@@ -2,7 +2,6 @@ node_modules/
 dist/
 .turbo/
 .expo/
-.vercel/
 .next/
 .next-e2e/
 .next-build/

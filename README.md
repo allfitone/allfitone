@@ -36,7 +36,7 @@ rather than showing an empty number.
 | Tool                                                 | Version    | Needed for                                  |
 | ---------------------------------------------------- | ---------- | ------------------------------------------- |
 | [Bun](https://bun.sh)                                | 1.2+       | Install, tests, running TS in development   |
-| Node                                                 | 22+        | Production runtime, and what Vercel runs    |
+| Node                                                 | 22+        | Production runtime, what the containers run |
 | Docker                                               | any recent | Local PostgreSQL stack and database tests   |
 | [Supabase CLI](https://supabase.com/docs/guides/cli) | 2.110.0    | Migrations, lint, pgTAP and generated types |
 
@@ -156,36 +156,12 @@ bun run dev --filter=@allfitone/api
 bun run test --filter=@allfitone/auth-provider
 ```
 
-## Web deployments on Vercel
+## Deployment
 
-Create one Vercel project per web app from this same repository. Keep the build
-and install commands on their detected defaults; the root `bun.lock` and
-`packageManager` field make Vercel use Bun.
-
-| Vercel project         | Root Directory        | Production domain       |
-| ---------------------- | --------------------- | ----------------------- |
-| `allfitone-studio`     | `apps/studio-web`     | `studio.allfit.one`     |
-| `allfitone-backoffice` | `apps/backoffice-web` | `backoffice.allfit.one` |
-
-For both projects:
-
-- Set the production branch to `main`.
-- Set `NEXT_PUBLIC_API_URL=https://api.allfit.one` for Production.
-- Enable **Include source files outside of the Root Directory** so workspace
-  packages remain available.
-- Keep Vercel's **Skip deployments when there are no changes** optimization
-  enabled; Turbo determines whether the selected workspace is affected.
-
-Reserve `allfit.one` for the public product or marketing site. Point the two app
-subdomains to their Vercel projects after adding them under **Settings →
-Domains**. The API project must use `API_PUBLIC_URL=https://api.allfit.one`,
-`STUDIO_WEB_URL=https://studio.allfit.one`, and
-`BACKOFFICE_WEB_URL=https://backoffice.allfit.one` in Production.
-
-The API runtime also requires a Supavisor transaction-pooler `DATABASE_URL` for
-the `allfit_api` role and a 32-byte base64 `SESSION_ENCRYPTION_KEY`. Keep staging
-and production values separate. Database migrations are deployed only through
-the protected GitHub workflow documented in
+Production runs on AWS: ECS for the API, the worker and the web apps, RDS for
+PostgreSQL. Merging to `main` builds the images and rolls them out; database
+migrations are applied by hand with the **Deploy database (AWS)** workflow. See
+[`infra/README.md`](infra/README.md) and
 [`allfitone-docs/platform/database/OPERATIONS.md`](https://github.com/allfitone/allfitone-docs/blob/main/platform/database/OPERATIONS.md).
 
 ## Git hooks

@@ -41,12 +41,7 @@ bun run test        # dictionaries and language negotiation
 bun run test:e2e    # production build, routing and axe (WCAG 2.2 AA) on desktop and phone
 ```
 
-## Vercel
+## Deployment
 
-- Project name: `allfitone-space-web`
-- Root Directory: `apps/space-web`
-- Production branch: `main`
-- Production domain: `space.allfit.one` (a `space` CNAME at the DNS provider)
-
-Keep **Include source files outside of the Root Directory** enabled so the
-workspace resolves.
+Merging to `main` builds this app's image (served at `www.allfit.one` and `space.allfit.one`) and rolls it out on ECS, behind
+CloudFront. See [`infra/README.md`](../../infra/README.md).
