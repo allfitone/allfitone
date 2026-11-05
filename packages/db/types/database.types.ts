@@ -4042,6 +4042,7 @@ export type Database = {
           claimed_at: string | null
           created_at: string
           display_name: string
+          guest_quota_agreement_reference: string | null
           guest_quota_seats: number | null
           id: string
           legal_name: string | null
@@ -4058,6 +4059,7 @@ export type Database = {
           claimed_at?: string | null
           created_at?: string
           display_name: string
+          guest_quota_agreement_reference?: string | null
           guest_quota_seats?: number | null
           id?: string
           legal_name?: string | null
@@ -4074,6 +4076,7 @@ export type Database = {
           claimed_at?: string | null
           created_at?: string
           display_name?: string
+          guest_quota_agreement_reference?: string | null
           guest_quota_seats?: number | null
           id?: string
           legal_name?: string | null
@@ -4420,6 +4423,7 @@ export type Database = {
         Args: {
           p_actor_person_id: string
           p_actor_session_id: string
+          p_agreement_reference: string
           p_command_id: string
           p_idempotency_key: string
           p_organization_id: string

@@ -16,6 +16,17 @@ export type OrganizationGuestQuotaDecision = AllfitV1Schemas['OrganizationGuestQ
 
 export const MAX_GUEST_QUOTA_SEATS = 1_000_000
 
+/** A contract number or code on one line (`HU-BO-027`), not a note. */
+export const MAX_AGREEMENT_REFERENCE_LENGTH = 120
+
+/** C0, DEL and C1: what PostgreSQL's `[[:cntrl:]]` refuses, so both say no to the same text. */
+export function hasControlCharacter(value: string): boolean {
+  return [...value].some((character) => {
+    const code = character.codePointAt(0) ?? 0
+    return code < 0x20 || (code >= 0x7f && code <= 0x9f)
+  })
+}
+
 export interface GuestQuotaActor {
   actorPersonId: string
   actorSessionId: string

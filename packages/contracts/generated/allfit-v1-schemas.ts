@@ -7589,6 +7589,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     required: [
       'organization_id',
       'seats',
+      'agreement_reference',
       'occupied',
       'relationships_active',
       'invitations_pending',
@@ -7605,6 +7606,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: ['integer', 'null'],
         minimum: 1,
         description: 'Null is no limit, which is not the same as a limit of zero.',
+      },
+      agreement_reference: {
+        type: ['string', 'null'],
+        maxLength: 120,
+        description:
+          'The commercial agreement the current number was sold under. Null when no quota has been set since references were required.',
       },
       occupied: {
         type: 'integer',
@@ -7638,7 +7645,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         additionalProperties: false,
         description:
           'Null when nobody has ever set a quota here, which is a different answer from somebody having set it to no limit.',
-        required: ['at', 'by_person_id', 'by_name', 'by_duty_assignment_id', 'previous_seats'],
+        required: [
+          'at',
+          'by_person_id',
+          'by_name',
+          'by_duty_assignment_id',
+          'previous_seats',
+          'agreement_reference',
+        ],
         properties: {
           at: {
             type: 'string',
@@ -7659,12 +7673,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             minimum: 1,
             description: 'What it was before. Null means it had no limit then.',
           },
+          agreement_reference: {
+            type: ['string', 'null'],
+            maxLength: 120,
+            description:
+              'The agreement it was made under. Null for a change recorded before references were required.',
+          },
         },
       },
       history: {
         type: 'array',
         description:
-          'Every change, newest first (criterion 3): who, when, the value it set and the one it replaced. Empty when nobody has ever set a quota here.',
+          'Every change, newest first (criterion 3): who, when, the value it set, the one it replaced and the agreement it was made under. Empty when nobody has ever set a quota here.',
         items: {
           $ref: '#/components/schemas/OrganizationGuestQuotaChange',
         },
@@ -7674,7 +7694,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   OrganizationGuestQuotaChange: {
     type: 'object',
     additionalProperties: false,
-    required: ['at', 'by_person_id', 'by_name', 'seats', 'previous_seats'],
+    required: ['at', 'by_person_id', 'by_name', 'seats', 'previous_seats', 'agreement_reference'],
     properties: {
       at: {
         type: 'string',
@@ -7697,13 +7717,27 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         minimum: 1,
         description: 'What it replaced. Null means it had no limit then.',
       },
+      agreement_reference: {
+        type: ['string', 'null'],
+        maxLength: 120,
+        description:
+          'The agreement it was made under. A renewal keeps the number and changes this. Null for a change recorded before references were required.',
+      },
     },
   },
   OrganizationGuestQuotaDecision: {
     type: 'object',
     additionalProperties: false,
-    required: ['seats'],
+    required: ['seats', 'agreement_reference'],
     properties: {
+      agreement_reference: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+        pattern: '^[^\\u0000-\\u001F\\u007F]+$',
+        description:
+          'The commercial agreement this number was sold under: a contract number or code, on one line. Required, because the charge is billed outside the platform. Surrounding spaces are dropped; a blank one is refused.',
+      },
       seats: {
         type: ['integer', 'null'],
         minimum: 1,

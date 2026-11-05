@@ -1,11 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  AGREEMENT_REQUIRED,
   LOWERING_NOTE,
   UNLIMITED_NOTE,
+  agreementSentence,
   draftWarning,
   lastChangeSentence,
   occupancySentence,
+  parseAgreementReference,
   parseSeats,
   placesLeftSentence,
   quotaHistoryRows,
@@ -23,6 +26,7 @@ function quota(overrides: Partial<OrganizationGuestQuota> = {}): OrganizationGue
   return {
     organization_id: ORGANIZATION,
     seats: 50,
+    agreement_reference: 'CONTRATO-2026-014',
     occupied: 3,
     relationships_active: 2,
     invitations_pending: 1,
@@ -34,6 +38,7 @@ function quota(overrides: Partial<OrganizationGuestQuota> = {}): OrganizationGue
       by_name: 'Lucía Comercial',
       by_duty_assignment_id: ASSIGNMENT,
       previous_seats: null,
+      agreement_reference: 'CONTRATO-2026-014',
     },
     history: [
       {
@@ -42,6 +47,7 @@ function quota(overrides: Partial<OrganizationGuestQuota> = {}): OrganizationGue
         by_name: 'Lucía Comercial',
         seats: 50,
         previous_seats: null,
+        agreement_reference: 'CONTRATO-2026-014',
       },
     ],
     ...overrides,
@@ -100,6 +106,7 @@ describe('what a gym may fill, as the panel says it', () => {
             by_name: 'Pablo Comercial',
             by_duty_assignment_id: ASSIGNMENT,
             previous_seats: 20,
+            agreement_reference: 'OTROSI-2026-031',
           },
         }),
       ),
@@ -118,6 +125,7 @@ describe('what a gym may fill, as the panel says it', () => {
             by_name: null,
             seats: null,
             previous_seats: 30,
+            agreement_reference: 'OTROSI-2026-031',
           },
           {
             at: '2026-10-18T15:00:00.000Z',
@@ -125,6 +133,7 @@ describe('what a gym may fill, as the panel says it', () => {
             by_name: 'Pablo Comercial',
             seats: 30,
             previous_seats: 50,
+            agreement_reference: 'CONTRATO-2026-014',
           },
           {
             at: '2026-10-15T15:00:00.000Z',
@@ -132,17 +141,54 @@ describe('what a gym may fill, as the panel says it', () => {
             by_name: 'Lucía Comercial',
             seats: 1,
             previous_seats: null,
+            agreement_reference: null,
           },
         ],
       }),
     )
-    expect(rows.map((row) => [row.at, row.who, row.change])).toEqual([
-      ['2026-10-20T15:00:00.000Z', 'alguien del equipo (019ab000)', '30 personas → sin límite'],
-      ['2026-10-18T15:00:00.000Z', 'Pablo Comercial', '50 personas → 30 personas'],
-      ['2026-10-15T15:00:00.000Z', 'Lucía Comercial', 'Sin límite → 1 persona'],
+    expect(rows.map((row) => [row.at, row.who, row.change, row.agreement])).toEqual([
+      [
+        '2026-10-20T15:00:00.000Z',
+        'alguien del equipo (019ab000)',
+        '30 personas → sin límite',
+        'acuerdo OTROSI-2026-031',
+      ],
+      [
+        '2026-10-18T15:00:00.000Z',
+        'Pablo Comercial',
+        '50 personas → 30 personas',
+        'acuerdo CONTRATO-2026-014',
+      ],
+      [
+        '2026-10-15T15:00:00.000Z',
+        'Lucía Comercial',
+        'Sin límite → 1 persona',
+        'sin referencia de acuerdo',
+      ],
     ])
     expect(new Set(rows.map((row) => row.key)).size).toBe(3)
     expect(quotaHistoryRows(quota({ last_change: null, history: [] }))).toEqual([])
+  })
+
+  // HU-BO-027 c2: the agreement a number stands on is said beside the number.
+  test('the agreement in force is named, and its absence is told apart', () => {
+    expect(agreementSentence(quota())).toBe('Acuerdo vigente: CONTRATO-2026-014.')
+    expect(agreementSentence(quota({ agreement_reference: null, last_change: null }))).toBe(
+      'Todavía no hay un acuerdo registrado.',
+    )
+    expect(agreementSentence(quota({ agreement_reference: null }))).toContain(
+      'se fijó sin referencia de acuerdo',
+    )
+  })
+
+  test('an agreement is one line naming the deal, and an empty box is not one', () => {
+    expect(parseAgreementReference('  CONTRATO-2026-014 ')).toBe('CONTRATO-2026-014')
+    expect(parseAgreementReference('A'.repeat(120))).toBe('A'.repeat(120))
+    expect(parseAgreementReference('')).toBeUndefined()
+    expect(parseAgreementReference('   ')).toBeUndefined()
+    expect(parseAgreementReference('A'.repeat(121))).toBeUndefined()
+    expect(parseAgreementReference('CONTRATO\t2026')).toBeUndefined()
+    expect(AGREEMENT_REQUIRED).toContain('referencia del acuerdo')
   })
 
   test('no limit is a decision, and an empty box is not one', () => {
@@ -175,10 +221,15 @@ describe('what a gym may fill, as the panel says it', () => {
     expect(quotaMessage('conflict')).toContain('ya no opera')
     expect(quotaMessage('network-unavailable')).toContain('El cupo no cambió')
     expect(quotaMessage('unknown')).toBe('No se pudo fijar el cupo.')
+    expect(quotaMessage('validation-failed')).toContain('referencia del acuerdo')
   })
 
-  test('and the outcome repeats the number that was written', () => {
-    expect(quotaOutcomeMessage(quota({ seats: 50 }))).toContain('50 personas')
-    expect(quotaOutcomeMessage(quota({ seats: null }))).toContain('sin límite')
+  test('and the outcome repeats the number that was written, and its agreement', () => {
+    expect(quotaOutcomeMessage(quota({ seats: 50 }))).toBe(
+      'Listo: su cupo queda en 50 personas, bajo el acuerdo CONTRATO-2026-014.',
+    )
+    expect(quotaOutcomeMessage(quota({ seats: null }))).toBe(
+      'Listo: este gimnasio queda sin límite de personas, bajo el acuerdo CONTRATO-2026-014.',
+    )
   })
 })

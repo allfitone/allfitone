@@ -49,6 +49,7 @@ function file(overrides: Partial<OrganizationFile> = {}): OrganizationFile {
     guest_quota: {
       organization_id: '019a8000-0000-7000-8000-000000000301',
       seats: null,
+      agreement_reference: null,
       occupied: 0,
       relationships_active: 0,
       invitations_pending: 0,

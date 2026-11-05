@@ -149,7 +149,7 @@ select set_config('app.actor_kind', 'support', true),
 
 select organizations.set_organization_guest_quota(
   '019b1000-0000-7000-8000-000000000003', '019b1000-0000-7000-8000-000000000043',
-  '019b1000-0000-7000-8000-000000000301', 50,
+  '019b1000-0000-7000-8000-000000000301', 50, 'ACUERDO-2026-ACTOR',
   'a0000003-0000-4000-8000-000000000003', '019b1000-0000-7000-8000-000000000503',
   decode(repeat('b3', 32), 'hex')
 );
@@ -158,7 +158,7 @@ select set_config('app.actor_person_id', '019b1000-0000-7000-8000-000000000007',
 
 select organizations.set_organization_guest_quota(
   '019b1000-0000-7000-8000-000000000007', '019b1000-0000-7000-8000-000000000047',
-  '019b1000-0000-7000-8000-000000000301', 30,
+  '019b1000-0000-7000-8000-000000000301', 30, 'OTROSI-2026-ACTOR',
   'a0000004-0000-4000-8000-000000000004', '019b1000-0000-7000-8000-000000000504',
   decode(repeat('b4', 32), 'hex')
 );
@@ -180,13 +180,15 @@ select is(
 
 select is(
   (select (quota->'history'->0) - 'at' - 'by_person_id' from quota_read),
-  '{"seats": 30, "previous_seats": 50, "by_name": "Pablo Comercial"}'::jsonb,
+  '{"seats": 30, "previous_seats": 50, "by_name": "Pablo Comercial",
+    "agreement_reference": "OTROSI-2026-ACTOR"}'::jsonb,
   'newest first: the cut from 50 to 30, by whom'
 );
 
 select is(
   (select (quota->'history'->1) - 'at' - 'by_person_id' from quota_read),
-  '{"seats": 50, "previous_seats": null, "by_name": "Lucía Comercial"}'::jsonb,
+  '{"seats": 50, "previous_seats": null, "by_name": "Lucía Comercial",
+    "agreement_reference": "ACUERDO-2026-ACTOR"}'::jsonb,
   'and the first number, which replaced no limit'
 );
 

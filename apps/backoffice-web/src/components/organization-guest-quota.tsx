@@ -15,6 +15,9 @@
  * and it ends nothing: the panel says no new invitations until there is room, which is
  * the whole of the consequence.
  *
+ * **Every number names its agreement (`HU-BO-027`).** The box starts empty each time,
+ * so a new deal is never recorded under the previous one by leaving a field as it was.
+ *
  * **A lost answer never decides twice.** The command is kept until an answer arrives,
  * so retrying after a network failure replays it instead of writing a second record of
  * a decision that was made once.
@@ -31,7 +34,7 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import { Checkbox } from '@allfitone/react/components/checkbox'
-import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import { useRef, useState } from 'react'
 
@@ -44,11 +47,15 @@ import {
   type OrganizationGuestQuota as Quota,
 } from '@/lib/backoffice-api'
 import {
+  AGREEMENT_REQUIRED,
   LOWERING_NOTE,
+  MAX_AGREEMENT_REFERENCE,
   UNLIMITED_NOTE,
+  agreementSentence,
   draftWarning,
   lastChangeSentence,
   occupancySentence,
+  parseAgreementReference,
   parseSeats,
   placesLeftSentence,
   quotaHistoryRows,
@@ -62,6 +69,8 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
   const [quota, setQuota] = useState<Quota>(initial)
   const [seats, setSeats] = useState(initial.seats === null ? '' : String(initial.seats))
   const [unlimited, setUnlimited] = useState(initial.seats === null)
+  // Empty on purpose: each decision names its agreement, never the last one by default.
+  const [reference, setReference] = useState('')
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<string | null>(null)
@@ -75,6 +84,11 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
       setFailure(quotaMessage('validation-failed'))
       return
     }
+    const agreement = parseAgreementReference(reference)
+    if (!agreement) {
+      setFailure(AGREEMENT_REQUIRED)
+      return
+    }
     const command = pending.current ?? newBackofficeCommand()
     pending.current = command
     setBusy(true)
@@ -83,13 +97,14 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
     try {
       const saved = await backofficeApi.setOrganizationGuestQuota(
         quota.organization_id,
-        draft,
+        { ...draft, agreement_reference: agreement },
         command,
       )
       pending.current = null
       setQuota(saved)
       setSeats(saved.seats === null ? '' : String(saved.seats))
       setUnlimited(saved.seats === null)
+      setReference('')
       setOutcome(quotaOutcomeMessage(saved))
     } catch (error) {
       if (error instanceof BackofficeApiError && error.status === 401) {
@@ -122,6 +137,7 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
           {quotaSentence(quota)}{' '}
           {quota.over_quota ? <Badge variant="destructive">Por encima del cupo</Badge> : null}
         </p>
+        <p data-quota-agreement>{agreementSentence(quota)}</p>
         <p data-quota-occupancy>{occupancySentence(quota)}</p>
         <p data-quota-left>{placesLeftSentence(quota)}</p>
         <p data-quota-last-change>
@@ -132,7 +148,7 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
           <ul data-quota-history aria-label="Cambios del cupo">
             {quotaHistoryRows(quota).map((row) => (
               <li key={row.key} data-quota-change>
-                {formatInstant(row.at)} · {row.who} · {row.change}
+                {formatInstant(row.at)} · {row.who} · {row.change} · {row.agreement}
               </li>
             ))}
           </ul>
@@ -162,6 +178,24 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
               onCheckedChange={(checked) => setUnlimited(checked === true)}
             />
             <FieldLabel htmlFor="quota-unlimited">Sin límite</FieldLabel>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="quota-agreement">Referencia del acuerdo</FieldLabel>
+            <Input
+              id="quota-agreement"
+              name="agreement_reference"
+              autoComplete="off"
+              maxLength={MAX_AGREEMENT_REFERENCE}
+              placeholder="CONTRATO-2026-014"
+              value={reference}
+              disabled={busy}
+              aria-describedby="quota-agreement-help"
+              onChange={(event) => setReference(event.target.value)}
+            />
+            <FieldDescription id="quota-agreement-help">
+              El número o código del contrato con el gimnasio. Lo que Allfit One le cobra se factura
+              por fuera, así que esta referencia es lo que une el cupo con el acuerdo.
+            </FieldDescription>
           </Field>
           <div data-form-actions>
             <Button type="button" onClick={() => void save()} disabled={busy} data-quota-save>

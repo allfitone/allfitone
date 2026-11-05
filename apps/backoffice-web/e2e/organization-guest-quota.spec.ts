@@ -43,6 +43,9 @@ test('a gym nobody sold a number to has no limit, and says nobody has set one', 
   await expect(page.locator('[data-quota-left]')).toContainText('no tiene límite')
   await expect(page.locator('[data-quota-last-change]')).toContainText('Nadie ha fijado el cupo')
   await expect(page.locator('[data-quota-unlimited-note]')).toBeVisible()
+  await expect(page.locator('[data-quota-agreement]')).toContainText(
+    'Todavía no hay un acuerdo registrado.',
+  )
 })
 
 test('fixes a number and reads back what it replaced', async ({ context, page }) => {
@@ -57,18 +60,26 @@ test('fixes a number and reads back what it replaced', async ({ context, page })
 
   await page.getByRole('checkbox', { name: 'Sin límite' }).click()
   await page.locator('#quota-seats').fill('50')
+  await page.getByLabel('Referencia del acuerdo').fill('  CONTRATO-2026-014 ')
   await page.locator('[data-quota-save]').click()
 
-  await expect(page.locator('[data-quota-outcome]')).toContainText('50 personas')
+  await expect(page.locator('[data-quota-outcome]')).toContainText(
+    '50 personas, bajo el acuerdo CONTRATO-2026-014',
+  )
   await expect(page.locator('[data-quota-seats]')).toContainText('Puede tener 50 personas')
+  await expect(page.locator('[data-quota-agreement]')).toContainText(
+    'Acuerdo vigente: CONTRATO-2026-014.',
+  )
   await expect(page.locator('[data-quota-left]')).toContainText('Le quedan 47 lugares.')
   await expect(page.locator('[data-quota-last-change]')).toContainText('antes no tenía límite')
-  // Criterion 3: who made each change, and what it replaced.
+  // Criterion 3: who made each change, and what it replaced; HU-BO-027: under which agreement.
   await expect(page.locator('[data-quota-last-change]')).toContainText('por Lucía Comercial')
   await expect(page.locator('[data-quota-change]')).toHaveCount(1)
   await expect(page.locator('[data-quota-change]').first()).toContainText(
-    'Lucía Comercial · Sin límite → 50 personas',
+    'Lucía Comercial · Sin límite → 50 personas · acuerdo CONTRATO-2026-014',
   )
+  // The box empties after each decision: the next one names its own agreement.
+  await expect(page.getByLabel('Referencia del acuerdo')).toHaveValue('')
 
   const commands = fixture.requests.filter(
     (request) =>
@@ -77,7 +88,7 @@ test('fixes a number and reads back what it replaced', async ({ context, page })
         `/backoffice/v1/organizations/${record.organization.organization_id}/guest-quota`,
   )
   expect(commands).toHaveLength(1)
-  expect(commands[0]?.body).toEqual({ seats: 50 })
+  expect(commands[0]?.body).toEqual({ seats: 50, agreement_reference: 'CONTRATO-2026-014' })
   expect(commands[0]?.headers['idempotency-key']).toBeTruthy()
   expect(commands[0]?.headers['command-id']).toBeTruthy()
 })
@@ -102,6 +113,7 @@ test('a number below the occupancy is warned about before it is sent, and ends n
   await expect(page.locator('[data-quota-warning]')).toContainText('por debajo de lo que ya ocupa')
   await expect(page.locator('[data-quota-warning]')).toContainText('Nadie sale del gimnasio')
 
+  await page.getByLabel('Referencia del acuerdo').fill('OTROSI-2026-031')
   await page.locator('[data-quota-save]').click()
 
   await expect(page.locator('[data-quota-seats]')).toContainText('Puede tener 1 persona')
@@ -132,6 +144,11 @@ test('removing the limit is its own decision, and an empty box is not one', asyn
   await expect(page.locator('[data-quota-failure]')).toContainText('número de personas')
 
   await page.getByRole('checkbox', { name: 'Sin límite' }).click()
+  // HU-BO-027: no decision without the agreement it stands on, refused before it is sent.
+  await page.locator('[data-quota-save]').click()
+  await expect(page.locator('[data-quota-failure]')).toContainText('referencia del acuerdo')
+
+  await page.getByLabel('Referencia del acuerdo').fill('OTROSI-2026-031')
   await page.locator('[data-quota-save]').click()
 
   await expect(page.locator('[data-quota-outcome]')).toContainText('sin límite')
@@ -144,7 +161,7 @@ test('removing the limit is its own decision, and an empty box is not one', asyn
         `/backoffice/v1/organizations/${record.organization.organization_id}/guest-quota`,
   )
   expect(commands).toHaveLength(1)
-  expect(commands[0]?.body).toEqual({ seats: null })
+  expect(commands[0]?.body).toEqual({ seats: null, agreement_reference: 'OTROSI-2026-031' })
 })
 
 test('without the commercial duty the panel says which one is missing', async ({
@@ -165,6 +182,7 @@ test('without the commercial duty the panel says which one is missing', async ({
 
   await page.getByRole('checkbox', { name: 'Sin límite' }).click()
   await page.locator('#quota-seats').fill('50')
+  await page.getByLabel('Referencia del acuerdo').fill('CONTRATO-2026-014')
   await page.locator('[data-quota-save]').click()
 
   await expect(page.locator('[data-quota-failure]')).toContainText('manage_platform_commercial')

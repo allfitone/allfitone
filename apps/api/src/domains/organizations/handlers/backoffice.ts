@@ -14,9 +14,11 @@
  * The handover body has no field for a natural person's name, and a legal name sent
  * for one is refused: Allfit never writes the name of someone who has not accepted.
  *
- * The quota body carries `seats` and nothing else, and its null is a decision rather
- * than an omission: a body without the field is refused, a body with `null` is a deal
- * with no cap.
+ * The quota body carries `seats` and the agreement it was sold under, and nothing else.
+ * Its null is a decision rather than an omission: a body without the field is refused,
+ * a body with `null` is a deal with no cap. A body without an agreement is refused too
+ * (`HU-BO-027`): the charge is billed outside the platform, and the reference is the
+ * only thread back to it.
  */
 
 import { createHash, randomUUID } from 'node:crypto'
@@ -51,7 +53,12 @@ import {
   type OrganizationLifecycleStatus,
 } from '../domain/directory.js'
 import type { OrganizationHandoverCreate } from '../domain/handover.js'
-import { MAX_GUEST_QUOTA_SEATS, type OrganizationGuestQuotaDecision } from '../domain/quota.js'
+import {
+  MAX_AGREEMENT_REFERENCE_LENGTH,
+  MAX_GUEST_QUOTA_SEATS,
+  hasControlCharacter,
+  type OrganizationGuestQuotaDecision,
+} from '../domain/quota.js'
 import {
   SUSPENSION_REASONS,
   type OrganizationSuspensionDecision,
@@ -302,15 +309,25 @@ function suspensionDecision(body: unknown): OrganizationSuspensionDecision | und
 
 /**
  * `seats` must be present. A missing field would be read as "no limit", which is a
- * commercial decision nobody made.
+ * commercial decision nobody made. The agreement is one line naming the deal, trimmed.
  */
 function guestQuotaDecision(body: unknown): OrganizationGuestQuotaDecision | undefined {
-  if (!isObject(body) || Object.keys(body).some((key) => key !== 'seats')) return undefined
+  const allowed = new Set(['seats', 'agreement_reference'])
+  if (!isObject(body) || Object.keys(body).some((key) => !allowed.has(key))) return undefined
+  const reference = agreementReference(body['agreement_reference'])
+  if (reference === undefined) return undefined
   const seats = body['seats']
-  if (seats === null) return { seats: null }
+  if (seats === null) return { seats: null, agreement_reference: reference }
   if (typeof seats !== 'number' || !Number.isInteger(seats)) return undefined
   if (seats < 1 || seats > MAX_GUEST_QUOTA_SEATS) return undefined
-  return { seats }
+  return { seats, agreement_reference: reference }
+}
+
+function agreementReference(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+  const trimmed = value.trim()
+  if (trimmed.length < 1 || trimmed.length > MAX_AGREEMENT_REFERENCE_LENGTH) return undefined
+  return hasControlCharacter(trimmed) ? undefined : trimmed
 }
 
 function directoryQuery(c: Context): OrganizationDirectoryQuery | undefined {
