@@ -3772,6 +3772,28 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/executions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List what a client trained that she shares with this coach
+     * @description HU-STUDIO-054. Her completed, valid sessions, newest first, that the coach who holds her relationship, or a cover she accepted, may see: what was trained inside this relationship under `relationship_training`, and what she trained on her own under `prior_training_history`. A session produced inside another relationship is never shown, and one she hid from this relationship does not exist for it: not in a page, not in a page boundary.
+     *
+     *     Being administrator or owner is not attending her: anyone who does not attend her gets 404. With nothing shared the page is empty, and the attempt is recorded as refused. Every read is recorded, before anything is returned, under each category it used.
+     */
+    get: operations['listAuthorizedClientExecutions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/clients/{personId}/executions/{executionId}': {
     parameters: {
       query?: never
@@ -3779,7 +3801,12 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Read one execution through the authorized live projection */
+    /**
+     * Read one session a client shares with this coach, with its results
+     * @description HU-STUDIO-055. The session as the list shows it, with its sets, laps, intervals, rounds and holds. Never heart rate, pain, body weight or the device that captured it: the coach reads pain and weight through their own categories.
+     *
+     *     403 `scope-required` only when she shares neither category; otherwise a session this coach may not see reads as 404, whatever the reason: hidden, unfinished, annulled, another relationship's, another person's or none at all. Both are recorded as refused, and a read as allowed under the grant that showed it.
+     */
     get: operations['getAuthorizedClientExecution']
     put?: never
     post?: never
@@ -3823,6 +3850,66 @@ export interface paths {
      * @description Only that grant; the others and her own data stay as they were (ADR-012). A revoked grant never comes back: sharing again takes a new consent. Somebody else's grant reads as one that does not exist, and a grant already revoked by another command is a conflict.
      */
     post: operations['revokeConsentGrant']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/executions/{executionId}/visibility': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Hide one of her sessions from one relationship
+     * @description HU-SP-032. Her own session, from one of her relationships that is active, or that ended with a frozen grant still to see. The gym never learns it: the session leaves its lists, pages and details as if it had never been there. A session produced inside that same relationship cannot be hidden from it (422). Hiding what is already hidden answers the same denial.
+     */
+    put: operations['hideMyExecution']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/executions/{executionId}/visibility/{relationshipId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Share a hidden session with that relationship again
+     * @description HU-SP-033. From now on only: nothing the gym could not see is shown to it as if it had been. Once the relationship has ended, a session hidden at the end stays out of the frozen history. Restoring what is already shared answers the same.
+     */
+    delete: operations['restoreMyExecution']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/visibility-denials': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the sessions she hides, and from whom
+     * @description HU-SP-034. What she still hides, newest first. Only she reads it: no gym can see a denial, nor tell one from a count.
+     */
+    get: operations['listMyVisibilityDenials']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -8971,15 +9058,57 @@ export interface components {
       version: number
     }
     /**
+     * @description `relationship` was produced inside this relationship and is shown under `relationship_training`; `prior` is what she trained on her own, shown under `prior_training_history`.
+     * @enum {string}
+     */
+    AuthorizedExecutionOrigin: 'relationship' | 'prior'
+    AuthorizedExecutionSummary: {
+      id: components['schemas']['Uuid']
+      /** Format: date-time */
+      started_at: string
+      /** Format: date-time */
+      ended_at: string | null
+      timezone: components['schemas']['IanaTimeZone']
+      activity_type_code: string
+      activity_type_name: string
+      discipline_code: string
+      achieved_level: components['schemas']['CompletenessLevel'] | null
+      origin: components['schemas']['AuthorizedExecutionOrigin']
+      /**
+       * Format: uuid
+       * @description The planned session it fulfilled; only for a session of this relationship.
+       */
+      planned_session_id: string | null
+      applied_scope: components['schemas']['AppliedScope']
+    }
+    AuthorizedExecutionPage: {
+      data: components['schemas']['AuthorizedExecutionSummary'][]
+      page: components['schemas']['Page']
+    }
+    /**
+     * @description One session as the list shows it, with what was recorded in it. A load and a distance come back as the person typed them. No heart rate, pain, body weight or capture device.
      * @example {
      *       "id": "0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b",
      *       "started_at": "2026-07-27T06:04:00-05:00",
+     *       "ended_at": "2026-07-27T07:01:00-05:00",
      *       "timezone": "America/Bogota",
+     *       "activity_type_code": "strength_training",
+     *       "activity_type_name": "Strength training",
+     *       "discipline_code": "strength",
      *       "achieved_level": "detailed",
+     *       "origin": "relationship",
+     *       "planned_session_id": "0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a60",
+     *       "applied_scope": {
+     *         "code": "relationship_training",
+     *         "version": 1
+     *       },
+     *       "segments": [],
      *       "strength_sets": [
      *         {
+     *           "segment_position": null,
      *           "order": 1,
      *           "movement_id": "018f6f8d-2b00-7a00-8000-000000000601",
+     *           "movement_name": "Back squat",
      *           "achieved_reps": 8,
      *           "load": {
      *             "value": 80,
@@ -8988,40 +9117,64 @@ export interface components {
      *           "rpe": 8
      *         }
      *       ],
-     *       "body_weight": null,
-     *       "pain_reports": null,
-     *       "applied_scope": {
-     *         "code": "relationship_training",
-     *         "version": 1
-     *       }
+     *       "endurance_laps": [],
+     *       "interval_results": [],
+     *       "round_results": [],
+     *       "mobility_results": []
      *     }
      */
     AuthorizedExecution: {
       id: components['schemas']['Uuid']
       /** Format: date-time */
       started_at: string
+      /** Format: date-time */
+      ended_at: string | null
       timezone: components['schemas']['IanaTimeZone']
-      achieved_level: components['schemas']['CompletenessLevel']
-      strength_sets: components['schemas']['AuthorizedStrengthSet'][]
-      body_weight: components['schemas']['MeasuredValue'] | null
-      pain_reports: string[] | null
-      applied_scope: components['schemas']['AppliedScope']
-    }
-    AuthorizedStrengthSet: {
-      order: number
+      activity_type_code: string
+      activity_type_name: string
+      discipline_code: string
+      achieved_level: components['schemas']['CompletenessLevel'] | null
+      origin: components['schemas']['AuthorizedExecutionOrigin']
       /** Format: uuid */
-      movement_id: string | null
-      achieved_reps: number | null
-      load: components['schemas']['Load'] | null
-      rpe: number | null
-    }
-    MeasuredValue: {
-      value: number
-      unit: string
+      planned_session_id: string | null
+      applied_scope: components['schemas']['AppliedScope']
+      segments: components['schemas']['ExecutionDetailSegment'][]
+      strength_sets: components['schemas']['ExecutionDetailStrengthSet'][]
+      endurance_laps: components['schemas']['ExecutionDetailEnduranceLap'][]
+      interval_results: components['schemas']['ExecutionDetailIntervalResult'][]
+      round_results: components['schemas']['ExecutionDetailRoundResult'][]
+      mobility_results: components['schemas']['ExecutionDetailMobilityResult'][]
     }
     AppliedScope: {
       code: components['schemas']['ScopeCode']
       version: number
+    }
+    SessionVisibilityDenialCreate: {
+      relationship_id: components['schemas']['Uuid']
+    }
+    /** @description One of her sessions and the relationship it is hidden from. `reverted` is shared again; `restored_at` says since when. */
+    SessionVisibilityDenial: {
+      executed_session_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      organization: {
+        id: components['schemas']['Uuid']
+        display_name: string
+      }
+      /** @enum {string} */
+      status: 'active' | 'reverted'
+      /** Format: date-time */
+      denied_at: string
+      /** Format: date-time */
+      restored_at: string | null
+      session: {
+        /** Format: date-time */
+        started_at: string
+        activity_type_name: string
+      }
+    }
+    SessionVisibilityDenialPage: {
+      data: components['schemas']['SessionVisibilityDenial'][]
+      page: components['schemas']['Page']
     }
     /** @description One category one gym asked her for. `decision` is her answer; the grant fields are set only when she said yes. `presented_snapshot` is what the gym showed her, title included. */
     SpaceConsent: {
@@ -10681,56 +10834,62 @@ export interface components {
         id: components['schemas']['Uuid']
         version: number
       }
-      segments: {
-        position: number
-        activity_type_code: string | null
-      }[]
-      strength_sets: {
-        segment_position: number | null
-        order: number
-        /** Format: uuid */
-        movement_id: string | null
-        movement_name: string | null
-        achieved_reps: number | null
-        load: components['schemas']['Load'] | null
-        rpe: number | null
-      }[]
-      endurance_laps: {
-        segment_position: number | null
-        lap_number: number
-        distance: components['schemas']['Distance']
-        duration_seconds: number
-      }[]
-      interval_results: {
-        segment_position: number | null
-        interval_number: number
-        work_duration_seconds: number
-        rest_duration_seconds: number | null
-        achieved_repetitions: number | null
-        distance: components['schemas']['Distance'] | null
-        completed: boolean | null
-      }[]
-      round_results: {
-        segment_position: number | null
-        round_number: number
-        /** @enum {string} */
-        activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
-        completed_repetitions: number | null
-        duration_seconds: number | null
-        distance: components['schemas']['Distance'] | null
-        load: components['schemas']['Load'] | null
-      }[]
-      mobility_results: {
-        segment_position: number | null
-        sequence_position: number
-        /** Format: uuid */
-        movement_id: string | null
-        movement_name: string | null
-        /** @enum {string|null} */
-        side: 'left' | 'right' | 'bilateral' | 'not_applicable' | null
-        hold_duration_seconds: number | null
-        completed_repetitions: number | null
-      }[]
+      segments: components['schemas']['ExecutionDetailSegment'][]
+      strength_sets: components['schemas']['ExecutionDetailStrengthSet'][]
+      endurance_laps: components['schemas']['ExecutionDetailEnduranceLap'][]
+      interval_results: components['schemas']['ExecutionDetailIntervalResult'][]
+      round_results: components['schemas']['ExecutionDetailRoundResult'][]
+      mobility_results: components['schemas']['ExecutionDetailMobilityResult'][]
+    }
+    ExecutionDetailSegment: {
+      position: number
+      activity_type_code: string | null
+    }
+    ExecutionDetailStrengthSet: {
+      segment_position: number | null
+      order: number
+      /** Format: uuid */
+      movement_id: string | null
+      movement_name: string | null
+      achieved_reps: number | null
+      load: components['schemas']['Load'] | null
+      rpe: number | null
+    }
+    ExecutionDetailEnduranceLap: {
+      segment_position: number | null
+      lap_number: number
+      distance: components['schemas']['Distance']
+      duration_seconds: number
+    }
+    ExecutionDetailIntervalResult: {
+      segment_position: number | null
+      interval_number: number
+      work_duration_seconds: number
+      rest_duration_seconds: number | null
+      achieved_repetitions: number | null
+      distance: components['schemas']['Distance'] | null
+      completed: boolean | null
+    }
+    ExecutionDetailRoundResult: {
+      segment_position: number | null
+      round_number: number
+      /** @enum {string} */
+      activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
+      completed_repetitions: number | null
+      duration_seconds: number | null
+      distance: components['schemas']['Distance'] | null
+      load: components['schemas']['Load'] | null
+    }
+    ExecutionDetailMobilityResult: {
+      segment_position: number | null
+      sequence_position: number
+      /** Format: uuid */
+      movement_id: string | null
+      movement_name: string | null
+      /** @enum {string|null} */
+      side: 'left' | 'right' | 'bilateral' | 'not_applicable' | null
+      hold_duration_seconds: number | null
+      completed_repetitions: number | null
     }
     /**
      * @description `active` is paying, `suspended` is paused for a reason that can be lifted, `ended` is over and does not come back.
@@ -18166,6 +18325,39 @@ export interface operations {
       428: components['responses']['PreconditionRequired']
     }
   }
+  listAuthorizedClientExecutions: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sessions this coach may see, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AuthorizedExecutionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   getAuthorizedClientExecution: {
     parameters: {
       query?: never
@@ -18179,7 +18371,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized and field-redacted execution */
+      /** @description The session and what was recorded in it */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
@@ -18189,9 +18381,11 @@ export interface operations {
           'application/json': components['schemas']['AuthorizedExecution']
         }
       }
+      400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listMySpaceConsents: {
@@ -18250,6 +18444,109 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       410: components['responses']['CommandEffectDisposed']
+    }
+  }
+  hideMyExecution: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        executionId: components['parameters']['ExecutionId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SessionVisibilityDenialCreate']
+      }
+    }
+    responses: {
+      /** @description The session is hidden from that relationship */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SessionVisibilityDenial']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      410: components['responses']['CommandEffectDisposed']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  restoreMyExecution: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        executionId: components['parameters']['ExecutionId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The session is shared with that relationship again */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SessionVisibilityDenial']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      410: components['responses']['CommandEffectDisposed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listMyVisibilityDenials: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The denials in force */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SessionVisibilityDenialPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listMyNutritionMeals: {

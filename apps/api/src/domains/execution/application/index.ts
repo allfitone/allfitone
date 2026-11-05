@@ -7,8 +7,13 @@
  */
 
 import type {
+  AuthorizedExecution,
+  AuthorizedExecutionPage,
+  AuthorizedExecutionRead,
+  AuthorizedExecutionSummary,
   Execution,
   ExecutionDatabase,
+  ExecutionReviewDatabase,
   ExecutionSummary,
   HistoryMonth,
   HistoryPage,
@@ -83,5 +88,30 @@ export function createSpaceExecutionService(
     annul: (input) => database.annul(input),
     readAnnulmentPreview: (input) => database.readAnnulmentPreview(input),
     repeat: (input) => database.repeat(input),
+  }
+}
+
+/**
+ * The Studio review of a client's training. The coach's identity comes from the
+ * session; whom she attends and what was shared are decided in PostgreSQL.
+ */
+export interface StudioExecutionReviewService {
+  list: ExecutionReviewDatabase['listAuthorized']
+  read: ExecutionReviewDatabase['readAuthorized']
+}
+
+export type {
+  AuthorizedExecution,
+  AuthorizedExecutionPage,
+  AuthorizedExecutionRead,
+  AuthorizedExecutionSummary,
+}
+
+export function createStudioExecutionReviewService(
+  database: ExecutionReviewDatabase,
+): StudioExecutionReviewService {
+  return {
+    list: (input) => database.listAuthorized(input),
+    read: (input) => database.readAuthorized(input),
   }
 }

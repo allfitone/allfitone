@@ -1,7 +1,12 @@
 /** Execution module composition. */
 
-import { createSpaceExecutionService, type SpaceExecutionService } from './application/index.js'
-import { createExecutionDatabase } from './infrastructure/index.js'
+import {
+  createSpaceExecutionService,
+  createStudioExecutionReviewService,
+  type SpaceExecutionService,
+  type StudioExecutionReviewService,
+} from './application/index.js'
+import { createExecutionDatabase, createExecutionReviewDatabase } from './infrastructure/index.js'
 
 /** The routine's photograph is addressed like the catalogue's, from the same origin. */
 function required(name: string): string {
@@ -23,4 +28,11 @@ export function spaceExecutionService(): SpaceExecutionService {
 /** Test seam. Undefined restores environment-backed construction. */
 export function setSpaceExecutionService(service: SpaceExecutionService | undefined): void {
   cached = service
+}
+
+let cachedReview: StudioExecutionReviewService | undefined
+
+export function studioExecutionReviewService(): StudioExecutionReviewService {
+  cachedReview ??= createStudioExecutionReviewService(createExecutionReviewDatabase())
+  return cachedReview
 }

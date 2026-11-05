@@ -33,6 +33,11 @@ import type {
   AuthorizedScope,
   AuthorizedScopeDatabase,
   AuthorizedScopeQuery,
+  SessionVisibilityCommand,
+  SessionVisibilityCursor,
+  SessionVisibilityDatabase,
+  SessionVisibilityDenial,
+  SessionVisibilityPage,
 } from '../domain/index.js'
 
 export interface ScopeDefinitionService {
@@ -133,6 +138,34 @@ export function createMyConsentService(database: MyConsentDatabase): MyConsentSe
   return {
     listMine: (personId) => database.listMine(personId),
     revoke: (command) => database.revoke(command),
+  }
+}
+
+/*
+ * `OP-PRV-006`, `OP-PRV-007` and `OP-PRV-017` for the person. Whether the session and
+ * the relationship are hers, and whether it may be hidden, is decided in PostgreSQL.
+ */
+export interface SessionVisibilityService {
+  hide(
+    command: SessionVisibilityCommand,
+  ): Promise<{ resource: SessionVisibilityDenial; replayed: boolean }>
+  restore(
+    command: SessionVisibilityCommand,
+  ): Promise<{ resource: SessionVisibilityDenial; replayed: boolean }>
+  listMine(input: {
+    personId: string
+    limit: number
+    cursor?: SessionVisibilityCursor
+  }): Promise<SessionVisibilityPage>
+}
+
+export function createSessionVisibilityService(
+  database: SessionVisibilityDatabase,
+): SessionVisibilityService {
+  return {
+    hide: (command) => database.hide(command),
+    restore: (command) => database.restore(command),
+    listMine: (input) => database.listMine(input),
   }
 }
 

@@ -306,10 +306,12 @@ const comparison: PeriodComparison = {
 
 describe('the Space execution surface honours the contract', () => {
   test('T-EXE-API-01 declares its four operations', () => {
+    // Hiding a session (`OP-PRV-006/007`) lives under its path but belongs to privacy.
     const declared = allfitV1ContractManifest.operations.filter(
       (operation) =>
-        operation.path.startsWith('/space/v1/executions') ||
-        operation.path.startsWith('/space/v1/planned-sessions'),
+        operation.allfitOperation.startsWith('OP-EXE-') &&
+        (operation.path.startsWith('/space/v1/executions') ||
+          operation.path.startsWith('/space/v1/planned-sessions')),
     )
 
     expect(declared.map((operation) => operation.allfitOperation).sort()).toEqual([

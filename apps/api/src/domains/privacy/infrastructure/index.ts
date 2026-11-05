@@ -28,6 +28,9 @@ import type {
   ScopeDefinitionDatabase,
   AuthorizedScope,
   AuthorizedScopeDatabase,
+  SessionVisibilityCommand,
+  SessionVisibilityDatabase,
+  SessionVisibilityDenial,
 } from '../domain/index.js'
 import { DEFAULT_ACCESS_EVENT_PAGE, encodeAccessEventCursor } from '../domain/index.js'
 
@@ -323,6 +326,103 @@ export function createMyConsentDatabase(
             revokedAt: row.revoked_at.toISOString(),
           },
           replayed: row.replayed,
+        }
+      }),
+  }
+}
+
+interface DenialRow {
+  id: string
+  executed_session_id: string
+  relationship_id: string
+  organization_id: string
+  organization_name: string
+  denied_at: Date
+  session_started_at: Date
+  activity_type_name: string
+}
+
+/**
+ * PostgreSQL access for what she hides (`OP-PRV-006`, `OP-PRV-007`, `OP-PRV-017`).
+ *
+ * As the person, like her consents. A page is keyed on the millisecond the cursor can
+ * carry; a finer key would skip denials made within the same millisecond.
+ */
+export function createSessionVisibilityDatabase(
+  sql: ReturnType<typeof database> = database(),
+): SessionVisibilityDatabase {
+  type DecisionRow = { result: SessionVisibilityDenial | null; replayed: boolean }
+  const decide = (
+    command: SessionVisibilityCommand,
+    run: (transaction: postgres.TransactionSql) => Promise<DecisionRow[]>,
+  ) =>
+    measureRequestPhase('business-db', async () => {
+      const result = await sql.begin(async (transaction) => {
+        await asPerson(transaction, command.personId)
+        const [row] = await run(transaction)
+        return { row }
+      })
+      const { row } = result
+      if (!row?.result) throw new Error('PostgreSQL did not return the session visibility')
+      return { resource: row.result, replayed: row.replayed }
+    })
+
+  return {
+    hide: (command) =>
+      decide(
+        command,
+        (transaction) => transaction<DecisionRow[]>`
+          select * from privacy.hide_session(
+            ${command.personId}::uuid, ${command.executionId}::uuid,
+            ${command.relationshipId}::uuid, ${command.idempotencyKey}::uuid,
+            ${command.commandId}::uuid, ${Buffer.from(command.requestHash)}::bytea
+          )
+        `,
+      ),
+    restore: (command) =>
+      decide(
+        command,
+        (transaction) => transaction<DecisionRow[]>`
+          select * from privacy.restore_session(
+            ${command.personId}::uuid, ${command.executionId}::uuid,
+            ${command.relationshipId}::uuid, ${command.idempotencyKey}::uuid,
+            ${command.commandId}::uuid, ${Buffer.from(command.requestHash)}::bytea
+          )
+        `,
+      ),
+    listMine: (input) =>
+      measureRequestPhase('business-db', async () => {
+        const result = await sql.begin(async (transaction) => {
+          await asPerson(transaction, input.personId)
+          return {
+            rows: await transaction<DenialRow[]>`
+              select * from privacy.list_my_session_denials(
+                ${input.personId}::uuid, ${input.limit + 1}::integer,
+                ${input.cursor?.deniedAt ?? null}::timestamptz, ${input.cursor?.id ?? null}::uuid
+              )
+            `,
+          }
+        })
+        const hasMore = result.rows.length > input.limit
+        const visible = result.rows.slice(0, input.limit)
+        const last = visible.at(-1)
+        return {
+          items: visible.map((row) => ({
+            executed_session_id: row.executed_session_id,
+            relationship_id: row.relationship_id,
+            organization: { id: row.organization_id, display_name: row.organization_name },
+            status: 'active' as const,
+            denied_at: row.denied_at.toISOString(),
+            restored_at: null,
+            session: {
+              started_at: row.session_started_at.toISOString(),
+              activity_type_name: row.activity_type_name,
+            },
+          })),
+          hasMore,
+          ...(hasMore && last
+            ? { nextCursor: { deniedAt: last.denied_at.toISOString(), id: last.id } }
+            : {}),
         }
       }),
   }

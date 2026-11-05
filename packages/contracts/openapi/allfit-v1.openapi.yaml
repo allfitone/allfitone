@@ -9524,22 +9524,82 @@ paths:
         '428':
           $ref: '#/components/responses/PreconditionRequired'
 
+  /studio/v1/organizations/{organizationId}/clients/{personId}/executions:
+    get:
+      tags: [Studio Execution]
+      operationId: listAuthorizedClientExecutions
+      x-allfit-operation: OP-EXE-017
+      x-allfit-cache: private-no-store
+      summary: List what a client trained that she shares with this coach
+      description: >-
+        HU-STUDIO-054. Her completed, valid sessions, newest first, that the coach who
+        holds her relationship, or a cover she accepted, may see: what was trained inside
+        this relationship under `relationship_training`, and what she trained on her own
+        under `prior_training_history`. A session produced inside another relationship
+        is never shown, and one she hid from this relationship does not exist for it:
+        not in a page, not in a page boundary.
+
+
+        Being administrator or owner is not attending her: anyone who does not attend
+        her gets 404. With nothing shared the page is empty, and the attempt is recorded
+        as refused. Every read is recorded, before anything is returned, under each
+        category it used.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/PersonId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Sessions this coach may see, newest first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizedExecutionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/clients/{personId}/executions/{executionId}:
     get:
       tags: [Studio Execution]
       operationId: getAuthorizedClientExecution
       x-allfit-operation: OP-EXE-018
-      x-allfit-cache: private, no-store
-      summary: Read one execution through the authorized live projection
+      x-allfit-cache: private-no-store
+      summary: Read one session a client shares with this coach, with its results
+      description: >-
+        HU-STUDIO-055. The session as the list shows it, with its sets, laps, intervals,
+        rounds and holds. Never heart rate, pain, body weight or the device that
+        captured it: the coach reads pain and weight through their own categories.
+
+
+        403 `scope-required` only when she shares neither category; otherwise a session
+        this coach may not see reads as 404, whatever the reason: hidden, unfinished,
+        annulled, another relationship's, another person's or none at all. Both are
+        recorded as refused, and a read as allowed under the grant that showed it.
       security:
-        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: '#/components/parameters/OrganizationId'
         - $ref: '#/components/parameters/PersonId'
         - $ref: '#/components/parameters/ExecutionId'
       responses:
         '200':
-          description: Authorized and field-redacted execution
+          description: The session and what was recorded in it
           headers:
             Cache-Control:
               $ref: '#/components/headers/PrivateNoStore'
@@ -9547,12 +9607,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthorizedExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthenticated'
         '403':
           $ref: '#/components/responses/ScopeRequired'
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
 
   /space/v1/consents:
     get:
@@ -9625,6 +9689,133 @@ paths:
           $ref: '#/components/responses/Conflict'
         '410':
           $ref: '#/components/responses/CommandEffectDisposed'
+
+  /space/v1/executions/{executionId}/visibility:
+    put:
+      tags: [Space Privacy]
+      operationId: hideMyExecution
+      x-allfit-operation: OP-PRV-006
+      x-allfit-cache: no-store
+      summary: Hide one of her sessions from one relationship
+      description: >-
+        HU-SP-032. Her own session, from one of her relationships that is active, or
+        that ended with a frozen grant still to see. The gym never learns it: the
+        session leaves its lists, pages and details as if it had never been there. A
+        session produced inside that same relationship cannot be hidden from it (422).
+        Hiding what is already hidden answers the same denial.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionVisibilityDenialCreate'
+      responses:
+        '200':
+          description: The session is hidden from that relationship
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionVisibilityDenial'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/CommandEffectDisposed'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/executions/{executionId}/visibility/{relationshipId}:
+    delete:
+      tags: [Space Privacy]
+      operationId: restoreMyExecution
+      x-allfit-operation: OP-PRV-007
+      x-allfit-cache: no-store
+      summary: Share a hidden session with that relationship again
+      description: >-
+        HU-SP-033. From now on only: nothing the gym could not see is shown to it as if
+        it had been. Once the relationship has ended, a session hidden at the end stays
+        out of the frozen history. Restoring what is already shared answers the same.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ExecutionId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The session is shared with that relationship again
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionVisibilityDenial'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/CommandEffectDisposed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/visibility-denials:
+    get:
+      tags: [Space Privacy]
+      operationId: listMyVisibilityDenials
+      x-allfit-operation: OP-PRV-017
+      x-allfit-cache: private-no-store
+      summary: List the sessions she hides, and from whom
+      description: >-
+        HU-SP-034. What she still hides, newest first. Only she reads it: no gym can
+        see a denial, nor tell one from a count.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: The denials in force
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionVisibilityDenialPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
 
   /space/v1/nutrition/meals:
     post:
@@ -22259,87 +22450,152 @@ components:
           type: integer
           minimum: 1
 
-    AuthorizedExecution:
+    AuthorizedExecutionOrigin:
+      description: >-
+        `relationship` was produced inside this relationship and is shown under
+        `relationship_training`; `prior` is what she trained on her own, shown under
+        `prior_training_history`.
+      type: string
+      enum: [relationship, prior]
+    AuthorizedExecutionSummary:
       type: object
       additionalProperties: false
       required:
-        [id, started_at, timezone, achieved_level, strength_sets, body_weight, pain_reports, applied_scope]
-      example:
-        id: 0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b
-        started_at: '2026-07-27T06:04:00-05:00'
-        timezone: America/Bogota
-        achieved_level: detailed
-        strength_sets:
-          - order: 1
-            movement_id: 018f6f8d-2b00-7a00-8000-000000000601
-            achieved_reps: 8
-            load:
-              value: 80
-              unit: kg
-            rpe: 8
-        body_weight: null
-        pain_reports: null
-        applied_scope:
-          code: relationship_training
-          version: 1
+        [id, started_at, ended_at, timezone, activity_type_code, activity_type_name,
+         discipline_code, achieved_level, origin, planned_session_id, applied_scope]
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
         started_at:
           type: string
           format: date-time
+        ended_at:
+          type: [string, 'null']
+          format: date-time
         timezone:
           $ref: '#/components/schemas/IanaTimeZone'
+        activity_type_code:
+          type: string
+        activity_type_name:
+          type: string
+        discipline_code:
+          type: string
         achieved_level:
-          $ref: '#/components/schemas/CompletenessLevel'
+          oneOf:
+            - $ref: '#/components/schemas/CompletenessLevel'
+            - type: 'null'
+        origin:
+          $ref: '#/components/schemas/AuthorizedExecutionOrigin'
+        planned_session_id:
+          description: The planned session it fulfilled; only for a session of this relationship.
+          type: [string, 'null']
+          format: uuid
+        applied_scope:
+          $ref: '#/components/schemas/AppliedScope'
+    AuthorizedExecutionPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuthorizedExecutionSummary'
+        page:
+          $ref: '#/components/schemas/Page'
+    AuthorizedExecution:
+      description: >-
+        One session as the list shows it, with what was recorded in it. A load and a
+        distance come back as the person typed them. No heart rate, pain, body weight
+        or capture device.
+      type: object
+      additionalProperties: false
+      required:
+        [id, started_at, ended_at, timezone, activity_type_code, activity_type_name,
+         discipline_code, achieved_level, origin, planned_session_id, applied_scope,
+         segments, strength_sets, endurance_laps, interval_results, round_results,
+         mobility_results]
+      example:
+        id: 0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b
+        started_at: '2026-07-27T06:04:00-05:00'
+        ended_at: '2026-07-27T07:01:00-05:00'
+        timezone: America/Bogota
+        activity_type_code: strength_training
+        activity_type_name: Strength training
+        discipline_code: strength
+        achieved_level: detailed
+        origin: relationship
+        planned_session_id: 0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a60
+        applied_scope:
+          code: relationship_training
+          version: 1
+        segments: []
+        strength_sets:
+          - segment_position: null
+            order: 1
+            movement_id: 018f6f8d-2b00-7a00-8000-000000000601
+            movement_name: Back squat
+            achieved_reps: 8
+            load:
+              value: 80
+              unit: kg
+            rpe: 8
+        endurance_laps: []
+        interval_results: []
+        round_results: []
+        mobility_results: []
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: [string, 'null']
+          format: date-time
+        timezone:
+          $ref: '#/components/schemas/IanaTimeZone'
+        activity_type_code:
+          type: string
+        activity_type_name:
+          type: string
+        discipline_code:
+          type: string
+        achieved_level:
+          oneOf:
+            - $ref: '#/components/schemas/CompletenessLevel'
+            - type: 'null'
+        origin:
+          $ref: '#/components/schemas/AuthorizedExecutionOrigin'
+        planned_session_id:
+          type: [string, 'null']
+          format: uuid
+        applied_scope:
+          $ref: '#/components/schemas/AppliedScope'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailSegment'
         strength_sets:
           type: array
           items:
-            $ref: '#/components/schemas/AuthorizedStrengthSet'
-        body_weight:
-          oneOf:
-            - $ref: '#/components/schemas/MeasuredValue'
-            - type: 'null'
-        pain_reports:
-          type: [array, 'null']
+            $ref: '#/components/schemas/ExecutionDetailStrengthSet'
+        endurance_laps:
+          type: array
           items:
-            type: string
-            maxLength: 500
-        applied_scope:
-          $ref: '#/components/schemas/AppliedScope'
-    AuthorizedStrengthSet:
-      type: object
-      additionalProperties: false
-      required: [order, movement_id, achieved_reps, load, rpe]
-      properties:
-        order:
-          type: integer
-          minimum: 1
-        movement_id:
-          type: [string, 'null']
-          format: uuid
-        achieved_reps:
-          type: [integer, 'null']
-          minimum: 1
-        load:
-          oneOf:
-            - $ref: '#/components/schemas/Load'
-            - type: 'null'
-        rpe:
-          type: [number, 'null']
-          minimum: 0
-          maximum: 10
-    MeasuredValue:
-      type: object
-      additionalProperties: false
-      required: [value, unit]
-      properties:
-        value:
-          type: number
-        unit:
-          type: string
-          minLength: 1
-          maxLength: 16
+            $ref: '#/components/schemas/ExecutionDetailEnduranceLap'
+        interval_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailIntervalResult'
+        round_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailRoundResult'
+        mobility_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailMobilityResult'
     AppliedScope:
       type: object
       additionalProperties: false
@@ -22350,6 +22606,66 @@ components:
         version:
           type: integer
           minimum: 1
+
+    SessionVisibilityDenialCreate:
+      type: object
+      additionalProperties: false
+      required: [relationship_id]
+      properties:
+        relationship_id:
+          $ref: '#/components/schemas/Uuid'
+    SessionVisibilityDenial:
+      description: >-
+        One of her sessions and the relationship it is hidden from. `reverted` is
+        shared again; `restored_at` says since when.
+      type: object
+      additionalProperties: false
+      required:
+        [executed_session_id, relationship_id, organization, status, denied_at, restored_at, session]
+      properties:
+        executed_session_id:
+          $ref: '#/components/schemas/Uuid'
+        relationship_id:
+          $ref: '#/components/schemas/Uuid'
+        organization:
+          type: object
+          additionalProperties: false
+          required: [id, display_name]
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            display_name:
+              type: string
+        status:
+          type: string
+          enum: [active, reverted]
+        denied_at:
+          type: string
+          format: date-time
+        restored_at:
+          type: [string, 'null']
+          format: date-time
+        session:
+          type: object
+          additionalProperties: false
+          required: [started_at, activity_type_name]
+          properties:
+            started_at:
+              type: string
+              format: date-time
+            activity_type_name:
+              type: string
+    SessionVisibilityDenialPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionVisibilityDenial'
+        page:
+          $ref: '#/components/schemas/Page'
 
     SpaceConsent:
       description: >-
@@ -25576,137 +25892,149 @@ components:
         segments:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required: [position, activity_type_code]
-            properties:
-              position:
-                type: integer
-                minimum: 1
-              activity_type_code:
-                type: [string, 'null']
+            $ref: '#/components/schemas/ExecutionDetailSegment'
         strength_sets:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required: [segment_position, order, movement_id, movement_name, achieved_reps, load, rpe]
-            properties:
-              segment_position:
-                type: [integer, 'null']
-              order:
-                type: integer
-                minimum: 1
-              movement_id:
-                type: [string, 'null']
-                format: uuid
-              movement_name:
-                type: [string, 'null']
-              achieved_reps:
-                type: [integer, 'null']
-              load:
-                oneOf:
-                  - $ref: '#/components/schemas/Load'
-                  - type: 'null'
-              rpe:
-                type: [number, 'null']
+            $ref: '#/components/schemas/ExecutionDetailStrengthSet'
         endurance_laps:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required: [segment_position, lap_number, distance, duration_seconds]
-            properties:
-              segment_position:
-                type: [integer, 'null']
-              lap_number:
-                type: integer
-                minimum: 1
-              distance:
-                $ref: '#/components/schemas/Distance'
-              duration_seconds:
-                type: number
+            $ref: '#/components/schemas/ExecutionDetailEnduranceLap'
         interval_results:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required:
-              [segment_position, interval_number, work_duration_seconds, rest_duration_seconds,
-               achieved_repetitions, distance, completed]
-            properties:
-              segment_position:
-                type: [integer, 'null']
-              interval_number:
-                type: integer
-                minimum: 1
-              work_duration_seconds:
-                type: number
-              rest_duration_seconds:
-                type: [number, 'null']
-              achieved_repetitions:
-                type: [integer, 'null']
-              distance:
-                oneOf:
-                  - $ref: '#/components/schemas/Distance'
-                  - type: 'null'
-              completed:
-                type: [boolean, 'null']
+            $ref: '#/components/schemas/ExecutionDetailIntervalResult'
         round_results:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required:
-              [segment_position, round_number, activity_family, completed_repetitions,
-               duration_seconds, distance, load]
-            properties:
-              segment_position:
-                type: [integer, 'null']
-              round_number:
-                type: integer
-                minimum: 1
-              activity_family:
-                type: string
-                enum: [strength, endurance, interval, mobility]
-              completed_repetitions:
-                type: [integer, 'null']
-              duration_seconds:
-                type: [number, 'null']
-              distance:
-                oneOf:
-                  - $ref: '#/components/schemas/Distance'
-                  - type: 'null'
-              load:
-                oneOf:
-                  - $ref: '#/components/schemas/Load'
-                  - type: 'null'
+            $ref: '#/components/schemas/ExecutionDetailRoundResult'
         mobility_results:
           type: array
           items:
-            type: object
-            additionalProperties: false
-            required:
-              [segment_position, sequence_position, movement_id, movement_name, side,
-               hold_duration_seconds, completed_repetitions]
-            properties:
-              segment_position:
-                type: [integer, 'null']
-              sequence_position:
-                type: integer
-                minimum: 1
-              movement_id:
-                type: [string, 'null']
-                format: uuid
-              movement_name:
-                type: [string, 'null']
-              side:
-                type: [string, 'null']
-                enum: [left, right, bilateral, not_applicable, null]
-              hold_duration_seconds:
-                type: [number, 'null']
-              completed_repetitions:
-                type: [integer, 'null']
+            $ref: '#/components/schemas/ExecutionDetailMobilityResult'
+    ExecutionDetailSegment:
+      type: object
+      additionalProperties: false
+      required: [position, activity_type_code]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+        activity_type_code:
+          type: [string, 'null']
+    ExecutionDetailStrengthSet:
+      type: object
+      additionalProperties: false
+      required: [segment_position, order, movement_id, movement_name, achieved_reps, load, rpe]
+      properties:
+        segment_position:
+          type: [integer, 'null']
+        order:
+          type: integer
+          minimum: 1
+        movement_id:
+          type: [string, 'null']
+          format: uuid
+        movement_name:
+          type: [string, 'null']
+        achieved_reps:
+          type: [integer, 'null']
+        load:
+          oneOf:
+            - $ref: '#/components/schemas/Load'
+            - type: 'null'
+        rpe:
+          type: [number, 'null']
+    ExecutionDetailEnduranceLap:
+      type: object
+      additionalProperties: false
+      required: [segment_position, lap_number, distance, duration_seconds]
+      properties:
+        segment_position:
+          type: [integer, 'null']
+        lap_number:
+          type: integer
+          minimum: 1
+        distance:
+          $ref: '#/components/schemas/Distance'
+        duration_seconds:
+          type: number
+    ExecutionDetailIntervalResult:
+      type: object
+      additionalProperties: false
+      required:
+        [segment_position, interval_number, work_duration_seconds, rest_duration_seconds,
+         achieved_repetitions, distance, completed]
+      properties:
+        segment_position:
+          type: [integer, 'null']
+        interval_number:
+          type: integer
+          minimum: 1
+        work_duration_seconds:
+          type: number
+        rest_duration_seconds:
+          type: [number, 'null']
+        achieved_repetitions:
+          type: [integer, 'null']
+        distance:
+          oneOf:
+            - $ref: '#/components/schemas/Distance'
+            - type: 'null'
+        completed:
+          type: [boolean, 'null']
+    ExecutionDetailRoundResult:
+      type: object
+      additionalProperties: false
+      required:
+        [segment_position, round_number, activity_family, completed_repetitions,
+         duration_seconds, distance, load]
+      properties:
+        segment_position:
+          type: [integer, 'null']
+        round_number:
+          type: integer
+          minimum: 1
+        activity_family:
+          type: string
+          enum: [strength, endurance, interval, mobility]
+        completed_repetitions:
+          type: [integer, 'null']
+        duration_seconds:
+          type: [number, 'null']
+        distance:
+          oneOf:
+            - $ref: '#/components/schemas/Distance'
+            - type: 'null'
+        load:
+          oneOf:
+            - $ref: '#/components/schemas/Load'
+            - type: 'null'
+    ExecutionDetailMobilityResult:
+      type: object
+      additionalProperties: false
+      required:
+        [segment_position, sequence_position, movement_id, movement_name, side,
+         hold_duration_seconds, completed_repetitions]
+      properties:
+        segment_position:
+          type: [integer, 'null']
+        sequence_position:
+          type: integer
+          minimum: 1
+        movement_id:
+          type: [string, 'null']
+          format: uuid
+        movement_name:
+          type: [string, 'null']
+        side:
+          type: [string, 'null']
+          enum: [left, right, bilateral, not_applicable, null]
+        hold_duration_seconds:
+          type: [number, 'null']
+        completed_repetitions:
+          type: [integer, 'null']
 
     SubscriptionStatus:
       description: >-
