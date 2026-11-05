@@ -155,6 +155,10 @@ module "compute" {
   load_balancer_security_group_id = module.edge.load_balancer_security_group_id
   instance_count                  = var.instance_count
   on_demand_base_capacity         = var.on_demand_base_capacity
+
+  # Three types scored 1/10 for spot capacity in our zones; these five score 9.
+  # All Graviton with 2 vCPU and 4 GB or more, so capacity does not depend on the draw.
+  instance_types = ["t4g.medium", "t4g.large", "c6g.large", "c7g.large", "c8g.large"]
 }
 
 module "certificate" {
