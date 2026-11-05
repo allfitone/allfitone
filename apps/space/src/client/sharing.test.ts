@@ -14,7 +14,8 @@ function consent(overrides: Partial<Consent> = {}): Consent {
     started_at: '2026-09-12T15:00:00.000Z',
     ended_at: null,
     scope_code: 'body_progress',
-    presented_snapshot: { title: 'Medidas del cuerpo' },
+    // What Studio froze into the invitation, in the gym's words.
+    presented_snapshot: { display_name: 'Progreso corporal', version_number: 1 },
     decision: 'accepted',
     decided_at: '2026-09-12T15:00:00.000Z',
     grant_id: '019c8000-0000-7000-8000-000000000501',
@@ -35,11 +36,8 @@ describe('what she shares', () => {
         relationship_status: 'terminated',
         organization_name: 'Smart Fit',
       }),
-      consent({ scope_code: 'nutrition_intake', presented_snapshot: { title: 'Tus comidas' } }),
-      consent({
-        scope_code: 'relationship_training',
-        presented_snapshot: { title: 'Entrenamiento' },
-      }),
+      consent({ scope_code: 'nutrition_intake' }),
+      consent({ scope_code: 'relationship_training' }),
       consent(),
     ])
     expect(groups.map((group) => group.organizationName)).toEqual(['Bodytech Chicó', 'Smart Fit'])
@@ -95,7 +93,12 @@ describe('what she shares', () => {
 
 describe('taking one back', () => {
   test('T-SPC-UNIT-325 the sheet names the category and the gym, and what does not change', () => {
-    const copy = revokeCopy(consent({ presented_snapshot: { title: 'Tus comidas' } }))
+    const copy = revokeCopy(
+      consent({
+        scope_code: 'nutrition_intake',
+        presented_snapshot: { display_name: 'Lo que comes' },
+      }),
+    )
     expect(copy.title).toBe('¿Dejar de compartir tus comidas con Bodytech Chicó?')
     expect(copy.lines).toEqual([
       'Dejan de ver tus comidas ahora mismo.',
@@ -108,7 +111,7 @@ describe('taking one back', () => {
   test('T-SPC-UNIT-326 for an ended gym it is what they kept that goes', () => {
     const copy = revokeCopy(consent({ relationship_status: 'terminated', grant_status: 'frozen' }))
     expect(copy.lines[0]).toBe(
-      'Dejan de conservar medidas del cuerpo, también lo que ya les compartiste.',
+      'Dejan de conservar tu progreso corporal, también lo que ya les compartiste.',
     )
   })
 })

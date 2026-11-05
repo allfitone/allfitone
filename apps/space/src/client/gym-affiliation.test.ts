@@ -7,6 +7,8 @@ import {
   historyLine,
   invitationExpiry,
   pendingCovers,
+  scopeDescription,
+  scopeName,
   scopeTitle,
   sharedSummary,
   tokenFromLink,
@@ -56,13 +58,43 @@ function transport(overrides: Partial<InvitationTransport> = {}) {
 }
 
 describe('a gym invitation, as Space says it', () => {
-  test('T-SPC-UNIT-311 each category reads by its own title, or a plain name', () => {
-    expect(
-      scopeTitle({ scope_code: 'body_progress', presented_snapshot: { title: 'Progreso' } }),
-    ).toBe('Progreso')
+  test('T-SPC-UNIT-311 each category reads by the name the gym sent, or a plain name', () => {
+    // What Studio freezes into the invitation: the catalogue's own words.
+    const sent = {
+      scope_code: 'body_progress',
+      presented_snapshot: {
+        display_name: 'Progreso corporal',
+        description:
+          'Medidas, composición corporal y tendencias. No incluye tus fotos, ni datos de salud.',
+        version_number: 1,
+      },
+    }
+    expect(scopeTitle(sent)).toBe('Progreso corporal')
     expect(scopeTitle({ scope_code: 'health_context', presented_snapshot: {} })).toBe(
       'Dolor y limitaciones',
     )
+    expect(
+      scopeTitle({ scope_code: 'body_progress', presented_snapshot: { display_name: ' ' } }),
+    ).toBe('Tu progreso corporal')
+  })
+
+  test('T-SPC-UNIT-336 she reads where each category stops, never a boundary Space wrote', () => {
+    expect(
+      scopeDescription({
+        scope_code: 'body_progress',
+        presented_snapshot: { description: ' No incluye tus fotos. ' },
+      }),
+    ).toBe('No incluye tus fotos.')
+    expect(scopeDescription({ scope_code: 'body_progress', presented_snapshot: {} })).toBeNull()
+    expect(
+      scopeDescription({ scope_code: 'body_progress', presented_snapshot: { description: 7 } }),
+    ).toBeNull()
+  })
+
+  test('T-SPC-UNIT-337 on her side no category promises photos it does not share', () => {
+    expect(scopeName('body_progress')).toBe('Tu progreso corporal')
+    expect(scopeName('nutrition_intake')).toBe('Tus comidas')
+    expect(scopeName('unknown_scope')).toBe('unknown_scope')
   })
 
   test('T-SPC-UNIT-312 what she shares is counted out of what was asked', () => {
@@ -143,7 +175,7 @@ describe('her gyms, as Space says them', () => {
         type: 'consent_decided',
         detail: { scope_code: 'body_progress', decision: 'accepted' },
       }),
-    ).toBe('Compartiste medidas y fotos')
+    ).toBe('Compartiste tu progreso corporal')
   })
 })
 

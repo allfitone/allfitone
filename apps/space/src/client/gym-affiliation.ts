@@ -77,25 +77,47 @@ export function createInvitationFlow(dependencies: {
   }
 }
 
+// Her side of each category, in her voice. `body_progress` promises no photos: the
+// published scope excludes them.
 const SCOPE_NAME: Record<string, string> = {
   relationship_training: 'Tu entrenamiento con ellos',
   prior_training_history: 'Tu historial previo',
-  body_progress: 'Medidas y fotos',
+  body_progress: 'Tu progreso corporal',
   health_context: 'Dolor y limitaciones',
   nutrition_intake: 'Tus comidas',
   nutrition_guidance: 'Metas de nutrición',
   nutrition_media: 'Fotos de tus comidas',
 }
 
-/** A category by the title the gym presented it with, or by its plain name. */
-export function scopeTitle(option: {
+/** A category as she names it on her side, once it is shared or declined. */
+export function scopeName(scopeCode: string): string {
+  return SCOPE_NAME[scopeCode] ?? scopeCode
+}
+
+interface PresentedOption {
   readonly scope_code: string
   readonly presented_snapshot: Readonly<Record<string, unknown>>
-}): string {
-  const title = option.presented_snapshot.title
-  return typeof title === 'string' && title.trim() !== ''
-    ? title
-    : (SCOPE_NAME[option.scope_code] ?? option.scope_code)
+}
+
+function presented(option: PresentedOption, key: 'display_name' | 'description'): string | null {
+  const value = option.presented_snapshot[key]
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null
+}
+
+/**
+ * A category by the name the gym sent it with: the catalogue's `display_name`, frozen
+ * into the invitation when it was sent. Her own name only when the snapshot has none.
+ */
+export function scopeTitle(option: PresentedOption): string {
+  return presented(option, 'display_name') ?? scopeName(option.scope_code)
+}
+
+/**
+ * What the category covers and where it stops, in the words the gym sent. Null when
+ * it sent none: Space never writes its own version of a permission's boundary.
+ */
+export function scopeDescription(option: PresentedOption): string | null {
+  return presented(option, 'description')
 }
 
 export function sharedSummary(

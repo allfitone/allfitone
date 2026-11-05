@@ -4,6 +4,10 @@
  * Every category the gym asked for, with what it is for and the level it asks, answered
  * one by one. Each starts as a no: a category she leaves untouched is not shared. What
  * she chooses stays in the draft until «Tu invitación» confirms it.
+ *
+ * Each category reads by the name and description the gym sent, frozen when the
+ * invitation was sent. The description is the half that says what is not included, so
+ * she decides on where the permission stops, not only on its name.
  */
 
 import { Button } from '@allfitone/react-native/button'
@@ -17,7 +21,7 @@ import { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { scopeTitle, type Decision } from '../../src/client/gym-affiliation'
+import { scopeDescription, scopeTitle, type Decision } from '../../src/client/gym-affiliation'
 import { currentDraft } from '../../src/client/invitation-draft'
 import { GlyphRow, GymMark, RowCard, scopeIcon } from '../../src/components/gym-ui'
 
@@ -69,31 +73,40 @@ export default function InvitationShare() {
           Aceptar la invitación no comparte nada por sí sola. Elige cada categoría.
         </Text>
         <RowCard>
-          {options.map((option) => (
-            <View key={option.scope_code} style={styles.option}>
-              <GlyphRow
-                icon={scopeIcon(option.scope_code)}
-                title={scopeTitle(option)}
-                caption={LEVEL[option.offered_access_level] ?? option.offered_access_level}
-              >
-                <SegmentedControl
-                  items={ANSWER}
-                  value={draft.scopes[option.scope_code] ?? 'rejected'}
-                  accessibilityLabel={`Compartir ${scopeTitle(option)}`}
-                  onChange={(value) => {
-                    draft.scopes[option.scope_code] = value
-                    redraw((tick) => tick + 1)
-                  }}
-                  style={styles.answer}
-                />
-              </GlyphRow>
-              {option.purpose ? (
-                <Text role="body" size="xs" color="muted" style={styles.purpose}>
-                  {option.purpose}
-                </Text>
-              ) : null}
-            </View>
-          ))}
+          {options.map((option) => {
+            const title = scopeTitle(option)
+            const description = scopeDescription(option)
+            return (
+              <View key={option.scope_code} style={styles.option}>
+                <GlyphRow
+                  icon={scopeIcon(option.scope_code)}
+                  title={title}
+                  caption={LEVEL[option.offered_access_level] ?? option.offered_access_level}
+                >
+                  <SegmentedControl
+                    items={ANSWER}
+                    value={draft.scopes[option.scope_code] ?? 'rejected'}
+                    accessibilityLabel={`Compartir ${title}`}
+                    onChange={(value) => {
+                      draft.scopes[option.scope_code] = value
+                      redraw((tick) => tick + 1)
+                    }}
+                    style={styles.answer}
+                  />
+                </GlyphRow>
+                {description ? (
+                  <Text role="body" size="xs" color="secondary" style={styles.detail}>
+                    {description}
+                  </Text>
+                ) : null}
+                {option.purpose ? (
+                  <Text role="body" size="xs" color="muted" style={styles.detail}>
+                    {option.purpose}
+                  </Text>
+                ) : null}
+              </View>
+            )
+          })}
         </RowCard>
       </ScrollView>
 
@@ -129,7 +142,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, gap: 12 },
   option: { paddingBottom: 8 },
   answer: { width: 112 },
-  purpose: { paddingLeft: 48, paddingBottom: 4 },
+  detail: { paddingLeft: 48, paddingBottom: 4 },
   footer: {
     position: 'absolute',
     left: 0,
