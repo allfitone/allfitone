@@ -5,7 +5,6 @@
 **/.next
 **/.next-*
 **/.turbo
-**/.vercel
 **/coverage
 **/playwright-report
 **/test-results

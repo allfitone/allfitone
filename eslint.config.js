@@ -219,8 +219,8 @@ const NO_LOCAL_UI = {
   message: 'Product apps do not own UI primitives. Add the capability to the Design System.',
 }
 
-// Hosting primitives stay out of packages/. This is what lets apps/api move
-// from Vercel to a container untouched.
+// Hosting primitives stay out of packages/, so the apps can change host without
+// touching shared code.
 const NO_HOSTING = {
   group: ['@vercel/*', 'next', 'next/*'],
   message: 'Shared libraries must not depend on the hosting provider.',
@@ -310,7 +310,6 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/dist/**',
       '**/.turbo/**',
-      '**/.vercel/**',
       '**/.next/**',
       '**/generated/**',
       'packages/db/types/**',
