@@ -40,7 +40,7 @@ jobs:
     # Graviton instances run arm64 images; building natively avoids emulation.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
-    environment: aws-production
+    environment: Production
     strategy:
       fail-fast: true
       matrix:
@@ -111,7 +111,7 @@ jobs:
     if: always() && (needs.build.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: aws-production
+    environment: Production
 
     steps:
       - uses: actions/checkout@v4

@@ -44,6 +44,6 @@ output "cluster_name" {
 }
 
 output "deploy_role_arn" {
-  description = "AWS_DEPLOY_ROLE_ARN in the aws-production GitHub environment."
+  description = "AWS_DEPLOY_ROLE_ARN in the Production GitHub environment."
   value       = module.deploy_role.role_arn
 }

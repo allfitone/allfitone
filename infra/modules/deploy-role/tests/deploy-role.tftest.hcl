@@ -4,7 +4,7 @@ variables {
   name                = "allfit-test-deploy"
   oidc_provider_arn   = "arn:aws:iam::000000000000:oidc-provider/token.actions.githubusercontent.com"
   github_repository   = "allfitone/allfitone"
-  github_environment  = "aws-production"
+  github_environment  = "Production"
   region              = "us-east-1"
   account_id          = "000000000000"
   cluster_name        = "allfit-test"
@@ -24,7 +24,7 @@ run "only_the_production_environment_of_this_repository_can_assume_it" {
   assert {
     condition = (
       jsondecode(aws_iam_role.this.assume_role_policy).Statement[0].Condition.StringEquals["token.actions.githubusercontent.com:sub"]
-      == "repo:allfitone/allfitone:environment:aws-production"
+      == "repo:allfitone/allfitone:environment:Production"
     )
     error_message = "The trust must name this repository and environment exactly, never a wildcard"
   }

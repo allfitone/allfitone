@@ -254,7 +254,7 @@ module "deploy_role" {
   name                = "allfitone-production-deploy"
   oidc_provider_arn   = module.github_oidc.provider_arn
   github_repository   = "allfitone/allfitone"
-  github_environment  = "aws-production"
+  github_environment  = "Production"
   region              = var.region
   account_id          = var.account_id
   cluster_name        = module.compute.cluster_name
