@@ -5461,6 +5461,12 @@ paths:
         Nothing is assigned until she accepts.
 
 
+        HU-BO-024: a scope asked at `contribute` needs a published version whose
+        rules admit contributing, else `422` naming `/scopes`. In V1 only
+        `relationship_training` does. Asking to `read` is offerable on every
+        published version, as before.
+
+
         The program is part of the proposal: the same scopes with another program,
         or none, or another start, are a different question and a new invitation.
 

@@ -102,10 +102,19 @@ values ('019b3000-0000-7000-8000-000000000311', 'owner');
 -- itself freezes onto the option.
 insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
 values
-  ('019b3000-0000-7000-8000-000000000401', 'relationship_training', 1, 'published', clock_timestamp()),
+  ('019b3000-0000-7000-8000-000000000401', 'relationship_training', 1, 'draft', null),
   ('019b3000-0000-7000-8000-000000000402', 'body_progress', 1, 'published', clock_timestamp()),
   ('019b3000-0000-7000-8000-000000000403', 'health_context', 1, 'published', clock_timestamp())
 on conflict do nothing;
+
+-- IX-06: offering contribute needs a published contribute rule, as the real
+-- relationship_training has. A rule is written while its version is a draft.
+insert into privacy.scope_resource_rules (
+  scope_definition_id, resource, field, data_classification_code, max_action
+) values ('019b3000-0000-7000-8000-000000000401', 'planning.program_assignments', '*', 'training', 'contribute');
+update privacy.scope_definitions
+   set status = 'published', published_at = clock_timestamp()
+ where id = '019b3000-0000-7000-8000-000000000401';
 
 create temporary table offered_version on commit drop as
 select scope_code, (

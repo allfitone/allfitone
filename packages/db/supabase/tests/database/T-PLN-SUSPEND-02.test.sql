@@ -53,8 +53,17 @@ insert into relationships.relationship_professional_assignments (
 
 -- She shares her training to be planned, through the real consent chain.
 insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-values ('019bd100-0000-7000-8000-000000000401', 'relationship_training', 7, 'published',
-  clock_timestamp());
+values ('019bd100-0000-7000-8000-000000000401', 'relationship_training', 7, 'draft',
+  null);
+
+-- IX-06: offering contribute needs a published contribute rule, as the real
+-- relationship_training has. A rule is written while its version is a draft.
+insert into privacy.scope_resource_rules (
+  scope_definition_id, resource, field, data_classification_code, max_action
+) values ('019bd100-0000-7000-8000-000000000401', 'planning.program_assignments', '*', 'training', 'contribute');
+update privacy.scope_definitions
+   set status = 'published', published_at = clock_timestamp()
+ where id = '019bd100-0000-7000-8000-000000000401';
 insert into identity.invitations (
   id, organization_id, issued_by_membership_id, channel, contact,
   token_hash, token_key_version, proposal_hash, responsible_party, status, expires_at

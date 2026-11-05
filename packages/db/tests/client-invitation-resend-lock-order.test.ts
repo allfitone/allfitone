@@ -51,6 +51,7 @@ const GUARDED = [
   'support.platform_role_assignments',
   'support.platform_duty_assignments',
   'privacy.scope_definitions',
+  'privacy.scope_resource_rules',
 ] as const
 
 let invitationId = ''
@@ -71,6 +72,7 @@ async function cleanup() {
     await tx`delete from identity.invitation_intents where invitation_id in (
       select id from identity.invitations where organization_id = ${GYM}::uuid)`
     await tx`delete from identity.invitations where organization_id = ${GYM}::uuid`
+    await tx`delete from privacy.scope_resource_rules where scope_definition_id = ${SCOPE}::uuid`
     await tx`delete from privacy.scope_definitions where id = ${SCOPE}::uuid`
     await tx`delete from support.platform_duty_assignments where id = ${DUTY}::uuid`
     await tx`delete from support.platform_role_assignments where person_id = ${SUPPORT}::uuid`
@@ -132,8 +134,13 @@ beforeAll(async () => {
     await tx`reset role`
     // A version no database test uses, so a row left behind could not collide with one.
     await tx`insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-      values (${SCOPE}::uuid, 'relationship_training', 9001,
-      'published', clock_timestamp())`
+      values (${SCOPE}::uuid, 'relationship_training', 9001, 'draft', null)`
+    // IX-06: contributing is offered only where the published version admits it.
+    await tx`insert into privacy.scope_resource_rules
+        (scope_definition_id, resource, field, data_classification_code, max_action)
+      values (${SCOPE}::uuid, 'planning.program_assignments', '*', 'training', 'contribute')`
+    await tx`update privacy.scope_definitions
+      set status = 'published', published_at = clock_timestamp() where id = ${SCOPE}::uuid`
   })
   const [issued] = await admin.begin(async (tx) => {
     await tx`set local role allfit_api`

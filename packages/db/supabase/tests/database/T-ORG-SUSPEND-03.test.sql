@@ -48,8 +48,17 @@ values
    '019bc000-0000-7000-8000-000000000101', 'active');
 
 insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-values ('019bc000-0000-7000-8000-000000000a01', 'relationship_training', 1, 'published',
-  clock_timestamp());
+values ('019bc000-0000-7000-8000-000000000a01', 'relationship_training', 1, 'draft',
+  null);
+
+-- IX-06: offering contribute needs a published contribute rule, as the real
+-- relationship_training has. A rule is written while its version is a draft.
+insert into privacy.scope_resource_rules (
+  scope_definition_id, resource, field, data_classification_code, max_action
+) values ('019bc000-0000-7000-8000-000000000a01', 'planning.program_assignments', '*', 'training', 'contribute');
+update privacy.scope_definitions
+   set status = 'published', published_at = clock_timestamp()
+ where id = '019bc000-0000-7000-8000-000000000a01';
 
 create function pg_temp.as_person(person_number integer)
 returns void language sql as $$

@@ -36,6 +36,7 @@ async function cleanup() {
     await tx`delete from organizations.organizations where id = ${id(101)}::uuid`
     // Scope definitions are immutable by trigger; this fixture is the only row removed past it.
     await tx`set local session_replication_role = replica`
+    await tx`delete from privacy.scope_resource_rules where scope_definition_id = ${id(401)}::uuid`
     await tx`delete from privacy.scope_definitions where id = ${id(401)}::uuid`
     await tx`delete from identity.people where id = ${id(1)}::uuid`
   })
@@ -56,9 +57,17 @@ beforeEach(async () => {
     await tx`insert into organizations.membership_roles (membership_id, role_code)
       values (${id(201)}::uuid, 'owner')`
     await tx`insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-      select ${id(401)}::uuid, 'relationship_training', 1, 'published', clock_timestamp()
+      select ${id(401)}::uuid, 'relationship_training', 1, 'draft', null
       where not exists (select 1 from privacy.scope_definitions
         where scope_code = 'relationship_training' and status = 'published')`
+    // IX-06: contributing is offered only where the published version admits it.
+    await tx`insert into privacy.scope_resource_rules
+        (scope_definition_id, resource, field, data_classification_code, max_action)
+      select id, 'planning.program_assignments', '*', 'training', 'contribute'
+      from privacy.scope_definitions where id = ${id(401)}::uuid and status = 'draft'`
+    await tx`update privacy.scope_definitions
+      set status = 'published', published_at = clock_timestamp()
+      where id = ${id(401)}::uuid and status = 'draft'`
   })
 })
 

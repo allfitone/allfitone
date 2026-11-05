@@ -69,6 +69,7 @@ async function cleanup() {
     await tx`delete from planning.programs where id = ${PROGRAM}::uuid`
     await tx`delete from planning.session_template_versions where id = ${id(312)}::uuid`
     await tx`delete from planning.session_templates where id = ${id(311)}::uuid`
+    await tx`delete from privacy.scope_resource_rules where scope_definition_id = ${id(301)}::uuid`
     await tx`delete from privacy.scope_definitions where id = ${id(301)}::uuid`
     await tx`delete from organizations.membership_events
       where membership_id in (${id(211)}::uuid, ${id(212)}::uuid)`
@@ -101,7 +102,13 @@ beforeEach(async () => {
       (${id(211)}::uuid, 'owner'), (${id(212)}::uuid, 'coach')`
     // A version number no other fixture uses: scope versions are unique per code.
     await tx`insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-      values (${id(301)}::uuid, 'relationship_training', 9161, 'published', clock_timestamp())`
+      values (${id(301)}::uuid, 'relationship_training', 9161, 'draft', null)`
+    // IX-06: contributing is offered only where the published version admits it.
+    await tx`insert into privacy.scope_resource_rules
+        (scope_definition_id, resource, field, data_classification_code, max_action)
+      values (${id(301)}::uuid, 'planning.program_assignments', '*', 'training', 'contribute')`
+    await tx`update privacy.scope_definitions
+      set status = 'published', published_at = clock_timestamp() where id = ${id(301)}::uuid`
     await tx`insert into planning.session_templates
         (id, content_scope, owner_organization_id, author_person_id, discipline_code, status)
       values (${id(311)}::uuid, 'organization', ${ORGANIZATION}::uuid, ${COACH}::uuid,
