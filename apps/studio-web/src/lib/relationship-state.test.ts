@@ -13,7 +13,7 @@ function grant(overrides: Partial<RelationshipGrant> = {}): RelationshipGrant {
   return {
     grant_id: '01991600-7000-7000-8000-000000000401',
     scope_code: 'body_progress',
-    display_name: 'Medidas y fotos',
+    display_name: 'Progreso corporal',
     version_number: 1,
     access_level: 'read',
     status: 'active',
