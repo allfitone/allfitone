@@ -6,6 +6,7 @@ import {
   createMyConsentService,
   createOfferableScopeService,
   createScopeDefinitionService,
+  createSessionVisibilityService,
   type AccessLogService,
   type ErasureRequestService,
   type LegalHoldService,
@@ -13,6 +14,7 @@ import {
   type MyConsentService,
   type OfferableScopeService,
   type ScopeDefinitionService,
+  type SessionVisibilityService,
 } from './application/index.js'
 import {
   createAccessLogDatabase,
@@ -22,6 +24,7 @@ import {
   createMyConsentDatabase,
   createOfferableScopeDatabase,
   createScopeDefinitionDatabase,
+  createSessionVisibilityDatabase,
 } from './infrastructure/index.js'
 
 let cachedScopes: ScopeDefinitionService | undefined
@@ -31,6 +34,7 @@ let cachedHolds: LegalHoldService | undefined
 let cachedOfferable: OfferableScopeService | undefined
 let cachedConsents: MyConsentService | undefined
 let cachedAuthorized: AuthorizedScopeService | undefined
+let cachedVisibility: SessionVisibilityService | undefined
 
 export function scopeDefinitionService(): ScopeDefinitionService {
   cachedScopes ??= createScopeDefinitionService(createScopeDefinitionDatabase())
@@ -65,4 +69,9 @@ export function myConsentService(): MyConsentService {
 export function authorizedScopeService(): AuthorizedScopeService {
   cachedAuthorized ??= createAuthorizedScopeService(createAuthorizedScopeDatabase())
   return cachedAuthorized
+}
+
+export function sessionVisibilityService(): SessionVisibilityService {
+  cachedVisibility ??= createSessionVisibilityService(createSessionVisibilityDatabase())
+  return cachedVisibility
 }

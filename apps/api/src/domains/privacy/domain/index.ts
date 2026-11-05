@@ -257,6 +257,46 @@ export interface MyConsentDatabase {
   revoke(command: MyConsentCommand): Promise<{ resource: GrantRevocation; replayed: boolean }>
 }
 
+/**
+ * One session she hides from one relationship (`OP-PRV-006`, `OP-PRV-007`,
+ * `OP-PRV-017`). Only she ever reads it.
+ */
+export type SessionVisibilityDenial = AllfitV1Schemas['SessionVisibilityDenial']
+
+export interface SessionVisibilityCommand {
+  personId: string
+  executionId: string
+  relationshipId: string
+  idempotencyKey: string
+  commandId: string
+  requestHash: Uint8Array
+}
+
+export interface SessionVisibilityCursor {
+  deniedAt: string
+  id: string
+}
+
+export interface SessionVisibilityPage {
+  items: SessionVisibilityDenial[]
+  hasMore: boolean
+  nextCursor?: SessionVisibilityCursor
+}
+
+export interface SessionVisibilityDatabase {
+  hide(
+    command: SessionVisibilityCommand,
+  ): Promise<{ resource: SessionVisibilityDenial; replayed: boolean }>
+  restore(
+    command: SessionVisibilityCommand,
+  ): Promise<{ resource: SessionVisibilityDenial; replayed: boolean }>
+  listMine(input: {
+    personId: string
+    limit: number
+    cursor?: SessionVisibilityCursor
+  }): Promise<SessionVisibilityPage>
+}
+
 export interface AuthorizedScopeDatabase {
   list(
     personId: string,
