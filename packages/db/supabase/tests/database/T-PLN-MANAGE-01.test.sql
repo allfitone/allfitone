@@ -792,7 +792,9 @@ select is(
     :'w2d1', 'cancelled',
     :'w2d3', 'cancelled'
   ) || (select jsonb_object_agg(id::text, 'cancelled') from planning.planned_sessions
-        where assignment_id = :'a1' and program_day = 3 and week_starts_on < :'week2'),
+        -- Yesterday's session is day 3 whenever today is a Thursday; it stays scheduled.
+        where assignment_id = :'a1' and program_day = 3 and week_starts_on < :'week2'
+          and id <> '019f4100-0000-7000-8000-000000000931'),
   'T-PLN-MANAGE-INT-44 only what was still to come and not started is cancelled (HU-050 criteria 1 and 2)');
 select is(
   (select count(*)::integer from execution.planned_session_executions where planned_session_id = :'w1d1'),
