@@ -729,27 +729,51 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     },
   },
   AuthorizedExecution: {
+    description:
+      'One session as the list shows it, with what was recorded in it. A load and a distance come back as the person typed them. No heart rate, pain, body weight or capture device.',
     type: 'object',
     additionalProperties: false,
     required: [
       'id',
       'started_at',
+      'ended_at',
       'timezone',
+      'activity_type_code',
+      'activity_type_name',
+      'discipline_code',
       'achieved_level',
-      'strength_sets',
-      'body_weight',
-      'pain_reports',
+      'origin',
+      'planned_session_id',
       'applied_scope',
+      'segments',
+      'strength_sets',
+      'endurance_laps',
+      'interval_results',
+      'round_results',
+      'mobility_results',
     ],
     example: {
       id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b',
       started_at: '2026-07-27T06:04:00-05:00',
+      ended_at: '2026-07-27T07:01:00-05:00',
       timezone: 'America/Bogota',
+      activity_type_code: 'strength_training',
+      activity_type_name: 'Strength training',
+      discipline_code: 'strength',
       achieved_level: 'detailed',
+      origin: 'relationship',
+      planned_session_id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a60',
+      applied_scope: {
+        code: 'relationship_training',
+        version: 1,
+      },
+      segments: [],
       strength_sets: [
         {
+          segment_position: null,
           order: 1,
           movement_id: '018f6f8d-2b00-7a00-8000-000000000601',
+          movement_name: 'Back squat',
           achieved_reps: 8,
           load: {
             value: 80,
@@ -758,12 +782,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           rpe: 8,
         },
       ],
-      body_weight: null,
-      pain_reports: null,
-      applied_scope: {
-        code: 'relationship_training',
-        version: 1,
-      },
+      endurance_laps: [],
+      interval_results: [],
+      round_results: [],
+      mobility_results: [],
     },
     properties: {
       id: {
@@ -773,34 +795,159 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         format: 'date-time',
       },
+      ended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
       timezone: {
         $ref: '#/components/schemas/IanaTimeZone',
       },
+      activity_type_code: {
+        type: 'string',
+      },
+      activity_type_name: {
+        type: 'string',
+      },
+      discipline_code: {
+        type: 'string',
+      },
       achieved_level: {
-        $ref: '#/components/schemas/CompletenessLevel',
-      },
-      strength_sets: {
-        type: 'array',
-        items: {
-          $ref: '#/components/schemas/AuthorizedStrengthSet',
-        },
-      },
-      body_weight: {
         oneOf: [
           {
-            $ref: '#/components/schemas/MeasuredValue',
+            $ref: '#/components/schemas/CompletenessLevel',
           },
           {
             type: 'null',
           },
         ],
       },
-      pain_reports: {
-        type: ['array', 'null'],
+      origin: {
+        $ref: '#/components/schemas/AuthorizedExecutionOrigin',
+      },
+      planned_session_id: {
+        type: ['string', 'null'],
+        format: 'uuid',
+      },
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      segments: {
+        type: 'array',
         items: {
-          type: 'string',
-          maxLength: 500,
+          $ref: '#/components/schemas/ExecutionDetailSegment',
         },
+      },
+      strength_sets: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailStrengthSet',
+        },
+      },
+      endurance_laps: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailEnduranceLap',
+        },
+      },
+      interval_results: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailIntervalResult',
+        },
+      },
+      round_results: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailRoundResult',
+        },
+      },
+      mobility_results: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailMobilityResult',
+        },
+      },
+    },
+  },
+  AuthorizedExecutionOrigin: {
+    description:
+      '`relationship` was produced inside this relationship and is shown under `relationship_training`; `prior` is what she trained on her own, shown under `prior_training_history`.',
+    type: 'string',
+    enum: ['relationship', 'prior'],
+  },
+  AuthorizedExecutionPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/AuthorizedExecutionSummary',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  AuthorizedExecutionSummary: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'started_at',
+      'ended_at',
+      'timezone',
+      'activity_type_code',
+      'activity_type_name',
+      'discipline_code',
+      'achieved_level',
+      'origin',
+      'planned_session_id',
+      'applied_scope',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      ended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      activity_type_code: {
+        type: 'string',
+      },
+      activity_type_name: {
+        type: 'string',
+      },
+      discipline_code: {
+        type: 'string',
+      },
+      achieved_level: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/CompletenessLevel',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      origin: {
+        $ref: '#/components/schemas/AuthorizedExecutionOrigin',
+      },
+      planned_session_id: {
+        description: 'The planned session it fulfilled; only for a session of this relationship.',
+        type: ['string', 'null'],
+        format: 'uuid',
       },
       applied_scope: {
         $ref: '#/components/schemas/AppliedScope',
@@ -1008,40 +1155,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       page: {
         $ref: '#/components/schemas/Page',
-      },
-    },
-  },
-  AuthorizedStrengthSet: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['order', 'movement_id', 'achieved_reps', 'load', 'rpe'],
-    properties: {
-      order: {
-        type: 'integer',
-        minimum: 1,
-      },
-      movement_id: {
-        type: ['string', 'null'],
-        format: 'uuid',
-      },
-      achieved_reps: {
-        type: ['integer', 'null'],
-        minimum: 1,
-      },
-      load: {
-        oneOf: [
-          {
-            $ref: '#/components/schemas/Load',
-          },
-          {
-            type: 'null',
-          },
-        ],
-      },
-      rpe: {
-        type: ['number', 'null'],
-        minimum: 0,
-        maximum: 10,
       },
     },
   },
@@ -4300,234 +4413,252 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       segments: {
         type: 'array',
         items: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['position', 'activity_type_code'],
-          properties: {
-            position: {
-              type: 'integer',
-              minimum: 1,
-            },
-            activity_type_code: {
-              type: ['string', 'null'],
-            },
-          },
+          $ref: '#/components/schemas/ExecutionDetailSegment',
         },
       },
       strength_sets: {
         type: 'array',
         items: {
-          type: 'object',
-          additionalProperties: false,
-          required: [
-            'segment_position',
-            'order',
-            'movement_id',
-            'movement_name',
-            'achieved_reps',
-            'load',
-            'rpe',
-          ],
-          properties: {
-            segment_position: {
-              type: ['integer', 'null'],
-            },
-            order: {
-              type: 'integer',
-              minimum: 1,
-            },
-            movement_id: {
-              type: ['string', 'null'],
-              format: 'uuid',
-            },
-            movement_name: {
-              type: ['string', 'null'],
-            },
-            achieved_reps: {
-              type: ['integer', 'null'],
-            },
-            load: {
-              oneOf: [
-                {
-                  $ref: '#/components/schemas/Load',
-                },
-                {
-                  type: 'null',
-                },
-              ],
-            },
-            rpe: {
-              type: ['number', 'null'],
-            },
-          },
+          $ref: '#/components/schemas/ExecutionDetailStrengthSet',
         },
       },
       endurance_laps: {
         type: 'array',
         items: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['segment_position', 'lap_number', 'distance', 'duration_seconds'],
-          properties: {
-            segment_position: {
-              type: ['integer', 'null'],
-            },
-            lap_number: {
-              type: 'integer',
-              minimum: 1,
-            },
-            distance: {
-              $ref: '#/components/schemas/Distance',
-            },
-            duration_seconds: {
-              type: 'number',
-            },
-          },
+          $ref: '#/components/schemas/ExecutionDetailEnduranceLap',
         },
       },
       interval_results: {
         type: 'array',
         items: {
-          type: 'object',
-          additionalProperties: false,
-          required: [
-            'segment_position',
-            'interval_number',
-            'work_duration_seconds',
-            'rest_duration_seconds',
-            'achieved_repetitions',
-            'distance',
-            'completed',
-          ],
-          properties: {
-            segment_position: {
-              type: ['integer', 'null'],
-            },
-            interval_number: {
-              type: 'integer',
-              minimum: 1,
-            },
-            work_duration_seconds: {
-              type: 'number',
-            },
-            rest_duration_seconds: {
-              type: ['number', 'null'],
-            },
-            achieved_repetitions: {
-              type: ['integer', 'null'],
-            },
-            distance: {
-              oneOf: [
-                {
-                  $ref: '#/components/schemas/Distance',
-                },
-                {
-                  type: 'null',
-                },
-              ],
-            },
-            completed: {
-              type: ['boolean', 'null'],
-            },
-          },
+          $ref: '#/components/schemas/ExecutionDetailIntervalResult',
         },
       },
       round_results: {
         type: 'array',
         items: {
-          type: 'object',
-          additionalProperties: false,
-          required: [
-            'segment_position',
-            'round_number',
-            'activity_family',
-            'completed_repetitions',
-            'duration_seconds',
-            'distance',
-            'load',
-          ],
-          properties: {
-            segment_position: {
-              type: ['integer', 'null'],
-            },
-            round_number: {
-              type: 'integer',
-              minimum: 1,
-            },
-            activity_family: {
-              type: 'string',
-              enum: ['strength', 'endurance', 'interval', 'mobility'],
-            },
-            completed_repetitions: {
-              type: ['integer', 'null'],
-            },
-            duration_seconds: {
-              type: ['number', 'null'],
-            },
-            distance: {
-              oneOf: [
-                {
-                  $ref: '#/components/schemas/Distance',
-                },
-                {
-                  type: 'null',
-                },
-              ],
-            },
-            load: {
-              oneOf: [
-                {
-                  $ref: '#/components/schemas/Load',
-                },
-                {
-                  type: 'null',
-                },
-              ],
-            },
-          },
+          $ref: '#/components/schemas/ExecutionDetailRoundResult',
         },
       },
       mobility_results: {
         type: 'array',
         items: {
-          type: 'object',
-          additionalProperties: false,
-          required: [
-            'segment_position',
-            'sequence_position',
-            'movement_id',
-            'movement_name',
-            'side',
-            'hold_duration_seconds',
-            'completed_repetitions',
-          ],
-          properties: {
-            segment_position: {
-              type: ['integer', 'null'],
-            },
-            sequence_position: {
-              type: 'integer',
-              minimum: 1,
-            },
-            movement_id: {
-              type: ['string', 'null'],
-              format: 'uuid',
-            },
-            movement_name: {
-              type: ['string', 'null'],
-            },
-            side: {
-              type: ['string', 'null'],
-              enum: ['left', 'right', 'bilateral', 'not_applicable', null],
-            },
-            hold_duration_seconds: {
-              type: ['number', 'null'],
-            },
-            completed_repetitions: {
-              type: ['integer', 'null'],
-            },
-          },
+          $ref: '#/components/schemas/ExecutionDetailMobilityResult',
         },
+      },
+    },
+  },
+  ExecutionDetailEnduranceLap: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['segment_position', 'lap_number', 'distance', 'duration_seconds'],
+    properties: {
+      segment_position: {
+        type: ['integer', 'null'],
+      },
+      lap_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      distance: {
+        $ref: '#/components/schemas/Distance',
+      },
+      duration_seconds: {
+        type: 'number',
+      },
+    },
+  },
+  ExecutionDetailIntervalResult: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'segment_position',
+      'interval_number',
+      'work_duration_seconds',
+      'rest_duration_seconds',
+      'achieved_repetitions',
+      'distance',
+      'completed',
+    ],
+    properties: {
+      segment_position: {
+        type: ['integer', 'null'],
+      },
+      interval_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      work_duration_seconds: {
+        type: 'number',
+      },
+      rest_duration_seconds: {
+        type: ['number', 'null'],
+      },
+      achieved_repetitions: {
+        type: ['integer', 'null'],
+      },
+      distance: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Distance',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      completed: {
+        type: ['boolean', 'null'],
+      },
+    },
+  },
+  ExecutionDetailMobilityResult: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'segment_position',
+      'sequence_position',
+      'movement_id',
+      'movement_name',
+      'side',
+      'hold_duration_seconds',
+      'completed_repetitions',
+    ],
+    properties: {
+      segment_position: {
+        type: ['integer', 'null'],
+      },
+      sequence_position: {
+        type: 'integer',
+        minimum: 1,
+      },
+      movement_id: {
+        type: ['string', 'null'],
+        format: 'uuid',
+      },
+      movement_name: {
+        type: ['string', 'null'],
+      },
+      side: {
+        type: ['string', 'null'],
+        enum: ['left', 'right', 'bilateral', 'not_applicable', null],
+      },
+      hold_duration_seconds: {
+        type: ['number', 'null'],
+      },
+      completed_repetitions: {
+        type: ['integer', 'null'],
+      },
+    },
+  },
+  ExecutionDetailRoundResult: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'segment_position',
+      'round_number',
+      'activity_family',
+      'completed_repetitions',
+      'duration_seconds',
+      'distance',
+      'load',
+    ],
+    properties: {
+      segment_position: {
+        type: ['integer', 'null'],
+      },
+      round_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      activity_family: {
+        type: 'string',
+        enum: ['strength', 'endurance', 'interval', 'mobility'],
+      },
+      completed_repetitions: {
+        type: ['integer', 'null'],
+      },
+      duration_seconds: {
+        type: ['number', 'null'],
+      },
+      distance: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Distance',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      load: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Load',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  ExecutionDetailSegment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['position', 'activity_type_code'],
+    properties: {
+      position: {
+        type: 'integer',
+        minimum: 1,
+      },
+      activity_type_code: {
+        type: ['string', 'null'],
+      },
+    },
+  },
+  ExecutionDetailStrengthSet: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'segment_position',
+      'order',
+      'movement_id',
+      'movement_name',
+      'achieved_reps',
+      'load',
+      'rpe',
+    ],
+    properties: {
+      segment_position: {
+        type: ['integer', 'null'],
+      },
+      order: {
+        type: 'integer',
+        minimum: 1,
+      },
+      movement_id: {
+        type: ['string', 'null'],
+        format: 'uuid',
+      },
+      movement_name: {
+        type: ['string', 'null'],
+      },
+      achieved_reps: {
+        type: ['integer', 'null'],
+      },
+      load: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Load',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      rpe: {
+        type: ['number', 'null'],
       },
     },
   },
@@ -5552,21 +5683,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   MealType: {
     type: 'string',
     enum: ['breakfast', 'lunch', 'dinner', 'snack', 'other'],
-  },
-  MeasuredValue: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['value', 'unit'],
-    properties: {
-      value: {
-        type: 'number',
-      },
-      unit: {
-        type: 'string',
-        minLength: 1,
-        maxLength: 16,
-      },
-    },
   },
   MobilityResultReplace: {
     type: 'object',
@@ -11604,6 +11720,94 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       published_at: {
         type: 'string',
         format: 'date-time',
+      },
+    },
+  },
+  SessionVisibilityDenial: {
+    description:
+      'One of her sessions and the relationship it is hidden from. `reverted` is shared again; `restored_at` says since when.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'executed_session_id',
+      'relationship_id',
+      'organization',
+      'status',
+      'denied_at',
+      'restored_at',
+      'session',
+    ],
+    properties: {
+      executed_session_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'display_name'],
+        properties: {
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          display_name: {
+            type: 'string',
+          },
+        },
+      },
+      status: {
+        type: 'string',
+        enum: ['active', 'reverted'],
+      },
+      denied_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      restored_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      session: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['started_at', 'activity_type_name'],
+        properties: {
+          started_at: {
+            type: 'string',
+            format: 'date-time',
+          },
+          activity_type_name: {
+            type: 'string',
+          },
+        },
+      },
+    },
+  },
+  SessionVisibilityDenialCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['relationship_id'],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+    },
+  },
+  SessionVisibilityDenialPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/SessionVisibilityDenial',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
     },
   },
