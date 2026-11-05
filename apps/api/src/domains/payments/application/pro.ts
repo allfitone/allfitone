@@ -9,6 +9,7 @@
  */
 
 import type {
+  Store,
   StoreBilling,
   StoreNotification,
   StorePurchase,
@@ -18,6 +19,7 @@ import type {
 import type { PaymentsCommandContext, PaymentsCommandResult } from '../domain/index.js'
 import type {
   NotificationOutcome,
+  NotificationRefusal,
   ProDatabase,
   ProPayments,
   ProPlanCatalogue,
@@ -41,6 +43,7 @@ export interface ProService {
     body: string,
     requestId: string,
   ): Promise<NotificationOutcome>
+  notificationRefused(store: Store, reason: NotificationRefusal): Promise<void>
 }
 
 function storePurchase(request: ProPurchaseRequest): StorePurchase {
@@ -83,5 +86,8 @@ export function createProService(database: ProDatabase, billing: () => StoreBill
     async googlePlayNotification(authorization, body, requestId) {
       return apply(await billing().verifyGooglePlayNotification(authorization, body), requestId)
     },
+
+    notificationRefused: (store, reason) =>
+      database.recordNotificationRefusal({ store, reason, requestId: crypto.randomUUID() }),
   }
 }

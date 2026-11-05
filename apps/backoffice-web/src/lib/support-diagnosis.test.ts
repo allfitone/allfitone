@@ -11,6 +11,13 @@ import {
   sourceFilterLabel,
   sourceLabel,
   supportDiagnosisMessage,
+  isValidOperationIdentifier,
+  jobHealthLine,
+  jobHealthTone,
+  jobLabel,
+  silentJobs,
+  shortIdentifier,
+  subjectLine,
   type SupportDeliveryCircuit,
   type SupportOperation,
 } from './support-diagnosis'
@@ -109,5 +116,79 @@ describe('technical diagnosis vocabulary', () => {
   test('explains a refusal as an expired duty rather than a mistake', () => {
     expect(supportDiagnosisMessage('forbidden')).toContain('vencen por diseño')
     expect(supportDiagnosisMessage('anything-else')).toBe('No se pudo leer el estado técnico.')
+  })
+})
+
+// HU-BO-031 c1 and c3: the identifiers were in the answer and nowhere on screen.
+describe('the identifiers an operation carries', () => {
+  test('an identifier is shortened for the row and kept whole for its title', () => {
+    expect(shortIdentifier('019a7000-0000-7000-8000-000000000001')).toBe('019a7000…')
+  })
+
+  test('the subject says what kind of thing it is and which one', () => {
+    expect(
+      subjectLine(
+        operation({
+          subject_kind: 'organization',
+          subject_id: '019a7000-0000-7000-8000-000000000001',
+        }),
+      ),
+    ).toBe('organization 019a7000…')
+    expect(subjectLine(operation({ subject_kind: null, subject_id: null }))).toBe('Sin sujeto')
+  })
+
+  test('only an identifier is searched for, so a typo never becomes an empty answer', () => {
+    expect(isValidOperationIdentifier(' 019a7000-0000-7000-8000-000000000001 ')).toBe(true)
+    expect(isValidOperationIdentifier('019a7000')).toBe(false)
+    expect(isValidOperationIdentifier('')).toBe(false)
+  })
+})
+
+// HU-BO-031 c2: failed jobs, refused store notices and deliveries nobody picked up.
+describe('what failed silently', () => {
+  test('the new sources and the failed state read as words, and a failure as a failure', () => {
+    expect(sourceLabel('job')).toBe('Tarea programada')
+    expect(sourceLabel('store_notification')).toBe('Aviso de la tienda')
+    expect(operationStateLabel('failed')).toBe('Falló')
+    expect(operationStateTone('failed')).toBe('destructive')
+    expect(needsAttention(operation({ source: 'job', state: 'failed' }))).toBe(true)
+  })
+
+  const NOW = Date.parse('2026-11-04T12:00:00.000Z')
+  const job = {
+    job_name: 'privacy_disposition',
+    last_run_at: '2026-11-04T11:59:00.000Z',
+    last_outcome: 'succeeded' as const,
+    last_failure_at: null,
+    last_error_code: null,
+    failures_24h: 0,
+  }
+
+  test('a job says when it last ran and how it went', () => {
+    expect(jobLabel('privacy_disposition')).toBe('Eliminaciones de privacidad')
+    expect(jobLabel('something_new')).toBe('something_new')
+    expect(jobHealthLine(job, NOW)).toBe('Corrió hace 1 min y terminó bien.')
+    expect(
+      jobHealthLine(
+        {
+          ...job,
+          last_outcome: 'failed',
+          last_failure_at: job.last_run_at,
+          last_error_code: 'x_failed',
+          failures_24h: 4,
+        },
+        NOW,
+      ),
+    ).toBe('Corrió hace 1 min y falló (x_failed). 4 fallos en 24 horas.')
+    expect(jobHealthTone(job, NOW)).toBe('success')
+    expect(jobHealthTone({ ...job, last_outcome: 'failed' }, NOW)).toBe('destructive')
+  })
+
+  test('a job that stopped running is called out, because nothing else would say so', () => {
+    const stale = { ...job, last_run_at: '2026-11-04T11:40:00.000Z' }
+    expect(jobHealthTone(stale, NOW)).toBe('warning')
+    expect(jobHealthLine(stale, NOW)).toContain('No corre desde hace 20 min')
+    expect(silentJobs([job, stale], NOW)).toEqual(['privacy_disposition'])
+    expect(silentJobs([job], NOW)).toEqual([])
   })
 })

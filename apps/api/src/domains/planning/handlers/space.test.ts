@@ -190,6 +190,7 @@ const weekPlan: WeekPlan = {
       set_count: 16,
       done: true,
       open_execution_id: null,
+      hold: null,
       last_time: {
         trained_on: '2026-08-24',
         seconds: 3240,
@@ -209,6 +210,7 @@ const weekPlan: WeekPlan = {
       set_count: 12,
       done: false,
       open_execution_id: null,
+      hold: null,
       last_time: null,
     },
   ],
@@ -679,6 +681,35 @@ describe('GET /space/v1/week-plan', () => {
 
     expect(response.status).toBe(404)
   })
+
+  test('T-PLN-API-182 says which sessions are held and why, as the contract describes it', async () => {
+    // HU-BO-016 c3 and HU-SP-083: the database derives it from the open blocks; the surface
+    // only carries it, so the screen can say why a session does not start.
+    const [first, second] = weekPlan.sessions
+    if (!first || !second) throw new Error('the fixture plans two sessions')
+    const held = harness({
+      service: {
+        readWeekPlan: async () => ({
+          ...weekPlan,
+          sessions: [
+            { ...first, hold: { state: 'missed', cause: 'organization_suspension' } },
+            { ...second, hold: { state: 'paused', cause: 'subscription_suspension' } },
+          ],
+        }),
+      },
+    })
+    const response = await held.request('/space/v1/week-plan?timezone=America/Bogota', {
+      headers: authorized,
+    })
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as WeekPlan
+    expect(body.sessions.map((routine) => routine.hold)).toEqual([
+      { state: 'missed', cause: 'organization_suspension' },
+      { state: 'paused', cause: 'subscription_suspension' },
+    ])
+    assertMatchesContract('SpaceWeekPlan', body)
+  })
 })
 
 describe('GET /space/v1/programs/mine', () => {
@@ -1054,6 +1085,30 @@ describe('GET /space/v1/today', () => {
     expect(response.status).toBe(200)
     const body = (await response.json()) as { open_free_session_id: string | null }
     expect(body.open_free_session_id).toBe(open)
+    assertMatchesContract('SpaceToday', body)
+  })
+
+  test('T-PLN-API-183 the session of the day says when it is held and why', async () => {
+    const response = await harness({
+      service: {
+        readTodaySession: async () => ({
+          planned_session_id: SECOND_SESSION_ID,
+          program_title: 'Fuerza del gimnasio',
+          session_title: 'Pierna',
+          discipline_code: 'strength',
+          status: 'scheduled',
+          exercise_count: 4,
+          executed_session_id: null,
+          hold: { state: 'paused', cause: 'subscription_suspension' },
+        }),
+      },
+    }).request('/space/v1/today?timezone=America/Bogota', { headers: authorized })
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      session: { hold: { state: string; cause: string } | null } | null
+    }
+    expect(body.session?.hold).toEqual({ state: 'paused', cause: 'subscription_suspension' })
     assertMatchesContract('SpaceToday', body)
   })
 

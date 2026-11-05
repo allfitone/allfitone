@@ -25,6 +25,7 @@ import type {
   SupportBusinessDatabase,
   SupportBusinessPanel,
   SupportDeliveryCircuit,
+  SupportJobHealth,
   SupportDiagnosisDatabase,
   SupportOperation,
   SupportOperationCursor,
@@ -32,6 +33,7 @@ import type {
   SupportOperationState,
   SupportMetadataDatabase,
   SupportPersonPayments,
+  SupportBillingFollowUp,
   SupportPeopleSearch,
   SupportPersonMatch,
   SupportPersonMetadata,
@@ -150,6 +152,11 @@ export interface SupportMetadataService {
     reader: SupportReader,
     input: { requestId: string; caseReference: string; personId: string },
   ): Promise<SupportPersonPayments>
+  /** Who needs following up for what they pay; the duty, case and record are the database's. */
+  billingFollowUp(
+    reader: SupportReader,
+    input: { requestId: string; caseReference: string; limit: number },
+  ): Promise<SupportBillingFollowUp>
 }
 
 export function createSupportMetadataService(
@@ -170,6 +177,7 @@ export function createSupportMetadataService(
     },
     read: (reader, input) => database.read({ ...reader, ...input }),
     payments: (reader, input) => database.payments({ ...reader, ...input }),
+    billingFollowUp: (reader, input) => database.billingFollowUp({ ...reader, ...input }),
   }
 }
 
@@ -194,6 +202,8 @@ export interface SupportDiagnosisService {
     reader: SupportReader,
     input: { requestId: string },
   ): Promise<SupportDeliveryCircuit[]>
+  /** When each scheduled job last ran, so a stopped worker is noticed. */
+  jobHealth(reader: SupportReader, input: { requestId: string }): Promise<SupportJobHealth>
 }
 
 export function createSupportDiagnosisService(
@@ -202,6 +212,7 @@ export function createSupportDiagnosisService(
   return {
     listOperations: (reader, input) => database.listOperations({ ...reader, ...input }),
     listDeliveryCircuits: (reader, input) => database.listDeliveryCircuits({ ...reader, ...input }),
+    jobHealth: (reader, input) => database.jobHealth({ ...reader, ...input }),
   }
 }
 

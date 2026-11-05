@@ -108,6 +108,29 @@ const personPayments: AllfitV1Schemas['SupportPersonPayments'] = {
 
 let captured: CapturedCall[] = []
 
+const followUp: AllfitV1Schemas['SupportBillingFollowUp'] = {
+  generated_at: '2026-11-04T12:00:00.000Z',
+  window_days: 30,
+  items: [
+    {
+      person_id: SUBJECT_ID,
+      subscription_status: 'suspended',
+      plan_name: 'Pro',
+      store: 'google_play',
+      grace_until: null,
+      suspended_at: '2026-10-31T12:00:00.000Z',
+      failed_charges: 1,
+      last_failed_charge: {
+        occurred_at: '2026-10-30T12:00:00.000Z',
+        failure_code: 'billing_retry',
+        amount_minor: 1990000,
+        currency_code: 'COP',
+      },
+    },
+  ],
+  has_more: false,
+}
+
 function metadataService(overrides: Partial<SupportMetadataService> = {}): SupportMetadataService {
   return {
     search: (reader, input) => {
@@ -121,6 +144,10 @@ function metadataService(overrides: Partial<SupportMetadataService> = {}): Suppo
     payments: (reader, input) => {
       captured.push({ operation: 'payments', reader, input })
       return Promise.resolve(personPayments)
+    },
+    billingFollowUp: (reader, input) => {
+      captured.push({ operation: 'billingFollowUp', reader, input })
+      return Promise.resolve(followUp)
     },
     ...overrides,
   }
@@ -170,6 +197,22 @@ function diagnosisService(
           opened_until: '2026-09-10T19:00:00.000Z',
         },
       ])
+    },
+    jobHealth: (_reader, input) => {
+      diagnosisCalls.push(input)
+      return Promise.resolve({
+        generated_at: '2026-11-04T12:00:00.000Z',
+        items: [
+          {
+            job_name: 'privacy_disposition',
+            last_run_at: '2026-11-04T11:59:00.000Z',
+            last_outcome: 'failed',
+            last_failure_at: '2026-11-04T11:59:00.000Z',
+            last_error_code: 'privacy_disposition_failed',
+            failures_24h: 3,
+          },
+        ],
+      })
     },
     ...overrides,
   }
@@ -329,6 +372,8 @@ describe('Backoffice support metadata API contract', () => {
           'NEW-SUP-ATTENTION',
           'NEW-SUP-DASHBOARD',
           'NEW-SUP-PERSON-PAYMENTS',
+          'NEW-SUP-BILLING-FOLLOW-UP',
+          'NEW-SUP-JOB-HEALTH',
         ].includes(operation.allfitOperation),
       )
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
@@ -338,7 +383,7 @@ describe('Backoffice support metadata API contract', () => {
       .map((route) => `${route.method} /backoffice/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(7)
+    expect(contract).toHaveLength(9)
     expect(mounted).toEqual(contract)
   })
 
@@ -355,6 +400,34 @@ describe('Backoffice support metadata API contract', () => {
     expect(mounted).toContain('GET /backoffice/v1/support/delivery-circuits')
     expect(mounted).toContain('GET /backoffice/v1/support/attention')
     expect(mounted).toContain('GET /backoffice/v1/support/business')
+    expect(mounted).toContain('GET /backoffice/v1/support/billing-follow-up')
+    expect(mounted).toContain('GET /backoffice/v1/support/job-health')
+  })
+
+  test('T-SUP-API-50 reads the job health without a case reference, and refuses a filter', async () => {
+    const response = await routes().fetch(request('/support/job-health'))
+    const filtered = await routes().fetch(request('/support/job-health?job=privacy_disposition'))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    const body = (await response.json()) as { items: { last_outcome: string }[] }
+    expect(body.items[0]?.last_outcome).toBe('failed')
+    expect(filtered.status).toBe(400)
+  })
+
+  test('T-SUP-API-51 filters the feed by the two new sources and the failed state', async () => {
+    const answers = await Promise.all(
+      ['source=job', 'source=store_notification', 'state=failed'].map((query) =>
+        routes().fetch(request(`/support/operations?${query}`)),
+      ),
+    )
+
+    expect(answers.map((response) => response.status)).toEqual([200, 200, 200])
+    expect(diagnosisCalls).toMatchObject([
+      { source: 'job' },
+      { source: 'store_notification' },
+      { state: 'failed' },
+    ])
   })
 
   test('T-SUP-API-23 finds a person by an exact contact and carries the case through', async () => {
@@ -463,6 +536,41 @@ describe('Backoffice support metadata API contract', () => {
 
     expect(response.status).toBe(400)
     expect(captured.some((entry) => entry.operation === 'payments')).toBe(false)
+  })
+
+  test('T-SUP-API-48 lists the charges to follow up under the case, with its page size', async () => {
+    const response = await routes().fetch(
+      request(`/support/billing-follow-up?case_reference=${CASE}&limit=20`),
+    )
+    const defaulted = await routes().fetch(
+      request(`/support/billing-follow-up?case_reference=${CASE}`),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(await response.json()).toEqual(followUp)
+    expect(defaulted.status).toBe(200)
+    const calls = captured.filter((entry) => entry.operation === 'billingFollowUp')
+    expect(calls.map((call) => call.input)).toMatchObject([
+      { caseReference: CASE, limit: 20 },
+      { caseReference: CASE, limit: 50 },
+    ])
+  })
+
+  test('T-SUP-API-49 refuses the list without a case or with a page outside the contract', async () => {
+    const answers = await Promise.all(
+      [
+        '/support/billing-follow-up',
+        '/support/billing-follow-up?case_reference=sin%20caso',
+        `/support/billing-follow-up?case_reference=${CASE}&limit=0`,
+        `/support/billing-follow-up?case_reference=${CASE}&limit=201`,
+        `/support/billing-follow-up?case_reference=${CASE}&limit=diez`,
+        `/support/billing-follow-up?case_reference=${CASE}&status=suspended`,
+      ].map((path) => routes().fetch(request(path))),
+    )
+
+    expect(answers.map((response) => response.status)).toEqual([400, 400, 400, 400, 400, 400])
+    expect(captured.some((entry) => entry.operation === 'billingFollowUp')).toBe(false)
   })
 
   test('T-SUP-API-29 rejects a malformed person before reaching the database', async () => {

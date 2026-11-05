@@ -69,6 +69,38 @@ test('correcting a contract publishes the next version and closes the previous b
   await expect(page.getByText(/en lugar de\s+borrarse/)).toBeVisible()
 })
 
+// HU-BO-023: an older version was listed nowhere, so nothing could deprecate it.
+test('lists every version of the type and deprecates an older one from the list', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await fillPublication(page)
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
+  await fillPublication(page, { minimums: '{"target_sets":3}' })
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await expect(page.getByText('Publicada la versión 2 de test.backoffice_front')).toBeVisible()
+
+  const versions = page.locator('[data-contract-versions]')
+  await expect(versions.locator('[data-contract-versions-summary]')).toHaveText(
+    '2 versiones: 2 en vigor y 0 deprecadas.',
+  )
+  await versions
+    .getByRole('button', { name: 'Deprecar la versión 1 de test.backoffice_front' })
+    .click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Deprecar', exact: true }).click()
+
+  await expect(page.getByText('Deprecada la versión 1 de test.backoffice_front')).toBeVisible()
+  await expect(versions.locator('[data-contract-versions-summary]')).toHaveText(
+    '2 versiones: 1 en vigor y 1 deprecada.',
+  )
+  await expect(versions.locator('[data-contract-version="deprecated"]')).toContainText('Versión 1')
+})
+
 test('refuses a suite that never demonstrates a refusal', async ({ context, page }) => {
   const fixture = createBackofficeFixture({ session: activeSession() })
   await mockBackofficeApi(context, fixture)

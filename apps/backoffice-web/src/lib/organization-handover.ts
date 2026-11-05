@@ -18,6 +18,7 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
 import { formatInstant } from './platform-access'
+import { staffName } from './platform-staff'
 
 export type OrganizationHandover = AllfitV1Schemas['OrganizationHandover']
 export type OrganizationHandoverCreate = AllfitV1Schemas['OrganizationHandoverCreate']
@@ -180,6 +181,44 @@ export function responsibleSentence(handover: OrganizationHandover): string {
   return handover.status === 'unclaimed' || handover.status === 'cancelled'
     ? 'Una persona natural. Su nombre se toma de su propia cuenta cuando acepte.'
     : 'Una persona natural, nombrada con su propia cuenta al aceptar.'
+}
+
+/** HU-BO-013 c5: a claimed natural person's address is withheld, and the line says so. */
+export function siteLine(handover: OrganizationHandover): string {
+  const site = handover.site
+  if (!site) return 'Sin sede declarada'
+  if (site.address_withheld) {
+    return `${site.name} · dirección reservada: es de la persona natural que responde por el gimnasio`
+  }
+  return [site.name, site.address].filter(Boolean).join(' · ')
+}
+
+/** HU-BO-014 c7: who on Allfit's team created the gym. */
+export function createdBySentence(handover: OrganizationHandover): string {
+  const actor = handover.created_by
+  if (actor === null) return 'No lo creó nadie del equipo de Allfit One.'
+  return `Lo creó ${staffName(actor.name, actor.person_id)}, del equipo de Allfit One.`
+}
+
+/** HU-BO-015 c3: who cancelled it, once somebody did. */
+export function cancelledBySentence(handover: OrganizationHandover): string | undefined {
+  const actor = handover.cancelled_by
+  return actor === null ? undefined : `Lo canceló ${staffName(actor.name, actor.person_id)}.`
+}
+
+/**
+ * HU-BO-034 c1: the quota is set in the gym's file, which the directory opens only once
+ * the gym is claimed. A gym that waits for its owner is sold its number from here.
+ */
+export function fileLink(
+  handover: OrganizationHandover,
+): { href: string; label: string } | undefined {
+  const href = `/organizations/${handover.organization_id}`
+  if (handover.status === 'unclaimed') {
+    return { href, label: 'Fijar su cupo en la ficha del gimnasio' }
+  }
+  if (handover.status === 'cancelled') return undefined
+  return { href, label: 'Ver la ficha del gimnasio' }
 }
 
 export function handoverMessage(code: string): string {

@@ -1318,7 +1318,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   BackofficeGlobalCatalogue: {
     type: 'object',
     additionalProperties: false,
-    required: ['disciplines', 'activity_types', 'movements', 'equipment_availability'],
+    required: ['disciplines', 'activity_types', 'movements', 'equipment', 'equipment_availability'],
     properties: {
       disciplines: {
         type: 'array',
@@ -1338,7 +1338,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/GlobalCatalogueEntry',
         },
       },
+      equipment: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/GlobalCatalogueEquipment',
+        },
+      },
       equipment_availability: {
+        description:
+          'Always `available` now that equipment is published here. Kept for screens that still read it.',
         $ref: '#/components/schemas/SupportBlockAvailability',
       },
     },
@@ -2694,6 +2702,70 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  CatalogueEquipmentPublication: {
+    type: 'object',
+    additionalProperties: false,
+    description: 'Global equipment. The code is chosen once and never means anything else.',
+    required: ['code', 'name'],
+    properties: {
+      code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+    },
+  },
+  CatalogueMovementEquipment: {
+    type: 'object',
+    additionalProperties: false,
+    description: "The movement's whole list; an empty one says it needs no equipment.",
+    required: ['items'],
+    properties: {
+      items: {
+        type: 'array',
+        maxItems: 30,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['code', 'requirement'],
+          properties: {
+            code: {
+              type: 'string',
+              pattern: '^[a-z][a-z0-9_]{1,63}$',
+            },
+            requirement: {
+              type: 'string',
+              enum: ['required', 'optional'],
+            },
+          },
+        },
+      },
+    },
+  },
+  CatalogueMovementEquipmentItem: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code', 'name', 'requirement'],
+    properties: {
+      code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      requirement: {
+        type: 'string',
+        enum: ['required', 'optional'],
+      },
+    },
+  },
   CatalogueMovementPublication: {
     type: 'object',
     additionalProperties: false,
@@ -3747,7 +3819,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       viewer_can_decide: {
         type: 'boolean',
         description:
-          'A hint for the screen, never authority. False when the caller is the holder or shares an active organization with them.',
+          'A hint for the screen, never authority. False when the caller is the holder, shares an active organization with them, or is their assigned professional or has them as theirs (ADR-026).',
       },
     },
   },
@@ -4882,7 +4954,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'object',
     additionalProperties: false,
     description:
-      'One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name.',
+      'One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name, and only a movement carries `equipment`.',
     required: [
       'kind',
       'id',
@@ -4906,6 +4978,47 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         pattern: '^[a-z][a-z0-9_]{1,63}$',
       },
       discipline_code: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{1,63}$',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      status: {
+        type: 'string',
+        enum: ['draft', 'published', 'deprecated', 'archived'],
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      in_use_count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      equipment: {
+        type: 'array',
+        description: 'What a movement uses, required first. Absent for other kinds.',
+        maxItems: 30,
+        items: {
+          $ref: '#/components/schemas/CatalogueMovementEquipmentItem',
+        },
+      },
+    },
+  },
+  GlobalCatalogueEquipment: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'Global equipment as its curator sees it. `in_use_count` is how many movements name it, so archiving is taken with the consequence in view.',
+    required: ['id', 'code', 'name', 'status', 'created_at', 'in_use_count'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      code: {
         type: 'string',
         pattern: '^[a-z][a-z0-9_]{1,63}$',
       },
@@ -7366,6 +7479,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'places_left',
       'over_quota',
       'last_change',
+      'history',
     ],
     properties: {
       organization_id: {
@@ -7408,7 +7522,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         additionalProperties: false,
         description:
           'Null when nobody has ever set a quota here, which is a different answer from somebody having set it to no limit.',
-        required: ['at', 'by_person_id', 'by_duty_assignment_id', 'previous_seats'],
+        required: ['at', 'by_person_id', 'by_name', 'by_duty_assignment_id', 'previous_seats'],
         properties: {
           at: {
             type: 'string',
@@ -7416,6 +7530,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
           by_person_id: {
             $ref: '#/components/schemas/Uuid',
+          },
+          by_name: {
+            type: ['string', 'null'],
+            description: "Who on Allfit's team set it.",
           },
           by_duty_assignment_id: {
             $ref: '#/components/schemas/Uuid',
@@ -7426,6 +7544,42 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             description: 'What it was before. Null means it had no limit then.',
           },
         },
+      },
+      history: {
+        type: 'array',
+        description:
+          'Every change, newest first (criterion 3): who, when, the value it set and the one it replaced. Empty when nobody has ever set a quota here.',
+        items: {
+          $ref: '#/components/schemas/OrganizationGuestQuotaChange',
+        },
+      },
+    },
+  },
+  OrganizationGuestQuotaChange: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['at', 'by_person_id', 'by_name', 'seats', 'previous_seats'],
+    properties: {
+      at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      by_person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      by_name: {
+        type: ['string', 'null'],
+        description: "Who on Allfit's team set it.",
+      },
+      seats: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        description: 'What it was set to. Null is a deal with no cap.',
+      },
+      previous_seats: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        description: 'What it replaced. Null means it had no limit then.',
       },
     },
   },
@@ -7457,6 +7611,8 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'created_at',
       'claimed_at',
       'cancelled_at',
+      'created_by',
+      'cancelled_by',
       'site',
       'invitation',
     ],
@@ -7494,10 +7650,33 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: ['string', 'null'],
         format: 'date-time',
       },
+      created_by: {
+        description:
+          "Who on Allfit's team created the gym (HU-BO-014 c7). Null for a gym its owner created in Studio, which nobody at Allfit created.",
+        oneOf: [
+          {
+            $ref: '#/components/schemas/PlatformStaffActor',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      cancelled_by: {
+        description: "Who on Allfit's team cancelled it (HU-BO-015 c3). Null until then.",
+        oneOf: [
+          {
+            $ref: '#/components/schemas/PlatformStaffActor',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
       site: {
         type: ['object', 'null'],
         additionalProperties: false,
-        required: ['site_id', 'name', 'address'],
+        required: ['site_id', 'name', 'address', 'address_withheld'],
         properties: {
           site_id: {
             $ref: '#/components/schemas/Uuid',
@@ -7507,6 +7686,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
           address: {
             type: ['string', 'null'],
+          },
+          address_withheld: {
+            type: 'boolean',
+            description:
+              "True once a natural person has claimed the gym: the address is theirs then and is withheld, as the gym's file withholds it. Before the claim it is the address Allfit typed and is shown.",
           },
         },
       },
@@ -8058,6 +8242,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
               'reason_code',
               'started_at',
               'started_by_person_id',
+              'started_by_name',
               'people_blocked',
             ],
             properties: {
@@ -8075,6 +8260,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
               started_by_person_id: {
                 type: 'string',
                 format: 'uuid',
+              },
+              started_by_name: {
+                type: ['string', 'null'],
+                description: "Who on Allfit's team stopped the gym.",
               },
               people_blocked: {
                 type: 'integer',
@@ -8115,8 +8304,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'reason_code',
       'started_at',
       'started_by_person_id',
+      'started_by_name',
       'ended_at',
       'ended_by_person_id',
+      'ended_by_name',
     ],
     properties: {
       suspension_id: {
@@ -8134,6 +8325,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         format: 'uuid',
       },
+      started_by_name: {
+        type: ['string', 'null'],
+        description:
+          "The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be.",
+      },
       ended_at: {
         type: ['string', 'null'],
         format: 'date-time',
@@ -8141,6 +8337,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       ended_by_person_id: {
         type: ['string', 'null'],
         format: 'uuid',
+      },
+      ended_by_name: {
+        type: ['string', 'null'],
+        description: "Who on Allfit's team lifted it. Null while the period is open.",
       },
     },
   },
@@ -9097,6 +9297,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       platform_role: {
         type: 'string',
         enum: ['allfit_admin'],
+      },
+    },
+  },
+  PlatformStaffActor: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      "Somebody on Allfit's team who acted on a record. The name is resolved only for people who hold or held a platform role or duty, so this can never name a client or a gym's owner.",
+    required: ['person_id', 'name'],
+    properties: {
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      name: {
+        type: ['string', 'null'],
+        description:
+          "The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be.",
       },
     },
   },
@@ -10879,6 +11096,22 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       requested_level: {
         $ref: '#/components/schemas/CompletenessLevel',
+      },
+    },
+  },
+  ResultContractVersionList: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['activity_type_id', 'items'],
+    properties: {
+      activity_type_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ResultContract',
+        },
       },
     },
   },
@@ -14514,6 +14747,27 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceSessionHold: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['state', 'cause'],
+    description:
+      'What holds a session of a programme a gym assigned, and why. Nothing of the programme starts while it is held, repeats included; an attempt already open is finished. What she trained before is unaffected, and her own programmes are never held.',
+    properties: {
+      state: {
+        type: 'string',
+        enum: ['paused', 'missed'],
+        description:
+          "`paused`: the cause is in force now, and the session waits for it to be lifted. `missed`: the session's day passed while it was; it stays not done and does not start later. A day missed outranks a pause, whatever the causes.",
+      },
+      cause: {
+        type: 'string',
+        enum: ['organization_suspension', 'subscription_suspension'],
+        description:
+          "`organization_suspension`: the gym is suspended (HU-BO-016). `subscription_suspension`: the gym paused her plan for a pending payment (HU-SP-083). When both hold it, the gym's suspension is the one given, since paying does not lift it.",
+      },
+    },
+  },
   SpaceSessionRecord: {
     type: 'object',
     additionalProperties: false,
@@ -14682,6 +14936,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'status',
       'exercise_count',
       'executed_session_id',
+      'hold',
     ],
     properties: {
       planned_session_id: {
@@ -14715,6 +14970,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         ],
         description:
           'The attempt already open on today\'s session, if there is one. It is what turns "Empezar" into "Continuar" and what stops a second attempt being started by accident.',
+      },
+      hold: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/SpaceSessionHold',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'Whether the session is held, and why. Never `missed`: a day missed that way does not start, so it is not offered.',
       },
     },
   },
@@ -14954,6 +15221,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'done',
       'open_execution_id',
       'last_time',
+      'hold',
     ],
     properties: {
       planned_session_id: {
@@ -15010,6 +15278,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         ],
         description:
           'An attempt already open on this routine, which is what turns "empezar" into "continuar".',
+      },
+      hold: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/SpaceSessionHold',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'Whether the session is held, and why. Null for her own programmes and for every session the gym is free to give her.',
       },
       last_time: {
         oneOf: [
@@ -15711,6 +15991,105 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SupportBillingFollowUp: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['generated_at', 'window_days', 'items', 'has_more'],
+    properties: {
+      generated_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      window_days: {
+        type: 'integer',
+        description: 'How far back a failed charge still needs following up.',
+        minimum: 1,
+      },
+      items: {
+        type: 'array',
+        maxItems: 200,
+        items: {
+          $ref: '#/components/schemas/SupportBillingFollowUpItem',
+        },
+      },
+      has_more: {
+        type: 'boolean',
+      },
+    },
+  },
+  SupportBillingFollowUpItem: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'One person to follow up. The state of their latest Allfit subscription, since when, and the last charge that failed in the window — never a store reference.',
+    required: [
+      'person_id',
+      'subscription_status',
+      'plan_name',
+      'store',
+      'grace_until',
+      'suspended_at',
+      'failed_charges',
+      'last_failed_charge',
+    ],
+    properties: {
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      subscription_status: {
+        type: ['string', 'null'],
+        enum: ['active', 'grace', 'suspended', 'ended', null],
+        description: 'Null when the failed charge has no subscription left behind it.',
+      },
+      plan_name: {
+        type: ['string', 'null'],
+      },
+      store: {
+        type: ['string', 'null'],
+        enum: ['app_store', 'google_play', null],
+      },
+      grace_until: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      suspended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      failed_charges: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Charges that failed within the window.',
+      },
+      last_failed_charge: {
+        oneOf: [
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['occurred_at', 'failure_code', 'amount_minor', 'currency_code'],
+            properties: {
+              occurred_at: {
+                type: 'string',
+                format: 'date-time',
+              },
+              failure_code: {
+                type: ['string', 'null'],
+              },
+              amount_minor: {
+                type: ['integer', 'null'],
+              },
+              currency_code: {
+                type: ['string', 'null'],
+              },
+            },
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
   SupportBlockAvailability: {
     type: 'string',
     description:
@@ -15927,6 +16306,61 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SupportJobHealth: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['generated_at', 'items'],
+    properties: {
+      generated_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      items: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/SupportJobHealthItem',
+        },
+      },
+    },
+  },
+  SupportJobHealthItem: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'job_name',
+      'last_run_at',
+      'last_outcome',
+      'last_failure_at',
+      'last_error_code',
+      'failures_24h',
+    ],
+    properties: {
+      job_name: {
+        type: 'string',
+        pattern: '^[a-z][a-z0-9_]{2,63}$',
+      },
+      last_run_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      last_outcome: {
+        type: 'string',
+        enum: ['succeeded', 'failed'],
+      },
+      last_failure_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      last_error_code: {
+        type: ['string', 'null'],
+        maxLength: 120,
+      },
+      failures_24h: {
+        type: 'integer',
+        minimum: 0,
+      },
+    },
+  },
   SupportOperation: {
     type: 'object',
     additionalProperties: false,
@@ -16002,12 +16436,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   },
   SupportOperationSourceKind: {
     type: 'string',
-    enum: ['notification', 'command'],
+    description:
+      '`job` is a scheduled job run that failed; `store_notification` counts the notices a store sent that were refused, per store, reason and hour, with nothing from the notice itself.',
+    enum: ['notification', 'command', 'job', 'store_notification'],
   },
   SupportOperationState: {
     type: 'string',
     description:
-      '`pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started.',
+      '`pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started, or a notification a worker consumes still unsent a quarter of an hour after it was due. `failed` is a job run that failed or a refused store notice.',
     enum: [
       'pending',
       'retrying',
@@ -16017,6 +16453,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'stalled',
       'succeeded',
       'rejected_final',
+      'failed',
     ],
   },
   SupportPeopleSearch: {

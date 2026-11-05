@@ -5,6 +5,8 @@ import {
   emptyMessage,
   erasureMessage,
   holdableCategories,
+  appendPage,
+  nextPageCursor,
   panelSummary,
   requestRows,
   urgencyOf,
@@ -180,14 +182,51 @@ describe('erasure request presentation rules', () => {
     ).toContain('Nutrición · en espera por una obligación legal')
   })
 
+  // HU-BO-032: «Hay más» used to say so and never fetch it.
+  test('the next page continues after the last row, in the order the half is read', () => {
+    const open: ErasureRequestPage = { items: [request(), request({ id: 'b' })], has_more: true }
+    expect(nextPageCursor(open, 'open')).toEqual({
+      cursor_at: '2026-08-28T12:00:00.000Z',
+      cursor_id: 'b',
+    })
+    const closed: ErasureRequestPage = {
+      items: [request({ id: 'c', status: 'closed', closed_at: '2026-09-01T12:00:00.000Z' })],
+      has_more: true,
+    }
+    expect(nextPageCursor(closed, 'closed')).toEqual({
+      cursor_at: '2026-09-01T12:00:00.000Z',
+      cursor_id: 'c',
+    })
+    expect(nextPageCursor({ ...open, has_more: false }, 'open')).toBeUndefined()
+  })
+
+  test('a page appended keeps each request once and takes the newer answer about more', () => {
+    const first: ErasureRequestPage = { items: [request(), request({ id: 'b' })], has_more: true }
+    const second: ErasureRequestPage = {
+      items: [request({ id: 'b' }), request({ id: 'c' })],
+      has_more: false,
+    }
+    const merged = appendPage(first, second)
+    expect(merged.items.map((item) => item.id)).toEqual([
+      '019ac000-0000-7000-8000-000000000501',
+      'b',
+      'c',
+    ])
+    expect(merged.has_more).toBe(false)
+  })
+
   test('the panel states what it is showing, including when it is late', () => {
     const page: ErasureRequestPage = {
       items: [request(), request({ id: 'b', due_at: '2026-09-20T12:00:00.000Z' })],
       has_more: false,
     }
 
-    expect(panelSummary(page, 'open', NOW)).toBe('2 solicitudes abiertas, 1 pasada de los 30 días.')
-    expect(panelSummary({ items: [request()], has_more: true }, 'open', NOW)).toContain('Hay más')
+    expect(panelSummary(page, 'open', NOW)).toBe(
+      '2 solicitudes abiertas, 1 pasada de los 30 días, 1 por vencer en 5 días o menos.',
+    )
+    expect(panelSummary({ items: [request()], has_more: true }, 'open', NOW)).toBe(
+      '1 solicitud abierta cargada, 1 por vencer en 5 días o menos. Hay más: «Ver más solicitudes» trae las siguientes.',
+    )
     expect(panelSummary({ items: [], has_more: false }, 'closed', NOW)).toBe(
       'Ninguna solicitud resuelta.',
     )

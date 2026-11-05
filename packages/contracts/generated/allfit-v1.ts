@@ -241,7 +241,11 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    get?: never
+    /**
+     * Read every version of an activity type's result contracts
+     * @description `HU-BO-023`. Published and deprecated alike, newest first, each as its publication answered it — unlike `/backoffice/v1/catalog`, which answers only what is in force. It is what lets a curator deprecate an older version. A type outside the global catalogue answers 404. Requires `curate_global_catalog`.
+     */
+    get: operations['listResultContractVersions']
     put?: never
     /**
      * Publish the validation rules an activity must satisfy to count as complete
@@ -410,6 +414,47 @@ export interface paths {
      *     Requires `view_billing_metadata` — the duty that opens a person's card does not open her money — and a traceable case reference. Payments are not a break-glass category. The read is recorded against the person before its content is returned.
      */
     get: operations['readBackofficeSupportPersonPayments']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/support/billing-follow-up': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the charges to follow up
+     * @description `HU-BO-005` c1 and c5, `HU-BO-020` c3. People whose Allfit subscription is suspended or in its grace period, or who had a charge fail in the last thirty days: suspended first, then in grace, then the failures, most recent first. It is what the attention panel's billing count stands for.
+     *     It names payers, so it requires `view_billing_metadata` and a traceable case reference (`HU-BO-020` c4), and one access record is written per person listed before the list is returned. No subscription reference or transaction id travels; each row leads to the person's payments under the same case.
+     */
+    get: operations['readBackofficeBillingFollowUp']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/support/job-health': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read when each scheduled job last ran
+     * @description `HU-BO-031` c2. One row per job the worker has recorded: its last run and how it went, its last failure with the error code, and how many failed in a day. A job whose last run is old is a worker that stopped. No subject and no case reference: nothing here belongs to a person. Requires `diagnose_support_metadata`.
+     */
+    get: operations['readBackofficeJobHealth']
     put?: never
     post?: never
     delete?: never
@@ -661,7 +706,7 @@ export interface paths {
     /**
      * Read the queue of credentials waiting to be verified
      * @description Every pending request for one exact credential version: who asked, what they claim, and which registry or issuer to consult. Declaring or revising a credential puts it here and retiring it takes it out, so nobody has to remember to ask.
-     *     Reading this reaches the holder's data, so each row is recorded against the holder before it is returned. `viewer_can_decide` is false when the caller is the holder or shares an active organization with them. It is a hint for the screen, never authority: the decision revalidates on its own.
+     *     Reading this reaches the holder's data, so each row is recorded against the holder before it is returned. `viewer_can_decide` is false when the caller is the holder, shares an active organization with them, or is their assigned professional or has them as theirs. It is a hint for the screen, never authority: the decision revalidates on its own.
      */
     get: operations['listBackofficeVerificationRequests']
     put?: never
@@ -2820,7 +2865,7 @@ export interface paths {
     put?: never
     /**
      * Assign an immutable program version through an active relationship
-     * @description HU-STUDIO-046. A coach holding the relationship, or a cover the person accepted, gives her a published version of an organization program. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required` naming the scope and level. Staff and administrators who do not coach answer 403 `forbidden`.
+     * @description HU-STUDIO-046. A coach holding the relationship, or a cover the person accepted, gives her a published version of an organization program. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required` naming the scope and level. Staff and administrators who do not coach answer 403 `forbidden`. While her service with the organization is paused the answer is 409 `service-paused`.
      *
      *     The assignment, its management period and its calendar are created in one transaction (ADR-032): a finite version is planted whole, an open-ended one only its first week. The calendar uses the time zone the person's device last sent; `timezone` is used only for a person who never opened Space. A start before today in that zone is refused. Overlapping a program she already follows is reported in `schedule_overlaps`, never blocked, and never says with what. A retired version, one of another organization or the person's own answer 422 `program-version`.
      */
@@ -2848,7 +2893,7 @@ export interface paths {
      * Move a managed session to another day of its week
      * @description HU-STUDIO-048. The coach who holds the relationship, or a cover the person accepted, moves a session of a program the organization still manages. Only the day changes: the routine, its targets and the week it belongs to stay, and the move is kept with who made it. The new day is today or later in the person's own zone, never before the program starts, and inside the session's own calendar week, which is what Space offers (ADR-032).
      *
-     *     The caller names the `revision_number` she read in `expected_revision`; when the session moved on meanwhile the answer is 409 `stale-draft` with the current session in `current_state`. A session the person started, one that is not scheduled, and one of a program the organization no longer manages answer 409 `conflict`. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required`. A session of the person's own program, of another organization, or of a relationship the caller does not attend answers 404. Moving a session to the day it is on changes nothing.
+     *     The caller names the `revision_number` she read in `expected_revision`; when the session moved on meanwhile the answer is 409 `stale-draft` with the current session in `current_state`. A session the person started, one that is not scheduled, and one of a program the organization no longer manages answer 409 `conflict`. The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required`, and while her service with the organization is paused it is 409 `service-paused`. A session of the person's own program, of another organization, or of a relationship the caller does not attend answers 404. Moving a session to the day it is on changes nothing.
      */
     patch: operations['reschedulePlannedSession']
     trace?: never
@@ -2866,7 +2911,7 @@ export interface paths {
      * Adjust a step's prescription for this one person
      * @description HU-STUDIO-049. The coach who holds the relationship, or a cover the person accepted, adjusts one target of one step of the version she was given: the published routine and program stay as they are (T-ASG-7). Each revision is typed, kept with the professional assignment that made it, and never rewritten; the latest of each kind is the one in force, and Space trains it wherever it read the program's target. Adjustments outlive the management period, so a detached program keeps them.
      *
-     *     `value` takes the type its `kind` needs: a positive integer for sets, reps, rounds and repetitions; a number of seconds for durations; a number with a `unit_code` for load, distance and pace; an effort between 0 and 10; one of `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a note. A step outside the assigned version answers 422 `planned-step`, a kind its target family does not take 422 `kind`. Only while the organization manages the program, else 409 `conflict`; the grant and visibility rules are those of moving a session.
+     *     `value` takes the type its `kind` needs: a positive integer for sets, reps, rounds and repetitions; a number of seconds for durations; a number with a `unit_code` for load, distance and pace; an effort between 0 and 10; one of `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a note. A step outside the assigned version answers 422 `planned-step`, a kind its target family does not take 422 `kind`. Only while the organization manages the program, else 409 `conflict`; the grant, pause and visibility rules are those of moving a session.
      */
     post: operations['revisePrescription']
     delete?: never
@@ -2888,7 +2933,7 @@ export interface paths {
      * Stop a program the organization manages
      * @description HU-STUDIO-050. The coach who attends the person, or an administrator or owner of the organization without attending her, stops a program it still manages. The assignment ends and its management period closes as cancelled; the sessions from today on that nobody started are cancelled. Past sessions, what the person trained and the assignment itself stay (T-ASG-5). Cancelling again answers the same cancellation.
      *
-     *     Everyone needs the person's `relationship_training` grant at `contribute`; without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one the caller cannot reach answers 404.
+     *     Everyone needs the person's `relationship_training` grant at `contribute`; without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`. While her service with the organization is paused the answer is 409 `service-paused`: a paused service is stopped by reactivating it or by ending the relationship, not program by program. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one the caller cannot reach answers 404.
      */
     post: operations['cancelProgramAssignment']
     delete?: never
@@ -4048,7 +4093,7 @@ export interface paths {
     }
     /**
      * Read the global catalogue as its curator sees it
-     * @description `HU-BO-022`. Every global discipline, activity type and movement, published and archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each entry says how much already depends on it, so archiving is a decision taken with the consequence in view. A gym's private content never appears here. Equipment has no table in V1 and is declared absent rather than answered as an empty list. Requires `curate_global_catalog`.
+     * @description `HU-BO-022`. Every global discipline, activity type and movement, published and archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each entry says how much already depends on it, so archiving is a decision taken with the consequence in view. A gym's private content never appears here. Global equipment is listed with how many movements use it, and each movement says the equipment it uses. Requires `curate_global_catalog`.
      */
     get: operations['readBackofficeGlobalCatalogue']
     put?: never
@@ -4153,6 +4198,66 @@ export interface paths {
      * @description A movement is identified by its name, normalised: the same name written with other spacing or capitalisation is the same movement and answers 409. It belongs to a published discipline and has no owner.
      */
     post: operations['publishCatalogueMovement']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/catalogue/equipment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Publish global equipment
+     * @description `HU-BO-022`. Equipment is what a movement is compatible with, never inventory. A code that is already published answers 409, and an archived code is published again only under the name it had.
+     */
+    post: operations['publishCatalogueEquipment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/catalogue/equipment/{code}/archival': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Withdraw global equipment from the catalogue without deleting it
+     * @description The equipment leaves every search and every movement's list as read by the products; the links stay, so publishing it again under the same name brings them back. The command carries no body.
+     */
+    post: operations['archiveCatalogueEquipment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/catalogue/movements/{movementId}/equipment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Say which equipment a global movement uses
+     * @description Replaces the published movement's whole list, so what the curator sees is what is stored. Only published global equipment is named; an unknown or archived code answers 422, and a movement that is not global answers 404.
+     */
+    post: operations['setCatalogueMovementEquipment']
     delete?: never
     options?: never
     head?: never
@@ -5029,10 +5134,14 @@ export interface components {
       started_at: string
       /** Format: uuid */
       started_by_person_id: string
+      /** @description The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be. */
+      started_by_name: string | null
       /** Format: date-time */
       ended_at: string | null
       /** Format: uuid */
       ended_by_person_id: string | null
+      /** @description Who on Allfit's team lifted it. Null while the period is open. */
+      ended_by_name: string | null
     }
     /** @description Whether a gym is stopped, why, and what it cost. `history` outlives the state: a gym back on its feet still says it was stopped, which a status column alone cannot do. */
     OrganizationSuspension: {
@@ -5051,6 +5160,8 @@ export interface components {
         started_at: string
         /** Format: uuid */
         started_by_person_id: string
+        /** @description Who on Allfit's team stopped the gym. */
+        started_by_name: string | null
         /** @description Counted from the causes the decision opened, not from the relationships it did not touch. */
         people_blocked: number
       } | null
@@ -5075,10 +5186,25 @@ export interface components {
         /** Format: date-time */
         at: string
         by_person_id: components['schemas']['Uuid']
+        /** @description Who on Allfit's team set it. */
+        by_name: string | null
         by_duty_assignment_id: components['schemas']['Uuid']
         /** @description What it was before. Null means it had no limit then. */
         previous_seats: number | null
       } | null
+      /** @description Every change, newest first (criterion 3): who, when, the value it set and the one it replaced. Empty when nobody has ever set a quota here. */
+      history: components['schemas']['OrganizationGuestQuotaChange'][]
+    }
+    OrganizationGuestQuotaChange: {
+      /** Format: date-time */
+      at: string
+      by_person_id: components['schemas']['Uuid']
+      /** @description Who on Allfit's team set it. */
+      by_name: string | null
+      /** @description What it was set to. Null is a deal with no cap. */
+      seats: number | null
+      /** @description What it replaced. Null means it had no limit then. */
+      previous_seats: number | null
     }
     /** @description Whether the gym can be paid, and nothing more. The account reference and the vault key live in another table that this reader has no policy for at all, so no credential can travel here even by mistake. */
     OrganizationFilePaymentMethod: {
@@ -5111,6 +5237,12 @@ export interface components {
       /** Format: email */
       owner_email: string
     }
+    /** @description Somebody on Allfit's team who acted on a record. The name is resolved only for people who hold or held a platform role or duty, so this can never name a client or a gym's owner. */
+    PlatformStaffActor: {
+      person_id: components['schemas']['Uuid']
+      /** @description The display name of that member of Allfit's team. Null only for somebody who never held a platform role or duty, which an actor of this command cannot be. */
+      name: string | null
+    }
     OrganizationHandover: {
       organization_id: components['schemas']['Uuid']
       display_name: string
@@ -5125,10 +5257,16 @@ export interface components {
       claimed_at: string | null
       /** Format: date-time */
       cancelled_at: string | null
+      /** @description Who on Allfit's team created the gym (HU-BO-014 c7). Null for a gym its owner created in Studio, which nobody at Allfit created. */
+      created_by: components['schemas']['PlatformStaffActor'] | null
+      /** @description Who on Allfit's team cancelled it (HU-BO-015 c3). Null until then. */
+      cancelled_by: components['schemas']['PlatformStaffActor'] | null
       site: {
         site_id: components['schemas']['Uuid']
         name: string
         address: string | null
+        /** @description True once a natural person has claimed the gym: the address is theirs then and is withheld, as the gym's file withholds it. Before the claim it is the address Allfit typed and is shown. */
+        address_withheld: boolean
       } | null
       /** @description The latest ownership invitation. The address is a hint, never the address. */
       invitation: {
@@ -5176,7 +5314,7 @@ export interface components {
       previous_result: string | null
       /** Format: date-time */
       previous_valid_to: string | null
-      /** @description A hint for the screen, never authority. False when the caller is the holder or shares an active organization with them. */
+      /** @description A hint for the screen, never authority. False when the caller is the holder, shares an active organization with them, or is their assigned professional or has them as theirs (ADR-026). */
       viewer_can_decide: boolean
     }
     CredentialVerificationRequestList: {
@@ -5384,10 +5522,13 @@ export interface components {
       occurred_at: string
       category?: components['schemas']['BreakGlassCategory']
     }
-    /** @enum {string} */
-    SupportOperationSourceKind: 'notification' | 'command'
     /**
-     * @description `pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started.
+     * @description `job` is a scheduled job run that failed; `store_notification` counts the notices a store sent that were refused, per store, reason and hour, with nothing from the notice itself.
+     * @enum {string}
+     */
+    SupportOperationSourceKind: 'notification' | 'command' | 'job' | 'store_notification'
+    /**
+     * @description `pending` is a notification not sent yet and `retrying` one that already failed, kept apart so a healthy queue does not read as a pile of failures. `stalled` is a command still processing long after it started, or a notification a worker consumes still unsent a quarter of an hour after it was due. `failed` is a job run that failed or a refused store notice.
      * @enum {string}
      */
     SupportOperationState:
@@ -5399,6 +5540,23 @@ export interface components {
       | 'stalled'
       | 'succeeded'
       | 'rejected_final'
+      | 'failed'
+    SupportJobHealth: {
+      /** Format: date-time */
+      generated_at: string
+      items: components['schemas']['SupportJobHealthItem'][]
+    }
+    SupportJobHealthItem: {
+      job_name: string
+      /** Format: date-time */
+      last_run_at: string
+      /** @enum {string} */
+      last_outcome: 'succeeded' | 'failed'
+      /** Format: date-time */
+      last_failure_at: string | null
+      last_error_code: string | null
+      failures_24h: number
+    }
     /** @description Identifiers, states, timestamps, error codes and retries. No payload, no stored response, no principal fingerprint and no request hash: this read exists to diagnose without opening anyone's data. */
     SupportOperation: {
       source: components['schemas']['SupportOperationSourceKind']
@@ -5504,6 +5662,39 @@ export interface components {
       credential_verifications: components['schemas']['AttentionVerificationNotice']
       unclaimed_organizations: components['schemas']['AttentionUnclaimedOrganizationNotice']
       repeated_failures: components['schemas']['AttentionFailureNotice']
+    }
+    SupportBillingFollowUp: {
+      /** Format: date-time */
+      generated_at: string
+      /** @description How far back a failed charge still needs following up. */
+      window_days: number
+      items: components['schemas']['SupportBillingFollowUpItem'][]
+      has_more: boolean
+    }
+    /** @description One person to follow up. The state of their latest Allfit subscription, since when, and the last charge that failed in the window — never a store reference. */
+    SupportBillingFollowUpItem: {
+      person_id: components['schemas']['Uuid']
+      /**
+       * @description Null when the failed charge has no subscription left behind it.
+       * @enum {string|null}
+       */
+      subscription_status: 'active' | 'grace' | 'suspended' | 'ended' | null
+      plan_name: string | null
+      /** @enum {string|null} */
+      store: 'app_store' | 'google_play' | null
+      /** Format: date-time */
+      grace_until: string | null
+      /** Format: date-time */
+      suspended_at: string | null
+      /** @description Charges that failed within the window. */
+      failed_charges: number
+      last_failed_charge: {
+        /** Format: date-time */
+        occurred_at: string
+        failure_code: string | null
+        amount_minor: number | null
+        currency_code: string | null
+      } | null
     }
     /** @description What a person pays. Closed by enumeration: no means of payment exists in the schema behind it, so there is nothing to filter out of a row. */
     SupportPersonPayments: {
@@ -5783,6 +5974,10 @@ export interface components {
       activity_type_id: components['schemas']['Uuid']
       /** @description Defaults to true on the server. Publishing a new default closes the previous one with a window instead of overwriting it. */
       is_default?: boolean
+    }
+    ResultContractVersionList: {
+      activity_type_id: components['schemas']['Uuid']
+      items: components['schemas']['ResultContract'][]
     }
     ResultContract: {
       id: components['schemas']['UuidV7']
@@ -6306,6 +6501,21 @@ export interface components {
       status: string
       /** @description The attempt already open on today's session, if there is one. It is what turns "Empezar" into "Continuar" and what stops a second attempt being started by accident. */
       executed_session_id: components['schemas']['UuidV7'] | null
+      /** @description Whether the session is held, and why. Never `missed`: a day missed that way does not start, so it is not offered. */
+      hold: components['schemas']['SpaceSessionHold'] | null
+    }
+    /** @description What holds a session of a programme a gym assigned, and why. Nothing of the programme starts while it is held, repeats included; an attempt already open is finished. What she trained before is unaffected, and her own programmes are never held. */
+    SpaceSessionHold: {
+      /**
+       * @description `paused`: the cause is in force now, and the session waits for it to be lifted. `missed`: the session's day passed while it was; it stays not done and does not start later. A day missed outranks a pause, whatever the causes.
+       * @enum {string}
+       */
+      state: 'paused' | 'missed'
+      /**
+       * @description `organization_suspension`: the gym is suspended (HU-BO-016). `subscription_suspension`: the gym paused her plan for a pending payment (HU-SP-083). When both hold it, the gym's suspension is the one given, since paying does not lift it.
+       * @enum {string}
+       */
+      cause: 'organization_suspension' | 'subscription_suspension'
     }
     /** @description A finished session as «Compártelo» tells it. Work sets only: a warmup is neither a set here nor kilos lifted, and never a record. */
     SpaceExecutionSummary: {
@@ -6519,6 +6729,8 @@ export interface components {
       done: boolean
       /** @description An attempt already open on this routine, which is what turns "empezar" into "continuar". */
       open_execution_id: components['schemas']['UuidV7'] | null
+      /** @description Whether the session is held, and why. Null for her own programmes and for every session the gym is free to give her. */
+      hold: components['schemas']['SpaceSessionHold'] | null
       /** @description How the last time went. Null when this routine was never trained: the card's reverse then shows the muscles and says nothing else, because a zero would claim a session in which no work was done. */
       last_time: components['schemas']['SpaceRoutineLastTime'] | null
     }
@@ -10364,7 +10576,7 @@ export interface components {
       can_start: boolean
       requests: components['schemas']['BackofficeAccountRecoveryRequest'][]
     }
-    /** @description One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name. */
+    /** @description One entry of the global catalogue as its curator sees it. `in_use_count` is what already references it — templates, sessions and result contracts included — so archiving is never a blind decision. A movement has no code: it is identified by its normalised name, and only a movement carries `equipment`. */
     GlobalCatalogueEntry: {
       /** @enum {string} */
       kind: 'discipline' | 'activity_type' | 'movement'
@@ -10377,11 +10589,45 @@ export interface components {
       /** Format: date-time */
       created_at: string
       in_use_count: number
+      /** @description What a movement uses, required first. Absent for other kinds. */
+      equipment?: components['schemas']['CatalogueMovementEquipmentItem'][]
+    }
+    CatalogueMovementEquipmentItem: {
+      code: string
+      name: string
+      /** @enum {string} */
+      requirement: 'required' | 'optional'
+    }
+    /** @description Global equipment as its curator sees it. `in_use_count` is how many movements name it, so archiving is taken with the consequence in view. */
+    GlobalCatalogueEquipment: {
+      id: components['schemas']['Uuid']
+      code: string
+      name: string
+      /** @enum {string} */
+      status: 'draft' | 'published' | 'deprecated' | 'archived'
+      /** Format: date-time */
+      created_at: string
+      in_use_count: number
+    }
+    /** @description Global equipment. The code is chosen once and never means anything else. */
+    CatalogueEquipmentPublication: {
+      code: string
+      name: string
+    }
+    /** @description The movement's whole list; an empty one says it needs no equipment. */
+    CatalogueMovementEquipment: {
+      items: {
+        code: string
+        /** @enum {string} */
+        requirement: 'required' | 'optional'
+      }[]
     }
     BackofficeGlobalCatalogue: {
       disciplines: components['schemas']['GlobalCatalogueEntry'][]
       activity_types: components['schemas']['GlobalCatalogueEntry'][]
       movements: components['schemas']['GlobalCatalogueEntry'][]
+      equipment: components['schemas']['GlobalCatalogueEquipment'][]
+      /** @description Always `available` now that equipment is published here. Kept for screens that still read it. */
       equipment_availability: components['schemas']['SupportBlockAvailability']
     }
     /** @description A discipline. The code is chosen once and never means anything else. */
@@ -10853,7 +11099,7 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
-    /** @description The session moved on since it was read (`stale-draft`, with the current session in `current_state`), it started, or the organization no longer manages it (`conflict`) */
+    /** @description The session moved on since it was read (`stale-draft`, with the current session in `current_state`), it started, or the organization no longer manages it (`conflict`), or the person's service with it is paused (`service-paused`) */
     ManagedSessionConflict: {
       headers: {
         'Cache-Control': components['headers']['NoStore']
@@ -11602,6 +11848,36 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listResultContractVersions: {
+    parameters: {
+      query: {
+        activity_type_id: components['schemas']['Uuid']
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Every version bound to the activity type */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResultContractVersionList']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   publishResultContract: {
     parameters: {
       query?: never
@@ -11886,6 +12162,65 @@ export interface operations {
       403: components['responses']['Forbidden']
       404: components['responses']['NotFound']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readBackofficeBillingFollowUp: {
+    parameters: {
+      query: {
+        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
+        case_reference: components['parameters']['SupportCaseReference']
+        limit?: number
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The charges to follow up, as of now */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SupportBillingFollowUp']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readBackofficeJobHealth: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The health of each scheduled job */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SupportJobHealth']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
       503: components['responses']['UpstreamUnavailable']
     }
   }
@@ -18727,6 +19062,127 @@ export interface operations {
     }
     responses: {
       /** @description The published movement */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GlobalCatalogueEntry']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  publishCatalogueEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CatalogueEquipmentPublication']
+      }
+    }
+    responses: {
+      /** @description The published equipment */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GlobalCatalogueEquipment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  archiveCatalogueEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        /** @description The stable code of a global catalogue entry. */
+        code: components['parameters']['CatalogueCode']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The archived equipment */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['GlobalCatalogueEquipment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  setCatalogueMovementEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        movementId: components['schemas']['Uuid']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CatalogueMovementEquipment']
+      }
+    }
+    responses: {
+      /** @description The movement with the equipment it uses */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']

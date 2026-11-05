@@ -147,6 +147,7 @@ describe('credential verification presentation rules', () => {
 
   test('explains a conflict and a renewal in words', () => {
     expect(conflictSentence()).toContain('compartes un gimnasio activo')
+    expect(conflictSentence()).toContain('su profesional asignado o esa persona es el tuyo')
     expect(kindLabel('renewal')).toBe('Renovación')
     expect(methodLabel('issuer_confirmation')).toBe('Confirmación con quien lo emitió')
     expect(

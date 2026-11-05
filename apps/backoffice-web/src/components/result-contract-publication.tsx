@@ -85,6 +85,9 @@ import {
   parseJsonDocument,
   resultContractMessage,
   toContractFixtures,
+  versionLine,
+  versionsSummary,
+  type ResultContractVersion,
   type ActivityFamily,
   type FixtureDraft,
 } from '@/lib/result-contracts'
@@ -105,6 +108,7 @@ export function ResultContractPublication() {
   const [catalogueError, setCatalogueError] = useState<string | null>(null)
   const [effective, setEffective] = useState<ActivityTypeResultContract[] | null>(null)
   const [catalogueRevision, setCatalogueRevision] = useState(0)
+  const [versions, setVersions] = useState<ResultContractVersion[] | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -142,6 +146,24 @@ export function ResultContractPublication() {
         setEffective(read.items)
       } catch {
         if (!controller.signal.aborted) setEffective(null)
+      }
+    })()
+    return () => controller.abort()
+  }, [activityTypeId, catalogueRevision])
+
+  // HU-BO-023: every version of the chosen type, so an older one can be deprecated too.
+  useEffect(() => {
+    if (!isValidActivityTypeId(activityTypeId)) {
+      setVersions(null)
+      return
+    }
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const read = await backofficeApi.resultContractVersions(activityTypeId, controller.signal)
+        setVersions(read.items)
+      } catch {
+        if (!controller.signal.aborted) setVersions(null)
       }
     })()
     return () => controller.abort()
@@ -216,6 +238,27 @@ export function ResultContractPublication() {
     }
   }
 
+  async function deprecateVersion(contract: ResultContractVersion) {
+    setBusy(true)
+    setNotice(null)
+    try {
+      const resource = await backofficeApi.deprecateResultContract(
+        contract.id,
+        newBackofficeCommand(),
+      )
+      if (published?.id === resource.id) setPublished(resource)
+      setCatalogueRevision((current) => current + 1)
+      setNotice({
+        tone: 'success',
+        message: `Deprecada la versión ${resource.version_number} de ${resource.contract_code}. Las ejecuciones que ya la congelaron siguen válidas.`,
+      })
+    } catch (failure) {
+      setNotice({ tone: 'danger', message: failureMessage(failure) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function deprecate() {
     if (!published) return
     setBusy(true)
@@ -263,6 +306,14 @@ export function ResultContractPublication() {
             Una versión publicada no se edita: corregirla exige publicar la siguiente, y publicarla
             no reinterpreta las sesiones ya registradas. El servidor asigna el número de versión.
           </CardDescription>
+          {/* HU-BO-023 c1: publishing does not change what counts as complete yet; say so. */}
+          <Alert live="off" variant="info" data-contract-minimums-note>
+            <AlertTitle>Los mínimos todavía no se aplican</AlertTitle>
+            <AlertDescription>
+              Hoy la ejecución da por completa una sesión con al menos un resultado. Los mínimos que
+              publiques quedan guardados con la versión y se aplicarán cuando la ejecución los lea.
+            </AlertDescription>
+          </Alert>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} data-backoffice-form data-result-contract-form noValidate>
@@ -381,6 +432,10 @@ export function ResultContractPublication() {
 
       {effective ? <EffectiveContracts contracts={effective} /> : null}
 
+      {versions ? (
+        <ContractVersions versions={versions} busy={busy} onDeprecate={deprecateVersion} />
+      ) : null}
+
       {published ? (
         <PublishedContract contract={published} busy={busy} onDeprecate={deprecate} />
       ) : (
@@ -440,6 +495,88 @@ function EffectiveContracts({ contracts }: { contracts: readonly ActivityTypeRes
           </Table>
         </CardContent>
       ) : null}
+    </Card>
+  )
+}
+
+/** Every version of the chosen type, newest first; any in force can be deprecated. */
+function ContractVersions({
+  versions,
+  busy,
+  onDeprecate,
+}: {
+  versions: ResultContractVersion[]
+  busy: boolean
+  onDeprecate: (contract: ResultContractVersion) => Promise<void>
+}) {
+  const [deprecating, setDeprecating] = useState<string | null>(null)
+
+  return (
+    <Card data-contract-versions>
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2}>
+          Versiones de este tipo
+        </CardTitle>
+        <CardDescription data-contract-versions-summary>
+          {versionsSummary(versions)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {versions.length > 0 ? (
+          <ul>
+            {versions.map((contract) => (
+              <li key={contract.id} data-contract-version={contract.status}>
+                {versionLine(contract)} Publicada el {formatInstant(contract.published_at)}.{' '}
+                {contract.status === 'published' ? (
+                  <AlertDialog
+                    open={deprecating === contract.id}
+                    onOpenChange={(next) => {
+                      // Closing mid-flight would hide a request that is still going to land.
+                      if (busy) return
+                      setDeprecating(next ? contract.id : null)
+                    }}
+                  >
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      aria-label={`Deprecar la versión ${contract.version_number} de ${contract.contract_code}`}
+                      onClick={() => setDeprecating(contract.id)}
+                    >
+                      Deprecar
+                    </Button>
+                    <AlertDialogContent data-deprecate-version-dialog>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          ¿Deprecar la versión {contract.version_number} de {contract.contract_code}
+                          ?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Ninguna sesión nueva volverá a validarse con ella. Las sesiones que ya la
+                          congelaron conservan el contrato tal como lo aceptaron.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={busy}>Conservar la versión</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          disabled={busy}
+                          onClick={() =>
+                            void onDeprecate(contract).then(() => setDeprecating(null))
+                          }
+                        >
+                          {busy ? 'Deprecando…' : 'Deprecar'}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </CardContent>
     </Card>
   )
 }

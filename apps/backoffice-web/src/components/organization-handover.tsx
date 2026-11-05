@@ -53,8 +53,12 @@ import {
 import {
   CANCELLED_NOTICE,
   canActOn,
+  cancelledBySentence,
+  createdBySentence,
+  fileLink,
   handoverMessage,
   handoverStage,
+  siteLine,
   resendNotice,
   responsibleSentence,
   stageLabel,
@@ -152,6 +156,8 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
 
   const stage = handoverStage(handover, now)
   const invitation = handover.invitation
+  const cancelledBy = cancelledBySentence(handover)
+  const file = fileLink(handover)
 
   return (
     <div data-organization-handover data-stage={stage}>
@@ -181,11 +187,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
             </Field>
             <Field orientation="responsive">
               <FieldLabel htmlFor="ho-site-view">Sede</FieldLabel>
-              <span id="ho-site-view">
-                {handover.site
-                  ? [handover.site.name, handover.site.address].filter(Boolean).join(' · ')
-                  : 'Sin sede declarada'}
-              </span>
+              <span id="ho-site-view">{siteLine(handover)}</span>
             </Field>
             <Field orientation="responsive">
               <FieldLabel htmlFor="ho-invited">Invitación enviada a</FieldLabel>
@@ -193,9 +195,26 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
             </Field>
             <Field orientation="responsive">
               <FieldLabel htmlFor="ho-created">Creado</FieldLabel>
-              <span id="ho-created">{formatInstant(handover.created_at)}</span>
+              <span id="ho-created">
+                {formatInstant(handover.created_at)}.{' '}
+                <span data-handover-created-by>{createdBySentence(handover)}</span>
+              </span>
             </Field>
+            {cancelledBy ? (
+              <Field orientation="responsive">
+                <FieldLabel htmlFor="ho-cancelled">Cancelación</FieldLabel>
+                <span id="ho-cancelled" data-handover-cancelled-by>
+                  {formatInstant(handover.cancelled_at)}. {cancelledBy}
+                </span>
+              </Field>
+            ) : null}
           </FieldGroup>
+
+          {file ? (
+            <Link href={file.href} data-handover-file-link>
+              {file.label}
+            </Link>
+          ) : null}
 
           {canActOn(stage) ? (
             <span data-handover-actions>

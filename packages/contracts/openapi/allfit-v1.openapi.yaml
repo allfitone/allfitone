@@ -142,6 +142,13 @@ x-allfit-error-catalog:
     description: >-
       The organization is suspended and gains no client until it operates again
       (HU-BO-016). An invitation it sent stays open; nothing was decided.
+  - code: service-paused
+    status: 409
+    description: >-
+      The person's service with this organization is paused (HU-SP-083), so nobody
+      there contributes to her training until it is reactivated. What she shares still
+      stands and can still be read. It says the service is paused, never why: a coach
+      does not read her billing.
 x-allfit-media-url-policy:
   space_owner:
     delivery: signed_storage_url
@@ -770,6 +777,46 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
   /backoffice/v1/result-contracts:
+    get:
+      tags: [Backoffice Catalogue]
+      operationId: listResultContractVersions
+      x-allfit-operation: NEW-CAT-CONTRACT-VERSIONS
+      x-allfit-cache: no-store
+      summary: Read every version of an activity type's result contracts
+      description: >-
+        `HU-BO-023`. Published and deprecated alike, newest first, each as its
+        publication answered it — unlike `/backoffice/v1/catalog`, which answers only
+        what is in force. It is what lets a curator deprecate an older version. A type
+        outside the global catalogue answers 404. Requires `curate_global_catalog`.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - name: activity_type_id
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+      responses:
+        '200':
+          description: Every version bound to the activity type
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResultContractVersionList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
     post:
       tags: [Backoffice Catalogue]
       operationId: publishResultContract
@@ -1148,6 +1195,93 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /backoffice/v1/support/billing-follow-up:
+    get:
+      tags: [Backoffice Support]
+      operationId: readBackofficeBillingFollowUp
+      x-allfit-operation: NEW-SUP-BILLING-FOLLOW-UP
+      x-allfit-cache: no-store
+      summary: List the charges to follow up
+      description: >-
+        `HU-BO-005` c1 and c5, `HU-BO-020` c3. People whose Allfit subscription is
+        suspended or in its grace period, or who had a charge fail in the last thirty
+        days: suspended first, then in grace, then the failures, most recent first. It
+        is what the attention panel's billing count stands for.
+
+        It names payers, so it requires `view_billing_metadata` and a traceable case
+        reference (`HU-BO-020` c4), and one access record is written per person listed
+        before the list is returned. No subscription reference or transaction id
+        travels; each row leads to the person's payments under the same case.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/SupportCaseReference'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: The charges to follow up, as of now
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportBillingFollowUp'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /backoffice/v1/support/job-health:
+    get:
+      tags: [Backoffice Support]
+      operationId: readBackofficeJobHealth
+      x-allfit-operation: NEW-SUP-JOB-HEALTH
+      x-allfit-cache: no-store
+      summary: Read when each scheduled job last ran
+      description: >-
+        `HU-BO-031` c2. One row per job the worker has recorded: its last run and how
+        it went, its last failure with the error code, and how many failed in a day. A
+        job whose last run is old is a worker that stopped. No subject and no case
+        reference: nothing here belongs to a person. Requires
+        `diagnose_support_metadata`.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+      responses:
+        '200':
+          description: The health of each scheduled job
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportJobHealth'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
@@ -1723,8 +1857,9 @@ paths:
 
         Reading this reaches the holder's data, so each row is recorded against
         the holder before it is returned. `viewer_can_decide` is false when the
-        caller is the holder or shares an active organization with them. It is a
-        hint for the screen, never authority: the decision revalidates on its own.
+        caller is the holder, shares an active organization with them, or is
+        their assigned professional or has them as theirs. It is a hint for the
+        screen, never authority: the decision revalidates on its own.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -7100,7 +7235,8 @@ paths:
         accepted, gives her a published version of an organization program. The
         person must share `relationship_training` at `contribute`; without it the
         answer is 403 `scope-required` naming the scope and level. Staff and
-        administrators who do not coach answer 403 `forbidden`.
+        administrators who do not coach answer 403 `forbidden`. While her service
+        with the organization is paused the answer is 409 `service-paused`.
 
 
         The assignment, its management period and its calendar are created in one
@@ -7176,9 +7312,10 @@ paths:
         current session in `current_state`. A session the person started, one that is
         not scheduled, and one of a program the organization no longer manages answer
         409 `conflict`. The person must share `relationship_training` at
-        `contribute`; without it the answer is 403 `scope-required`. A session of the
-        person's own program, of another organization, or of a relationship the caller
-        does not attend answers 404. Moving a session to the day it is on changes
+        `contribute`; without it the answer is 403 `scope-required`, and while her
+        service with the organization is paused it is 409 `service-paused`. A session
+        of the person's own program, of another organization, or of a relationship the
+        caller does not attend answers 404. Moving a session to the day it is on changes
         nothing.
       security:
         - cookieAuth: []
@@ -7245,8 +7382,8 @@ paths:
         `left`, `right`, `bilateral`, `not_applicable` for the side; and text for a
         note. A step outside the assigned version answers 422 `planned-step`, a kind
         its target family does not take 422 `kind`. Only while the organization
-        manages the program, else 409 `conflict`; the grant and visibility rules are
-        those of moving a session.
+        manages the program, else 409 `conflict`; the grant, pause and visibility rules
+        are those of moving a session.
       security:
         - cookieAuth: []
       parameters:
@@ -7307,6 +7444,9 @@ paths:
 
         Everyone needs the person's `relationship_training` grant at `contribute`;
         without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`.
+        While her service with the organization is paused the answer is 409
+        `service-paused`: a paused service is stopped by reactivating it or by ending
+        the relationship, not program by program.
         A program the organization no longer manages answers 409 `conflict`; the
         person's own program, another organization's, or one the caller cannot reach
         answers 404.
@@ -10175,9 +10315,9 @@ paths:
         `HU-BO-022`. Every global discipline, activity type and movement, published and
         archived alike — unlike `/backoffice/v1/catalog`, which answers only what is published. Each
         entry says how much already depends on it, so archiving is a decision taken with
-        the consequence in view. A gym's private content never appears here. Equipment has
-        no table in V1 and is declared absent rather than answered as an empty list.
-        Requires `curate_global_catalog`.
+        the consequence in view. A gym's private content never appears here. Global
+        equipment is listed with how many movements use it, and each movement says the
+        equipment it uses. Requires `curate_global_catalog`.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -10452,6 +10592,159 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /backoffice/v1/catalogue/equipment:
+    post:
+      tags: [Backoffice Catalogue]
+      operationId: publishCatalogueEquipment
+      x-allfit-operation: OP-CAT-004
+      x-allfit-cache: no-store
+      summary: Publish global equipment
+      description: >-
+        `HU-BO-022`. Equipment is what a movement is compatible with, never inventory.
+        A code that is already published answers 409, and an archived code is published
+        again only under the name it had.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogueEquipmentPublication'
+      responses:
+        '200':
+          description: The published equipment
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalCatalogueEquipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+  /backoffice/v1/catalogue/equipment/{code}/archival:
+    post:
+      tags: [Backoffice Catalogue]
+      operationId: archiveCatalogueEquipment
+      x-allfit-operation: OP-CAT-005
+      x-allfit-cache: no-store
+      summary: Withdraw global equipment from the catalogue without deleting it
+      description: >-
+        The equipment leaves every search and every movement's list as read by the
+        products; the links stay, so publishing it again under the same name brings them
+        back. The command carries no body.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/CatalogueCode'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The archived equipment
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalCatalogueEquipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+  /backoffice/v1/catalogue/movements/{movementId}/equipment:
+    post:
+      tags: [Backoffice Catalogue]
+      operationId: setCatalogueMovementEquipment
+      x-allfit-operation: OP-CAT-016
+      x-allfit-cache: no-store
+      summary: Say which equipment a global movement uses
+      description: >-
+        Replaces the published movement's whole list, so what the curator sees is what
+        is stored. Only published global equipment is named; an unknown or archived code
+        answers 422, and a movement that is not global answers 404.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - name: movementId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogueMovementEquipment'
+      responses:
+        '200':
+          description: The movement with the equipment it uses
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalCatalogueEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
   /backoffice/v1/catalogue/movements/{movementId}/archival:
     post:
       tags: [Backoffice Catalogue]
@@ -12986,7 +13279,7 @@ components:
       description: >-
         The session moved on since it was read (`stale-draft`, with the current session
         in `current_state`), it started, or the organization no longer manages it
-        (`conflict`)
+        (`conflict`), or the person's service with it is paused (`service-paused`)
       headers:
         Cache-Control:
           $ref: '#/components/headers/NoStore'
@@ -13482,7 +13775,14 @@ components:
       type: object
       additionalProperties: false
       required:
-        [suspension_id, reason_code, started_at, started_by_person_id, ended_at, ended_by_person_id]
+        - suspension_id
+        - reason_code
+        - started_at
+        - started_by_person_id
+        - started_by_name
+        - ended_at
+        - ended_by_person_id
+        - ended_by_name
       properties:
         suspension_id:
           type: string
@@ -13495,12 +13795,20 @@ components:
         started_by_person_id:
           type: string
           format: uuid
+        started_by_name:
+          type: [string, 'null']
+          description: >-
+            The display name of that member of Allfit's team. Null only for somebody who
+            never held a platform role or duty, which an actor of this command cannot be.
         ended_at:
           type: [string, 'null']
           format: date-time
         ended_by_person_id:
           type: [string, 'null']
           format: uuid
+        ended_by_name:
+          type: [string, 'null']
+          description: Who on Allfit's team lifted it. Null while the period is open.
     OrganizationSuspension:
       type: object
       additionalProperties: false
@@ -13526,7 +13834,12 @@ components:
             - type: object
               additionalProperties: false
               required:
-                [suspension_id, reason_code, started_at, started_by_person_id, people_blocked]
+                - suspension_id
+                - reason_code
+                - started_at
+                - started_by_person_id
+                - started_by_name
+                - people_blocked
               properties:
                 suspension_id:
                   type: string
@@ -13539,6 +13852,9 @@ components:
                 started_by_person_id:
                   type: string
                   format: uuid
+                started_by_name:
+                  type: [string, 'null']
+                  description: Who on Allfit's team stopped the gym.
                 people_blocked:
                   type: integer
                   minimum: 0
@@ -13565,6 +13881,7 @@ components:
         - places_left
         - over_quota
         - last_change
+        - history
       properties:
         organization_id:
           $ref: '#/components/schemas/Uuid'
@@ -13605,19 +13922,50 @@ components:
           description: >-
             Null when nobody has ever set a quota here, which is a different answer
             from somebody having set it to no limit.
-          required: [at, by_person_id, by_duty_assignment_id, previous_seats]
+          required: [at, by_person_id, by_name, by_duty_assignment_id, previous_seats]
           properties:
             at:
               type: string
               format: date-time
             by_person_id:
               $ref: '#/components/schemas/Uuid'
+            by_name:
+              type: [string, 'null']
+              description: Who on Allfit's team set it.
             by_duty_assignment_id:
               $ref: '#/components/schemas/Uuid'
             previous_seats:
               type: [integer, 'null']
               minimum: 1
               description: What it was before. Null means it had no limit then.
+        history:
+          type: array
+          description: >-
+            Every change, newest first (criterion 3): who, when, the value it set and the
+            one it replaced. Empty when nobody has ever set a quota here.
+          items:
+            $ref: '#/components/schemas/OrganizationGuestQuotaChange'
+    OrganizationGuestQuotaChange:
+      type: object
+      additionalProperties: false
+      required: [at, by_person_id, by_name, seats, previous_seats]
+      properties:
+        at:
+          type: string
+          format: date-time
+        by_person_id:
+          $ref: '#/components/schemas/Uuid'
+        by_name:
+          type: [string, 'null']
+          description: Who on Allfit's team set it.
+        seats:
+          type: [integer, 'null']
+          minimum: 1
+          description: What it was set to. Null is a deal with no cap.
+        previous_seats:
+          type: [integer, 'null']
+          minimum: 1
+          description: What it replaced. Null means it had no limit then.
     OrganizationFilePaymentMethod:
       type: object
       additionalProperties: false
@@ -13691,6 +14039,22 @@ components:
           format: email
           minLength: 3
           maxLength: 254
+    PlatformStaffActor:
+      type: object
+      additionalProperties: false
+      description: >-
+        Somebody on Allfit's team who acted on a record. The name is resolved only for
+        people who hold or held a platform role or duty, so this can never name a client
+        or a gym's owner.
+      required: [person_id, name]
+      properties:
+        person_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: [string, 'null']
+          description: >-
+            The display name of that member of Allfit's team. Null only for somebody who
+            never held a platform role or duty, which an actor of this command cannot be.
     OrganizationHandover:
       type: object
       additionalProperties: false
@@ -13705,6 +14069,8 @@ components:
         - created_at
         - claimed_at
         - cancelled_at
+        - created_by
+        - cancelled_by
         - site
         - invitation
       properties:
@@ -13731,10 +14097,22 @@ components:
         cancelled_at:
           type: [string, 'null']
           format: date-time
+        created_by:
+          description: >-
+            Who on Allfit's team created the gym (HU-BO-014 c7). Null for a gym its
+            owner created in Studio, which nobody at Allfit created.
+          oneOf:
+            - $ref: '#/components/schemas/PlatformStaffActor'
+            - type: 'null'
+        cancelled_by:
+          description: Who on Allfit's team cancelled it (HU-BO-015 c3). Null until then.
+          oneOf:
+            - $ref: '#/components/schemas/PlatformStaffActor'
+            - type: 'null'
         site:
           type: [object, 'null']
           additionalProperties: false
-          required: [site_id, name, address]
+          required: [site_id, name, address, address_withheld]
           properties:
             site_id:
               $ref: '#/components/schemas/Uuid'
@@ -13742,6 +14120,12 @@ components:
               type: string
             address:
               type: [string, 'null']
+            address_withheld:
+              type: boolean
+              description: >-
+                True once a natural person has claimed the gym: the address is theirs
+                then and is withheld, as the gym's file withholds it. Before the claim it
+                is the address Allfit typed and is shown.
         invitation:
           type: [object, 'null']
           additionalProperties: false
@@ -13842,7 +14226,8 @@ components:
           type: boolean
           description: >-
             A hint for the screen, never authority. False when the caller is the
-            holder or shares an active organization with them.
+            holder, shares an active organization with them, or is their assigned
+            professional or has them as theirs (ADR-026).
     CredentialVerificationRequestList:
       type: object
       additionalProperties: false
@@ -14351,13 +14736,19 @@ components:
           $ref: '#/components/schemas/BreakGlassCategory'
     SupportOperationSourceKind:
       type: string
-      enum: [notification, command]
+      description: >-
+        `job` is a scheduled job run that failed; `store_notification` counts the
+        notices a store sent that were refused, per store, reason and hour, with nothing
+        from the notice itself.
+      enum: [notification, command, job, store_notification]
     SupportOperationState:
       type: string
       description: >-
         `pending` is a notification not sent yet and `retrying` one that already
         failed, kept apart so a healthy queue does not read as a pile of
-        failures. `stalled` is a command still processing long after it started.
+        failures. `stalled` is a command still processing long after it started,
+        or a notification a worker consumes still unsent a quarter of an hour after it
+        was due. `failed` is a job run that failed or a refused store notice.
       enum:
         - pending
         - retrying
@@ -14367,6 +14758,42 @@ components:
         - stalled
         - succeeded
         - rejected_final
+        - failed
+    SupportJobHealth:
+      type: object
+      additionalProperties: false
+      required: [generated_at, items]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupportJobHealthItem'
+    SupportJobHealthItem:
+      type: object
+      additionalProperties: false
+      required: [job_name, last_run_at, last_outcome, last_failure_at, last_error_code, failures_24h]
+      properties:
+        job_name:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{2,63}$'
+        last_run_at:
+          type: string
+          format: date-time
+        last_outcome:
+          type: string
+          enum: [succeeded, failed]
+        last_failure_at:
+          type: [string, 'null']
+          format: date-time
+        last_error_code:
+          type: [string, 'null']
+          maxLength: 120
+        failures_24h:
+          type: integer
+          minimum: 0
     SupportOperation:
       type: object
       additionalProperties: false
@@ -14642,6 +15069,78 @@ components:
           $ref: '#/components/schemas/AttentionUnclaimedOrganizationNotice'
         repeated_failures:
           $ref: '#/components/schemas/AttentionFailureNotice'
+    SupportBillingFollowUp:
+      type: object
+      additionalProperties: false
+      required: [generated_at, window_days, items, has_more]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        window_days:
+          type: integer
+          description: How far back a failed charge still needs following up.
+          minimum: 1
+        items:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/SupportBillingFollowUpItem'
+        has_more:
+          type: boolean
+    SupportBillingFollowUpItem:
+      type: object
+      additionalProperties: false
+      description: >-
+        One person to follow up. The state of their latest Allfit subscription, since
+        when, and the last charge that failed in the window — never a store reference.
+      required:
+        - person_id
+        - subscription_status
+        - plan_name
+        - store
+        - grace_until
+        - suspended_at
+        - failed_charges
+        - last_failed_charge
+      properties:
+        person_id:
+          $ref: '#/components/schemas/Uuid'
+        subscription_status:
+          type: [string, 'null']
+          enum: [active, grace, suspended, ended, null]
+          description: Null when the failed charge has no subscription left behind it.
+        plan_name:
+          type: [string, 'null']
+        store:
+          type: [string, 'null']
+          enum: [app_store, google_play, null]
+        grace_until:
+          type: [string, 'null']
+          format: date-time
+        suspended_at:
+          type: [string, 'null']
+          format: date-time
+        failed_charges:
+          type: integer
+          minimum: 0
+          description: Charges that failed within the window.
+        last_failed_charge:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required: [occurred_at, failure_code, amount_minor, currency_code]
+              properties:
+                occurred_at:
+                  type: string
+                  format: date-time
+                failure_code:
+                  type: [string, 'null']
+                amount_minor:
+                  type: [integer, 'null']
+                currency_code:
+                  type: [string, 'null']
+            - type: 'null'
     SupportPersonPayments:
       type: object
       additionalProperties: false
@@ -15285,6 +15784,17 @@ components:
           description: >-
             Defaults to true on the server. Publishing a new default closes the
             previous one with a window instead of overwriting it.
+    ResultContractVersionList:
+      type: object
+      additionalProperties: false
+      required: [activity_type_id, items]
+      properties:
+        activity_type_id:
+          $ref: '#/components/schemas/Uuid'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResultContract'
     ResultContract:
       type: object
       additionalProperties: false
@@ -16436,7 +16946,7 @@ components:
       additionalProperties: false
       required:
         [planned_session_id, program_title, session_title, discipline_code, status,
-         exercise_count, executed_session_id]
+         exercise_count, executed_session_id, hold]
       properties:
         planned_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -16460,6 +16970,38 @@ components:
             The attempt already open on today's session, if there is one. It is what
             turns "Empezar" into "Continuar" and what stops a second attempt being
             started by accident.
+        hold:
+          oneOf:
+            - $ref: '#/components/schemas/SpaceSessionHold'
+            - type: 'null'
+          description: >-
+            Whether the session is held, and why. Never `missed`: a day missed that way
+            does not start, so it is not offered.
+    SpaceSessionHold:
+      type: object
+      additionalProperties: false
+      required: [state, cause]
+      description: >-
+        What holds a session of a programme a gym assigned, and why. Nothing of the
+        programme starts while it is held, repeats included; an attempt already open is
+        finished. What she trained before is unaffected, and her own programmes are never
+        held.
+      properties:
+        state:
+          type: string
+          enum: [paused, missed]
+          description: >-
+            `paused`: the cause is in force now, and the session waits for it to be
+            lifted. `missed`: the session's day passed while it was; it stays not done
+            and does not start later. A day missed outranks a pause, whatever the causes.
+        cause:
+          type: string
+          enum: [organization_suspension, subscription_suspension]
+          description: >-
+            `organization_suspension`: the gym is suspended (HU-BO-016).
+            `subscription_suspension`: the gym paused her plan for a pending payment
+            (HU-SP-083). When both hold it, the gym's suspension is the one given, since
+            paying does not lift it.
     SpaceExecutionSummary:
       type: object
       additionalProperties: false
@@ -16851,7 +17393,8 @@ components:
       additionalProperties: false
       required:
         [planned_session_id, template_version_id, title, discipline_code, status, program_day,
-         scheduled_at, exercise_count, set_count, done, open_execution_id, last_time]
+         scheduled_at, exercise_count, set_count, done, open_execution_id, last_time,
+         hold]
       properties:
         planned_session_id:
           $ref: '#/components/schemas/UuidV7'
@@ -16902,6 +17445,13 @@ components:
             - $ref: '#/components/schemas/UuidV7'
             - type: 'null'
           description: An attempt already open on this routine, which is what turns "empezar" into "continuar".
+        hold:
+          oneOf:
+            - $ref: '#/components/schemas/SpaceSessionHold'
+            - type: 'null'
+          description: >-
+            Whether the session is held, and why. Null for her own programmes and for
+            every session the gym is free to give her.
         last_time:
           oneOf:
             - $ref: '#/components/schemas/SpaceRoutineLastTime'
@@ -24759,7 +25309,7 @@ components:
         One entry of the global catalogue as its curator sees it. `in_use_count` is what
         already references it — templates, sessions and result contracts included — so
         archiving is never a blind decision. A movement has no code: it is identified by
-        its normalised name.
+        its normalised name, and only a movement carries `equipment`.
       required: [kind, id, code, discipline_code, name, status, created_at, in_use_count]
       properties:
         kind:
@@ -24786,10 +25336,90 @@ components:
         in_use_count:
           type: integer
           minimum: 0
+        equipment:
+          type: array
+          description: What a movement uses, required first. Absent for other kinds.
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/CatalogueMovementEquipmentItem'
+    CatalogueMovementEquipmentItem:
+      type: object
+      additionalProperties: false
+      required: [code, name, requirement]
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        requirement:
+          type: string
+          enum: [required, optional]
+    GlobalCatalogueEquipment:
+      type: object
+      additionalProperties: false
+      description: >-
+        Global equipment as its curator sees it. `in_use_count` is how many movements
+        name it, so archiving is taken with the consequence in view.
+      required: [id, code, name, status, created_at, in_use_count]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        status:
+          type: string
+          enum: [draft, published, deprecated, archived]
+        created_at:
+          type: string
+          format: date-time
+        in_use_count:
+          type: integer
+          minimum: 0
+    CatalogueEquipmentPublication:
+      type: object
+      additionalProperties: false
+      description: Global equipment. The code is chosen once and never means anything else.
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{1,63}$'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+    CatalogueMovementEquipment:
+      type: object
+      additionalProperties: false
+      description: The movement's whole list; an empty one says it needs no equipment.
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            additionalProperties: false
+            required: [code, requirement]
+            properties:
+              code:
+                type: string
+                pattern: '^[a-z][a-z0-9_]{1,63}$'
+              requirement:
+                type: string
+                enum: [required, optional]
     BackofficeGlobalCatalogue:
       type: object
       additionalProperties: false
-      required: [disciplines, activity_types, movements, equipment_availability]
+      required: [disciplines, activity_types, movements, equipment, equipment_availability]
       properties:
         disciplines:
           type: array
@@ -24803,7 +25433,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GlobalCatalogueEntry'
+        equipment:
+          type: array
+          items:
+            $ref: '#/components/schemas/GlobalCatalogueEquipment'
         equipment_availability:
+          description: >-
+            Always `available` now that equipment is published here. Kept for screens
+            that still read it.
           $ref: '#/components/schemas/SupportBlockAvailability'
     CataloguePublication:
       type: object

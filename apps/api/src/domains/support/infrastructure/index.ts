@@ -26,12 +26,14 @@ import type {
   SupportBusinessDatabase,
   SupportBusinessPanel,
   SupportDeliveryCircuit,
+  SupportJobHealth,
   SupportDiagnosisDatabase,
   SupportOperation,
   SupportMetadataDatabase,
   SupportPersonMatch,
   SupportPersonMetadata,
   SupportPersonPayments,
+  SupportBillingFollowUp,
   PlatformAccessDatabase,
   PlatformCommandResult,
   PlatformDutyAssignment,
@@ -269,6 +271,18 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
         if (!row) throw new Error('PostgreSQL did not project what the person pays')
         return row.person_payments
       }),
+
+    billingFollowUp: (input) =>
+      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ billing_follow_up: SupportBillingFollowUp }[]>`
+          select support.billing_follow_up(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.caseReference}, ${input.limit}::integer
+          )
+        `
+        if (!row) throw new Error('PostgreSQL did not list the charges to follow up')
+        return row.billing_follow_up
+      }),
   }
 }
 
@@ -311,6 +325,17 @@ export function createSupportDiagnosisDatabase(): SupportDiagnosisDatabase {
           )
         `,
       ),
+
+    jobHealth: (input) =>
+      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ list_job_health: SupportJobHealth }[]>`
+          select support.list_job_health(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid
+          )
+        `
+        if (!row) throw new Error('PostgreSQL did not read the job health')
+        return row.list_job_health
+      }),
   }
 }
 

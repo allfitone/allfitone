@@ -12,12 +12,15 @@ import { measureRequestPhase } from '../../../platform/observability/index.js'
 import type {
   BackofficeGlobalCatalogue,
   CatalogueEntryResult,
+  CatalogueEquipmentResult,
   GlobalCatalogueCurationDatabase,
   GlobalCatalogueEntry,
+  GlobalCatalogueEquipment,
 } from '../domain/global-catalogue.js'
 
 type ReadRow = { list_global_catalog: BackofficeGlobalCatalogue }
 type CommandRow = { result: GlobalCatalogueEntry; replayed: boolean }
+type EquipmentRow = { result: GlobalCatalogueEquipment; replayed: boolean }
 
 export function createGlobalCatalogueCurationDatabase(): GlobalCatalogueCurationDatabase {
   const sql = database()
@@ -104,7 +107,48 @@ export function createGlobalCatalogueCurationDatabase(): GlobalCatalogueCuration
         `
         return entry(rows, 'archive the movement')
       }),
+
+    setMovementEquipment: (input) =>
+      asCurator(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const rows = await transaction<CommandRow[]>`
+          select * from catalog.set_global_movement_equipment(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.movementId}::uuid, ${transaction.json(input.items)}::jsonb,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return entry(rows, "set the movement's equipment")
+      }),
+
+    publishEquipment: (input) =>
+      asCurator(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const rows = await transaction<EquipmentRow[]>`
+          select * from catalog.publish_global_equipment(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.publication.code}, ${input.publication.name},
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return equipmentEntry(rows, 'publish the equipment')
+      }),
+
+    archiveEquipment: (input) =>
+      asCurator(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const rows = await transaction<EquipmentRow[]>`
+          select * from catalog.archive_global_equipment(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid, ${input.code},
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return equipmentEntry(rows, 'archive the equipment')
+      }),
   }
+}
+
+function equipmentEntry(rows: EquipmentRow[], operation: string): CatalogueEquipmentResult {
+  const [row] = rows
+  if (!row) throw new Error(`PostgreSQL did not ${operation}`)
+  return { resource: row.result, replayed: row.replayed }
 }
 
 function entry(rows: CommandRow[], operation: string): CatalogueEntryResult {

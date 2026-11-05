@@ -25,7 +25,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Input } from '@allfitone/react/components/input'
 import {
   Select,
   SelectContent,
@@ -41,7 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import {
   BackofficeApiError,
@@ -62,6 +63,14 @@ import {
   sourceFilterLabel,
   sourceLabel,
   supportDiagnosisMessage,
+  isValidOperationIdentifier,
+  jobHealthLine,
+  jobHealthTone,
+  jobLabel,
+  shortIdentifier,
+  silentJobs,
+  type SupportJobHealthItem,
+  subjectLine,
   type SupportOperationSourceKind,
   type SupportOperationState,
 } from '@/lib/support-diagnosis'
@@ -81,14 +90,39 @@ export function SupportDiagnosis() {
   const [appending, setAppending] = useState(false)
   const [source, setSource] = useState<SupportOperationSourceKind | typeof ANY>(ANY)
   const [operationState, setOperationState] = useState<SupportOperationState | typeof ANY>(ANY)
+  // HU-BO-031 c3: one operation found by the identifier of what it is about.
+  // Read apart from the feed, so a job health read that fails leaves the rest standing.
+  const [jobs, setJobs] = useState<SupportJobHealthItem[] | null>(null)
+  const [jobsFailed, setJobsFailed] = useState(false)
+  const [identifier, setIdentifier] = useState('')
+  const [identifierDraft, setIdentifierDraft] = useState('')
+  const [identifierIssue, setIdentifierIssue] = useState(false)
 
   const filters = useCallback(
     () => ({
       ...(source === ANY ? {} : { source }),
       ...(operationState === ANY ? {} : { state: operationState }),
+      ...(identifier === '' ? {} : { aggregateId: identifier }),
     }),
-    [source, operationState],
+    [source, operationState, identifier],
   )
+
+  function searchIdentifier(event: FormEvent) {
+    event.preventDefault()
+    const value = identifierDraft.trim()
+    if (!isValidOperationIdentifier(value)) {
+      setIdentifierIssue(true)
+      return
+    }
+    setIdentifierIssue(false)
+    setIdentifier(value.toLowerCase())
+  }
+
+  function clearIdentifier() {
+    setIdentifier('')
+    setIdentifierDraft('')
+    setIdentifierIssue(false)
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -115,6 +149,19 @@ export function SupportDiagnosis() {
     })()
     return () => controller.abort()
   }, [filters])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        setJobs((await backofficeApi.supportJobHealth(controller.signal)).items)
+        setJobsFailed(false)
+      } catch {
+        if (!controller.signal.aborted) setJobsFailed(true)
+      }
+    })()
+    return () => controller.abort()
+  }, [])
 
   async function loadMore() {
     if (!cursor) return
@@ -144,6 +191,7 @@ export function SupportDiagnosis() {
   }
 
   const summary = circuitSummary(circuits)
+  const silent = jobs ? silentJobs(jobs) : []
 
   return (
     <div data-support-diagnosis>
@@ -153,6 +201,49 @@ export function SupportDiagnosis() {
           <AlertDescription>{summary}</AlertDescription>
         </Alert>
       ) : null}
+
+      {silent.length > 0 ? (
+        <Alert live="polite" variant="warning" data-diagnosis-silent-jobs>
+          <AlertTitle>Una tarea programada dejó de correr</AlertTitle>
+          <AlertDescription>
+            {silent.map(jobLabel).join(', ')} no corre hace rato. El worker puede haberse detenido:
+            nada más en el Backoffice lo diría.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Card data-diagnosis-jobs>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            Tareas programadas
+          </CardTitle>
+          <CardDescription>
+            Lo que el worker corre cada minuto: cuándo corrió por última vez, cómo terminó y sus
+            fallos del último día.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {jobsFailed ? (
+            <p data-diagnosis-jobs-unavailable>
+              No se pudo leer el estado de las tareas. El resto del diagnóstico sigue abajo.
+            </p>
+          ) : jobs === null ? null : jobs.length === 0 ? (
+            <ScreenEmpty icon="activity" title="El worker no ha registrado ninguna corrida">
+              Si la plataforma lleva un rato desplegada, eso quiere decir que el worker no está
+              corriendo.
+            </ScreenEmpty>
+          ) : (
+            <ul>
+              {jobs.map((job) => (
+                <li key={job.job_name} data-diagnosis-job={job.job_name}>
+                  <Badge variant={jobHealthTone(job)}>{jobLabel(job.job_name)}</Badge>{' '}
+                  {jobHealthLine(job)}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -260,6 +351,36 @@ export function SupportDiagnosis() {
             </Field>
           </FieldGroup>
 
+          <form onSubmit={searchIdentifier} data-diagnosis-identifier-form noValidate>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="diagnosis-identifier">Identificador del sujeto</FieldLabel>
+                <Input
+                  id="diagnosis-identifier"
+                  value={identifierDraft}
+                  onChange={(event) => setIdentifierDraft(event.target.value)}
+                  placeholder="019a7000-0000-7000-8000-000000000001"
+                  autoComplete="off"
+                />
+                {identifierIssue ? (
+                  <FieldError>
+                    Escribe el identificador completo, como aparece en la operación.
+                  </FieldError>
+                ) : null}
+              </Field>
+            </FieldGroup>
+            <div data-form-actions>
+              <Button type="submit" size="sm">
+                Buscar sus operaciones
+              </Button>
+              {identifier !== '' ? (
+                <Button type="button" size="sm" variant="outline" onClick={clearIdentifier}>
+                  Ver todas
+                </Button>
+              ) : null}
+            </div>
+          </form>
+
           {operations.length === 0 ? (
             <ScreenEmpty icon="search" title="Nada que revisar con esos filtros" role="status">
               Con este tipo y este estado no hay ninguna operación. Cambia los filtros para ampliar
@@ -283,6 +404,30 @@ export function SupportDiagnosis() {
                     <TableCell>{sourceLabel(operation.source)}</TableCell>
                     <TableCell>
                       <code>{operation.label}</code>
+                      {/* c1: the identifiers, whole in the title, so they can be searched. */}
+                      <div data-operation-ids>
+                        <span title={operation.reference_id}>
+                          ref <code>{shortIdentifier(operation.reference_id)}</code>
+                        </span>{' '}
+                        ·{' '}
+                        <span title={operation.subject_id ?? undefined} data-operation-subject>
+                          {subjectLine(operation)}
+                        </span>{' '}
+                        {operation.subject_id && identifier === '' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            aria-label={`Ver solo las operaciones de ${operation.subject_id}`}
+                            onClick={() => {
+                              setIdentifierDraft(operation.subject_id ?? '')
+                              setIdentifier(operation.subject_id ?? '')
+                            }}
+                          >
+                            Solo esta
+                          </Button>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant={operationStateTone(operation.state)}>

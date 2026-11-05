@@ -57,8 +57,12 @@ import {
   blockedSentence,
   costWarning,
   periodSentence,
+  OUT_OF_CYCLE_NOTE,
+  periodActorsSentence,
   reasonLabel,
+  startedBySentence,
   stateSentence,
+  suspensionAction,
   suspensionMessage,
   suspensionOutcomeMessage,
 } from '@/lib/organization-suspension'
@@ -77,6 +81,7 @@ export function OrganizationSuspensionPanel({
   const [failure, setFailure] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<string | null>(null)
   const pending = useRef<BackofficeCommand | null>(null)
+  const action = suspensionAction(suspension.status)
 
   async function run(action: 'suspend' | 'reactivate') {
     const command = pending.current ?? newBackofficeCommand()
@@ -126,14 +131,19 @@ export function OrganizationSuspensionPanel({
         {suspension.current ? (
           <>
             <p data-suspension-blocked>{blockedSentence(suspension)}</p>
-            <p data-suspension-since>Desde {formatInstant(suspension.current.started_at)}.</p>
+            <p data-suspension-since>
+              Desde {formatInstant(suspension.current.started_at)}.{' '}
+              <span data-suspension-started-by>{startedBySentence(suspension.current)}</span>
+            </p>
           </>
         ) : null}
 
         <p data-suspension-does>{WHAT_SUSPENDING_DOES}</p>
         <p data-suspension-does-not>{WHAT_SUSPENDING_DOES_NOT_DO}</p>
 
-        {suspension.suspended ? (
+        {action === 'none' ? (
+          <p data-suspension-out-of-cycle>{OUT_OF_CYCLE_NOTE}</p>
+        ) : action === 'reactivate' ? (
           <div data-suspension-reactivate-form>
             <p data-suspension-reactivate-note>{WHAT_REACTIVATING_DOES}</p>
             <div data-form-actions>
@@ -191,7 +201,8 @@ export function OrganizationSuspensionPanel({
             {suspension.history.map((period) => (
               <li key={period.suspension_id} data-suspension-period>
                 {periodSentence(period)} · {formatInstant(period.started_at)}
-                {period.ended_at ? ` – ${formatInstant(period.ended_at)}` : ''}
+                {period.ended_at ? ` – ${formatInstant(period.ended_at)}` : ''} ·{' '}
+                <span data-suspension-period-actors>{periodActorsSentence(period)}</span>
               </li>
             ))}
           </ul>

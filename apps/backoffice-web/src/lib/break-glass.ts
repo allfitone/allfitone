@@ -185,6 +185,54 @@ export function isValidSubject(value: string): boolean {
   return UUID.test(value.trim())
 }
 
+export interface DecisionReason {
+  code: string
+  label: string
+}
+
+/** Why an approver approved: closed, so the record stays readable months later. */
+export const APPROVAL_REASONS: readonly DecisionReason[] = [
+  { code: 'APPROVED-CASE-JUSTIFIES', label: 'El caso justifica leer estos datos' },
+  { code: 'APPROVED-PERSON-ASKED', label: 'La persona pidió la ayuda que lo requiere' },
+  { code: 'APPROVED-LEGAL-DUTY', label: 'Lo exige una obligación legal' },
+]
+
+export const REJECTION_REASONS: readonly DecisionReason[] = [
+  { code: 'REJECTED-NOT-JUSTIFIED', label: 'El caso no justifica leer estos datos' },
+  { code: 'REJECTED-TOO-BROAD', label: 'Pide más categorías de las necesarias' },
+  { code: 'REJECTED-OTHER-WAY', label: 'Se puede resolver sin leer los datos' },
+  { code: 'REJECTED-CONFLICT', label: 'Quien la pide tiene un conflicto con la persona' },
+]
+
+// The single code every decision carried before an approver could choose one.
+const UNSTATED = new Set(['REASON-APPROVED', 'REASON-REJECTED'])
+
+export function decisionReasonLabel(code: string): string {
+  if (UNSTATED.has(code)) return 'Sin motivo registrado'
+  return (
+    [...APPROVAL_REASONS, ...REJECTION_REASONS].find((reason) => reason.code === code)?.label ??
+    code
+  )
+}
+
+/** From the person's card: a request for that person, under the case the card was opened on. */
+export function breakGlassRequestHref(personId: string, caseReference: string): string {
+  return `/break-glass?subject=${personId}&case_reference=${encodeURIComponent(caseReference)}`
+}
+
+/** What the request form starts from; a value that is not a subject or a case is dropped. */
+export function requestPrefill(parameters: { get(name: string): string | null }): {
+  subject: string
+  caseReference: string
+} {
+  const subject = parameters.get('subject') ?? ''
+  const caseReference = parameters.get('case_reference') ?? ''
+  return {
+    subject: isValidSubject(subject) ? subject : '',
+    caseReference: isValidCaseReference(caseReference) ? caseReference : '',
+  }
+}
+
 export type RequestIssue = 'subject' | 'case' | 'categories'
 
 export function requestIssue(draft: {

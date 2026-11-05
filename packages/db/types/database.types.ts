@@ -86,6 +86,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_service_block: {
+        Args: { p_relationship_id: string }
+        Returns: boolean
+      }
       holds_backoffice_duty: { Args: { p_duty_code: string }; Returns: boolean }
       is_self: { Args: { target_person_id: string }; Returns: boolean }
       open_contract_scope: {
@@ -744,6 +748,20 @@ export type Database = {
           result: Json
         }[]
       }
+      archive_global_equipment: {
+        Args: {
+          p_actor_person_id: string
+          p_actor_session_id: string
+          p_code: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       archive_global_movement: {
         Args: {
           p_actor_person_id: string
@@ -774,6 +792,10 @@ export type Database = {
       }
       global_catalog_entry_projection: {
         Args: { p_id: string; p_kind: string }
+        Returns: Json
+      }
+      global_catalog_equipment_projection: {
+        Args: { p_id: string }
         Returns: Json
       }
       list_activity_type_result_contracts: {
@@ -826,6 +848,14 @@ export type Database = {
           name: string
         }[]
       }
+      list_result_contract_versions: {
+        Args: {
+          p_activity_type_id: string
+          p_actor_person_id: string
+          p_actor_session_id: string
+        }
+        Returns: Json
+      }
       movement_cursor: {
         Args: { p_id: string; p_name: string }
         Returns: string
@@ -855,6 +885,21 @@ export type Database = {
         }[]
       }
       publish_discipline: {
+        Args: {
+          p_actor_person_id: string
+          p_actor_session_id: string
+          p_code: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_name: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      publish_global_equipment: {
         Args: {
           p_actor_person_id: string
           p_actor_session_id: string
@@ -931,6 +976,21 @@ export type Database = {
       result_contract_projection: {
         Args: { p_contract_id: string }
         Returns: Json
+      }
+      set_global_movement_equipment: {
+        Args: {
+          p_actor_person_id: string
+          p_actor_session_id: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_items: Json
+          p_movement_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
       }
     }
     Enums: {
@@ -2797,6 +2857,7 @@ export type Database = {
         Args: { p_limit: number }
         Returns: number
       }
+      expire_backoffice_sessions: { Args: { p_limit: number }; Returns: number }
       expire_staff_invitations: { Args: { p_limit?: number }; Returns: number }
       fail_account_recovery_delivery: {
         Args: { p_event_id: string }
@@ -5992,6 +6053,7 @@ export type Database = {
           executed_session_id: string
           execution_status: string
           exercise_count: number
+          hold: Json
           planned_session_id: string
           program_title: string
           scheduled_on: string
@@ -6199,6 +6261,7 @@ export type Database = {
         Returns: string[]
       }
       session_draft_projection: { Args: { p_draft_id: string }; Returns: Json }
+      session_hold_of: { Args: { p_planned_session_id: string }; Returns: Json }
       session_template_projection: {
         Args: { p_template_id: string }
         Returns: Json

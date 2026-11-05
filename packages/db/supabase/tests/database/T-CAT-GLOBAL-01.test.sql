@@ -446,10 +446,11 @@ select is(
   'a gym''s private content never appears here'
 );
 
+-- Equipment has a table and a curator now (T-CAT-EQUIP-01), so it is no longer absent.
 select is(
   (select body->>'equipment_availability' from listed),
-  'not_modelled',
-  'equipment is declared absent rather than shown empty'
+  'available',
+  'equipment is no longer declared absent'
 );
 
 select is(

@@ -121,6 +121,11 @@ export function AttentionPanel() {
           title="Cobros fallidos y suscripciones suspendidas"
           summary={billingSummary(panel.billing)}
           urgent={action.billing}
+          destination={
+            panel.billing.availability === 'available'
+              ? { href: ATTENTION_DESTINATIONS.billing, label: 'Ver a quién hacer seguimiento' }
+              : undefined
+          }
         >
           {panel.billing.availability === 'available' ? (
             <p data-attention-detail>{GYM_CHARGES_NOTE}</p>

@@ -51,6 +51,7 @@ import {
   occupancySentence,
   parseSeats,
   placesLeftSentence,
+  quotaHistoryRows,
   quotaMessage,
   quotaOutcomeMessage,
   quotaSentence,
@@ -127,6 +128,15 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
           {lastChangeSentence(quota)}
           {quota.last_change ? ` ${formatInstant(quota.last_change.at)}.` : ''}
         </p>
+        {quota.history.length > 0 ? (
+          <ul data-quota-history aria-label="Cambios del cupo">
+            {quotaHistoryRows(quota).map((row) => (
+              <li key={row.key} data-quota-change>
+                {formatInstant(row.at)} · {row.who} · {row.change}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {quota.seats === null && quota.last_change === null ? (
           <p data-quota-unlimited-note>{UNLIMITED_NOTE}</p>
         ) : null}

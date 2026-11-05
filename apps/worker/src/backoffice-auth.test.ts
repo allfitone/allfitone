@@ -21,6 +21,7 @@ test('expires attempts and idempotently cleans provider sessions and pending fac
     queue,
     database: {
       expire: async () => 3,
+      expireSessions: async () => 2,
       prepare: async () => ({
         state: 'ready',
         providerSessionId: 'session-1',
@@ -39,6 +40,7 @@ test('expires attempts and idempotently cleans provider sessions and pending fac
 
   await expect(process()).resolves.toEqual({
     expired: 3,
+    sessionsExpired: 2,
     claimed: 1,
     completed: 1,
     deadOrDelayed: 0,
@@ -64,6 +66,7 @@ test('nacks cleanup failures so the queue can retry and dead-letter them', async
     },
     database: {
       expire: async () => 0,
+      expireSessions: async () => 0,
       prepare: async () => ({ state: 'ready', providerSessionId: 'session-2' }),
     },
     provider: {
@@ -75,4 +78,37 @@ test('nacks cleanup failures so the queue can retry and dead-letter them', async
   const result = await process()
   expect(result.deadOrDelayed).toBe(1)
   expect(nacks).toEqual([['event-2', 'backoffice_auth_cleanup_failed', true]])
+})
+
+// HU-BO-002 c3: a session nobody presented again was never revoked with the provider.
+test('sweeps idle sessions before claiming, so their revocation goes out in the same run', async () => {
+  const order: string[] = []
+  const process = createBackofficeAuthBatchProcessor({
+    queue: {
+      claim: async (topic) => {
+        order.push(`claim:${topic}`)
+        return []
+      },
+      ack: async () => undefined,
+      nack: async () => undefined,
+    },
+    database: {
+      expire: async () => 0,
+      expireSessions: async (limit) => {
+        order.push(`sweep:${limit}`)
+        return 1
+      },
+      prepare: async () => ({ state: 'skipped' }),
+    },
+    provider: {
+      revokeSession: async () => undefined,
+      deleteAuthenticationFactor: async () => undefined,
+    },
+  })
+
+  const result = await process()
+
+  expect(result.sessionsExpired).toBe(1)
+  expect(order[0]).toBe('sweep:100')
+  expect(order).toContain('claim:identity.backoffice_session_revocation_requested.v1')
 })

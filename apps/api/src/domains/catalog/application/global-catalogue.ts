@@ -12,6 +12,9 @@ import type {
   BackofficeGlobalCatalogue,
   CatalogueActivityTypePublication,
   CatalogueEntryResult,
+  CatalogueEquipmentPublication,
+  CatalogueEquipmentResult,
+  CatalogueMovementEquipmentItems,
   CatalogueMovementPublication,
   CataloguePublication,
   GlobalCatalogueCurationDatabase,
@@ -43,6 +46,18 @@ export interface GlobalCatalogueCurationService {
     actor: BackofficeActor,
     input: CatalogCommandContext & { movementId: string },
   ): Promise<CatalogueEntryResult>
+  setMovementEquipment(
+    actor: BackofficeActor,
+    input: CatalogCommandContext & { movementId: string; items: CatalogueMovementEquipmentItems },
+  ): Promise<CatalogueEntryResult>
+  publishEquipment(
+    actor: BackofficeActor,
+    input: CatalogCommandContext & { publication: CatalogueEquipmentPublication },
+  ): Promise<CatalogueEquipmentResult>
+  archiveEquipment(
+    actor: BackofficeActor,
+    input: CatalogCommandContext & { code: string },
+  ): Promise<CatalogueEquipmentResult>
 }
 
 export function createGlobalCatalogueCurationService(
@@ -63,5 +78,9 @@ export function createGlobalCatalogueCurationService(
       database.archiveActivityType({ ...from(actor), ...input }),
     publishMovement: (actor, input) => database.publishMovement({ ...from(actor), ...input }),
     archiveMovement: (actor, input) => database.archiveMovement({ ...from(actor), ...input }),
+    setMovementEquipment: (actor, input) =>
+      database.setMovementEquipment({ ...from(actor), ...input }),
+    publishEquipment: (actor, input) => database.publishEquipment({ ...from(actor), ...input }),
+    archiveEquipment: (actor, input) => database.archiveEquipment({ ...from(actor), ...input }),
   }
 }

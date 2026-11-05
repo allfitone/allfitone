@@ -66,6 +66,7 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { useSearchParams } from 'next/navigation'
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
 
 import {
@@ -85,8 +86,12 @@ import {
   canExercise,
   categoryLabel,
   emptyReadMessage,
+  APPROVAL_REASONS,
+  REJECTION_REASONS,
+  decisionReasonLabel,
   healthContextRows,
   mealRows,
+  requestPrefill,
   measurementRows,
   photoDayRows,
   trainingRows,
@@ -117,8 +122,13 @@ export function BreakGlassWindows() {
   const [refused, setRefused] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
   const [busy, setBusy] = useState(false)
-  const [subject, setSubject] = useState('')
-  const [caseReference, setCaseReference] = useState('')
+  // From the person's card the subject and the case arrive in the link.
+  const prefill = requestPrefill(useSearchParams())
+  const [subject, setSubject] = useState(prefill.subject)
+  const [caseReference, setCaseReference] = useState(prefill.caseReference)
+  // The approver says why: one reason per request being decided, chosen, never fixed.
+  const [approvalReason, setApprovalReason] = useState<Record<string, string>>({})
+  const [rejectionReason, setRejectionReason] = useState<Record<string, string>>({})
   const [purpose, setPurpose] = useState<BreakGlassPurpose>('customer_support_request')
   const [categories, setCategories] = useState<BreakGlassCategory[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -633,7 +643,10 @@ export function BreakGlassWindows() {
                       <dd>
                         <span id={`bg-approval-${approval.approver_person_id}`}>
                           <code>{approval.approver_person_id}</code> ·{' '}
-                          {formatInstant(approval.decided_at)}
+                          {formatInstant(approval.decided_at)} ·{' '}
+                          <span data-break-glass-decision-reason>
+                            {decisionReasonLabel(approval.reason_code)}
+                          </span>
                         </span>
                       </dd>
                     </Fragment>
@@ -642,16 +655,48 @@ export function BreakGlassWindows() {
               ) : null}
 
               {canDecide(file) ? (
+                <Field>
+                  <FieldLabel htmlFor={`bg-approve-reason-${file.id}`}>
+                    Motivo de la aprobación
+                  </FieldLabel>
+                  <Select
+                    items={APPROVAL_REASONS.map((reason) => ({
+                      value: reason.code,
+                      label: reason.label,
+                    }))}
+                    value={approvalReason[file.id] ?? ''}
+                    onValueChange={(value) =>
+                      setApprovalReason((current) => ({
+                        ...current,
+                        [file.id]: String(value ?? ''),
+                      }))
+                    }
+                  >
+                    <SelectTrigger id={`bg-approve-reason-${file.id}`} disabled={busy}>
+                      <SelectValue placeholder="Elige por qué lo apruebas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {APPROVAL_REASONS.map((reason) => (
+                        <SelectItem key={reason.code} value={reason.code}>
+                          {reason.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              ) : null}
+
+              {canDecide(file) ? (
                 <div data-form-actions>
                   <Button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !approvalReason[file.id]}
                     onClick={() =>
                       void run(
                         () =>
                           backofficeApi.decideBreakGlass(
                             file.id,
-                            { decision: 'approved', reason_code: 'REASON-APPROVED' },
+                            { decision: 'approved', reason_code: approvalReason[file.id] ?? '' },
                             newBackofficeCommand(),
                           ),
                         approvalsSoFar(file) + 1 >= file.required_approvals
@@ -687,17 +732,49 @@ export function BreakGlassWindows() {
                           nueva.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
+                      <Field>
+                        <FieldLabel htmlFor={`bg-reject-reason-${file.id}`}>
+                          Motivo del rechazo
+                        </FieldLabel>
+                        <Select
+                          items={REJECTION_REASONS.map((reason) => ({
+                            value: reason.code,
+                            label: reason.label,
+                          }))}
+                          value={rejectionReason[file.id] ?? ''}
+                          onValueChange={(value) =>
+                            setRejectionReason((current) => ({
+                              ...current,
+                              [file.id]: String(value ?? ''),
+                            }))
+                          }
+                        >
+                          <SelectTrigger id={`bg-reject-reason-${file.id}`} disabled={busy}>
+                            <SelectValue placeholder="Elige por qué la rechazas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {REJECTION_REASONS.map((reason) => (
+                              <SelectItem key={reason.code} value={reason.code}>
+                                {reason.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
                       <AlertDialogFooter>
                         <AlertDialogCancel disabled={busy}>Dejarla en espera</AlertDialogCancel>
                         <AlertDialogAction
                           variant="destructive"
-                          disabled={busy}
+                          disabled={busy || !rejectionReason[file.id]}
                           onClick={() =>
                             void run(
                               () =>
                                 backofficeApi.decideBreakGlass(
                                   file.id,
-                                  { decision: 'rejected', reason_code: 'REASON-REJECTED' },
+                                  {
+                                    decision: 'rejected',
+                                    reason_code: rejectionReason[file.id] ?? '',
+                                  },
                                   newBackofficeCommand(),
                                 ),
                               'Rechazada. El rechazo es definitivo: no se puede aprobar después.',

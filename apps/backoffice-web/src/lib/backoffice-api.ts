@@ -14,6 +14,9 @@ export type GlobalCatalogueEntry = AllfitV1Schemas['GlobalCatalogueEntry']
 export type CataloguePublication = AllfitV1Schemas['CataloguePublication']
 export type CatalogueActivityTypePublication = AllfitV1Schemas['CatalogueActivityTypePublication']
 export type CatalogueMovementPublication = AllfitV1Schemas['CatalogueMovementPublication']
+export type GlobalCatalogueEquipment = AllfitV1Schemas['GlobalCatalogueEquipment']
+export type CatalogueEquipmentPublication = AllfitV1Schemas['CatalogueEquipmentPublication']
+export type CatalogueMovementEquipment = AllfitV1Schemas['CatalogueMovementEquipment']
 export type CatalogDiscipline = AllfitV1Schemas['CatalogDiscipline']
 export type CatalogActivityType = AllfitV1Schemas['CatalogActivityType']
 export type ActivityTypeResultContract = AllfitV1Schemas['ActivityTypeResultContract']
@@ -62,6 +65,9 @@ export type PlatformPlanCreate = AllfitV1Schemas['PlatformPlanCreate']
 export type PlatformPlanVersionProposal = AllfitV1Schemas['PlatformPlanVersionProposal']
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
+export type SupportBillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
+export type SupportJobHealth = AllfitV1Schemas['SupportJobHealth']
+export type ResultContractVersionList = AllfitV1Schemas['ResultContractVersionList']
 export type BackofficeAccountRecovery = AllfitV1Schemas['BackofficeAccountRecovery']
 export type BackofficeAccountRecoveryRequest = AllfitV1Schemas['BackofficeAccountRecoveryRequest']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
@@ -225,6 +231,38 @@ export const backofficeApi = {
       body: JSON.stringify(publication),
     }),
 
+  publishCatalogueEquipment: (
+    publication: CatalogueEquipmentPublication,
+    command: BackofficeCommand,
+  ) =>
+    requestJson<GlobalCatalogueEquipment>('/backoffice/v1/catalogue/equipment', {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(publication),
+    }),
+
+  archiveCatalogueEquipment: (code: string, command: BackofficeCommand) =>
+    requestJson<GlobalCatalogueEquipment>(`/backoffice/v1/catalogue/equipment/${code}/archival`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: '{}',
+    }),
+
+  // The movement's whole list: what the curator sees is exactly what is stored.
+  setCatalogueMovementEquipment: (
+    movementId: string,
+    body: CatalogueMovementEquipment,
+    command: BackofficeCommand,
+  ) =>
+    requestJson<GlobalCatalogueEntry>(
+      `/backoffice/v1/catalogue/movements/${movementId}/equipment`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+      },
+    ),
+
   // No body: archiving takes only which entry, so nothing else can travel with it.
   archiveCatalogueEntry: (
     entry: { kind: 'discipline' | 'activity_type' | 'movement'; id: string; code: string | null },
@@ -241,6 +279,13 @@ export const backofficeApi = {
       headers: commandHeaders(command),
       body: JSON.stringify(publication),
     }),
+
+  // The curator's view: every version, published and deprecated, newest first.
+  resultContractVersions: (activityTypeId: string, signal?: AbortSignal) =>
+    requestJson<ResultContractVersionList>(
+      `/backoffice/v1/result-contracts${query({ activity_type_id: activityTypeId })}`,
+      signal ? { signal } : {},
+    ),
 
   deprecateResultContract: (contractId: string, command: BackofficeCommand) =>
     requestJson<ResultContract>(`/backoffice/v1/result-contracts/${contractId}/deprecation`, {
@@ -294,6 +339,13 @@ export const backofficeApi = {
   supportPersonPayments: (personId: string, caseReference: string, signal?: AbortSignal) =>
     requestJson<SupportPersonPayments>(
       `/backoffice/v1/support/people/${personId}/payments${query({ case_reference: caseReference })}`,
+      signal ? { signal } : {},
+    ),
+
+  // Names payers, so it carries the case like one person's payments.
+  billingFollowUp: (caseReference: string, limit: number, signal?: AbortSignal) =>
+    requestJson<SupportBillingFollowUp>(
+      `/backoffice/v1/support/billing-follow-up${query({ case_reference: caseReference, limit: String(limit) })}`,
       signal ? { signal } : {},
     ),
 
@@ -359,6 +411,10 @@ export const backofficeApi = {
       })}`,
       signal ? { signal } : {},
     ),
+
+  // No subject and no case: when each scheduled job last ran (HU-BO-031 c2).
+  supportJobHealth: (signal?: AbortSignal) =>
+    requestJson<SupportJobHealth>('/backoffice/v1/support/job-health', signal ? { signal } : {}),
 
   supportDeliveryCircuits: (signal?: AbortSignal) =>
     requestJson<{ items: SupportDeliveryCircuit[] }>(

@@ -182,14 +182,44 @@ export function panelSummary(
     return status === 'open' ? 'Ninguna solicitud abierta.' : 'Ninguna solicitud resuelta.'
   }
   const late = page.items.filter((request) => urgencyOf(request, now) === 'overdue').length
+  const soon = page.items.filter((request) => urgencyOf(request, now) === 'due_soon').length
+  // With more to fetch the counts are of what is loaded, and the sentence says so.
+  const loaded = page.has_more ? (total === 1 ? ' cargada' : ' cargadas') : ''
   const sentences = [
-    status === 'open'
+    (status === 'open'
       ? plural(total, 'solicitud abierta', 'solicitudes abiertas')
-      : plural(total, 'solicitud resuelta', 'solicitudes resueltas'),
+      : plural(total, 'solicitud resuelta', 'solicitudes resueltas')) + loaded,
   ]
   if (late > 0) sentences.push(`${late} pasada${late === 1 ? '' : 's'} de los 30 días`)
+  if (soon > 0) sentences.push(`${soon} por vencer en ${DUE_SOON_DAYS} días o menos`)
   const summary = `${sentences.join(', ')}.`
-  return page.has_more ? `${summary} Hay más de las que caben en esta página.` : summary
+  return page.has_more ? `${summary} Hay más: «Ver más solicitudes» trae las siguientes.` : summary
+}
+
+/**
+ * Where the next page starts: after the last row, by the instant the half is read in —
+ * opened for the open half, closed for the resolved one. None when nothing is left.
+ */
+export function nextPageCursor(
+  page: ErasureRequestPage,
+  status: ErasureRequestState,
+): { cursor_at: string; cursor_id: string } | undefined {
+  const last = page.items[page.items.length - 1]
+  if (!page.has_more || !last) return undefined
+  const at = status === 'open' ? last.opened_at : last.closed_at
+  return at ? { cursor_at: at, cursor_id: last.id } : undefined
+}
+
+/** A fetched page appended: each request once, and the newer answer about whether more remain. */
+export function appendPage(
+  current: ErasureRequestPage,
+  next: ErasureRequestPage,
+): ErasureRequestPage {
+  const seen = new Set(current.items.map((request) => request.id))
+  return {
+    items: [...current.items, ...next.items.filter((request) => !seen.has(request.id))],
+    has_more: next.has_more,
+  }
 }
 
 export function emptyMessage(status: ErasureRequestState): string {

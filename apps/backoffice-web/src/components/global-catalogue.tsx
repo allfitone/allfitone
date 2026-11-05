@@ -67,6 +67,7 @@ import {
   type BackofficeCommand,
   type BackofficeGlobalCatalogue,
   type GlobalCatalogueEntry,
+  type GlobalCatalogueEquipment,
 } from '@/lib/backoffice-api'
 import {
   catalogueCodeIssue,
@@ -76,8 +77,15 @@ import {
   catalogueOutcomeMessage,
   catalogueStatusLabel,
   catalogueStatusTone,
-  equipmentExplanation,
+  equipmentDraft,
+  equipmentInUseExplanation,
+  equipmentItems,
+  equipmentOutcomeMessage,
   globalCatalogueMessage,
+  movementEquipmentOutcome,
+  movementEquipmentSentence,
+  publishedEquipment,
+  type EquipmentChoice,
   inUseExplanation,
   isValidCatalogueCode,
   isValidCatalogueName,
@@ -105,6 +113,10 @@ export function GlobalCatalogue() {
   const [activityName, setActivityName] = useState('')
   const [movementDiscipline, setMovementDiscipline] = useState('')
   const [movementName, setMovementName] = useState('')
+  const [equipmentCode, setEquipmentCode] = useState('')
+  const [equipmentName, setEquipmentName] = useState('')
+  const [editing, setEditing] = useState<GlobalCatalogueEntry | null>(null)
+  const [draft, setDraft] = useState<Record<string, EquipmentChoice>>({})
   const [formIssue, setFormIssue] = useState<Record<string, string>>({})
 
   useEffect(() => {
@@ -127,10 +139,10 @@ export function GlobalCatalogue() {
     return () => controller.abort()
   }, [reload])
 
-  async function run(
+  async function run<T>(
     key: string,
-    action: 'publish' | 'archive',
-    send: (command: BackofficeCommand) => Promise<GlobalCatalogueEntry>,
+    send: (command: BackofficeCommand) => Promise<T>,
+    message: (result: T) => string,
     onDone?: () => void,
   ) {
     const command = pending.current.get(key) ?? newBackofficeCommand()
@@ -139,9 +151,9 @@ export function GlobalCatalogue() {
     setOutcome(null)
     setCommandFailure(null)
     try {
-      const entry = await send(command)
+      const result = await send(command)
       pending.current.delete(key)
-      setOutcome(catalogueOutcomeMessage(action, entry))
+      setOutcome(message(result))
       onDone?.()
       setReload((value) => value + 1)
     } catch (error) {
@@ -168,12 +180,12 @@ export function GlobalCatalogue() {
     if (!validate({ discipline_code: disciplineCode, discipline_name: disciplineName })) return
     void run(
       `discipline:${disciplineCode}`,
-      'publish',
       (command) =>
         backofficeApi.publishCatalogueDiscipline(
           { code: disciplineCode.trim(), name: disciplineName.trim() },
           command,
         ),
+      (entry) => catalogueOutcomeMessage('publish', entry),
       () => {
         setDisciplineCode('')
         setDisciplineName('')
@@ -194,7 +206,6 @@ export function GlobalCatalogue() {
     }
     void run(
       `activity:${activityCode}`,
-      'publish',
       (command) =>
         backofficeApi.publishCatalogueActivityType(
           {
@@ -204,6 +215,7 @@ export function GlobalCatalogue() {
           },
           command,
         ),
+      (entry) => catalogueOutcomeMessage('publish', entry),
       () => {
         setActivityCode('')
         setActivityName('')
@@ -216,13 +228,59 @@ export function GlobalCatalogue() {
     if (!validate({ movement_discipline: movementDiscipline, movement_name: movementName })) return
     void run(
       `movement:${movementName.trim().toLowerCase()}`,
-      'publish',
       (command) =>
         backofficeApi.publishCatalogueMovement(
           { discipline_code: movementDiscipline, name: movementName.trim() },
           command,
         ),
+      (entry) => catalogueOutcomeMessage('publish', entry),
       () => setMovementName(''),
+    )
+  }
+
+  function publishEquipment(event: FormEvent) {
+    event.preventDefault()
+    if (!validate({ equipment_code: equipmentCode, equipment_name: equipmentName })) return
+    void run(
+      `equipment:${equipmentCode}`,
+      (command) =>
+        backofficeApi.publishCatalogueEquipment(
+          { code: equipmentCode.trim(), name: equipmentName.trim() },
+          command,
+        ),
+      (item) => equipmentOutcomeMessage('publish', item),
+      () => {
+        setEquipmentCode('')
+        setEquipmentName('')
+      },
+    )
+  }
+
+  const archiveEquipment = (item: GlobalCatalogueEquipment) =>
+    run(
+      `archive:${item.id}`,
+      (command) => backofficeApi.archiveCatalogueEquipment(item.code, command),
+      (archived) => equipmentOutcomeMessage('archive', archived),
+    )
+
+  function editEquipment(entry: GlobalCatalogueEntry) {
+    setEditing(entry)
+    setDraft(equipmentDraft(entry))
+  }
+
+  function saveEquipment() {
+    if (!editing) return
+    const movement = editing
+    void run(
+      `movement-equipment:${movement.id}`,
+      (command) =>
+        backofficeApi.setCatalogueMovementEquipment(
+          movement.id,
+          { items: equipmentItems(draft) },
+          command,
+        ),
+      (saved) => movementEquipmentOutcome(saved),
+      () => setEditing(null),
     )
   }
 
@@ -241,11 +299,14 @@ export function GlobalCatalogue() {
   }
 
   const archive = (entry: GlobalCatalogueEntry) =>
-    run(`archive:${entry.id}`, 'archive', (command) =>
-      backofficeApi.archiveCatalogueEntry(
-        { kind: entry.kind, id: entry.id, code: entry.code },
-        command,
-      ),
+    run(
+      `archive:${entry.id}`,
+      (command) =>
+        backofficeApi.archiveCatalogueEntry(
+          { kind: entry.kind, id: entry.id, code: entry.code },
+          command,
+        ),
+      (archived) => catalogueOutcomeMessage('archive', archived),
     )
 
   const disciplineOptions = catalogue ? publishedDisciplines(catalogue) : []
@@ -431,6 +492,7 @@ export function GlobalCatalogue() {
             entries={catalogue.movements}
             busy={busy}
             onArchive={archive}
+            equipment={{ onEdit: editEquipment }}
             form={
               <form onSubmit={publishMovement} data-backoffice-form data-catalogue-form="movement">
                 <FieldGroup>
@@ -485,16 +547,64 @@ export function GlobalCatalogue() {
             }
           />
 
-          <Card data-catalogue-equipment>
-            <CardHeader>
-              <CardTitle role="heading" aria-level={2}>
-                Equipamiento
-              </CardTitle>
-              <CardDescription>
-                {equipmentExplanation(catalogue.equipment_availability)}
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          {editing ? (
+            <MovementEquipmentEditor
+              movement={editing}
+              available={publishedEquipment(catalogue)}
+              draft={draft}
+              busy={busy}
+              onChange={(code, choice) => setDraft((current) => ({ ...current, [code]: choice }))}
+              onSave={saveEquipment}
+              onCancel={() => setEditing(null)}
+            />
+          ) : null}
+
+          <EquipmentSection
+            entries={catalogue.equipment}
+            busy={busy}
+            onArchive={archiveEquipment}
+            form={
+              <form
+                onSubmit={publishEquipment}
+                data-backoffice-form
+                data-catalogue-form="equipment"
+              >
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="equipment-code">Código</FieldLabel>
+                    <Input
+                      id="equipment-code"
+                      value={equipmentCode}
+                      onChange={(event) => setEquipmentCode(event.target.value)}
+                      placeholder="barbell"
+                      disabled={busy !== null}
+                    />
+                    {formIssue.equipment_code ? (
+                      <FieldError>{formIssue.equipment_code}</FieldError>
+                    ) : null}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="equipment-name">Nombre</FieldLabel>
+                    <Input
+                      id="equipment-name"
+                      value={equipmentName}
+                      onChange={(event) => setEquipmentName(event.target.value)}
+                      placeholder="Barra olímpica"
+                      disabled={busy !== null}
+                    />
+                    {formIssue.equipment_name ? (
+                      <FieldError>{formIssue.equipment_name}</FieldError>
+                    ) : null}
+                  </Field>
+                </FieldGroup>
+                <div data-form-actions>
+                  <Button type="submit" disabled={busy !== null}>
+                    Publicar equipamiento
+                  </Button>
+                </div>
+              </form>
+            }
+          />
         </>
       ) : null}
     </div>
@@ -508,6 +618,7 @@ function CatalogueSection({
   entries,
   busy,
   onArchive,
+  equipment,
   form,
 }: {
   kind: GlobalCatalogueEntry['kind']
@@ -516,6 +627,8 @@ function CatalogueSection({
   entries: GlobalCatalogueEntry[]
   busy: string | null
   onArchive: (entry: GlobalCatalogueEntry) => Promise<void>
+  /** Movements only: what each uses, and the way to change it. */
+  equipment?: { onEdit: (entry: GlobalCatalogueEntry) => void }
   form: ReactNode
 }) {
   const [archiving, setArchiving] = useState<string | null>(null)
@@ -554,7 +667,27 @@ function CatalogueSection({
             <TableBody>
               {entries.map((entry) => (
                 <TableRow key={entry.id} data-catalogue-entry data-status={entry.status}>
-                  <TableCell>{entry.name}</TableCell>
+                  <TableCell>
+                    {entry.name}
+                    {/* Under the name, so the table keeps five columns and archiving in view. */}
+                    {equipment ? (
+                      <div data-movement-equipment-cell>
+                        <span data-movement-equipment>{movementEquipmentSentence(entry)}</span>{' '}
+                        {entry.status === 'published' ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={busy !== null}
+                            aria-label={`Editar el equipamiento de ${entry.name}`}
+                            onClick={() => equipment.onEdit(entry)}
+                          >
+                            Editar
+                          </Button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </TableCell>
                   <TableCell>
                     <code>{kind === 'movement' ? entry.discipline_code : entry.code}</code>
                   </TableCell>
@@ -606,6 +739,216 @@ function CatalogueSection({
                               onClick={() => void onArchive(entry).then(() => setArchiving(null))}
                             >
                               {busy === `archive:${entry.id}` ? 'Archivando…' : 'Sí, archivar'}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+const CHOICES: ReadonlyArray<{ value: EquipmentChoice; label: string }> = [
+  { value: 'none', label: 'No lo usa' },
+  { value: 'optional', label: 'Opcional' },
+  { value: 'required', label: 'Lo necesita' },
+]
+
+/**
+ * What one movement uses. The list is sent whole, so the editor shows every published
+ * equipment with its choice rather than a picker that could leave something stale.
+ */
+function MovementEquipmentEditor({
+  movement,
+  available,
+  draft,
+  busy,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  movement: GlobalCatalogueEntry
+  available: GlobalCatalogueEquipment[]
+  draft: Record<string, EquipmentChoice>
+  busy: string | null
+  onChange: (code: string, choice: EquipmentChoice) => void
+  onSave: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Card data-movement-equipment-editor>
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2}>
+          {`Equipamiento de «${movement.name}»`}
+        </CardTitle>
+        <CardDescription>
+          Lo que el movimiento necesita o puede usar. Una persona filtra los movimientos por esto,
+          así que solo se nombra equipamiento publicado.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {available.length === 0 ? (
+          <p data-movement-equipment-none>
+            Todavía no hay equipamiento publicado. Publícalo abajo y vuelve a editar el movimiento.
+          </p>
+        ) : (
+          <FieldGroup>
+            {available.map((item) => (
+              <Field
+                key={item.id}
+                orientation="responsive"
+                data-movement-equipment-choice={item.code}
+              >
+                <FieldLabel htmlFor={`movement-equipment-${item.code}`}>{item.name}</FieldLabel>
+                <Select
+                  items={CHOICES.map((choice) => ({ value: choice.value, label: choice.label }))}
+                  value={draft[item.code] ?? 'none'}
+                  onValueChange={(value) => {
+                    const next = CHOICES.find((choice) => choice.value === value)
+                    if (next) onChange(item.code, next.value)
+                  }}
+                >
+                  <SelectTrigger id={`movement-equipment-${item.code}`} disabled={busy !== null}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CHOICES.map((choice) => (
+                      <SelectItem key={choice.value} value={choice.value}>
+                        {choice.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            ))}
+          </FieldGroup>
+        )}
+        <div data-form-actions>
+          <Button
+            type="button"
+            disabled={busy !== null}
+            onClick={onSave}
+            data-movement-equipment-save
+          >
+            {busy === `movement-equipment:${movement.id}` ? 'Guardando…' : 'Guardar equipamiento'}
+          </Button>
+          <Button type="button" variant="outline" disabled={busy !== null} onClick={onCancel}>
+            Cancelar
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function EquipmentSection({
+  entries,
+  busy,
+  onArchive,
+  form,
+}: {
+  entries: GlobalCatalogueEquipment[]
+  busy: string | null
+  onArchive: (item: GlobalCatalogueEquipment) => Promise<void>
+  form: ReactNode
+}) {
+  const [archiving, setArchiving] = useState<string | null>(null)
+
+  return (
+    <Card data-catalogue-section="equipment">
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2}>
+          Equipamiento
+        </CardTitle>
+        <CardDescription>
+          Con qué se puede hacer un movimiento: compatibilidad, no inventario. Las personas filtran
+          los movimientos por esto.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {form}
+
+        {entries.length === 0 ? (
+          <ScreenEmpty
+            icon="training"
+            title="Todavía no hay equipamiento publicado."
+            data-catalogue-empty
+          >
+            Lo primero que publiques aparece aquí con su código, su estado y cuántos movimientos lo
+            usan.
+          </ScreenEmpty>
+        ) : (
+          <Table scrollAreaLabel="Equipamiento">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Código</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>En uso</TableHead>
+                <TableHead>Archivar</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {entries.map((item) => (
+                <TableRow key={item.id} data-catalogue-equipment-entry data-status={item.status}>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>
+                    <code>{item.code}</code>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={catalogueStatusTone(item.status)}>
+                      {catalogueStatusLabel(item.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{equipmentInUseExplanation(item)}</TableCell>
+                  <TableCell>
+                    {item.status !== 'published' ? (
+                      <span data-catalogue-reason>Ya está fuera de las búsquedas.</span>
+                    ) : (
+                      <AlertDialog
+                        open={archiving === item.id}
+                        onOpenChange={(next) => {
+                          // Closing mid-flight would hide a request that is still going to land.
+                          if (busy !== null) return
+                          setArchiving(next ? item.id : null)
+                        }}
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy !== null}
+                          aria-label={`Archivar ${item.name}`}
+                          onClick={() => setArchiving(item.id)}
+                        >
+                          {busy === `archive:${item.id}` ? 'Archivando…' : 'Archivar'}
+                        </Button>
+                        <AlertDialogContent data-archive-entry-dialog>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{`¿Archivar el equipamiento «${item.name}»?`}</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Sale de las búsquedas y de la lista de cada movimiento que lo usa. Se
+                              puede volver a publicar con el mismo nombre, y entonces vuelve con
+                              ellos.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={busy !== null}>
+                              Mantener en las búsquedas
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              variant="destructive"
+                              disabled={busy !== null}
+                              onClick={() => void onArchive(item).then(() => setArchiving(null))}
+                            >
+                              {busy === `archive:${item.id}` ? 'Archivando…' : 'Sí, archivar'}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

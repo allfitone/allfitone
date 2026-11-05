@@ -3,7 +3,11 @@ import { describe, expect, test } from 'bun:test'
 import {
   EMPTY_HANDOVER_DRAFT,
   canActOn,
+  cancelledBySentence,
+  createdBySentence,
+  fileLink,
   handoverDraftIssue,
+  siteLine,
   handoverMessage,
   handoverStage,
   resendNotice,
@@ -28,6 +32,8 @@ function handover(overrides: Partial<OrganizationHandover> = {}): OrganizationHa
     created_at: '2026-09-13T12:00:00.000Z',
     claimed_at: null,
     cancelled_at: null,
+    created_by: { person_id: '019a6000-0000-7000-8000-000000000004', name: 'Mateo Ciclo' },
+    cancelled_by: null,
     site: null,
     invitation: {
       invitation_id: '019a6000-0000-7000-8000-000000000101',
@@ -39,6 +45,58 @@ function handover(overrides: Partial<OrganizationHandover> = {}): OrganizationHa
     ...overrides,
   }
 }
+
+// HU-BO-013 c5: once a natural person claims the gym, the address is theirs.
+describe('the site of a handover', () => {
+  const site = { site_id: '019a6000-0000-7000-8000-000000000601', name: 'Sede', address: null }
+
+  test('names the site and its address when there is one to show', () => {
+    expect(
+      siteLine(handover({ site: { ...site, address: 'Calle 1 # 2-3', address_withheld: false } })),
+    ).toBe('Sede · Calle 1 # 2-3')
+    expect(siteLine(handover({ site: { ...site, address_withheld: false } }))).toBe('Sede')
+    expect(siteLine(handover({ site: null }))).toBe('Sin sede declarada')
+  })
+
+  test('says the address is withheld rather than leaving it out', () => {
+    expect(siteLine(handover({ site: { ...site, address_withheld: true } }))).toBe(
+      'Sede · dirección reservada: es de la persona natural que responde por el gimnasio',
+    )
+  })
+})
+
+// HU-BO-014 c7 and HU-BO-015 c3: who on Allfit's team created it, and who cancelled it.
+describe('who on the team created and cancelled a gym', () => {
+  test('the creator is named', () => {
+    expect(createdBySentence(handover())).toBe('Lo creó Mateo Ciclo, del equipo de Allfit One.')
+    expect(cancelledBySentence(handover())).toBeUndefined()
+  })
+
+  test('and so is whoever cancelled it', () => {
+    const cancelled = handover({
+      status: 'cancelled',
+      cancelled_at: '2026-09-14T12:00:00.000Z',
+      cancelled_by: { person_id: '019a6000-0000-7000-8000-000000000006', name: 'Sara Ciclo' },
+    })
+    expect(cancelledBySentence(cancelled)).toBe('Lo canceló Sara Ciclo.')
+  })
+
+  test('a gym nobody at Allfit created says so instead of naming somebody', () => {
+    expect(createdBySentence(handover({ created_by: null }))).toBe(
+      'No lo creó nadie del equipo de Allfit One.',
+    )
+  })
+
+  // HU-BO-034 c1: the quota is set in the gym's file, and an unclaimed gym had no way there.
+  test('an unclaimed gym leads to its file, where its quota is set', () => {
+    expect(fileLink(handover())).toEqual({
+      href: '/organizations/019a6000-0000-7000-8000-000000000001',
+      label: 'Fijar su cupo en la ficha del gimnasio',
+    })
+    expect(fileLink(handover({ status: 'active' }))?.label).toBe('Ver la ficha del gimnasio')
+    expect(fileLink(handover({ status: 'cancelled' }))).toBeUndefined()
+  })
+})
 
 const company: HandoverDraft = {
   ...EMPTY_HANDOVER_DRAFT,

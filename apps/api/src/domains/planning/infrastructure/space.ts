@@ -29,6 +29,7 @@ import type {
   SpacePlanningDatabase,
   StoredProgramDetail,
   StoredProgramSummary,
+  TodaySession,
   TrainingProfile,
 } from '../domain/space.js'
 
@@ -82,6 +83,7 @@ interface TodayRow {
   status: string
   exercise_count: number
   executed_session_id: string | null
+  hold: TodaySession['hold']
 }
 
 interface WeekPlanRow {
@@ -395,6 +397,7 @@ export function createSpacePlanningDatabase(): SpacePlanningDatabase {
               status: row.status,
               exercise_count: row.exercise_count,
               executed_session_id: row.executed_session_id,
+              hold: row.hold,
             }
           : null
       }),

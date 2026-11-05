@@ -54,6 +54,7 @@ import {
   supportMetadataMessage,
   verificationLabel,
 } from '@/lib/support-metadata'
+import { breakGlassRequestHref } from '@/lib/break-glass'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -123,7 +124,13 @@ export function SupportPersonCard({ personId }: { personId: string }) {
           </CardTitle>
           <CardDescription>
             Caso {caseReference}. Sin nombres ni contactos completos: para resolver un caso de
-            entrenamiento, cuerpo, salud o nutrición hace falta un acceso excepcional aparte.
+            entrenamiento, cuerpo, salud o nutrición hace falta un acceso excepcional aparte.{' '}
+            <Link
+              href={breakGlassRequestHref(metadata.person_id, caseReference)}
+              data-person-break-glass-link
+            >
+              Pedir acceso excepcional para esta persona
+            </Link>
           </CardDescription>
         </CardHeader>
         <CardContent>

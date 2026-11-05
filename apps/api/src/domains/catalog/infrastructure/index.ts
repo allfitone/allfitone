@@ -22,6 +22,7 @@ import {
   type ProfessionalCatalogItem,
   type ResultContract,
   type ResultContractDatabase,
+  type ResultContractVersionList,
   type StoredMovement,
   type StoredMovementDetail,
 } from '../domain/index.js'
@@ -105,6 +106,20 @@ export function createResultContractDatabase(): ResultContractDatabase {
           )
         `
         return required(row, 'deprecate the result contract')
+      }),
+
+    versions: (input) =>
+      command(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<
+          { list_result_contract_versions: ResultContractVersionList }[]
+        >`
+          select catalog.list_result_contract_versions(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.activityTypeId}::uuid
+          )
+        `
+        if (!row) throw new Error('PostgreSQL did not list the result contract versions')
+        return row.list_result_contract_versions
       }),
   }
 }

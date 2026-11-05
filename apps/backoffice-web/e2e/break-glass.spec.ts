@@ -132,6 +132,9 @@ test('one approval does not open a window that needs two', async ({ context, pag
   await page.goto(PATH)
   await expect(page.getByText('0 de 2 aprobaciones. Faltan 2.')).toBeVisible()
 
+  // Approving needs a reason first: the approver says why.
+  await expect(page.getByRole('button', { name: 'Aprobar' })).toBeDisabled()
+  await chooseReason(page, 'Motivo de la aprobación', 'El caso justifica leer estos datos')
   await page.getByRole('button', { name: 'Aprobar' }).click()
 
   await expect(page.getByText(/Falta otra persona para que la ventana se abra/)).toBeVisible()
@@ -163,9 +166,12 @@ test('a completed quorum opens the window and says how long it has left', async 
   await mockBackofficeApi(context, fixture)
 
   await page.goto(PATH)
+  await chooseReason(page, 'Motivo de la aprobación', 'La persona pidió la ayuda que lo requiere')
   await page.getByRole('button', { name: 'Aprobar' }).click()
 
   await expect(page.getByText('La ventana quedó abierta.')).toBeVisible()
+  const decision = fixture.requests.find((request) => request.path.endsWith('/decisions'))
+  expect(decision?.body).toEqual({ decision: 'approved', reason_code: 'APPROVED-PERSON-ASKED' })
   await expect(page.getByText('Ventana abierta')).toBeVisible()
   await expect(
     page.getByText(/Quedan \d+ minutos de ventana\. No se puede extender\./),
@@ -190,9 +196,14 @@ test('a rejection is final and offers no second chance', async ({ context, page 
 
   await page.goto(PATH)
   await page.getByRole('button', { name: 'Rechazar' }).click()
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Rechazar la solicitud' }).click()
+  const dialog = page.getByRole('alertdialog')
+  await expect(dialog.getByRole('button', { name: 'Rechazar la solicitud' })).toBeDisabled()
+  await chooseReason(page, 'Motivo del rechazo', 'Pide más categorías de las necesarias')
+  await dialog.getByRole('button', { name: 'Rechazar la solicitud' }).click()
 
   await expect(page.getByText(/El rechazo es definitivo/)).toBeVisible()
+  const decision = fixture.requests.find((request) => request.path.endsWith('/decisions'))
+  expect(decision?.body).toEqual({ decision: 'rejected', reason_code: 'REJECTED-TOO-BROAD' })
   await expect(page.getByText('Rechazada', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0)
 })
@@ -1064,4 +1075,30 @@ test('an empty tray says what will appear rather than nothing at all', async ({
 
   await expect(page.getByText('No hay expedientes')).toBeVisible()
   await expect(page.getByText(/con su quórum, su ventana y cuántas veces se ejerció/)).toBeVisible()
+})
+
+async function chooseReason(
+  page: import('@playwright/test').Page,
+  label: string,
+  reason: string,
+): Promise<void> {
+  await page.getByRole('combobox', { name: label }).click()
+  await page.getByRole('option', { name: reason, exact: true }).click()
+}
+
+// The subject was typed as an identifier; the person's card now starts the request.
+test("a request started from the person's card arrives with the subject and the case", async ({
+  context,
+  page,
+}) => {
+  const subject = '019a8000-0000-7000-8000-000000000006'
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), breakGlass: { files: [] } }),
+  )
+
+  await page.goto(`/break-glass?subject=${subject}&case_reference=CASE-2026-321`)
+
+  await expect(page.getByLabel('Persona afectada')).toHaveValue(subject)
+  await expect(page.getByLabel('Referencia del caso')).toHaveValue('CASE-2026-321')
 })

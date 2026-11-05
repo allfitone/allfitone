@@ -42,4 +42,13 @@ export interface ProDatabase {
     state: StoreSubscriptionState
     requestId: string
   }): Promise<NotificationOutcome>
+  /** Counts a refused notice per store, reason and hour; nothing from the notice travels. */
+  recordNotificationRefusal(input: {
+    store: Store
+    reason: NotificationRefusal
+    requestId: string
+  }): Promise<void>
 }
+
+/** Why a store notice was refused: unreadable, not the store's, or not applied. */
+export type NotificationRefusal = 'malformed' | 'unverified' | 'not_applied'

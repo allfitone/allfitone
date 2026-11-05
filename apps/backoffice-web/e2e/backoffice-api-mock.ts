@@ -32,6 +32,7 @@ export interface BackofficeFixture {
   globalCatalogue?: GlobalCatalogueFixture
   platformPlans?: PlatformPlansFixture
   attention?: AttentionFixture
+  billingFollowUp?: BillingFollowUpFixture
   business?: BusinessFixture
   verification?: VerificationFixture
   breakGlass?: BreakGlassFixture
@@ -185,6 +186,8 @@ export interface ErasureRequestFixture {
   /** The answer the next hold command gets, consumed once. */
   nextHoldRefusal?: { status: number; code: string } | undefined
   requests: ErasureRequestEntryFixture[]
+  /** Rows per page; the real read answers 50. */
+  pageSize?: number
 }
 
 export interface LegalHoldFixture {
@@ -622,9 +625,17 @@ export interface GuestQuotaFixture {
   last_change: {
     at: string
     by_person_id: string
+    by_name: string | null
     by_duty_assignment_id: string
     previous_seats: number | null
   } | null
+  history: Array<{
+    at: string
+    by_person_id: string
+    by_name: string | null
+    seats: number | null
+    previous_seats: number | null
+  }>
 }
 
 /** A gym nobody has sold a number to: no limit, and no decision behind it. */
@@ -633,8 +644,10 @@ export interface SuspensionPeriodFixture {
   reason_code: string
   started_at: string
   started_by_person_id: string
+  started_by_name: string | null
   ended_at: string | null
   ended_by_person_id: string | null
+  ended_by_name: string | null
 }
 
 export interface SuspensionFixture {
@@ -647,6 +660,7 @@ export interface SuspensionFixture {
     reason_code: string
     started_at: string
     started_by_person_id: string
+    started_by_name: string | null
     people_blocked: number
   } | null
   history: SuspensionPeriodFixture[]
@@ -680,6 +694,7 @@ export function guestQuotaRecord(
     places_left: null,
     over_quota: false,
     last_change: null,
+    history: [],
     ...overrides,
   }
 }
@@ -765,7 +780,9 @@ export interface HandoverRecordFixture {
   created_at: string
   claimed_at: string | null
   cancelled_at: string | null
-  site: { site_id: string; name: string; address: string | null } | null
+  created_by: { person_id: string; name: string | null } | null
+  cancelled_by: { person_id: string; name: string | null } | null
+  site: { site_id: string; name: string; address: string | null; address_withheld: boolean } | null
   invitation: {
     invitation_id: string
     status: 'pending' | 'completed' | 'revoked' | 'expired'
@@ -793,6 +810,8 @@ export function handoverRecord(
     created_at: new Date(Date.now() - 86_400_000).toISOString(),
     claimed_at: null,
     cancelled_at: null,
+    created_by: { person_id: '019a7000-0000-7000-8000-000000000004', name: 'Mateo Ciclo' },
+    cancelled_by: null,
     site: null,
     invitation: {
       invitation_id: `019a7100-0000-7000-8000-${suffix}`,
@@ -1210,6 +1229,71 @@ export interface AttentionPanelFixture {
   }
 }
 
+/**
+ * The charges to follow up (`HU-BO-005`, `HU-BO-020`). The mock refuses a read without a
+ * traceable case, as the database does, and answers the rows in the order given.
+ */
+export interface BillingFollowUpFixture {
+  refusal?: { status: number; code: string }
+  items: BillingFollowUpItemFixture[]
+  hasMore?: boolean
+}
+
+export interface BillingFollowUpItemFixture {
+  person_id: string
+  subscription_status: 'active' | 'grace' | 'suspended' | 'ended' | null
+  plan_name: string | null
+  store: 'app_store' | 'google_play' | null
+  grace_until: string | null
+  suspended_at: string | null
+  failed_charges: number
+  last_failed_charge: {
+    occurred_at: string
+    failure_code: string | null
+    amount_minor: number | null
+    currency_code: string | null
+  } | null
+}
+
+export function billingFollowUpItem(
+  overrides: Partial<BillingFollowUpItemFixture> = {},
+): BillingFollowUpItemFixture {
+  return {
+    person_id: '019b4000-0000-7000-8000-000000000011',
+    subscription_status: 'suspended',
+    plan_name: 'Pro',
+    store: 'google_play',
+    grace_until: null,
+    suspended_at: new Date(Date.now() - 4 * 86_400_000).toISOString(),
+    failed_charges: 0,
+    last_failed_charge: null,
+    ...overrides,
+  }
+}
+
+async function routeBillingFollowUp(
+  route: Route,
+  request: MockRequest,
+  fixture: BackofficeFixture,
+): Promise<void> {
+  const state = fixture.billingFollowUp ?? { items: [] }
+  if (state.refusal) {
+    await fulfillProblem(route, state.refusal.status, state.refusal.code)
+    return
+  }
+  const parameters = new URLSearchParams(request.query)
+  if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(parameters.get('case_reference') ?? '')) {
+    await fulfillProblem(route, 400, 'invalid-request')
+    return
+  }
+  await fulfill(route, 200, {
+    generated_at: new Date().toISOString(),
+    window_days: 30,
+    items: state.items,
+    has_more: state.hasMore ?? false,
+  })
+}
+
 /** Support's view: gyms and failures available, verifications withheld. */
 export function attentionPanelRecord(
   overrides: Partial<AttentionPanelFixture> = {},
@@ -1270,6 +1354,15 @@ export interface DiagnosisFixture {
   operations: DiagnosisOperationFixture[]
   /** Rows per page, so the feed's cursor can be exercised. */
   pageSize?: number
+  /** When each scheduled job last ran (HU-BO-031 c2). */
+  jobs?: Array<{
+    job_name: string
+    last_run_at: string
+    last_outcome: 'succeeded' | 'failed'
+    last_failure_at: string | null
+    last_error_code: string | null
+    failures_24h: number
+  }>
 }
 
 export interface DiagnosisCircuitFixture {
@@ -1282,7 +1375,7 @@ export interface DiagnosisCircuitFixture {
 }
 
 export interface DiagnosisOperationFixture {
-  source: 'notification' | 'command'
+  source: 'notification' | 'command' | 'job' | 'store_notification'
   reference_id: string
   subject_kind: string | null
   subject_id: string | null
@@ -1854,13 +1947,18 @@ export async function mockBackofficeApi(
       await routeAttention(route, fixture)
       return
     }
+    if (request.path === '/backoffice/v1/support/billing-follow-up') {
+      await routeBillingFollowUp(route, request, fixture)
+      return
+    }
     if (request.path === '/backoffice/v1/support/business') {
       await routeBusiness(route, fixture)
       return
     }
     if (
       request.path === '/backoffice/v1/support/operations' ||
-      request.path === '/backoffice/v1/support/delivery-circuits'
+      request.path === '/backoffice/v1/support/delivery-circuits' ||
+      request.path === '/backoffice/v1/support/job-health'
     ) {
       await routeDiagnosis(route, request, fixture)
       return
@@ -1877,7 +1975,9 @@ export async function mockBackofficeApi(
       await routeCatalogue(route, request, fixture)
       return
     }
-    if (/^\/backoffice\/v1\/catalogue(\/[^/]+(\/[^/]+\/archival)?)?$/.test(request.path)) {
+    if (
+      /^\/backoffice\/v1\/catalogue(\/[^/]+(\/[^/]+\/(archival|equipment))?)?$/.test(request.path)
+    ) {
       await routeGlobalCatalogue(route, request, fixture)
       return
     }
@@ -2032,6 +2132,20 @@ async function routeResultContracts(
 ): Promise<void> {
   const contracts = fixture.resultContracts ?? { versions: {}, published: [] }
   fixture.resultContracts = contracts
+  if (request.method === 'GET') {
+    // Every version bound to the type, newest first, as the curator's read answers.
+    const activityTypeId = new URLSearchParams(request.query).get('activity_type_id') ?? ''
+    const items = contracts.published
+      .filter((contract) =>
+        contract.activity_type_bindings.some(
+          (binding) => binding.activity_type_id === activityTypeId,
+        ),
+      )
+      .sort((left, right) => right.version_number - left.version_number)
+    await fulfill(route, 200, { activity_type_id: activityTypeId, items })
+    return
+  }
+  // A command failure is for the next command; the versions read never spends it.
   const failure = contracts.nextCommandFailure
   if (failure) {
     contracts.nextCommandFailure = undefined
@@ -2615,7 +2729,8 @@ async function routeErasureRequests(
     return
   }
 
-  const status = new URLSearchParams(request.query).get('status') ?? 'open'
+  const parameters = new URLSearchParams(request.query)
+  const status = parameters.get('status') ?? 'open'
   const matching = panel.requests.filter((entry) => entry.status === status)
   // Open requests oldest first; a resolved one is read newest first.
   const ordered = [...matching].sort((left, right) =>
@@ -2625,7 +2740,15 @@ async function routeErasureRequests(
         Date.parse(left.closed_at ?? left.opened_at),
   )
 
-  await fulfill(route, 200, { items: ordered, has_more: false })
+  // The page continues after the row the cursor names, as the real keyset read does.
+  const after = parameters.get('cursor_id')
+  const start = after === null ? 0 : ordered.findIndex((entry) => entry.id === after) + 1
+  const size = panel.pageSize ?? 50
+  const remaining = ordered.slice(start)
+  await fulfill(route, 200, {
+    items: remaining.slice(0, size),
+    has_more: remaining.length > size,
+  })
 }
 
 async function routeAccessLog(
@@ -2777,6 +2900,30 @@ export interface GlobalCatalogueFixture {
   disciplines: CatalogueEntryFixture[]
   activityTypes: CatalogueEntryFixture[]
   movements: CatalogueEntryFixture[]
+  equipment: CatalogueEquipmentFixture[]
+}
+
+export interface CatalogueEquipmentFixture {
+  id: string
+  code: string
+  name: string
+  status: 'draft' | 'published' | 'deprecated' | 'archived'
+  created_at: string
+  in_use_count: number
+}
+
+export function catalogueEquipment(
+  overrides: Partial<CatalogueEquipmentFixture> = {},
+): CatalogueEquipmentFixture {
+  return {
+    id: nextAssignmentId(),
+    code: 'test_barbell',
+    name: 'Barra olímpica',
+    status: 'published',
+    created_at: '2026-11-04T12:00:00.000Z',
+    in_use_count: 0,
+    ...overrides,
+  }
 }
 
 export interface CatalogueEntryFixture {
@@ -2788,6 +2935,7 @@ export interface CatalogueEntryFixture {
   status: 'draft' | 'published' | 'deprecated' | 'archived'
   created_at: string
   in_use_count: number
+  equipment?: Array<{ code: string; name: string; requirement: 'required' | 'optional' }>
 }
 
 export function catalogueEntry(
@@ -2810,7 +2958,7 @@ export function catalogueEntry(
 export function globalCatalogueFixture(
   overrides: Partial<GlobalCatalogueFixture> = {},
 ): GlobalCatalogueFixture {
-  return { disciplines: [], activityTypes: [], movements: [], ...overrides }
+  return { disciplines: [], activityTypes: [], movements: [], equipment: [], ...overrides }
 }
 
 /**
@@ -3096,8 +3244,9 @@ async function routeGlobalCatalogue(
     await fulfill(route, 200, {
       disciplines: state.disciplines,
       activity_types: state.activityTypes,
-      movements: state.movements,
-      equipment_availability: 'not_modelled',
+      movements: state.movements.map((entry) => ({ ...entry, equipment: entry.equipment ?? [] })),
+      equipment: state.equipment,
+      equipment_availability: 'available',
     })
     return
   }
@@ -3113,6 +3262,14 @@ async function routeGlobalCatalogue(
   }
 
   const body = (request.body ?? {}) as Record<string, unknown>
+  if (segments[3] === 'equipment') {
+    await routeCatalogueEquipment(route, state, segments, body)
+    return
+  }
+  if (segments[3] === 'movements' && segments[5] === 'equipment') {
+    await routeMovementEquipment(route, state, segments[4] ?? '', body)
+    return
+  }
   const kind =
     segments[3] === 'disciplines'
       ? 'discipline'
@@ -3187,6 +3344,82 @@ async function routeGlobalCatalogue(
   await fulfill(route, 200, target)
 }
 
+/** Equipment: a published code is refused, an archived one returns only under its name. */
+async function routeCatalogueEquipment(
+  route: Route,
+  state: GlobalCatalogueFixture,
+  segments: string[],
+  body: Record<string, unknown>,
+): Promise<void> {
+  if (segments.length === 4) {
+    const code = typeof body.code === 'string' ? body.code : ''
+    const name = typeof body.name === 'string' ? body.name.trim() : ''
+    if (code === '' || name === '') {
+      await fulfillProblem(route, 422, 'validation-failed')
+      return
+    }
+    const existing = state.equipment.find((item) => item.code === code)
+    if (existing && (existing.status === 'published' || existing.name !== name)) {
+      await fulfillProblem(route, 409, 'conflict')
+      return
+    }
+    if (existing) {
+      existing.status = 'published'
+      await fulfill(route, 200, existing)
+      return
+    }
+    const published = catalogueEquipment({ code, name })
+    state.equipment.push(published)
+    await fulfill(route, 200, published)
+    return
+  }
+  const target = state.equipment.find((item) => item.code === segments[4])
+  if (!target) {
+    await fulfillProblem(route, 404, 'not-found')
+    return
+  }
+  if (target.status !== 'published') {
+    await fulfillProblem(route, 409, 'conflict')
+    return
+  }
+  target.status = 'archived'
+  await fulfill(route, 200, target)
+}
+
+/** A published movement's whole list, naming only published equipment. */
+async function routeMovementEquipment(
+  route: Route,
+  state: GlobalCatalogueFixture,
+  movementId: string,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const movement = state.movements.find((entry) => entry.id === movementId)
+  if (!movement) {
+    await fulfillProblem(route, 404, 'not-found')
+    return
+  }
+  const items = Array.isArray(body.items) ? (body.items as Array<Record<string, unknown>>) : []
+  const named = items.map((item) => ({
+    item: state.equipment.find(
+      (equipment) => equipment.code === item.code && equipment.status === 'published',
+    ),
+    requirement: item.requirement === 'required' ? ('required' as const) : ('optional' as const),
+  }))
+  if (named.some(({ item }) => item === undefined)) {
+    await fulfillProblem(route, 422, 'validation-failed')
+    return
+  }
+  movement.equipment = named.flatMap(({ item, requirement }) =>
+    item ? [{ code: item.code, name: item.name, requirement }] : [],
+  )
+  for (const equipment of state.equipment) {
+    equipment.in_use_count = state.movements.filter((entry) =>
+      (entry.equipment ?? []).some((link) => link.code === equipment.code),
+    ).length
+  }
+  await fulfill(route, 200, movement)
+}
+
 async function routeOrganizationFile(
   route: Route,
   request: MockRequest,
@@ -3248,6 +3481,7 @@ async function routeSuspension(
         reason_code: reason ?? 'nonpayment',
         started_at: startedAt,
         started_by_person_id: '019a9200-0000-7000-8000-000000000003',
+        started_by_name: 'Mateo Ciclo',
         people_blocked: record.relationship_counts.active,
       },
     }
@@ -3267,8 +3501,10 @@ async function routeSuspension(
               reason_code: open.reason_code,
               started_at: open.started_at,
               started_by_person_id: open.started_by_person_id,
+              started_by_name: open.started_by_name,
               ended_at: new Date().toISOString(),
-              ended_by_person_id: '019a9200-0000-7000-8000-000000000003',
+              ended_by_person_id: '019a9200-0000-7000-8000-000000000006',
+              ended_by_name: 'Sara Ciclo',
             },
             ...record.suspension.history,
           ]
@@ -3310,9 +3546,20 @@ async function routeGuestQuota(
     last_change: {
       at: '2026-10-15T15:00:00.000Z',
       by_person_id: '019a9000-0000-7000-8000-000000000003',
+      by_name: 'Lucía Comercial',
       by_duty_assignment_id: '019a9000-0000-7000-8000-000000000703',
       previous_seats: quota.seats,
     },
+    history: [
+      {
+        at: '2026-10-15T15:00:00.000Z',
+        by_person_id: '019a9000-0000-7000-8000-000000000003',
+        by_name: 'Lucía Comercial',
+        seats,
+        previous_seats: quota.seats,
+      },
+      ...quota.history,
+    ],
   }
   record.guest_quota = next
   await fulfill(route, 200, next)
@@ -3686,6 +3933,7 @@ async function routeOrganizationHandover(
             site_id: '019a7200-0000-7000-8000-000000000001',
             name: site.name,
             address: site.address ?? null,
+            address_withheld: false,
           }
         : null,
     })
@@ -3755,6 +4003,7 @@ async function routeOrganizationHandover(
   if (isCancel) {
     record.status = 'cancelled'
     record.cancelled_at = new Date().toISOString()
+    record.cancelled_by = { person_id: '019a7000-0000-7000-8000-000000000006', name: 'Sara Ciclo' }
     if (record.invitation?.status === 'pending') {
       record.invitation.status = 'revoked'
       record.invitation.intent_status = 'revoked'
@@ -3964,14 +4213,23 @@ async function routeDiagnosis(
     await fulfill(route, 200, { items: diagnosis.circuits })
     return
   }
+  if (request.path.endsWith('/job-health')) {
+    await fulfill(route, 200, {
+      generated_at: new Date().toISOString(),
+      items: diagnosis.jobs ?? [],
+    })
+    return
+  }
 
   const parameters = new URLSearchParams(request.query)
   const source = parameters.get('source')
   const state = parameters.get('state')
+  const aggregate = parameters.get('aggregate_id')
   const matching = diagnosis.operations.filter(
     (operation) =>
       (source === null || operation.source === source) &&
-      (state === null || operation.state === state),
+      (state === null || operation.state === state) &&
+      (aggregate === null || operation.subject_id === aggregate),
   )
   const offset = Number(parameters.get('cursor') ?? 0)
   const size = diagnosis.pageSize ?? matching.length

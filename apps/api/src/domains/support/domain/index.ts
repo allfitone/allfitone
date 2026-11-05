@@ -144,6 +144,7 @@ export type PlatformDutyClosure = PlatformCommandContext & {
  */
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
+export type SupportBillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
 /** `HU-BO-006` criterion 2: what a search may answer, and nothing more. */
 export type SupportPersonMatch = AllfitV1Schemas['SupportPersonMatch']
@@ -179,6 +180,9 @@ export interface SupportMetadataDatabase {
       personId: string
     },
   ): Promise<SupportPersonPayments>
+  billingFollowUp(
+    input: SupportReader & { requestId: string; caseReference: string; limit: number },
+  ): Promise<SupportBillingFollowUp>
   read(
     input: SupportReader & {
       requestId: string
@@ -199,10 +203,13 @@ export type SupportOperation = AllfitV1Schemas['SupportOperation']
 export type SupportOperationState = AllfitV1Schemas['SupportOperationState']
 export type SupportOperationSourceKind = AllfitV1Schemas['SupportOperationSourceKind']
 export type SupportDeliveryCircuit = AllfitV1Schemas['SupportDeliveryCircuit']
+export type SupportJobHealth = AllfitV1Schemas['SupportJobHealth']
 
 export const SUPPORT_OPERATION_SOURCES: readonly SupportOperationSourceKind[] = [
   'notification',
   'command',
+  'job',
+  'store_notification',
 ]
 
 export const SUPPORT_OPERATION_STATES: readonly SupportOperationState[] = [
@@ -214,6 +221,7 @@ export const SUPPORT_OPERATION_STATES: readonly SupportOperationState[] = [
   'stalled',
   'succeeded',
   'rejected_final',
+  'failed',
 ]
 
 export interface SupportOperationCursor {
@@ -235,6 +243,7 @@ export interface SupportDiagnosisDatabase {
   listDeliveryCircuits(
     input: SupportReader & { requestId: string },
   ): Promise<SupportDeliveryCircuit[]>
+  jobHealth(input: SupportReader & { requestId: string }): Promise<SupportJobHealth>
 }
 
 /**

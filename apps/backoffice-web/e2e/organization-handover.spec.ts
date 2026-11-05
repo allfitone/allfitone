@@ -38,6 +38,10 @@ test('creates a gym for a company and shows that it waits for its owner', async 
   await expect(page.getByText('Esperando a su dueño')).toBeVisible()
   await expect(page.getByText(/no opera hasta que su dueño acepte/)).toBeVisible()
   await expect(page.locator('#ho-invited')).toHaveText('d***@example.test')
+  // HU-BO-014 c7: who on the team created it.
+  await expect(page.locator('[data-handover-created-by]')).toHaveText(
+    'Lo creó Mateo Ciclo, del equipo de Allfit One.',
+  )
 
   const created = fixture.requests.find(
     (request) => request.method === 'POST' && request.path === CREATE,
@@ -188,6 +192,9 @@ test('cancelling asks again, then withdraws the invitation for good', async ({ c
 
   await expect(page.getByText('Cancelado', { exact: true })).toBeVisible()
   await expect(page.getByText(/invitación retirada/).first()).toBeVisible()
+  // HU-BO-015 c3: who cancelled it.
+  await expect(page.locator('[data-handover-cancelled-by]')).toContainText('Lo canceló Sara Ciclo.')
+  await expect(page.locator('[data-handover-file-link]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Enviar la invitación de nuevo' })).toHaveCount(0)
   expect(fixture.requests.filter((request) => request.path.endsWith('/cancellation'))).toHaveLength(
     1,
@@ -299,4 +306,45 @@ test('the directory leads to creating a gym and to an unclaimed gym’s handover
 
   await expect(page).toHaveURL(`/organizations/${record.organization_id}/handover`)
   await expect(page.getByText('Esperando a su dueño')).toBeVisible()
+  // HU-BO-034 c1: the quota is set in the file, and a gym that waits for its owner leads there.
+  await expect(page.locator('[data-handover-file-link]')).toHaveText(
+    'Fijar su cupo en la ficha del gimnasio',
+  )
+  await expect(page.locator('[data-handover-file-link]')).toHaveAttribute(
+    'href',
+    `/organizations/${record.organization_id}`,
+  )
+})
+
+// HU-BO-013 c5: once a natural person claims the gym, the address the file reserves is
+// not one link away on the handover.
+test('the address of a claimed natural person is withheld on the handover', async ({
+  context,
+  page,
+}) => {
+  const record = handoverRecord({
+    party_kind: 'natural_person',
+    legal_name: null,
+    status: 'active',
+    claimed_at: new Date().toISOString(),
+    site: {
+      site_id: '019a7200-0000-7000-8000-000000000009',
+      name: 'Sede Casa',
+      address: null,
+      address_withheld: true,
+    },
+  })
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      organizationHandover: { handovers: [record] },
+    }),
+  )
+
+  await page.goto(`/organizations/${record.organization_id}/handover`)
+
+  await expect(page.locator('#ho-site-view')).toHaveText(
+    'Sede Casa · dirección reservada: es de la persona natural que responde por el gimnasio',
+  )
 })

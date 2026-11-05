@@ -70,6 +70,8 @@ import {
   erasureMessage,
   holdableCategories,
   holdableKinds,
+  appendPage,
+  nextPageCursor,
   panelSummary,
   requestRows,
   urgencyTone,
@@ -103,6 +105,8 @@ export function ErasureRequests() {
   const [issue, setIssue] = useState<HoldIssue | null>(null)
   const [releasing, setReleasing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [moreFailure, setMoreFailure] = useState<string | null>(null)
   // Remounts the holds section when a hold applied from a request changes it.
   const [holdsVersion, setHoldsVersion] = useState(0)
 
@@ -125,6 +129,27 @@ export function ErasureRequests() {
   useEffect(() => {
     void load(status)
   }, [load, status])
+
+  // HU-BO-032: the next page continues after the last row and is appended, not swapped in.
+  async function loadMore() {
+    if (!page) return
+    const cursor = nextPageCursor(page, status)
+    if (!cursor) return
+    setLoadingMore(true)
+    setMoreFailure(null)
+    try {
+      const next = await backofficeApi.erasureRequests({ status, ...cursor })
+      setPage((current) => (current ? appendPage(current, next) : next))
+    } catch (caught) {
+      if (caught instanceof BackofficeApiError && caught.status === 401) {
+        window.location.assign('/')
+        return
+      }
+      setMoreFailure(failureMessage(caught))
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   const rows = page ? requestRows(page) : []
   const byId = new Map((page?.items ?? []).map((request) => [request.id, request]))
@@ -302,6 +327,27 @@ export function ErasureRequests() {
               </TableBody>
             </Table>
           )}
+
+          {page.has_more ? (
+            <div data-form-actions>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loadingMore}
+                onClick={() => void loadMore()}
+                data-erasure-more
+              >
+                {loadingMore ? 'Cargando…' : 'Ver más solicitudes'}
+              </Button>
+            </div>
+          ) : null}
+
+          {moreFailure ? (
+            <Alert live="assertive" variant="danger" data-erasure-more-failure>
+              <AlertTitle>No se cargaron más</AlertTitle>
+              <AlertDescription>{moreFailure}</AlertDescription>
+            </Alert>
+          ) : null}
         </>
       ) : null}
 

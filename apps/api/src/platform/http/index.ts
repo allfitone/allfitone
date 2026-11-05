@@ -58,6 +58,8 @@ export type ApiErrorCode =
   | 'guest-quota-exhausted'
   /** The organization is suspended and gains no client until it operates again (HU-BO-016). */
   | 'organization-not-operating'
+  /** The person's service with the organization is paused; nobody there contributes (HU-SP-083). */
+  | 'service-paused'
 
 const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   unauthenticated: 401,
@@ -84,6 +86,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'plan-limit-reached': 403,
   'guest-quota-exhausted': 409,
   'organization-not-operating': 409,
+  'service-paused': 409,
 }
 
 const TITLE: Record<ApiErrorCode, string> = {
@@ -111,6 +114,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'plan-limit-reached': 'The plan does not include this function',
   'guest-quota-exhausted': 'The organization has no guest places left',
   'organization-not-operating': 'The organization is not operating',
+  'service-paused': "The person's service with this organization is paused",
 }
 
 /**

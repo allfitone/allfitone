@@ -82,6 +82,13 @@ function contractService(overrides: Partial<ResultContractService> = {}): Result
       captured.push({ operation: 'publish', input })
       return Promise.resolve({ resource: resultContract, replayed: false })
     },
+    versions: (_actor, input) => {
+      captured.push({ operation: 'versions', input })
+      return Promise.resolve({
+        activity_type_id: ACTIVITY_TYPE_ID,
+        items: [resultContract, { ...resultContract, status: 'deprecated' }],
+      })
+    },
     deprecate: (_actor, input) => {
       captured.push({ operation: 'deprecate', input })
       return Promise.resolve({
@@ -148,7 +155,9 @@ beforeEach(() => {
 describe('Backoffice catalogue API contract', () => {
   test('T-CAT-API-01 mounts every catalogue curation operation with its contract method', () => {
     const contract = allfitV1ContractManifest.operations
-      .filter((operation) => operation.allfitOperation === 'OP-CAT-006')
+      .filter((operation) =>
+        ['OP-CAT-006', 'NEW-CAT-CONTRACT-VERSIONS'].includes(operation.allfitOperation),
+      )
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
       .sort()
     const mounted = backofficeCatalogRoutes()
@@ -168,6 +177,43 @@ describe('Backoffice catalogue API contract', () => {
 
     expect(mounted).toContain('POST /backoffice/v1/result-contracts')
     expect(mounted).toContain('POST /backoffice/v1/result-contracts/:contractId/deprecation')
+    expect(mounted).toContain('GET /backoffice/v1/result-contracts')
+  })
+
+  test('T-CAT-API-20 reads every version of a type, deprecated ones included', async () => {
+    const response = await routes().fetch(
+      new Request(
+        `https://api.example.test/backoffice/v1/result-contracts?activity_type_id=${ACTIVITY_TYPE_ID}`,
+        {
+          headers: {
+            origin: ORIGIN,
+            cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret`,
+          },
+        },
+      ),
+    )
+    const missing = await routes().fetch(
+      new Request('https://api.example.test/backoffice/v1/result-contracts', {
+        headers: { origin: ORIGIN, cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret` },
+      }),
+    )
+    const malformed = await routes().fetch(
+      new Request('https://api.example.test/backoffice/v1/result-contracts?activity_type_id=x', {
+        headers: { origin: ORIGIN, cookie: `${BACKOFFICE_SESSION_COOKIE}=session-secret` },
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    const body = (await response.json()) as { items: Array<{ status: string }> }
+    expect(body.items.map((item) => item.status)).toEqual(['published', 'deprecated'])
+    expect([missing.status, malformed.status]).toEqual([400, 400])
+    expect(captured).toEqual([
+      {
+        operation: 'versions',
+        input: expect.objectContaining({ activityTypeId: ACTIVITY_TYPE_ID }),
+      },
+    ])
   })
 
   test('T-CAT-API-03 publishes a contract and returns its immutable version', async () => {

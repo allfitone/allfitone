@@ -182,6 +182,8 @@ export interface CardActions {
   /** «Empezar», «Continuar» o «Repetir»: lo decide quien sabe en qué va la semana. */
   readonly startLabel: string
   readonly starting: boolean
+  /** A session its suspended gym holds back: the button stays, says why, and starts nothing. */
+  readonly held?: boolean | undefined
 }
 
 export function HomeCard({
@@ -739,6 +741,7 @@ function Actions({ actions }: { readonly actions: CardActions | undefined }) {
         icon="start"
         style={styles.action}
         loading={actions?.starting ?? false}
+        disabled={actions?.held ?? false}
         onPress={actions?.onStart}
       />
     </View>
