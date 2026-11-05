@@ -228,8 +228,7 @@ module "services" {
       desired_count      = 1
       single_instance    = true
       secret_keys        = local.worker_secret_keys
-      # The image's CMD runs dist/${ENTRY}; container.js is the one that starts the clock.
-      environment = { WORKER_PORT = "8090", ENTRY = "container.js" }
+      environment        = { WORKER_PORT = "8090" }
       # The image has Node and no curl.
       health_command = "node -e \"fetch('http://127.0.0.1:8090/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))\""
     }
