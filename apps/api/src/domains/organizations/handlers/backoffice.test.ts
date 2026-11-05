@@ -72,6 +72,7 @@ let quotaCalls: Array<{ organizationId: string; decision: unknown }> = []
 const quotaResource: AllfitV1Schemas['OrganizationGuestQuota'] = {
   organization_id: ORGANIZATION_ID,
   seats: 50,
+  agreement_reference: 'CONTRATO-2026-014',
   occupied: 3,
   relationships_active: 2,
   invitations_pending: 1,
@@ -83,6 +84,7 @@ const quotaResource: AllfitV1Schemas['OrganizationGuestQuota'] = {
     by_name: 'Lucía Comercial',
     by_duty_assignment_id: '019ab000-0000-7000-8000-000000000701',
     previous_seats: null,
+    agreement_reference: 'CONTRATO-2026-014',
   },
   history: [
     {
@@ -91,6 +93,7 @@ const quotaResource: AllfitV1Schemas['OrganizationGuestQuota'] = {
       by_name: 'Lucía Comercial',
       seats: 50,
       previous_seats: null,
+      agreement_reference: 'CONTRATO-2026-014',
     },
   ],
 }
@@ -344,6 +347,7 @@ const validCreate = {
 }
 
 const quotaPath = `/organizations/${ORGANIZATION_ID}/guest-quota`
+const AGREEMENT = 'CONTRATO-2026-014'
 const suspensionPath = `/organizations/${ORGANIZATION_ID}/suspension`
 const reactivationPath = `/organizations/${ORGANIZATION_ID}/reactivation`
 
@@ -642,23 +646,31 @@ describe('Backoffice organization API contract', () => {
   })
   test('T-ORG-API-17 sets a quota and passes the number through as it was sent', async () => {
     const app = routes()
-    const response = await app.request(post(quotaPath, JSON.stringify({ seats: 50 })))
+    const response = await app.request(
+      post(quotaPath, JSON.stringify({ seats: 50, agreement_reference: AGREEMENT })),
+    )
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual(quotaResource)
     expect(response.headers.get('Cache-Control')).toBe('no-store')
-    expect(quotaCalls).toEqual([{ organizationId: ORGANIZATION_ID, decision: { seats: 50 } }])
+    expect(quotaCalls).toEqual([
+      { organizationId: ORGANIZATION_ID, decision: { seats: 50, agreement_reference: AGREEMENT } },
+    ])
   })
 
   test('T-ORG-API-18 carries a deal with no cap as null, and refuses a body that omits it', async () => {
     const app = routes()
-    const allowed = await app.request(post(quotaPath, JSON.stringify({ seats: null })))
+    const allowed = await app.request(
+      post(quotaPath, JSON.stringify({ seats: null, agreement_reference: AGREEMENT })),
+    )
     expect(allowed.status).toBe(200)
-    expect(quotaCalls.at(-1)?.decision).toEqual({ seats: null })
+    expect(quotaCalls.at(-1)?.decision).toEqual({ seats: null, agreement_reference: AGREEMENT })
 
     // A body with no field at all would otherwise be read as "no limit", which is a
     // commercial decision nobody made.
-    const omitted = await app.request(post(quotaPath, JSON.stringify({})))
+    const omitted = await app.request(
+      post(quotaPath, JSON.stringify({ agreement_reference: AGREEMENT })),
+    )
     expect(omitted.status).toBe(422)
     expect(quotaCalls).toHaveLength(1)
   })
@@ -666,12 +678,12 @@ describe('Backoffice organization API contract', () => {
   test('T-ORG-API-19 refuses a quota that is not a number of people', async () => {
     const app = routes()
     for (const body of [
-      { seats: 0 },
-      { seats: -1 },
-      { seats: 1.5 },
-      { seats: 1000001 },
-      { seats: '50' },
-      { seats: 50, extra: true },
+      { seats: 0, agreement_reference: AGREEMENT },
+      { seats: -1, agreement_reference: AGREEMENT },
+      { seats: 1.5, agreement_reference: AGREEMENT },
+      { seats: 1000001, agreement_reference: AGREEMENT },
+      { seats: '50', agreement_reference: AGREEMENT },
+      { seats: 50, agreement_reference: AGREEMENT, extra: true },
     ]) {
       const response = await app.request(post(quotaPath, JSON.stringify(body)))
       expect(response.status).toBe(422)
@@ -679,9 +691,35 @@ describe('Backoffice organization API contract', () => {
     expect(quotaCalls).toHaveLength(0)
   })
 
+  // HU-BO-027 c2 and c5: no number without the agreement that sold it.
+  test('T-ORG-API-30 refuses a quota that names no agreement, and trims the one it names', async () => {
+    const app = routes()
+    for (const body of [
+      { seats: 50 },
+      { seats: 50, agreement_reference: null },
+      { seats: 50, agreement_reference: '' },
+      { seats: 50, agreement_reference: '   ' },
+      { seats: 50, agreement_reference: 'A'.repeat(121) },
+      { seats: 50, agreement_reference: 'CONTRATO\n2026-014' },
+      { seats: 50, agreement_reference: 14 },
+    ]) {
+      const response = await app.request(post(quotaPath, JSON.stringify(body)))
+      expect(response.status).toBe(422)
+    }
+    expect(quotaCalls).toHaveLength(0)
+
+    const trimmed = await app.request(
+      post(quotaPath, JSON.stringify({ seats: 50, agreement_reference: `  ${AGREEMENT} ` })),
+    )
+    expect(trimmed.status).toBe(200)
+    expect(quotaCalls.at(-1)?.decision).toEqual({ seats: 50, agreement_reference: AGREEMENT })
+  })
+
   test('T-ORG-API-20 marks a replayed decision instead of deciding twice', async () => {
     const app = quotaRoutes(quotaService({}, true))
-    const response = await app.request(post(quotaPath, JSON.stringify({ seats: 50 })))
+    const response = await app.request(
+      post(quotaPath, JSON.stringify({ seats: 50, agreement_reference: AGREEMENT })),
+    )
 
     expect(response.status).toBe(200)
     expect(response.headers.get('Idempotent-Replay')).toBe('true')
@@ -689,7 +727,7 @@ describe('Backoffice organization API contract', () => {
 
   test('T-ORG-API-21 requires the trusted origin, the command identifiers and a readable gym', async () => {
     const app = routes()
-    const body = JSON.stringify({ seats: 50 })
+    const body = JSON.stringify({ seats: 50, agreement_reference: AGREEMENT })
 
     const foreign = await app.request(
       post(quotaPath, body, { origin: 'https://evil.example.test' }),
@@ -713,7 +751,7 @@ describe('Backoffice organization API contract', () => {
         }),
       )
 
-    const body = JSON.stringify({ seats: 50 })
+    const body = JSON.stringify({ seats: 50, agreement_reference: AGREEMENT })
     expect((await refusal('42501').request(post(quotaPath, body))).status).toBe(403)
     expect((await refusal('55000').request(post(quotaPath, body))).status).toBe(409)
     expect((await refusal('P0002').request(post(quotaPath, body))).status).toBe(404)

@@ -6,11 +6,9 @@
  * nobody can be invited. This fills that gap on **this machine only**, through the real
  * command, so the whole chain — publish, offer, invite, accept — can be looked at.
  *
- * The rules are the ones derived in `.claude/HUS_BACKOFFICE/PERMISOS_V1.md` from the
- * scopes table of `DOMAIN_OWNERSHIP_MAP.md`. That file also carries the six questions
- * nobody has answered yet, and they matter: **a published definition is immutable**, so in
- * production these are reviewed first and published by hand from `/permissions`. This
- * script is for the local chain, never for deciding what the rules are.
+ * The rules live in `v1-scope-rules.ts`, where a test holds them to the database. **A
+ * published definition is immutable**, so in production they are published by hand from
+ * `/permissions`, from those same rules. This script is for the local chain.
  *
  * It refuses any database that is not on this machine, and it is idempotent: a scope that
  * already has a version is left alone rather than given a second one.
@@ -21,185 +19,10 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 
+import { V1_SCOPES as SCOPES, type Rule } from './v1-scope-rules'
+
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 const DEFAULT_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
-
-interface Rule {
-  resource: string
-  field: string
-  data_classification_code: 'training' | 'body' | 'health' | 'nutrition'
-  max_action: 'read' | 'contribute'
-  is_excluded?: boolean
-  historical_readable?: boolean
-}
-
-const TRAINING_PRESCRIPTION = [
-  'planning.program_assignments',
-  'planning.planned_sessions',
-  'planning.planned_steps',
-  'planning.planned_sets',
-  'planning.strength_targets',
-  'planning.endurance_targets',
-  'planning.interval_targets',
-  'planning.mobility_targets',
-  // What the coach changed for this one person: her adjusted targets and moved days.
-  'planning.prescription_revisions',
-  'planning.planned_session_reschedules',
-]
-
-const TRAINING_EXECUTION = [
-  'execution.executed_sessions',
-  'execution.session_segments',
-  'execution.session_exercises',
-  'execution.strength_sets',
-  'execution.endurance_laps',
-  'execution.interval_results',
-  'execution.round_results',
-  'execution.mobility_results',
-]
-
-/** Saying it out loud is the point: an omission reads as an oversight, this reads as a rule. */
-function denied(
-  resource: string,
-  classification: Rule['data_classification_code'],
-  field = '*',
-): Rule {
-  return {
-    resource,
-    field,
-    data_classification_code: classification,
-    max_action: 'read',
-    is_excluded: true,
-  }
-}
-
-function training(resource: string, action: Rule['max_action']): Rule {
-  return {
-    resource,
-    field: '*',
-    data_classification_code: 'training',
-    max_action: action,
-    historical_readable: action === 'read',
-  }
-}
-
-const SCOPES: Array<{ code: string; rules: Rule[] }> = [
-  {
-    code: 'relationship_training',
-    rules: [
-      // `contribute`, so no history: the check requires `read` for a historical rule, and
-      // what a professional may write is not what a frozen relationship may be read for.
-      ...TRAINING_PRESCRIPTION.map((resource) => training(resource, 'contribute')),
-      training('execution.planned_session_executions', 'contribute'),
-      ...TRAINING_EXECUTION.map((resource) => training(resource, 'contribute')),
-      denied('identity.body_progress_records', 'body'),
-      denied('identity.health_context_claims', 'health'),
-      denied('nutrition.meals', 'nutrition'),
-    ],
-  },
-  {
-    code: 'prior_training_history',
-    rules: [
-      ...TRAINING_EXECUTION.map((resource) => training(resource, 'read')),
-      denied('planning.program_versions', 'training'),
-      denied('planning.program_drafts', 'training'),
-      denied('identity.body_progress_records', 'body'),
-      denied('identity.health_context_claims', 'health'),
-    ],
-  },
-  {
-    code: 'body_progress',
-    rules: [
-      ...[
-        'metric_code',
-        'value_numeric',
-        'unit_code',
-        'original_value',
-        'original_unit_code',
-        'measured_on',
-      ].map((field): Rule => ({
-        resource: 'identity.body_progress_records',
-        field,
-        data_classification_code: 'body',
-        max_action: 'read',
-        historical_readable: true,
-      })),
-      // The photo stays out until stripping its metadata on the server exists.
-      denied('identity.body_progress_records', 'body', 'media_ref'),
-      denied('identity.body_progress_records', 'body', 'has_media'),
-      denied('identity.health_context_claims', 'health'),
-    ],
-  },
-  {
-    code: 'health_context',
-    rules: [
-      // No history in V1, on any field. The documentation says so literally.
-      ...['context_type', 'description', 'body_area', 'valid_from', 'valid_to'].map(
-        (field): Rule => ({
-          resource: 'identity.health_context_claims',
-          field,
-          data_classification_code: 'health',
-          max_action: 'read',
-        }),
-      ),
-      denied('identity.body_progress_records', 'body'),
-    ],
-  },
-  {
-    code: 'nutrition_intake',
-    rules: [
-      ...['occurred_at', 'timezone', 'local_date', 'meal_type', 'note'].map((field): Rule => ({
-        resource: 'nutrition.meals',
-        field,
-        data_classification_code: 'nutrition',
-        max_action: 'read',
-      })),
-      {
-        resource: 'nutrition.meal_items',
-        field: '*',
-        data_classification_code: 'nutrition',
-        max_action: 'read',
-      },
-      {
-        resource: 'nutrition.meal_nutrient_values',
-        field: '*',
-        data_classification_code: 'nutrition',
-        max_action: 'read',
-      },
-      // The photo has a permission of its own, and never reveals a meal by itself.
-      denied('nutrition.meals', 'nutrition', 'media_ref'),
-      denied('nutrition.meals', 'nutrition', 'has_media'),
-    ],
-  },
-  {
-    code: 'nutrition_guidance',
-    rules: [
-      // The table does not exist yet. `resource` is free text, so the rule can be declared;
-      // what it grants is access to nothing until there is something to read.
-      {
-        resource: 'nutrition.guidance_notes',
-        field: '*',
-        data_classification_code: 'nutrition',
-        max_action: 'read',
-      },
-      denied('nutrition.meals', 'nutrition'),
-      denied('nutrition.meal_items', 'nutrition'),
-    ],
-  },
-  {
-    code: 'nutrition_media',
-    rules: [
-      {
-        resource: 'nutrition.meals',
-        field: 'media_ref',
-        data_classification_code: 'nutrition',
-        max_action: 'read',
-      },
-      denied('nutrition.meal_items', 'nutrition'),
-      denied('nutrition.meal_nutrient_values', 'nutrition'),
-    ],
-  },
-]
 
 const argv = process.argv.slice(2)
 const databaseUrl = value('--database-url') ?? process.env.LOCAL_DATABASE_URL ?? DEFAULT_URL
@@ -266,7 +89,7 @@ async function publish(): Promise<void> {
     `
   })
   console.log(`\nStudio can now offer ${offerable?.count ?? 0} permission(s) on an invitation.`)
-  console.log('These rules are the draft in .claude/HUS_BACKOFFICE/PERMISOS_V1.md, not a decision.')
+  console.log('These are the rules in v1-scope-rules.ts; production publishes them by hand.')
 }
 
 async function publishOne(

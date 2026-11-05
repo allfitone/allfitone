@@ -617,6 +617,7 @@ export interface OrganizationFileRecordFixture {
 export interface GuestQuotaFixture {
   organization_id: string
   seats: number | null
+  agreement_reference: string | null
   occupied: number
   relationships_active: number
   invitations_pending: number
@@ -628,6 +629,7 @@ export interface GuestQuotaFixture {
     by_name: string | null
     by_duty_assignment_id: string
     previous_seats: number | null
+    agreement_reference: string | null
   } | null
   history: Array<{
     at: string
@@ -635,6 +637,7 @@ export interface GuestQuotaFixture {
     by_name: string | null
     seats: number | null
     previous_seats: number | null
+    agreement_reference: string | null
   }>
 }
 
@@ -688,6 +691,7 @@ export function guestQuotaRecord(
   return {
     organization_id: organizationId,
     seats: null,
+    agreement_reference: null,
     occupied: 3,
     relationships_active: 2,
     invitations_pending: 1,
@@ -3535,12 +3539,20 @@ async function routeGuestQuota(
     return
   }
 
-  const body = (request.body ?? {}) as { seats?: number | null }
+  const body = (request.body ?? {}) as { seats?: number | null; agreement_reference?: unknown }
+  // As the API: no number without the agreement that sold it.
+  const reference =
+    typeof body.agreement_reference === 'string' ? body.agreement_reference.trim() : ''
+  if (reference === '') {
+    await fulfillProblem(route, 422, 'validation-failed')
+    return
+  }
   const seats = body.seats === undefined ? null : body.seats
   const quota = record.guest_quota
   const next: GuestQuotaFixture = {
     ...quota,
     seats,
+    agreement_reference: reference,
     places_left: seats === null ? null : Math.max(seats - quota.occupied, 0),
     over_quota: seats !== null && quota.occupied > seats,
     last_change: {
@@ -3549,6 +3561,7 @@ async function routeGuestQuota(
       by_name: 'Lucía Comercial',
       by_duty_assignment_id: '019a9000-0000-7000-8000-000000000703',
       previous_seats: quota.seats,
+      agreement_reference: reference,
     },
     history: [
       {
@@ -3557,6 +3570,7 @@ async function routeGuestQuota(
         by_name: 'Lucía Comercial',
         seats,
         previous_seats: quota.seats,
+        agreement_reference: reference,
       },
       ...quota.history,
     ],

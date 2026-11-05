@@ -13,6 +13,11 @@
  * **Over its quota is not an error.** It is what lowering the number does, and it ends
  * nothing. The screen says what it means — no new invitations until there is room —
  * rather than drawing it as a failure of the gym.
+ *
+ * **Every number names its agreement (`HU-BO-027`).** What Allfit charges a gym is
+ * billed outside the platform, so the reference is the only thread back to the deal. A
+ * change recorded before references were required says it has none rather than going
+ * blank.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
@@ -23,6 +28,11 @@ export type OrganizationGuestQuota = AllfitV1Schemas['OrganizationGuestQuota']
 export type OrganizationGuestQuotaChange = AllfitV1Schemas['OrganizationGuestQuotaChange']
 
 export const MAX_SEATS = 1_000_000
+
+export const MAX_AGREEMENT_REFERENCE = 120
+
+export const AGREEMENT_REQUIRED =
+  'Escribe la referencia del acuerdo comercial: el número o código del contrato, en una línea.'
 
 export const UNLIMITED_NOTE =
   'Sin cupo fijado el gimnasio no tiene límite. Es lo que tienen todos los gimnasios hasta que alguien escribe el número que se les vendió.'
@@ -83,6 +93,13 @@ export function lastChangeSentence(quota: OrganizationGuestQuota): string {
   return `Último cambio, por ${staffName(change.by_name, change.by_person_id)}: ${previous}.`
 }
 
+/** The agreement the number stands on, or why there is none on record. */
+export function agreementSentence(quota: OrganizationGuestQuota): string {
+  if (quota.agreement_reference !== null) return `Acuerdo vigente: ${quota.agreement_reference}.`
+  if (quota.last_change === null) return 'Todavía no hay un acuerdo registrado.'
+  return 'El cupo actual se fijó sin referencia de acuerdo, antes de que se pidiera. Queda registrada la próxima vez que lo fijes.'
+}
+
 function seatsLabel(seats: number | null): string {
   if (seats === null) return 'sin límite'
   return seats === 1 ? '1 persona' : `${seats} personas`
@@ -93,9 +110,13 @@ export interface QuotaHistoryRow {
   at: string
   who: string
   change: string
+  agreement: string
 }
 
-/** Every change, newest first, as the server ordered it: who, when and from what to what. */
+/**
+ * Every change, newest first, as the server ordered it: who, when, from what to what,
+ * and under which agreement.
+ */
 export function quotaHistoryRows(quota: OrganizationGuestQuota): QuotaHistoryRow[] {
   return quota.history.map((entry, index) => {
     const change = `${seatsLabel(entry.previous_seats)} → ${seatsLabel(entry.seats)}`
@@ -104,6 +125,10 @@ export function quotaHistoryRows(quota: OrganizationGuestQuota): QuotaHistoryRow
       at: entry.at,
       who: staffName(entry.by_name, entry.by_person_id),
       change: change.charAt(0).toUpperCase() + change.slice(1),
+      agreement:
+        entry.agreement_reference === null
+          ? 'sin referencia de acuerdo'
+          : `acuerdo ${entry.agreement_reference}`,
     }
   })
 }
@@ -123,6 +148,17 @@ export function parseSeats(value: string, unlimited: boolean): SeatsDraft {
   return { seats }
 }
 
+/** One line naming the deal, as the API takes it: trimmed, and no tab or line break. */
+export function parseAgreementReference(value: string): string | undefined {
+  const trimmed = value.trim()
+  if (trimmed.length < 1 || trimmed.length > MAX_AGREEMENT_REFERENCE) return undefined
+  const control = [...trimmed].some((character) => {
+    const code = character.codePointAt(0) ?? 0
+    return code < 0x20 || (code >= 0x7f && code <= 0x9f)
+  })
+  return control ? undefined : trimmed
+}
+
 /** Said before the command, because the number is right or wrong against this gym. */
 export function draftWarning(draft: SeatsDraft, quota: OrganizationGuestQuota): string | undefined {
   if (!draft || draft.seats === null) return undefined
@@ -138,7 +174,8 @@ export function quotaMessage(code: string): string {
       'Fijar el cupo pide el deber «manage_platform_commercial», que no es el mismo con el que se crea un gimnasio ni el que abre su ficha. Los deberes vencen por diseño.',
     conflict: 'Ese gimnasio ya no opera, así que no se le vende cupo.',
     'not-found': 'Ese gimnasio no existe.',
-    'validation-failed': 'El cupo es un número de personas, o ningún límite.',
+    'validation-failed':
+      'El cupo es un número de personas, o ningún límite, y lleva la referencia del acuerdo.',
     'invalid-request': 'La petición no llevaba lo necesario para identificar la orden.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
     'upstream-unavailable': 'El servicio no respondió. El cupo no cambió.',
@@ -148,7 +185,9 @@ export function quotaMessage(code: string): string {
 }
 
 export function quotaOutcomeMessage(quota: OrganizationGuestQuota): string {
-  if (quota.seats === null) return 'Listo: este gimnasio queda sin límite de personas.'
+  const agreement =
+    quota.agreement_reference === null ? '' : `, bajo el acuerdo ${quota.agreement_reference}`
+  if (quota.seats === null) return `Listo: este gimnasio queda sin límite de personas${agreement}.`
   const people = quota.seats === 1 ? '1 persona' : `${quota.seats} personas`
-  return `Listo: su cupo queda en ${people}.`
+  return `Listo: su cupo queda en ${people}${agreement}.`
 }

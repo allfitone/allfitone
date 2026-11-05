@@ -624,6 +624,8 @@ export interface paths {
     /**
      * Set how many people a gym may have
      * @description `HU-BO-034`. The number Allfit sold the gym: how many people may have a live relationship or an invitation still awaiting an answer at the same time. It is `manage_platform_commercial`, which is not the duty that creates a gym. A `null` is a deal with no cap, and it is told apart from a gym nobody has sold a number to only by its history. Lowering it below the occupancy ends no relationship and revokes no invitation: the gym is over its quota and says so, and `HU-STUDIO-087` is what refuses the next invitation. A gym that no longer operates is not sold a quota: 409.
+     *
+     *     Every decision names the commercial agreement it stands on (`HU-BO-027` c2 and c5): what Allfit charges a gym is billed outside the platform, so the reference is the only thread back to the deal. The same number under a new agreement is a renewal and is recorded; the same number under the same agreement changes nothing.
      */
     post: operations['setBackofficeOrganizationGuestQuota']
     delete?: never
@@ -5201,6 +5203,8 @@ export interface components {
       subscribers: number
     }
     OrganizationGuestQuotaDecision: {
+      /** @description The commercial agreement this number was sold under: a contract number or code, on one line. Required, because the charge is billed outside the platform. Surrounding spaces are dropped; a blank one is refused. */
+      agreement_reference: string
       /** @description How many people the gym may have at once. `null` is no limit: a deal with no cap. Zero is not a quota and is refused — it would be a gym sold the right to invite nobody. */
       seats: number | null
     }
@@ -5259,6 +5263,8 @@ export interface components {
       organization_id: components['schemas']['Uuid']
       /** @description Null is no limit, which is not the same as a limit of zero. */
       seats: number | null
+      /** @description The commercial agreement the current number was sold under. Null when no quota has been set since references were required. */
+      agreement_reference: string | null
       /** @description Live relationships plus invitations still awaiting an answer. It is not a count of people: an unanswered invitation names an address, not somebody who can be told apart from whoever may already be there. */
       occupied: number
       relationships_active: number
@@ -5278,8 +5284,10 @@ export interface components {
         by_duty_assignment_id: components['schemas']['Uuid']
         /** @description What it was before. Null means it had no limit then. */
         previous_seats: number | null
+        /** @description The agreement it was made under. Null for a change recorded before references were required. */
+        agreement_reference: string | null
       } | null
-      /** @description Every change, newest first (criterion 3): who, when, the value it set and the one it replaced. Empty when nobody has ever set a quota here. */
+      /** @description Every change, newest first (criterion 3): who, when, the value it set, the one it replaced and the agreement it was made under. Empty when nobody has ever set a quota here. */
       history: components['schemas']['OrganizationGuestQuotaChange'][]
     }
     OrganizationGuestQuotaChange: {
@@ -5292,6 +5300,8 @@ export interface components {
       seats: number | null
       /** @description What it replaced. Null means it had no limit then. */
       previous_seats: number | null
+      /** @description The agreement it was made under. A renewal keeps the number and changes this. Null for a change recorded before references were required. */
+      agreement_reference: string | null
     }
     /** @description Whether the gym can be paid, and nothing more. The account reference and the vault key live in another table that this reader has no policy for at all, so no credential can travel here even by mistake. */
     OrganizationFilePaymentMethod: {

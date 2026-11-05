@@ -22,6 +22,7 @@ export function createOrganizationGuestQuotaDatabase(): OrganizationGuestQuotaDa
           select * from organizations.set_organization_guest_quota(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
             ${input.organizationId}::uuid, ${input.decision.seats}::integer,
+            ${input.decision.agreement_reference}::text,
             ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
           )
         `
