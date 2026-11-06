@@ -24,7 +24,7 @@ import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { scopeTitle } from '../src/client/gym-affiliation'
+import { scopeName } from '../src/client/gym-affiliation'
 import {
   canRevoke,
   consentLine,
@@ -209,7 +209,7 @@ function Category({
   readonly onRevoke: (consent: Consent) => void
 }) {
   const theme = useTheme()
-  const title = scopeTitle(consent)
+  const title = scopeName(consent.scope_code)
   return (
     <GlyphRow icon={scopeIcon(consent.scope_code)} title={title} caption={consentLine(consent)}>
       {canRevoke(consent) ? (

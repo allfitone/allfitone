@@ -37,7 +37,16 @@ values ('019b2000-0000-7000-8000-000000000201', 'owner');
 insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
 values
   ('019b2000-0000-7000-8000-000000000301', 'body_progress', 1, 'published', clock_timestamp()),
-  ('019b2000-0000-7000-8000-000000000302', 'relationship_training', 1, 'published', clock_timestamp());
+  ('019b2000-0000-7000-8000-000000000302', 'relationship_training', 1, 'draft', null);
+
+-- IX-06: offering contribute needs a published contribute rule, as the real
+-- relationship_training has. A rule is written while its version is a draft.
+insert into privacy.scope_resource_rules (
+  scope_definition_id, resource, field, data_classification_code, max_action
+) values ('019b2000-0000-7000-8000-000000000302', 'planning.program_assignments', '*', 'training', 'contribute');
+update privacy.scope_definitions
+   set status = 'published', published_at = clock_timestamp()
+ where id = '019b2000-0000-7000-8000-000000000302';
 
 -- The owner issues the invitation Ana will later be asked to answer.
 select set_config('app.actor_kind', 'person', true),

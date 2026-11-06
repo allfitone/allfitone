@@ -5,11 +5,14 @@
  * declined, taken back, or kept by a gym she no longer trains with. Each is its own
  * permission, so the sheet says plainly that taking one back changes nothing else and
  * deletes nothing of hers — and that it cannot be undone.
+ *
+ * Categories are named in her voice here, not in the gym's: the catalogue says
+ * «Entrenamiento con nosotros», and on her own list that would read as the gym talking.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
-import { scopeTitle } from './gym-affiliation'
+import { accessLevelLabel, scopeName } from './gym-affiliation'
 import { shortDate } from './pro'
 
 export type Consent = AllfitV1Schemas['SpaceConsent']
@@ -72,12 +75,10 @@ export function groupConsents(consents: readonly Consent[]): SharingGroup[] {
   )
 }
 
-const LEVEL: Record<string, string> = { read: 'Lectura', contribute: 'Lectura y propuestas' }
-
 export function consentLine(consent: Consent): string {
   switch (consent.grant_status) {
     case 'active':
-      return `${LEVEL[consent.access_level ?? 'read'] ?? 'Lectura'} · desde el ${shortDate(consent.granted_at ?? consent.decided_at)}`
+      return `${accessLevelLabel(consent.access_level)} · desde el ${shortDate(consent.granted_at ?? consent.decided_at)}`
     case 'frozen':
       return `Aún pueden ver lo compartido hasta el ${shortDate(consent.frozen_at ?? consent.decided_at)}`
     case 'revoked':
@@ -103,7 +104,7 @@ export function groupCaption(group: SharingGroup): string {
 const inSentence = (title: string) => title.charAt(0).toLowerCase() + title.slice(1)
 
 export function revokeCopy(consent: Consent): { title: string; lines: string[] } {
-  const what = inSentence(scopeTitle(consent))
+  const what = inSentence(scopeName(consent.scope_code))
   return {
     title: `¿Dejar de compartir ${what} con ${consent.organization_name}?`,
     lines: [

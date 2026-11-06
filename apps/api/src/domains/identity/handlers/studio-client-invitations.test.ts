@@ -278,6 +278,25 @@ describe('what it refuses', () => {
     expect(await response.json()).toEqual({ error: { code: 'guest-quota-exhausted' } })
   })
 
+  test('T-PRV-OFFER-LEVEL-API-01 contributing where the scope admits none points at the scopes', async () => {
+    const service = invitations({
+      issue: async () => {
+        // What IX-06 raises when the published version has no contribute rule.
+        throw Object.assign(new Error('IX-06 the published scope version admits no contribute'), {
+          code: '23514',
+          detail: '["scopes"]',
+        })
+      },
+    })
+    const response = await app(service).fetch(
+      post({ ...BODY, scopes: [{ ...BODY.scopes[0], access_level: 'contribute' }] }),
+    )
+    expect(response.status).toBe(422)
+    expect(await response.json()).toEqual({
+      error: { code: 'validation-failed', detail: '/scopes' },
+    })
+  })
+
   test('issuance while the feature is switched off', async () => {
     const service = invitations({
       issue: async () => {

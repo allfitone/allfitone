@@ -117,6 +117,7 @@ async function cleanup(): Promise<void> {
     await transaction`delete from privacy.invitation_scope_options where id = ${OPTION_ID}::uuid`
     await transaction`delete from identity.invitation_intents where id = ${INTENT_ID}::uuid`
     await transaction`delete from identity.invitations where id = ${INVITATION_ID}::uuid`
+    await transaction`delete from privacy.scope_resource_rules where scope_definition_id = ${SCOPE_ID}::uuid`
     await transaction`delete from privacy.scope_definitions where id = ${SCOPE_ID}::uuid`
     await transaction`
       delete from relationships.relationship_professional_assignments
@@ -245,8 +246,14 @@ beforeAll(async () => {
     // A version number no other fixture uses: scope versions are unique per code.
     await transaction`
       insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
-      values (${SCOPE_ID}::uuid, 'relationship_training', 9120, 'published', clock_timestamp())
+      values (${SCOPE_ID}::uuid, 'relationship_training', 9120, 'draft', null)
     `
+    // IX-06: contributing is offered only where the published version admits it.
+    await transaction`insert into privacy.scope_resource_rules
+        (scope_definition_id, resource, field, data_classification_code, max_action)
+      values (${SCOPE_ID}::uuid, 'planning.program_assignments', '*', 'training', 'contribute')`
+    await transaction`update privacy.scope_definitions
+      set status = 'published', published_at = clock_timestamp() where id = ${SCOPE_ID}::uuid`
     await transaction`
       insert into identity.invitations (
         id, organization_id, issued_by_membership_id, channel, contact, token_hash,

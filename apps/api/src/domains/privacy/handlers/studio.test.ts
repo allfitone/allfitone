@@ -17,9 +17,9 @@ const BODY_PROGRESS: OfferableScope = {
   scope_code: 'body_progress',
   version_number: 1,
   display_name: 'Progreso corporal',
-  summary: 'Medidas y las fotos que elija, sin datos de salud.',
+  summary: 'Medidas y composición corporal, sin fotos y sin datos de salud.',
   description:
-    'Medidas, composición corporal, tendencias y las fotos que tú selecciones. No incluye tu galería, ni la ubicación de las fotos, ni datos de salud.',
+    'Medidas, composición corporal y tendencias. No incluye tus fotos, ni datos de salud.',
   default_purpose: 'Seguir cómo cambia tu cuerpo y ajustar el plan a lo que muestren las medidas.',
 }
 

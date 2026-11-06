@@ -64,8 +64,17 @@ values
 
 insert into privacy.scope_definitions (id, scope_code, version_number, status, published_at)
 values
-  ('019f1600-0000-7000-8000-000000000301', 'relationship_training', 1, 'published', clock_timestamp()),
+  ('019f1600-0000-7000-8000-000000000301', 'relationship_training', 1, 'draft', null),
   ('019f1600-0000-7000-8000-000000000302', 'body_progress', 1, 'published', clock_timestamp());
+
+-- IX-06: offering contribute needs a published contribute rule, as the real
+-- relationship_training has. A rule is written while its version is a draft.
+insert into privacy.scope_resource_rules (
+  scope_definition_id, resource, field, data_classification_code, max_action
+) values ('019f1600-0000-7000-8000-000000000301', 'planning.program_assignments', '*', 'training', 'contribute');
+update privacy.scope_definitions
+   set status = 'published', published_at = clock_timestamp()
+ where id = '019f1600-0000-7000-8000-000000000301';
 
 -- Support, for the reissue: two administrators, and one support person on duty.
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)

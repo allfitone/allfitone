@@ -2238,6 +2238,8 @@ export interface paths {
      *
      *     Criteria 2, 6 and 7: the invitation may also offer a first `program`, which the person answers on its own beside the relationship. Only a member who may assign programs (a coach) proposes one, else `403`. It must be a published version of one of this organization's own programs (`422`, `/program/program_version_id`), start today or later in `timezone` (`/program/starts_on`, `/program/timezone`), and travel with a request for `relationship_training` at `contribute`, without which it could never be created (`/scopes`). A partial proposal answers `/program`. Every refusal refuses the whole invitation; the `422` names the field in `error.detail`. Nothing is assigned until she accepts.
      *
+     *     HU-BO-024: a scope asked at `contribute` needs a published version whose rules admit contributing, else `422` naming `/scopes`. In V1 only `relationship_training` does. Asking to `read` is offerable on every published version, as before.
+     *
      *     The program is part of the proposal: the same scopes with another program, or none, or another start, are a different question and a new invitation.
      *
      *     HU-STUDIO-087: a new invitation takes a guest place. When the organization has none left the answer is `409` with `guest-quota-exhausted`; reusing a pending invitation takes no second place. An organization without a quota has no limit.
