@@ -24,6 +24,11 @@ import { createResignationBatchProcessor } from './membership-resignations.js'
 import { createReassignmentBatchProcessor } from './professional-reassignments.js'
 import { createSubscriptionNoticeBatchProcessor } from './subscription-notices.js'
 import { createSubstitutionBatchProcessor } from './substitution-proposals.js'
+import { createCorrectionProposalBatchProcessor } from './correction-proposals.js'
+import {
+  createCorrectionProposalExpiryProcessor,
+  type CorrectionProposalExpiryResult,
+} from './correction-proposal-expiry.js'
 import {
   createClientInvitationBatchProcessor,
   createClientInvitationDeliveryDatabase,
@@ -57,6 +62,7 @@ export interface WorkerJobProcessors {
   accountRecoveryDelivery(): Promise<AccountRecoveryBatchResult>
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
   privacyDisposition(): Promise<PrivacyDispositionResult>
+  correctionProposalExpiry(): Promise<CorrectionProposalExpiryResult>
   /** Leaves the run behind for the Backoffice diagnosis (HU-BO-031 c2). */
   recordJobRun(run: JobRun): Promise<void>
 }
@@ -67,11 +73,13 @@ export interface WorkerBatchResult {
   accountRecovery: AccountRecoveryBatchResult
   platformDuties: PlatformDutyLapseResult
   privacyDispositions: PrivacyDispositionResult
+  correctionProposals: CorrectionProposalExpiryResult
 }
 
 type WorkerJob =
   | 'account_recovery_delivery'
   | 'backoffice_auth_cleanup'
+  | 'correction_proposal_expiry'
   | 'invitation_delivery'
   | 'outbox_batch'
   | 'platform_duty_lapse'
@@ -132,6 +140,13 @@ export function createWorkerApp(
         'privacy_disposition',
         processors.privacyDisposition,
       )
+      const correctionProposals = await runJob(
+        telemetry,
+        logs,
+        record,
+        'correction_proposal_expiry',
+        processors.correctionProposalExpiry,
+      )
 
       const result: WorkerBatchResult = {
         invitations,
@@ -139,6 +154,7 @@ export function createWorkerApp(
         accountRecovery,
         platformDuties,
         privacyDispositions,
+        correctionProposals,
       }
       const jobs = [
         invitations,
@@ -146,6 +162,7 @@ export function createWorkerApp(
         accountRecovery,
         platformDuties,
         privacyDispositions,
+        correctionProposals,
       ]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
       captureJob(
@@ -321,6 +338,12 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
   })
+  const correctionProposals = createCorrectionProposalBatchProcessor({
+    queue,
+    email,
+    brandAssetUrl,
+    deliveryEnabled,
+  })
   const backofficeAuthentication = createBackofficeAuthBatchProcessor({
     queue,
     database: createBackofficeAuthCleanupDatabase(sql),
@@ -354,8 +377,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
       const ownership = await ownershipInvitations()
       const client = await clientInvitations()
       /*
-       * Reassignment and resignation notices, substitution questions and subscription notices ride the
-       * same job rather than a cron each: they are the same claim against the same
+       * Reassignment and resignation notices, substitution questions, correction proposals and
+       * subscription notices ride the same job rather than a cron each: the same claim against the same
        * outbox, and a separate schedule would be another thing to notice when it stops
        * running.
        *
@@ -370,6 +393,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await reassignments(),
         await resignations(),
         await substitutions(),
+        await correctionProposals(),
         await subscriptionNotices(),
       ]
       return {
@@ -389,6 +413,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     accountRecoveryDelivery: accountRecovery,
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
     privacyDisposition: createPrivacyDispositionProcessor(sql),
+    correctionProposalExpiry: createCorrectionProposalExpiryProcessor(sql),
     recordJobRun: createJobRunRecorder(sql),
   }
   return cachedProcessors

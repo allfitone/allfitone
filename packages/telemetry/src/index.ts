@@ -197,6 +197,7 @@ export type TelemetryEvent =
         job:
           | 'account_recovery_delivery'
           | 'backoffice_auth_cleanup'
+          | 'correction_proposal_expiry'
           | 'invitation_delivery'
           | 'outbox_batch'
           | 'platform_duty_lapse'
@@ -374,6 +375,7 @@ function validateSpecific(name: TelemetryEventName, properties: Record<string, u
           [
             'account_recovery_delivery',
             'backoffice_auth_cleanup',
+            'correction_proposal_expiry',
             'invitation_delivery',
             'outbox_batch',
             'platform_duty_lapse',
