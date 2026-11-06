@@ -22,10 +22,10 @@
 
 begin;
 
-select plan(46);
+select plan(49);
 
 -- ---------------------------------------------------------------------------
--- A gym, its owner, a coach, two clients, and a gym next door
+-- A gym, its owner, a coach, a staff member, two clients, and a gym next door
 -- ---------------------------------------------------------------------------
 
 insert into identity.people (id, given_name, family_name, status, contact_email)
@@ -34,7 +34,8 @@ values
   ('019c2000-0000-7000-8000-000000000002', 'Carla', 'Cliente', 'active', 'carla@example.test'),
   ('019c2000-0000-7000-8000-000000000003', 'Cesar', 'Coach', 'active', null),
   ('019c2000-0000-7000-8000-000000000004', 'Otra', 'Owner', 'active', null),
-  ('019c2000-0000-7000-8000-000000000005', 'Dora', 'Cliente', 'active', 'dora@example.test');
+  ('019c2000-0000-7000-8000-000000000005', 'Dora', 'Cliente', 'active', 'dora@example.test'),
+  ('019c2000-0000-7000-8000-000000000006', 'Sofia', 'Staff', 'active', null);
 
 insert into organizations.organizations (id, type_code, display_name, responsible_party)
 values
@@ -50,13 +51,16 @@ values
   ('019c2000-0000-7000-8000-000000000202', '019c2000-0000-7000-8000-000000000101',
    '019c2000-0000-7000-8000-000000000003', 'active'),
   ('019c2000-0000-7000-8000-000000000203', '019c2000-0000-7000-8000-000000000102',
-   '019c2000-0000-7000-8000-000000000004', 'active');
+   '019c2000-0000-7000-8000-000000000004', 'active'),
+  ('019c2000-0000-7000-8000-000000000204', '019c2000-0000-7000-8000-000000000101',
+   '019c2000-0000-7000-8000-000000000006', 'active');
 
 insert into organizations.membership_roles (membership_id, role_code)
 values
   ('019c2000-0000-7000-8000-000000000201', 'owner'),
   ('019c2000-0000-7000-8000-000000000202', 'coach'),
-  ('019c2000-0000-7000-8000-000000000203', 'owner');
+  ('019c2000-0000-7000-8000-000000000203', 'owner'),
+  ('019c2000-0000-7000-8000-000000000204', 'staff');
 
 insert into payments.gateway_connections (id, organization_id, provider, status)
 values ('019c2000-0000-7000-8000-000000000301', '019c2000-0000-7000-8000-000000000101',
@@ -363,6 +367,42 @@ select throws_ok(
   'P0002',
   'subscription not found',
   'and he cannot suspend what he cannot see'
+);
+
+-- HU-STUDIO-078 criterion 2 names staff too: a member of the gym without manage_billing.
+select set_config('app.actor_person_id', '019c2000-0000-7000-8000-000000000006', true);
+
+select throws_ok(
+  $$select * from payments.list_organization_subscriptions(
+      '019c2000-0000-7000-8000-000000000006', '019c2000-0000-7000-8000-000000000101',
+      null, 50, null, null, null)$$,
+  'P0002',
+  'organization subscriptions not found',
+  'staff is told the list does not exist as well'
+);
+
+select throws_ok(
+  $$select * from payments.suspend_subscription(
+      '019c2000-0000-7000-8000-000000000006', '019c2000-0000-7000-8000-000000000101',
+      (select id from payments.plan_subscriptions
+        where person_id = '019c2000-0000-7000-8000-000000000002'),
+      '019c2000-0000-7000-8000-000000001090', '019c2000-0000-7000-8000-000000001090',
+      extensions.digest('staff-suspends', 'sha256'))$$,
+  'P0002',
+  'subscription not found',
+  'cannot suspend one'
+);
+
+select throws_ok(
+  $$select * from payments.end_subscription(
+      '019c2000-0000-7000-8000-000000000006', '019c2000-0000-7000-8000-000000000101',
+      (select id from payments.plan_subscriptions
+        where person_id = '019c2000-0000-7000-8000-000000000002'),
+      '019c2000-0000-7000-8000-000000001091', '019c2000-0000-7000-8000-000000001091',
+      extensions.digest('staff-ends', 'sha256'))$$,
+  'P0002',
+  'subscription not found',
+  'and cannot end one'
 );
 
 -- ---------------------------------------------------------------------------
