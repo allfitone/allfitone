@@ -3820,6 +3820,72 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/progress': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read how a client's training is going, from what she shares with this coach
+     * @description HU-STUDIO-056. Her training week by week or month by month, oldest period first: each period's sessions, time, work sets, volume and the muscles its work sets fall on, and each movement's best load in its latest period against the last period before it, with the best estimated one-repetition maximum of the window. Computed when it is read, only from the sessions this coach may see: what was trained inside this relationship under `relationship_training`, and what she trained on her own under `prior_training_history`, never one she hid. Hiding a session withdraws it from every figure; taking the hiding back returns it.
+     *
+     *     Nothing is approximated: warm-up sets never count, a set nobody weighed is not zero lifted, and a movement only she can name is counted without its name. No adherence, programme or body weight travels here. `sources` names each category the figures came from, with the version she accepted, and `algorithm` the formula of the estimate.
+     *
+     *     Being administrator or owner is not attending her: anyone who does not attend her gets 404. 403 `scope-required` when she shares neither category, recorded as refused; a read is recorded under each category it used before it answers.
+     */
+    get: operations['getAuthorizedClientProgress']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/observations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Leave an observation on a session the client trained with this gym
+     * @description HU-STUDIO-057. The coach who holds her relationship, or a cover she accepted, with `observe_training`, writes his reading of one finished, valid session this relationship produced. It sits beside what she declared and never replaces it. A session she trained on her own is read, never written on: 422 `execution`.
+     *
+     *     `training` needs `relationship_training` at `contribute`; pain or a limitation is `health` and needs `health_context` at `contribute`, and is shown only while she shares that category. Without it, 403 `scope-required` names the category and level missing; while her service with this organization is paused, 409 `service-paused`. `person_declared` marks a transcription of what she said: it stays hers, and the coach is recorded only as who captured it. The Command-Id is the observation's id.
+     */
+    post: operations['recordClientObservation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/observations/{observationId}/revisions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Correct an observation of one's own
+     * @description HU-STUDIO-058. Only its author corrects an observation, while he still attends her and she still shares its category at `contribute`; anyone else's, or one he no longer reaches, is 404. The correction is made over the revision he last saw: if it moved on, 409 `stale-draft` carries the observation as it stands in `current_state`. The text it replaced, the new one and the reason are kept, and nobody rewrites them. Who wrote it, on which session and as what never change.
+     */
+    post: operations['reviseClientObservation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/clients/{personId}/profile': {
     parameters: {
       query?: never
@@ -9278,7 +9344,8 @@ export interface components {
      *       "endurance_laps": [],
      *       "interval_results": [],
      *       "round_results": [],
-     *       "mobility_results": []
+     *       "mobility_results": [],
+     *       "observations": []
      *     }
      */
     AuthorizedExecution: {
@@ -9296,6 +9363,8 @@ export interface components {
       /** Format: uuid */
       planned_session_id: string | null
       applied_scope: components['schemas']['AppliedScope']
+      /** @description What this relationship's coaches noted on the session, oldest first, each under its own category: one of health context only while she shares it. */
+      observations: components['schemas']['ProfessionalObservation'][]
       segments: components['schemas']['ExecutionDetailSegment'][]
       strength_sets: components['schemas']['ExecutionDetailStrengthSet'][]
       endurance_laps: components['schemas']['ExecutionDetailEnduranceLap'][]
@@ -9306,6 +9375,101 @@ export interface components {
     AppliedScope: {
       code: components['schemas']['ScopeCode']
       version: number
+    }
+    /** @description Her training as this coach may see it, oldest period first. Every figure is computed when it is read; nothing is stored that could outlive what she shares. */
+    ClientProgress: {
+      /** @enum {string} */
+      period: 'week' | 'month'
+      /** @description The categories the figures came from, with the version she accepted. */
+      sources: components['schemas']['AppliedScope'][]
+      algorithm: {
+        /**
+         * @description The estimate from one to twelve repetitions, load × (1 + reps / 30).
+         * @constant
+         */
+        e1rm: 'epley'
+        version: number
+      }
+      periods: components['schemas']['ClientProgressPeriod'][]
+      /** @description Each movement's best in its latest period, best first. */
+      movements: components['schemas']['ClientProgressMovement'][]
+    }
+    ClientProgressPeriod: {
+      /** Format: date */
+      starts_on: string
+      /** Format: date */
+      ends_before: string
+      sessions: number
+      trained_seconds: number
+      work_sets: number
+      /** @description Null when nothing in the period was weighed. */
+      volume_kg: number | null
+      /** @description How the period's work sets fall across the muscles, heaviest first. A set belongs to one muscle, the movement's primary. */
+      muscles: components['schemas']['SpacePeriodMuscle'][]
+    }
+    ClientProgressMovement: {
+      movement_id: components['schemas']['Uuid']
+      /** @description Null for a movement only she can name. */
+      name: string | null
+      best_kg: number
+      previous_best_kg: number | null
+      change_kg: number | null
+      /** @description The best estimate in the window; null when no set had one to twelve repetitions. */
+      best_e1rm_kg: number | null
+      /** @description The movement's best in every period, oldest first; null where it was not trained. */
+      bests: (number | null)[]
+    }
+    /**
+     * @description `training` is read and written under `relationship_training`; `health`, pain or a limitation, under `health_context`.
+     * @enum {string}
+     */
+    ProfessionalObservationCategory: 'training' | 'health'
+    /**
+     * @description `professional_observation` is the coach's own reading; `person_declared` a transcription of what she said, which stays hers.
+     * @enum {string}
+     */
+    ProfessionalObservationProvenance: 'professional_observation' | 'person_declared'
+    /**
+     * @example {
+     *       "execution_id": "0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b",
+     *       "category": "training",
+     *       "provenance": "professional_observation",
+     *       "content": "La técnica bajó en la última serie."
+     *     }
+     */
+    ProfessionalObservationCreate: {
+      execution_id: components['schemas']['Uuid']
+      category: components['schemas']['ProfessionalObservationCategory']
+      provenance: components['schemas']['ProfessionalObservationProvenance']
+      content: string
+    }
+    /**
+     * @example {
+     *       "expected_revision": 1,
+     *       "content": "La técnica bajó en las dos últimas series.",
+     *       "reason": "Eran dos series, no una."
+     *     }
+     */
+    ProfessionalObservationRevisionCreate: {
+      /** @description The revision the correction was made over. */
+      expected_revision: number
+      content: string
+      reason: string
+    }
+    ProfessionalObservation: {
+      id: components['schemas']['Uuid']
+      execution_id: components['schemas']['Uuid']
+      category: components['schemas']['ProfessionalObservationCategory']
+      provenance: components['schemas']['ProfessionalObservationProvenance']
+      content: string
+      revision_number: number
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      revised_at: string | null
+      author_name: string
+      /** @description Whether the reader wrote it, and so may correct it. */
+      authored_by_me: boolean
     }
     SessionVisibilityDenialCreate: {
       relationship_id: components['schemas']['Uuid']
@@ -11530,6 +11694,25 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The observation moved on since it was read (`stale-draft`, with the observation as it stands in `current_state`), the person's service with this organization is paused (`service-paused`), or the idempotency identity was reused or is still in progress (`conflict`, `idempotency-in-progress`) */
+    ObservationConflict: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        'Retry-After': components['headers']['RetryAfter']
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "type": "https://errors.allfit.invalid/service-paused",
+         *       "title": "The person's service with this organization is paused",
+         *       "status": 409,
+         *       "request_id": "01JEXAMPLE0000000000000000"
+         *     }
+         */
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description If-Match refers to a stale execution revision */
     StaleDraft: {
       headers: {
@@ -11681,6 +11864,7 @@ export interface components {
     PlannedSessionId: components['schemas']['Uuid']
     AssignmentId: components['schemas']['Uuid']
     ExecutionId: components['schemas']['Uuid']
+    ObservationId: components['schemas']['Uuid']
     PersonId: components['schemas']['Uuid']
     GrantId: components['schemas']['Uuid']
     MealId: components['schemas']['Uuid']
@@ -18639,6 +18823,125 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getAuthorizedClientProgress: {
+    parameters: {
+      query: {
+        /** @description The zone that decides which day, week and month a session falls on. */
+        timezone: components['schemas']['IanaTimeZone']
+        period: 'week' | 'month'
+        count: number
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The periods, oldest first, and each movement's best against the period before */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientProgress']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  recordClientObservation: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProfessionalObservationCreate']
+      }
+    }
+    responses: {
+      /** @description The observation, as the session now shows it */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProfessionalObservation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      409: components['responses']['ObservationConflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  reviseClientObservation: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        observationId: components['parameters']['ObservationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProfessionalObservationRevisionCreate']
+      }
+    }
+    responses: {
+      /** @description The observation with its correction in force */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProfessionalObservation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      409: components['responses']['ObservationConflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
     }
   }

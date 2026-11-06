@@ -9635,6 +9635,200 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/clients/{personId}/progress:
+    get:
+      tags: [Studio Execution]
+      operationId: getAuthorizedClientProgress
+      x-allfit-operation: OP-EXE-019
+      x-allfit-cache: private-no-store
+      summary: Read how a client's training is going, from what she shares with this coach
+      description: >-
+        HU-STUDIO-056. Her training week by week or month by month, oldest period first:
+        each period's sessions, time, work sets, volume and the muscles its work sets
+        fall on, and each movement's best load in its latest period against the last
+        period before it, with the best estimated one-repetition maximum of the window.
+        Computed when it is read, only from the sessions this coach may see: what was
+        trained inside this relationship under `relationship_training`, and what she
+        trained on her own under `prior_training_history`, never one she hid. Hiding a
+        session withdraws it from every figure; taking the hiding back returns it.
+
+
+        Nothing is approximated: warm-up sets never count, a set nobody weighed is not
+        zero lifted, and a movement only she can name is counted without its name. No
+        adherence, programme or body weight travels here. `sources` names each
+        category the figures came from, with the version she accepted, and `algorithm`
+        the formula of the estimate.
+
+
+        Being administrator or owner is not attending her: anyone who does not attend
+        her gets 404. 403 `scope-required` when she shares neither category, recorded
+        as refused; a read is recorded under each category it used before it answers.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/PersonId'
+        - name: timezone
+          in: query
+          required: true
+          description: The zone that decides which day, week and month a session falls on.
+          schema:
+            $ref: '#/components/schemas/IanaTimeZone'
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [week, month]
+        - name: count
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+      responses:
+        '200':
+          description: The periods, oldest first, and each movement's best against the period before
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientProgress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/clients/{personId}/observations:
+    post:
+      tags: [Studio Execution]
+      operationId: recordClientObservation
+      x-allfit-operation: OP-EXE-010
+      x-allfit-cache: no-store
+      summary: Leave an observation on a session the client trained with this gym
+      description: >-
+        HU-STUDIO-057. The coach who holds her relationship, or a cover she accepted,
+        with `observe_training`, writes his reading of one finished, valid session this
+        relationship produced. It sits beside what she declared and never replaces it.
+        A session she trained on her own is read, never written on: 422 `execution`.
+
+
+        `training` needs `relationship_training` at `contribute`; pain or a limitation
+        is `health` and needs `health_context` at `contribute`, and is shown only while
+        she shares that category. Without it, 403 `scope-required` names the category
+        and level missing; while her service with this organization is paused, 409
+        `service-paused`. `person_declared` marks a transcription of what she said: it
+        stays hers, and the coach is recorded only as who captured it. The Command-Id
+        is the observation's id.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/PersonId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfessionalObservationCreate'
+      responses:
+        '201':
+          description: The observation, as the session now shows it
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionalObservation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ObservationConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/observations/{observationId}/revisions:
+    post:
+      tags: [Studio Execution]
+      operationId: reviseClientObservation
+      x-allfit-operation: OP-EXE-011
+      x-allfit-cache: no-store
+      summary: Correct an observation of one's own
+      description: >-
+        HU-STUDIO-058. Only its author corrects an observation, while he still attends
+        her and she still shares its category at `contribute`; anyone else's, or one he
+        no longer reaches, is 404. The correction is made over the revision he last saw:
+        if it moved on, 409 `stale-draft` carries the observation as it stands in
+        `current_state`. The text it replaced, the new one and the reason are kept, and
+        nobody rewrites them. Who wrote it, on which session and as what never change.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/ObservationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfessionalObservationRevisionCreate'
+      responses:
+        '201':
+          description: The observation with its correction in force
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfessionalObservation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/ObservationConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/clients/{personId}/profile:
     get:
       tags: [Studio Client Profile]
@@ -13318,6 +13512,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
+    ObservationId:
+      name: observationId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
     PersonId:
       name: personId
       in: path
@@ -13827,6 +14027,26 @@ components:
           example:
             type: https://errors.allfit.invalid/stale-draft
             title: The local draft is stale
+            status: 409
+            request_id: 01JEXAMPLE0000000000000000
+    ObservationConflict:
+      description: >-
+        The observation moved on since it was read (`stale-draft`, with the observation as
+        it stands in `current_state`), the person's service with this organization is
+        paused (`service-paused`), or the idempotency identity was reused or is still in
+        progress (`conflict`, `idempotency-in-progress`)
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://errors.allfit.invalid/service-paused
+            title: The person's service with this organization is paused
             status: 409
             request_id: 01JEXAMPLE0000000000000000
     StaleDraft:
@@ -22888,7 +23108,7 @@ components:
         [id, started_at, ended_at, timezone, activity_type_code, activity_type_name,
          discipline_code, achieved_level, origin, planned_session_id, applied_scope,
          segments, strength_sets, endurance_laps, interval_results, round_results,
-         mobility_results]
+         mobility_results, observations]
       example:
         id: 0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b
         started_at: '2026-07-27T06:04:00-05:00'
@@ -22918,6 +23138,7 @@ components:
         interval_results: []
         round_results: []
         mobility_results: []
+        observations: []
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -22946,6 +23167,13 @@ components:
           format: uuid
         applied_scope:
           $ref: '#/components/schemas/AppliedScope'
+        observations:
+          description: >-
+            What this relationship's coaches noted on the session, oldest first, each
+            under its own category: one of health context only while she shares it.
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfessionalObservation'
         segments:
           type: array
           items:
@@ -22981,6 +23209,190 @@ components:
           type: integer
           minimum: 1
 
+    ClientProgress:
+      description: >-
+        Her training as this coach may see it, oldest period first. Every figure is
+        computed when it is read; nothing is stored that could outlive what she shares.
+      type: object
+      additionalProperties: false
+      required: [period, sources, algorithm, periods, movements]
+      properties:
+        period:
+          type: string
+          enum: [week, month]
+        sources:
+          type: array
+          minItems: 1
+          maxItems: 2
+          description: The categories the figures came from, with the version she accepted.
+          items:
+            $ref: '#/components/schemas/AppliedScope'
+        algorithm:
+          type: object
+          additionalProperties: false
+          required: [e1rm, version]
+          properties:
+            e1rm:
+              type: string
+              const: epley
+              description: The estimate from one to twelve repetitions, load × (1 + reps / 30).
+            version:
+              type: integer
+              minimum: 1
+        periods:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/ClientProgressPeriod'
+        movements:
+          type: array
+          maxItems: 50
+          description: Each movement's best in its latest period, best first.
+          items:
+            $ref: '#/components/schemas/ClientProgressMovement'
+    ClientProgressPeriod:
+      type: object
+      additionalProperties: false
+      required: [starts_on, ends_before, sessions, trained_seconds, work_sets, volume_kg, muscles]
+      properties:
+        starts_on:
+          type: string
+          format: date
+        ends_before:
+          type: string
+          format: date
+        sessions:
+          type: integer
+          minimum: 0
+        trained_seconds:
+          type: integer
+          minimum: 0
+        work_sets:
+          type: integer
+          minimum: 0
+        volume_kg:
+          description: Null when nothing in the period was weighed.
+          type: [number, 'null']
+          minimum: 0
+        muscles:
+          type: array
+          description: >-
+            How the period's work sets fall across the muscles, heaviest first. A set
+            belongs to one muscle, the movement's primary.
+          items:
+            $ref: '#/components/schemas/SpacePeriodMuscle'
+    ClientProgressMovement:
+      type: object
+      additionalProperties: false
+      required: [movement_id, name, best_kg, previous_best_kg, change_kg, best_e1rm_kg, bests]
+      properties:
+        movement_id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          description: Null for a movement only she can name.
+          type: [string, 'null']
+        best_kg:
+          type: number
+          minimum: 0
+        previous_best_kg:
+          type: [number, 'null']
+          minimum: 0
+        change_kg:
+          type: [number, 'null']
+        best_e1rm_kg:
+          description: The best estimate in the window; null when no set had one to twelve repetitions.
+          type: [number, 'null']
+          minimum: 0
+        bests:
+          type: array
+          description: The movement's best in every period, oldest first; null where it was not trained.
+          items:
+            type: [number, 'null']
+            minimum: 0
+    ProfessionalObservationCategory:
+      description: >-
+        `training` is read and written under `relationship_training`; `health`, pain or
+        a limitation, under `health_context`.
+      type: string
+      enum: [training, health]
+    ProfessionalObservationProvenance:
+      description: >-
+        `professional_observation` is the coach's own reading; `person_declared` a
+        transcription of what she said, which stays hers.
+      type: string
+      enum: [professional_observation, person_declared]
+    ProfessionalObservationCreate:
+      type: object
+      additionalProperties: false
+      required: [execution_id, category, provenance, content]
+      example:
+        execution_id: 0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b
+        category: training
+        provenance: professional_observation
+        content: La técnica bajó en la última serie.
+      properties:
+        execution_id:
+          $ref: '#/components/schemas/Uuid'
+        category:
+          $ref: '#/components/schemas/ProfessionalObservationCategory'
+        provenance:
+          $ref: '#/components/schemas/ProfessionalObservationProvenance'
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    ProfessionalObservationRevisionCreate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, content, reason]
+      example:
+        expected_revision: 1
+        content: La técnica bajó en las dos últimas series.
+        reason: Eran dos series, no una.
+      properties:
+        expected_revision:
+          description: The revision the correction was made over.
+          type: integer
+          minimum: 1
+        content:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    ProfessionalObservation:
+      type: object
+      additionalProperties: false
+      required: [id, execution_id, category, provenance, content, revision_number, created_at,
+        revised_at, author_name, authored_by_me]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        execution_id:
+          $ref: '#/components/schemas/Uuid'
+        category:
+          $ref: '#/components/schemas/ProfessionalObservationCategory'
+        provenance:
+          $ref: '#/components/schemas/ProfessionalObservationProvenance'
+        content:
+          type: string
+        revision_number:
+          type: integer
+          minimum: 1
+        created_at:
+          type: string
+          format: date-time
+        revised_at:
+          type: [string, 'null']
+          format: date-time
+        author_name:
+          type: string
+        authored_by_me:
+          description: Whether the reader wrote it, and so may correct it.
+          type: boolean
     SessionVisibilityDenialCreate:
       type: object
       additionalProperties: false
