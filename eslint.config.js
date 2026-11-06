@@ -36,10 +36,20 @@ const NO_OBJECT_STORE_SDK = {
   message: 'The storage SDK belongs in packages/object-store. Use its port.',
 }
 
-// Only packages/ai-provider talks to a model (ADR-045). A task such as food
-// recognition asks through its port.
+// Only packages/ai-provider talks to a model (ADR-045): the AI SDK, Bedrock, and any
+// vendor's own SDK. A task such as food recognition asks through its port.
 const NO_AI_SDK = {
-  group: ['ai', 'ai/*', '@ai-sdk/*'],
+  group: [
+    'ai',
+    'ai/*',
+    '@ai-sdk/*',
+    '@aws-sdk/client-bedrock*',
+    '@anthropic-ai/*',
+    'openai',
+    'openai/*',
+    '@google/genai',
+    '@google/genai/*',
+  ],
   message: 'Model SDKs belong in packages/ai-provider. Use its port.',
 }
 

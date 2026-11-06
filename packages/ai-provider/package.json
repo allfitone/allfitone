@@ -20,6 +20,8 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1145.0",
+    "@smithy/node-http-handler": "4.12.1",
     "ai": "7.0.127",
     "zod": "4.6.5"
   }
