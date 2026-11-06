@@ -49,28 +49,6 @@ function terminate(pid: number): void {
   Bun.spawnSync(['sh', '-c', `kill -TERM ${pid}`])
 }
 
-/*
- * Whether a process is still running is not a question Windows can answer here,
- * for two reasons that are each enough on their own.
- *
- * **A backgrounded child does not outlive its launcher.** Windows closes the
- * whole tree when the root process exits, and `start` deliberately daemonises
- * the tunnel and returns — so by the time the assertion runs there is nothing
- * left to find. Verified with a `nohup sleep 30 &` behind a `Bun.spawnSync`.
- *
- * **And the pid is not the right kind of number.** `$!` in Git Bash is a
- * bash-internal pid (a small integer like 46), while `process.kill` asks the
- * Windows kernel — so `isAlive` is asking about some other process entirely.
- *
- * Skipped rather than rewritten because the behaviour is real and worth
- * asserting on the platform that runs it: CI is Linux and executes all three.
- * Leaving them to fail here is not neutral — the pre-push hook runs this suite,
- * so one red test blocked every push from a Windows machine, on any branch and
- * any product. Worse, the `toBe(false)` assertion below passed on Windows
- * *because* everything is already dead, reporting coverage that did not exist.
- */
-const posixOnly = test.skipIf(process.platform === 'win32')
-
 function tunnel(env: Record<string, string> = {}, command: string[] = []) {
   return Bun.spawnSync(['bash', SCRIPT, ...command], {
     env: { PATH: `${stub}:${process.env['PATH'] ?? ''}`, TMPDIR: stub, ...env },
@@ -111,7 +89,7 @@ describe('db-tunnel', () => {
     expect(existsSync(join(stub, 'session'))).toBe(false)
   })
 
-  posixOnly('stopping the tunnel also stops the plugin that holds the port', async () => {
+  test('stopping the tunnel also stops the plugin that holds the port', async () => {
     writeFileSync(join(stub, 'hold'), '')
     const run = Bun.spawn(
       ['bash', '-c', 'bash "$0" & echo $! > "$1"; wait', SCRIPT, join(stub, 'run')],
@@ -129,7 +107,7 @@ describe('db-tunnel', () => {
     expect(isAlive(plugin)).toBe(false)
   })
 
-  posixOnly('start returns once the tunnel is ready and leaves it open until stop', async () => {
+  test('start returns once the tunnel is ready and leaves it open until stop', async () => {
     writeFileSync(join(stub, 'hold'), '')
 
     const start = tunnel({}, ['start'])
