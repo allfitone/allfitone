@@ -77,6 +77,7 @@ export type OrganizationRoleGrant = AllfitV1Schemas['OrganizationRoleGrant']
 export type OrganizationRoleGrantCreate = AllfitV1Schemas['OrganizationRoleGrantCreate']
 export type OrganizationRoleRevocation = AllfitV1Schemas['OrganizationRoleRevocation']
 export type OrganizationMembershipTermination = AllfitV1Schemas['OrganizationMembershipTermination']
+export type OrganizationMembershipResignation = AllfitV1Schemas['OrganizationMembershipResignation']
 export type AssignableOrganizationRoleCode = AllfitV1Schemas['AssignableOrganizationRoleCode']
 export type OrganizationSubscriptionPage = AllfitV1Schemas['OrganizationSubscriptionPage']
 export type OrganizationSubscription = AllfitV1Schemas['OrganizationSubscription']
@@ -573,6 +574,20 @@ export const studioApi = {
   terminateMembership: (organizationId: string, membershipId: string, command: CommandHeaders) =>
     request<OrganizationMembershipTermination>(
       `/studio/v1/organizations/${organizationId}/memberships/${membershipId}/termination`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+      },
+    ),
+
+  /*
+   * No membership id in the path, and that is the whole difference: the command
+   * resolves your own active membership from the person in the session, so this
+   * route cannot be pointed at anybody else.
+   */
+  resignMembership: (organizationId: string, command: CommandHeaders) =>
+    request<OrganizationMembershipResignation>(
+      `/studio/v1/organizations/${organizationId}/me/membership/resignation`,
       {
         method: 'POST',
         headers: commandHeaders(command),

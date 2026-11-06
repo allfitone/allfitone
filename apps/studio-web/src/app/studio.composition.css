@@ -711,6 +711,16 @@
   gap: var(--afo-space-3);
 }
 
+/* El motivo que sustituye al botón en la tarjeta del propietario. Lleva el
+   color apagado y el mismo ancho de lectura que las demás frases de apoyo: es
+   una explicación, no una acción, y no debe leerse como el pie de un botón
+   que falta. */
+[data-membership-resignation-blocked] {
+  max-width: 62ch;
+  margin-block: 0;
+  color: var(--afo-color-text-muted);
+}
+
 /* CardContent pads sideways only, so the facts, the evidence link and the
    actions stacked flush: each one's top edge sat exactly on the last one's
    bottom edge. */
