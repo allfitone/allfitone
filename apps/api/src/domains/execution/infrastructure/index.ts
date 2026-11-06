@@ -26,9 +26,13 @@ import type {
   AuthorizedExecutionSummary,
   ClientProgress,
   ClientProgressRead,
+  CorrectionCommandResult,
+  CorrectionPage,
+  CorrectionProposal,
   ExecutionReviewDatabase,
   ObservationCommandResult,
   ProfessionalObservation,
+  ProposedCorrection,
   Abandoned,
   Attempt,
   FreeSession,
@@ -340,6 +344,31 @@ export function createExecutionDatabase(): ExecutionDatabase {
         if (!row) throw new Error('PostgreSQL did not compare the periods')
         return row.comparison
       }),
+
+    // Her own proposals: nobody else's data, so no access is recorded.
+    listCorrectionProposals: (input) =>
+      transact(sql, input.personId, '', async (transaction) =>
+        correctionPage(
+          await transaction<{ proposal: CorrectionProposal }[]>`
+            select proposal from execution.list_my_correction_proposals(
+              ${input.personId}::uuid, ${input.status}::text, ${input.limit + 1}::integer,
+              ${input.cursor?.expiresAt ?? null}::timestamptz, ${input.cursor?.id ?? null}::uuid
+            )
+          `,
+          input.limit,
+        ),
+      ),
+
+    decideCorrectionProposal: (input) =>
+      transact(sql, input.personId, '', async (transaction) => {
+        const [row] = await transaction<CorrectionRow<CorrectionProposal>[]>`
+          select * from execution.decide_correction_proposal(
+            ${input.personId}::uuid, ${input.proposalId}::uuid, ${input.decision}::text,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return commandResult(row, 'decide the correction proposal')
+      }),
   }
 }
 
@@ -507,6 +536,11 @@ interface ObservationRow {
   replayed: boolean
 }
 
+interface CorrectionRow<T> {
+  result: T
+  replayed: boolean
+}
+
 /**
  * PostgreSQL access for the coach's review of a client (`OP-EXE-017`, `OP-EXE-018`).
  *
@@ -629,6 +663,57 @@ export function createExecutionReviewDatabase(
         `
         return observationResult(row, 'revise the observation')
       }),
+
+    proposeCorrection: (input) =>
+      transact(sql, input.personId, '', async (transaction) => {
+        const [row] = await transaction<CorrectionRow<ProposedCorrection>[]>`
+          select * from execution.propose_correction(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.subjectPersonId}::uuid, ${input.executionId}::uuid, ${input.setOrder}::integer,
+            ${input.field}::text, ${input.value}::numeric, ${input.unit}::text,
+            ${input.reason}::text, ${input.idempotencyKey}::uuid, ${input.commandId}::uuid,
+            ${input.requestHash}
+          )
+        `
+        return commandResult(row, 'propose the correction')
+      }),
+
+    listProposedCorrections: (input) =>
+      transact(sql, input.personId, '', async (transaction) =>
+        correctionPage(
+          await transaction<{ proposal: ProposedCorrection }[]>`
+            select proposal from execution.list_proposed_corrections(
+              ${input.personId}::uuid, ${input.organizationId}::uuid, ${input.status}::text,
+              ${input.limit + 1}::integer, ${input.cursor?.expiresAt ?? null}::timestamptz,
+              ${input.cursor?.id ?? null}::uuid
+            )
+          `,
+          input.limit,
+        ),
+      ),
+  }
+}
+
+function commandResult<T>(
+  row: CorrectionRow<T> | undefined,
+  operation: string,
+): CorrectionCommandResult<T> {
+  if (!row) throw new Error(`PostgreSQL did not ${operation}`)
+  return { resource: row.result, replayed: row.replayed }
+}
+
+/** One row past the page says there is another; its key is the last one shown. */
+function correctionPage<T extends { id: string; expires_at: string }>(
+  rows: ReadonlyArray<{ proposal: T }>,
+  limit: number,
+): CorrectionPage<T> {
+  const items = rows.slice(0, limit).map((row) => row.proposal)
+  const last = items.at(-1)
+  const hasMore = rows.length > limit
+  return {
+    items,
+    hasMore,
+    ...(hasMore && last ? { nextCursor: { expiresAt: last.expires_at, id: last.id } } : {}),
   }
 }
 

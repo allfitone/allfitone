@@ -15,6 +15,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import type postgres from 'postgres'
 
 import { setDatabase } from '../../../platform/db/index.js'
+import type { CorrectionProposal } from '../domain/index.js'
 import { createExecutionDatabase } from './index.js'
 
 interface CapturedQuery {
@@ -22,11 +23,16 @@ interface CapturedQuery {
   values: unknown[]
 }
 
-function recordingDatabase(captured: CapturedQuery[]): ReturnType<typeof postgres> {
+function recordingDatabase(
+  captured: CapturedQuery[],
+  answer: (text: string) => unknown[] = () => [
+    { id: EXECUTION_ID, revision_number: 1, result_count: 1 },
+  ],
+): ReturnType<typeof postgres> {
   const client = Object.assign(
     (strings: TemplateStringsArray, ...values: unknown[]) => {
       captured.push({ strings: [...strings], values })
-      return Promise.resolve([{ id: EXECUTION_ID, revision_number: 1, result_count: 1 }])
+      return Promise.resolve(answer(strings.join('$')))
     },
     {
       begin: (operation: (transaction: unknown) => Promise<unknown>) => operation(client),
@@ -310,5 +316,87 @@ describe('the finished-session bindings', () => {
       },
     ])
     expect(values.slice(5, 7)).toEqual(['2026-09-29T23:02:00.000Z', '2026-09-29T23:50:00.000Z'])
+  })
+})
+
+describe('the bindings of the corrections proposed to her', () => {
+  const PROPOSAL_ID = '019e4000-0000-7000-8000-000000000501'
+  const proposal = (id: string, expiresAt: string): CorrectionProposal => ({
+    id,
+    execution_id: EXECUTION_ID,
+    set_order: 1,
+    movement_id: MOVEMENT_ID,
+    movement_name: 'Sentadilla',
+    field: 'load',
+    current: { value: 60, unit: 'kg' },
+    proposed: { value: 62.5, unit: 'kg' },
+    reason: 'La barra pesaba más.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-11-06T12:00:00.123456+00:00',
+    expires_at: expiresAt,
+    settled_at: null,
+    proposer_name: 'Camilo Coach',
+    organization_name: 'Gym A',
+  })
+
+  test('T-EXE-PROPOSAL-INT-03 her list is hers, one past the page, keyed on the last shown', async () => {
+    const captured: CapturedQuery[] = []
+    const rows = [
+      proposal(PROPOSAL_ID, '2026-12-01T10:00:00.111111+00:00'),
+      proposal('019e4000-0000-7000-8000-000000000502', '2026-12-02T10:00:00.222222+00:00'),
+    ]
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('list_my_correction_proposals')
+          ? rows.map((item) => ({ proposal: item }))
+          : [{}],
+      ),
+    )
+
+    const page = await createExecutionDatabase().listCorrectionProposals({
+      personId: PERSON_ID,
+      status: null,
+      limit: 1,
+    })
+
+    const call = captured.find((query) => query.strings.join('$').includes('list_my_correction'))
+    expect(call?.values).toEqual([PERSON_ID, null, 2, null, null])
+    expect(page).toEqual({
+      items: rows.slice(0, 1),
+      hasMore: true,
+      nextCursor: { expiresAt: '2026-12-01T10:00:00.111111+00:00', id: PROPOSAL_ID },
+    })
+  })
+
+  test('T-EXE-PROPOSAL-INT-04 her decision names her, the proposal and the command', async () => {
+    const captured: CapturedQuery[] = []
+    const decided: CorrectionProposal = {
+      ...proposal(PROPOSAL_ID, '2026-12-01T10:00:00+00:00'),
+      status: 'accepted',
+    }
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('decide_correction_proposal') ? [{ result: decided, replayed: false }] : [{}],
+      ),
+    )
+
+    const result = await createExecutionDatabase().decideCorrectionProposal({
+      personId: PERSON_ID,
+      proposalId: PROPOSAL_ID,
+      decision: 'accept',
+      ...command,
+    })
+
+    const call = captured.find((query) => query.strings.join('$').includes('decide_correction'))
+    expect(call?.values).toEqual([
+      PERSON_ID,
+      PROPOSAL_ID,
+      'accept',
+      command.idempotencyKey,
+      command.commandId,
+      command.requestHash,
+    ])
+    expect(result).toEqual({ resource: decided, replayed: false })
   })
 })

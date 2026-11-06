@@ -5,7 +5,8 @@
  * answers (`T-EXE-AUTHORIZED-01`). What these hold is the route's own part: it serves
  * the Studio web origin with its session cookie, carries the coach and a fresh request
  * id through, answers in the contract's shape, and translates the database's outcomes
- * without saying more than they do.
+ * without saying more than they do. The corrections a coach proposes (`OP-EXE-012`,
+ * `OP-EXE-020`) are held to the same: `T-EXE-PROPOSAL-01` owns what PostgreSQL decides.
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
@@ -22,6 +23,7 @@ import type {
   AuthorizedExecutionRead,
   ClientProgress,
   ProfessionalObservation,
+  ProposedCorrection,
   StudioExecutionReviewService,
 } from '../application/index.js'
 import { studioExecutionRoutes } from './studio.js'
@@ -52,6 +54,9 @@ const DETAIL_PATH = `${LIST_PATH}/${EXECUTION}`
 const PROGRESS_PATH = `${CLIENT_PATH}/progress?timezone=America/Bogota&period=week&count=4`
 const OBSERVATIONS_PATH = `${CLIENT_PATH}/observations`
 const REVISIONS_PATH = `/studio/v1/organizations/${ORGANIZATION}/observations/${OBSERVATION_ID}/revisions`
+const PROPOSAL_ID = '019f5200-0000-7000-8000-000000000c01'
+const PROPOSALS_PATH = `${CLIENT_PATH}/correction-proposals`
+const PROPOSED_PATH = `/studio/v1/organizations/${ORGANIZATION}/correction-proposals`
 const HEADERS = { origin: 'https://studio.example.test', cookie: 'allfit_studio_session=opaque' }
 const COMMAND_HEADERS = {
   ...HEADERS,
@@ -144,6 +149,28 @@ const PROGRESS: ClientProgress = {
   ],
 }
 
+const PROPOSED: ProposedCorrection = {
+  id: PROPOSAL_ID,
+  client: { person_id: CLIENT, name: 'Ana Cliente' },
+  target: { execution_id: EXECUTION, set_order: 1 },
+  field: 'load',
+  proposed: { value: 62.5, unit: 'kg' },
+  reason: 'La barra pesaba más.',
+  status: 'pending',
+  cancel_reason: null,
+  created_at: '2026-11-06T12:00:00.123456+00:00',
+  expires_at: '2026-12-06T12:00:00.123456+00:00',
+  settled_at: null,
+}
+const PROPOSAL_BODY = {
+  execution_id: EXECUTION,
+  set_order: 1,
+  field: 'load',
+  value: 62.5,
+  unit: 'kg',
+  reason: 'La barra pesaba más.',
+}
+
 const OBSERVATION_BODY = {
   execution_id: EXECUTION,
   category: 'training',
@@ -162,6 +189,8 @@ interface Calls {
   progress: Array<Parameters<StudioExecutionReviewService['progress']>[0]>
   observe: Array<Parameters<StudioExecutionReviewService['observe']>[0]>
   reviseObservation: Array<Parameters<StudioExecutionReviewService['reviseObservation']>[0]>
+  propose: Array<Parameters<StudioExecutionReviewService['propose']>[0]>
+  listProposed: Array<Parameters<StudioExecutionReviewService['listProposed']>[0]>
 }
 
 function review(
@@ -191,6 +220,14 @@ function review(
         resource: { ...OBSERVATION, content: REVISION_BODY.content, revision_number: 2 },
         replayed: false,
       }
+    },
+    propose: async (input) => {
+      calls.propose.push(input)
+      return { resource: PROPOSED, replayed: false }
+    },
+    listProposed: async (input) => {
+      calls.listProposed.push(input)
+      return { items: [PROPOSED], hasMore: false }
     },
     ...overrides,
   }
@@ -224,6 +261,8 @@ const fresh = (): Calls => ({
   progress: [],
   observe: [],
   reviseObservation: [],
+  propose: [],
+  listProposed: [],
 })
 const databaseError = (code: string, detail?: string) =>
   Object.assign(new Error(code === '40001' && detail ? 'stale-draft' : 'database failure'), {
@@ -242,22 +281,32 @@ beforeEach(() => {
 })
 
 describe('the review surface honours the contract', () => {
-  test('T-EXE-REVIEW-API-01 mounts OP-EXE-010, 011, 017, 018 and 019 as the contract declares them', () => {
-    const operations = ['OP-EXE-010', 'OP-EXE-011', 'OP-EXE-017', 'OP-EXE-018', 'OP-EXE-019']
-    const declared = allfitV1ContractManifest.operations
-      .filter((operation) => operations.includes(operation.allfitOperation))
-      .map((operation) => `${operation.method} ${operation.path.replaceAll(/\{([^}]+)\}/g, ':$1')}`)
+  test('T-EXE-REVIEW-API-01 mounts OP-EXE-010, 011, 012, 017, 018, 019 and 020 as the contract declares them', () => {
+    const operations = [
+      'OP-EXE-010',
+      'OP-EXE-011',
+      'OP-EXE-012',
+      'OP-EXE-017',
+      'OP-EXE-018',
+      'OP-EXE-019',
+      'OP-EXE-020',
+    ]
+    // OP-EXE-020 is also her list in Space, which is another router's.
+    const studio = allfitV1ContractManifest.operations.filter(
+      (operation) =>
+        operations.includes(operation.allfitOperation) && operation.path.startsWith('/studio/v1/'),
+    )
+    const declared = studio.map(
+      (operation) => `${operation.method} ${operation.path.replaceAll(/\{([^}]+)\}/g, ':$1')}`,
+    )
     const contract = declared.map((route) => route.replace('/studio/v1', '')).sort()
     const mounted = studioExecutionRoutes(review(fresh()), sessionService())
       .routes.filter((route) => route.method !== 'ALL')
       .map((route) => `${route.method} ${route.path}`)
       .sort()
     expect(mounted).toEqual(contract)
-    expect(
-      allfitV1ContractManifest.operations
-        .filter((operation) => operations.includes(operation.allfitOperation))
-        .map((operation) => operation.security),
-    ).toEqual(operations.map(() => ['cookieAuth']))
+    expect(studio.map((operation) => operation.security)).toEqual(studio.map(() => ['cookieAuth']))
+    expect(studio).toHaveLength(operations.length)
     // And the application serves them, not only the router.
     const application = createApp().routes.map((route) => `${route.method} ${route.path}`)
     expect(declared.filter((route) => !application.includes(route))).toEqual([])
@@ -708,5 +757,208 @@ describe('OP-EXE-011: correcting an observation', () => {
     })
     expect((await routes.request(foreign.path, foreign.init)).status).toBe(403)
     expect(calls.reviseObservation).toHaveLength(0)
+  })
+})
+
+describe('OP-EXE-012: proposing a correction', () => {
+  test('T-EXE-PROPOSAL-API-01 proposes as the coach, for the client and the set in the body', async () => {
+    const calls = fresh()
+    const request = post(PROPOSALS_PATH, PROPOSAL_BODY)
+    const response = await app(review(calls)).request(request.path, request.init)
+
+    expect(response.status).toBe(201)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(response.headers.get('Idempotent-Replay')).toBeNull()
+    const body = await response.json()
+    assertMatchesContract('ProposedCorrection', body)
+    expect(body).toEqual(PROPOSED)
+    expect(calls.propose[0]).toMatchObject({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      subjectPersonId: CLIENT,
+      executionId: EXECUTION,
+      setOrder: 1,
+      field: 'load',
+      value: 62.5,
+      unit: 'kg',
+      reason: PROPOSAL_BODY.reason,
+      idempotencyKey: COMMAND_HEADERS['idempotency-key'],
+      commandId: COMMAND_HEADERS['command-id'],
+    })
+    expect(calls.propose[0]?.requestHash).toHaveLength(32)
+  })
+
+  test('T-EXE-PROPOSAL-API-02 a field without a unit carries none, and a replay says so', async () => {
+    const calls = fresh()
+    const service = review(calls, {
+      propose: async (input) => {
+        calls.propose.push(input)
+        return { resource: PROPOSED, replayed: calls.propose.length > 1 }
+      },
+    })
+    const { unit: _unit, ...reps } = { ...PROPOSAL_BODY, field: 'achieved_reps', value: 10 }
+    const request = post(PROPOSALS_PATH, reps)
+    await app(service).request(request.path, request.init)
+    const again = await app(service).request(request.path, request.init)
+
+    expect(again.status).toBe(201)
+    expect(again.headers.get('Idempotent-Replay')).toBe('true')
+    expect(calls.propose[0]).toMatchObject({ field: 'achieved_reps', value: 10, unit: null })
+    const [first, second] = calls.propose
+    expect(first && second && second.requestHash.equals(first.requestHash)).toBe(true)
+  })
+
+  test('T-EXE-PROPOSAL-API-03 a body, media type or command identity outside the contract never reaches the database', async () => {
+    const calls = fresh()
+    const routes = app(review(calls))
+    for (const body of [
+      {},
+      { ...PROPOSAL_BODY, execution_id: 'not-an-id' },
+      { ...PROPOSAL_BODY, set_order: 0 },
+      { ...PROPOSAL_BODY, set_order: 1.5 },
+      { ...PROPOSAL_BODY, field: 'duration_seconds' },
+      { ...PROPOSAL_BODY, value: -1 },
+      { ...PROPOSAL_BODY, value: '62.5' },
+      { ...PROPOSAL_BODY, unit: '' },
+      { ...PROPOSAL_BODY, reason: '' },
+      { ...PROPOSAL_BODY, reason: 'x'.repeat(501) },
+      { ...PROPOSAL_BODY, current_value: 60 },
+    ]) {
+      const request = post(PROPOSALS_PATH, body)
+      expect((await routes.request(request.path, request.init)).status).toBe(422)
+    }
+    const text = post(PROPOSALS_PATH, PROPOSAL_BODY, {
+      ...COMMAND_HEADERS,
+      'content-type': 'text/plain',
+    })
+    expect((await routes.request(text.path, text.init)).status).toBe(415)
+    const keyless = post(PROPOSALS_PATH, PROPOSAL_BODY, {
+      ...COMMAND_HEADERS,
+      'idempotency-key': '',
+    })
+    expect((await routes.request(keyless.path, keyless.init)).status).toBe(400)
+    const foreign = post(PROPOSALS_PATH, PROPOSAL_BODY, {
+      ...COMMAND_HEADERS,
+      origin: 'https://evil.example.test',
+    })
+    expect((await routes.request(foreign.path, foreign.init)).status).toBe(403)
+    expect(calls.propose).toHaveLength(0)
+  })
+
+  test('T-EXE-PROPOSAL-API-04 the database refusals keep their meaning', async () => {
+    const answers: Array<[Error, number, Record<string, unknown>]> = [
+      [
+        databaseError('AF430', 'relationship_training:contribute'),
+        403,
+        { required_scope: { code: 'relationship_training', level: 'contribute' } },
+      ],
+      [databaseError('AF424'), 409, { type: 'https://errors.allfit.invalid/service-paused' }],
+      // One proposal already waits on that field, or she cannot be told.
+      [databaseError('23505'), 409, { type: 'https://errors.allfit.invalid/conflict' }],
+      [databaseError('P0004'), 409, { type: 'https://errors.allfit.invalid/conflict' }],
+      [
+        databaseError('22023', '["set_order","value"]'),
+        422,
+        {
+          errors: [
+            { code: 'set_order', path: '/set_order' },
+            { code: 'value', path: '/value' },
+          ],
+        },
+      ],
+      [databaseError('22023', '["unit"]'), 422, { errors: [{ code: 'unit', path: '/unit' }] }],
+      [databaseError('P0002'), 404, { type: 'https://errors.allfit.invalid/not-found' }],
+      [databaseError('42501'), 403, { type: 'https://errors.allfit.invalid/forbidden' }],
+    ]
+    for (const [error, status, body] of answers) {
+      const service = review(fresh(), {
+        propose: async () => {
+          throw error
+        },
+      })
+      const request = post(PROPOSALS_PATH, PROPOSAL_BODY)
+      const response = await app(service).request(request.path, request.init)
+      expect(response.status).toBe(status)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      expect(await response.json()).toMatchObject(body)
+    }
+  })
+})
+
+describe('OP-EXE-020: the corrections a coach proposed', () => {
+  test('T-EXE-PROPOSAL-API-05 lists as the coach, in the organization of the path, filtered and paged', async () => {
+    const calls = fresh()
+    const service = review(calls, {
+      listProposed: async (input) => {
+        calls.listProposed.push(input)
+        return {
+          items: [PROPOSED],
+          hasMore: true,
+          nextCursor: { expiresAt: PROPOSED.expires_at, id: PROPOSAL_ID },
+        }
+      },
+    })
+    const response = await app(service).request(`${PROPOSED_PATH}?status=pending&limit=1`, {
+      headers: HEADERS,
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+    const body = (await response.json()) as { page: { next_cursor: string } }
+    assertMatchesContract('ProposedCorrectionPage', body)
+    expect(body).toMatchObject({ data: [PROPOSED], page: { has_more: true } })
+    expect(calls.listProposed[0]).toEqual({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      status: 'pending',
+      limit: 1,
+    })
+
+    await app(service).request(`${PROPOSED_PATH}?cursor=${body.page.next_cursor}`, {
+      headers: HEADERS,
+    })
+    expect(calls.listProposed[1]).toEqual({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      status: null,
+      limit: 25,
+      cursor: { expiresAt: PROPOSED.expires_at, id: PROPOSAL_ID },
+    })
+  })
+
+  test('T-EXE-PROPOSAL-API-06 a filter, page size or cursor outside the contract never reaches the database', async () => {
+    const calls = fresh()
+    const routes = app(review(calls))
+    for (const query of [
+      'status=waiting',
+      'limit=0',
+      'limit=101',
+      'cursor=not-a-cursor-of-ours',
+      `cursor=${Buffer.from(JSON.stringify({ expiresAt: 'soon', id: PROPOSAL_ID })).toString('base64url')}`,
+    ]) {
+      const response = await routes.request(`${PROPOSED_PATH}?${query}`, { headers: HEADERS })
+      expect(response.status).toBe(422)
+    }
+    const foreign = await routes.request(PROPOSED_PATH, {
+      headers: { ...HEADERS, origin: 'https://evil.example.test' },
+    })
+    expect(foreign.status).toBe(403)
+    expect(calls.listProposed).toHaveLength(0)
+  })
+
+  test('T-EXE-PROPOSAL-API-07 somebody who is not a member is forbidden, and an outage is an outage', async () => {
+    for (const [error, status] of [
+      [databaseError('42501'), 403],
+      [new Error('connection reset'), 503],
+    ] as const) {
+      const service = review(fresh(), {
+        listProposed: async () => {
+          throw error
+        },
+      })
+      const response = await app(service).request(PROPOSED_PATH, { headers: HEADERS })
+      expect(response.status).toBe(status)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+    }
   })
 })

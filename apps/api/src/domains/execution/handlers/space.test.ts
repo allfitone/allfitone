@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { allfitV1ContractManifest } from '@allfitone/contracts'
+import { allfitV1ContractManifest, allfitV1ContractSchemas } from '@allfitone/contracts'
+import Ajv2020 from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
 import { Hono } from 'hono'
 
 import { SpaceActorError, type SpaceActorResolver } from '../../identity/index.js'
 import type { SpaceExecutionService } from '../application/index.js'
 import type {
+  CorrectionProposal,
   Execution,
   ExecutionSummary,
   FinishedExecution,
@@ -19,6 +22,41 @@ const PLANNED_ID = '019e4000-0000-7000-8000-000000000101'
 const EXECUTION_ID = '019e4000-0000-7000-8000-000000000201'
 const IDEMPOTENCY_KEY = '51111111-1111-4111-8111-111111111111'
 const COMMAND_ID = '019e4000-0000-7000-8000-000000000301'
+const PROPOSAL_ID = '019e4000-0000-7000-8000-000000000501'
+
+// The published schema, not the DTO, is what proves the wire shape.
+const validator = new Ajv2020({ strict: false, allErrors: true })
+addFormats(validator)
+validator.addSchema({ $id: 'allfit-v1', components: { schemas: allfitV1ContractSchemas } })
+
+function assertMatchesContract(schemaName: string, projection: unknown): void {
+  const validate = validator.getSchema(`allfit-v1#/components/schemas/${schemaName}`)
+  if (!validate) throw new Error(`The contract declares no schema named ${schemaName}`)
+  if (validate(projection)) return
+  const failures = (validate.errors ?? [])
+    .map((error) => `${error.instancePath || '/'} ${error.message ?? 'is invalid'}`)
+    .join('; ')
+  throw new Error(`${schemaName} violates the contract: ${failures}`)
+}
+
+const proposal: CorrectionProposal = {
+  id: PROPOSAL_ID,
+  execution_id: EXECUTION_ID,
+  set_order: 1,
+  movement_id: '019e4000-0000-7000-8000-0000000000a1',
+  movement_name: 'Sentadilla',
+  field: 'load',
+  current: { value: 60, unit: 'kg' },
+  proposed: { value: 62.5, unit: 'kg' },
+  reason: 'La barra pesaba más.',
+  status: 'pending',
+  cancel_reason: null,
+  created_at: '2026-11-06T12:00:00.123456+00:00',
+  expires_at: '2026-12-06T12:00:00.123456+00:00',
+  settled_at: null,
+  proposer_name: 'Camilo Coach',
+  organization_name: 'Gym A',
+}
 
 const attempt = {
   id: EXECUTION_ID,
@@ -217,6 +255,11 @@ function harness(overrides?: Partial<SpaceExecutionService>, actorFails = false)
       attempt_number: 2,
       status: 'in_progress' as const,
       revision_number: 0,
+    }),
+    listCorrectionProposals: async () => ({ items: [proposal], hasMore: false }),
+    decideCorrectionProposal: async () => ({
+      resource: { ...proposal, status: 'accepted', settled_at: '2026-11-07T12:00:00+00:00' },
+      replayed: false,
     }),
     ...overrides,
   }
@@ -957,5 +1000,145 @@ describe('GET /space/v1/progress/periods', () => {
       })
       expect(response.status).toBe(400)
     }
+  })
+})
+
+describe('the corrections proposed to her', () => {
+  const LIST = '/space/v1/correction-proposals'
+  const DECISION = `${LIST}/${PROPOSAL_ID}/decision`
+  const decide = (body: unknown, headers: Record<string, string> = commanded) => ({
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  })
+
+  test('T-EXE-API-PROP-01 declares OP-EXE-020 and OP-EXE-013 on her own surface, and mounts both', () => {
+    const declared = allfitV1ContractManifest.operations.filter((operation) =>
+      operation.path.startsWith('/space/v1/correction-proposals'),
+    )
+    expect(declared.map((operation) => operation.allfitOperation).sort()).toEqual([
+      'OP-EXE-013',
+      'OP-EXE-020',
+    ])
+    expect(declared.map((operation) => operation.security)).toEqual([
+      ['bearerAuth'],
+      ['bearerAuth'],
+    ])
+    const mounted = harness().routes.map((route) => `${route.method} ${route.path}`)
+    for (const operation of declared) {
+      expect(mounted).toContain(
+        `${operation.method} ${operation.path.replaceAll(/\{([^}]+)\}/g, ':$1')}`,
+      )
+    }
+  })
+
+  test('T-EXE-API-PROP-02 lists hers, filtered and paged, in the contract shape', async () => {
+    const calls: unknown[] = []
+    const app = harness({
+      listCorrectionProposals: async (input) => {
+        calls.push(input)
+        return {
+          items: [proposal],
+          hasMore: true,
+          nextCursor: { expiresAt: proposal.expires_at, id: PROPOSAL_ID },
+        }
+      },
+    })
+    const response = await app.request(`${LIST}?status=pending&limit=1`, { headers: authorized })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    const body = (await response.json()) as { page: { next_cursor: string } }
+    assertMatchesContract('CorrectionProposalPage', body)
+    expect(body).toMatchObject({ data: [proposal], page: { has_more: true } })
+    expect(calls[0]).toEqual({ personId: PERSON_ID, status: 'pending', limit: 1 })
+
+    await app.request(`${LIST}?cursor=${body.page.next_cursor}`, { headers: authorized })
+    expect(calls[1]).toEqual({
+      personId: PERSON_ID,
+      status: null,
+      limit: 25,
+      cursor: { expiresAt: proposal.expires_at, id: PROPOSAL_ID },
+    })
+  })
+
+  test('T-EXE-API-PROP-03 a filter, page size or cursor outside the contract is a bad request', async () => {
+    const calls: unknown[] = []
+    const app = harness({
+      listCorrectionProposals: async (input) => {
+        calls.push(input)
+        return { items: [], hasMore: false }
+      },
+    })
+    for (const query of ['status=open', 'limit=0', 'limit=101', 'cursor=not-a-cursor-of-ours']) {
+      expect((await app.request(`${LIST}?${query}`, { headers: authorized })).status).toBe(400)
+    }
+    expect((await app.request(LIST)).status).toBe(401)
+    expect(calls).toHaveLength(0)
+  })
+
+  test('T-EXE-API-PROP-04 her decision travels as hers, in the contract shape, and a replay says so', async () => {
+    const calls: Array<{ requestHash: Buffer }> = []
+    const app = harness({
+      decideCorrectionProposal: async (input) => {
+        calls.push(input)
+        return { resource: { ...proposal, status: 'accepted' }, replayed: calls.length > 1 }
+      },
+    })
+    const first = await app.request(DECISION, decide({ decision: 'accept' }))
+    const again = await app.request(DECISION, decide({ decision: 'accept' }))
+
+    expect(first.status).toBe(200)
+    expect(first.headers.get('Cache-Control')).toBe('no-store')
+    expect(first.headers.get('Idempotent-Replay')).toBeNull()
+    const body = await first.json()
+    assertMatchesContract('CorrectionProposal', body)
+    expect(body).toMatchObject({ id: PROPOSAL_ID, status: 'accepted' })
+    expect(calls[0]).toMatchObject({
+      personId: PERSON_ID,
+      proposalId: PROPOSAL_ID,
+      decision: 'accept',
+      idempotencyKey: IDEMPOTENCY_KEY,
+      commandId: COMMAND_ID,
+    })
+    expect(again.headers.get('Idempotent-Replay')).toBe('true')
+    const [one, two] = calls
+    expect(one && two && two.requestHash.equals(one.requestHash)).toBe(true)
+  })
+
+  test('T-EXE-API-PROP-05 a decision outside the contract never reaches the database', async () => {
+    const calls: unknown[] = []
+    const app = harness({
+      decideCorrectionProposal: async (input) => {
+        calls.push(input)
+        return { resource: proposal, replayed: false }
+      },
+    })
+    for (const body of [{}, { decision: 'maybe' }, { decision: 'accept', value: 70 }]) {
+      expect((await app.request(DECISION, decide(body))).status).toBe(400)
+    }
+    const bare = await app.request(DECISION, decide({ decision: 'reject' }, authorized))
+    expect(bare.status).toBe(400)
+    const wrongId = await app.request(`${LIST}/not-an-id/decision`, decide({ decision: 'reject' }))
+    expect(wrongId.status).toBe(400)
+    expect(calls).toHaveLength(0)
+  })
+
+  test('T-EXE-API-PROP-06 settled, unknown and unregistered keep their meaning', async () => {
+    const answers: Array<[unknown, number]> = [
+      [Object.assign(new Error('the proposal is no longer open'), { code: '55000' }), 409],
+      [Object.assign(new Error('proposal not found'), { code: 'P0002' }), 404],
+      [Object.assign(new Error('in progress'), { code: '40001' }), 409],
+    ]
+    for (const [error, status] of answers) {
+      const app = harness({
+        decideCorrectionProposal: async () => {
+          throw error
+        },
+      })
+      expect((await app.request(DECISION, decide({ decision: 'accept' }))).status).toBe(status)
+    }
+    const unregistered = harness({}, true)
+    expect((await unregistered.request(DECISION, decide({ decision: 'accept' }))).status).toBe(403)
   })
 })

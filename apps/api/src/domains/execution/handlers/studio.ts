@@ -1,7 +1,8 @@
 /**
  * `/studio/v1/organizations/{organizationId}/clients/{personId}/…`: what a client trained
- * and how it is going, read by the coach who attends her (HU-STUDIO-054..056), and the
- * observations he leaves on a session and corrects (HU-STUDIO-057, HU-STUDIO-058).
+ * and how it is going, read by the coach who attends her (HU-STUDIO-054..056), the
+ * observations he leaves on a session and corrects (HU-STUDIO-057, HU-STUDIO-058), and the
+ * corrections he proposes to a set she declared and follows up (HU-STUDIO-059, HU-STUDIO-060).
  *
  * Whom the caller attends, what the client shares and what she hid are PostgreSQL's
  * answers, and so is the access record, written before anything comes back. This route
@@ -32,8 +33,14 @@ import {
   requiredScope,
   type ApiErrorCode,
 } from '../../../platform/http/index.js'
-import type { ProfessionalObservation, StudioExecutionReviewService } from '../application/index.js'
+import type {
+  CorrectionProposalStatus,
+  ProfessionalObservation,
+  ProposedCorrection,
+  StudioExecutionReviewService,
+} from '../application/index.js'
 import { studioExecutionReviewService } from '../dependencies.js'
+import { decodeCursor, encodeCursor } from './cursor.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -43,6 +50,14 @@ const CATEGORIES: ReadonlyArray<ProfessionalObservation['category']> = ['trainin
 const PROVENANCES: ReadonlyArray<ProfessionalObservation['provenance']> = [
   'professional_observation',
   'person_declared',
+]
+const FIELDS: ReadonlyArray<ProposedCorrection['field']> = ['achieved_reps', 'load', 'rpe']
+const STATUSES: ReadonlyArray<CorrectionProposalStatus> = [
+  'pending',
+  'accepted',
+  'rejected',
+  'expired',
+  'cancelled',
 ]
 
 export function studioExecutionRoutes(
@@ -57,6 +72,7 @@ export function studioExecutionRoutes(
   for (const prefix of [
     '/organizations/:organizationId/clients/*',
     '/organizations/:organizationId/observations/*',
+    '/organizations/:organizationId/correction-proposals',
   ]) {
     routes.use(
       prefix,
@@ -97,9 +113,7 @@ export function studioExecutionRoutes(
         data: page.items,
         page: {
           has_more: page.hasMore,
-          next_cursor: page.nextCursor
-            ? Buffer.from(JSON.stringify(page.nextCursor)).toString('base64url')
-            : null,
+          next_cursor: page.nextCursor ? encodeCursor(page.nextCursor) : null,
         },
       })
     } catch (error) {
@@ -226,6 +240,69 @@ export function studioExecutionRoutes(
     }
   })
 
+  // `OP-EXE-012`.
+  routes.post(
+    '/organizations/:organizationId/clients/:personId/correction-proposals',
+    async (c) => {
+      const ids = clientPath(c, studioOrigin)
+      if (ids instanceof Response) return ids
+      const payload = await jsonPayload(c)
+      if (payload instanceof Response) return payload
+      const body = payload.value
+      if (!isProposalBody(body)) return problem(c, 'validation-failed')
+      const command = commandContext(c, { ...ids, body })
+      if (!command) return problem(c, 'invalid-request')
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const result = await review().propose({
+          personId: actor.personId,
+          ...ids,
+          executionId: body.execution_id,
+          setOrder: body.set_order,
+          field: body.field,
+          value: body.value,
+          unit: body.unit ?? null,
+          reason: body.reason,
+          ...command,
+        })
+        c.header('Cache-Control', 'no-store')
+        if (result.replayed) c.header('Idempotent-Replay', 'true')
+        return c.json(result.resource, 201)
+      } catch (error) {
+        return operationFailure(c, error)
+      }
+    },
+  )
+
+  // `OP-EXE-020`: only what the caller proposed, so no client is in the path.
+  routes.get('/organizations/:organizationId/correction-proposals', async (c) => {
+    if (c.req.header('origin') !== studioOrigin) return problem(c, 'forbidden')
+    const organizationId = c.req.param('organizationId')
+    if (!organizationId || !UUID.test(organizationId)) return problem(c, 'invalid-request')
+    const query = parseProposalQuery(c)
+    if (!query) return problem(c, 'validation-failed')
+    try {
+      const actor = await studioActor(c, sessions)
+      if (actor instanceof Response) return actor
+      const page = await review().listProposed({
+        personId: actor.personId,
+        organizationId,
+        ...query,
+      })
+      c.header('Cache-Control', 'private, no-store')
+      return c.json({
+        data: page.items,
+        page: {
+          has_more: page.hasMore,
+          next_cursor: page.nextCursor ? encodeCursor(page.nextCursor) : null,
+        },
+      })
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
   return routes
 }
 
@@ -259,24 +336,21 @@ function parsePagination(c: Context) {
   const limit = Number(rawLimit)
   const rawCursor = c.req.query('cursor')
   if (!rawCursor) return { limit }
-  try {
-    const parsed: unknown = JSON.parse(Buffer.from(rawCursor, 'base64url').toString('utf8'))
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      !('startedAt' in parsed) ||
-      !('id' in parsed) ||
-      typeof parsed.startedAt !== 'string' ||
-      Number.isNaN(Date.parse(parsed.startedAt)) ||
-      typeof parsed.id !== 'string' ||
-      !UUID.test(parsed.id)
-    ) {
-      return undefined
-    }
-    return { limit, cursor: { startedAt: parsed.startedAt, id: parsed.id } }
-  } catch {
-    return undefined
-  }
+  const cursor = decodeCursor(rawCursor, 'startedAt')
+  return cursor ? { limit, cursor: { startedAt: cursor.at, id: cursor.id } } : undefined
+}
+
+function parseProposalQuery(c: Context) {
+  const rawStatus = c.req.query('status')
+  const status = STATUSES.find((candidate) => candidate === rawStatus) ?? null
+  if (rawStatus !== undefined && status === null) return undefined
+  const rawLimit = c.req.query('limit') ?? '25'
+  if (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > 100) return undefined
+  const limit = Number(rawLimit)
+  const rawCursor = c.req.query('cursor')
+  if (!rawCursor) return { status, limit }
+  const cursor = decodeCursor(rawCursor, 'expiresAt')
+  return cursor ? { status, limit, cursor: { expiresAt: cursor.at, id: cursor.id } } : undefined
 }
 
 function parseWindow(c: Context) {
@@ -328,6 +402,31 @@ function isRevisionBody(
     Number.isSafeInteger(value.expected_revision) &&
     value.expected_revision >= 1 &&
     isText(value.content, 2000) &&
+    isText(value.reason, 500)
+  )
+}
+
+function isProposalBody(value: unknown): value is {
+  execution_id: string
+  set_order: number
+  field: ProposedCorrection['field']
+  value: number
+  unit?: string | null
+  reason: string
+} {
+  return (
+    isObject(value) &&
+    hasOnly(value, ['execution_id', 'set_order', 'field', 'value', 'unit', 'reason']) &&
+    typeof value.execution_id === 'string' &&
+    UUID.test(value.execution_id) &&
+    typeof value.set_order === 'number' &&
+    Number.isSafeInteger(value.set_order) &&
+    value.set_order >= 1 &&
+    FIELDS.some((field) => field === value.field) &&
+    typeof value.value === 'number' &&
+    Number.isFinite(value.value) &&
+    value.value >= 0 &&
+    (value.unit === undefined || value.unit === null || isText(value.unit, 16)) &&
     isText(value.reason, 500)
   )
 }
@@ -401,7 +500,8 @@ function databaseErrorCode(error: unknown): ApiErrorCode | undefined {
   if (sqlState === '22023' || sqlState === '22P02' || sqlState === '23514') {
     return 'validation-failed'
   }
-  if (sqlState === '23505') return 'conflict'
+  // A field already waiting on her, one she cannot be told about, or a proposal settled.
+  if (sqlState === '23505' || sqlState === 'P0004' || sqlState === '55000') return 'conflict'
   if (sqlState === '40001') {
     return message.includes('stale-draft') ? 'stale-draft' : 'idempotency-in-progress'
   }
@@ -416,6 +516,10 @@ const FIELD_PATHS: Record<string, string> = {
   content: '/content',
   reason: '/reason',
   expected_revision: '/expected_revision',
+  set_order: '/set_order',
+  field: '/field',
+  value: '/value',
+  unit: '/unit',
 }
 
 function validationProblem(c: Context, error: unknown) {

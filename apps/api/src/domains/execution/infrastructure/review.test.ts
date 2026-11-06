@@ -1,5 +1,6 @@
 /**
- * How the coach's review reaches PostgreSQL (`OP-EXE-017`, `OP-EXE-018`).
+ * How the coach's review reaches PostgreSQL (`OP-EXE-017`, `OP-EXE-018`), and the
+ * corrections he proposes (`OP-EXE-012`, `OP-EXE-020`).
  *
  * The handler tests mock the service and the pgTAP tests call the functions directly,
  * so neither would notice a binding in the wrong position: the coach and the client
@@ -10,7 +11,11 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import type postgres from 'postgres'
 
 import { setDatabase } from '../../../platform/db/index.js'
-import type { ClientProgress, ProfessionalObservation } from '../domain/index.js'
+import type {
+  ClientProgress,
+  ProfessionalObservation,
+  ProposedCorrection,
+} from '../domain/index.js'
 import { createExecutionReviewDatabase } from './index.js'
 
 interface CapturedQuery {
@@ -348,5 +353,131 @@ describe('the observation bindings', () => {
         requestHash: HASH,
       }),
     ).rejects.toThrow()
+  })
+})
+
+const PROPOSAL_ID = '019f5200-0000-7000-8000-000000000c01'
+const proposed = (id: string, expiresAt: string): ProposedCorrection => ({
+  id,
+  client: { person_id: CLIENT, name: 'Ana Cliente' },
+  target: null,
+  field: 'load',
+  proposed: { value: 62.5, unit: 'kg' },
+  reason: 'La barra pesaba más.',
+  status: 'pending',
+  cancel_reason: null,
+  created_at: '2026-11-06T12:00:00.123456+00:00',
+  expires_at: expiresAt,
+  settled_at: null,
+})
+
+describe('the proposal bindings', () => {
+  test('T-EXE-PROPOSAL-INT-01 the proposal is written as the coach, on the client, session and set given', async () => {
+    const captured: CapturedQuery[] = []
+    const resource = proposed(PROPOSAL_ID, '2026-12-06T12:00:00.123456+00:00')
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('propose_correction') ? [{ result: resource, replayed: true }] : [{}],
+      ),
+    )
+
+    const result = await createExecutionReviewDatabase().proposeCorrection({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      subjectPersonId: CLIENT,
+      executionId: FIRST,
+      setOrder: 2,
+      field: 'load',
+      value: 62.5,
+      unit: 'kg',
+      reason: 'La barra pesaba más.',
+      idempotencyKey: KEY,
+      commandId: PROPOSAL_ID,
+      requestHash: HASH,
+    })
+
+    const context = captured.find((query) => query.text.includes('app.actor_person_id'))
+    expect(context?.values).toEqual([COACH, ''])
+    const call = captured.find((query) => query.text.includes('propose_correction'))
+    expect(call?.values).toEqual([
+      COACH,
+      ORGANIZATION,
+      CLIENT,
+      FIRST,
+      2,
+      'load',
+      62.5,
+      'kg',
+      'La barra pesaba más.',
+      KEY,
+      PROPOSAL_ID,
+      HASH,
+    ])
+    expect(result).toEqual({ resource, replayed: true })
+    await setDatabase(recordingDatabase([], () => []))
+    await expect(
+      createExecutionReviewDatabase().proposeCorrection({
+        personId: COACH,
+        organizationId: ORGANIZATION,
+        subjectPersonId: CLIENT,
+        executionId: FIRST,
+        setOrder: 2,
+        field: 'rpe',
+        value: 9,
+        unit: null,
+        reason: 'Fue más dura.',
+        idempotencyKey: KEY,
+        commandId: PROPOSAL_ID,
+        requestHash: HASH,
+      }),
+    ).rejects.toThrow()
+  })
+
+  test('T-EXE-PROPOSAL-INT-02 the list asks one past the page and keys the next on the last shown', async () => {
+    const captured: CapturedQuery[] = []
+    const rows = [
+      proposed(FIRST, '2026-12-01T10:00:00.111111+00:00'),
+      proposed(SECOND, '2026-12-02T10:00:00.222222+00:00'),
+      proposed(THIRD, '2026-12-03T10:00:00.333333+00:00'),
+    ]
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('list_proposed_corrections') ? rows.map((proposal) => ({ proposal })) : [{}],
+      ),
+    )
+
+    const page = await createExecutionReviewDatabase().listProposedCorrections({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      status: 'pending',
+      limit: 2,
+      cursor: { expiresAt: '2026-11-30T10:00:00.000001+00:00', id: PROPOSAL_ID },
+    })
+
+    const call = captured.find((query) => query.text.includes('list_proposed_corrections'))
+    expect(call?.values).toEqual([
+      COACH,
+      ORGANIZATION,
+      'pending',
+      3,
+      '2026-11-30T10:00:00.000001+00:00',
+      PROPOSAL_ID,
+    ])
+    expect(page).toEqual({
+      items: rows.slice(0, 2),
+      hasMore: true,
+      nextCursor: { expiresAt: '2026-12-02T10:00:00.222222+00:00', id: SECOND },
+    })
+
+    await setDatabase(
+      recordingDatabase([], () => rows.slice(0, 1).map((proposal) => ({ proposal }))),
+    )
+    const last = await createExecutionReviewDatabase().listProposedCorrections({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      status: null,
+      limit: 2,
+    })
+    expect(last).toEqual({ items: rows.slice(0, 1), hasMore: false })
   })
 })

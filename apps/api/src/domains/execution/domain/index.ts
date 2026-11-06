@@ -177,6 +177,16 @@ export interface ExecutionDatabase {
     program: string | null
     requestId: string
   }): Promise<PeriodComparison>
+  /** `OP-EXE-020`. Hers, soonest to expire first. */
+  listCorrectionProposals(input: CorrectionQuery): Promise<CorrectionPage<CorrectionProposal>>
+  /** `OP-EXE-013`. Settled, cancelled or past its thirty days is 55000 naming the state. */
+  decideCorrectionProposal(
+    input: ExecutionCommand & {
+      personId: string
+      proposalId: string
+      decision: CorrectionDecision
+    },
+  ): Promise<CorrectionCommandResult<CorrectionProposal>>
 }
 
 /**
@@ -228,6 +238,40 @@ export interface ObservationCommandResult {
   replayed: boolean
 }
 
+/**
+ * A correction a professional proposes to a set she declared (`OP-EXE-012`), as he sees it
+ * and as she sees it (`OP-EXE-020`), and her decision (`OP-EXE-013`).
+ */
+export type ProposedCorrection = AllfitV1Schemas['ProposedCorrection']
+export type CorrectionProposal = AllfitV1Schemas['CorrectionProposal']
+export type CorrectionField = AllfitV1Schemas['CorrectionField']
+export type CorrectionProposalStatus = AllfitV1Schemas['CorrectionProposalStatus']
+export type CorrectionDecision = AllfitV1Schemas['CorrectionDecisionCreate']['decision']
+
+/** The full precision PostgreSQL gave: a coarser key would skip proposals between pages. */
+export interface CorrectionCursor {
+  expiresAt: string
+  id: string
+}
+
+export interface CorrectionPage<T> {
+  items: T[]
+  hasMore: boolean
+  nextCursor?: CorrectionCursor
+}
+
+export interface CorrectionQuery {
+  personId: string
+  status: CorrectionProposalStatus | null
+  limit: number
+  cursor?: CorrectionCursor
+}
+
+export interface CorrectionCommandResult<T> {
+  resource: T
+  replayed: boolean
+}
+
 export interface ExecutionReviewDatabase {
   listAuthorized(
     input: AuthorizedExecutionQuery & { limit: number; cursor?: AuthorizedExecutionCursor },
@@ -266,4 +310,22 @@ export interface ExecutionReviewDatabase {
       reason: string
     },
   ): Promise<ObservationCommandResult>
+  /** A field already waiting on her is 23505; she has no address to be told, P0004. */
+  proposeCorrection(
+    input: ExecutionCommand & {
+      personId: string
+      organizationId: string
+      subjectPersonId: string
+      executionId: string
+      setOrder: number
+      field: CorrectionField
+      value: number
+      unit: string | null
+      reason: string
+    },
+  ): Promise<CorrectionCommandResult<ProposedCorrection>>
+  /** No live membership in the organization is 42501. */
+  listProposedCorrections(
+    input: CorrectionQuery & { organizationId: string },
+  ): Promise<CorrectionPage<ProposedCorrection>>
 }
