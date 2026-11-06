@@ -446,11 +446,13 @@ select is((select array_agg(status order by assignment_id) from planning.planned
     where id in ('019d1100-0000-7000-8000-000000000813', '019d1100-0000-7000-8000-000000000814')),
   array['paused', 'scheduled'],
   'T-ORG-CLOSURE-INT-22 its sessions ahead pause and the other gym''s stay planned');
+-- An observation needs nothing at closure: once the relationship ends nobody writes or corrects one.
 select set_eq($$select table_name::text from information_schema.tables
     where table_schema = 'execution' and table_type = 'BASE TABLE'$$,
   array['endurance_laps', 'executed_sessions', 'execution_revisions', 'interval_results',
-    'mobility_results', 'planned_session_executions', 'round_results', 'session_exercises',
-    'session_segments', 'strength_sets'],
+    'mobility_results', 'observation_revisions', 'planned_session_executions',
+    'professional_observations', 'round_results', 'session_exercises', 'session_segments',
+    'strength_sets'],
   'T-ORG-CLOSURE-INT-20 Execution holds no correction proposals yet: when this fails, '
   || 'add execution.cancel_proposals_for_organization_closure to OP-ORG-012');
 

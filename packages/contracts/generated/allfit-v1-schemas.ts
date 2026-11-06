@@ -751,6 +751,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'interval_results',
       'round_results',
       'mobility_results',
+      'observations',
     ],
     example: {
       id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b',
@@ -786,6 +787,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       interval_results: [],
       round_results: [],
       mobility_results: [],
+      observations: [],
     },
     properties: {
       id: {
@@ -830,6 +832,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       applied_scope: {
         $ref: '#/components/schemas/AppliedScope',
+      },
+      observations: {
+        description:
+          "What this relationship's coaches noted on the session, oldest first, each under its own category: one of health context only while she shares it.",
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ProfessionalObservation',
+        },
       },
       segments: {
         type: 'array',
@@ -3906,6 +3916,156 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       valid_from: {
         type: ['string', 'null'],
         format: 'date-time',
+      },
+    },
+  },
+  ClientProgress: {
+    description:
+      'Her training as this coach may see it, oldest period first. Every figure is computed when it is read; nothing is stored that could outlive what she shares.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['period', 'sources', 'algorithm', 'periods', 'movements'],
+    properties: {
+      period: {
+        type: 'string',
+        enum: ['week', 'month'],
+      },
+      sources: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 2,
+        description: 'The categories the figures came from, with the version she accepted.',
+        items: {
+          $ref: '#/components/schemas/AppliedScope',
+        },
+      },
+      algorithm: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['e1rm', 'version'],
+        properties: {
+          e1rm: {
+            type: 'string',
+            const: 'epley',
+            description: 'The estimate from one to twelve repetitions, load × (1 + reps / 30).',
+          },
+          version: {
+            type: 'integer',
+            minimum: 1,
+          },
+        },
+      },
+      periods: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 12,
+        items: {
+          $ref: '#/components/schemas/ClientProgressPeriod',
+        },
+      },
+      movements: {
+        type: 'array',
+        maxItems: 50,
+        description: "Each movement's best in its latest period, best first.",
+        items: {
+          $ref: '#/components/schemas/ClientProgressMovement',
+        },
+      },
+    },
+  },
+  ClientProgressMovement: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'movement_id',
+      'name',
+      'best_kg',
+      'previous_best_kg',
+      'change_kg',
+      'best_e1rm_kg',
+      'bests',
+    ],
+    properties: {
+      movement_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      name: {
+        description: 'Null for a movement only she can name.',
+        type: ['string', 'null'],
+      },
+      best_kg: {
+        type: 'number',
+        minimum: 0,
+      },
+      previous_best_kg: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      change_kg: {
+        type: ['number', 'null'],
+      },
+      best_e1rm_kg: {
+        description:
+          'The best estimate in the window; null when no set had one to twelve repetitions.',
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      bests: {
+        type: 'array',
+        description:
+          "The movement's best in every period, oldest first; null where it was not trained.",
+        items: {
+          type: ['number', 'null'],
+          minimum: 0,
+        },
+      },
+    },
+  },
+  ClientProgressPeriod: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'starts_on',
+      'ends_before',
+      'sessions',
+      'trained_seconds',
+      'work_sets',
+      'volume_kg',
+      'muscles',
+    ],
+    properties: {
+      starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      ends_before: {
+        type: 'string',
+        format: 'date',
+      },
+      sessions: {
+        type: 'integer',
+        minimum: 0,
+      },
+      trained_seconds: {
+        type: 'integer',
+        minimum: 0,
+      },
+      work_sets: {
+        type: 'integer',
+        minimum: 0,
+      },
+      volume_kg: {
+        description: 'Null when nothing in the period was weighed.',
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      muscles: {
+        type: 'array',
+        description:
+          "How the period's work sets fall across the muscles, heaviest first. A set belongs to one muscle, the movement's primary.",
+        items: {
+          $ref: '#/components/schemas/SpacePeriodMuscle',
+        },
       },
     },
   },
@@ -10189,6 +10349,124 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/NutritionGoalTarget',
         },
+      },
+    },
+  },
+  ProfessionalObservation: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'execution_id',
+      'category',
+      'provenance',
+      'content',
+      'revision_number',
+      'created_at',
+      'revised_at',
+      'author_name',
+      'authored_by_me',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      execution_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      category: {
+        $ref: '#/components/schemas/ProfessionalObservationCategory',
+      },
+      provenance: {
+        $ref: '#/components/schemas/ProfessionalObservationProvenance',
+      },
+      content: {
+        type: 'string',
+      },
+      revision_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      revised_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      author_name: {
+        type: 'string',
+      },
+      authored_by_me: {
+        description: 'Whether the reader wrote it, and so may correct it.',
+        type: 'boolean',
+      },
+    },
+  },
+  ProfessionalObservationCategory: {
+    description:
+      '`training` is read and written under `relationship_training`; `health`, pain or a limitation, under `health_context`.',
+    type: 'string',
+    enum: ['training', 'health'],
+  },
+  ProfessionalObservationCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['execution_id', 'category', 'provenance', 'content'],
+    example: {
+      execution_id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b',
+      category: 'training',
+      provenance: 'professional_observation',
+      content: 'La técnica bajó en la última serie.',
+    },
+    properties: {
+      execution_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      category: {
+        $ref: '#/components/schemas/ProfessionalObservationCategory',
+      },
+      provenance: {
+        $ref: '#/components/schemas/ProfessionalObservationProvenance',
+      },
+      content: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+    },
+  },
+  ProfessionalObservationProvenance: {
+    description:
+      "`professional_observation` is the coach's own reading; `person_declared` a transcription of what she said, which stays hers.",
+    type: 'string',
+    enum: ['professional_observation', 'person_declared'],
+  },
+  ProfessionalObservationRevisionCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['expected_revision', 'content', 'reason'],
+    example: {
+      expected_revision: 1,
+      content: 'La técnica bajó en las dos últimas series.',
+      reason: 'Eran dos series, no una.',
+    },
+    properties: {
+      expected_revision: {
+        description: 'The revision the correction was made over.',
+        type: 'integer',
+        minimum: 1,
+      },
+      content: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+      reason: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 500,
       },
     },
   },

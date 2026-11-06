@@ -210,6 +210,24 @@ export type AuthorizedExecutionRead =
   | { outcome: 'not_found' }
   | { outcome: 'scope_required'; requiredScope: { code: string; level: 'read' | 'contribute' } }
 
+/**
+ * Her progress as the coach may see it (`OP-EXE-019`), and the coach's reading of a
+ * session beside what she declared (`OP-EXE-010`, `OP-EXE-011`).
+ */
+export type ClientProgress = AllfitV1Schemas['ClientProgress']
+export type ProfessionalObservation = AllfitV1Schemas['ProfessionalObservation']
+export type ProfessionalObservationCategory = AllfitV1Schemas['ProfessionalObservationCategory']
+export type ProfessionalObservationProvenance = AllfitV1Schemas['ProfessionalObservationProvenance']
+
+export type ClientProgressRead =
+  | { outcome: 'found'; progress: ClientProgress }
+  | { outcome: 'scope_required'; requiredScope: { code: string; level: 'read' | 'contribute' } }
+
+export interface ObservationCommandResult {
+  resource: ProfessionalObservation
+  replayed: boolean
+}
+
 export interface ExecutionReviewDatabase {
   listAuthorized(
     input: AuthorizedExecutionQuery & { limit: number; cursor?: AuthorizedExecutionCursor },
@@ -217,4 +235,35 @@ export interface ExecutionReviewDatabase {
   readAuthorized(
     input: AuthorizedExecutionQuery & { executionId: string },
   ): Promise<AuthorizedExecutionRead>
+  /** An unknown zone is refused by PostgreSQL with SQLSTATE 22023. */
+  readProgress(
+    input: AuthorizedExecutionQuery & {
+      timezone: string
+      period: ClientProgress['period']
+      count: number
+    },
+  ): Promise<ClientProgressRead>
+  /** A missing grant is AF430 naming it; a paused service is AF424. */
+  recordObservation(
+    input: ExecutionCommand & {
+      personId: string
+      organizationId: string
+      subjectPersonId: string
+      executionId: string
+      category: ProfessionalObservationCategory
+      provenance: ProfessionalObservationProvenance
+      content: string
+    },
+  ): Promise<ObservationCommandResult>
+  /** Over an older revision it is refused with SQLSTATE 40001 and the current observation. */
+  reviseObservation(
+    input: ExecutionCommand & {
+      personId: string
+      organizationId: string
+      observationId: string
+      expectedRevision: number
+      content: string
+      reason: string
+    },
+  ): Promise<ObservationCommandResult>
 }

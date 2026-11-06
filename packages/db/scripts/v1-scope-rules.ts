@@ -112,6 +112,8 @@ export const V1_SCOPES: ScopeRules[] = [
     rules: [
       // `contribute` carries no history: the check keeps a historical rule at `read`.
       ...TRAINING_PRESCRIPTION.map((resource) => training(resource, 'contribute')),
+      // The coach's reading of a session the gym's programme produced, beside what she declared.
+      training('execution.professional_observations', 'contribute'),
       // Read whenever they happened: the policy that admits a session never asks when the
       // grant began, so the rule says so instead of promising less than is shared.
       training('execution.planned_session_executions', 'read'),
@@ -175,6 +177,14 @@ export const V1_SCOPES: ScopeRules[] = [
           max_action: 'read',
         }),
       ),
+      // Pain or a limitation the coach notes on a session is health context, written and read
+      // only under this permission, whatever the session's own category.
+      {
+        resource: 'execution.professional_observations',
+        field: '*',
+        data_classification_code: 'health',
+        max_action: 'contribute',
+      },
       denied('identity.body_progress_records', 'body'),
     ],
   },
