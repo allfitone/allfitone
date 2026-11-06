@@ -36,10 +36,11 @@ const NO_OBJECT_STORE_SDK = {
   message: 'The storage SDK belongs in packages/object-store. Use its port.',
 }
 
-// Only packages/food-recognition talks to a model (ADR-041).
+// Only packages/ai-provider talks to a model (ADR-045). A task such as food
+// recognition asks through its port.
 const NO_AI_SDK = {
   group: ['ai', 'ai/*', '@ai-sdk/*'],
-  message: 'The AI SDK belongs in packages/food-recognition. Use its port.',
+  message: 'Model SDKs belong in packages/ai-provider. Use its port.',
 }
 
 // Only packages/store-billing talks to the App Store and Google Play (ADR-043).
@@ -406,6 +407,18 @@ export default tseslint.config(
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_AI_SDK,
+        NO_HOSTING,
+      ),
+    },
+  },
+  {
+    files: ['packages/ai-provider/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrict(
+        NO_PROVIDER_SDK,
+        NO_QUEUE_SDK,
+        NO_OBJECT_STORE_SDK,
+        NO_STORE_BILLING_SDK,
         NO_HOSTING,
       ),
     },
