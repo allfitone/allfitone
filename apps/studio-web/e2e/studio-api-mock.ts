@@ -70,6 +70,7 @@ export interface StudioApiFixture {
   subscriptionOutcome: 'applied' | 'no-cause' | 'forbidden'
   roleGrantOutcome: 'granted' | 'rejected' | 'forbidden'
   roleRevokeOutcome: 'revoked' | 'gone' | 'forbidden'
+  membershipTerminationOutcome: 'terminated' | 'rejected' | 'forbidden'
   offerableScopes: unknown[]
   informationCategories: unknown[]
   organization: unknown
@@ -831,6 +832,7 @@ export function createStudioApiFixture(
     subscriptionOutcome: 'applied',
     roleGrantOutcome: 'granted',
     roleRevokeOutcome: 'revoked',
+    membershipTerminationOutcome: 'terminated',
     offerableScopes: [...offerableScopeCatalog],
     informationCategories: [...informationCategoryCatalog],
     /*
@@ -1371,6 +1373,45 @@ function defaultResponse(
         valid_from: '2026-10-06T10:00:00.000Z',
       },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/memberships\/[^/]+\/termination$/.test(request.path)
+  ) {
+    if (fixture.membershipTerminationOutcome !== 'terminated') {
+      return {
+        status: fixture.membershipTerminationOutcome === 'rejected' ? 422 : 403,
+        body: {
+          error:
+            fixture.membershipTerminationOutcome === 'rejected' ? 'validation-failed' : 'forbidden',
+        },
+      }
+    }
+    const membershipId = request.path.split('/').slice(-2, -1)[0]
+    const endedAt = '2026-11-05T10:00:00.000Z'
+    /*
+     * Status and `ended_at`, and **the roles stay**. The command does close
+     * every open role period, but the list is a projection that shows "current
+     * roles for an active membership, or roles effective at termination for a
+     * terminated one" — so what the reader sees afterwards is what the person
+     * held when they left. Dropping them here would make the mock disagree
+     * with the contract.
+     *
+     * What neither the command nor this touches is any relationship: that is
+     * criterion 2, and in the real function it is an absence, not a guard.
+     */
+    fixture.organizationMemberships = fixture.organizationMemberships.map((entry) => {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        !('membership_id' in entry) ||
+        entry.membership_id !== membershipId
+      ) {
+        return entry
+      }
+      return { ...entry, status: 'terminated', ended_at: endedAt }
+    })
+    return { status: 200, body: { membership_id: membershipId, ended_at: endedAt } }
   }
   if (
     request.method === 'DELETE' &&
