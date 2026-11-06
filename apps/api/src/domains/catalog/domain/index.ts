@@ -177,3 +177,67 @@ export interface MovementLibraryDatabase {
   readEquipment(personId: string): Promise<CatalogueTerm[]>
   readMuscles(personId: string): Promise<MuscleTerm[]>
 }
+
+/**
+ * A gym's own movements, read and written from Studio (HU-STUDIO-064..067).
+ *
+ * The library a template editor searches is the global one and the organization's,
+ * together; which of them a movement belongs to travels in `scope`. What may be
+ * renamed, archived or seen is PostgreSQL's answer.
+ */
+export type StudioMovement = AllfitV1Schemas['StudioMovement']
+export type OrganizationMovement = AllfitV1Schemas['OrganizationMovement']
+export type OrganizationMovementCreate = AllfitV1Schemas['OrganizationMovementCreate']
+export type OrganizationMovementChanges = Omit<
+  AllfitV1Schemas['OrganizationMovementUpdate'],
+  'expected_revision'
+>
+
+export interface StoredStudioMovement extends Omit<StudioMovement, 'demo_url'> {
+  demo_object_key: string | null
+}
+
+export interface StoredOrganizationMovement extends Omit<OrganizationMovement, 'demo_url'> {
+  demo_object_key: string | null
+}
+
+export interface OrganizationMovementQuery {
+  personId: string
+  organizationId: string
+  query: string | null
+  discipline: string | null
+  includeArchived: boolean
+  limit: number
+  cursor: string | null
+}
+
+export interface OrganizationMovementCommand {
+  personId: string
+  organizationId: string
+  idempotencyKey: string
+  commandId: string
+  requestHash: Uint8Array
+}
+
+export interface OrganizationMovementDatabase {
+  search(request: OrganizationMovementQuery): Promise<Page<StoredStudioMovement>>
+  /** Null for another organization's, which is the same answer as not existing. */
+  read(input: {
+    personId: string
+    organizationId: string
+    movementId: string
+  }): Promise<StoredOrganizationMovement | null>
+  create(
+    input: OrganizationMovementCommand & { movement: OrganizationMovementCreate },
+  ): Promise<CatalogCommandResult<StoredOrganizationMovement>>
+  update(
+    input: OrganizationMovementCommand & {
+      movementId: string
+      expectedRevision: number
+      changes: OrganizationMovementChanges
+    },
+  ): Promise<CatalogCommandResult<StoredOrganizationMovement>>
+  archive(
+    input: OrganizationMovementCommand & { movementId: string },
+  ): Promise<CatalogCommandResult<StoredOrganizationMovement>>
+}
