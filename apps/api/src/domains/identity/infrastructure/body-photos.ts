@@ -3,7 +3,12 @@
 import type postgres from 'postgres'
 
 import { database } from '../../../platform/db/index.js'
-import type { BodyPhotoDatabase, BodyPhotoRow } from '../domain/body-photos.js'
+import type {
+  BodyPhotoDatabase,
+  BodyPhotoRow,
+  BodyPhotoShare,
+  BodyPhotoShareResult,
+} from '../domain/body-photos.js'
 
 export function createBodyPhotoDatabase(): BodyPhotoDatabase {
   const sql = database()
@@ -51,7 +56,39 @@ export function createBodyPhotoDatabase(): BodyPhotoDatabase {
           select identity.seal_body_photo_disposal(${input.personId}::uuid, ${input.mediaRef})
         `
       }),
+
+    share: (input) =>
+      asPerson(sql, input.personId, '', async (transaction) =>
+        answered(
+          await transaction<ShareRow[]>`
+            select result, replayed from identity.share_body_photo(
+              ${input.personId}::uuid, ${input.photoId}::uuid, ${input.relationshipId}::uuid,
+              ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+            )
+          `,
+        ),
+      ),
+
+    withdraw: (input) =>
+      asPerson(sql, input.personId, '', async (transaction) =>
+        answered(
+          await transaction<ShareRow[]>`
+            select result, replayed from identity.withdraw_body_photo_share(
+              ${input.personId}::uuid, ${input.photoId}::uuid, ${input.relationshipId}::uuid,
+              ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+            )
+          `,
+        ),
+      ),
   }
+}
+
+type ShareRow = { result: BodyPhotoShare | null; replayed: boolean }
+
+function answered(rows: readonly ShareRow[]): BodyPhotoShareResult {
+  const [row] = rows
+  if (!row?.result) throw new Error('PostgreSQL did not answer the body photo share')
+  return { share: row.result, replayed: row.replayed }
 }
 
 function asPerson<T>(

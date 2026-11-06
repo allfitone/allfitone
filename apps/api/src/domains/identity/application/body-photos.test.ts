@@ -17,8 +17,19 @@ const row = (overrides: Partial<BodyPhotoRow> = {}): BodyPhotoRow => ({
   taken_on: '2026-10-25',
   created_at: '2026-10-25T12:00:00.000Z',
   media_ref: `body/${PERSON}/${COMMAND}.jpg`,
+  shared_with: [],
   ...overrides,
 })
+
+const RELATIONSHIP = '019f1000-0000-7000-8000-000000000701'
+const SHARE = {
+  body_photo_id: COMMAND,
+  relationship_id: RELATIONSHIP,
+  organization: { id: '019f1000-0000-7000-8000-000000000101', display_name: 'Gym A' },
+  status: 'shared' as const,
+  shared_at: '2026-11-05T12:00:00.000Z',
+  withdrawn_at: null,
+}
 
 function harness(database: Partial<BodyPhotoDatabase> = {}) {
   const store = createMemoryObjectStore()
@@ -30,6 +41,11 @@ function harness(database: Partial<BodyPhotoDatabase> = {}) {
     seal: async ({ mediaRef }) => {
       sealed.push(mediaRef)
     },
+    share: async () => ({ share: SHARE, replayed: false }),
+    withdraw: async () => ({
+      share: { ...SHARE, status: 'withdrawn', withdrawn_at: '2026-11-05T13:00:00.000Z' },
+      replayed: false,
+    }),
     ...database,
   }
   const service = createBodyPhotoService(db, store, { sanitize: async () => new Uint8Array([7]) })
@@ -91,5 +107,40 @@ describe('body photos (OP-IDN-056..058)', () => {
 
     expect(store.objects.size).toBe(0)
     expect(sealed).toEqual([`body/${PERSON}/${COMMAND}.jpg`])
+  })
+
+  test('T-IDN-API-BODYPHOTO-05 the list says whom she shows each photo to', async () => {
+    const shown = {
+      relationship_id: RELATIONSHIP,
+      organization_name: 'Gym A',
+      shared_at: SHARE.shared_at,
+    }
+    const { service } = harness({ list: async () => [row({ shared_with: [shown] })] })
+    const page = await service.list({ personId: PERSON, requestId: 'r' })
+
+    expect(page.data[0]?.shared_with).toEqual([shown])
+  })
+
+  test('T-IDN-API-BODYPHOTO-06 showing and taking back touch the database and nothing in the store', async () => {
+    const calls: string[] = []
+    const { service, store } = harness({
+      share: async (input) => {
+        calls.push(`share ${input.photoId} ${input.relationshipId}`)
+        return { share: SHARE, replayed: true }
+      },
+      withdraw: async (input) => {
+        calls.push(`withdraw ${input.photoId} ${input.relationshipId}`)
+        return { share: SHARE, replayed: false }
+      },
+    })
+    const target = { personId: PERSON, photoId: COMMAND, relationshipId: RELATIONSHIP, ...command }
+
+    expect(await service.share(target)).toEqual({ share: SHARE, replayed: true })
+    expect(await service.withdraw(target)).toEqual({ share: SHARE, replayed: false })
+    expect(calls).toEqual([
+      `share ${COMMAND} ${RELATIONSHIP}`,
+      `withdraw ${COMMAND} ${RELATIONSHIP}`,
+    ])
+    expect(store.objects.size).toBe(0)
   })
 })
