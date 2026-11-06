@@ -71,6 +71,13 @@ export interface StudioApiFixture {
   roleGrantOutcome: 'granted' | 'rejected' | 'forbidden'
   roleRevokeOutcome: 'revoked' | 'gone' | 'forbidden'
   membershipTerminationOutcome: 'terminated' | 'rejected' | 'forbidden'
+  /**
+   * No `forbidden` here, and that is the contract rather than an omission: the
+   * command resolves the membership from the person in the session, so there is
+   * no permission dimension to refuse on. `rejected` is the owner (`422`) and
+   * `gone` is a membership somebody else closed first (`404`).
+   */
+  membershipResignationOutcome: 'resigned' | 'rejected' | 'gone'
   offerableScopes: unknown[]
   informationCategories: unknown[]
   organization: unknown
@@ -833,6 +840,7 @@ export function createStudioApiFixture(
     roleGrantOutcome: 'granted',
     roleRevokeOutcome: 'revoked',
     membershipTerminationOutcome: 'terminated',
+    membershipResignationOutcome: 'resigned',
     offerableScopes: [...offerableScopeCatalog],
     informationCategories: [...informationCategoryCatalog],
     /*
@@ -1412,6 +1420,57 @@ function defaultResponse(
       return { ...entry, status: 'terminated', ended_at: endedAt }
     })
     return { status: 200, body: { membership_id: membershipId, ended_at: endedAt } }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/me\/membership\/resignation$/.test(request.path)
+  ) {
+    if (fixture.membershipResignationOutcome !== 'resigned') {
+      return {
+        status: fixture.membershipResignationOutcome === 'rejected' ? 422 : 404,
+        body: {
+          error:
+            fixture.membershipResignationOutcome === 'rejected' ? 'validation-failed' : 'not-found',
+        },
+      }
+    }
+    /*
+     * The organization comes from the path and the membership from the session,
+     * so the mock closes the row in `me.memberships` whose organization matches
+     * — never one picked by membership id, which this route never carries.
+     *
+     * `ended_at` and the roles follow the sibling handler: the projection shows
+     * the roles effective at termination, so the history card keeps them.
+     */
+    const organizationId = request.path.split('/').slice(-4, -3)[0]
+    const endedAt = '2026-11-06T10:00:00.000Z'
+    fixture.me = {
+      ...fixture.me,
+      memberships: fixture.me.memberships.map((entry) => {
+        if (
+          typeof entry !== 'object' ||
+          entry === null ||
+          !('organization_id' in entry) ||
+          entry.organization_id !== organizationId ||
+          !('status' in entry) ||
+          entry.status !== 'active'
+        ) {
+          return entry
+        }
+        return { ...entry, status: 'terminated', ended_at: endedAt }
+      }),
+    }
+    const resigned = fixture.me.memberships.find(
+      (entry) =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        'organization_id' in entry &&
+        entry.organization_id === organizationId,
+    ) as { membership_id?: string } | undefined
+    return {
+      status: 200,
+      body: { membership_id: resigned?.membership_id ?? organizationId, ended_at: endedAt },
+    }
   }
   if (
     request.method === 'DELETE' &&

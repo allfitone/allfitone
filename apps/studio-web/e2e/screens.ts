@@ -213,6 +213,20 @@ const withProfile = () =>
     memberships: [activeMembership],
   })
 
+/**
+ * The same account with a membership it may actually leave. `withProfile` holds
+ * only the owner's, and an owner cannot resign — that card shows the transfer
+ * note instead of the action, so the resignable state needs a second one.
+ */
+const withAResignableMembership = () =>
+  createStudioApiFixture({
+    me: {
+      profile: { ...professionalProfile, credentials: [professionalCredential] },
+      memberships: [activeMembership, secondActiveMembership, terminatedMembership],
+    },
+    memberships: [activeMembership],
+  })
+
 const withoutProfile = () =>
   createStudioApiFixture({
     me: { profile: null, memberships: [activeMembership] },
@@ -1747,6 +1761,38 @@ export const SCREENS: Screen[] = [
     reveal: async (page) => {
       await page.getByRole('tab', { name: 'Vinculaciones' }).click()
       await expect(page.getByText('Vinculaciones activas')).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-022. The two cards together are the state worth sweeping: one offers
+     * the action and the other explains, in the footer where the button would
+     * be, why an owner has none. A card whose footer holds a paragraph and one
+     * whose footer holds a full-width button sit side by side here, which is
+     * where a mismatched footer would show.
+     */
+    stories: 'HU-022 · the memberships you may leave',
+    path: '/account',
+    fixture: withAResignableMembership,
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Vinculaciones' }).click()
+      await expect(page.getByRole('button', { name: 'Renunciar a la vinculación' })).toBeVisible()
+      await expect(page.getByText(/transferir la propiedad/)).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-022, the dialog. A coach is the state worth sweeping: only a coach
+     * leaves clients with nobody attending them, so only this one draws the
+     * long warning. Resigning with no clients shows a single short line.
+     */
+    stories: 'HU-022 · the warning before leaving an organization',
+    path: '/account',
+    fixture: withAResignableMembership,
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Vinculaciones' }).click()
+      await page.getByRole('button', { name: 'Renunciar a la vinculación' }).click()
+      await expect(page.getByText(/sin profesional responsable/)).toBeVisible()
     },
   },
   {

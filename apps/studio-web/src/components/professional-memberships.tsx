@@ -4,6 +4,7 @@ import {
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
@@ -24,7 +25,9 @@ import { StatStrip, StatStripItem } from '@allfitone/react/components/stat-strip
 import { WorkspaceEyebrow, WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { FoundationIcon } from '@allfitone/react/icons'
 
+import { MembershipResignation } from './membership-resignation'
 import { organizationTypeLabel } from './membership-selector'
+import { canResign, whyResignationUnavailable } from '@/lib/membership-resignation'
 import { membershipRoleLabels, membershipRoleSummary } from '@/lib/membership-roles'
 import type { Membership } from '@/lib/studio-api'
 
@@ -46,8 +49,11 @@ export function ProfessionalMemberships({ memberships }: { memberships: Membersh
           <WorkspaceTitle as="h2" id="memberships-title">
             Vinculaciones
           </WorkspaceTitle>
+          {/* It used to end «esta vista no cambia roles ni permisos», which
+              renouncing makes false: it closes your roles along with the
+              membership. Says what can be done here instead. */}
           <p data-page-header-description>
-            Consulta tus vinculaciones. Esta vista no cambia roles ni permisos.
+            Consulta tus vinculaciones y renuncia a la que ya no quieras mantener.
           </p>
         </div>
       </header>
@@ -96,6 +102,7 @@ export function ProfessionalMemberships({ memberships }: { memberships: Membersh
                 </div>
                 <p>Vinculación activa desde {formatDate(membership.joined_at)}.</p>
               </CardContent>
+              <ActiveMembershipFooter membership={membership} />
             </Card>
           ))}
         </div>
@@ -136,6 +143,35 @@ export function ProfessionalMemberships({ memberships }: { memberships: Membersh
         </Collapsible>
       ) : null}
     </section>
+  )
+}
+
+/**
+ * The action, or the reason there is none.
+ *
+ * An owner gets the reason rather than silence: «¿y cómo salgo de aquí?» is
+ * the question a missing control asks, and on this one card the answer is not
+ * «no se puede» but «todavía no». Every other membership in this grid is
+ * active and resignable, so no third branch renders anything.
+ */
+function ActiveMembershipFooter({ membership }: { membership: Membership }) {
+  if (canResign(membership)) {
+    return (
+      <CardFooter>
+        <div data-card-footer-actions>
+          <MembershipResignation membership={membership} />
+        </div>
+      </CardFooter>
+    )
+  }
+  if (whyResignationUnavailable(membership) !== 'owner') return null
+  return (
+    <CardFooter>
+      <p data-membership-resignation-blocked>
+        Como propietario no puedes renunciar: primero hay que transferir la propiedad del gimnasio a
+        otra persona.
+      </p>
+    </CardFooter>
   )
 }
 
