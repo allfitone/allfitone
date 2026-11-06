@@ -86,13 +86,13 @@ reset role;
 
 select is(
   (select count(*) from organizations.organization_capabilities),
-  22::bigint,
-  'the governed V1 capability catalogue has exactly 22 entries'
+  23::bigint,
+  'the governed V1 capability catalogue has exactly 23 entries'
 );
 
 select is(
   (select count(*) from organizations.role_capabilities),
-  41::bigint,
+  43::bigint,
   'the governed V1 role mapping is fully materialized'
 );
 
