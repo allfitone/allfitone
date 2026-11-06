@@ -90,10 +90,16 @@ apps/
   space/          Expo · client of /space/v1
   space-web/      Public landing of Allfit Space · no API client
 packages/
-  auth-provider/  Port and adapter for the identity provider
-  queue/          Port and adapter for the job queue
-  contracts/      OpenAPI specification and generated DTOs
-  db/             Migrations, schema and types
+  ai-provider/      Port and adapters for the model vendors (AI Gateway, Bedrock)
+  auth-provider/    Port and adapter for the identity provider
+  contracts/        OpenAPI specification and generated DTOs
+  db/               Migrations, schema and types
+  food-recognition/ Meal-photo recognition, a task over the model port
+  notifications/    Notification ports and provider adapters
+  object-store/     Port and adapter for private objects
+  queue/            Port and adapter for the job queue
+  store-billing/    Port and adapters for App Store and Google Play
+  telemetry/        Closed telemetry contracts and provider-neutral ports
 ```
 
 `apps/` are things that **run**. `packages/` are things that get **used**. If it
@@ -156,7 +162,7 @@ A monorepo earns its keep only while the projects inside it stay separable; the
 moment one app reaches into another, they are one tangled app that merely looks
 like two, and nothing can be extracted or deployed independently again.
 
-Six rules live in `eslint.config.js`. They fail CI, not code review.
+The boundary rules below live in `eslint.config.js`. They fail CI, not code review.
 
 | #   | Rule                                                                      |
 | --- | ------------------------------------------------------------------------- |
@@ -166,6 +172,9 @@ Six rules live in `eslint.config.js`. They fail CI, not code review.
 | 4   | **An app never imports another app** — by workspace name or relative path |
 | 5   | A domain is reached through its `index.ts`, never into its internals      |
 | 6   | A handler never executes SQL                                              |
+| 7   | Only `packages/object-store` imports the storage SDK                      |
+| 8   | Only `packages/store-billing` imports the App Store and Google Play SDKs  |
+| 9   | Only `packages/ai-provider` imports a model SDK (ADR-045)                 |
 
 Never disable one inline.
 
@@ -358,6 +367,13 @@ await sql`select set_config('app.actor_account_id', ${id}, true)`
 Use the domain vocabulary from `allfitone-docs`. A `service_relationship` is not
 a "subscription" and a `person` is not a "user". Names carry meaning that took
 real analysis to settle.
+
+**A commercial name is never a technical name.** The AI assistant may be marketed
+under a name that can change; that name lives in copy only. Code, packages,
+schemas, tables and enum values, routes and `operationId`s, environment
+variables, telemetry events, AWS resources and consent codes use neutral terms
+(`ai-provider`, `intelligence`). What a model produced records the exact model
+that produced it, never a brand (ADR-018, ADR-045).
 
 ---
 
