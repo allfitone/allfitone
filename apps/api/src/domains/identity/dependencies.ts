@@ -8,6 +8,11 @@ import { createSharpSanitizer } from '../../platform/media/photo.js'
 import { createBodyPhotoService, type BodyPhotoService } from './application/body-photos.js'
 import { createBodyPhotoDatabase } from './infrastructure/body-photos.js'
 import {
+  createStudioClientDataService,
+  type StudioClientDataService,
+} from './application/studio-client-data.js'
+import { createStudioClientDataDatabase } from './infrastructure/studio-client-data.js'
+import {
   createBackofficeAuthenticationService,
   type BackofficeAuthenticationService,
 } from './application/backoffice.js'
@@ -332,4 +337,15 @@ export function spaceBodyPhotoService(): BodyPhotoService {
     createSharpSanitizer(),
   )
   return bodyPhotos
+}
+
+let studioClientData: StudioClientDataService | undefined
+
+/** What a client shares with her coach: its closed functions and the private store. */
+export function studioClientDataService(): StudioClientDataService {
+  studioClientData ??= createStudioClientDataService(
+    createStudioClientDataDatabase(),
+    createObjectStoreFromEnv(process.env),
+  )
+  return studioClientData
 }

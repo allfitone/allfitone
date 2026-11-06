@@ -1,12 +1,14 @@
--- T-PRV-SCOPE-PRESENTATION-02 — `body_progress` dice lo que entrega (HU-BO-024, decisión 1).
+-- T-PRV-SCOPE-PRESENTATION-02 — `body_progress` says what it delivers (HU-BO-024 decision 1,
+-- HU-SP-025 criterion 4).
 --
--- Las reglas V1 de `body_progress` excluyen `body_photos`: no existe ninguna forma de
--- elegir qué fotos ve el gimnasio, así que incluirlas entregaría todas. El texto que la
--- persona lee prometía «las fotos que tú selecciones». Una persona que acepta creyendo
--- que comparte fotos acepta algo distinto de lo que pasa, aunque lo que pasa sea menos.
+-- Until she could choose, the V1 rules excluded `body_photos` and the words said no photo
+-- went. Now she shows a gym one photo at a time (OP-IDN-061), the V1 rules include the
+-- photos she shows and nothing else, and the words say exactly that: the photos she
+-- chooses, never the rest of her gallery. A person who accepts must agree to what
+-- happens, no more and no less.
 --
--- Lo que ya se envió no cambia: cada invitación congela el texto en su
--- `presented_snapshot`, y esta prueba no lo toca.
+-- What was already sent does not change: each invitation freezes its words in its
+-- `presented_snapshot`, and this test does not touch it.
 
 begin;
 
@@ -23,47 +25,47 @@ select set_config('app.actor_kind', 'person', true),
 select is(
   (select description from privacy.list_information_categories()
    where scope_code = 'body_progress'),
-  'Medidas, composición corporal y tendencias. No incluye tus fotos, ni datos de salud.',
-  'la descripción dice que las fotos no van'
+  'Medidas, composición corporal, tendencias y solo las fotos que tú elijas mostrarnos. No incluye el resto de tu galería, ni datos de salud.',
+  'the description promises the photos she chooses to show'
 );
 
 select ok(
-  (select description not ilike '%fotos que%' from privacy.list_information_categories()
+  (select description ilike '%No incluye el resto de tu galería%' from privacy.list_information_categories()
    where scope_code = 'body_progress'),
-  'y ya no promete fotos elegidas que nadie puede elegir'
+  'and says the rest of her gallery stays hers'
 );
 
--- La línea que lee quien invita carga el mismo límite: es la que decide qué se pide.
+-- The line whoever invites reads carries the same limit: it is what decides what is asked.
 select is(
   (select summary from privacy.list_information_categories()
    where scope_code = 'body_progress'),
-  'Medidas y composición corporal, sin fotos y sin datos de salud.',
-  'el resumen de una línea tampoco promete fotos'
+  'Medidas y solo las fotos que elija mostrarte, sin datos de salud.',
+  'the one-line summary carries the same limit'
 );
 
 select is(
   (select display_name from privacy.list_information_categories()
    where scope_code = 'body_progress'),
   'Progreso corporal',
-  'el nombre no cambia'
+  'the name does not change'
 );
 
--- `list_offerable_scopes` lee la misma fila: lo que el gimnasio congela al invitar
--- desde hoy es el texto nuevo.
+-- `list_offerable_scopes` reads the same row: what a gym freezes when it invites from now
+-- on is the new text, and no line still promises photos chosen any other way.
 select is(
   (select count(*)::int from privacy.scope_presentations
    where description ilike '%fotos que tú selecciones%'
-      or summary ilike '%fotos que elija%'),
+      or description ilike '%No incluye tus fotos%'),
   0,
-  'ningún texto del catálogo promete fotos elegidas'
+  'no text in the catalogue speaks of photos as before'
 );
 
--- Las otras seis no se tocan.
+-- The others keep their words.
 select is(
   (select description from privacy.list_information_categories()
    where scope_code = 'nutrition_media'),
   'Las fotos que adjuntes a una comida. Requiere además que nos permitas ver lo que comes; por sí sola no muestra nada.',
-  'las demás categorías dicen lo mismo que antes'
+  'the other categories say what they said'
 );
 
 select * from finish();

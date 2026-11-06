@@ -5,6 +5,7 @@
  * if the database refuses (the plan, the key, a replay), the object goes too. Deleting is
  * the reverse — the record goes in the transaction that queues its object, the object is
  * removed after the commit and the queue is sealed. A removal that fails stays queued.
+ * Showing a photo to a gym, or taking it back, is the database's alone: nothing moves.
  */
 
 import type { ObjectStore } from '@allfitone/object-store'
@@ -16,6 +17,8 @@ import type {
   BodyPhotoDatabase,
   BodyPhotoPage,
   BodyPhotoRow,
+  BodyPhotoShareCommand,
+  BodyPhotoShareResult,
   BodyPhotoUpload,
 } from '../domain/body-photos.js'
 
@@ -27,6 +30,8 @@ export interface BodyPhotoService {
   ): Promise<BodyPhoto>
   list(input: { personId: string; requestId: string }): Promise<BodyPhotoPage>
   delete(input: BodyPhotoCommand & { personId: string; photoId: string }): Promise<void>
+  share(input: BodyPhotoShareCommand): Promise<BodyPhotoShareResult>
+  withdraw(input: BodyPhotoShareCommand): Promise<BodyPhotoShareResult>
 }
 
 export function createBodyPhotoService(
@@ -41,6 +46,7 @@ export function createBodyPhotoService(
       taken_on: row.taken_on,
       created_at: row.created_at,
       photo: { url: signed.url, expires_at: signed.expiresAt.toISOString(), method: 'GET' },
+      shared_with: row.shared_with,
     }
   }
 
@@ -67,5 +73,8 @@ export function createBodyPhotoService(
       await store.remove(mediaRef)
       await database.seal({ personId: input.personId, mediaRef })
     },
+
+    share: (input) => database.share(input),
+    withdraw: (input) => database.withdraw(input),
   }
 }

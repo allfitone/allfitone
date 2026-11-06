@@ -10,13 +10,13 @@ export interface MemoryObjectStore extends ObjectStore {
     string,
     { readonly bytes: Uint8Array; readonly contentType: string }
   >
-  failNext(operation: 'put' | 'sign' | 'remove'): void
+  failNext(operation: 'put' | 'sign' | 'get' | 'remove'): void
 }
 
 export function createMemoryObjectStore(): MemoryObjectStore {
   const objects = new Map<string, { bytes: Uint8Array; contentType: string }>()
-  const failing = new Set<'put' | 'sign' | 'remove'>()
-  const check = (operation: 'put' | 'sign' | 'remove') => {
+  const failing = new Set<'put' | 'sign' | 'get' | 'remove'>()
+  const check = (operation: 'put' | 'sign' | 'get' | 'remove') => {
     if (!failing.delete(operation)) return
     throw new ObjectStoreError(operation, new Error('told to fail'))
   }
@@ -33,6 +33,10 @@ export function createMemoryObjectStore(): MemoryObjectStore {
         url: `https://objects.test/${encodeURIComponent(key)}?expires=${String(seconds)}`,
         expiresAt: new Date(Date.now() + seconds * 1000),
       }
+    },
+    async get(key) {
+      check('get')
+      return objects.get(key) ?? null
     },
     async remove(key) {
       check('remove')

@@ -34,6 +34,7 @@ import {
   spaceHealthContextRoutes,
   spaceIdentityRoutes,
   spaceOnboardingRoutes,
+  studioClientDataRoutes,
   studioIdentityRoutes,
   studioInvitationRoutes,
   studioOnboardingRoutes,
@@ -118,6 +119,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/studio/v1/catalog', studioCatalogReadRoutes())
   app.route('/studio/v1', studioPlanningRoutes())
   app.route('/studio/v1', studioExecutionRoutes())
+  app.route('/studio/v1', studioClientDataRoutes())
   app.route('/studio/v1', studioPaymentRoutes())
   app.route('/space/v1', spaceIdentityRoutes())
   app.route('/space/v1', spaceOnboardingRoutes())

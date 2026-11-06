@@ -54,6 +54,58 @@ describe('the object store', () => {
     )
   })
 
+  test('T-OBJ-UNIT-06 the memory store gives back what it keeps, and nothing for a key it lacks', async () => {
+    const store = createMemoryObjectStore()
+    await store.put('body/p/a.jpg', new Uint8Array([7, 8]), 'image/jpeg')
+    expect(await store.get('body/p/a.jpg')).toEqual({
+      bytes: new Uint8Array([7, 8]),
+      contentType: 'image/jpeg',
+    })
+    expect(await store.get('body/p/missing.jpg')).toBeNull()
+    store.failNext('get')
+    expect(store.get('body/p/a.jpg')).rejects.toBeInstanceOf(ObjectStoreError)
+  })
+
+  test('T-OBJ-UNIT-07 the S3 store reads an object, says when there is none, and fails closed', async () => {
+    // A stand-in for the S3 API on this machine: one object, one missing key, one fault.
+    const server = Bun.serve({
+      port: 0,
+      fetch(request) {
+        const path = new URL(request.url).pathname
+        if (path === '/allfit-private/body/p/a.jpg') {
+          return new Response(new Uint8Array([1, 2, 3]), {
+            headers: { 'Content-Type': 'image/jpeg' },
+          })
+        }
+        if (path === '/allfit-private/body/p/missing.jpg') {
+          return new Response(
+            '<?xml version="1.0" encoding="UTF-8"?><Error><Code>NoSuchKey</Code>' +
+              '<Message>The specified key does not exist.</Message></Error>',
+            { status: 404, headers: { 'Content-Type': 'application/xml' } },
+          )
+        }
+        return new Response('<Error><Code>InternalError</Code></Error>', { status: 500 })
+      },
+    })
+    try {
+      const store = createS3ObjectStore({
+        bucket: 'allfit-private',
+        region: 'us-east-1',
+        endpoint: `http://127.0.0.1:${String(server.port)}`,
+        accessKeyId: 'AKIAEXAMPLE',
+        secretAccessKey: 'secret',
+      })
+      expect(await store.get('body/p/a.jpg')).toEqual({
+        bytes: new Uint8Array([1, 2, 3]),
+        contentType: 'image/jpeg',
+      })
+      expect(await store.get('body/p/missing.jpg')).toBeNull()
+      await expect(store.get('body/p/broken.jpg')).rejects.toBeInstanceOf(ObjectStoreError)
+    } finally {
+      await server.stop(true)
+    }
+  })
+
   test('T-OBJ-UNIT-05 a store that does not answer fails in seconds, not minutes', async () => {
     // A non-routable address never answers. Without limits of its own the client kept
     // retrying for 225 s while a meal waited to be saved.

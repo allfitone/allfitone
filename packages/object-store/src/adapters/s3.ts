@@ -2,13 +2,15 @@
  * The S3 adapter, for AWS S3 or anything that speaks its API (MinIO locally, R2).
  *
  * Objects are written with server-side encryption under the bucket's KMS key when one
- * is configured, and read only through presigned GETs. Vendor errors stop here and leave
- * as `ObjectStoreError`, so nothing above knows which store answered.
+ * is configured, and read through presigned GETs, or by the API itself when it serves an
+ * object in person. Vendor errors stop here and leave as `ObjectStoreError`, so nothing
+ * above knows which store answered; a missing object is not an error but an absence.
  */
 
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  NoSuchKey,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3'
@@ -92,6 +94,23 @@ export function createS3ObjectStore(settings: S3Settings): ObjectStore {
         return { url, expiresAt: new Date(Date.now() + seconds * 1000) }
       } catch (cause) {
         throw new ObjectStoreError('sign', cause)
+      }
+    },
+
+    async get(key) {
+      try {
+        const found = await client.send(
+          new GetObjectCommand({ Bucket: settings.bucket, Key: key }),
+          deadline(),
+        )
+        if (!found.Body) return null
+        return {
+          bytes: await found.Body.transformToByteArray(),
+          contentType: found.ContentType ?? 'application/octet-stream',
+        }
+      } catch (cause) {
+        if (cause instanceof NoSuchKey) return null
+        throw new ObjectStoreError('get', cause)
       }
     },
 

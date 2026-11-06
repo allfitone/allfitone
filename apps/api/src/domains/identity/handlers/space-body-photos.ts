@@ -1,5 +1,6 @@
 /**
- * Body photo routes on /space/v1: `OP-IDN-056`, `OP-IDN-057` and `OP-IDN-058`.
+ * Body photo routes on /space/v1: `OP-IDN-056`, `OP-IDN-057`, `OP-IDN-058`, and showing a
+ * photo to one gym or taking it back, `OP-IDN-061` and `OP-IDN-062`.
  *
  * `HU-SP-025..027`. The token is verified and resolved to a person; nothing in a request
  * can name whose photos these are. Structure is checked here and answers 400; a photo
@@ -89,6 +90,54 @@ export function spaceBodyPhotoRoutes(
       const personId = await actors().personFor(String(token.subject))
       await photos().delete({ personId, photoId, ...command })
       return c.body(null, 204)
+    } catch (error) {
+      return failure(c, error)
+    }
+  })
+
+  routes.put('/body-photos/:photoId/shares', async (c) => {
+    const token = await verifiedSpaceToken(c, verify)
+    if (!token) return problem(c, 'unauthenticated')
+    if (!isJsonRequest(c)) return problem(c, 'unsupported-media-type')
+    const body = await readJson(c)
+    const relationshipId = exactObject(body, ['relationship_id'])?.relationship_id
+    const photoId = c.req.param('photoId')
+    // The hash covers the path, so the photo is in it as well as the relationship.
+    const command = spaceCommand(c, body)
+    if (
+      !UUID.test(photoId) ||
+      typeof relationshipId !== 'string' ||
+      !UUID.test(relationshipId) ||
+      !command
+    ) {
+      return problem(c, 'invalid-request')
+    }
+
+    try {
+      const personId = await actors().personFor(String(token.subject))
+      const result = await photos().share({ personId, photoId, relationshipId, ...command })
+      if (result.replayed) c.header('Idempotent-Replay', 'true')
+      return c.json(result.share)
+    } catch (error) {
+      return failure(c, error)
+    }
+  })
+
+  routes.delete('/body-photos/:photoId/shares/:relationshipId', async (c) => {
+    const token = await verifiedSpaceToken(c, verify)
+    if (!token) return problem(c, 'unauthenticated')
+    const photoId = c.req.param('photoId')
+    const relationshipId = c.req.param('relationshipId')
+    const command = spaceCommand(c, { photoId, relationshipId })
+    if (!UUID.test(photoId) || !UUID.test(relationshipId) || !command) {
+      return problem(c, 'invalid-request')
+    }
+
+    try {
+      const personId = await actors().personFor(String(token.subject))
+      const result = await photos().withdraw({ personId, photoId, relationshipId, ...command })
+      if (result.replayed) c.header('Idempotent-Replay', 'true')
+      return c.json(result.share)
     } catch (error) {
       return failure(c, error)
     }

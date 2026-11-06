@@ -3820,6 +3820,112 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/profile': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read the training profile a client shares with this coach
+     * @description HU-STUDIO-051. Her goal, experience, discipline and areas of emphasis as they hold now, each claim with where it came from, and her biological sex, under `relationship_training`. Coexisting claims are all shown, and nothing body or health travels here: those have categories of their own.
+     *
+     *     The fields are the ones the version she accepted names: a field it leaves out is null, so two gyms on two versions may read two shapes of the same person. Being administrator or owner is not attending her: anyone who does not attend her gets 404. With nothing shared the answer is 403 `scope-required`, and the attempt is recorded as refused; a read is recorded before anything is returned.
+     */
+    get: operations['getAuthorizedClientTrainingProfile']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/body-progress': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the body measurements a client shares with this coach
+     * @description HU-STUDIO-052. Her measurements, newest day first, under `body_progress`: each in its canonical unit and, when the version shares it, as she typed it. A version that hides the day shares no measurement, because the page boundary would give it away. Photos are a list of their own.
+     *
+     *     Who may read and what is recorded are as in the training profile: 404 for anyone who does not attend her, 403 `scope-required` with nothing shared.
+     */
+    get: operations['listAuthorizedClientBodyProgress']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/body-photos': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the body photos a client shows this coach's gym
+     * @description HU-STUDIO-052 criteria 2-4. Only the photos she chose to show this relationship, newest first, and only while her `body_progress` version includes photos: never her gallery, never what she showed another gym, never one she took back. Each is a day and when she showed it; the image itself is read one by one through `OP-IDN-060`, and where it is kept never leaves the API.
+     */
+    get: operations['listAuthorizedClientBodyPhotos']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/body-photos/{photoId}/content': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Stream one body photo a client shows this coach's gym
+     * @description HU-STUDIO-052. Rechecks on every request that the coach attends her, that her body grant is live and its version includes photos, and that she still shows this photo to this relationship; records every attempt, allowed or not; and streams the sanitised image through the authenticated API. Never a redirect and never a signed storage URL (`x-allfit-media-url-policy.studio_professional`). Anything short of a shown photo is 404, including a missing grant.
+     */
+    get: operations['getAuthorizedClientBodyPhotoContent']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/health-context': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the health context a client shares with this coach
+     * @description HU-STUDIO-053. The pains, limitations and recovery she declared, newest first, including what no longer holds, under `health_context`. No clinical history, tests, medication or diagnosis exists to be shared. A version that hides since when shares nothing.
+     *
+     *     Who may read and what is recorded are as in the training profile: 404 for anyone who does not attend her, 403 `scope-required` with nothing shared.
+     */
+    get: operations['listAuthorizedClientHealthContext']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/consents': {
     parameters: {
       query?: never
@@ -4744,7 +4850,7 @@ export interface paths {
     }
     /**
      * My body photos, newest first
-     * @description HU-SP-026. A body photo is the person's alone: no consent scope covers it, so no gym or professional ever reads it. Each comes with a URL signed for five minutes; the storage key never leaves the API. Reading one's own photos is never limited by a plan.
+     * @description HU-SP-026. A body photo is the person's alone: a gym sees only the ones she shows it (`OP-IDN-061`), and `shared_with` says which those are. Each comes with a URL signed for five minutes; the storage key never leaves the API. Reading one's own photos is never limited by a plan.
      */
     get: operations['listMyBodyPhotos']
     put?: never
@@ -4774,6 +4880,46 @@ export interface paths {
      * @description HU-SP-027. The record goes in the same transaction that queues its object; the API removes the object after the commit. Deleting one's own photos is never limited by a plan.
      */
     delete: operations['deleteMyBodyPhoto']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/body-photos/{photoId}/shares': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Show one of my body photos to one of my gyms
+     * @description HU-SP-025 criterion 4. Her photo, to one of her active relationships: the coach who attends her there sees it while her `body_progress` version includes photos. Only that gym, only that photo; her gallery stays hers. Showing what is already shown answers the same. Choosing is not limited by a plan, because she decides about a photo she already has. A relationship that is not active is 409.
+     */
+    put: operations['shareMyBodyPhoto']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/body-photos/{photoId}/shares/{relationshipId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Stop showing one of my body photos to a gym
+     * @description HU-SP-025 criterion 4. From now on, even when the relationship has already ended: the gym's next request for it is 404. A coach who saw it keeps the record that he did, never the photo. Taking back what is already taken back answers the same; a photo never shown to that gym is 404.
+     */
+    delete: operations['withdrawMyBodyPhotoShare']
     options?: never
     head?: never
     patch?: never
@@ -10008,6 +10154,101 @@ export interface components {
       /** Format: date-time */
       created_at: string
       photo: components['schemas']['SignedMediaUrl']
+      /** @description The gyms she shows this photo to now; empty when it is hers alone. */
+      shared_with: components['schemas']['BodyPhotoShareSummary'][]
+    }
+    BodyPhotoShareSummary: {
+      relationship_id: components['schemas']['Uuid']
+      organization_name: string
+      /** Format: date-time */
+      shared_at: string
+    }
+    BodyPhotoShareCreate: {
+      relationship_id: components['schemas']['Uuid']
+    }
+    /** @description One of her photos and one gym. `withdrawn` is no longer shown; `withdrawn_at` says since when. */
+    BodyPhotoShare: {
+      body_photo_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      organization: {
+        id: components['schemas']['Uuid']
+        display_name: string
+      }
+      /** @enum {string} */
+      status: 'shared' | 'withdrawn'
+      /** Format: date-time */
+      shared_at: string
+      /** Format: date-time */
+      withdrawn_at: string | null
+    }
+    /** @description Her training profile as the version she accepted shares it. A field the version leaves out is null, exactly like one never declared. */
+    ClientTrainingProfile: {
+      applied_scope: components['schemas']['AppliedScope']
+      biological_sex: components['schemas']['ClientBiologicalSex'] | null
+      /** @description Every claim in force, by attribute and newest first. */
+      attributes: components['schemas']['ClientProfileClaim'][]
+    }
+    ClientBiologicalSex: {
+      value: components['schemas']['BiologicalSex']
+      provenance: components['schemas']['Provenance']
+    }
+    ClientProfileClaim: {
+      id: components['schemas']['Uuid']
+      /** @description A training attribute, such as `primary_training_goal`, `training_experience`, `training_discipline` or `focus_areas`. */
+      attribute_code: string
+      value_text: string | null
+      value_numeric: number | null
+      unit_code: string | null
+      provenance: components['schemas']['Provenance'] | null
+      /** Format: date-time */
+      valid_from: string | null
+    }
+    ClientBodyProgressPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientBodyProgressRecord'][]
+      page: components['schemas']['Page']
+    }
+    ClientBodyProgressRecord: {
+      id: components['schemas']['Uuid']
+      metric_code: components['schemas']['BodyProgressMetricCode']
+      /** @description In the canonical unit of the measurement's dimension. */
+      value: number | null
+      unit_code: components['schemas']['BodyProgressUnitCode'] | null
+      /** @description What she typed, when it was not the canonical unit. */
+      original_value: number | null
+      original_unit_code: components['schemas']['BodyProgressUnitCode'] | null
+      /** Format: date */
+      measured_on: string
+    }
+    ClientBodyPhotoPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientBodyPhoto'][]
+      page: components['schemas']['Page']
+    }
+    /** @description A photo she shows this gym. Its image is read through `OP-IDN-060`; where it is kept never travels. */
+    ClientBodyPhoto: {
+      id: components['schemas']['Uuid']
+      /** Format: date */
+      taken_on: string
+      /** Format: date-time */
+      shared_at: string
+    }
+    ClientHealthContextPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientHealthContextClaim'][]
+      page: components['schemas']['Page']
+    }
+    ClientHealthContextClaim: {
+      id: components['schemas']['Uuid']
+      context_type: components['schemas']['HealthContextType']
+      description: string | null
+      /** @description Null when she named no area, or when the version leaves it out. */
+      body_area: components['schemas']['HealthContextBodyArea'] | null
+      provenance: components['schemas']['Provenance'] | null
+      /** Format: date-time */
+      valid_from: string
+      /** Format: date-time */
+      valid_to: string | null
     }
     BodyPhotoPage: {
       data: components['schemas']['BodyPhoto'][]
@@ -11433,6 +11674,7 @@ export interface components {
     TemplateId: components['schemas']['Uuid']
     VersionNumber: number
     InvitationId: components['schemas']['UuidV7']
+    BodyPhotoId: components['schemas']['Uuid']
     RelationshipId: components['schemas']['Uuid']
     SubstitutionId: components['schemas']['Uuid']
     TerminationRequestId: components['schemas']['Uuid']
@@ -18400,6 +18642,165 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  getAuthorizedClientTrainingProfile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her training profile, as the version she accepted shares it */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientTrainingProfile']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listAuthorizedClientBodyProgress: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her measurements, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientBodyProgressPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listAuthorizedClientBodyPhotos: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The photos she shows this gym, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientBodyPhotoPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getAuthorizedClientBodyPhotoContent: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+        photoId: components['parameters']['BodyPhotoId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The sanitised image, streamed through the authenticated API */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'image/jpeg': string
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listAuthorizedClientHealthContext: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description What she declared, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ClientHealthContextPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listMySpaceConsents: {
     parameters: {
       query?: never
@@ -20343,6 +20744,82 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       404: components['responses']['NotFound']
+    }
+  }
+  shareMyBodyPhoto: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        photoId: components['parameters']['BodyPhotoId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BodyPhotoShareCreate']
+      }
+    }
+    responses: {
+      /** @description The photo is shown to that gym */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BodyPhotoShare']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  withdrawMyBodyPhotoShare: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        photoId: components['parameters']['BodyPhotoId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The photo is no longer shown to that gym */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BodyPhotoShare']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listSpaceHealthContext: {
