@@ -39,13 +39,14 @@ esac
 
 afterEach(() => rmSync(stub, { recursive: true, force: true }))
 
+// Through the shell that started them: under Git Bash, `$!` is not a Windows process id,
+// and Bun's kill there ends the process outright, so no trap would ever run.
 function isAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
+  return Bun.spawnSync(['sh', '-c', `kill -0 ${pid}`]).exitCode === 0
+}
+
+function terminate(pid: number): void {
+  Bun.spawnSync(['sh', '-c', `kill -TERM ${pid}`])
 }
 
 /*
@@ -112,13 +113,16 @@ describe('db-tunnel', () => {
 
   posixOnly('stopping the tunnel also stops the plugin that holds the port', async () => {
     writeFileSync(join(stub, 'hold'), '')
-    const run = Bun.spawn(['bash', SCRIPT], {
-      env: { PATH: `${stub}:${process.env['PATH'] ?? ''}` },
-    })
+    const run = Bun.spawn(
+      ['bash', '-c', 'bash "$0" & echo $! > "$1"; wait', SCRIPT, join(stub, 'run')],
+      {
+        env: { PATH: `${stub}:${process.env['PATH'] ?? ''}` },
+      },
+    )
     while (!existsSync(join(stub, 'plugin'))) await Bun.sleep(20)
     const plugin = Number(recorded('plugin').trim())
 
-    run.kill('SIGTERM')
+    terminate(Number(recorded('run').trim()))
     await run.exited
     await Bun.sleep(200)
 

@@ -54,7 +54,7 @@ run() {
   # A stopped plugin does not tell AWS, which keeps the session open until it idles out.
   stop_session() {
     trap - EXIT INT TERM HUP
-    pkill -TERM -P "$session" 2>/dev/null || kill -TERM "$session" 2>/dev/null || true
+    stop_plugin
     wait "$session" 2>/dev/null || true
     local id
     id=$(sed -nE 's/.*SessionId: ([A-Za-z0-9_-]+).*/\1/p' "${state}.out" 2>/dev/null | head -n 1)
@@ -63,6 +63,22 @@ run() {
   }
   trap stop_session EXIT INT TERM HUP
   wait "$session"
+}
+
+# Git Bash has no pkill. Its own children are in its process table, and the native plugin
+# under the native CLI is in Windows' tree; children go first, or they would be orphaned.
+stop_plugin() {
+  if [ -r "/proc/${session}/winpid" ]; then
+    local process parent
+    for process in /proc/[0-9]*; do
+      # A builtin read: Git Bash starts every subprocess slowly, and this runs per process.
+      { read -r parent <"${process}/ppid"; } 2>/dev/null || continue
+      if [ "$parent" = "$session" ]; then kill -TERM "${process#/proc/}" 2>/dev/null || true; fi
+    done
+    taskkill //F //T //PID "$(cat "/proc/${session}/winpid")" >/dev/null 2>&1 || true
+  else
+    pkill -TERM -P "$session" 2>/dev/null || kill -TERM "$session" 2>/dev/null || true
+  fi
 }
 
 running() {
