@@ -10,6 +10,7 @@ import { afterEach, describe, expect, test } from 'bun:test'
 import type postgres from 'postgres'
 
 import { setDatabase } from '../../../platform/db/index.js'
+import type { ClientProgress, ProfessionalObservation } from '../domain/index.js'
 import { createExecutionReviewDatabase } from './index.js'
 
 interface CapturedQuery {
@@ -171,6 +172,180 @@ describe('the detail binding', () => {
         subjectPersonId: CLIENT,
         executionId: FIRST,
         requestId: REQUEST,
+      }),
+    ).rejects.toThrow()
+  })
+})
+
+const OBSERVATION_ID = '019f5000-0000-7000-8000-000000000c01'
+const KEY = '7a1c2a4e-8b3d-4c5e-9f60-7a8b9c0d1e2f'
+const HASH = Buffer.alloc(32, 7)
+const OBSERVATION: ProfessionalObservation = {
+  id: OBSERVATION_ID,
+  execution_id: FIRST,
+  category: 'training',
+  provenance: 'professional_observation',
+  content: 'Bajó la técnica.',
+  revision_number: 1,
+  created_at: '2026-11-02T12:00:00.000Z',
+  revised_at: null,
+  author_name: 'Camilo Coach',
+  authored_by_me: true,
+}
+
+describe('the progress binding', () => {
+  test('T-EXE-REVIEW-INT-05 the window follows the client, and the read carries the request id', async () => {
+    const captured: CapturedQuery[] = []
+    const progress: ClientProgress = {
+      period: 'week',
+      sources: [{ code: 'relationship_training', version: 4 }],
+      algorithm: { e1rm: 'epley', version: 1 },
+      periods: [],
+      movements: [],
+    }
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('read_client_progress')
+          ? [{ document: { outcome: 'found', ...progress } }]
+          : [{}],
+      ),
+    )
+
+    const read = await createExecutionReviewDatabase().readProgress({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      subjectPersonId: CLIENT,
+      requestId: REQUEST,
+      timezone: 'America/Bogota',
+      period: 'week',
+      count: 4,
+    })
+
+    const context = captured.find((query) => query.text.includes('app.request_id'))
+    expect(context?.values).toEqual([COACH, REQUEST])
+    const call = captured.find((query) => query.text.includes('read_client_progress'))
+    expect(call?.values).toEqual([COACH, ORGANIZATION, CLIENT, 'America/Bogota', 'week', 4])
+    expect(read).toEqual({ outcome: 'found', progress })
+  })
+
+  test('T-EXE-REVIEW-INT-06 with nothing shared it names the scope, and no answer is an error', async () => {
+    await setDatabase(
+      recordingDatabase([], (text) =>
+        text.includes('read_client_progress')
+          ? [
+              {
+                document: {
+                  outcome: 'scope_required',
+                  required_scope: { code: 'relationship_training', level: 'read' },
+                },
+              },
+            ]
+          : [{}],
+      ),
+    )
+    const input = {
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      subjectPersonId: CLIENT,
+      requestId: REQUEST,
+      timezone: 'UTC',
+      period: 'month' as const,
+      count: 2,
+    }
+    expect(await createExecutionReviewDatabase().readProgress(input)).toEqual({
+      outcome: 'scope_required',
+      requiredScope: { code: 'relationship_training', level: 'read' },
+    })
+    await setDatabase(recordingDatabase([], () => [{ document: null }]))
+    await expect(createExecutionReviewDatabase().readProgress(input)).rejects.toThrow()
+  })
+})
+
+describe('the observation bindings', () => {
+  test('T-EXE-REVIEW-INT-07 the observation is written as the coach, on the client and session given', async () => {
+    const captured: CapturedQuery[] = []
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('record_observation') ? [{ result: OBSERVATION, replayed: true }] : [{}],
+      ),
+    )
+
+    const result = await createExecutionReviewDatabase().recordObservation({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      subjectPersonId: CLIENT,
+      executionId: FIRST,
+      category: 'training',
+      provenance: 'professional_observation',
+      content: 'Bajó la técnica.',
+      idempotencyKey: KEY,
+      commandId: OBSERVATION_ID,
+      requestHash: HASH,
+    })
+
+    // A write records no read, so it carries no request id.
+    const context = captured.find((query) => query.text.includes('app.actor_person_id'))
+    expect(context?.values).toEqual([COACH, ''])
+    const call = captured.find((query) => query.text.includes('record_observation'))
+    expect(call?.values).toEqual([
+      COACH,
+      ORGANIZATION,
+      CLIENT,
+      FIRST,
+      'training',
+      'professional_observation',
+      'Bajó la técnica.',
+      KEY,
+      OBSERVATION_ID,
+      HASH,
+    ])
+    expect(result).toEqual({ resource: OBSERVATION, replayed: true })
+  })
+
+  test('T-EXE-REVIEW-INT-08 a correction names the observation and the revision it was made over', async () => {
+    const captured: CapturedQuery[] = []
+    await setDatabase(
+      recordingDatabase(captured, (text) =>
+        text.includes('revise_observation') ? [{ result: OBSERVATION, replayed: false }] : [{}],
+      ),
+    )
+
+    await createExecutionReviewDatabase().reviseObservation({
+      personId: COACH,
+      organizationId: ORGANIZATION,
+      observationId: OBSERVATION_ID,
+      expectedRevision: 1,
+      content: 'Dos series.',
+      reason: 'Eran dos.',
+      idempotencyKey: KEY,
+      commandId: '019f5000-0000-7000-8000-000000000d01',
+      requestHash: HASH,
+    })
+
+    const call = captured.find((query) => query.text.includes('revise_observation'))
+    expect(call?.values).toEqual([
+      COACH,
+      ORGANIZATION,
+      OBSERVATION_ID,
+      1,
+      'Dos series.',
+      'Eran dos.',
+      KEY,
+      '019f5000-0000-7000-8000-000000000d01',
+      HASH,
+    ])
+    await setDatabase(recordingDatabase([], () => []))
+    await expect(
+      createExecutionReviewDatabase().reviseObservation({
+        personId: COACH,
+        organizationId: ORGANIZATION,
+        observationId: OBSERVATION_ID,
+        expectedRevision: 1,
+        content: 'Dos series.',
+        reason: 'Eran dos.',
+        idempotencyKey: KEY,
+        commandId: '019f5000-0000-7000-8000-000000000d01',
+        requestHash: HASH,
       }),
     ).rejects.toThrow()
   })

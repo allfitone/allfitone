@@ -24,7 +24,11 @@ import type {
   AuthorizedExecution,
   AuthorizedExecutionRead,
   AuthorizedExecutionSummary,
+  ClientProgress,
+  ClientProgressRead,
   ExecutionReviewDatabase,
+  ObservationCommandResult,
+  ProfessionalObservation,
   Abandoned,
   Attempt,
   FreeSession,
@@ -494,6 +498,15 @@ type AuthorizedDocument =
   | { outcome: 'not_found' }
   | { outcome: 'scope_required'; required_scope: { code: string; level: 'read' | 'contribute' } }
 
+type ProgressDocument =
+  | ({ outcome: 'found' } & ClientProgress)
+  | { outcome: 'scope_required'; required_scope: { code: string; level: 'read' | 'contribute' } }
+
+interface ObservationRow {
+  result: ProfessionalObservation
+  replayed: boolean
+}
+
 /**
  * PostgreSQL access for the coach's review of a client (`OP-EXE-017`, `OP-EXE-018`).
  *
@@ -558,7 +571,73 @@ export function createExecutionReviewDatabase(
           return document
         },
       ),
+
+    readProgress: (input) =>
+      transact(
+        sql,
+        input.personId,
+        input.requestId,
+        async (transaction): Promise<ClientProgressRead> => {
+          const [row] = await transaction<{ document: ProgressDocument | null }[]>`
+            select execution.read_client_progress(
+              ${input.personId}::uuid, ${input.organizationId}::uuid,
+              ${input.subjectPersonId}::uuid, ${input.timezone}::text, ${input.period}::text,
+              ${input.count}::integer
+            ) as document
+          `
+          const document = row?.document
+          if (!document) throw new Error('PostgreSQL did not answer the client progress')
+          if (document.outcome === 'scope_required') {
+            return { outcome: 'scope_required', requiredScope: document.required_scope }
+          }
+          return {
+            outcome: 'found',
+            progress: {
+              period: document.period,
+              sources: document.sources,
+              algorithm: document.algorithm,
+              periods: document.periods,
+              movements: document.movements,
+            },
+          }
+        },
+      ),
+
+    // A write records no read: no request id travels with it.
+    recordObservation: (input) =>
+      transact(sql, input.personId, '', async (transaction) => {
+        const [row] = await transaction<ObservationRow[]>`
+          select * from execution.record_observation(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.subjectPersonId}::uuid, ${input.executionId}::uuid, ${input.category}::text,
+            ${input.provenance}::text, ${input.content}::text, ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return observationResult(row, 'record the observation')
+      }),
+
+    reviseObservation: (input) =>
+      transact(sql, input.personId, '', async (transaction) => {
+        const [row] = await transaction<ObservationRow[]>`
+          select * from execution.revise_observation(
+            ${input.personId}::uuid, ${input.organizationId}::uuid,
+            ${input.observationId}::uuid, ${input.expectedRevision}::integer,
+            ${input.content}::text, ${input.reason}::text, ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return observationResult(row, 'revise the observation')
+      }),
   }
+}
+
+function observationResult(
+  row: ObservationRow | undefined,
+  operation: string,
+): ObservationCommandResult {
+  if (!row) throw new Error(`PostgreSQL did not ${operation}`)
+  return { resource: row.result, replayed: row.replayed }
 }
 
 function transact<T>(

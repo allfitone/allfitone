@@ -11,6 +11,8 @@ import type {
   AuthorizedExecutionPage,
   AuthorizedExecutionRead,
   AuthorizedExecutionSummary,
+  ClientProgress,
+  ClientProgressRead,
   Execution,
   ExecutionDatabase,
   ExecutionReviewDatabase,
@@ -18,6 +20,8 @@ import type {
   HistoryMonth,
   HistoryPage,
   HistoryQuery,
+  ObservationCommandResult,
+  ProfessionalObservation,
   WeekSummary,
 } from '../domain/index.js'
 
@@ -98,6 +102,9 @@ export function createSpaceExecutionService(
 export interface StudioExecutionReviewService {
   list: ExecutionReviewDatabase['listAuthorized']
   read: ExecutionReviewDatabase['readAuthorized']
+  progress: ExecutionReviewDatabase['readProgress']
+  observe: ExecutionReviewDatabase['recordObservation']
+  reviseObservation: ExecutionReviewDatabase['reviseObservation']
 }
 
 export type {
@@ -105,6 +112,10 @@ export type {
   AuthorizedExecutionPage,
   AuthorizedExecutionRead,
   AuthorizedExecutionSummary,
+  ClientProgress,
+  ClientProgressRead,
+  ObservationCommandResult,
+  ProfessionalObservation,
 }
 
 export function createStudioExecutionReviewService(
@@ -113,5 +124,8 @@ export function createStudioExecutionReviewService(
   return {
     list: (input) => database.listAuthorized(input),
     read: (input) => database.readAuthorized(input),
+    progress: (input) => database.readProgress(input),
+    observe: (input) => database.recordObservation(input),
+    reviseObservation: (input) => database.reviseObservation(input),
   }
 }

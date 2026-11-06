@@ -125,4 +125,36 @@ describe('Studio surface CORS', () => {
       expect.arrayContaining(['content-type', 'if-match', 'command-id']),
     )
   })
+
+  test('allows a coach to post an observation and its correction, and to see a replay', async () => {
+    process.env.API_PUBLIC_URL = 'https://api.example.test'
+    process.env.STUDIO_WEB_URL = 'https://studio.example.test'
+    process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
+    const organization = '/studio/v1/organizations/019a0ab9-b723-7b7b-954d-5385eb5d1ea9'
+
+    for (const path of [
+      `${organization}/clients/019a1195-9cd8-7b28-8d54-794366a94883/observations`,
+      `${organization}/observations/019a1195-9cd8-7b28-8d54-794366a94884/revisions`,
+    ]) {
+      const response = await createApp().request(path, {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://studio.example.test',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type,idempotency-key,command-id',
+        },
+      })
+      const allowedHeaders = (response.headers.get('access-control-allow-headers') ?? '')
+        .toLowerCase()
+        .split(',')
+        .map((header) => header.trim())
+
+      expect(response.status).toBe(204)
+      expect(response.headers.get('access-control-allow-methods')).toContain('POST')
+      expect(allowedHeaders).toEqual(
+        expect.arrayContaining(['content-type', 'idempotency-key', 'command-id']),
+      )
+      expect(response.headers.get('access-control-expose-headers')).toContain('Idempotent-Replay')
+    }
+  })
 })
