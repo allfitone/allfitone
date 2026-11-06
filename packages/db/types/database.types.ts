@@ -1301,6 +1301,44 @@ export type Database = {
           },
         ]
       }
+      body_photo_shares: {
+        Row: {
+          body_photo_id: string
+          id: string
+          person_id: string
+          relationship_id: string
+          shared_at: string
+          status: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          body_photo_id: string
+          id?: string
+          person_id: string
+          relationship_id: string
+          shared_at?: string
+          status?: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          body_photo_id?: string
+          id?: string
+          person_id?: string
+          relationship_id?: string
+          shared_at?: string
+          status?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_body_photo_shares_photo'
+            columns: ['body_photo_id', 'person_id']
+            isOneToOne: false
+            referencedRelation: 'body_photos'
+            referencedColumns: ['id', 'person_id']
+          },
+        ]
+      }
       body_photos: {
         Row: {
           created_at: string
@@ -2517,6 +2555,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      body_photo_share_document: {
+        Args: { p_body_photo_id: string; p_relationship_id: string }
+        Returns: Json
+      }
       body_progress_projection: { Args: { p_record_id: string }; Returns: Json }
       cancel_account_recovery: {
         Args: {
@@ -2949,6 +2991,39 @@ export type Database = {
         }
         Returns: Json
       }
+      list_client_body_progress: {
+        Args: {
+          p_cursor_id: string
+          p_cursor_measured_on: string
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_subject_person_id: string
+        }
+        Returns: Json
+      }
+      list_client_health_context: {
+        Args: {
+          p_cursor_id: string
+          p_cursor_valid_from: string
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_subject_person_id: string
+        }
+        Returns: Json
+      }
+      list_client_shared_body_photos: {
+        Args: {
+          p_cursor_id: string
+          p_cursor_taken_on: string
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_subject_person_id: string
+        }
+        Returns: Json
+      }
       list_credential_verification_requests: {
         Args: {
           p_actor_person_id: string
@@ -3108,6 +3183,31 @@ export type Database = {
           provider_session_id: string
         }[]
       }
+      open_client_category: {
+        Args: {
+          p_organization_id: string
+          p_person_id: string
+          p_purpose: string
+          p_resource: string
+          p_scope_code: string
+          p_subject_person_id: string
+        }
+        Returns: {
+          grant_id: string
+          relationship_id: string
+          scope_definition_id: string
+          scope_version: number
+        }[]
+      }
+      open_client_shared_body_photo: {
+        Args: {
+          p_body_photo_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_subject_person_id: string
+        }
+        Returns: Json
+      }
       open_credential_verification_renewal: {
         Args: {
           p_actor_person_id: string
@@ -3216,6 +3316,14 @@ export type Database = {
           p_actor_session_id: string
           p_case_reference: string
           p_person_id: string
+        }
+        Returns: Json
+      }
+      read_client_training_profile: {
+        Args: {
+          p_organization_id: string
+          p_person_id: string
+          p_subject_person_id: string
         }
         Returns: Json
       }
@@ -3553,6 +3661,28 @@ export type Database = {
         Args: { p_media_ref: string; p_person_id: string }
         Returns: undefined
       }
+      share_body_photo: {
+        Args: {
+          p_body_photo_id: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_relationship_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      shared_scope: {
+        Args: { p_relationship_id: string; p_scope_code: string }
+        Returns: {
+          grant_id: string
+          scope_definition_id: string
+          scope_version: number
+        }[]
+      }
       skip_onboarding_step: {
         Args: {
           p_account_id: string
@@ -3633,6 +3763,20 @@ export type Database = {
           p_verification_url: string
         }
         Returns: undefined
+      }
+      withdraw_body_photo_share: {
+        Args: {
+          p_body_photo_id: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_relationship_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
       }
     }
     Enums: {

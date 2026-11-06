@@ -80,6 +80,25 @@ function training(resource: string, action: Rule['max_action'], field = '*'): Ru
   }
 }
 
+/** Her training profile, claim by claim with its origin, and her biological sex. No history:
+ * the coach reads what holds now, never what she declared before the grant. */
+const TRAINING_PROFILE: Rule[] = [
+  ...['attribute_code', 'value_text', 'value_numeric', 'unit_code', 'provenance', 'valid_from'].map(
+    (field): Rule => ({
+      resource: 'identity.fitness_profile_claims',
+      field,
+      data_classification_code: 'training',
+      max_action: 'read',
+    }),
+  ),
+  {
+    resource: 'identity.people',
+    field: 'biological_sex',
+    data_classification_code: 'training',
+    max_action: 'read',
+  },
+]
+
 /** Her results, read only: a lap by its fields, because its heart rate is in no V1 scope. */
 const trainingResults = (): Rule[] => [
   ...TRAINING_EXECUTION.map((resource) => training(resource, 'read')),
@@ -97,7 +116,9 @@ export const V1_SCOPES: ScopeRules[] = [
       // grant began, so the rule says so instead of promising less than is shared.
       training('execution.planned_session_executions', 'read'),
       ...trainingResults(),
+      ...TRAINING_PROFILE,
       denied('identity.body_progress_records', 'body'),
+      denied('identity.body_photos', 'body'),
       denied('identity.health_context_claims', 'health'),
       denied('nutrition.meals', 'nutrition'),
     ],
@@ -129,9 +150,14 @@ export const V1_SCOPES: ScopeRules[] = [
         max_action: 'read',
         historical_readable: true,
       })),
-      // Her photos stay out: nothing lets her choose which ones a gym sees, and including
-      // them would hand over every one. Choosing is a later version.
-      denied('identity.body_photos', 'body'),
+      // Only the photos she shows that gym: the image travels through the API's proxy and
+      // the key itself never leaves the API (`identity.body_photo_shares`).
+      ...['taken_on', 'media_ref'].map((field): Rule => ({
+        resource: 'identity.body_photos',
+        field,
+        data_classification_code: 'body',
+        max_action: 'read',
+      })),
       denied('identity.body_progress_records', 'body', 'media_ref'),
       denied('identity.body_progress_records', 'body', 'has_media'),
       denied('identity.health_context_claims', 'health'),
@@ -141,7 +167,7 @@ export const V1_SCOPES: ScopeRules[] = [
     code: 'health_context',
     rules: [
       // No history in V1, on any field. The documentation says so literally.
-      ...['context_type', 'description', 'body_area', 'valid_from', 'valid_to'].map(
+      ...['context_type', 'description', 'body_area', 'provenance', 'valid_from', 'valid_to'].map(
         (field): Rule => ({
           resource: 'identity.health_context_claims',
           field,
