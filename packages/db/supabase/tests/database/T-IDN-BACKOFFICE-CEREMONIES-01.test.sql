@@ -1,10 +1,15 @@
 begin;
 
-select plan(16);
+select plan(17);
 
 select ok(
   pg_has_role('postgres', 'allfit_migrator', 'SET'),
   'the protected workflow connection can narrow itself to allfit_migrator'
+);
+
+select ok(
+  pg_has_role(current_user, 'allfit_migrator', 'SET'),
+  'the login that applies migrations can narrow itself to allfit_migrator, whatever its name'
 );
 
 select ok(
