@@ -340,7 +340,7 @@ describe('the bindings of the corrections proposed to her', () => {
     organization_name: 'Gym A',
   })
 
-  test('T-EXE-PROPOSAL-INT-03 her list is hers, one past the page, keyed on the last shown', async () => {
+  test('T-EXE-API-PROP-07 her list is hers, one past the page, keyed on the last shown', async () => {
     const captured: CapturedQuery[] = []
     const rows = [
       proposal(PROPOSAL_ID, '2026-12-01T10:00:00.111111+00:00'),
@@ -369,7 +369,7 @@ describe('the bindings of the corrections proposed to her', () => {
     })
   })
 
-  test('T-EXE-PROPOSAL-INT-04 her decision names her, the proposal and the command', async () => {
+  test('T-EXE-API-PROP-08 her decision names her, the proposal and the command', async () => {
     const captured: CapturedQuery[] = []
     const decided: CorrectionProposal = {
       ...proposal(PROPOSAL_ID, '2026-12-01T10:00:00+00:00'),

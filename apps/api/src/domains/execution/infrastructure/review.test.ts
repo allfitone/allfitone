@@ -372,7 +372,7 @@ const proposed = (id: string, expiresAt: string): ProposedCorrection => ({
 })
 
 describe('the proposal bindings', () => {
-  test('T-EXE-PROPOSAL-INT-01 the proposal is written as the coach, on the client, session and set given', async () => {
+  test('T-EXE-REVIEW-INT-09 the proposal is written as the coach, on the client, session and set given', async () => {
     const captured: CapturedQuery[] = []
     const resource = proposed(PROPOSAL_ID, '2026-12-06T12:00:00.123456+00:00')
     await setDatabase(
@@ -433,7 +433,7 @@ describe('the proposal bindings', () => {
     ).rejects.toThrow()
   })
 
-  test('T-EXE-PROPOSAL-INT-02 the list asks one past the page and keys the next on the last shown', async () => {
+  test('T-EXE-REVIEW-INT-10 the list asks one past the page and keys the next on the last shown', async () => {
     const captured: CapturedQuery[] = []
     const rows = [
       proposed(FIRST, '2026-12-01T10:00:00.111111+00:00'),
