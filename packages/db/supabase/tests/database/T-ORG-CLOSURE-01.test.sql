@@ -447,14 +447,16 @@ select is((select array_agg(status order by assignment_id) from planning.planned
   array['paused', 'scheduled'],
   'T-ORG-CLOSURE-INT-22 its sessions ahead pause and the other gym''s stay planned');
 -- An observation needs nothing at closure: once the relationship ends nobody writes or corrects one.
+-- A correction proposal is cancelled by close_relationship, which the closure runs for each
+-- relationship (T-EXE-PROPOSAL-CANCEL-INT-06). A new table here needs the same decision.
 select set_eq($$select table_name::text from information_schema.tables
     where table_schema = 'execution' and table_type = 'BASE TABLE'$$,
-  array['endurance_laps', 'executed_sessions', 'execution_revisions', 'interval_results',
-    'mobility_results', 'observation_revisions', 'planned_session_executions',
+  array['correction_proposals', 'endurance_laps', 'executed_sessions', 'execution_revisions',
+    'interval_results', 'mobility_results', 'observation_revisions', 'planned_session_executions',
     'professional_observations', 'round_results', 'session_exercises', 'session_segments',
     'strength_sets'],
-  'T-ORG-CLOSURE-INT-20 Execution holds no correction proposals yet: when this fails, '
-  || 'add execution.cancel_proposals_for_organization_closure to OP-ORG-012');
+  'T-ORG-CLOSURE-INT-20 every Execution table has been decided for the closure: '
+  || 'when this fails, decide what closing the organization does to the new one');
 
 select * from finish();
 rollback;

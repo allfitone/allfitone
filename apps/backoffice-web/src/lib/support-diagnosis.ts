@@ -103,6 +103,7 @@ const JOB_LABELS: Record<string, string> = {
   account_recovery_delivery: 'Recuperación de cuentas',
   platform_duty_lapse: 'Vencimiento de deberes',
   privacy_disposition: 'Eliminaciones de privacidad',
+  correction_proposal_expiry: 'Vencimiento de propuestas de corrección',
 }
 
 /** A known job reads as what it does; a new one is named by its code until it has words. */

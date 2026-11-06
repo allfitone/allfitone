@@ -13,6 +13,11 @@ import type {
   AuthorizedExecutionSummary,
   ClientProgress,
   ClientProgressRead,
+  CorrectionCommandResult,
+  CorrectionCursor,
+  CorrectionPage,
+  CorrectionProposal,
+  CorrectionProposalStatus,
   Execution,
   ExecutionDatabase,
   ExecutionReviewDatabase,
@@ -22,6 +27,7 @@ import type {
   HistoryQuery,
   ObservationCommandResult,
   ProfessionalObservation,
+  ProposedCorrection,
   WeekSummary,
 } from '../domain/index.js'
 
@@ -45,6 +51,8 @@ export interface SpaceExecutionService {
   annul: ExecutionDatabase['annul']
   readAnnulmentPreview: ExecutionDatabase['readAnnulmentPreview']
   repeat: ExecutionDatabase['repeat']
+  listCorrectionProposals: ExecutionDatabase['listCorrectionProposals']
+  decideCorrectionProposal: ExecutionDatabase['decideCorrectionProposal']
 }
 
 export type { Execution, ExecutionSummary, HistoryMonth, HistoryPage, HistoryQuery, WeekSummary }
@@ -92,6 +100,8 @@ export function createSpaceExecutionService(
     annul: (input) => database.annul(input),
     readAnnulmentPreview: (input) => database.readAnnulmentPreview(input),
     repeat: (input) => database.repeat(input),
+    listCorrectionProposals: (input) => database.listCorrectionProposals(input),
+    decideCorrectionProposal: (input) => database.decideCorrectionProposal(input),
   }
 }
 
@@ -105,6 +115,8 @@ export interface StudioExecutionReviewService {
   progress: ExecutionReviewDatabase['readProgress']
   observe: ExecutionReviewDatabase['recordObservation']
   reviseObservation: ExecutionReviewDatabase['reviseObservation']
+  propose: ExecutionReviewDatabase['proposeCorrection']
+  listProposed: ExecutionReviewDatabase['listProposedCorrections']
 }
 
 export type {
@@ -114,8 +126,14 @@ export type {
   AuthorizedExecutionSummary,
   ClientProgress,
   ClientProgressRead,
+  CorrectionCommandResult,
+  CorrectionCursor,
+  CorrectionPage,
+  CorrectionProposal,
+  CorrectionProposalStatus,
   ObservationCommandResult,
   ProfessionalObservation,
+  ProposedCorrection,
 }
 
 export function createStudioExecutionReviewService(
@@ -127,5 +145,7 @@ export function createStudioExecutionReviewService(
     progress: (input) => database.readProgress(input),
     observe: (input) => database.recordObservation(input),
     reviseObservation: (input) => database.reviseObservation(input),
+    propose: (input) => database.proposeCorrection(input),
+    listProposed: (input) => database.listProposedCorrections(input),
   }
 }

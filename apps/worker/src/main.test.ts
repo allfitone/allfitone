@@ -9,6 +9,7 @@ import type { BackofficeAuthBatchResult } from './backoffice-auth.js'
 import type { AccountRecoveryBatchResult } from './account-recovery.js'
 import type { PlatformDutyLapseResult } from './platform-duties.js'
 import type { PrivacyDispositionResult } from './privacy-dispositions.js'
+import type { CorrectionProposalExpiryResult } from './correction-proposal-expiry.js'
 import type { JobRun, WorkerJobProcessors } from './index.js'
 
 type WorkerEvent = TelemetryEventFor<'worker.job.completed.v1'>
@@ -51,14 +52,16 @@ test('runs the batch after authenticating the scheduler', async () => {
     accountRecovery: recoveryResult(),
     platformDuties: lapseResult(),
     privacyDispositions: dispositionResult(),
+    correctionProposals: expiryResult(),
   })
-  expect(captured).toHaveLength(6)
+  expect(captured).toHaveLength(7)
   for (const job of [
     'invitation_delivery',
     'backoffice_auth_cleanup',
     'account_recovery_delivery',
     'platform_duty_lapse',
     'privacy_disposition',
+    'correction_proposal_expiry',
   ]) {
     expect(captured).toContainEqual(
       expect.objectContaining({
@@ -67,10 +70,42 @@ test('runs the batch after authenticating the scheduler', async () => {
       }),
     )
   }
-  expect(captured[5]).toMatchObject({
+  expect(captured[6]).toMatchObject({
     event: 'worker.job.completed.v1',
     properties: { job: 'outbox_batch', outcome: 'completed', item_count: 0 },
   })
+})
+
+test('expires the correction proposals past their thirty days every minute, and counts them', async () => {
+  // OP-SYS-004: no command happens when a proposal's thirty days end.
+  const captured: WorkerEvent[] = []
+  const telemetry: ServerTelemetryAdapter = {
+    capture: (event) => {
+      if (event.event === 'worker.job.completed.v1') captured.push(event)
+    },
+    shutdown: async () => undefined,
+  }
+  const processors = successfulProcessors()
+  processors.correctionProposalExpiry = async () => expiryResult({ claimed: 4, expired: 4 })
+
+  const response = await createWorkerApp(processors, telemetry, operationalLogs()).request(
+    '/cron/outbox',
+    { headers: { authorization: 'Bearer cron-test-secret' } },
+  )
+
+  expect(response.status).toBe(200)
+  await expect(response.json()).resolves.toMatchObject({
+    correctionProposals: { claimed: 4, deadOrDelayed: 0, expired: 4 },
+  })
+  expect(captured).toContainEqual(
+    expect.objectContaining({
+      properties: expect.objectContaining({
+        job: 'correction_proposal_expiry',
+        outcome: 'completed',
+        item_count: 4,
+      }),
+    }),
+  )
 })
 
 test('lapses the legal holds past their date and executes the deletions they let go', async () => {
@@ -161,9 +196,10 @@ test('marks individual and aggregate jobs as retrying when work was delayed', as
     ['account_recovery_delivery', 'retrying'],
     ['platform_duty_lapse', 'completed'],
     ['privacy_disposition', 'completed'],
+    ['correction_proposal_expiry', 'completed'],
     ['outbox_batch', 'retrying'],
   ])
-  expect(captured[5]?.properties.item_count).toBe(2)
+  expect(captured[6]?.properties.item_count).toBe(2)
 })
 
 test('emits failed job and aggregate events without unreliable item counts', async () => {
@@ -239,6 +275,7 @@ function successfulProcessors(): WorkerJobProcessors {
     accountRecoveryDelivery: async () => recoveryResult(),
     platformDutyLapse: async () => lapseResult(),
     privacyDisposition: async () => dispositionResult(),
+    correctionProposalExpiry: async () => expiryResult(),
     recordJobRun: async () => undefined,
   }
 }
@@ -280,6 +317,12 @@ test('a run that cannot be recorded never changes what the batch did', async () 
 
   expect(response.status).toBe(200)
 })
+
+function expiryResult(
+  overrides: Partial<CorrectionProposalExpiryResult> = {},
+): CorrectionProposalExpiryResult {
+  return { claimed: 0, deadOrDelayed: 0, expired: 0, ...overrides }
+}
 
 function dispositionResult(
   overrides: Partial<PrivacyDispositionResult> = {},

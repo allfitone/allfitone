@@ -126,7 +126,29 @@ describe('Studio surface CORS', () => {
     )
   })
 
-  test('allows a coach to post an observation and its correction, and to see a replay', async () => {
+  test('allows a coach to read the corrections he proposed from the Studio origin', async () => {
+    process.env.API_PUBLIC_URL = 'https://api.example.test'
+    process.env.STUDIO_WEB_URL = 'https://studio.example.test'
+    process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
+
+    const response = await createApp().request(
+      '/studio/v1/organizations/019a0ab9-b723-7b7b-954d-5385eb5d1ea9/correction-proposals',
+      {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://studio.example.test',
+          'access-control-request-method': 'GET',
+        },
+      },
+    )
+
+    expect(response.status).toBe(204)
+    expect(response.headers.get('access-control-allow-origin')).toBe('https://studio.example.test')
+    expect(response.headers.get('access-control-allow-credentials')).toBe('true')
+    expect(response.headers.get('access-control-allow-methods')).toContain('GET')
+  })
+
+  test('allows a coach to post an observation, its correction or a proposal, and to see a replay', async () => {
     process.env.API_PUBLIC_URL = 'https://api.example.test'
     process.env.STUDIO_WEB_URL = 'https://studio.example.test'
     process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
@@ -135,6 +157,7 @@ describe('Studio surface CORS', () => {
     for (const path of [
       `${organization}/clients/019a1195-9cd8-7b28-8d54-794366a94883/observations`,
       `${organization}/observations/019a1195-9cd8-7b28-8d54-794366a94884/revisions`,
+      `${organization}/clients/019a1195-9cd8-7b28-8d54-794366a94883/correction-proposals`,
     ]) {
       const response = await createApp().request(path, {
         method: 'OPTIONS',

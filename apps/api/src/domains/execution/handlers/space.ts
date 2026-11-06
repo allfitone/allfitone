@@ -5,6 +5,8 @@
  * recorded, close it, or leave it; and read back what was trained, one session's summary
  * or the history and its months (`OP-EXE-014`, `OP-EXE-022`). A finished session is read
  * set by set, corrected, annulled or repeated (`OP-EXE-023`, `007`, `009`, `024`, `025`).
+ * The corrections a professional proposed to her are listed and decided here, by her
+ * alone (`OP-EXE-020`, `OP-EXE-013`).
  *
  * **Leaving is not deleting.** `OP-EXE-003` closes the attempt as abandoned and keeps
  * what it recorded: training that happened stays in the history, marked as unfinished
@@ -31,13 +33,27 @@ import {
 import { authProvider } from '../../../platform/auth/index.js'
 import { spaceExecutionService } from '../dependencies.js'
 import type { SpaceExecutionService } from '../application/index.js'
-import type { ExecutionResultsReplace, ExecutionRevision } from '../domain/index.js'
+import type {
+  CorrectionDecision,
+  CorrectionProposalStatus,
+  ExecutionResultsReplace,
+  ExecutionRevision,
+} from '../domain/index.js'
+import { decodeCursor, encodeCursor } from './cursor.js'
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const LEVELS = new Set(['partial', 'summary', 'detailed', 'sensor_enriched'])
 const SOURCES = new Set(['manual', 'device'])
 const MAX_TIMEZONE = 64
+const STATUSES: ReadonlyArray<CorrectionProposalStatus> = [
+  'pending',
+  'accepted',
+  'rejected',
+  'expired',
+  'cancelled',
+]
+const DECISIONS: ReadonlyArray<CorrectionDecision> = ['accept', 'reject']
 
 export type TokenVerifier = (token: string) => Promise<VerifiedToken>
 
@@ -439,6 +455,60 @@ export function spaceExecutionRoutes(
     }
   })
 
+  routes.get('/correction-proposals', async (c) => {
+    c.header('Cache-Control', 'no-store')
+
+    const token = await verified(c, verify)
+    if (!token) return fail(c, 'unauthenticated')
+
+    const query = readProposalQuery(c)
+    if (!query) return fail(c, 'invalid-request')
+
+    try {
+      const personId = await actors().personFor(token.subject)
+      const page = await execution().listCorrectionProposals({ personId, ...query })
+      return c.json(
+        {
+          data: page.items,
+          page: {
+            has_more: page.hasMore,
+            next_cursor: page.nextCursor ? encodeCursor(page.nextCursor) : null,
+          },
+        },
+        200,
+      )
+    } catch (cause) {
+      return failure(c, cause)
+    }
+  })
+
+  routes.post('/correction-proposals/:proposalId/decision', async (c) => {
+    c.header('Cache-Control', 'no-store')
+
+    const token = await verified(c, verify)
+    if (!token) return fail(c, 'unauthenticated')
+
+    const proposalId = c.req.param('proposalId')
+    const body = await readJson(c)
+    const decision = readDecision(body)
+    const command = commandContext(c, body)
+    if (!UUID_V7.test(proposalId) || !decision || !command) return fail(c, 'invalid-request')
+
+    try {
+      const personId = await actors().personFor(token.subject)
+      const decided = await execution().decideCorrectionProposal({
+        personId,
+        proposalId,
+        decision,
+        ...command,
+      })
+      if (decided.replayed) c.header('Idempotent-Replay', 'true')
+      return c.json(decided.resource, 200)
+    } catch (cause) {
+      return failure(c, cause)
+    }
+  })
+
   return routes
 }
 
@@ -502,6 +572,7 @@ function failure(c: Context, cause: unknown): Response {
     // The SQLSTATE, not the message: a refusal without it is a 400 nobody can chase.
     console.warn('[execution] space command refused', { code, detail: String(cause).slice(0, 160) })
     if (code === '42501') return fail(c, 'forbidden')
+    if (code === 'P0002') return fail(c, 'not-found')
     if (code === '22023' || code === '23514') return fail(c, 'invalid-request')
     // A stale revision is a conflict, not a failure: the client re-reads and retries.
     if (code === '40001' || code === '23505') return fail(c, 'conflict')
@@ -628,6 +699,28 @@ function readRepetition(body: unknown): { startedAt: string; timezone: string } 
   const zone = timezone.trim()
   if (zone === '' || zone.length > MAX_TIMEZONE) return undefined
   return { startedAt, timezone: zone }
+}
+
+/** The page of her proposals: the contract's filter, page size and an opaque cursor. */
+function readProposalQuery(c: Context) {
+  const rawStatus = c.req.query('status')
+  const status = STATUSES.find((candidate) => candidate === rawStatus) ?? null
+  if (rawStatus !== undefined && status === null) return undefined
+  const rawLimit = c.req.query('limit') ?? '25'
+  if (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > 100) return undefined
+  const limit = Number(rawLimit)
+  const rawCursor = c.req.query('cursor')
+  if (!rawCursor) return { status, limit }
+  const cursor = decodeCursor(rawCursor, 'expiresAt')
+  return cursor ? { status, limit, cursor: { expiresAt: cursor.at, id: cursor.id } } : undefined
+}
+
+function readDecision(body: unknown): CorrectionDecision | undefined {
+  if (typeof body !== 'object' || body === null) return undefined
+  const keys = Object.keys(body)
+  if (keys.length !== 1 || keys[0] !== 'decision') return undefined
+  const value = (body as { decision: unknown }).decision
+  return DECISIONS.find((decision) => decision === value)
 }
 
 function readEndedAt(body: unknown): string | undefined {

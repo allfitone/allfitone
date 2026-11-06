@@ -4147,6 +4147,198 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  CorrectionCancelReason: {
+    description:
+      'Why a proposal stopped waiting: she corrected the session herself (`target_changed`), annulled it, hid it from the organization, or the relationship ended.',
+    type: ['string', 'null'],
+    enum: ['target_changed', 'session_annulled', 'session_hidden', 'relationship_terminated', null],
+  },
+  CorrectionDecisionCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['decision'],
+    example: {
+      decision: 'accept',
+    },
+    properties: {
+      decision: {
+        type: 'string',
+        enum: ['accept', 'reject'],
+      },
+    },
+  },
+  CorrectionField: {
+    description: 'The field of a strength set a correction proposes a value for.',
+    type: 'string',
+    enum: ['achieved_reps', 'load', 'rpe'],
+  },
+  CorrectionProposal: {
+    description: 'A proposal as she sees it.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'execution_id',
+      'set_order',
+      'movement_id',
+      'movement_name',
+      'field',
+      'current',
+      'proposed',
+      'reason',
+      'status',
+      'cancel_reason',
+      'created_at',
+      'expires_at',
+      'settled_at',
+      'proposer_name',
+      'organization_name',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      execution_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      set_order: {
+        type: 'integer',
+        minimum: 1,
+      },
+      movement_id: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      movement_name: {
+        type: ['string', 'null'],
+      },
+      field: {
+        $ref: '#/components/schemas/CorrectionField',
+      },
+      current: {
+        description: 'What she had declared when it was proposed.',
+        allOf: [
+          {
+            $ref: '#/components/schemas/CorrectionValue',
+          },
+        ],
+      },
+      proposed: {
+        $ref: '#/components/schemas/CorrectionValue',
+      },
+      reason: {
+        type: 'string',
+      },
+      status: {
+        $ref: '#/components/schemas/CorrectionProposalStatus',
+      },
+      cancel_reason: {
+        $ref: '#/components/schemas/CorrectionCancelReason',
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      expires_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      settled_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      proposer_name: {
+        type: 'string',
+      },
+      organization_name: {
+        type: 'string',
+      },
+    },
+  },
+  CorrectionProposalCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['execution_id', 'set_order', 'field', 'value', 'reason'],
+    example: {
+      execution_id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b',
+      set_order: 2,
+      field: 'load',
+      value: 62.5,
+      unit: 'kg',
+      reason: 'La barra pesaba 2,5 kg más de lo anotado.',
+    },
+    properties: {
+      execution_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      set_order: {
+        description: "The set's order within the session, as the session shows it.",
+        type: 'integer',
+        minimum: 1,
+      },
+      field: {
+        $ref: '#/components/schemas/CorrectionField',
+      },
+      value: {
+        description:
+          'Repetitions are a whole number from 1 to 1000, an RPE is from 0 to 10, and a load is from 0 and below 10000 in its unit.',
+        type: 'number',
+        minimum: 0,
+      },
+      unit: {
+        description: 'A mass unit for a load; absent or null for the other fields.',
+        type: ['string', 'null'],
+        minLength: 1,
+        maxLength: 16,
+      },
+      reason: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 500,
+      },
+    },
+  },
+  CorrectionProposalPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/CorrectionProposal',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  CorrectionProposalStatus: {
+    description: '`expired` includes one past its thirty days that no sweep has marked yet.',
+    type: 'string',
+    enum: ['pending', 'accepted', 'rejected', 'expired', 'cancelled'],
+  },
+  CorrectionValue: {
+    description: 'A value for the field; `unit` is a mass unit for a load, and null otherwise.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['value', 'unit'],
+    properties: {
+      value: {
+        type: 'number',
+      },
+      unit: {
+        type: ['string', 'null'],
+      },
+    },
+  },
   CredentialRenewalCreate: {
     type: 'object',
     additionalProperties: false,
@@ -10899,6 +11091,101 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       template_version_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+    },
+  },
+  ProposedCorrection: {
+    description: 'A proposal as its proposer sees it. Never her value.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'client',
+      'target',
+      'field',
+      'proposed',
+      'reason',
+      'status',
+      'cancel_reason',
+      'created_at',
+      'expires_at',
+      'settled_at',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      client: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['person_id', 'name'],
+        properties: {
+          person_id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          name: {
+            type: 'string',
+          },
+        },
+      },
+      target: {
+        description:
+          'Where it pointed, only while the proposer still attends her and she shares her training; null otherwise.',
+        type: ['object', 'null'],
+        additionalProperties: false,
+        required: ['execution_id', 'set_order'],
+        properties: {
+          execution_id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          set_order: {
+            type: 'integer',
+            minimum: 1,
+          },
+        },
+      },
+      field: {
+        $ref: '#/components/schemas/CorrectionField',
+      },
+      proposed: {
+        $ref: '#/components/schemas/CorrectionValue',
+      },
+      reason: {
+        type: 'string',
+      },
+      status: {
+        $ref: '#/components/schemas/CorrectionProposalStatus',
+      },
+      cancel_reason: {
+        $ref: '#/components/schemas/CorrectionCancelReason',
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      expires_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      settled_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  ProposedCorrectionPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ProposedCorrection',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
     },
   },

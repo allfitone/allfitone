@@ -9260,6 +9260,96 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /space/v1/correction-proposals:
+    get:
+      tags: [Space Execution]
+      operationId: listMyCorrectionProposals
+      x-allfit-operation: OP-EXE-020
+      x-allfit-cache: no-store
+      summary: List the corrections proposed to me
+      description: >-
+        HU-SP-062. Every correction a professional proposed to a set of hers, soonest to
+        expire first: what she had declared, what they propose, why, who and from which
+        organization, and its state. One past its thirty days reads as expired before
+        any sweep marks it; cancelled ones stay, with why.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CorrectionProposalStatusFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of proposals, soonest to expire first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorrectionProposalPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/correction-proposals/{proposalId}/decision:
+    post:
+      tags: [Space Execution]
+      operationId: decideMyCorrectionProposal
+      x-allfit-operation: OP-EXE-013
+      x-allfit-cache: no-store
+      summary: Accept or reject a correction proposed to me
+      description: >-
+        HU-SP-063. Accepting writes the proposed value into the same set and moves the
+        session to its next revision, as her own correction does: the original, the
+        change, the reason and the proposal are kept. She is who made the change and
+        the value stays declared by her; the professional is recorded only as who
+        proposed it. Rejecting changes nothing.
+
+
+        It is decided once. One already decided, cancelled or past its thirty days is
+        409 `conflict`, even before any sweep marks it; so is one whose set no longer
+        holds what was proposed against. A retry of the same command answers the same.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProposalId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectionDecisionCreate'
+      responses:
+        '200':
+          description: The proposal, decided
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CorrectionProposal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CorrectionConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /space/v1/executions/{executionId}/invalidation:
     post:
       tags: [Space Execution]
@@ -9824,6 +9914,117 @@ paths:
           $ref: '#/components/responses/ObservationConflict'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/clients/{personId}/correction-proposals:
+    post:
+      tags: [Studio Execution]
+      operationId: proposeClientCorrection
+      x-allfit-operation: OP-EXE-012
+      x-allfit-cache: no-store
+      summary: Propose a correction to a strength set the client declared
+      description: >-
+        HU-STUDIO-059. The coach who holds her relationship, or a cover she accepted,
+        with `propose_corrections`, proposes a new value for one field of one set she
+        declared: the repetitions, the load or the RPE. Proposing changes nothing she
+        declared; the value changes only if she accepts it, within thirty days, and she
+        is told by email at once.
+
+
+        It needs her training shared at `contribute` (403 `scope-required` otherwise),
+        and lands on any set the coach may see: inside this relationship, or one she
+        trained on her own and shares under `prior_training_history`. What a device
+        captured or anybody observed is not hers to change: 422 `execution`. A session
+        she annulled or hid is 404. One field of one set waits on her for one proposal
+        at a time: a second is 409 `conflict`, as is one she cannot be told about
+        because she has no address. While her service is paused, 409 `service-paused`.
+        The Command-Id is the proposal's id; the answer never carries her value.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/PersonId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectionProposalCreate'
+      responses:
+        '201':
+          description: The proposal, waiting on her
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposedCorrection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/ScopeRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/CorrectionConflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/correction-proposals:
+    get:
+      tags: [Studio Execution]
+      operationId: listProposedCorrections
+      x-allfit-operation: OP-EXE-020
+      x-allfit-cache: private-no-store
+      summary: List the corrections one proposed in this organization
+      description: >-
+        HU-STUDIO-060. What the caller proposed here, soonest to expire first, with its
+        state: waiting, accepted, rejected, expired or cancelled. A proposal past its
+        thirty days reads as expired before any sweep marks it. Cancelled ones stay,
+        with why: her own correction of the session, an annulment, a hiding, or the end
+        of the relationship.
+
+
+        Never her value. `target` says where it pointed only while the caller still
+        attends her and she shares her training; otherwise it is null. Each
+        professional sees only their own.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/CorrectionProposalStatusFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of proposals, soonest to expire first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposedCorrectionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '503':
@@ -13518,6 +13719,19 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
+    ProposalId:
+      name: proposalId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    CorrectionProposalStatusFilter:
+      name: status
+      in: query
+      required: false
+      description: Only proposals in this state; without it, all of them.
+      schema:
+        $ref: '#/components/schemas/CorrectionProposalStatus'
     PersonId:
       name: personId
       in: path
@@ -14047,6 +14261,26 @@ components:
           example:
             type: https://errors.allfit.invalid/service-paused
             title: The person's service with this organization is paused
+            status: 409
+            request_id: 01JEXAMPLE0000000000000000
+    CorrectionConflict:
+      description: >-
+        The field already waits on her for another proposal, she has no address to be
+        told, the proposal is no longer open or its set moved on (`conflict`), her
+        service with this organization is paused (`service-paused`), or the idempotency
+        identity was reused or is still in progress (`conflict`, `idempotency-in-progress`)
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://errors.allfit.invalid/conflict
+            title: The request conflicts with the current state
             status: 409
             request_id: 01JEXAMPLE0000000000000000
     StaleDraft:
@@ -23393,6 +23627,197 @@ components:
         authored_by_me:
           description: Whether the reader wrote it, and so may correct it.
           type: boolean
+    CorrectionField:
+      description: The field of a strength set a correction proposes a value for.
+      type: string
+      enum: [achieved_reps, load, rpe]
+    CorrectionProposalStatus:
+      description: >-
+        `expired` includes one past its thirty days that no sweep has marked yet.
+      type: string
+      enum: [pending, accepted, rejected, expired, cancelled]
+    CorrectionCancelReason:
+      description: >-
+        Why a proposal stopped waiting: she corrected the session herself
+        (`target_changed`), annulled it, hid it from the organization, or the
+        relationship ended.
+      type: [string, 'null']
+      enum: [target_changed, session_annulled, session_hidden, relationship_terminated, null]
+    CorrectionValue:
+      description: A value for the field; `unit` is a mass unit for a load, and null otherwise.
+      type: object
+      additionalProperties: false
+      required: [value, unit]
+      properties:
+        value:
+          type: number
+        unit:
+          type: [string, 'null']
+    CorrectionProposalCreate:
+      type: object
+      additionalProperties: false
+      required: [execution_id, set_order, field, value, reason]
+      example:
+        execution_id: 0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b
+        set_order: 2
+        field: load
+        value: 62.5
+        unit: kg
+        reason: La barra pesaba 2,5 kg más de lo anotado.
+      properties:
+        execution_id:
+          $ref: '#/components/schemas/Uuid'
+        set_order:
+          description: The set's order within the session, as the session shows it.
+          type: integer
+          minimum: 1
+        field:
+          $ref: '#/components/schemas/CorrectionField'
+        value:
+          description: >-
+            Repetitions are a whole number from 1 to 1000, an RPE is from 0 to 10, and a
+            load is from 0 and below 10000 in its unit.
+          type: number
+          minimum: 0
+        unit:
+          description: A mass unit for a load; absent or null for the other fields.
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 16
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    ProposedCorrection:
+      description: A proposal as its proposer sees it. Never her value.
+      type: object
+      additionalProperties: false
+      required: [id, client, target, field, proposed, reason, status, cancel_reason, created_at,
+        expires_at, settled_at]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        client:
+          type: object
+          additionalProperties: false
+          required: [person_id, name]
+          properties:
+            person_id:
+              $ref: '#/components/schemas/Uuid'
+            name:
+              type: string
+        target:
+          description: >-
+            Where it pointed, only while the proposer still attends her and she shares
+            her training; null otherwise.
+          type: [object, 'null']
+          additionalProperties: false
+          required: [execution_id, set_order]
+          properties:
+            execution_id:
+              $ref: '#/components/schemas/Uuid'
+            set_order:
+              type: integer
+              minimum: 1
+        field:
+          $ref: '#/components/schemas/CorrectionField'
+        proposed:
+          $ref: '#/components/schemas/CorrectionValue'
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/CorrectionProposalStatus'
+        cancel_reason:
+          $ref: '#/components/schemas/CorrectionCancelReason'
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        settled_at:
+          type: [string, 'null']
+          format: date-time
+    ProposedCorrectionPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProposedCorrection'
+        page:
+          $ref: '#/components/schemas/Page'
+    CorrectionProposal:
+      description: A proposal as she sees it.
+      type: object
+      additionalProperties: false
+      required: [id, execution_id, set_order, movement_id, movement_name, field, current, proposed,
+        reason, status, cancel_reason, created_at, expires_at, settled_at, proposer_name,
+        organization_name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        execution_id:
+          $ref: '#/components/schemas/Uuid'
+        set_order:
+          type: integer
+          minimum: 1
+        movement_id:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+        movement_name:
+          type: [string, 'null']
+        field:
+          $ref: '#/components/schemas/CorrectionField'
+        current:
+          description: What she had declared when it was proposed.
+          allOf:
+            - $ref: '#/components/schemas/CorrectionValue'
+        proposed:
+          $ref: '#/components/schemas/CorrectionValue'
+        reason:
+          type: string
+        status:
+          $ref: '#/components/schemas/CorrectionProposalStatus'
+        cancel_reason:
+          $ref: '#/components/schemas/CorrectionCancelReason'
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        settled_at:
+          type: [string, 'null']
+          format: date-time
+        proposer_name:
+          type: string
+        organization_name:
+          type: string
+    CorrectionProposalPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CorrectionProposal'
+        page:
+          $ref: '#/components/schemas/Page'
+    CorrectionDecisionCreate:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      example:
+        decision: accept
+      properties:
+        decision:
+          type: string
+          enum: [accept, reject]
     SessionVisibilityDenialCreate:
       type: object
       additionalProperties: false
