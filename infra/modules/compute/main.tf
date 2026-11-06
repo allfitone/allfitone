@@ -53,6 +53,12 @@ resource "aws_iam_role_policy_attachment" "instance" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
 }
 
+# Session Manager opens the database tunnel through this machine; no port is opened.
+resource "aws_iam_role_policy_attachment" "session_manager" {
+  role       = aws_iam_role.instance.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_instance_profile" "instance" {
   name = "${var.name}-ecs-instance"
   role = aws_iam_role.instance.name
