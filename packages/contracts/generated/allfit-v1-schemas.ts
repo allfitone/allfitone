@@ -1956,7 +1956,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   BodyPhoto: {
     type: 'object',
     additionalProperties: false,
-    required: ['id', 'taken_on', 'created_at', 'photo'],
+    required: ['id', 'taken_on', 'created_at', 'photo', 'shared_with'],
     properties: {
       id: {
         $ref: '#/components/schemas/UuidV7',
@@ -1971,6 +1971,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       photo: {
         $ref: '#/components/schemas/SignedMediaUrl',
+      },
+      shared_with: {
+        type: 'array',
+        description: 'The gyms she shows this photo to now; empty when it is hers alone.',
+        items: {
+          $ref: '#/components/schemas/BodyPhotoShareSummary',
+        },
       },
     },
   },
@@ -1998,6 +2005,80 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/BodyPhoto',
         },
+      },
+    },
+  },
+  BodyPhotoShare: {
+    description:
+      'One of her photos and one gym. `withdrawn` is no longer shown; `withdrawn_at` says since when.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'body_photo_id',
+      'relationship_id',
+      'organization',
+      'status',
+      'shared_at',
+      'withdrawn_at',
+    ],
+    properties: {
+      body_photo_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'display_name'],
+        properties: {
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          display_name: {
+            type: 'string',
+          },
+        },
+      },
+      status: {
+        type: 'string',
+        enum: ['shared', 'withdrawn'],
+      },
+      shared_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      withdrawn_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  BodyPhotoShareCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['relationship_id'],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+    },
+  },
+  BodyPhotoShareSummary: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['relationship_id', 'organization_name', 'shared_at'],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization_name: {
+        type: 'string',
+      },
+      shared_at: {
+        type: 'string',
+        format: 'date-time',
       },
     },
   },
@@ -2926,6 +3007,130 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  ClientBiologicalSex: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['value', 'provenance'],
+    properties: {
+      value: {
+        $ref: '#/components/schemas/BiologicalSex',
+      },
+      provenance: {
+        $ref: '#/components/schemas/Provenance',
+      },
+    },
+  },
+  ClientBodyPhoto: {
+    description:
+      'A photo she shows this gym. Its image is read through `OP-IDN-060`; where it is kept never travels.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'taken_on', 'shared_at'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      taken_on: {
+        type: 'string',
+        format: 'date',
+      },
+      shared_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  ClientBodyPhotoPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data', 'page'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientBodyPhoto',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  ClientBodyProgressPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data', 'page'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientBodyProgressRecord',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  ClientBodyProgressRecord: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'metric_code',
+      'value',
+      'unit_code',
+      'original_value',
+      'original_unit_code',
+      'measured_on',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      metric_code: {
+        $ref: '#/components/schemas/BodyProgressMetricCode',
+      },
+      value: {
+        type: ['number', 'null'],
+        description: "In the canonical unit of the measurement's dimension.",
+      },
+      unit_code: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/BodyProgressUnitCode',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      original_value: {
+        type: ['number', 'null'],
+        description: 'What she typed, when it was not the canonical unit.',
+      },
+      original_unit_code: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/BodyProgressUnitCode',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      measured_on: {
+        type: 'string',
+        format: 'date',
+      },
+    },
+  },
   ClientDirectoryGroup: {
     type: 'string',
     enum: ['active', 'invited', 'terminated'],
@@ -3036,6 +3241,78 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       ended_at: {
         type: ['string', 'null'],
         format: 'date-time',
+      },
+    },
+  },
+  ClientHealthContextClaim: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'context_type',
+      'description',
+      'body_area',
+      'provenance',
+      'valid_from',
+      'valid_to',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      context_type: {
+        $ref: '#/components/schemas/HealthContextType',
+      },
+      description: {
+        type: ['string', 'null'],
+      },
+      body_area: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/HealthContextBodyArea',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'Null when she named no area, or when the version leaves it out.',
+      },
+      provenance: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Provenance',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      valid_from: {
+        type: 'string',
+        format: 'date-time',
+      },
+      valid_to: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  ClientHealthContextPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data', 'page'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientHealthContextClaim',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
     },
   },
@@ -3583,6 +3860,81 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         maxLength: 43,
         pattern: '^[A-Za-z0-9_-]{43}$',
         description: 'Opaque token transported in JSON, never in the URL.',
+      },
+    },
+  },
+  ClientProfileClaim: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'attribute_code',
+      'value_text',
+      'value_numeric',
+      'unit_code',
+      'provenance',
+      'valid_from',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      attribute_code: {
+        type: 'string',
+        description:
+          'A training attribute, such as `primary_training_goal`, `training_experience`, `training_discipline` or `focus_areas`.',
+      },
+      value_text: {
+        type: ['string', 'null'],
+      },
+      value_numeric: {
+        type: ['number', 'null'],
+      },
+      unit_code: {
+        type: ['string', 'null'],
+      },
+      provenance: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Provenance',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      valid_from: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  ClientTrainingProfile: {
+    description:
+      'Her training profile as the version she accepted shares it. A field the version leaves out is null, exactly like one never declared.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'biological_sex', 'attributes'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      biological_sex: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientBiologicalSex',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      attributes: {
+        type: 'array',
+        description: 'Every claim in force, by attribute and newest first.',
+        items: {
+          $ref: '#/components/schemas/ClientProfileClaim',
+        },
       },
     },
   },

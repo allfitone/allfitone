@@ -48,6 +48,7 @@ const photo = (id: string, taken_on: string): BodyPhoto => ({
     expires_at: '2026-10-24T12:05:00.000Z',
     method: 'GET',
   },
+  shared_with: [],
 })
 
 const records = [
