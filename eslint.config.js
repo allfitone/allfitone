@@ -423,18 +423,6 @@ export default tseslint.config(
       ),
     },
   },
-  {
-    files: ['packages/food-recognition/**/*.ts'],
-    rules: {
-      'no-restricted-imports': restrict(
-        NO_PROVIDER_SDK,
-        NO_QUEUE_SDK,
-        NO_OBJECT_STORE_SDK,
-        NO_STORE_BILLING_SDK,
-        NO_HOSTING,
-      ),
-    },
-  },
   ...APPS.map((app) => ({
     files: [`apps/${app}/**/*.{ts,tsx}`],
     rules: {

@@ -189,7 +189,7 @@
       "name": "@allfitone/food-recognition",
       "version": "0.0.0",
       "dependencies": {
-        "ai": "7.0.127",
+        "@allfitone/ai-provider": "workspace:*",
         "zod": "4.6.5",
       },
     },

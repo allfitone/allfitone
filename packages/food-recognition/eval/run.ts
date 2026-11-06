@@ -1,5 +1,5 @@
 /**
- * The recognition eval (ADR-041): every photo of `photos.json` through the real adapter,
+ * The recognition eval (ADR-041): every photo of `photos.json` through the real model,
  * scored against what a person sees in it. A model only replaces the current one when it
  * passes: at least 85 % of the expected foods named, and no answer that is just the dish.
  * It costs money, so it runs by hand, never in CI.
@@ -9,8 +9,10 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
-import { createGatewayRecognizer } from '../src/adapters/gateway.js'
+import { createGatewayModel } from '@allfitone/ai-provider'
+
 import { DEFAULT_MODEL } from '../src/factory.js'
+import { createFoodRecognizer } from '../src/recognizer.js'
 
 interface Photo {
   readonly key: string
@@ -41,7 +43,8 @@ async function image(photo: Photo): Promise<Uint8Array> {
 const models = process.argv.slice(2).length > 0 ? process.argv.slice(2) : [DEFAULT_MODEL]
 let failed = false
 for (const model of models) {
-  const recognizer = createGatewayRecognizer({ apiKey, model, timeoutMs: 60_000 })
+  const gateway = createGatewayModel({ apiKey, providers: ['vertex'] })
+  const recognizer = createFoodRecognizer(gateway, { model, timeoutMs: 60_000 })
   const scores = await Promise.all(
     photos.map(async (photo) => {
       const started = performance.now()
