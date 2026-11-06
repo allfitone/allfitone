@@ -114,6 +114,8 @@ export const V1_SCOPES: ScopeRules[] = [
       ...TRAINING_PRESCRIPTION.map((resource) => training(resource, 'contribute')),
       // The coach's reading of a session the gym's programme produced, beside what she declared.
       training('execution.professional_observations', 'contribute'),
+      // A correction he proposes to a set she declared; nothing changes until she accepts it.
+      training('execution.correction_proposals', 'contribute'),
       // Read whenever they happened: the policy that admits a session never asks when the
       // grant began, so the rule says so instead of promising less than is shared.
       training('execution.planned_session_executions', 'read'),
