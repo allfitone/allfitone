@@ -76,6 +76,7 @@ export type OrganizationRoleCode = AllfitV1Schemas['OrganizationRoleCode']
 export type OrganizationRoleGrant = AllfitV1Schemas['OrganizationRoleGrant']
 export type OrganizationRoleGrantCreate = AllfitV1Schemas['OrganizationRoleGrantCreate']
 export type OrganizationRoleRevocation = AllfitV1Schemas['OrganizationRoleRevocation']
+export type OrganizationMembershipTermination = AllfitV1Schemas['OrganizationMembershipTermination']
 export type AssignableOrganizationRoleCode = AllfitV1Schemas['AssignableOrganizationRoleCode']
 export type OrganizationSubscriptionPage = AllfitV1Schemas['OrganizationSubscriptionPage']
 export type OrganizationSubscription = AllfitV1Schemas['OrganizationSubscription']
@@ -560,6 +561,20 @@ export const studioApi = {
       `/studio/v1/organizations/${organizationId}/memberships/${membershipId}/roles/${roleCode}`,
       {
         method: 'DELETE',
+        headers: commandHeaders(command),
+      },
+    ),
+
+  /*
+   * No body: the membership and the organization are the whole command, and
+   * the contract says so. Converges without effect on a membership that was
+   * already terminated.
+   */
+  terminateMembership: (organizationId: string, membershipId: string, command: CommandHeaders) =>
+    request<OrganizationMembershipTermination>(
+      `/studio/v1/organizations/${organizationId}/memberships/${membershipId}/termination`,
+      {
+        method: 'POST',
         headers: commandHeaders(command),
       },
     ),

@@ -1931,6 +1931,21 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    /*
+     * HU-021. A coach is the state worth sweeping: only a coach leaves clients
+     * without anybody attending them, so only this one draws the long warning.
+     * Ending a staff member's membership shows a single short line.
+     */
+    stories: 'HU-021 · the warning before ending a membership',
+    path: `${workspace}/team`,
+    fixture: teamWithARevocableRole,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Acciones sobre Camilo Restrepo' }).click()
+      await page.getByRole('menuitem', { name: 'Dar de baja' }).click()
+      await expect(page.getByText(/sin profesional responsable/)).toBeVisible()
+    },
+  },
+  {
     // A register renders a card list instead of its table when its own
     // container has no room for one, which a phone never does. The two are
     // separate markup rather than one behind a CSS toggle.

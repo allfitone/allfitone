@@ -27,6 +27,7 @@ import { TeamMemberActions } from './team-member-actions'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { canViewTeamDirectory, memberInitials, organizationRoleLabel } from '@/lib/team-directory'
 import { canInviteTeam } from '@/lib/team-invitations'
+import { canManageMemberships } from '@/lib/team-membership-termination'
 import { canManageRoles } from '@/lib/team-roles'
 import { useCompactTable } from '@/lib/use-compact-table'
 import {
@@ -61,13 +62,16 @@ export function TeamMembershipList() {
   const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
   const canViewDirectory = canViewTeamDirectory(current.roles)
   /*
-   * Null unless the server's role catalogue says this reader holds
-   * `manage_roles`. Resolved once here rather than per row, so the rows only
-   * render what they are handed.
+   * Two capabilities, resolved once here rather than per row, so the rows only
+   * render what they are handed. `manage_roles` and `manage_memberships` are
+   * separate entries in the server's catalogue and a reader can hold either
+   * without the other: changing what somebody may do is not the same power as
+   * ending their participation.
    */
-  const roleGrantOrganizationId = canManageRoles(current.roles, rolesQuery.data?.items)
-    ? current.organization_id
-    : null
+  const mayManageRoles = canManageRoles(current.roles, rolesQuery.data?.items)
+  const mayManageMemberships = canManageMemberships(current.roles, rolesQuery.data?.items)
+  const actionsOrganizationId =
+    mayManageRoles || mayManageMemberships ? current.organization_id : null
   const [filter, setFilter] = useState<MembershipFilter>('all')
   const options = organizationMembershipsQueryOptions(current.organization_id, filter, PAGE_SIZE)
   const query = useInfiniteQuery({ ...options, enabled: canViewDirectory })
@@ -207,7 +211,13 @@ export function TeamMembershipList() {
             <ul data-team-directory-card-list>
               {items.map((item) => (
                 <li key={item.membership_id}>
-                  <MembershipCard item={item} organizationId={roleGrantOrganizationId} />
+                  <MembershipCard
+                    item={item}
+                    organizationId={actionsOrganizationId}
+                    ownMembershipId={current.membership_id}
+                    mayManageRoles={mayManageRoles}
+                    mayManageMemberships={mayManageMemberships}
+                  />
                 </li>
               ))}
             </ul>
@@ -256,7 +266,10 @@ export function TeamMembershipList() {
                 <MembershipRow
                   key={item.membership_id}
                   item={item}
-                  organizationId={roleGrantOrganizationId}
+                  organizationId={actionsOrganizationId}
+                  ownMembershipId={current.membership_id}
+                  mayManageRoles={mayManageRoles}
+                  mayManageMemberships={mayManageMemberships}
                 />
               ))
             )}
@@ -301,9 +314,15 @@ export function TeamMembershipList() {
 function MembershipCard({
   item,
   organizationId,
+  ownMembershipId,
+  mayManageRoles,
+  mayManageMemberships,
 }: {
   item: OrganizationMembership
   organizationId: string | null
+  ownMembershipId: string
+  mayManageRoles: boolean
+  mayManageMemberships: boolean
 }) {
   return (
     <Card data-team-member-card>
@@ -353,7 +372,13 @@ function MembershipCard({
             the value off its own label. */}
         {organizationId ? (
           <div data-team-invitation-actions>
-            <TeamMemberActions organizationId={organizationId} membership={item} />
+            <TeamMemberActions
+              organizationId={organizationId}
+              membership={item}
+              ownMembershipId={ownMembershipId}
+              mayManageRoles={mayManageRoles}
+              mayManageMemberships={mayManageMemberships}
+            />
           </div>
         ) : null}
       </CardContent>
@@ -397,9 +422,15 @@ function RoleBadges({ item }: { item: OrganizationMembership }) {
 function MembershipRow({
   item,
   organizationId,
+  ownMembershipId,
+  mayManageRoles,
+  mayManageMemberships,
 }: {
   item: OrganizationMembership
   organizationId: string | null
+  ownMembershipId: string
+  mayManageRoles: boolean
+  mayManageMemberships: boolean
 }) {
   return (
     <TableRow>
@@ -421,7 +452,13 @@ function MembershipRow({
       <TableCell>{item.ended_at ? formatDate(item.ended_at) : '—'}</TableCell>
       <TableCell>
         {organizationId ? (
-          <TeamMemberActions organizationId={organizationId} membership={item} />
+          <TeamMemberActions
+            organizationId={organizationId}
+            membership={item}
+            ownMembershipId={ownMembershipId}
+            mayManageRoles={mayManageRoles}
+            mayManageMemberships={mayManageMemberships}
+          />
         ) : null}
       </TableCell>
     </TableRow>
