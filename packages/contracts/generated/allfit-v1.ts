@@ -3662,6 +3662,48 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/correction-proposals': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the corrections proposed to me
+     * @description HU-SP-062. Every correction a professional proposed to a set of hers, soonest to expire first: what she had declared, what they propose, why, who and from which organization, and its state. One past its thirty days reads as expired before any sweep marks it; cancelled ones stay, with why.
+     */
+    get: operations['listMyCorrectionProposals']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/correction-proposals/{proposalId}/decision': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Accept or reject a correction proposed to me
+     * @description HU-SP-063. Accepting writes the proposed value into the same set and moves the session to its next revision, as her own correction does: the original, the change, the reason and the proposal are kept. She is who made the change and the value stays declared by her; the professional is recorded only as who proposed it. Rejecting changes nothing.
+     *
+     *     It is decided once. One already decided, cancelled or past its thirty days is 409 `conflict`, even before any sweep marks it; so is one whose set no longer holds what was proposed against. A retry of the same command answers the same.
+     */
+    post: operations['decideMyCorrectionProposal']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/executions/{executionId}/invalidation': {
     parameters: {
       query?: never
@@ -3880,6 +3922,50 @@ export interface paths {
      * @description HU-STUDIO-058. Only its author corrects an observation, while he still attends her and she still shares its category at `contribute`; anyone else's, or one he no longer reaches, is 404. The correction is made over the revision he last saw: if it moved on, 409 `stale-draft` carries the observation as it stands in `current_state`. The text it replaced, the new one and the reason are kept, and nobody rewrites them. Who wrote it, on which session and as what never change.
      */
     post: operations['reviseClientObservation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}/correction-proposals': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Propose a correction to a strength set the client declared
+     * @description HU-STUDIO-059. The coach who holds her relationship, or a cover she accepted, with `propose_corrections`, proposes a new value for one field of one set she declared: the repetitions, the load or the RPE. Proposing changes nothing she declared; the value changes only if she accepts it, within thirty days, and she is told by email at once.
+     *
+     *     It needs her training shared at `contribute` (403 `scope-required` otherwise), and lands on any set the coach may see: inside this relationship, or one she trained on her own and shares under `prior_training_history`. What a device captured or anybody observed is not hers to change: 422 `execution`. A session she annulled or hid is 404. One field of one set waits on her for one proposal at a time: a second is 409 `conflict`, as is one she cannot be told about because she has no address. While her service is paused, 409 `service-paused`. The Command-Id is the proposal's id; the answer never carries her value.
+     */
+    post: operations['proposeClientCorrection']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/correction-proposals': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the corrections one proposed in this organization
+     * @description HU-STUDIO-060. What the caller proposed here, soonest to expire first, with its state: waiting, accepted, rejected, expired or cancelled. A proposal past its thirty days reads as expired before any sweep marks it. Cancelled ones stay, with why: her own correction of the session, an annulment, a hiding, or the end of the relationship.
+     *
+     *     Never her value. `target` says where it pointed only while the caller still attends her and she shares her training; otherwise it is null. Each professional sees only their own.
+     */
+    get: operations['listProposedCorrections']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -9471,6 +9557,112 @@ export interface components {
       /** @description Whether the reader wrote it, and so may correct it. */
       authored_by_me: boolean
     }
+    /**
+     * @description The field of a strength set a correction proposes a value for.
+     * @enum {string}
+     */
+    CorrectionField: 'achieved_reps' | 'load' | 'rpe'
+    /**
+     * @description `expired` includes one past its thirty days that no sweep has marked yet.
+     * @enum {string}
+     */
+    CorrectionProposalStatus: 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
+    /**
+     * @description Why a proposal stopped waiting: she corrected the session herself (`target_changed`), annulled it, hid it from the organization, or the relationship ended.
+     * @enum {string|null}
+     */
+    CorrectionCancelReason:
+      'target_changed' | 'session_annulled' | 'session_hidden' | 'relationship_terminated' | null
+    /** @description A value for the field; `unit` is a mass unit for a load, and null otherwise. */
+    CorrectionValue: {
+      value: number
+      unit: string | null
+    }
+    /**
+     * @example {
+     *       "execution_id": "0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b",
+     *       "set_order": 2,
+     *       "field": "load",
+     *       "value": 62.5,
+     *       "unit": "kg",
+     *       "reason": "La barra pesaba 2,5 kg más de lo anotado."
+     *     }
+     */
+    CorrectionProposalCreate: {
+      execution_id: components['schemas']['Uuid']
+      /** @description The set's order within the session, as the session shows it. */
+      set_order: number
+      field: components['schemas']['CorrectionField']
+      /** @description Repetitions are a whole number from 1 to 1000, an RPE is from 0 to 10, and a load is from 0 and below 10000 in its unit. */
+      value: number
+      /** @description A mass unit for a load; absent or null for the other fields. */
+      unit?: string | null
+      reason: string
+    }
+    /** @description A proposal as its proposer sees it. Never her value. */
+    ProposedCorrection: {
+      id: components['schemas']['Uuid']
+      client: {
+        person_id: components['schemas']['Uuid']
+        name: string
+      }
+      /** @description Where it pointed, only while the proposer still attends her and she shares her training; null otherwise. */
+      target: {
+        execution_id: components['schemas']['Uuid']
+        set_order: number
+      } | null
+      field: components['schemas']['CorrectionField']
+      proposed: components['schemas']['CorrectionValue']
+      reason: string
+      status: components['schemas']['CorrectionProposalStatus']
+      cancel_reason: components['schemas']['CorrectionCancelReason']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      expires_at: string
+      /** Format: date-time */
+      settled_at: string | null
+    }
+    ProposedCorrectionPage: {
+      data: components['schemas']['ProposedCorrection'][]
+      page: components['schemas']['Page']
+    }
+    /** @description A proposal as she sees it. */
+    CorrectionProposal: {
+      id: components['schemas']['Uuid']
+      execution_id: components['schemas']['Uuid']
+      set_order: number
+      movement_id: components['schemas']['Uuid'] | null
+      movement_name: string | null
+      field: components['schemas']['CorrectionField']
+      /** @description What she had declared when it was proposed. */
+      current: components['schemas']['CorrectionValue']
+      proposed: components['schemas']['CorrectionValue']
+      reason: string
+      status: components['schemas']['CorrectionProposalStatus']
+      cancel_reason: components['schemas']['CorrectionCancelReason']
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      expires_at: string
+      /** Format: date-time */
+      settled_at: string | null
+      proposer_name: string
+      organization_name: string
+    }
+    CorrectionProposalPage: {
+      data: components['schemas']['CorrectionProposal'][]
+      page: components['schemas']['Page']
+    }
+    /**
+     * @example {
+     *       "decision": "accept"
+     *     }
+     */
+    CorrectionDecisionCreate: {
+      /** @enum {string} */
+      decision: 'accept' | 'reject'
+    }
     SessionVisibilityDenialCreate: {
       relationship_id: components['schemas']['Uuid']
     }
@@ -11713,6 +11905,25 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The field already waits on her for another proposal, she has no address to be told, the proposal is no longer open or its set moved on (`conflict`), her service with this organization is paused (`service-paused`), or the idempotency identity was reused or is still in progress (`conflict`, `idempotency-in-progress`) */
+    CorrectionConflict: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        'Retry-After': components['headers']['RetryAfter']
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "type": "https://errors.allfit.invalid/conflict",
+         *       "title": "The request conflicts with the current state",
+         *       "status": 409,
+         *       "request_id": "01JEXAMPLE0000000000000000"
+         *     }
+         */
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description If-Match refers to a stale execution revision */
     StaleDraft: {
       headers: {
@@ -11865,6 +12076,9 @@ export interface components {
     AssignmentId: components['schemas']['Uuid']
     ExecutionId: components['schemas']['Uuid']
     ObservationId: components['schemas']['Uuid']
+    ProposalId: components['schemas']['Uuid']
+    /** @description Only proposals in this state; without it, all of them. */
+    CorrectionProposalStatusFilter: components['schemas']['CorrectionProposalStatus']
     PersonId: components['schemas']['Uuid']
     GrantId: components['schemas']['Uuid']
     MealId: components['schemas']['Uuid']
@@ -18531,6 +18745,74 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listMyCorrectionProposals: {
+    parameters: {
+      query?: {
+        /** @description Only proposals in this state; without it, all of them. */
+        status?: components['parameters']['CorrectionProposalStatusFilter']
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of proposals, soonest to expire first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CorrectionProposalPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  decideMyCorrectionProposal: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        proposalId: components['parameters']['ProposalId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CorrectionDecisionCreate']
+      }
+    }
+    responses: {
+      /** @description The proposal, decided */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CorrectionProposal']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      404: components['responses']['NotFound']
+      409: components['responses']['CorrectionConflict']
+      415: components['responses']['UnsupportedMediaType']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   annulMyExecution: {
     parameters: {
       query?: never
@@ -18941,6 +19223,81 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['ObservationConflict']
       415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  proposeClientCorrection: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CorrectionProposalCreate']
+      }
+    }
+    responses: {
+      /** @description The proposal, waiting on her */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProposedCorrection']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
+      409: components['responses']['CorrectionConflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listProposedCorrections: {
+    parameters: {
+      query?: {
+        /** @description Only proposals in this state; without it, all of them. */
+        status?: components['parameters']['CorrectionProposalStatusFilter']
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of proposals, soonest to expire first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProposedCorrectionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
     }

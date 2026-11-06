@@ -847,6 +847,22 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/space/v1/correction-proposals',
+      operationId: 'listMyCorrectionProposals',
+      allfitOperation: 'OP-EXE-020',
+      responses: ['200', '400', '401', '503'],
+      security: ['bearerAuth'],
+    },
+    {
+      method: 'POST',
+      path: '/space/v1/correction-proposals/{proposalId}/decision',
+      operationId: 'decideMyCorrectionProposal',
+      allfitOperation: 'OP-EXE-013',
+      responses: ['200', '400', '401', '404', '409', '415', '503'],
+      security: ['bearerAuth'],
+    },
+    {
+      method: 'GET',
       path: '/space/v1/executions',
       operationId: 'listMyExecutions',
       allfitOperation: 'OP-EXE-014',
@@ -1726,6 +1742,14 @@ export const allfitV1ContractManifest = {
       security: ['cookieAuth'],
     },
     {
+      method: 'POST',
+      path: '/studio/v1/organizations/{organizationId}/clients/{personId}/correction-proposals',
+      operationId: 'proposeClientCorrection',
+      allfitOperation: 'OP-EXE-012',
+      responses: ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
       method: 'GET',
       path: '/studio/v1/organizations/{organizationId}/clients/{personId}/executions',
       operationId: 'listAuthorizedClientExecutions',
@@ -1819,6 +1843,14 @@ export const allfitV1ContractManifest = {
       operationId: 'closeStudioOrganization',
       allfitOperation: 'OP-ORG-012',
       responses: ['200', '400', '401', '403', '404', '409', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'GET',
+      path: '/studio/v1/organizations/{organizationId}/correction-proposals',
+      operationId: 'listProposedCorrections',
+      allfitOperation: 'OP-EXE-020',
+      responses: ['200', '400', '401', '403', '422', '503'],
       security: ['cookieAuth'],
     },
     {
