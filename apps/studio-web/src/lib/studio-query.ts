@@ -19,6 +19,7 @@ import {
   type OrganizationSubscription,
   type OrganizationSubscriptionPage,
   type SubscriptionStatus,
+  type ProgramPage,
   type ProfessionalCredential,
   type ProfessionalProfile,
   type StudioMe,
@@ -55,6 +56,8 @@ export const studioQueryKeys = {
   organizationMemberships: (organizationId: string, status: MembershipFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'memberships', { status, limit }] as const,
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
+  organizationPrograms: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
@@ -396,6 +399,21 @@ export function offerableScopesQueryOptions() {
     queryKey: studioQueryKeys.offerableScopes(),
     queryFn: ({ signal }): Promise<OfferableScopeCatalog> => studioApi.offerableScopes(signal),
     staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * What a coach may offer with an invitation. Held at the team stale time rather
+ * than the catalogue one: a version somebody retires while this form is open is
+ * exactly the case the command refuses, and a two-minute-old list would offer
+ * it. The server checks it again under a share lock either way.
+ */
+export function organizationProgramsQueryOptions(organizationId: string, limit: number) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationPrograms(organizationId, limit),
+    queryFn: ({ signal }): Promise<ProgramPage> =>
+      studioApi.organizationPrograms(organizationId, limit, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
   })
 }
 

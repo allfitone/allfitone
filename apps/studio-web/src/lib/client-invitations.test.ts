@@ -89,8 +89,12 @@ describe('the body it builds', () => {
    * writing, and the rest take `contribute` only on a further explicit
    * acceptance. The form never offers the choice, so this is the assertion that
    * keeps it that way.
+   *
+   * A proposed program is the single exception, and it is not a choice of
+   * level: see 'the body it builds with a program' below. The name of this test
+   * says «with no program» for that reason — the assertion itself is unchanged.
    */
-  test('always asks to read, never to write', () => {
+  test('asks to read and never to write, with no program proposed', () => {
     const everything = { contact: 'ana@example.test', scopeCodes: CATALOG.map((s) => s.scope_code) }
     const body = invitationBody(everything, CATALOG)
     expect(body.scopes.every((entry) => entry.access_level === 'read')).toBe(true)
@@ -112,6 +116,74 @@ describe('the body it builds', () => {
   test('a code nobody offers cannot be smuggled in', () => {
     const body = invitationBody({ contact: 'ana@example.test', scopeCodes: ['invented'] }, CATALOG)
     expect(body.scopes).toEqual([])
+  })
+})
+
+/*
+ * Criteria 2, 6 and 7. The body builder owns the invariant rather than the
+ * component, because a program without `relationship_training` at `contribute`
+ * is a `22023` whose field the API drops — the screen would get a refusal it
+ * cannot point at anything.
+ */
+describe('the body it builds with a program', () => {
+  const PROGRAM = { versionId: '018f-v2', startsOn: '2026-11-09' }
+  const draft = {
+    contact: 'ana@example.test',
+    scopeCodes: ['relationship_training', 'body_progress'],
+    program: PROGRAM,
+  }
+
+  test('raises only the training scope to contribute', () => {
+    const body = invitationBody(draft, CATALOG, 'America/Bogota')
+    const levels = Object.fromEntries(
+      body.scopes.map((entry) => [entry.scope_code, entry.access_level]),
+    )
+    expect(levels['relationship_training']).toBe('contribute')
+    expect(levels['body_progress']).toBe('read')
+  })
+
+  test('carries the version, the start and the zone — all three or none', () => {
+    expect(invitationBody(draft, CATALOG, 'America/Bogota').program).toEqual({
+      program_version_id: '018f-v2',
+      starts_on: '2026-11-09',
+      timezone: 'America/Bogota',
+    })
+  })
+
+  test('and sends no program key at all when none is chosen', () => {
+    const body = invitationBody(
+      { contact: 'ana@example.test', scopeCodes: ['body_progress'] },
+      CATALOG,
+      'America/Bogota',
+    )
+    expect('program' in body).toBe(false)
+  })
+
+  /*
+   * The same scope stays at `read` when the program is dropped, so un-choosing
+   * a program cannot leave a write request behind in the body.
+   */
+  test('dropping the program puts the training scope back to read', () => {
+    const body = invitationBody(
+      { ...draft, program: { versionId: '', startsOn: '2026-11-09' } },
+      CATALOG,
+      'America/Bogota',
+    )
+    expect(body.scopes.every((entry) => entry.access_level === 'read')).toBe(true)
+    expect('program' in body).toBe(false)
+  })
+
+  test('the draft is refused when the program has no training scope ticked', () => {
+    const errors = validateDraft({
+      contact: 'ana@example.test',
+      scopeCodes: ['body_progress'],
+      program: PROGRAM,
+    })
+    expect(errors.scopes).toContain('permiso de entrenamiento')
+  })
+
+  test('and accepted when it does', () => {
+    expect(validateDraft(draft)).toEqual({})
   })
 })
 

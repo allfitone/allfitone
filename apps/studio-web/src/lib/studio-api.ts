@@ -40,6 +40,9 @@ export type InformationCategory = AllfitV1Schemas['CatalogInformationCategory']
 export type OfferableScope = AllfitV1Schemas['OfferableScope']
 export type ClientInvitationCreate = AllfitV1Schemas['ClientInvitationCreate']
 export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
+export type Program = AllfitV1Schemas['Program']
+export type ProgramPage = AllfitV1Schemas['ProgramPage']
+export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
 export type StudioGuestQuota = AllfitV1Schemas['StudioGuestQuota']
 export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
@@ -309,6 +312,16 @@ export const studioApi = {
       },
     )
   },
+
+  /*
+   * Read-only, and the only reason Studio asks for it is the program a coach
+   * may offer with an invitation: the picker needs the versions that exist.
+   */
+  organizationPrograms: (organizationId: string, limit: number, signal?: AbortSignal) =>
+    request<ProgramPage>(
+      `/studio/v1/organizations/${organizationId}/programs?limit=${limit}`,
+      signal ? { signal } : {},
+    ),
 
   organizationClients: (
     organizationId: string,

@@ -78,6 +78,14 @@ export interface StudioApiFixture {
    * `gone` is a membership somebody else closed first (`404`).
    */
   membershipResignationOutcome: 'resigned' | 'rejected' | 'gone'
+  /** What `GET /programs` answers; the picker offers only published versions. */
+  organizationPrograms: unknown[]
+  /**
+   * `proposed` accepts the program. `stale` is the only refusal the form cannot
+   * prevent: a `422` for a version somebody retired while the form was open,
+   * which is what the copy tells the reader to re-read.
+   */
+  programProposalOutcome: 'proposed' | 'stale'
   offerableScopes: unknown[]
   informationCategories: unknown[]
   organization: unknown
@@ -149,6 +157,71 @@ export const terminatedMembership = {
   joined_at: '2023-01-01T16:45:22.870Z',
   ended_at: '2025-06-01T21:08:44.319Z',
   roles: ['staff'],
+}
+
+/** The one version a coach may propose. Named so a test never indexes for it. */
+export const proposableVersion = {
+  id: '01991600-9000-7000-8000-000000000011',
+  program_id: '01991600-9000-7000-8000-000000000001',
+  version_number: 2,
+  status: 'published',
+  title: 'Bloque de fuerza',
+  repeats_forever: false,
+  sessions: [],
+  published_at: '2026-10-02T14:00:00.000Z',
+  session_count: 12,
+  deprecated_template_version_ids: [],
+}
+
+/**
+ * A program with one published version and one retired, which is the set the
+ * picker has to filter: `create_client_invitation` accepts a published version
+ * of a program that is not archived, and nothing else.
+ */
+export const publishedProgram = {
+  id: '01991600-9000-7000-8000-000000000001',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  status: 'published',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: null,
+  versions: [
+    proposableVersion,
+    {
+      id: '01991600-9000-7000-8000-000000000012',
+      program_id: '01991600-9000-7000-8000-000000000001',
+      version_number: 1,
+      status: 'deprecated',
+      title: 'Bloque de fuerza',
+      repeats_forever: false,
+      sessions: [],
+      published_at: '2026-08-02T14:00:00.000Z',
+      session_count: 10,
+      deprecated_template_version_ids: [],
+    },
+  ],
+}
+
+/** Archived: none of its versions may be proposed, published or not. */
+export const archivedProgram = {
+  id: '01991600-9000-7000-8000-000000000002',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  status: 'archived',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: null,
+  versions: [
+    {
+      id: '01991600-9000-7000-8000-000000000021',
+      program_id: '01991600-9000-7000-8000-000000000002',
+      version_number: 1,
+      status: 'published',
+      title: 'Movilidad para principiantes',
+      repeats_forever: false,
+      sessions: [],
+      published_at: '2026-05-02T14:00:00.000Z',
+      session_count: 8,
+      deprecated_template_version_ids: [],
+    },
+  ],
 }
 
 /*
@@ -841,6 +914,8 @@ export function createStudioApiFixture(
     roleRevokeOutcome: 'revoked',
     membershipTerminationOutcome: 'terminated',
     membershipResignationOutcome: 'resigned',
+    organizationPrograms: [publishedProgram, archivedProgram],
+    programProposalOutcome: 'proposed',
     offerableScopes: [...offerableScopeCatalog],
     informationCategories: [...informationCategoryCatalog],
     /*
@@ -975,6 +1050,18 @@ function defaultResponse(
       : fixture.organizationMemberships
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
   }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/programs$/.test(request.path)
+  ) {
+    return {
+      status: 200,
+      body: {
+        data: fixture.organizationPrograms,
+        page: { has_more: false, next_cursor: null },
+      },
+    }
+  }
   if (request.method === 'GET' && request.path === '/studio/v1/offerable-scopes') {
     return { status: 200, body: { items: fixture.offerableScopes } }
   }
@@ -985,6 +1072,19 @@ function defaultResponse(
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/client-invitations$/.test(request.path)
   ) {
+    /*
+     * Echoes the request rather than answering a fixed shape, which it used to.
+     * The form shows the scopes it asked for on the confirmation, so a hardcoded
+     * list would have agreed with the screen by accident and hidden a defect in
+     * what was actually sent.
+     */
+    const asked = (request.body ?? {}) as {
+      scopes?: Array<{ scope_code?: string; access_level?: string }>
+      program?: { program_version_id?: string; starts_on?: string; timezone?: string }
+    }
+    if (asked.program && fixture.programProposalOutcome === 'stale') {
+      return { status: 422, body: { error: { code: 'validation-failed' } } }
+    }
     return {
       status: 201,
       body: {
@@ -994,7 +1094,14 @@ function defaultResponse(
         channel: 'email',
         contact_hint: 'a***@example.test',
         expires_at: '2030-01-01T12:00:00.000Z',
-        scope_codes: ['body_progress'],
+        scope_codes: (asked.scopes ?? []).map((scope) => scope.scope_code),
+        program_proposal: asked.program
+          ? {
+              program_version_id: asked.program.program_version_id,
+              starts_on: asked.program.starts_on,
+              timezone: asked.program.timezone,
+            }
+          : null,
         reused: false,
       },
     }

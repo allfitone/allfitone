@@ -1494,6 +1494,39 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('La invitación va en camino')).toBeVisible()
     },
   },
+  {
+    /*
+     * HU-023 criteria 2, 6 and 7, which arrived after this screen shipped. The
+     * acting persona is the whole point: only `coach` holds `assign_programs`,
+     * so the five entries above — all inviting as the owner — see no program
+     * block at all, and auditing them alone would audit nothing of this.
+     */
+    stories: 'HU-023 · the program a coach may offer with an invitation',
+    path: `/organizations/${secondActiveMembership.organization_id}/clients/invitations/new`,
+    fixture: asCoach,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('combobox', { name: 'Programa' })).toBeVisible()
+    },
+  },
+  {
+    /*
+     * The state worth sweeping: a program chosen, which is what raises the
+     * training permission. Three things land at once — the date field, the
+     * sentence explaining the raise, and the level badge on the permission's
+     * own row — and the badge sits inside a flex label beside text that wraps,
+     * which is where a phone would show it squeezed.
+     */
+    stories: 'HU-023 · the warning that a program raises the permission',
+    path: `/organizations/${secondActiveMembership.organization_id}/clients/invitations/new`,
+    fixture: asCoach,
+    reveal: async (page) => {
+      await page.getByRole('combobox', { name: 'Programa' }).click()
+      await page.getByRole('option', { name: /Bloque de fuerza/ }).click()
+      await page.getByLabel('Empieza').fill('2030-06-01')
+      await expect(page.getByText(/pedirá permiso para registrar su entrenamiento/)).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',
