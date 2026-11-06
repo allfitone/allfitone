@@ -365,6 +365,59 @@ export function renderSubstitutionProposedEmail(input: {
 }
 
 /**
+ * Telling somebody a professional proposes to correct something she recorded.
+ *
+ * It says first that nothing changes unless she accepts, because a message about her own
+ * training record reads as a change already made. It never carries the values: what she
+ * declared and what he proposes are seen in the app, where she is already herself, and an
+ * inbox is not where her training belongs. No link, for the reason the others have none.
+ *
+ * The deadline is the day it falls on in Colombia, where the product is offered; the
+ * hour is left out because a time in an email reads as an appointment.
+ */
+export function renderCorrectionProposedEmail(input: {
+  organizationName: string
+  proposerName: string
+  expiresAt: Date
+  brandAssetUrl: string
+}): { subject: string; text: string; html: string } {
+  const organization = escapeHtml(input.organizationName)
+  const proposer = escapeHtml(input.proposerName)
+  const deadline = new Intl.DateTimeFormat('es-CO', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'America/Bogota',
+  }).format(input.expiresAt)
+  const unchanged =
+    'Nada cambia a menos que lo aceptes: lo que registraste sigue igual, y tu historial también.'
+  const answer = `Puedes revisarla y aceptarla o rechazarla desde la app hasta el ${deadline}. Si no respondes, la propuesta vence y todo queda como lo registraste.`
+  return {
+    subject: `${input.proposerName} propone corregir un dato de tu entrenamiento`,
+    text: [
+      `${input.proposerName}, de ${input.organizationName}, propone corregir un dato que registraste en una de tus sesiones de entrenamiento.`,
+      unchanged,
+      answer,
+      'Si no esperabas esto, habla con tu gimnasio.',
+    ].join('\n\n'),
+    html: invitationEmailHtml({
+      title: `${proposer} propone corregir un dato de tu entrenamiento`,
+      preheader: 'Nada cambia a menos que lo aceptes.',
+      eyebrow: 'CORRECCIÓN PROPUESTA',
+      heading: `${proposer}, de ${organization}, propone corregir un dato de tu entrenamiento`,
+      lead: escapeHtml(unchanged),
+      detailLabel: 'LA PROPONE',
+      detailValue: proposer,
+      expiryLabel: 'PUEDES RESPONDER HASTA',
+      expires: escapeHtml(deadline),
+      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      note: `${escapeHtml(answer)} Si no esperabas esto, habla con tu gimnasio.`,
+      footer: 'Allfit One',
+    }),
+  }
+}
+
+/**
  * Telling an organization's administration that somebody left it.
  *
  * The reader has work to do: whoever the member attended now has nobody, and the
