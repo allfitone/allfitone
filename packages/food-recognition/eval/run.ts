@@ -4,12 +4,16 @@
  * passes: at least 85 % of the expected foods named, and no answer that is just the dish.
  * It costs money, so it runs by hand, never in CI.
  *
- * Run: `bun run eval [model …]` (the pinned model by default).
+ * Run: `bun run eval [model …]` (the pinned model by default). A Gateway slug such as
+ * `google/gemini-3.5-flash-lite` needs `AI_GATEWAY_API_KEY`; `bedrock:<model id>` asks
+ * Amazon Bedrock with the local AWS credentials, in `AWS_REGION` or `us-east-1` (ADR-045).
+ * Passing on Bedrock is a measurement, not a switch: production changes only with its own
+ * consent version and decision.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
-import { createGatewayModel } from '@allfitone/ai-provider'
+import { createBedrockModel, createGatewayModel, type LanguageModel } from '@allfitone/ai-provider'
 
 import { DEFAULT_MODEL } from '../src/factory.js'
 import { createFoodRecognizer } from '../src/recognizer.js'
@@ -22,8 +26,26 @@ interface Photo {
 
 const here = (name: string) => new URL(name, import.meta.url).pathname
 const { photos } = JSON.parse(readFileSync(here('photos.json'), 'utf8')) as { photos: Photo[] }
-const apiKey = process.env.AI_GATEWAY_API_KEY
-if (!apiKey) throw new Error('AI_GATEWAY_API_KEY is not set')
+
+/** The port and the exact id each argument names: Bedrock by prefix, the Gateway otherwise. */
+function modelFor(name: string): { readonly port: LanguageModel; readonly id: string } {
+  if (name.startsWith('bedrock:')) {
+    const region = process.env.AWS_REGION?.trim() || 'us-east-1'
+    return { port: createBedrockModel({ region }), id: name.slice('bedrock:'.length) }
+  }
+  const apiKey = process.env.AI_GATEWAY_API_KEY?.trim()
+  if (!apiKey) throw new Error('AI_GATEWAY_API_KEY is not set')
+  return { port: createGatewayModel({ apiKey, providers: ['vertex'] }), id: name }
+}
+
+/** Every message down the cause chain, so a refusal says what was refused. */
+function reason(cause: unknown): string {
+  const messages: string[] = []
+  for (let at: unknown = cause; at instanceof Error && messages.length < 4; at = at.cause) {
+    messages.push(at.message.split('\n')[0] ?? at.name)
+  }
+  return messages.length > 0 ? messages.join(' ← ') : String(cause)
+}
 
 const fold = (text: string) => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
@@ -43,8 +65,8 @@ async function image(photo: Photo): Promise<Uint8Array> {
 const models = process.argv.slice(2).length > 0 ? process.argv.slice(2) : [DEFAULT_MODEL]
 let failed = false
 for (const model of models) {
-  const gateway = createGatewayModel({ apiKey, providers: ['vertex'] })
-  const recognizer = createFoodRecognizer(gateway, { model, timeoutMs: 60_000 })
+  const { port, id } = modelFor(model)
+  const recognizer = createFoodRecognizer(port, { model: id, timeoutMs: 60_000 })
   const scores = await Promise.all(
     photos.map(async (photo) => {
       const started = performance.now()
@@ -67,7 +89,7 @@ for (const model of models) {
           recall: 0,
           collapsed: false,
           ms: performance.now() - started,
-          error: cause instanceof Error ? cause.message : String(cause),
+          error: reason(cause),
         }
       }
     }),
