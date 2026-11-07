@@ -104,26 +104,25 @@ test('the floating privacy control carries its own surface', async ({ page }) =>
 })
 
 /**
- * Analytics is optional, so the panel asking about it may never stand between a
- * person and signing in. This is the constraint that decides where the panel
- * opens: moving it to the corner the collapsed control uses looks tidier and
- * puts it straight on top of "Crear mi espacio" at 1280x720 and 390x844, because
- * the access landing places its primary action low.
+ * Analytics is optional, so the bar asking about it may never stand between a
+ * person and the page. It used to open at the top, over the landing's heading
+ * and the client's sheet, and on a phone it was the first screen; a box in the
+ * corner covered the way in. It now runs along the bottom edge, and this holds
+ * it below the heading, the wordmark and the way in at every width, and below
+ * the sheet wherever the sheet shares the first screen.
  *
  * The check is what the browser would actually dispatch a click to, not a box
- * intersection, so a panel that overlaps harmlessly still passes.
+ * intersection, so a bar that overlaps harmlessly still passes.
  */
 const CONSENT_VIEWPORTS = [
-  // The panel spans almost the whole width below roughly 420px, so no placement
-  // clears the header there and the wordmark is not asserted.
-  { name: 'desktop', width: 1440, height: 900, clearsHeader: true },
-  { name: 'laptop', width: 1280, height: 720, clearsHeader: true },
-  { name: 'tablet', width: 768, height: 1024, clearsHeader: true },
-  { name: 'mobile', width: 390, height: 844, clearsHeader: false },
+  { name: 'desktop', width: 1440, height: 900, sheetOnScreen: true },
+  { name: 'laptop', width: 1280, height: 720, sheetOnScreen: true },
+  { name: 'tablet', width: 768, height: 1024, sheetOnScreen: false },
+  { name: 'mobile', width: 390, height: 844, sheetOnScreen: false },
 ]
 
 for (const viewport of CONSENT_VIEWPORTS) {
-  test(`the consent panel stays out of the way at ${viewport.name}`, async ({ page }) => {
+  test(`the consent bar stays out of the way at ${viewport.name}`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
       consent: 'undecided',
@@ -144,28 +143,24 @@ for (const viewport of CONSENT_VIEWPORTS) {
           return topmost === element || element.contains(topmost)
         })
 
-    expect(
-      await page
-        .getByRole('link', { name: 'Crear mi espacio' })
-        .first()
-        .evaluate((element) => {
-          const box = element.getBoundingClientRect()
-          const topmost = document.elementFromPoint(
-            box.left + box.width / 2,
-            box.top + box.height / 2,
-          )
-          return topmost === element || element.contains(topmost)
-        }),
-      'the consent panel is covering "Crear mi espacio"',
-    ).toBe(true)
-
-    if (viewport.clearsHeader) {
-      expect(
-        await reachable('[data-slot="site-header"] svg'),
-        'the consent panel is covering the wordmark',
-      ).toBe(true)
-      expect(await reachable('h1'), 'the consent panel is covering the heading').toBe(true)
+    const targets: [selector: string, what: string][] = [
+      ['[data-studio-actions] a', 'the way in'],
+      ['[data-slot="site-header"] svg', 'the wordmark'],
+      ['h1', 'the heading'],
+      ...(viewport.sheetOnScreen
+        ? [['[data-studio-sheet-head]', 'the client’s sheet'] satisfies [string, string]]
+        : []),
+    ]
+    for (const [selector, what] of targets) {
+      expect(await reachable(selector), `the consent bar is covering ${what}`).toBe(true)
     }
+
+    const bar = await page.locator('[data-analytics-controls]').boundingBox()
+    expect(bar, 'the consent bar is on screen').not.toBeNull()
+    expect(
+      (bar?.y ?? 0) + (bar?.height ?? 0),
+      'the consent bar runs along the bottom edge',
+    ).toBeGreaterThan(viewport.height - 24)
   })
 }
 

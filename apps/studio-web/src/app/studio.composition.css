@@ -1174,39 +1174,25 @@
 }
 
 /*
- * The open panel sits at the top, away from the collapsed control, because the
- * access landing puts its primary action low: a bottom-anchored panel covers
- * "Crear mi espacio" at 1280x720 and 390x844, and nobody should have to answer a
- * question about optional analytics before they can sign in.
+ * The open panel is a compact bar along the bottom edge. At the top it sat on
+ * the landing's heading and the client's sheet — on a phone the first screen
+ * was the question and not the product — and a box in the corner covered the
+ * way in. The bar stays below both at every width, and while it is open the
+ * page gains room at its end, so nothing has to be answered to be reached.
  *
- * Centred rather than tucked left, which was where it started. Left put it on
- * top of the wordmark at every width; centred clears the wordmark and the
- * heading at 1440, 1280 and 768. Below roughly 420px the panel spans the width
- * whatever it does, so no placement clears the header there.
- *
- * `width` rather than `max-width` alone: a centred element with an auto width
- * collapses to the space between its left edge and the viewport.
+ * Centred by its auto margins: with both insets set, the width resolves to
+ * `max-width` and the margins share what is left.
  */
 [data-analytics-controls][data-expanded='true'] {
-  top: 16px;
-  right: auto;
-  bottom: auto;
-  left: 50%;
-  width: min(390px, calc(100vw - 32px));
-  transform: translateX(-50%);
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-width: 64rem;
+  margin-inline: auto;
 }
 
-/*
- * The landing's site header is fixed and carries the language switch. On a
- * phone the panel spans it, and from 60rem the section links fill its middle,
- * so in both the panel opens below the 5.25rem bar, where the page scrolls out
- * from under it. In between the bar holds only the wordmark and the switch, at
- * its two ends, and the usual place clears both and the headline beneath.
- */
-@media (max-width: 39.99rem), (min-width: 60rem) {
-  :root:has([data-studio-site]) [data-analytics-controls][data-expanded='true'] {
-    top: calc(5.25rem + 16px);
-  }
+:root:has([data-analytics-controls][data-expanded='true']) body {
+  padding-block-end: 17rem;
 }
 
 [data-analytics-panel] {
@@ -1249,6 +1235,62 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* From a tablet up, the notice link and the two choices sit beside the text. */
+@media (min-width: 40rem) {
+  :root:has([data-analytics-controls][data-expanded='true']) body {
+    padding-block-end: 12rem;
+  }
+
+  [data-analytics-panel] {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--afo-space-4);
+  }
+
+  [data-analytics-panel]
+    > :is([data-analytics-title], [data-analytics-text], [data-analytics-signal]) {
+    grid-column: 1 / -1;
+  }
+
+  [data-analytics-actions] {
+    justify-content: end;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root:has([data-analytics-controls][data-expanded='true']) body {
+    padding-block-end: 8rem;
+  }
+
+  [data-analytics-panel] {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: var(--afo-space-6);
+    row-gap: 2px;
+    padding: 14px 16px 14px 20px;
+  }
+
+  [data-analytics-panel] > [data-analytics-title] {
+    grid-area: 1 / 1;
+  }
+
+  [data-analytics-panel] > [data-analytics-text] {
+    grid-area: 2 / 1;
+  }
+
+  [data-analytics-notice-link] {
+    grid-area: 1 / 2 / 3;
+  }
+
+  [data-analytics-actions] {
+    grid-area: 1 / 3 / 3;
+  }
+
+  [data-analytics-panel] > [data-analytics-signal] {
+    grid-area: 1 / 3 / 3;
+    max-width: 30ch;
+  }
 }
 
 /* Label above value, the same pairing the rest of Studio uses. The grid stays
@@ -1739,8 +1781,8 @@
 /* ------------------------------------------------------------------ hero */
 
 [data-studio-hero] {
-  /* Clears the fixed header and the band the consent panel opens over. */
-  padding-block: clamp(9.5rem, 24vh, 13.5rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
+  /* Clears the fixed 5.25rem header with room to spare. */
+  padding-block: clamp(8rem, 17vh, 10rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
   overflow: clip;
 }
 

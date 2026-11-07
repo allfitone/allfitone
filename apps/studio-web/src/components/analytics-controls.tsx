@@ -22,6 +22,9 @@ import type { Locale } from '@/lib/locale'
  * The panel opens on a visitor's first page, which may be the English landing,
  * so it speaks the page's language. The workspace always passes Spanish.
  *
+ * Open, it is a compact bar along the bottom edge, on the landing and in the
+ * workspace alike, so it never covers a page's heading or its first content.
+ *
  * Once a visitor has decided, the workspace keeps a floating control to reopen
  * the panel. The landing does not float one (`floating={false}`): its footer
  * asks for the panel through `openAnalyticsPreferences`, and focus moves into
@@ -119,8 +122,8 @@ export function AnalyticsControls({
     <aside data-analytics-controls data-expanded={open ? 'true' : 'false'} aria-label={copy.label}>
       {open ? (
         <div data-analytics-panel ref={panel} tabIndex={-1}>
-          <strong>{copy.title}</strong>
-          <p>{copy.text}</p>
+          <strong data-analytics-title>{copy.title}</strong>
+          <p data-analytics-text>{copy.text}</p>
           <a
             data-analytics-notice-link
             href={ANALYTICS_PRIVACY_NOTICE_URL}
@@ -130,7 +133,7 @@ export function AnalyticsControls({
             {copy.notice}
           </a>
           {telemetry.privacySignalDenied ? (
-            <p>{copy.privacySignal}</p>
+            <p data-analytics-signal>{copy.privacySignal}</p>
           ) : (
             <div data-analytics-actions>
               <Button type="button" size="sm" onClick={() => decide('granted')}>
