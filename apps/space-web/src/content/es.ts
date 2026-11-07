@@ -130,6 +130,7 @@ export const es = {
   footer: {
     terms: 'Términos',
     privacy: 'Privacidad',
+    analytics: 'Analítica',
     studio: 'Allfit Studio',
     rights: '© 2026 Allfit One',
     newWindow: 'Se abre en una pestaña nueva.',

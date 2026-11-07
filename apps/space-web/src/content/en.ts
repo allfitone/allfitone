@@ -124,6 +124,7 @@ export const en: Dictionary = {
   footer: {
     terms: 'Terms',
     privacy: 'Privacy',
+    analytics: 'Analytics',
     studio: 'Allfit Studio',
     rights: '© 2026 Allfit One',
     newWindow: 'Opens in a new tab.',

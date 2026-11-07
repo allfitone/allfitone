@@ -92,17 +92,19 @@ test('the footer opens Allfit One and Allfit Studio side by side, in new tabs', 
 })
 
 test.describe('legal documents', () => {
-  test('the footer links the terms and the privacy policy on www.allfit.one', async ({ page }) => {
+  test('the footer links the three legal documents on www.allfit.one', async ({ page }) => {
     await page.goto('/en')
     const footer = page.getByRole('contentinfo')
-    await expect(footer.getByRole('link', { name: 'Terms', exact: true })).toHaveAttribute(
-      'href',
-      'https://www.allfit.one/en/legal/terms',
-    )
-    await expect(footer.getByRole('link', { name: 'Privacy', exact: true })).toHaveAttribute(
-      'href',
-      'https://www.allfit.one/en/legal/privacy',
-    )
+    for (const [name, document] of [
+      ['Terms', 'terms'],
+      ['Privacy', 'privacy'],
+      ['Analytics', 'analytics'],
+    ] as const) {
+      await expect(footer.getByRole('link', { name, exact: true })).toHaveAttribute(
+        'href',
+        `https://www.allfit.one/en/legal/${document}`,
+      )
+    }
   })
 
   test('the former legal pages redirect there for good', async ({ request }) => {

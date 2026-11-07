@@ -65,6 +65,9 @@ export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
         <SiteFooterLinks>
           <SiteFooterLink href={legalUrl(locale, 'terms')}>{copy.footer.terms}</SiteFooterLink>
           <SiteFooterLink href={legalUrl(locale, 'privacy')}>{copy.footer.privacy}</SiteFooterLink>
+          <SiteFooterLink href={legalUrl(locale, 'analytics')}>
+            {copy.footer.analytics}
+          </SiteFooterLink>
         </SiteFooterLinks>
       </SiteFooterBar>
       <SiteFooterMeta>{copy.footer.rights}</SiteFooterMeta>
