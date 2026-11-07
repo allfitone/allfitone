@@ -127,7 +127,7 @@ describe('permission definition presentation rules', () => {
   test('answers the immutability guard with the next action, never a retry', () => {
     expect(scopeDefinitionMessage('conflict')).toContain('publica la versión siguiente')
     expect(scopeDefinitionMessage('conflict')).toContain('conserva')
-    expect(scopeDefinitionMessage('forbidden')).toContain('vencen por diseño')
+    expect(scopeDefinitionMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(scopeDefinitionMessage('anything-else')).toBe(
       'No se pudo publicar la definición de permiso.',
     )

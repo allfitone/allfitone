@@ -267,7 +267,7 @@ test('explains a refused read as an expired duty, not as a generic error', async
 
   await page.goto(PATH)
 
-  await expect(page.getByText(/vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test('sends an unauthenticated operator back to the access screen', async ({ context, page }) => {

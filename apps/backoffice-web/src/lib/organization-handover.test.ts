@@ -187,6 +187,6 @@ describe('organization handover presentation', () => {
 
   test('explains a lost race and an expired duty', () => {
     expect(handoverMessage('conflict')).toContain('Se volvió a leer su estado')
-    expect(handoverMessage('forbidden')).toContain('vencen por diseño')
+    expect(handoverMessage('forbidden')).toContain('llegan con el rol de administrador')
   })
 })

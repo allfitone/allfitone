@@ -91,7 +91,7 @@ export function recoveryOutcomeMessage(
 export function accountRecoveryMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Ayudar con una recuperación exige el deber de soporte vigente. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Ayudar con una recuperación exige el deber de soporte vigente. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'not-found': 'No hay ninguna persona con ese identificador.',
     'invalid-request': 'Falta la referencia del caso o no tiene la forma esperada.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',

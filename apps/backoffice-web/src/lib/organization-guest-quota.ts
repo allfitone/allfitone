@@ -171,7 +171,7 @@ export function draftWarning(draft: SeatsDraft, quota: OrganizationGuestQuota): 
 export function quotaMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Fijar el cupo pide el deber «manage_platform_commercial», que no es el mismo con el que se crea un gimnasio ni el que abre su ficha. Los deberes vencen por diseño.',
+      'Fijar el cupo pide el deber «manage_platform_commercial», que no es el mismo con el que se crea un gimnasio ni el que abre su ficha. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict: 'Ese gimnasio ya no opera, así que no se le vende cupo.',
     'not-found': 'Ese gimnasio no existe.',
     'validation-failed':

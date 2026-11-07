@@ -189,7 +189,7 @@ describe('credential verification presentation rules', () => {
 
   test('explains a request decided elsewhere and an expired duty', () => {
     expect(verificationMessage('conflict')).toContain('ya no está pendiente')
-    expect(verificationMessage('forbidden')).toContain('vencen por diseño')
+    expect(verificationMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(verificationMessage('anything-else')).toBe('No se pudo completar la operación.')
   })
 })

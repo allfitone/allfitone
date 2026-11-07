@@ -68,7 +68,7 @@ describe('organization directory presentation', () => {
   })
 
   test('a withdrawn duty is explained as expiry by design', () => {
-    expect(directoryMessage('forbidden')).toContain('vencen por diseño')
+    expect(directoryMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(directoryMessage('something-new')).toBe('No se pudo leer el directorio.')
   })
 

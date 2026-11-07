@@ -92,7 +92,7 @@ export function catalogueOutcomeMessage(
 export function globalCatalogueMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Publicar el catálogo global exige el deber de curaduría vigente. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Publicar el catálogo global exige el deber de curaduría vigente. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
     'upstream-unavailable': 'El servicio no respondió. Reintenta en un momento.',
     'network-unavailable': 'No hay conexión con el API.',

@@ -149,7 +149,7 @@ describe('access log presentation rules', () => {
   })
 
   test('explains a refusal as an expired duty rather than a mistake', () => {
-    expect(accessLogMessage('forbidden')).toContain('vencen por diseño')
+    expect(accessLogMessage('forbidden')).toContain('llegan con el rol de administrador')
     // A rejected filter is explained by what ignoring it would have done.
     expect(accessLogMessage('invalid-request')).toContain('ampliaría la consulta')
     expect(accessLogMessage('anything-else')).toBe('No se pudo completar la consulta.')

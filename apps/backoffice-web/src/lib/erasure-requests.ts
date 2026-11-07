@@ -231,7 +231,7 @@ export function emptyMessage(status: ErasureRequestState): string {
 export function erasureMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber manage_privacy_requests. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber manage_privacy_requests. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'separation-of-duties':
       'Pediste o aprobaste un acceso excepcional a los datos de esta persona, así que no puedes decidir qué se conserva de ella. Pídeselo a alguien del equipo que no haya participado.',
     conflict:

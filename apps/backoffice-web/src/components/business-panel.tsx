@@ -13,7 +13,7 @@
  * professionals working in Studio is what the platform does record. Showing the
  * second alone, unlabelled, would quietly answer the first with the wrong number.
  *
- * Being refused is not an error: the duty expires by design, so it is said in
+ * Being refused is not an error: a withdrawn admin role is a real state, so it is said in
  * plain words and the rest of the screen carries on without it.
  */
 
