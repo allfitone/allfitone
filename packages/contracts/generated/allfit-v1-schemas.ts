@@ -2337,21 +2337,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
-  BreakGlassDecision: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['decision', 'reason_code'],
-    properties: {
-      decision: {
-        type: 'string',
-        enum: ['approved', 'rejected'],
-      },
-      reason_code: {
-        type: 'string',
-        pattern: '^[A-Z][A-Z0-9_-]{2,63}$',
-      },
-    },
-  },
   BreakGlassExercise: {
     type: 'object',
     additionalProperties: false,
@@ -2505,7 +2490,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'approvals',
       'exercise_count',
       'viewer_is_requester',
-      'viewer_can_decide',
       'viewer_can_exercise',
     ],
     properties: {
@@ -2537,13 +2521,17 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       required_approvals: {
         type: 'integer',
-        minimum: 1,
+        minimum: 0,
         maximum: 2,
+        description:
+          '0 for every window asked for since ADR-046, because asking opens it. 1 or 2 only on files asked for before, which keep their quorum.',
       },
       requested_duration_minutes: {
         type: 'integer',
         minimum: 1,
-        maximum: 30,
+        maximum: 60,
+        description:
+          '60 for every window asked for since ADR-046; 30 or 15 on files asked for before.',
       },
       requested_at: {
         type: 'string',
@@ -2578,6 +2566,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       approvals: {
         type: 'array',
+        description: 'Approvals recorded before ADR-046; empty on every window opened since.',
         items: {
           $ref: '#/components/schemas/BreakGlassApproval',
         },
@@ -2591,14 +2580,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         description:
           'Whether the caller opened this file. The Backoffice session carries no domain identifier, so the server answers this rather than the client re-deriving it from one.',
       },
-      viewer_can_decide: {
+      viewer_can_exercise: {
         type: 'boolean',
         description:
           'A hint for the screen, never authority: it saves offering a button that would always be refused. Every command revalidates on its own.',
-      },
-      viewer_can_exercise: {
-        type: 'boolean',
-        description: 'A hint for the screen, on the same terms as `viewer_can_decide`.',
       },
     },
   },
@@ -17917,7 +17902,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     additionalProperties: false,
     description:
       'The outcome travels beside the items so a client cannot render an unexplained empty list. `HU-BO-006` criterion 3 is a contract obligation here, not a copy decision in one screen.',
-    required: ['outcome', 'items'],
+    required: ['outcome', 'items', 'has_more'],
     properties: {
       outcome: {
         type: 'string',
@@ -17925,10 +17910,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       items: {
         type: 'array',
-        maxItems: 1,
+        maxItems: 25,
         items: {
           $ref: '#/components/schemas/SupportPersonMatch',
         },
+      },
+      has_more: {
+        type: 'boolean',
+        description: 'More people match than this page answers; a narrower search finds them.',
       },
     },
   },
@@ -18071,23 +18060,28 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'object',
     additionalProperties: false,
     description:
-      'HU-BO-006 criterion 2: the identifier, the masked contact and the operational state of the account, and nothing else.',
-    required: ['person_id', 'account_status', 'contact_email_masked', 'contact_phone_masked'],
+      'Who she is, how to reach her and the state of her account: what an administrator needs to tell two people apart (ADR-046 decision 4).',
+    required: ['person_id', 'display_name', 'contact_email', 'contact_phone', 'account_status'],
     properties: {
       person_id: {
         $ref: '#/components/schemas/Uuid',
       },
-      account_status: {
+      display_name: {
         type: 'string',
         minLength: 1,
-        maxLength: 32,
+        maxLength: 255,
       },
-      contact_email_masked: {
+      contact_email: {
         type: ['string', 'null'],
         maxLength: 254,
       },
-      contact_phone_masked: {
+      contact_phone: {
         type: ['string', 'null'],
+        maxLength: 32,
+      },
+      account_status: {
+        type: 'string',
+        minLength: 1,
         maxLength: 32,
       },
     },
@@ -18096,9 +18090,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'object',
     additionalProperties: false,
     description:
-      'The minimised operational state. No name, no full contact and no identity provider subject appear here, by construction rather than by filtering.',
+      'The operational state, with her name and full contact for an administrator (ADR-046 decision 4). No identity provider subject appears here, by construction rather than by filtering.',
     required: [
       'person_id',
+      'display_name',
+      'contact_email',
+      'contact_phone',
       'account_status',
       'created_at',
       'activated_at',
@@ -18121,6 +18118,19 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     properties: {
       person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      display_name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 255,
+      },
+      contact_email: {
+        type: ['string', 'null'],
+        maxLength: 254,
+      },
+      contact_phone: {
+        type: ['string', 'null'],
+        maxLength: 32,
       },
       account_status: {
         type: 'string',

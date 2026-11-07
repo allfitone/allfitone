@@ -368,8 +368,8 @@ export interface paths {
       cookie?: never
     }
     /**
-     * Find a person by something they handed over in their own case
-     * @description Exact match on exactly one of an identifier, an email or a phone. There is no exploratory search by name, so no parameter offers one. The search is recorded whether or not it matched: a fruitless search is the one most worth being able to review later. A match answers only what HU-BO-006 criterion 2 lists, and is also recorded in the person's own access log.
+     * Find a person by part of a name, an email or a phone
+     * @description Part of a name, an email or a phone number, or a person's identifier, matched as text and regardless of case (ADR-046 decision 4). Answers up to `limit` people in name order, with their name and contact, and whether more match. The search is recorded whether or not it matched: a fruitless search is the one most worth being able to review later. Every person it answers is recorded in her own access log before the answer travels.
      */
     get: operations['searchBackofficeSupportPeople']
     put?: never
@@ -820,35 +820,15 @@ export interface paths {
     }
     /**
      * Read the break-glass tray
-     * @description Requests to decide, or your own. Reading the tray is never a permission: every operation revalidates its duty, its quorum and its window in its own transaction.
+     * @description Every file, or your own. Reading the tray is never a permission: every operation revalidates its role and its window in its own transaction.
      */
     get: operations['listBackofficeBreakGlassRequests']
     put?: never
     /**
      * Ask for a break-glass window
-     * @description The body names the subject, the categories, one of five closed purposes and a traceable case. It does **not** name the tier, the number of approvals or the duration: the server derives all three from the categories, so a caller cannot ask for the cheap ones. A forbidden category is refused rather than priced higher.
+     * @description The body names the subject, the categories, one of five closed purposes and a traceable case. It does **not** name the tier, the number of approvals or the duration: the server derives all three from the categories. Asking opens the window at once, for sixty minutes whatever the tier, because nobody else has to approve it (ADR-046); somebody other than the requester reviews it afterwards. A forbidden category is refused, and a window is never opened over your own data.
      */
     post: operations['requestBackofficeBreakGlass']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/backoffice/v1/break-glass/requests/{requestId}/decisions': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Approve or reject a break-glass request
-     * @description A rejection is terminal. An approval that completes the quorum opens the window in the same transaction; one that does not leaves the request exactly where it was. The approver is never the requester or the subject, and never counts twice.
-     */
-    post: operations['decideBackofficeBreakGlass']
     delete?: never
     options?: never
     head?: never
@@ -5931,7 +5911,9 @@ export interface components {
       purpose: components['schemas']['BreakGlassPurpose']
       case_reference: string
       sensitivity_tier: components['schemas']['BreakGlassTier']
+      /** @description 0 for every window asked for since ADR-046, because asking opens it. 1 or 2 only on files asked for before, which keep their quorum. */
       required_approvals: number
+      /** @description 60 for every window asked for since ADR-046; 30 or 15 on files asked for before. */
       requested_duration_minutes: number
       /** Format: date-time */
       requested_at: string
@@ -5948,13 +5930,12 @@ export interface components {
       reviewed_at: string | null
       /** @enum {string|null} */
       review_outcome: 'justified' | 'unjustified' | 'incident_opened' | null
+      /** @description Approvals recorded before ADR-046; empty on every window opened since. */
       approvals: components['schemas']['BreakGlassApproval'][]
       exercise_count: number
       /** @description Whether the caller opened this file. The Backoffice session carries no domain identifier, so the server answers this rather than the client re-deriving it from one. */
       viewer_is_requester: boolean
       /** @description A hint for the screen, never authority: it saves offering a button that would always be refused. Every command revalidates on its own. */
-      viewer_can_decide: boolean
-      /** @description A hint for the screen, on the same terms as `viewer_can_decide`. */
       viewer_can_exercise: boolean
     }
     BreakGlassRequestList: {
@@ -5966,11 +5947,6 @@ export interface components {
       categories: components['schemas']['BreakGlassCategory'][]
       purpose: components['schemas']['BreakGlassPurpose']
       case_reference: string
-    }
-    BreakGlassDecision: {
-      /** @enum {string} */
-      decision: 'approved' | 'rejected'
-      reason_code: string
     }
     BreakGlassExercise: {
       category: components['schemas']['BreakGlassCategory']
@@ -6249,9 +6225,12 @@ export interface components {
      * @enum {string}
      */
     SupportBlockAvailability: 'available' | 'unknown' | 'not_modelled'
-    /** @description The minimised operational state. No name, no full contact and no identity provider subject appear here, by construction rather than by filtering. */
+    /** @description The operational state, with her name and full contact for an administrator (ADR-046 decision 4). No identity provider subject appears here, by construction rather than by filtering. */
     SupportPersonMetadata: {
       person_id: components['schemas']['Uuid']
+      display_name: string
+      contact_email: string | null
+      contact_phone: string | null
       account_status: string
       /** Format: date-time */
       created_at: string
@@ -6317,18 +6296,21 @@ export interface components {
       /** Format: date-time */
       until: string | null
     }
-    /** @description HU-BO-006 criterion 2: the identifier, the masked contact and the operational state of the account, and nothing else. */
+    /** @description Who she is, how to reach her and the state of her account: what an administrator needs to tell two people apart (ADR-046 decision 4). */
     SupportPersonMatch: {
       person_id: components['schemas']['Uuid']
+      display_name: string
+      contact_email: string | null
+      contact_phone: string | null
       account_status: string
-      contact_email_masked: string | null
-      contact_phone_masked: string | null
     }
     /** @description The outcome travels beside the items so a client cannot render an unexplained empty list. `HU-BO-006` criterion 3 is a contract obligation here, not a copy decision in one screen. */
     SupportPeopleSearch: {
       /** @enum {string} */
       outcome: 'found' | 'not_found'
       items: components['schemas']['SupportPersonMatch'][]
+      /** @description More people match than this page answers; a narrower search finds them. */
+      has_more: boolean
     }
     PlatformRoleAssignmentPage: {
       data: components['schemas']['PlatformRoleAssignment'][]
@@ -12196,15 +12178,12 @@ export interface components {
     AccessEventTo: string
     /** @description The aggregate an event belongs to. Not every event is reachable from a person: a notification about an invitation belongs to the invitation. */
     SupportAggregateId: components['schemas']['Uuid']
-    /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
+    /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
     SupportCaseReference: string
     SupportPersonId: components['schemas']['Uuid']
-    /** @description Exactly one lookup parameter is accepted per search. */
-    SupportLookupIdentifier: components['schemas']['Uuid']
-    /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-    SupportLookupEmail: string
-    /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-    SupportLookupPhone: string
+    /** @description Part of a name, an email or a phone number, or a person's identifier. Matched as text: `%` and `_` are characters, never wildcards. */
+    SupportPeopleQuery: string
+    SupportPeopleLimit: number
     OnboardingAttemptId: components['schemas']['UuidV7']
     CredentialId: components['schemas']['UuidV7']
     Origin: string
@@ -13022,14 +13001,11 @@ export interface operations {
   searchBackofficeSupportPeople: {
     parameters: {
       query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
-        /** @description Exactly one lookup parameter is accepted per search. */
-        identifier?: components['parameters']['SupportLookupIdentifier']
-        /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-        email?: components['parameters']['SupportLookupEmail']
-        /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-        phone?: components['parameters']['SupportLookupPhone']
+        /** @description Part of a name, an email or a phone number, or a person's identifier. Matched as text: `%` and `_` are characters, never wildcards. */
+        q: components['parameters']['SupportPeopleQuery']
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
+        limit?: components['parameters']['SupportPeopleLimit']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -13039,7 +13015,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description The match, or an explicit not-found outcome. Never a bare empty list: the outcome says which of the two happened. */
+      /** @description The matches, or an explicit not-found outcome. Never a bare empty list: the outcome says which of the two happened. */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
@@ -13058,9 +13034,9 @@ export interface operations {
   }
   readBackofficeSupportPersonMetadata: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -13092,9 +13068,9 @@ export interface operations {
   }
   readBackofficeSupportPersonPayments: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -13126,9 +13102,9 @@ export interface operations {
   }
   readBackofficeBillingFollowUp: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
         limit?: number
       }
       header: {
@@ -13895,48 +13871,6 @@ export interface operations {
     responses: {
       /** @description The file, or the converged one for a repeated command */
       201: {
-        headers: {
-          'Cache-Control': components['headers']['NoStore']
-          'Idempotent-Replay': components['headers']['IdempotentReplay']
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['BreakGlassRequest']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthenticated']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      415: components['responses']['UnsupportedMediaType']
-      422: components['responses']['ValidationFailed']
-      503: components['responses']['UpstreamUnavailable']
-    }
-  }
-  decideBackofficeBreakGlass: {
-    parameters: {
-      query?: never
-      header: {
-        Origin: components['parameters']['Origin']
-        /** @description UUIDv4 reused only for HTTP retries of this operation. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey']
-        /** @description UUIDv7 durable identity generated when the user intention is created. */
-        'Command-Id': components['parameters']['CommandId']
-      }
-      path: {
-        requestId: components['parameters']['BreakGlassRequestId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BreakGlassDecision']
-      }
-    }
-    responses: {
-      /** @description The file after the decision */
-      200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
           'Idempotent-Replay': components['headers']['IdempotentReplay']
@@ -20945,9 +20879,9 @@ export interface operations {
   }
   readBackofficeAccountRecovery: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
       }
       header: {
         Origin: components['parameters']['Origin']
