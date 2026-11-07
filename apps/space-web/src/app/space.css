@@ -111,7 +111,9 @@ img {
   font-family: var(--font-display), sans-serif;
   font-weight: 800;
   text-transform: uppercase;
-  line-height: 0.86;
+  /* Barlow's accented capitals reach 0.885em: below 0.92 the accent on Ó, É
+     or Ú touches the line above. */
+  line-height: 0.92;
   letter-spacing: -0.01em;
 }
 
@@ -139,12 +141,13 @@ img {
   line-height: 1.6;
 }
 
-/* Each line of a big title rises out of its own mask. */
+/* Each line of a big title rises out of its own mask. The mask reaches above the
+   line, without moving it, so the accents on capitals are never cut. */
 .line {
   display: block;
   overflow: clip;
-  padding-bottom: 0.05em;
-  margin-bottom: -0.05em;
+  padding-block: 0.1em 0.05em;
+  margin-block: -0.1em -0.05em;
 }
 
 .line > span {
