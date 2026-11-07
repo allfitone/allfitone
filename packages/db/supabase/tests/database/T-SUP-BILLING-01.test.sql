@@ -6,9 +6,10 @@
 -- already known. This is the list the count stands for.
 --
 -- **It names payers, so it is a billing read.** `view_billing_metadata` (every admin holds
--- it through the role, ADR-046; a session without the role does not) and a traceable
--- case, as for one person's payments (`HU-BO-020` c4), and one access record per person
--- listed, written before the list travels.
+-- it through the role, ADR-046; a session without the role does not), a case that is
+-- traceable when given, as for one person's payments (`HU-BO-020` c4; optional since
+-- ADR-046 decision 5), and one access record per person listed, written before the list
+-- travels.
 --
 -- **Only what needs following up.** A suspended subscription, one in its grace period,
 -- or a charge that failed in the last thirty days. A failure from two months ago and a
@@ -174,7 +175,7 @@ select throws_ok(
     'sin caso', 50
   ) $$,
   '22023', null,
-  'naming payers needs a traceable case (HU-BO-020 c4)'
+  'a case given to the list in free text is refused (HU-BO-020 c4)'
 );
 
 select throws_ok(

@@ -1,13 +1,16 @@
--- T-SUP-RLS-03 — PR-22 / OP-SUP-005: the minimised support projection.
+-- T-SUP-RLS-03 — PR-22 / OP-SUP-005: the support search and the person file.
 --
 -- Covers `HU-BO-006` and `HU-BO-007`. A Backoffice session without the admin role
--- opens nothing; the projection never carries a name, a full contact or the provider's subject;
--- there is no exploratory search; and a search that found nobody is recorded
--- anyway, which is the whole reason `support.metadata_queries` exists.
+-- opens nothing. Since ADR-046 decisions 4 and 5 the search takes part of a name, an
+-- email or a phone, and the search and the file answer her name and full contact, with
+-- or without a case reference; a case given in free text is still refused, a wildcard
+-- never lists everybody, and the provider's subject never leaves the projection. A
+-- search that found nobody is recorded anyway, which is the whole reason
+-- `support.metadata_queries` exists.
 
 begin;
 
-select plan(31);
+select plan(35);
 
 insert into identity.people (
   id, given_name, family_name, contact_email, contact_phone, status
@@ -80,9 +83,9 @@ select set_config('app.actor_kind', 'support', true),
 -- ---------------------------------------------------------------------------
 
 select throws_ok(
-  $$ select * from support.search_people(
+  $$ select support.search_people(
     '019a5000-0000-7000-8000-000000000004', '019a5000-0000-7000-8000-000000000024',
-    'CASE-2026-100', 'email', 'subject.epsilon@example.test'
+    'CASE-2026-100', 'subject.epsilon@example.test', 25
   ) $$,
   '42501',
   'reading support metadata requires an effective duty',
@@ -106,43 +109,45 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- HU-BO-006 — exact match, and nothing else
+-- HU-BO-006 — what the administrator remembers of her, and never everybody
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select (result->>'person_id')::uuid from support.search_people(
+  (select support.search_people(
     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
-    'CASE-2026-101', 'email', 'subject.epsilon@example.test'
-  )),
+    'CASE-2026-101', 'subject.epsilon@example.test', 25
+  ) #>> '{matches,0,person_id}')::uuid,
   '019a5000-0000-7000-8000-000000000005'::uuid,
   'an exact email finds the person who handed it over'
 );
 
+-- The exploratory search the old exact match prevented: a pattern matches as text.
 select is(
-  (select count(*) from support.search_people(
+  (select jsonb_array_length(support.search_people(
     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
-    'CASE-2026-102', 'email', 'subject.epsilon'
-  ))::integer,
+    'CASE-2026-102', '%%', 25
+  ) -> 'matches')),
   0,
-  'a partial email matches nothing: there is no exploratory search'
+  'a wildcard is searched as text, so it never lists everybody'
 );
 
 select is(
-  (select count(*) from support.search_people(
+  (select jsonb_array_length(support.search_people(
     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
-    'CASE-2026-103', 'phone', '+573001234567'
-  ))::integer,
+    'CASE-2026-103', '+573001234567', 25
+  ) -> 'matches')),
   1,
   'an exact phone finds the person too'
 );
 
 select is(
   (select array_agg(key order by key)
-   from support.search_people(
-     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023', 'CASE-2026-110', 'identifier', '019a5000-0000-7000-8000-000000000005'
-   ) as found, jsonb_object_keys(found.result) as key),
-  array['account_status', 'contact_email_masked', 'contact_phone_masked', 'person_id'],
-  'T-SUP-SEARCH-INT-01 a match carries the identifier, the masked contact and the account state, nothing else'
+   from jsonb_object_keys(support.search_people(
+     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
+     'CASE-2026-110', '019a5000-0000-7000-8000-000000000005', 25
+   ) -> 'matches' -> 0) as key),
+  array['account_status', 'contact_email', 'contact_phone', 'display_name', 'person_id'],
+  'T-SUP-SEARCH-INT-01 a match carries the identifier, her name, her contact and the account state, nothing else'
 );
 
 select is(
@@ -154,13 +159,22 @@ select is(
 );
 
 select throws_ok(
-  $$ select * from support.search_people(
+  $$ select support.search_people(
     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
-    'CASE-2026-104', 'name', 'Epsilon'
+    'CASE-2026-104', 'e', 25
   ) $$,
   '22023',
-  'a support search is by identifier, email or phone',
-  'searching by name is refused by the function, not by a convention'
+  'a support search needs at least two characters',
+  'one character is refused by the function, not by a convention: a search names, it does not browse'
+);
+
+select is(
+  (select support.search_people(
+    '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
+    null, 'epsil', 25
+  ) #>> '{matches,0,contact_email}'),
+  'subject.epsilon@example.test',
+  'part of her name finds her without a case reference, and answers her full contact'
 );
 
 -- ---------------------------------------------------------------------------
@@ -177,6 +191,14 @@ select is(
   (select count(*) from support.metadata_queries where case_reference = 'CASE-2026-104')::integer,
   0,
   'a malformed search is refused before it becomes a record'
+);
+
+select is(
+  (select count(*)::integer from support.metadata_queries
+   where actor_person_id = '019a5000-0000-7000-8000-000000000003'
+     and case_reference is null and lookup_kind = 'text'),
+  1,
+  'a search without a case is recorded too, with no case'
 );
 
 select ok(
@@ -208,10 +230,10 @@ select throws_ok(
 select throws_ok(
   $$ select support.search_people(
     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
-    'el usuario no puede entrar', 'email', 'subject.epsilon@example.test'
+    'el usuario no puede entrar', 'subject.epsilon@example.test', 25
   ) $$,
-  '23514',
-  null,
+  '22023',
+  'a case reference is a traceable code, never free text',
   'a case reference cannot be free prose'
 );
 
@@ -343,7 +365,7 @@ reset role;
 select set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
 
 -- ---------------------------------------------------------------------------
--- HU-BO-007 — minimisation
+-- HU-BO-007 — what the file shows, and what it never does
 -- ---------------------------------------------------------------------------
 
 select ok(
@@ -354,15 +376,30 @@ select ok(
   'the operational state carries identifiers, states and timestamps'
 );
 
+select is(
+  (select jsonb_build_object(
+      'display_name', opened_file.file -> 'display_name',
+      'contact_email', opened_file.file -> 'contact_email',
+      'contact_phone', opened_file.file -> 'contact_phone')
+   from (select support.person_metadata(
+     '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
+     null, '019a5000-0000-7000-8000-000000000005'
+   ) as file) as opened_file),
+  '{"display_name": "Subject Epsilon", "contact_email": "subject.epsilon@example.test",
+    "contact_phone": "+573001234567"}'::jsonb,
+  'without a case reference the file opens, names her and shows her full contact'
+);
+
 select ok(
   not (
-    select support.person_metadata(
+    select opened_file.file ?| array['given_name', 'family_name', 'username', 'subject']
+      or position('subject-external-secret' in opened_file.file::text) > 0
+    from (select support.person_metadata(
       '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
       'CASE-2026-106', '019a5000-0000-7000-8000-000000000005'
-    ) ?| array['given_name', 'family_name', 'display_name', 'username', 'contact_email',
-               'contact_phone', 'subject']
+    ) as file) as opened_file
   ),
-  'no name, no full contact and no provider subject ever leave the projection'
+  'the provider subject never leaves the projection, nor her name in parts'
 );
 
 select is(
@@ -371,7 +408,17 @@ select is(
     'CASE-2026-107', '019a5000-0000-7000-8000-000000000005'
   )->>'contact_email_masked'),
   '••••••••on@example.test',
-  'the contact is masked to what confirms a case, not to what identifies a person'
+  'the masked contact the older screens read is still masked the same way'
+);
+
+select throws_ok(
+  $$ select support.person_metadata(
+    '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
+    'caso sin codigo', '019a5000-0000-7000-8000-000000000005'
+  ) $$,
+  '22023',
+  'a case reference is a traceable code, never free text',
+  'a case given to the file in free text is refused'
 );
 
 select throws_ok(
@@ -407,7 +454,7 @@ select ok(
 
 select ok(
   has_function_privilege(
-    'allfit_api', 'support.search_people(uuid,uuid,text,text,text)', 'EXECUTE'
+    'allfit_api', 'support.search_people(uuid,uuid,text,text,integer)', 'EXECUTE'
   )
     and has_function_privilege(
       'allfit_api', 'support.person_metadata(uuid,uuid,text,uuid)', 'EXECUTE'

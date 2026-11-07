@@ -122,7 +122,7 @@ select throws_ok(
     'case 10', '019b1000-0000-7000-8000-000000000005'
   ) $$,
   '22023', null,
-  'a recovery read needs a traceable case reference'
+  'a case reference given to a recovery read is still a traceable code'
 );
 
 select throws_ok(
