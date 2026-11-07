@@ -6,6 +6,7 @@ import type {
   BackofficeAuthenticationDatabase,
   SessionTokenVault,
   StoredBackofficeAttempt,
+  StoredBackofficeSession,
 } from '../domain/index.js'
 import {
   BackofficeAuthenticationError,
@@ -70,6 +71,7 @@ function harness(
     verifiedEmail?: string | null
     verificationValid?: boolean
     failureTerminal?: boolean
+    session?: StoredBackofficeSession
   } = {},
 ) {
   const calls = {
@@ -142,7 +144,7 @@ function harness(
       if (attempt) attempt.status = 'completed'
       return { sessionId: 'session-1', replayed: false }
     },
-    loadSession: async () => undefined,
+    loadSession: async () => options.session,
     rotateSession: async () => true,
     logout: async () => ({ outcome: 'revoked', providerSessionId: 'provider-session' }),
   }
@@ -183,6 +185,34 @@ function harness(
 }
 
 describe('Backoffice AAL2 authentication application service', () => {
+  test('a session ends sixty minutes after its last activity, as PostgreSQL decides', async () => {
+    const lastActivityAt = new Date('2026-08-12T11:50:00.000Z')
+    const { service } = harness({
+      session: {
+        sessionId: 'session-1',
+        accountId: 'account-1',
+        personId: 'person-1',
+        externalSubject: 'workos-user',
+        providerSessionId: 'provider-session',
+        tokenCiphertext: 'sealed-session',
+        accessTokenExpiresAt: new Date('2026-08-12T13:00:00.000Z'),
+        tokenVersion: 1,
+        givenName: 'Ada',
+        familyName: 'Lovelace',
+        assuranceLevel: 2,
+        authenticationMethod: 'password_totp',
+        assuranceVerifiedAt: new Date('2026-08-12T08:00:00.000Z'),
+        lastActivityAt,
+        absoluteExpiresAt: new Date('2026-08-12T20:00:00.000Z'),
+      },
+    })
+
+    const session = await service.readSession('session-token')
+
+    expect(session.inactivity_expires_at).toBe('2026-08-12T12:50:00.000Z')
+    expect(session.absolute_expires_at).toBe('2026-08-12T20:00:00.000Z')
+  })
+
   test('enrolls a first TOTP factor but does not create a session before verification', async () => {
     const { service, calls } = harness()
     const result = await service.startPassword({
