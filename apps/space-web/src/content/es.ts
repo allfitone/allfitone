@@ -8,7 +8,7 @@
 
 export const es = {
   meta: {
-    title: 'Allfit Space | Tu historial se va contigo',
+    title: 'Allfit Space | App de entrenamiento y nutrición',
     description:
       'App de entrenamiento y nutrición: tu programa, cada serie y lo que comes en un solo lugar. Tu historial viaja contigo y tus datos son tuyos.',
     shareImageAlt:
