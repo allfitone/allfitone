@@ -199,9 +199,16 @@ describe('Backoffice account recovery API contract', () => {
     expect(captured[0]?.input).toMatchObject({ caseReference: CASE, personId: PERSON_ID })
   })
 
-  test('T-IDN-RECOVERY-API-04 refuses a read nobody can trace to a case before reaching the service', async () => {
+  test('T-IDN-RECOVERY-API-10 reads the recovery state without a case, which only commands need', async () => {
+    const response = await routes().fetch(request(`/people/${PERSON_ID}/account-recovery`))
+
+    expect(response.status).toBe(200)
+    expect(captured[0]?.input).toMatchObject({ caseReference: null, personId: PERSON_ID })
+  })
+
+  test('T-IDN-RECOVERY-API-04 refuses a case in free text or anything else, before the service', async () => {
     const answers = await Promise.all([
-      routes().fetch(request(`/people/${PERSON_ID}/account-recovery`)),
+      routes().fetch(request(`/people/${PERSON_ID}/account-recovery?case_reference=`)),
       routes().fetch(request(`/people/${PERSON_ID}/account-recovery?case_reference=case%2010`)),
       routes().fetch(
         request(`/people/${PERSON_ID}/account-recovery?case_reference=${CASE}&email=a%40b.test`),

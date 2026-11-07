@@ -71,13 +71,13 @@ export function backofficeAccountRecoveryRoutes(
     const personId = c.req.param('personId')
     const query = c.req.query()
     const caseReference = query.case_reference
+    // Optional on the read (ADR-046); every command still names its case.
     if (
       !UUID_ANY.test(personId) ||
-      Object.keys(query).length !== 1 ||
-      !caseReference ||
-      !CASE_REFERENCE.test(caseReference)
+      Object.keys(query).some((key) => key !== 'case_reference') ||
+      (caseReference !== undefined && !CASE_REFERENCE.test(caseReference))
     ) {
-      return problem(c, 'invalid-request', 'a traceable case reference is required')
+      return problem(c, 'invalid-request', 'a case reference is a traceable code, never free text')
     }
     try {
       const actor = await backofficeActor(c, sessions())
@@ -85,7 +85,7 @@ export function backofficeAccountRecoveryRoutes(
       return c.json(
         await recoveries().read(assistantOf(actor), {
           requestId: randomUUID(),
-          caseReference,
+          caseReference: caseReference ?? null,
           personId,
         }),
       )
