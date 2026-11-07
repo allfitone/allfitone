@@ -55,6 +55,21 @@ test('the stores read as coming soon while there is no link', async ({ page }) =
   await expect(page.getByRole('link', { name: /App Store|Google Play/ })).toHaveCount(0)
 })
 
+test('the share story moves only when the visitor picks a step', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/es')
+  const story = page.locator('#records-story')
+  await story.scrollIntoViewIfNeeded()
+  // It used to advance on its own every 2.8 s, with no way to pause it (WCAG 2.2.2).
+  await page.waitForTimeout(3500)
+  await expect(story).toHaveAttribute('data-step', '0')
+
+  const choose = page.getByRole('button', { name: /ELIGES/ })
+  await choose.click()
+  await expect(story).toHaveAttribute('data-step', '1')
+  await expect(choose).toHaveAttribute('aria-current', 'step')
+})
+
 test.describe('legal documents', () => {
   test('the footer links the terms and the privacy policy on www.allfit.one', async ({ page }) => {
     await page.goto('/en')

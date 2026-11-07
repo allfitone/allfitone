@@ -57,6 +57,10 @@ img {
   max-width: 100%;
 }
 
+p {
+  text-wrap: pretty;
+}
+
 /* Layered under the Design System utilities so the shared header and footer keep their link colours. */
 @layer afo-base {
   a {
@@ -314,7 +318,9 @@ a.store:active {
       color-mix(in srgb, var(--bg) 82%, transparent) 30%,
       transparent 64%
     ),
-    linear-gradient(0deg, var(--bg) 0%, transparent 34%);
+    linear-gradient(0deg, var(--bg) 0%, transparent 34%),
+    /* Keeps the header's links legible where the photo is brightest. */
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent) 0, transparent 200px);
 }
 
 .hero__grid {
@@ -328,6 +334,18 @@ a.store:active {
 .hero__copy {
   display: grid;
   gap: 32px;
+}
+
+/* The title is written in three lines and keeps them: its longest line («NOT WITH
+   LUCK.») is 5.8em, so the size follows the column instead of the screen. */
+.hero .display--xl {
+  font-size: clamp(46px, 14.5vw, 120px);
+}
+
+@media (min-width: 961px) {
+  .hero .display--xl {
+    font-size: min(9vw - 4px, 128px);
+  }
 }
 
 .hero .line > span {
@@ -478,6 +496,26 @@ a.store:active {
   margin-top: 28px;
   align-self: center;
   --phone-w: min(80%, 300px);
+}
+
+/* Side by side, the cards share their rows, so titles, texts and phones line up. */
+@media (min-width: 1081px) {
+  .features__grid {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    height: 700px;
+  }
+
+  .feature {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 14px;
+  }
+
+  .feature__phone {
+    justify-self: center;
+    align-self: start;
+  }
 }
 
 @media (max-width: 1080px) {
@@ -1012,7 +1050,7 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
 }
 
 .story__avatar {
-  background: linear-gradient(135deg, var(--cyan), var(--afo-color-brand-turquoise-deep));
+  background: var(--cyan);
 }
 
 .story__star {
@@ -1174,7 +1212,7 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   }
 
   .pro__copy .display {
-    font-size: clamp(36px, 8vw, 64px);
+    font-size: clamp(27px, 8.8vw, 64px);
   }
 
   .pro__photo {
