@@ -69,7 +69,13 @@ function invitations(overrides: Partial<ClientInvitationService> = {}): ClientIn
       organization: {
         id: '0199d000-0000-7000-8000-000000000010',
         displayName: 'Resolve Gym',
-        responsibleParty: { party_kind: 'legal_entity', party_name: 'Resolve SAS' },
+        // `purpose` is in here because the column carries it: without it the
+        // assertion below could not prove the response drops it.
+        responsibleParty: {
+          party_kind: 'legal_entity',
+          party_name: 'Resolve SAS',
+          purpose: 'studio_operations',
+        },
       },
       expiresAt: new Date('2026-10-06T12:00:00.000Z'),
       invitedBy: 'Laura Gómez',
@@ -523,7 +529,13 @@ describe('HU-SP-016 and HU-SP-017: the first program an invitation offers', () =
   test('T-REL-INVITE-PROGRAM-API-07 she reads the program, its length and what it needs', async () => {
     const response = await app(offering()).fetch(post('resolve', { token: TOKEN }))
     const payload = (await response.json()) as { program_proposal: unknown }
-    // Only the offer: `responsible_party` predates this and does not match its schema yet.
+    /*
+     * The whole payload now, not only the offer. It used to be only the offer
+     * because `responsible_party` came back as the JSON column PostgreSQL
+     * stores and did not match its schema (`STUDIO-162`); with that mapped, the
+     * view validates end to end, so the next field to drift fails here.
+     */
+    assertMatchesContract('ClientInvitationPresentation', payload)
     assertMatchesContract('ClientInvitationProgramOffer', payload.program_proposal)
     expect(payload.program_proposal).toEqual({
       invitation_intent_id: OFFER.intentId,
