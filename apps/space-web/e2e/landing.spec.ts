@@ -92,7 +92,9 @@ test('the footer opens Allfit One and Allfit Studio side by side, in new tabs', 
 })
 
 test.describe('legal documents', () => {
-  test('the footer links the three legal documents on www.allfit.one', async ({ page }) => {
+  test('the footer opens the three legal documents on www.allfit.one, in new tabs', async ({
+    page,
+  }) => {
     await page.goto('/en')
     const footer = page.getByRole('contentinfo')
     for (const [name, document] of [
@@ -100,10 +102,10 @@ test.describe('legal documents', () => {
       ['Privacy', 'privacy'],
       ['Analytics', 'analytics'],
     ] as const) {
-      await expect(footer.getByRole('link', { name, exact: true })).toHaveAttribute(
-        'href',
-        `https://www.allfit.one/en/legal/${document}`,
-      )
+      const link = footer.getByRole('link', { name: `${name} Opens in a new tab.`, exact: true })
+      await expect(link).toHaveAttribute('href', `https://www.allfit.one/en/legal/${document}`)
+      await expect(link).toHaveAttribute('target', '_blank')
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
     }
   })
 
