@@ -1,6 +1,6 @@
 /**
  * Sends a visitor who arrives without a language to Spanish, whatever their
- * browser prefers: `/` becomes `/es` and `/privacy` becomes `/es/privacy`.
+ * browser prefers: `/` becomes `/es`, and any other path keeps itself under `/es`.
  * Paths that already carry a locale, and every static asset, pass untouched.
  */
 

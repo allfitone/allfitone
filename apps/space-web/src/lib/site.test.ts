@@ -6,12 +6,12 @@ import { alternates, pageMetadata, shareImage, SITE_URL } from './site'
 
 describe('alternates', () => {
   test('a page names itself, its translation and the address that picks a language', () => {
-    expect(alternates('en', '/privacy')).toEqual({
-      canonical: `${SITE_URL}/en/privacy`,
+    expect(alternates('en', '/programs')).toEqual({
+      canonical: `${SITE_URL}/en/programs`,
       languages: {
-        es: `${SITE_URL}/es/privacy`,
-        en: `${SITE_URL}/en/privacy`,
-        'x-default': `${SITE_URL}/privacy`,
+        es: `${SITE_URL}/es/programs`,
+        en: `${SITE_URL}/en/programs`,
+        'x-default': `${SITE_URL}/programs`,
       },
     })
   })
@@ -23,25 +23,24 @@ describe('alternates', () => {
 
 describe('pageMetadata', () => {
   test('a page shares its own address, words and image, not the home page’s', () => {
-    const copy = dictionaryFor('en')
-    const metadata = pageMetadata('en', '/terms', {
-      title: copy.meta.termsTitle,
-      description: copy.meta.termsDescription,
+    const metadata = pageMetadata('en', '/programs', {
+      title: 'Programs | Allfit Space',
+      description: 'Every program in the app.',
     })
 
-    expect(metadata.title).toBe(copy.meta.termsTitle)
-    expect(metadata.description).toBe(copy.meta.termsDescription)
+    expect(metadata.title).toBe('Programs | Allfit Space')
+    expect(metadata.description).toBe('Every program in the app.')
     expect(metadata.openGraph).toMatchObject({
-      url: `${SITE_URL}/en/terms`,
-      title: copy.meta.termsTitle,
-      description: copy.meta.termsDescription,
+      url: `${SITE_URL}/en/programs`,
+      title: 'Programs | Allfit Space',
+      description: 'Every program in the app.',
       locale: 'en_US',
       alternateLocale: ['es_CO'],
       images: [shareImage('en')],
     })
     expect(metadata.twitter).toMatchObject({
       card: 'summary_large_image',
-      title: copy.meta.termsTitle,
+      title: 'Programs | Allfit Space',
       images: [shareImage('en')],
     })
   })

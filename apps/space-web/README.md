@@ -1,8 +1,8 @@
 # Allfit Space — web
 
 Public landing of Allfit Space at `space.allfit.one`, in Spanish (`/es`) and
-English (`/en`), with the legal drafts the app stores require. It has no forms
-and talks to no API: accounts are created only in the app.
+English (`/en`). It has no forms and talks to no API: accounts are created only
+in the app.
 
 ## Local development
 
@@ -23,8 +23,9 @@ browser prefers, Spanish by default.
 - Screens are real captures of the Space app, copied on purpose into
   `public/images` as WebP. A web app never imports from another app, so they are
   duplicated rather than shared with `apps/space`.
-- The legal pages are drafts marked «Versión preliminar». The company name, tax
-  ID, address and privacy contact are still pending and read as such.
+- The terms and the privacy policy live on www.allfit.one under `/legal`, one
+  set for every Allfit One product. The footer links there, and the former
+  `/terms` and `/privacy` pages redirect there (`next.config.ts`).
 
 ## Store links
 

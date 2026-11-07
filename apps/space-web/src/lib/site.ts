@@ -4,8 +4,8 @@
  *
  * Every page builds its metadata here rather than inheriting the layout's: a
  * page that sets its own `openGraph` replaces the inherited object whole, so a
- * legal page that only changed its title used to be shared with the home
- * page's title, address and description.
+ * page that only changed its title would be shared with the home page's title,
+ * address and description.
  */
 
 import type { Metadata } from 'next'
@@ -20,12 +20,6 @@ export const SITE_NAME = 'Allfit Space'
 /** Allfit One's own site, which declares the organization every product belongs to. */
 export const PARENT_SITE_URL = 'https://www.allfit.one'
 export const ORGANIZATION_ID = `${PARENT_SITE_URL}/#organization`
-
-/**
- * The privacy policy and the terms are drafts under legal review that still
- * carry placeholders. They can be opened and shared, but stay out of search.
- */
-export const LEGAL_ROBOTS = { index: false, follow: true } as const
 
 const OG_LOCALES = { es: 'es_CO', en: 'en_US' } as const satisfies Record<Locale, string>
 

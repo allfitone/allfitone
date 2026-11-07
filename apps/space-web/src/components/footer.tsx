@@ -11,9 +11,9 @@ import {
 } from '@allfitone/react/components/site-shell'
 import { ExternalIcon } from '@allfitone/react/icons'
 import Image from 'next/image'
-import Link from 'next/link'
 
 import type { Dictionary } from '@/content'
+import { legalUrl } from '@/lib/legal'
 import type { Locale } from '@/lib/locale'
 
 /** The site footer shared with studio.allfit.one, from the Design System. */
@@ -38,12 +38,8 @@ export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
           <ExternalIcon size="sm" decorative />
         </SiteFooterParent>
         <SiteFooterLinks>
-          <SiteFooterLink render={<Link href={`/${locale}/terms`} />}>
-            {copy.footer.terms}
-          </SiteFooterLink>
-          <SiteFooterLink render={<Link href={`/${locale}/privacy`} />}>
-            {copy.footer.privacy}
-          </SiteFooterLink>
+          <SiteFooterLink href={legalUrl(locale, 'terms')}>{copy.footer.terms}</SiteFooterLink>
+          <SiteFooterLink href={legalUrl(locale, 'privacy')}>{copy.footer.privacy}</SiteFooterLink>
           <SiteFooterLink
             href={`https://studio.allfit.one/${locale}`}
             target="_blank"

@@ -19,8 +19,4 @@ describe('sitemap', () => {
       expect(entry.lastModified).toBeInstanceOf(Date)
     }
   })
-
-  test('leaves out the legal drafts, which are not meant to be found yet', () => {
-    expect(sitemap().some((entry) => /\/(privacy|terms)$/.test(entry.url))).toBe(false)
-  })
 })
