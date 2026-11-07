@@ -6641,6 +6641,54 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  MovementRelation: {
+    type: 'string',
+    enum: ['variant', 'regression', 'progression'],
+  },
+  MovementScope: {
+    type: 'string',
+    enum: ['global', 'organization'],
+  },
+  MovementVariantInput: {
+    type: 'object',
+    additionalProperties: false,
+    description: "Of a published global movement, never of another of the organization's own.",
+    required: ['movement_id', 'relation'],
+    properties: {
+      movement_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relation: {
+        $ref: '#/components/schemas/MovementRelation',
+      },
+      note: {
+        type: ['string', 'null'],
+        minLength: 1,
+        maxLength: 200,
+      },
+    },
+  },
+  MovementVariantOf: {
+    type: 'object',
+    additionalProperties: false,
+    description: 'The global movement this one is a variant, regression or progression of.',
+    required: ['id', 'name', 'relation', 'note'],
+    properties: {
+      id: {
+        type: 'string',
+        format: 'uuid',
+      },
+      name: {
+        type: 'string',
+      },
+      relation: {
+        $ref: '#/components/schemas/MovementRelation',
+      },
+      note: {
+        type: ['string', 'null'],
+      },
+    },
+  },
   MuscleTerm: {
     type: 'object',
     additionalProperties: false,
@@ -8710,6 +8758,184 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       ended_at: {
         type: 'string',
         format: 'date-time',
+      },
+    },
+  },
+  OrganizationMovement: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'discipline_code',
+      'name',
+      'scope',
+      'archived',
+      'revision',
+      'aliases',
+      'equipment',
+      'muscles',
+      'variant_of',
+      'name_locked',
+      'demo_url',
+    ],
+    properties: {
+      id: {
+        type: 'string',
+        format: 'uuid',
+      },
+      discipline_code: {
+        type: 'string',
+      },
+      name: {
+        type: 'string',
+      },
+      scope: {
+        $ref: '#/components/schemas/MovementScope',
+      },
+      archived: {
+        type: 'boolean',
+      },
+      revision: {
+        type: 'integer',
+        minimum: 1,
+        description: 'What an edit names in `expected_revision`.',
+      },
+      aliases: {
+        type: 'array',
+        description: 'Other names it goes by, in alphabetical order.',
+        items: {
+          type: 'string',
+        },
+      },
+      equipment: {
+        type: 'array',
+        description: "Equipment codes, in the catalogue's order.",
+        items: {
+          type: 'string',
+        },
+      },
+      muscles: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
+      },
+      variant_of: {
+        oneOf: [
+          {
+            type: 'null',
+          },
+          {
+            $ref: '#/components/schemas/MovementVariantOf',
+          },
+        ],
+      },
+      name_locked: {
+        type: 'boolean',
+        description:
+          "Whether the name and the discipline are frozen: always for a global movement, and for the organization's own once a published version uses it.",
+      },
+      demo_url: {
+        type: ['string', 'null'],
+        format: 'uri',
+        maxLength: 2048,
+      },
+    },
+  },
+  OrganizationMovementCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['discipline_code', 'name'],
+    properties: {
+      discipline_code: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 64,
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      aliases: {
+        type: 'array',
+        maxItems: 10,
+        items: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 120,
+        },
+      },
+      equipment: {
+        type: 'array',
+        maxItems: 16,
+        items: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 64,
+        },
+      },
+      variant: {
+        oneOf: [
+          {
+            type: 'null',
+          },
+          {
+            $ref: '#/components/schemas/MovementVariantInput',
+          },
+        ],
+      },
+    },
+  },
+  OrganizationMovementUpdate: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      '`expected_revision` and at least one field to change. A list replaces the whole list; `variant: null` removes it.',
+    required: ['expected_revision'],
+    minProperties: 2,
+    properties: {
+      expected_revision: {
+        type: 'integer',
+        minimum: 1,
+      },
+      discipline_code: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 64,
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      aliases: {
+        type: 'array',
+        maxItems: 10,
+        items: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 120,
+        },
+      },
+      equipment: {
+        type: 'array',
+        maxItems: 16,
+        items: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 64,
+        },
+      },
+      variant: {
+        oneOf: [
+          {
+            type: 'null',
+          },
+          {
+            $ref: '#/components/schemas/MovementVariantInput',
+          },
+        ],
       },
     },
   },
@@ -16808,6 +17034,74 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/StudioMembership',
         },
+      },
+    },
+  },
+  StudioMovement: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      "A movement as the template editor's picker shows it. `scope` says whose it is: the global library's or the organization's own.",
+    required: [
+      'id',
+      'discipline_code',
+      'name',
+      'scope',
+      'archived',
+      'muscles',
+      'equipment',
+      'demo_url',
+    ],
+    properties: {
+      id: {
+        type: 'string',
+        format: 'uuid',
+      },
+      discipline_code: {
+        type: 'string',
+      },
+      name: {
+        type: 'string',
+      },
+      scope: {
+        $ref: '#/components/schemas/MovementScope',
+      },
+      archived: {
+        type: 'boolean',
+      },
+      muscles: {
+        type: 'array',
+        description: "Muscle codes, the primary one first. Empty for the organization's own.",
+        items: {
+          type: 'string',
+        },
+      },
+      equipment: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
+      },
+      demo_url: {
+        type: ['string', 'null'],
+        format: 'uri',
+        maxLength: 2048,
+      },
+    },
+  },
+  StudioMovementPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/StudioMovement',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
     },
   },

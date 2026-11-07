@@ -2268,6 +2268,76 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/movements': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Search the global library and the organization's own movements
+     * @description HU-STUDIO-067. What the template editor calls while somebody types: the published global library and the organization's own movements together, each saying whose it is in `scope`. Another organization's movements never appear, not even one that gym planned for whoever is searching (T-MOV-1). Names and other names are matched anywhere, case-insensitively; accents are not folded. Archived movements of the organization appear only with `include_archived`, and then say so. Owners, admins and coaches search; anybody else in the organization answers 403, and somebody outside it 404.
+     */
+    get: operations['searchOrganizationMovements']
+    put?: never
+    /**
+     * Create a movement of the organization's own
+     * @description HU-STUDIO-064. Owners, admins and coaches name a movement the global library does not have. It is published at once and only this organization sees it. The name is unique within the organization regardless of case and spacing — a repeated one answers 409 `conflict` with `errors[0].code` `name-taken` — and may equal a global one. A variant is always of a published global movement. Muscles, instructions and media remain Allfit One's to curate, so a new movement has none.
+     */
+    post: operations['createOrganizationMovement']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/movements/{movementId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read one movement the organization can use
+     * @description A published global movement, or one of the organization's own in any state. Another organization's answers the same as one that does not exist. `name_locked` says whether the name and the discipline are frozen: always for a global movement, and for one of the organization's own once a published version uses it.
+     */
+    get: operations['readOrganizationMovement']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Edit a movement of the organization's own
+     * @description HU-STUDIO-065. The fields present replace what was there; a list replaces the whole list, and `variant: null` removes the variant. The caller names the `revision` she read in `expected_revision`; when the movement moved on meanwhile the answer is 409 `stale-draft`.
+     *
+     *     **Editing never reinterprets history.** Published versions and sessions keep only the movement's identifier, so once a published version uses it the discipline is fixed and the name accepts only changes of case and spacing; any other rename answers 409 `conflict` with `errors[0].code` `movement-in-use`. To call it something else, create another and archive this one. Other names, equipment and variant stay editable. An archived movement answers 409 `conflict` with `movement-archived`, a repeated name `name-taken`. A global movement or another organization's answers 404. Every change is kept as a revision with who made it.
+     */
+    patch: operations['updateOrganizationMovement']
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/movements/{movementId}/archival': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Archive a movement of the organization's own
+     * @description HU-STUDIO-066. Owners and admins retire a movement: new content no longer accepts it, and every version and session that used it keeps showing its name. A movement history references is never deleted. Archiving converges, so archiving it again answers the archived movement, and there is no way back. Coaches answer 403. This command carries no request body; supplying a payload is rejected with 415.
+     */
+    post: operations['archiveOrganizationMovement']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/session-templates': {
     parameters: {
       query?: never
@@ -7211,6 +7281,78 @@ export interface components {
        */
       demo_url: string | null
     }
+    /** @description A movement as the template editor's picker shows it. `scope` says whose it is: the global library's or the organization's own. */
+    StudioMovement: {
+      /** Format: uuid */
+      id: string
+      discipline_code: string
+      name: string
+      scope: components['schemas']['MovementScope']
+      archived: boolean
+      /** @description Muscle codes, the primary one first. Empty for the organization's own. */
+      muscles: string[]
+      equipment: string[]
+      /** Format: uri */
+      demo_url: string | null
+    }
+    StudioMovementPage: {
+      data: components['schemas']['StudioMovement'][]
+      page: components['schemas']['Page']
+    }
+    /** @enum {string} */
+    MovementScope: 'global' | 'organization'
+    /** @enum {string} */
+    MovementRelation: 'variant' | 'regression' | 'progression'
+    OrganizationMovement: {
+      /** Format: uuid */
+      id: string
+      discipline_code: string
+      name: string
+      scope: components['schemas']['MovementScope']
+      archived: boolean
+      /** @description What an edit names in `expected_revision`. */
+      revision: number
+      /** @description Other names it goes by, in alphabetical order. */
+      aliases: string[]
+      /** @description Equipment codes, in the catalogue's order. */
+      equipment: string[]
+      muscles: string[]
+      variant_of: null | components['schemas']['MovementVariantOf']
+      /** @description Whether the name and the discipline are frozen: always for a global movement, and for the organization's own once a published version uses it. */
+      name_locked: boolean
+      /** Format: uri */
+      demo_url: string | null
+    }
+    /** @description The global movement this one is a variant, regression or progression of. */
+    MovementVariantOf: {
+      /** Format: uuid */
+      id: string
+      name: string
+      relation: components['schemas']['MovementRelation']
+      note: string | null
+    }
+    /** @description Of a published global movement, never of another of the organization's own. */
+    MovementVariantInput: {
+      movement_id: components['schemas']['Uuid']
+      relation: components['schemas']['MovementRelation']
+      note?: string | null
+    }
+    OrganizationMovementCreate: {
+      discipline_code: string
+      name: string
+      aliases?: string[]
+      equipment?: string[]
+      variant?: null | components['schemas']['MovementVariantInput']
+    }
+    /** @description `expected_revision` and at least one field to change. A list replaces the whole list; `variant: null` removes it. */
+    OrganizationMovementUpdate: {
+      expected_revision: number
+      discipline_code?: string
+      name?: string
+      aliases?: string[]
+      equipment?: string[]
+      variant?: null | components['schemas']['MovementVariantInput']
+    }
     CatalogueTerm: {
       code: string
       name: string
@@ -12062,6 +12204,7 @@ export interface components {
     CredentialId: components['schemas']['UuidV7']
     Origin: string
     OrganizationId: components['schemas']['Uuid']
+    MovementId: components['schemas']['Uuid']
     SiteId: components['schemas']['Uuid']
     MembershipId: components['schemas']['Uuid']
     ProgramId: components['schemas']['Uuid']
@@ -16172,6 +16315,190 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  searchOrganizationMovements: {
+    parameters: {
+      query?: {
+        q?: string
+        discipline?: string
+        include_archived?: boolean
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The movements that match, in name order */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioMovementPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  createOrganizationMovement: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OrganizationMovementCreate']
+      }
+    }
+    responses: {
+      /** @description The movement, as Studio reads it */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          Location: components['headers']['Location']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readOrganizationMovement: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        movementId: components['parameters']['MovementId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The movement */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  updateOrganizationMovement: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        movementId: components['parameters']['MovementId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OrganizationMovementUpdate']
+      }
+    }
+    responses: {
+      /** @description The movement after the edit */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  archiveOrganizationMovement: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        movementId: components['parameters']['MovementId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The archived movement, including convergent repeated commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
       503: components['responses']['UpstreamUnavailable']
     }
   }

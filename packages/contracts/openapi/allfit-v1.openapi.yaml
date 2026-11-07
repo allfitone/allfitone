@@ -5577,6 +5577,273 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/movements:
+    get:
+      tags: [Studio Catalog]
+      operationId: searchOrganizationMovements
+      x-allfit-operation: OP-CAT-009
+      x-allfit-cache: private-no-store
+      summary: Search the global library and the organization's own movements
+      description: >-
+        HU-STUDIO-067. What the template editor calls while somebody types: the
+        published global library and the organization's own movements together, each
+        saying whose it is in `scope`. Another organization's movements never appear,
+        not even one that gym planned for whoever is searching (T-MOV-1). Names and
+        other names are matched anywhere, case-insensitively; accents are not folded.
+        Archived movements of the organization appear only with `include_archived`,
+        and then say so. Owners, admins and coaches search; anybody else in the
+        organization answers 403, and somebody outside it 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 120
+        - name: discipline
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+        - name: include_archived
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: The movements that match, in name order
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioMovementPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    post:
+      tags: [Studio Catalog]
+      operationId: createOrganizationMovement
+      x-allfit-operation: OP-CAT-001
+      x-allfit-cache: private-no-store
+      summary: Create a movement of the organization's own
+      description: >-
+        HU-STUDIO-064. Owners, admins and coaches name a movement the global library
+        does not have. It is published at once and only this organization sees it. The
+        name is unique within the organization regardless of case and spacing — a
+        repeated one answers 409 `conflict` with `errors[0].code` `name-taken` — and may
+        equal a global one. A variant is always of a published global movement.
+        Muscles, instructions and media remain Allfit One's to curate, so a new
+        movement has none.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationMovementCreate'
+      responses:
+        '201':
+          description: The movement, as Studio reads it
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+            Location:
+              $ref: '#/components/headers/Location'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMovement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/movements/{movementId}:
+    get:
+      tags: [Studio Catalog]
+      operationId: readOrganizationMovement
+      x-allfit-operation: OP-CAT-010
+      x-allfit-cache: private-no-store
+      summary: Read one movement the organization can use
+      description: >-
+        A published global movement, or one of the organization's own in any state.
+        Another organization's answers the same as one that does not exist.
+        `name_locked` says whether the name and the discipline are frozen: always for a
+        global movement, and for one of the organization's own once a published version
+        uses it.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/MovementId'
+      responses:
+        '200':
+          description: The movement
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMovement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    patch:
+      tags: [Studio Catalog]
+      operationId: updateOrganizationMovement
+      x-allfit-operation: OP-CAT-002
+      x-allfit-cache: private-no-store
+      summary: Edit a movement of the organization's own
+      description: >-
+        HU-STUDIO-065. The fields present replace what was there; a list replaces the
+        whole list, and `variant: null` removes the variant. The caller names the
+        `revision` she read in `expected_revision`; when the movement moved on
+        meanwhile the answer is 409 `stale-draft`.
+
+
+        **Editing never reinterprets history.** Published versions and sessions keep
+        only the movement's identifier, so once a published version uses it the
+        discipline is fixed and the name accepts only changes of case and spacing; any
+        other rename answers 409 `conflict` with `errors[0].code` `movement-in-use`.
+        To call it something else, create another and archive this one. Other names,
+        equipment and variant stay editable. An archived movement answers 409
+        `conflict` with `movement-archived`, a repeated name `name-taken`. A global
+        movement or another organization's answers 404. Every change is kept as a
+        revision with who made it.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/MovementId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationMovementUpdate'
+      responses:
+        '200':
+          description: The movement after the edit
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMovement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/movements/{movementId}/archival:
+    post:
+      tags: [Studio Catalog]
+      operationId: archiveOrganizationMovement
+      x-allfit-operation: OP-CAT-003
+      x-allfit-cache: private-no-store
+      summary: Archive a movement of the organization's own
+      description: >-
+        HU-STUDIO-066. Owners and admins retire a movement: new content no longer
+        accepts it, and every version and session that used it keeps showing its
+        name. A movement history references is never deleted. Archiving converges, so
+        archiving it again answers the archived movement, and there is no way back.
+        Coaches answer 403. This command carries no request body; supplying a payload
+        is rejected with 415.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/MovementId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The archived movement, including convergent repeated commands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMovement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/session-templates:
     get:
       tags: [Studio Planning]
@@ -13633,6 +13900,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
+    MovementId:
+      name: movementId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
     SiteId:
       name: siteId
       in: path
@@ -18680,6 +18953,202 @@ components:
             through this API; the address is composed from configuration at read time
             and never stored, which is what keeps the origin replaceable.
           maxLength: 2048
+    StudioMovement:
+      type: object
+      additionalProperties: false
+      description: >-
+        A movement as the template editor's picker shows it. `scope` says whose it is:
+        the global library's or the organization's own.
+      required: [id, discipline_code, name, scope, archived, muscles, equipment, demo_url]
+      properties:
+        id:
+          type: string
+          format: uuid
+        discipline_code:
+          type: string
+        name:
+          type: string
+        scope:
+          $ref: '#/components/schemas/MovementScope'
+        archived:
+          type: boolean
+        muscles:
+          type: array
+          description: Muscle codes, the primary one first. Empty for the organization's own.
+          items:
+            type: string
+        equipment:
+          type: array
+          items:
+            type: string
+        demo_url:
+          type: [string, 'null']
+          format: uri
+          maxLength: 2048
+    StudioMovementPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioMovement'
+        page:
+          $ref: '#/components/schemas/Page'
+    MovementScope:
+      type: string
+      enum: [global, organization]
+    MovementRelation:
+      type: string
+      enum: [variant, regression, progression]
+    OrganizationMovement:
+      type: object
+      additionalProperties: false
+      required:
+        [id, discipline_code, name, scope, archived, revision, aliases, equipment, muscles,
+         variant_of, name_locked, demo_url]
+      properties:
+        id:
+          type: string
+          format: uuid
+        discipline_code:
+          type: string
+        name:
+          type: string
+        scope:
+          $ref: '#/components/schemas/MovementScope'
+        archived:
+          type: boolean
+        revision:
+          type: integer
+          minimum: 1
+          description: What an edit names in `expected_revision`.
+        aliases:
+          type: array
+          description: Other names it goes by, in alphabetical order.
+          items:
+            type: string
+        equipment:
+          type: array
+          description: Equipment codes, in the catalogue's order.
+          items:
+            type: string
+        muscles:
+          type: array
+          items:
+            type: string
+        variant_of:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/MovementVariantOf'
+        name_locked:
+          type: boolean
+          description: >-
+            Whether the name and the discipline are frozen: always for a global
+            movement, and for the organization's own once a published version uses it.
+        demo_url:
+          type: [string, 'null']
+          format: uri
+          maxLength: 2048
+    MovementVariantOf:
+      type: object
+      additionalProperties: false
+      description: The global movement this one is a variant, regression or progression of.
+      required: [id, name, relation, note]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        relation:
+          $ref: '#/components/schemas/MovementRelation'
+        note:
+          type: [string, 'null']
+    MovementVariantInput:
+      type: object
+      additionalProperties: false
+      description: Of a published global movement, never of another of the organization's own.
+      required: [movement_id, relation]
+      properties:
+        movement_id:
+          $ref: '#/components/schemas/Uuid'
+        relation:
+          $ref: '#/components/schemas/MovementRelation'
+        note:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 200
+    OrganizationMovementCreate:
+      type: object
+      additionalProperties: false
+      required: [discipline_code, name]
+      properties:
+        discipline_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        aliases:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+        equipment:
+          type: array
+          maxItems: 16
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        variant:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/MovementVariantInput'
+    OrganizationMovementUpdate:
+      type: object
+      additionalProperties: false
+      description: >-
+        `expected_revision` and at least one field to change. A list replaces the
+        whole list; `variant: null` removes it.
+      required: [expected_revision]
+      minProperties: 2
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 1
+        discipline_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        aliases:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+        equipment:
+          type: array
+          maxItems: 16
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+        variant:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/MovementVariantInput'
     CatalogueTerm:
       type: object
       additionalProperties: false

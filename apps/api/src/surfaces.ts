@@ -20,6 +20,7 @@ import {
   catalogMovementRoutes,
   studioCatalogReadRoutes,
   studioCatalogRoutes,
+  studioMovementRoutes,
 } from './domains/catalog/index.js'
 import { spaceExecutionRoutes, studioExecutionRoutes } from './domains/execution/index.js'
 import { spaceNutritionRoutes } from './domains/nutrition/index.js'
@@ -117,6 +118,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/studio/v1', studioRelationshipRoutes())
   app.route('/studio/v1', studioCatalogRoutes())
   app.route('/studio/v1/catalog', studioCatalogReadRoutes())
+  app.route('/studio/v1', studioMovementRoutes())
   app.route('/studio/v1', studioPlanningRoutes())
   app.route('/studio/v1', studioExecutionRoutes())
   app.route('/studio/v1', studioClientDataRoutes())

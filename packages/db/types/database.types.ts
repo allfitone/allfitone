@@ -465,6 +465,50 @@ export type Database = {
           },
         ]
       }
+      movement_revisions: {
+        Row: {
+          actor_membership_id: string
+          after: Json
+          before: Json
+          created_at: string
+          id: string
+          movement_id: string
+          organization_id: string
+          revision_from: number
+          revision_to: number
+        }
+        Insert: {
+          actor_membership_id: string
+          after: Json
+          before: Json
+          created_at?: string
+          id: string
+          movement_id: string
+          organization_id: string
+          revision_from: number
+          revision_to: number
+        }
+        Update: {
+          actor_membership_id?: string
+          after?: Json
+          before?: Json
+          created_at?: string
+          id?: string
+          movement_id?: string
+          organization_id?: string
+          revision_from?: number
+          revision_to?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_movement_revisions_movement'
+            columns: ['movement_id']
+            isOneToOne: false
+            referencedRelation: 'movements'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       movement_variants: {
         Row: {
           base_movement_id: string
@@ -508,36 +552,42 @@ export type Database = {
         Row: {
           content_scope: Database['catalog']['Enums']['content_scope']
           created_at: string
+          created_by_membership_id: string | null
           discipline_code: string
           id: string
           name: string
           normalized_name: string
           owner_organization_id: string | null
           owner_person_id: string | null
+          revision_number: number
           status: Database['catalog']['Enums']['publication_status']
           successor_movement_id: string | null
         }
         Insert: {
           content_scope: Database['catalog']['Enums']['content_scope']
           created_at?: string
+          created_by_membership_id?: string | null
           discipline_code: string
           id?: string
           name: string
           normalized_name: string
           owner_organization_id?: string | null
           owner_person_id?: string | null
+          revision_number?: number
           status?: Database['catalog']['Enums']['publication_status']
           successor_movement_id?: string | null
         }
         Update: {
           content_scope?: Database['catalog']['Enums']['content_scope']
           created_at?: string
+          created_by_membership_id?: string | null
           discipline_code?: string
           id?: string
           name?: string
           normalized_name?: string
           owner_organization_id?: string | null
           owner_person_id?: string | null
+          revision_number?: number
           status?: Database['catalog']['Enums']['publication_status']
           successor_movement_id?: string | null
         }
@@ -776,6 +826,42 @@ export type Database = {
           result: Json
         }[]
       }
+      archive_organization_movement: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_movement_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      clean_movement_aliases: {
+        Args: { p_aliases: string[]; p_normalized_name: string }
+        Returns: string[]
+      }
+      create_organization_movement: {
+        Args: {
+          p_aliases: string[]
+          p_command_id: string
+          p_discipline_code: string
+          p_equipment: string[]
+          p_idempotency_key: string
+          p_name: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+          p_variant: Json
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       deprecate_result_contract: {
         Args: {
           p_actor_person_id: string
@@ -867,7 +953,17 @@ export type Database = {
           sort_name: string
         }[]
       }
+      movement_equipment_ids: { Args: { p_codes: string[] }; Returns: string[] }
+      movement_in_use: { Args: { p_movement_id: string }; Returns: boolean }
+      movement_revision_document: {
+        Args: { p_movement_id: string }
+        Returns: Json
+      }
       normalize_movement_name: { Args: { p_name: string }; Returns: string }
+      organization_movement_document: {
+        Args: { p_movement_id: string }
+        Returns: Json
+      }
       publish_activity_type: {
         Args: {
           p_actor_person_id: string
@@ -968,13 +1064,51 @@ export type Database = {
         Returns: Json
       }
       read_muscles: { Args: { p_person_id: string }; Returns: Json }
+      read_organization_movement: {
+        Args: {
+          p_movement_id: string
+          p_organization_id: string
+          p_person_id: string
+        }
+        Returns: Json
+      }
+      replace_movement_details: {
+        Args: {
+          p_aliases: string[]
+          p_equipment_ids: string[]
+          p_movement_id: string
+          p_replace_variant: boolean
+          p_variant: Json
+        }
+        Returns: undefined
+      }
       require_catalog_reader: { Args: never; Returns: string }
       require_global_catalog_curator: {
         Args: { p_actor_person_id: string; p_actor_session_id: string }
         Returns: undefined
       }
+      require_movement_member: {
+        Args: {
+          p_capability: string
+          p_organization_id: string
+          p_person_id: string
+        }
+        Returns: string
+      }
       result_contract_projection: {
         Args: { p_contract_id: string }
+        Returns: Json
+      }
+      search_organization_movements: {
+        Args: {
+          p_cursor: string
+          p_discipline_code: string
+          p_include_archived: boolean
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_query: string
+        }
         Returns: Json
       }
       set_global_movement_equipment: {
@@ -992,6 +1126,23 @@ export type Database = {
           result: Json
         }[]
       }
+      update_organization_movement: {
+        Args: {
+          p_changes: Json
+          p_command_id: string
+          p_expected_revision: number
+          p_idempotency_key: string
+          p_movement_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      valid_movement_variant: { Args: { p_variant: Json }; Returns: boolean }
     }
     Enums: {
       activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
