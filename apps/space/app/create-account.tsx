@@ -29,9 +29,10 @@ import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError, register } from '../src/client'
+import { LEGAL_URLS } from '../src/client/legal'
 
 /** Mirrors the API, which rejects anything else before reaching the provider. */
 const MIN_PASSWORD_LENGTH = 8
@@ -161,7 +162,27 @@ export default function CreateAccount() {
           />
 
           <Text role="body" size="sm" color="muted" align="center" style={styles.legal}>
-            Al continuar aceptas los términos y la política de tratamiento de datos.
+            Al continuar aceptas los{' '}
+            <Text
+              role="body"
+              size="sm"
+              color="accent"
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
+            >
+              términos y condiciones
+            </Text>{' '}
+            y la{' '}
+            <Text
+              role="body"
+              size="sm"
+              color="accent"
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
+            >
+              política de privacidad
+            </Text>
+            .
           </Text>
         </View>
       </ScrollView>
