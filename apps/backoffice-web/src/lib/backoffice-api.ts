@@ -299,16 +299,13 @@ export const backofficeApi = {
       signal ? { signal } : {},
     ),
 
-  // The case reference travels on every support read: the server records it
-  // beside the query, so a read nobody can trace back to a case is refused.
-  searchSupportPeople: (
-    input: { caseReference: string; kind: 'identifier' | 'email' | 'phone'; value: string },
-    signal?: AbortSignal,
-  ) =>
+  // A support read names its case when there is one; an empty reference sends none,
+  // because `query` drops empty values.
+  searchSupportPeople: (input: { query: string; caseReference: string }, signal?: AbortSignal) =>
     requestJson<SupportPeopleSearch>(
       `/backoffice/v1/support/people${query({
+        q: input.query,
         case_reference: input.caseReference,
-        [input.kind]: input.value,
       })}`,
       signal ? { signal } : {},
     ),
@@ -645,17 +642,6 @@ export const backofficeApi = {
       method: 'POST',
       headers: commandHeaders(command),
       body: JSON.stringify(publication),
-    }),
-
-  decideBreakGlass: (
-    requestId: string,
-    decision: { decision: 'approved' | 'rejected'; reason_code: string },
-    command: BackofficeCommand,
-  ) =>
-    requestJson<BreakGlassRequest>(`/backoffice/v1/break-glass/requests/${requestId}/decisions`, {
-      method: 'POST',
-      headers: commandHeaders(command),
-      body: JSON.stringify(decision),
     }),
 
   // No command identifiers: each attempt is a new event rather than a command to

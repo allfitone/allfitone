@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 import {
   SUPPORT_SUBJECT_EMAIL,
   SUPPORT_SUBJECT_ID,
+  SUPPORT_SUBJECT_NAME,
   activeSession,
   createBackofficeFixture,
   mockBackofficeApi,
@@ -16,7 +17,7 @@ function support(overrides: Parameters<typeof supportPerson>[0] = {}) {
   return { people: [supportPerson(overrides)] }
 }
 
-test('finds a person by an exact contact and carries the case into the card', async ({
+test('finds a person by part of her name, without a case, and opens her file', async ({
   context,
   page,
 }) => {
@@ -24,19 +25,40 @@ test('finds a person by an exact contact and carries the case into the card', as
   await mockBackofficeApi(context, fixture)
 
   await page.goto('/people')
-  await page.getByLabel('Referencia del caso').fill(CASE)
-  await page.getByLabel('Dato exacto').fill(SUPPORT_SUBJECT_EMAIL)
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
   await page.getByRole('button', { name: 'Buscar' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Persona encontrada' })).toBeVisible()
-  await expect(page.getByText('••••••••on@example.test').first()).toBeVisible()
-  // The identifier, the masked contact and the state: the rest is in the file.
-  await expect(page.locator('#support-found-phone')).toHaveText('••••••4567')
-  await expect(page.getByText('Verificación del correo')).toHaveCount(0)
+  // ADR-046: her name and full contact, so two similar names can be told apart.
+  await expect(page.getByRole('heading', { name: '1 persona encontrada' })).toBeVisible()
+  const row = page.locator('[data-support-result]')
+  await expect(row).toContainText(SUPPORT_SUBJECT_NAME)
+  await expect(row).toContainText(SUPPORT_SUBJECT_EMAIL)
+  await expect(row).toContainText('+573001234567')
 
-  // Rendered as a Link but announced as a button: that is how the Design System
-  // composes a navigating action, here and everywhere else in this app.
-  await page.getByRole('button', { name: 'Abrir estado operativo' }).click()
+  await row.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
+
+  await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}`)
+  await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
+  await expect(page.locator('#person-name')).toHaveText(SUPPORT_SUBJECT_NAME)
+  await expect(page.locator('#person-email')).toHaveText(SUPPORT_SUBJECT_EMAIL)
+  await expect(page.locator('#person-phone')).toHaveText('+573001234567')
+
+  const searches = fixture.requests.filter((request) => request.path.endsWith('/support/people'))
+  expect(searches.map((request) => request.query)).toEqual(['?q=epsi'])
+})
+
+test('a case, when there is one, travels with the search and into the file', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession(), support: support() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/people')
+  await page.getByLabel('Nombre, correo o teléfono').fill('3001234')
+  await page.getByLabel('Referencia del caso (opcional)').fill(CASE)
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  await page.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
 
   await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
   await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
@@ -46,53 +68,53 @@ test('finds a person by an exact contact and carries the case into the card', as
     `/break-glass?subject=${SUPPORT_SUBJECT_ID}&case_reference=${CASE}`,
   )
 
+  // The card read is effect-driven and StrictMode double-invokes effects in dev, so
+  // its count is not asserted: what matters is that every support read carries the case.
   const reads = fixture.requests.filter((request) =>
     request.path.startsWith('/backoffice/v1/support/'),
   )
-  const searches = reads.filter((request) => request.path.endsWith('/support/people'))
-  const cards = reads.filter((request) => request.path.includes(SUPPORT_SUBJECT_ID))
-
-  // The search is user-initiated, so it happens exactly once. The card read is
-  // effect-driven and React StrictMode double-invokes effects in dev, so its
-  // count is not worth asserting: what matters is that it targeted the right
-  // person, and that every support read carries the case it belongs to.
-  expect(searches).toHaveLength(1)
-  expect(cards.length).toBeGreaterThan(0)
+  expect(reads.filter((request) => request.path.endsWith('/support/people'))).toHaveLength(1)
   expect(reads.every((request) => request.query.includes(`case_reference=${CASE}`))).toBe(true)
 })
 
-test('says nothing was found rather than showing an empty result', async ({ context, page }) => {
+test('says nobody matched rather than showing an empty result', async ({ context, page }) => {
   await mockBackofficeApi(
     context,
-    createBackofficeFixture({ session: activeSession(), support: { people: [] } }),
+    createBackofficeFixture({ session: activeSession(), support: support() }),
   )
 
   await page.goto('/people')
-  await page.getByLabel('Referencia del caso').fill(CASE)
-  await page.getByLabel('Dato exacto').fill('nadie@example.test')
+  await page.getByLabel('Nombre, correo o teléfono').fill('nadie')
   await page.getByRole('button', { name: 'Buscar' }).click()
 
-  await expect(page.getByText('No hay ninguna persona con ese dato')).toBeVisible()
+  await expect(page.getByText('Nadie coincide con «nadie»')).toBeVisible()
   await expect(page.getByText(/quedó registrada de todos modos/)).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Persona encontrada' })).toBeHidden()
+  await expect(page.locator('[data-support-results]')).toHaveCount(0)
 })
 
-test('refuses to search without a traceable case reference', async ({ context, page }) => {
-  const fixture = createBackofficeFixture({ session: activeSession(), support: support() })
-  await mockBackofficeApi(context, fixture)
+test('says when more people match than the page shows', async ({ context, page }) => {
+  const people = Array.from({ length: 26 }, (_unused, index) =>
+    supportPerson({
+      person_id: `019a5000-0000-7000-8000-${String(100 + index).padStart(12, '0')}`,
+      display_name: `Gómez ${String(index).padStart(2, '0')}`,
+      contact_email: `gomez${String(index)}@example.test`,
+    }),
+  )
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), support: { people } }),
+  )
 
   await page.goto('/people')
-  await page.getByLabel('Referencia del caso').fill('el usuario no puede entrar')
-  await page.getByLabel('Dato exacto').fill(SUPPORT_SUBJECT_EMAIL)
+  await page.getByLabel('Nombre, correo o teléfono').fill('gómez')
   await page.getByRole('button', { name: 'Buscar' }).click()
 
-  await expect(page.getByText(/La referencia del caso va en mayúsculas/)).toBeVisible()
-  expect(
-    fixture.requests.filter((request) => request.path.startsWith('/backoffice/v1/support/')),
-  ).toHaveLength(0)
+  await expect(page.getByRole('heading', { name: '25 personas encontradas' })).toBeVisible()
+  await expect(page.locator('[data-support-result]')).toHaveCount(25)
+  await expect(page.getByText(/Hay más personas que coinciden/)).toBeVisible()
 })
 
-test('refuses a malformed lookup before it becomes a recorded search', async ({
+test('refuses one character, or a case in free text, before it becomes a recorded search', async ({
   context,
   page,
 }) => {
@@ -100,29 +122,18 @@ test('refuses a malformed lookup before it becomes a recorded search', async ({
   await mockBackofficeApi(context, fixture)
 
   await page.goto('/people')
-  await page.getByLabel('Referencia del caso').fill(CASE)
-  await page.getByRole('combobox', { name: 'Buscar por' }).click()
-  await page.getByRole('option', { name: 'Teléfono exacto' }).click()
-  await page.getByLabel('Dato exacto').fill('573001234567')
+  await page.getByLabel('Nombre, correo o teléfono').fill('e')
   await page.getByRole('button', { name: 'Buscar' }).click()
+  await expect(page.getByText(/al menos dos caracteres/)).toBeVisible()
 
-  await expect(page.getByText(/formato internacional/)).toBeVisible()
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
+  await page.getByLabel('Referencia del caso (opcional)').fill('el usuario no puede entrar')
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  await expect(page.getByText(/La referencia del caso va en mayúsculas/)).toBeVisible()
+
   expect(
     fixture.requests.filter((request) => request.path.startsWith('/backoffice/v1/support/')),
   ).toHaveLength(0)
-})
-
-test('never offers a search by name', async ({ context, page }) => {
-  await mockBackofficeApi(
-    context,
-    createBackofficeFixture({ session: activeSession(), support: support() }),
-  )
-
-  await page.goto('/people')
-  await page.getByRole('combobox', { name: 'Buscar por' }).click()
-
-  const options = await page.getByRole('option').allInnerTexts()
-  expect(options).toEqual(['Identificador', 'Correo exacto', 'Teléfono exacto'])
 })
 
 test('says what exists around the person, with states and dates, never which gym', async ({
@@ -253,13 +264,13 @@ test('the duty that opens the card does not open her money, and the panel says w
   await expect(refused).toContainText('distinto del que abre su ficha')
 })
 
-test('will not open a card without the case that justifies the read', async ({ context, page }) => {
+test('will not open a card under a case written in free text', async ({ context, page }) => {
   const fixture = createBackofficeFixture({ session: activeSession(), support: support() })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/people/${SUPPORT_SUBJECT_ID}`)
+  await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=sin%20caso`)
 
-  await expect(page.getByText('Esta ficha necesita una referencia de caso')).toBeVisible()
+  await expect(page.getByText('La referencia del caso no tiene la forma esperada')).toBeVisible()
   expect(
     fixture.requests.filter((request) => request.path.startsWith('/backoffice/v1/support/')),
   ).toHaveLength(0)

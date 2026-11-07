@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test'
 import {
   BREAK_GLASS_PEER_ID,
   activeSession,
-  breakGlassFile,
   createBackofficeFixture,
+  legacyPendingBreakGlass,
   mockBackofficeApi,
   openBreakGlassWindow,
 } from './backoffice-api-mock'
@@ -46,18 +46,21 @@ test('the tier is a consequence of the scope, never a field to choose', async ({
 
   await page.getByRole('checkbox', { name: 'Guía nutricional' }).click()
   await expect(
-    page.getByText(/hace falta una aprobación y la ventana dura 30 minutos/),
+    page.getByText(/Alcance estándar: la ventana se abre al pedirla y dura 60 minutos/),
   ).toBeVisible()
 
-  // Adding a stricter category makes the window stricter. That is the only way to
-  // move the tier: there is no control for it, for the approvals or for the minutes.
+  // A stricter category moves the tier, and nothing else: every window opens when asked
+  // for and lasts an hour (ADR-046). There is no control for the tier or the minutes.
   await page.getByRole('checkbox', { name: 'Contexto de salud' }).click()
-  await expect(page.getByText(/dos personas distintas y la ventana dura 15 minutos/)).toBeVisible()
+  await expect(
+    page.getByText(/Alcance restringido: la ventana se abre al pedirla y dura 60 minutos/),
+  ).toBeVisible()
+  await expect(page.locator('[data-break-glass-consequence]')).not.toContainText('aprobación')
   await expect(page.getByRole('combobox', { name: /Alcance|Aprobaciones|Duración/ })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: /Aprobaciones|Duración|Minutos/ })).toHaveCount(0)
 })
 
-test('asks for a window without naming the tier, the quorum or the duration', async ({
+test('asking opens the window at once, without naming the tier or the duration', async ({
   context,
   page,
 }) => {
@@ -73,7 +76,11 @@ test('asks for a window without naming the tier, the quorum or the duration', as
   await page.getByRole('checkbox', { name: 'Contexto de salud' }).click()
   await page.getByRole('button', { name: 'Pedir la ventana' }).click()
 
-  await expect(page.getByText(/Necesita aprobación de otra persona/)).toBeVisible()
+  await expect(page.getByText(/Ventana abierta por 60 minutos/)).toBeVisible()
+  // The requester reads at once: nobody else has to approve it first.
+  await expect(page.getByText('Ventana abierta', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Quedan (59|60) minutos de ventana/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Leer contexto de salud' })).toBeVisible()
 
   const posted = fixture.requests.filter(
     (request) =>
@@ -83,8 +90,8 @@ test('asks for a window without naming the tier, the quorum or the duration', as
   const body = posted[0]?.body as Record<string, unknown>
   expect(body.case_reference).toBe('CASE-2026-777')
   expect(body.categories).toEqual(['health_context'])
-  // The three derived facts are the server's. Sending them would be a second source
-  // of truth for how expensive an exceptional access is.
+  // The derived facts are the server's. Sending them would be a second source of
+  // truth for what an exceptional access is.
   expect(body).not.toHaveProperty('sensitivity_tier')
   expect(body).not.toHaveProperty('required_approvals')
   expect(body).not.toHaveProperty('requested_duration_minutes')
@@ -113,12 +120,15 @@ test('refuses a request with no scope instead of sending one', async ({ context,
   ).toHaveLength(0)
 })
 
-test('one approval does not open a window that needs two', async ({ context, page }) => {
+test('nobody is asked to approve a window: another admin sees it open, with nothing to decide', async ({
+  context,
+  page,
+}) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),
     breakGlass: {
       files: [
-        breakGlassFile({
+        openBreakGlassWindow(40, {
           requester_person_id: BREAK_GLASS_PEER_ID,
           categories: ['health_context'],
           case_reference: 'CASE-2026-779',
@@ -130,114 +140,35 @@ test('one approval does not open a window that needs two', async ({ context, pag
   await mockBackofficeApi(context, fixture)
 
   await page.goto(PATH)
-  await expect(page.getByText('0 de 2 aprobaciones. Faltan 2.')).toBeVisible()
 
-  // Approving needs a reason first: the approver says why.
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toBeDisabled()
-  await chooseReason(page, 'Motivo de la aprobación', 'El caso justifica leer estos datos')
-  await page.getByRole('button', { name: 'Aprobar' }).click()
-
-  await expect(page.getByText(/Falta otra persona para que la ventana se abra/)).toBeVisible()
-  // Still waiting, and no longer this operator's to decide: the second approval has
-  // to come from somebody else.
-  await expect(page.getByText('Esperando aprobación')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /Leer / })).toHaveCount(0)
-  expect(fixture.breakGlass?.files[0]?.status).toBe('requested')
-  expect(fixture.breakGlass?.files[0]?.window_ends_at).toBeNull()
-})
-
-test('a completed quorum opens the window and says how long it has left', async ({
-  context,
-  page,
-}) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    breakGlass: {
-      files: [
-        breakGlassFile({
-          requester_person_id: BREAK_GLASS_PEER_ID,
-          categories: ['nutrition_guidance'],
-          viewer_is_requester: false,
-        }),
-      ],
-    },
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto(PATH)
-  await chooseReason(page, 'Motivo de la aprobación', 'La persona pidió la ayuda que lo requiere')
-  await page.getByRole('button', { name: 'Aprobar' }).click()
-
-  await expect(page.getByText('La ventana quedó abierta.')).toBeVisible()
-  const decision = fixture.requests.find((request) => request.path.endsWith('/decisions'))
-  expect(decision?.body).toEqual({ decision: 'approved', reason_code: 'APPROVED-PERSON-ASKED' })
-  await expect(page.getByText('Ventana abierta')).toBeVisible()
-  await expect(
-    page.getByText(/Quedan \d+ minutos de ventana\. No se puede extender\./),
-  ).toBeVisible()
-  // There is no extension, so there is no button offering one.
-  await expect(page.getByRole('button', { name: /Extender|Ampliar|Renovar/ })).toHaveCount(0)
-})
-
-test('a rejection is final and offers no second chance', async ({ context, page }) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    breakGlass: {
-      files: [
-        breakGlassFile({
-          requester_person_id: BREAK_GLASS_PEER_ID,
-          viewer_is_requester: false,
-        }),
-      ],
-    },
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto(PATH)
-  await page.getByRole('button', { name: 'Rechazar' }).click()
-  const dialog = page.getByRole('alertdialog')
-  await expect(dialog.getByRole('button', { name: 'Rechazar la solicitud' })).toBeDisabled()
-  await chooseReason(page, 'Motivo del rechazo', 'Pide más categorías de las necesarias')
-  await dialog.getByRole('button', { name: 'Rechazar la solicitud' }).click()
-
-  await expect(page.getByText(/El rechazo es definitivo/)).toBeVisible()
-  const decision = fixture.requests.find((request) => request.path.endsWith('/decisions'))
-  expect(decision?.body).toEqual({ decision: 'rejected', reason_code: 'REJECTED-TOO-BROAD' })
-  await expect(page.getByText('Rechazada', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0)
-})
-
-test('leaving a request waiting from the rejection dialog decides nothing', async ({
-  context,
-  page,
-}) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    breakGlass: {
-      files: [
-        breakGlassFile({
-          requester_person_id: BREAK_GLASS_PEER_ID,
-          viewer_is_requester: false,
-        }),
-      ],
-    },
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto(PATH)
-  await page.getByRole('button', { name: 'Rechazar' }).click()
-
-  const dialog = page.getByRole('alertdialog')
-  // The dialog says what the rejection is before anything is sent: final.
-  await expect(dialog).toContainText('definitivo')
-  await dialog.getByRole('button', { name: 'Dejarla en espera' }).click()
-
-  await expect(dialog).toBeHidden()
-  await expect(page.getByText('Esperando aprobación')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toBeVisible()
+  await expect(page.getByText('Ventana abierta', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-break-glass-file]')).toContainText('Restringido · 60 minutos')
+  for (const name of ['Aprobar', 'Rechazar', /Leer /]) {
+    await expect(page.getByRole('button', { name })).toHaveCount(0)
+  }
+  await expect(page.getByRole('combobox', { name: /Motivo/ })).toHaveCount(0)
   expect(fixture.requests.filter((request) => request.path.endsWith('/decisions'))).toHaveLength(0)
-  expect(fixture.breakGlass?.files[0]?.status).toBe('requested')
+})
+
+test('a request from before the change that never opened says so, and offers nothing', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      breakGlass: { files: [legacyPendingBreakGlass({ case_reference: 'CASE-2026-780' })] },
+    }),
+  )
+
+  await page.goto(PATH)
+
+  await expect(page.getByText('Pedida antes del cambio, sin abrir')).toBeVisible()
+  await expect(page.locator('[data-break-glass-window]')).toHaveCount(0)
+  for (const name of ['Aprobar', 'Rechazar', /Leer /, 'Cerrar la ventana']) {
+    await expect(page.getByRole('button', { name })).toHaveCount(0)
+  }
 })
 
 test('a window says how much is left and where it closes', async ({ context, page }) => {
@@ -1074,17 +1005,8 @@ test('an empty tray says what will appear rather than nothing at all', async ({
   await page.goto(PATH)
 
   await expect(page.getByText('No hay expedientes')).toBeVisible()
-  await expect(page.getByText(/con su quórum, su ventana y cuántas veces se ejerció/)).toBeVisible()
+  await expect(page.getByText(/con el tiempo que les queda y cuántas veces se/)).toBeVisible()
 })
-
-async function chooseReason(
-  page: import('@playwright/test').Page,
-  label: string,
-  reason: string,
-): Promise<void> {
-  await page.getByRole('combobox', { name: label }).click()
-  await page.getByRole('option', { name: reason, exact: true }).click()
-}
 
 // The subject was typed as an identifier; the person's card now starts the request.
 test("a request started from the person's card arrives with the subject and the case", async ({

@@ -47,7 +47,7 @@ const MODE_BASIS: Record<AccessMode, string> = {
   frozen:
     'La persona había revocado el permiso, y la lectura fue del histórico que quedó congelado.',
   break_glass:
-    'No había permiso. Se abrió una ventana excepcional aprobada por otra persona, para un caso concreto.',
+    'No había permiso. Se abrió una ventana excepcional para un caso concreto, y otra persona la revisa después.',
   organization_operational:
     'Fue una operación del gimnasio sobre datos que administra, no una lectura de datos de salud.',
   support_metadata:

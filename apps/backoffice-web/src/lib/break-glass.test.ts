@@ -1,15 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  APPROVAL_REASONS,
   BREAK_GLASS_CATEGORIES,
-  REJECTION_REASONS,
   breakGlassRequestHref,
   decisionReasonLabel,
   requestPrefill,
-  approvalsSoFar,
   breakGlassMessage,
-  canDecide,
   canExercise,
   categoryLabel,
   emptyReadMessage,
@@ -23,7 +19,6 @@ import {
   photoDayRows,
   projectedTier,
   purposeLabel,
-  quorumSentence,
   requestIssue,
   requestIssueMessage,
   resourceTypeFor,
@@ -45,20 +40,19 @@ function file(overrides: Partial<BreakGlassRequest> = {}): BreakGlassRequest {
     purpose: 'customer_support_request',
     case_reference: 'CASE-2026-001',
     sensitivity_tier: 'standard',
-    required_approvals: 1,
-    requested_duration_minutes: 30,
+    required_approvals: 0,
+    requested_duration_minutes: 60,
     requested_at: '2026-09-10T18:00:00.000Z',
     request_expires_at: '2026-09-10T18:30:00.000Z',
-    status: 'requested',
-    window_starts_at: null,
-    window_ends_at: null,
+    status: 'closed',
+    window_starts_at: '2026-09-10T18:00:00.000Z',
+    window_ends_at: '2026-09-10T19:00:00.000Z',
     closed_at: null,
     reviewed_at: null,
     review_outcome: null,
     approvals: [],
     exercise_count: 0,
     viewer_is_requester: false,
-    viewer_can_decide: false,
     viewer_can_exercise: false,
     ...overrides,
   }
@@ -90,16 +84,19 @@ describe('break-glass presentation rules', () => {
     expect(projectedTier(['nutrition_guidance', 'nutrition_intake'])).toBe('restricted')
   })
 
-  test('states the tier as a consequence, with its cost spelled out', () => {
+  test('states the tier as a consequence: asking opens it for an hour, and somebody reviews it', () => {
     const standard = tierConsequence(['nutrition_guidance'])
-    expect(standard?.approvals).toBe(1)
-    expect(standard?.minutes).toBe(30)
-    expect(standard?.sentence).toContain('una aprobación')
-
     const restricted = tierConsequence(['health_context'])
-    expect(restricted?.approvals).toBe(2)
-    expect(restricted?.minutes).toBe(15)
-    expect(restricted?.sentence).toContain('dos personas distintas')
+
+    for (const consequence of [standard, restricted]) {
+      expect(consequence?.minutes).toBe(60)
+      expect(consequence?.sentence).toContain('se abre al pedirla')
+      expect(consequence?.sentence).toContain('60 minutos')
+      expect(consequence?.sentence).toContain('otra persona la revisa')
+      expect(consequence?.sentence).not.toContain('aprobación')
+    }
+    expect(standard?.tier).toBe('standard')
+    expect(restricted?.tier).toBe('restricted')
   })
 
   test('refuses a request with no subject, no case or no scope', () => {
@@ -133,33 +130,11 @@ describe('break-glass presentation rules', () => {
     })
     expect(windowSentence(lapsed, now)).toContain('ya venció')
 
-    // A pending request has no window to describe.
+    // A closed window, like a request from before that never opened, has nothing to count.
     expect(windowSentence(file(), now)).toBeNull()
   })
 
-  test('says how far a pending request is from opening', () => {
-    expect(quorumSentence(file({ required_approvals: 2 }))).toContain('Faltan 2')
-    expect(
-      quorumSentence(
-        file({
-          required_approvals: 2,
-          approvals: [
-            {
-              approver_person_id: 'a',
-              decision: 'approved',
-              reason_code: 'REASON-OK',
-              decided_at: '2026-09-10T18:01:00.000Z',
-            },
-          ],
-        }),
-      ),
-    ).toContain('Faltan 1')
-    expect(approvalsSoFar(file())).toBe(0)
-  })
-
-  test('takes the permission hints from the server rather than re-deriving them', () => {
-    expect(canDecide(file({ viewer_can_decide: true }))).toBe(true)
-    expect(canDecide(file({ viewer_can_decide: false }))).toBe(false)
+  test('takes the permission hint from the server rather than re-deriving it', () => {
     expect(canExercise(file({ viewer_can_exercise: true }))).toBe(true)
     expect(canExercise(file({ viewer_can_exercise: false }))).toBe(false)
   })
@@ -185,7 +160,8 @@ describe('break-glass presentation rules', () => {
     expect(statusTone('rejected')).toBe('destructive')
     expect(statusTone('closed')).toBe('secondary')
     expect(statusLabel('approved')).toBe('Ventana abierta')
-    expect(statusLabel('requested')).toBe('Esperando aprobación')
+    // Only a request from before ADR-046 can still be in this state, until it lapses.
+    expect(statusLabel('requested')).toBe('Pedida antes del cambio, sin abrir')
   })
 
   test('explains every outcome, including the authorised one', () => {
@@ -830,23 +806,13 @@ describe('training under a window, opened (HU-BO-008)', () => {
   })
 })
 
-// The approver could not say why: the screen sent one fixed code per decision.
-describe('why a request was approved or rejected', () => {
-  test('each decision has its own closed reasons, each a code the database accepts', () => {
-    const pattern = /^[A-Z][A-Z0-9_-]{2,63}$/
-    expect(APPROVAL_REASONS.length).toBeGreaterThan(1)
-    expect(REJECTION_REASONS.length).toBeGreaterThan(1)
-    for (const reason of [...APPROVAL_REASONS, ...REJECTION_REASONS]) {
-      expect(pattern.test(reason.code)).toBe(true)
-    }
-    expect(new Set([...APPROVAL_REASONS, ...REJECTION_REASONS].map((r) => r.code)).size).toBe(
-      APPROVAL_REASONS.length + REJECTION_REASONS.length,
-    )
-  })
-
+// Nobody decides a window any more (ADR-046); the decisions recorded before still read.
+describe('why a request from before was approved or rejected', () => {
   test('a recorded reason reads as words, and an old fixed code says nobody gave one', () => {
-    const [first] = APPROVAL_REASONS
-    expect(first && decisionReasonLabel(first.code)).toBe(first?.label)
+    expect(decisionReasonLabel('APPROVED-CASE-JUSTIFIES')).toBe(
+      'El caso justifica leer estos datos',
+    )
+    expect(decisionReasonLabel('REJECTED-TOO-BROAD')).toBe('Pedía más categorías de las necesarias')
     expect(decisionReasonLabel('REASON-APPROVED')).toBe('Sin motivo registrado')
     expect(decisionReasonLabel('SOMETHING-ELSE')).toBe('SOMETHING-ELSE')
   })

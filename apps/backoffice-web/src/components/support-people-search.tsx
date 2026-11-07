@@ -5,25 +5,23 @@
  *
  * Three things about this screen are rules rather than layout.
  *
- * The case reference is asked for first and lives in the URL, so a reload does
- * not lose it and the operator can see exactly what is being recorded next to
- * every query they run. It is not a formality: the server records the search
- * against it, and a read nobody can trace back to a case is what `PR-22` exists
- * to prevent.
+ * One field takes part of a name, an email or a phone (ADR-046 decision 4): an
+ * administrator searches by what the person told them, not by an exact value
+ * they would have to ask for again. The answer names each person and how to
+ * reach them, so two people with similar names can be told apart.
  *
- * There is no free text field. The lookup kind is chosen from a closed list,
- * because searching by name does not exist — not as a disabled option, not as a
- * feature waiting for permission.
+ * The case reference is optional. When there is one it lives in the URL, so a
+ * reload keeps it and the file opens under the same case; one written in free
+ * text is refused, because it would look traceable and not be.
  *
- * A search that finds nobody says so. The API answers an outcome beside the
- * items precisely so this screen cannot show an unexplained empty list.
+ * A search that finds nobody says so, and every search is recorded, with each
+ * person it answered seeing it in her own history. The API answers an outcome
+ * beside the items precisely so this screen cannot show an unexplained empty list.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenEmpty, ScreenLoading } from './screen-state'
-
 import {
   Card,
   CardContent,
@@ -34,12 +32,13 @@ import {
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@allfitone/react/components/select'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@allfitone/react/components/table'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
@@ -51,37 +50,34 @@ import {
   type SupportPeopleSearch,
 } from '@/lib/backoffice-api'
 import {
-  SUPPORT_LOOKUP_KINDS,
-  isValidCaseReference,
-  isValidLookup,
-  lookupIssueMessage,
-  lookupLabel,
-  lookupPlaceholder,
+  isSearchable,
+  isValidOptionalCaseReference,
   supportMetadataMessage,
-  type SupportLookupKind,
 } from '@/lib/support-metadata'
+
+import { ScreenEmpty, ScreenLoading } from './screen-state'
 
 export function SupportPeopleSearch() {
   const router = useRouter()
   const parameters = useSearchParams()
   const [caseReference, setCaseReference] = useState(parameters.get('case_reference') ?? '')
-  const [kind, setKind] = useState<SupportLookupKind>('email')
-  const [value, setValue] = useState('')
+  const [term, setTerm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<SupportPeopleSearch | null>(null)
-  const [searched, setSearched] = useState<{ kind: SupportLookupKind } | null>(null)
+  const [searched, setSearched] = useState<{ term: string; caseReference: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     const reference = caseReference.trim()
-    if (!isValidCaseReference(reference)) {
-      setError('La referencia del caso va en mayúsculas, como CASE-2026-001.')
+    const wanted = term.trim()
+    if (!isSearchable(wanted)) {
+      setError('Escribe al menos dos caracteres del nombre, el correo o el teléfono.')
       return
     }
-    if (!isValidLookup(kind, value)) {
-      setError(lookupIssueMessage(kind))
+    if (!isValidOptionalCaseReference(reference)) {
+      setError('La referencia del caso va en mayúsculas, como CASE-2026-001, o se deja vacía.')
       return
     }
 
@@ -90,14 +86,15 @@ export function SupportPeopleSearch() {
     setBusy(true)
     try {
       const found = await backofficeApi.searchSupportPeople({
+        query: wanted,
         caseReference: reference,
-        kind,
-        value: value.trim(),
       })
       setResult(found)
-      setSearched({ kind })
-      // The reference survives a reload and travels to the card, which needs it.
-      router.replace(`/people?case_reference=${encodeURIComponent(reference)}`)
+      setSearched({ term: wanted, caseReference: reference })
+      // The reference survives a reload and travels to the file, which records it too.
+      router.replace(
+        reference ? `/people?case_reference=${encodeURIComponent(reference)}` : '/people',
+      )
     } catch (failure) {
       setResult(null)
       setNotice(failureMessage(failure))
@@ -105,8 +102,6 @@ export function SupportPeopleSearch() {
       setBusy(false)
     }
   }
-
-  const person = result?.items[0]
 
   return (
     <div data-support-search>
@@ -123,53 +118,31 @@ export function SupportPeopleSearch() {
             Buscar a una persona
           </CardTitle>
           <CardDescription>
-            Sólo por coincidencia exacta de algo que la persona entregó en su caso. No existe
-            búsqueda por nombre. Toda búsqueda queda registrada contra la referencia del caso,
-            encuentre o no a alguien.
+            Por parte del nombre, del correo o del teléfono, o por su identificador. Cada búsqueda
+            queda registrada, y cada persona que aparece en el resultado la ve en su historial.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} data-backoffice-form data-support-search-form noValidate>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="support-case">Referencia del caso</FieldLabel>
+                <FieldLabel htmlFor="support-term">Nombre, correo o teléfono</FieldLabel>
                 <Input
-                  id="support-case"
-                  value={caseReference}
-                  onChange={(event) => setCaseReference(event.target.value)}
-                  placeholder="CASE-2026-001"
+                  id="support-term"
+                  value={term}
+                  onChange={(event) => setTerm(event.target.value)}
+                  placeholder="Gómez, gomez@correo.com o 3001234"
                   autoComplete="off"
                   disabled={busy}
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="support-kind">Buscar por</FieldLabel>
-                <Select
-                  value={kind}
-                  onValueChange={(next) => {
-                    setKind((next ?? 'email') as SupportLookupKind)
-                    setValue('')
-                  }}
-                >
-                  <SelectTrigger id="support-kind" disabled={busy}>
-                    <SelectValue>{lookupLabel(kind)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORT_LOOKUP_KINDS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {lookupLabel(option)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="support-value">Dato exacto</FieldLabel>
+                <FieldLabel htmlFor="support-case">Referencia del caso (opcional)</FieldLabel>
                 <Input
-                  id="support-value"
-                  value={value}
-                  onChange={(event) => setValue(event.target.value)}
-                  placeholder={lookupPlaceholder(kind)}
+                  id="support-case"
+                  value={caseReference}
+                  onChange={(event) => setCaseReference(event.target.value)}
+                  placeholder="CASE-2026-001"
                   autoComplete="off"
                   disabled={busy}
                 />
@@ -188,65 +161,69 @@ export function SupportPeopleSearch() {
       {busy ? <ScreenLoading label="Buscando" /> : null}
 
       {result && result.outcome === 'not_found' && searched ? (
-        <ScreenEmpty icon="search" title="No hay ninguna persona con ese dato" role="status">
-          La coincidencia es exacta: si la persona escribió el{' '}
-          {lookupLabel(searched.kind).toLowerCase().replace(' exacto', '')} de otra forma, no
-          aparece. La búsqueda quedó registrada de todos modos.
+        <ScreenEmpty icon="search" title={`Nadie coincide con «${searched.term}»`} role="status">
+          Prueba con otra parte del nombre, el correo o el teléfono. La búsqueda quedó registrada de
+          todos modos.
         </ScreenEmpty>
       ) : null}
 
-      {person ? (
-        <Card>
+      {result && result.outcome === 'found' && searched ? (
+        <Card data-support-results>
           <CardHeader>
             <CardTitle role="heading" aria-level={2}>
-              Persona encontrada
+              {result.items.length === 1
+                ? '1 persona encontrada'
+                : `${String(result.items.length)} personas encontradas`}
             </CardTitle>
             <CardDescription>
-              Sólo estado operativo. Para ver el resto, abre su ficha: la consulta queda registrada
-              contra el mismo caso.
+              {result.has_more
+                ? 'Hay más personas que coinciden. Escribe algo más preciso para encontrarla.'
+                : 'Abre su ficha para ver su cuenta, sus pagos y su recuperación de acceso.'}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl data-facts>
-              <dt>Identificador</dt>
-              <dd>
-                <code id="support-found-id">{person.person_id}</code>
-              </dd>
-              <dt>Estado de la cuenta</dt>
-              <dd>
-                <Badge
-                  id="support-found-status"
-                  variant={person.account_status === 'active' ? 'success' : 'secondary'}
-                >
-                  {person.account_status}
-                </Badge>
-              </dd>
-              <dt>Correo</dt>
-              <dd>
-                <code id="support-found-email">{person.contact_email_masked ?? 'sin correo'}</code>
-              </dd>
-              <dt>Teléfono</dt>
-              <dd>
-                <code id="support-found-phone">
-                  {person.contact_phone_masked ?? 'sin teléfono'}
-                </code>
-              </dd>
-            </dl>
-            <Button
-              render={
-                <Link
-                  href={`/people/${person.person_id}?case_reference=${encodeURIComponent(caseReference.trim())}`}
-                />
-              }
-              nativeButton={false}
-            >
-              Abrir estado operativo
-            </Button>
+            <Table scrollAreaLabel="Personas encontradas">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Correo</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead>Cuenta</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {result.items.map((person) => (
+                  <TableRow key={person.person_id} data-support-result>
+                    <TableCell>
+                      <Link
+                        href={fileHref(person.person_id, searched.caseReference)}
+                        data-support-result-link
+                      >
+                        {person.display_name}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{person.contact_email ?? 'Sin correo'}</TableCell>
+                    <TableCell>{person.contact_phone ?? 'Sin teléfono'}</TableCell>
+                    <TableCell>
+                      <Badge variant={person.account_status === 'active' ? 'success' : 'secondary'}>
+                        {person.account_status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       ) : null}
     </div>
   )
+}
+
+function fileHref(personId: string, caseReference: string): string {
+  return caseReference
+    ? `/people/${personId}?case_reference=${encodeURIComponent(caseReference)}`
+    : `/people/${personId}`
 }
 
 function failureMessage(error: unknown): string {

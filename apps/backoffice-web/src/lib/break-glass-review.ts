@@ -63,7 +63,7 @@ export function outcomeMeaning(outcome: BreakGlassReviewOutcome): string {
 /** What this row is: a debt, how old, and whether its day has passed. */
 export function debtSentence(review: BreakGlassReview, now: Date): string {
   if (review.first_exercised_at === null) {
-    return 'Esta ventana se aprobó y nunca se usó, así que no hay nada que revisar.'
+    return 'Esta ventana se abrió y nunca se usó, así que no hay nada que revisar.'
   }
   const hours = hoursSince(review.first_exercised_at, now)
   const used =

@@ -326,3 +326,28 @@ test('without the support duty the section says which duty it needs, and the car
   await expect(page.locator('[data-account-recovery]')).toContainText('deber de soporte')
   await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
 })
+
+test('opened without a case, the card reads the recovery and asks for the case only to send it', async ({
+  context,
+  page,
+}) => {
+  const fixture = fixtureWith({ states: { [SUPPORT_SUBJECT_ID]: accountRecoveryState() } })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(`/people/${SUPPORT_SUBJECT_ID}`)
+
+  // Reading needs no case (ADR-046); sending opens one, so it waits for a traceable one.
+  const section = page.locator('[data-account-recovery]')
+  const send = section.getByRole('button', { name: `Enviar la recuperación a ${HINT}` })
+  await expect(send).toBeDisabled()
+  await section.getByLabel('Referencia del caso para enviar, reenviar o cancelar').fill('sin caso')
+  await expect(send).toBeDisabled()
+  await section.getByLabel('Referencia del caso para enviar, reenviar o cancelar').fill(CASE)
+  await send.click()
+
+  await expect(section.locator('[data-account-recovery-outcome]')).toBeVisible()
+  expect(commands(fixture).map((command) => command.body)).toEqual([{ case_reference: CASE }])
+  const reads = fixture.requests.filter((request) => request.path.endsWith('/account-recovery'))
+  expect(reads.length).toBeGreaterThan(0)
+  expect(reads.every((request) => !request.query.includes('case_reference'))).toBe(true)
+})

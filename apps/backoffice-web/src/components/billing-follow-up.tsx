@@ -3,10 +3,10 @@
 /**
  * `HU-BO-005` c1 and c5, `HU-BO-020` c3 — who the attention panel's billing count is.
  *
- * **The case comes first.** The list names payers, so nothing is read until a case
- * reference is written, and the server records the read against each person listed.
- * The case stays in the address, so a row opens the person's payments under the same
- * case and coming back keeps it.
+ * **Recorded against each person listed.** The list names payers, so the server
+ * records the read against each of them, and against the case when one is written
+ * (optional since ADR-046). The case stays in the address, so a row opens the
+ * person's payments under the same case and coming back keeps it.
  *
  * **Most urgent first, as the server ordered it.** Suspended, then in grace, then the
  * failed charges. The screen does not reorder or filter what it is given.
@@ -52,7 +52,7 @@ import {
   followUpTone,
 } from '@/lib/billing-follow-up'
 import { isRefusal } from '@/lib/screen-state'
-import { isValidCaseReference } from '@/lib/support-metadata'
+import { isValidOptionalCaseReference } from '@/lib/support-metadata'
 
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
@@ -62,7 +62,7 @@ export function BillingFollowUp() {
   const router = useRouter()
   const parameters = useSearchParams()
   const fromAddress = parameters.get('case_reference') ?? ''
-  const traceable = isValidCaseReference(fromAddress)
+  const traceable = isValidOptionalCaseReference(fromAddress)
   const [caseReference, setCaseReference] = useState(fromAddress)
   const [issue, setIssue] = useState(false)
   const [state, setState] = useState<LoadState>(traceable ? 'loading' : 'idle')
@@ -102,14 +102,20 @@ export function BillingFollowUp() {
   function submit(event: FormEvent) {
     event.preventDefault()
     const reference = caseReference.trim()
-    if (!isValidCaseReference(reference)) {
+    if (!isValidOptionalCaseReference(reference)) {
       setIssue(true)
       return
     }
     setIssue(false)
     // The case lives in the address, so a person's payments and the way back keep it.
     if (reference === fromAddress) setReload((value) => value + 1)
-    else router.replace(`/people/billing?case_reference=${encodeURIComponent(reference)}`)
+    else {
+      router.replace(
+        reference
+          ? `/people/billing?case_reference=${encodeURIComponent(reference)}`
+          : '/people/billing',
+      )
+    }
   }
 
   return (
@@ -121,15 +127,15 @@ export function BillingFollowUp() {
           </CardTitle>
           <CardDescription>
             Suscripciones a Allfit One suspendidas o en gracia, y cobros que fallaron en los últimos
-            30 días. Nombra a quien paga, así que pide el caso y queda registrado contra cada
-            persona de la lista.
+            30 días. Nombra a quien paga, así que queda registrado contra cada persona de la lista,
+            y contra el caso si escribes uno.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} data-backoffice-form data-billing-follow-up-form noValidate>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="billing-case">Referencia del caso</FieldLabel>
+                <FieldLabel htmlFor="billing-case">Referencia del caso (opcional)</FieldLabel>
                 <Input
                   id="billing-case"
                   value={caseReference}
@@ -166,7 +172,7 @@ export function BillingFollowUp() {
         <Card data-billing-follow-up-list>
           <CardHeader>
             <CardTitle role="heading" aria-level={2}>
-              {`Caso ${fromAddress}`}
+              {fromAddress ? `Caso ${fromAddress}` : 'Por seguir'}
             </CardTitle>
             <CardDescription data-billing-follow-up-summary>
               {followUpSummary(followUp)}
@@ -218,10 +224,10 @@ export function BillingFollowUp() {
 
       {state === 'idle' ? (
         <Alert live="off" variant="info" data-billing-follow-up-idle>
-          <AlertTitle>Primero el caso</AlertTitle>
+          <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
           <AlertDescription>
-            Escribe la referencia del caso que justifica revisar los cobros. La lista no se lee sin
-            ella.
+            Va en mayúsculas, como CASE-2026-001, o se deja vacía. La lista no se lee con una
+            referencia en texto libre.
           </AlertDescription>
         </Alert>
       ) : null}

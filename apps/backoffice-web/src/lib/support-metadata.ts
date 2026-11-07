@@ -1,5 +1,5 @@
 /**
- * Presentation rules for the minimised support projection.
+ * Presentation rules for the support projection.
  *
  * Nothing here decides access and nothing here hides data: the server already
  * removed what must not travel. What lives here is the vocabulary an operator
@@ -13,55 +13,23 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
 
-export type SupportLookupKind = 'identifier' | 'email' | 'phone'
-
-export const SUPPORT_LOOKUP_KINDS: readonly SupportLookupKind[] = ['identifier', 'email', 'phone']
-
-const LOOKUP_LABELS: Record<SupportLookupKind, string> = {
-  identifier: 'Identificador',
-  email: 'Correo exacto',
-  phone: 'Teléfono exacto',
-}
-
-const LOOKUP_PLACEHOLDERS: Record<SupportLookupKind, string> = {
-  identifier: '019a5000-0000-7000-8000-000000000005',
-  email: 'persona@ejemplo.com',
-  phone: '+573001234567',
-}
-
-export function lookupLabel(kind: SupportLookupKind): string {
-  return LOOKUP_LABELS[kind]
-}
-
-export function lookupPlaceholder(kind: SupportLookupKind): string {
-  return LOOKUP_PLACEHOLDERS[kind]
-}
-
 const CASE_REFERENCE = /^[A-Z][A-Z0-9_-]{2,63}$/
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const EMAIL = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
-const PHONE = /^\+[1-9][0-9]{6,14}$/
+
+/** What the API accepts as a search term, checked here so a typo is not a recorded search. */
+export const SEARCH_QUERY = { min: 2, max: 100 } as const
+
+export function isSearchable(value: string): boolean {
+  const term = value.trim()
+  return term.length >= SEARCH_QUERY.min && term.length <= SEARCH_QUERY.max
+}
 
 export function isValidCaseReference(value: string): boolean {
   return CASE_REFERENCE.test(value.trim())
 }
 
-/**
- * Checked before the request travels so a typo is not recorded as a search. The
- * database refuses the same shapes; this exists to answer the operator sooner,
- * never to let something through that the server would reject.
- */
-export function isValidLookup(kind: SupportLookupKind, value: string): boolean {
-  const trimmed = value.trim()
-  if (kind === 'identifier') return UUID.test(trimmed)
-  if (kind === 'email') return EMAIL.test(trimmed)
-  return PHONE.test(trimmed)
-}
-
-export function lookupIssueMessage(kind: SupportLookupKind): string {
-  if (kind === 'identifier') return 'El identificador no tiene la forma de un UUID.'
-  if (kind === 'email') return 'Escribe el correo completo, tal como la persona lo entregó.'
-  return 'El teléfono va en formato internacional, empezando por «+».'
+/** A read may name no case (ADR-046); one given in free text is still refused. */
+export function isValidOptionalCaseReference(value: string): boolean {
+  return value.trim() === '' || isValidCaseReference(value)
 }
 
 export interface FileFact {
@@ -172,7 +140,8 @@ export function supportMetadataMessage(code: string): string {
     forbidden:
       'Tu sesión no tiene vigente el deber de diagnóstico de soporte. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'not-found': 'No hay ninguna persona con ese identificador.',
-    'invalid-request': 'Falta la referencia del caso o el dato buscado no tiene la forma esperada.',
+    'invalid-request':
+      'La búsqueda necesita al menos dos caracteres, y la referencia del caso, si la escribes, va como CASE-2026-001.',
     'validation-failed': 'El servidor rechazó la referencia del caso. Revisa su formato.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
     'upstream-unavailable': 'El servicio no respondió. Reintenta en un momento.',

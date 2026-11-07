@@ -6,15 +6,15 @@
  * Four decisions shape this screen, and none of them is layout.
  *
  * **The tier is a consequence, not a field.** The operator picks categories and
- * the screen says what that costs: one approver and thirty minutes, or two
- * distinct approvers and fifteen. There is no control for the tier, the approval
- * count or the duration, so nobody can go looking for the cheap combination.
+ * the screen says what follows. Asking opens the window for sixty minutes at any
+ * tier (ADR-046), and somebody else reviews it afterwards. There is no control for
+ * the tier or the duration, and no approval step to wait for.
  *
  * **Forbidden categories are absent.** Not disabled, not annotated — they do not
  * appear. An option that can never be granted is an invitation to try.
  *
- * **A window says how long it has left.** Fifteen minutes is short and
- * "approved" alone does not tell anyone to hurry. There is no extend button
+ * **A window says how long it has left.** An hour passes quickly while reading,
+ * and "open" alone does not tell anyone to hurry. There is no extend button
  * because there is no extension.
  *
  * **A denied attempt is shown as a recorded fact, not an error.** The evidence is
@@ -80,14 +80,10 @@ import { formatInstant } from '@/lib/platform-access'
 import {
   BREAK_GLASS_CATEGORIES,
   BREAK_GLASS_PURPOSES,
-  approvalsSoFar,
   breakGlassMessage,
-  canDecide,
   canExercise,
   categoryLabel,
   emptyReadMessage,
-  APPROVAL_REASONS,
-  REJECTION_REASONS,
   decisionReasonLabel,
   healthContextRows,
   mealRows,
@@ -98,7 +94,6 @@ import {
   agendaRows,
   outcomeMessage,
   purposeLabel,
-  quorumSentence,
   requestIssue,
   requestIssueMessage,
   resourceTypeFor,
@@ -126,9 +121,6 @@ export function BreakGlassWindows() {
   const prefill = requestPrefill(useSearchParams())
   const [subject, setSubject] = useState(prefill.subject)
   const [caseReference, setCaseReference] = useState(prefill.caseReference)
-  // The approver says why: one reason per request being decided, chosen, never fixed.
-  const [approvalReason, setApprovalReason] = useState<Record<string, string>>({})
-  const [rejectionReason, setRejectionReason] = useState<Record<string, string>>({})
   const [purpose, setPurpose] = useState<BreakGlassPurpose>('customer_support_request')
   const [categories, setCategories] = useState<BreakGlassCategory[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -137,7 +129,6 @@ export function BreakGlassWindows() {
     answer: BreakGlassExerciseOutcome
   } | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const [rejecting, setRejecting] = useState<string | null>(null)
   const [closing, setClosing] = useState<string | null>(null)
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -220,7 +211,7 @@ export function BreakGlassWindows() {
           },
           newBackofficeCommand(),
         ),
-      'Solicitud abierta. Necesita aprobación de otra persona antes de abrir la ventana.',
+      'Ventana abierta por 60 minutos. Cada lectura queda registrada y otra persona la revisa después.',
     )
     setCategories([])
   }
@@ -471,9 +462,9 @@ export function BreakGlassWindows() {
             Pedir una ventana excepcional
           </CardTitle>
           <CardDescription>
-            Sólo cuando el estado operativo no alcanza. Otra persona tiene que aprobarla, la ventana
-            dura minutos y cada lectura queda registrada para la persona afectada. No existe acceso
-            a «toda la cuenta» ni extensión de una ventana.
+            Sólo cuando el estado operativo no alcanza. Se abre al pedirla y dura 60 minutos. Cada
+            lectura queda registrada para la persona afectada, y otra persona revisa la ventana
+            después. No existe acceso a «toda la cuenta» ni extensión de una ventana.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -571,8 +562,7 @@ export function BreakGlassWindows() {
 
       {files.length === 0 ? (
         <ScreenEmpty icon="warning" title="No hay expedientes">
-          Aquí aparecerán las solicitudes que tengas que decidir y las tuyas, con su quórum, su
-          ventana y cuántas veces se ejerció.
+          Aquí aparecerán las ventanas, con el tiempo que les queda y cuántas veces se ejercieron.
         </ScreenEmpty>
       ) : (
         files.map((file) => (
@@ -596,9 +586,7 @@ export function BreakGlassWindows() {
                 <dt>Alcance</dt>
                 <dd>
                   <span id={`bg-tier-${file.id}`}>
-                    {tierLabel(file.sensitivity_tier)} · {file.required_approvals}{' '}
-                    {file.required_approvals === 1 ? 'aprobación' : 'aprobaciones'} ·{' '}
-                    {file.requested_duration_minutes} minutos
+                    {tierLabel(file.sensitivity_tier)} · {file.requested_duration_minutes} minutos
                   </span>
                 </dd>
                 <dt>Persona afectada</dt>
@@ -610,16 +598,6 @@ export function BreakGlassWindows() {
                   <span id={`bg-exercises-${file.id}`}>{file.exercise_count}</span>
                 </dd>
               </dl>
-
-              {file.status === 'requested' ? (
-                <Alert live="off" variant="warning">
-                  <AlertTitle>{quorumSentence(file)}</AlertTitle>
-                  <AlertDescription>
-                    Vence el {formatInstant(file.request_expires_at)} si nadie decide. Ninguna
-                    aprobación parcial abre la ventana.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
 
               {windowSentence(file, now) ? (
                 <Alert
@@ -652,141 +630,6 @@ export function BreakGlassWindows() {
                     </Fragment>
                   ))}
                 </dl>
-              ) : null}
-
-              {canDecide(file) ? (
-                <Field>
-                  <FieldLabel htmlFor={`bg-approve-reason-${file.id}`}>
-                    Motivo de la aprobación
-                  </FieldLabel>
-                  <Select
-                    items={APPROVAL_REASONS.map((reason) => ({
-                      value: reason.code,
-                      label: reason.label,
-                    }))}
-                    value={approvalReason[file.id] ?? ''}
-                    onValueChange={(value) =>
-                      setApprovalReason((current) => ({
-                        ...current,
-                        [file.id]: String(value ?? ''),
-                      }))
-                    }
-                  >
-                    <SelectTrigger id={`bg-approve-reason-${file.id}`} disabled={busy}>
-                      <SelectValue placeholder="Elige por qué lo apruebas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {APPROVAL_REASONS.map((reason) => (
-                        <SelectItem key={reason.code} value={reason.code}>
-                          {reason.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              ) : null}
-
-              {canDecide(file) ? (
-                <div data-form-actions>
-                  <Button
-                    type="button"
-                    disabled={busy || !approvalReason[file.id]}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          backofficeApi.decideBreakGlass(
-                            file.id,
-                            { decision: 'approved', reason_code: approvalReason[file.id] ?? '' },
-                            newBackofficeCommand(),
-                          ),
-                        approvalsSoFar(file) + 1 >= file.required_approvals
-                          ? 'Aprobada. La ventana quedó abierta.'
-                          : 'Aprobada. Falta otra persona para que la ventana se abra.',
-                      )
-                    }
-                  >
-                    Aprobar
-                  </Button>
-                  <AlertDialog
-                    open={rejecting === file.id}
-                    onOpenChange={(next) => {
-                      // Closing mid-flight would hide a request that is still going to land.
-                      if (busy) return
-                      setRejecting(next ? file.id : null)
-                    }}
-                  >
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      disabled={busy}
-                      onClick={() => setRejecting(file.id)}
-                    >
-                      Rechazar
-                    </Button>
-                    <AlertDialogContent data-reject-break-glass-dialog>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Rechazar esta solicitud?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Rechazarla es definitivo: nadie podrá aprobarla después, ni siquiera quien
-                          ya la había aprobado. Para ver estos datos habría que pedir una ventana
-                          nueva.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <Field>
-                        <FieldLabel htmlFor={`bg-reject-reason-${file.id}`}>
-                          Motivo del rechazo
-                        </FieldLabel>
-                        <Select
-                          items={REJECTION_REASONS.map((reason) => ({
-                            value: reason.code,
-                            label: reason.label,
-                          }))}
-                          value={rejectionReason[file.id] ?? ''}
-                          onValueChange={(value) =>
-                            setRejectionReason((current) => ({
-                              ...current,
-                              [file.id]: String(value ?? ''),
-                            }))
-                          }
-                        >
-                          <SelectTrigger id={`bg-reject-reason-${file.id}`} disabled={busy}>
-                            <SelectValue placeholder="Elige por qué la rechazas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {REJECTION_REASONS.map((reason) => (
-                              <SelectItem key={reason.code} value={reason.code}>
-                                {reason.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={busy}>Dejarla en espera</AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          disabled={busy || !rejectionReason[file.id]}
-                          onClick={() =>
-                            void run(
-                              () =>
-                                backofficeApi.decideBreakGlass(
-                                  file.id,
-                                  {
-                                    decision: 'rejected',
-                                    reason_code: rejectionReason[file.id] ?? '',
-                                  },
-                                  newBackofficeCommand(),
-                                ),
-                              'Rechazada. El rechazo es definitivo: no se puede aprobar después.',
-                            ).then(() => setRejecting(null))
-                          }
-                        >
-                          {busy ? 'Rechazando…' : 'Rechazar la solicitud'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
               ) : null}
 
               {canExercise(file, now) ? (
@@ -824,7 +667,7 @@ export function BreakGlassWindows() {
                         <AlertDialogDescription>
                           Lo que ya se leyó deja de mostrarse y ninguna lectura vuelve a entregar
                           contenido. No se puede reabrir ni extender: para continuar habría que
-                          pedir otra ventana y conseguir su aprobación.
+                          pedir otra ventana.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>

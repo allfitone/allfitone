@@ -5,15 +5,14 @@
  * weight the schema cannot. Three things it has to make true:
  *
  * The tier is shown as a *consequence*, never as a choice. An operator picks
- * categories; the tier, the number of approvers and the minutes follow. Showing
- * them as fields would invite someone to look for the cheap combination.
+ * categories and the tier follows. Asking opens the window for sixty minutes at
+ * any tier, and somebody else reviews it afterwards (ADR-046).
  *
- * A forbidden category is not offered at all. Not greyed out, not marked
- * "requires more approvals" — absent. An option that can never be granted is a
- * suggestion to try.
+ * A forbidden category is not offered at all. Not greyed out, not annotated —
+ * absent. An option that can never be granted is a suggestion to try.
  *
- * And a window says how long it has left, because fifteen minutes is short and
- * "approved" alone does not tell an operator to hurry.
+ * And a window says how long it has left, because an hour passes quickly while
+ * reading and "open" alone does not tell an operator to hurry.
  *
  * What an allowed read returns is shown as the person recorded it, beside the value the
  * platform normalized, and a photo is only ever a flag: the reference never reaches here.
@@ -108,7 +107,7 @@ export const BREAK_GLASS_STATUSES: readonly BreakGlassStatus[] = [
 ]
 
 const STATUS_LABELS: Record<BreakGlassStatus, string> = {
-  requested: 'Esperando aprobación',
+  requested: 'Pedida antes del cambio, sin abrir',
   approved: 'Ventana abierta',
   rejected: 'Rechazada',
   closed: 'Cerrada',
@@ -145,28 +144,20 @@ export function projectedTier(categories: readonly BreakGlassCategory[]): BreakG
 
 export interface TierConsequence {
   tier: BreakGlassTier
-  approvals: number
   minutes: number
   sentence: string
 }
 
+const WINDOW_MINUTES = 60
+
 export function tierConsequence(categories: readonly BreakGlassCategory[]): TierConsequence | null {
   const tier = projectedTier(categories)
   if (!tier) return null
-  if (tier === 'restricted') {
-    return {
-      tier,
-      approvals: 2,
-      minutes: 15,
-      sentence:
-        'Alcance restringido: hacen falta dos personas distintas y la ventana dura 15 minutos.',
-    }
-  }
+  const scope = tier === 'restricted' ? 'Alcance restringido' : 'Alcance estándar'
   return {
     tier,
-    approvals: 1,
-    minutes: 30,
-    sentence: 'Alcance estándar: hace falta una aprobación y la ventana dura 30 minutos.',
+    minutes: WINDOW_MINUTES,
+    sentence: `${scope}: la ventana se abre al pedirla y dura ${String(WINDOW_MINUTES)} minutos. Cada lectura queda registrada y otra persona la revisa después.`,
   }
 }
 
@@ -185,39 +176,29 @@ export function isValidSubject(value: string): boolean {
   return UUID.test(value.trim())
 }
 
-export interface DecisionReason {
-  code: string
-  label: string
+/** The reasons approvers gave before ADR-046, kept so those decisions still read as words. */
+const DECISION_REASONS: Readonly<Record<string, string>> = {
+  'APPROVED-CASE-JUSTIFIES': 'El caso justifica leer estos datos',
+  'APPROVED-PERSON-ASKED': 'La persona pidió la ayuda que lo requiere',
+  'APPROVED-LEGAL-DUTY': 'Lo exige una obligación legal',
+  'REJECTED-NOT-JUSTIFIED': 'El caso no justificaba leer estos datos',
+  'REJECTED-TOO-BROAD': 'Pedía más categorías de las necesarias',
+  'REJECTED-OTHER-WAY': 'Se podía resolver sin leer los datos',
+  'REJECTED-CONFLICT': 'Quien la pidió tenía un conflicto con la persona',
 }
-
-/** Why an approver approved: closed, so the record stays readable months later. */
-export const APPROVAL_REASONS: readonly DecisionReason[] = [
-  { code: 'APPROVED-CASE-JUSTIFIES', label: 'El caso justifica leer estos datos' },
-  { code: 'APPROVED-PERSON-ASKED', label: 'La persona pidió la ayuda que lo requiere' },
-  { code: 'APPROVED-LEGAL-DUTY', label: 'Lo exige una obligación legal' },
-]
-
-export const REJECTION_REASONS: readonly DecisionReason[] = [
-  { code: 'REJECTED-NOT-JUSTIFIED', label: 'El caso no justifica leer estos datos' },
-  { code: 'REJECTED-TOO-BROAD', label: 'Pide más categorías de las necesarias' },
-  { code: 'REJECTED-OTHER-WAY', label: 'Se puede resolver sin leer los datos' },
-  { code: 'REJECTED-CONFLICT', label: 'Quien la pide tiene un conflicto con la persona' },
-]
 
 // The single code every decision carried before an approver could choose one.
 const UNSTATED = new Set(['REASON-APPROVED', 'REASON-REJECTED'])
 
 export function decisionReasonLabel(code: string): string {
   if (UNSTATED.has(code)) return 'Sin motivo registrado'
-  return (
-    [...APPROVAL_REASONS, ...REJECTION_REASONS].find((reason) => reason.code === code)?.label ??
-    code
-  )
+  return DECISION_REASONS[code] ?? code
 }
 
 /** From the person's card: a request for that person, under the case the card was opened on. */
 export function breakGlassRequestHref(personId: string, caseReference: string): string {
-  return `/break-glass?subject=${personId}&case_reference=${encodeURIComponent(caseReference)}`
+  const base = `/break-glass?subject=${personId}`
+  return caseReference ? `${base}&case_reference=${encodeURIComponent(caseReference)}` : base
 }
 
 /** What the request form starts from; a value that is not a subject or a case is dropped. */
@@ -257,8 +238,8 @@ export function requestIssueMessage(issue: RequestIssue): string {
 }
 
 /**
- * How much of the window is left. Fifteen minutes is short, and "approved" on its
- * own does not tell an operator to hurry.
+ * How much of the window is left. An hour passes quickly while reading, and "open"
+ * on its own does not tell an operator to hurry.
  */
 export function remainingMinutes(file: BreakGlassRequest, now = Date.now()): number | null {
   if (file.status !== 'approved' || !file.window_ends_at) return null
@@ -272,32 +253,11 @@ export function windowSentence(file: BreakGlassRequest, now = Date.now()): strin
   return `Quedan ${left} ${left === 1 ? 'minuto' : 'minutos'} de ventana. No se puede extender.`
 }
 
-export function approvalsSoFar(file: BreakGlassRequest): number {
-  return file.approvals.filter((approval) => approval.decision === 'approved').length
-}
-
-/** What the tray shows about how far a pending request is from opening. */
-export function quorumSentence(file: BreakGlassRequest): string {
-  if (file.status !== 'requested') return ''
-  const so_far = approvalsSoFar(file)
-  const missing = file.required_approvals - so_far
-  if (missing <= 0) return 'Quórum completo.'
-  return `${so_far} de ${file.required_approvals} aprobaciones. Faltan ${missing}.`
-}
-
 /**
- * Whether this operator may decide, and whether they may exercise.
- *
- * Both come from the server. The rule — an approver is never the requester, never
- * the subject and never somebody who already decided — is the same one the
- * database trigger enforces, and re-deriving it here would be a second copy that
- * drifts. They are hints that save offering a button that would always be
- * refused; every command revalidates on its own.
+ * Whether this operator may exercise. The hint comes from the server: only the
+ * requester exercises, and re-deriving that here would be a second copy that
+ * drifts. Every command revalidates on its own.
  */
-export function canDecide(file: BreakGlassRequest): boolean {
-  return file.viewer_can_decide
-}
-
 export function canExercise(file: BreakGlassRequest, now = Date.now()): boolean {
   if (!file.viewer_can_exercise) return false
   // The hint was true when the server answered it. A window that has lapsed since
@@ -310,8 +270,9 @@ export function canExercise(file: BreakGlassRequest, now = Date.now()): boolean 
 const OUTCOME_MESSAGES: Record<string, string> = {
   not_the_requester: 'Sólo quien pidió la ventana puede ejercerla.',
   duty_not_effective: 'Tu deber ya no está vigente. Quedó registrado el intento.',
-  window_not_open: 'La ventana no está abierta: venció, se cerró o aún no fue aprobada.',
-  quorum_incomplete: 'Falta una aprobación para que la ventana se abra.',
+  window_not_open: 'La ventana no está abierta: venció o se cerró.',
+  quorum_incomplete:
+    'Esta solicitud es de antes del cambio y nunca se abrió. Pide una ventana nueva.',
   category_out_of_scope: 'Esa categoría no está dentro del alcance aprobado.',
   resource_out_of_scope:
     'Esa lectura no corresponde a la categoría aprobada. Quedó registrado el intento.',
