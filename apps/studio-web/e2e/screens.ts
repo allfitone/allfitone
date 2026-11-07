@@ -2248,6 +2248,14 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    stories: 'HU-002 · a sign-in that outlived its ten-minute state',
+    path: '/es?access=expired',
+    fixture: () => createStudioApiFixture({ signedOut: true }),
+    settled: async (page) => {
+      await expect(page.getByText('El acceso tardó demasiado')).toBeVisible()
+    },
+  },
+  {
     stories: 'HU-002 · closing your session in this tab',
     path: workspace,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),

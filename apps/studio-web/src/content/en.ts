@@ -26,6 +26,12 @@ export const en: Dictionary = {
     description:
       'We could not confirm the whole remote sign-out. If you sign in again, complete the access with the identity provider once more.',
   },
+  expiredAccess: {
+    title: 'Signing in took too long',
+    description:
+      'For security, each sign-in attempt expires after 10 minutes. If you already created your account, it is still there: sign in again to continue.',
+    action: 'Sign in again',
+  },
   hero: {
     title: ['Your plan.', 'Their session.', 'One panel.'],
     lead: 'Allfit Studio brings together your clients, their programs and what they log in every session. Compare the plan with what happened and adjust without losing the thread.',

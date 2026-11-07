@@ -1,7 +1,7 @@
 'use client'
 
 import { ProductLockup } from '@allfitone/react/brand'
-import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
+import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   SiteContainer,
@@ -243,29 +243,58 @@ function enterStudio(event: MouseEvent<HTMLAnchorElement>): void {
   event.currentTarget.href = signedOut ? AUTH_START_URL : WORKSPACE_ENTRY
 }
 
+const RETURN_REASONS = [
+  { param: 'logout', value: 'partial' },
+  { param: 'access', value: 'expired' },
+] as const
+
 /**
- * The API returns here with `?logout=partial` when only this browser's half of
- * the close could be confirmed. Read once, then dropped from the address bar so
- * a reload does not repeat it; Next's own history state keeps the router out.
+ * The API returns here with a reason in the address: `?logout=partial` when only
+ * this browser's half of the close could be confirmed, `?access=expired` when a
+ * sign-in outlived its ten-minute state. Read once, then dropped from the address
+ * bar so a reload does not repeat it; Next's own history state keeps the router out.
  */
-function PartialLogoutNotice({ copy }: { copy: Dictionary['partialLogout'] }) {
+function ReturnNotice({ copy }: { copy: Dictionary }) {
   const searchParams = useSearchParams()
-  const [partial] = useState(() => searchParams.get('logout') === 'partial')
+  const [reason] = useState(() =>
+    RETURN_REASONS.find(({ param, value }) => searchParams.get(param) === value),
+  )
 
   useEffect(() => {
-    if (!partial) return
+    if (!reason) return
     const url = new URL(window.location.href)
-    url.searchParams.delete('logout')
+    url.searchParams.delete(reason.param)
     window.history.replaceState(window.history.state, '', url)
-  }, [partial])
+  }, [reason])
 
-  if (!partial) return null
-  return (
-    <Alert variant="warning" live="polite">
-      <AlertTitle>{copy.title}</AlertTitle>
-      <AlertDescription>{copy.description}</AlertDescription>
-    </Alert>
-  )
+  if (reason?.param === 'logout') {
+    return (
+      <Alert variant="warning" live="polite">
+        <AlertTitle>{copy.partialLogout.title}</AlertTitle>
+        <AlertDescription>{copy.partialLogout.description}</AlertDescription>
+      </Alert>
+    )
+  }
+  if (reason?.param === 'access') {
+    return (
+      <Alert variant="warning" live="polite">
+        <AlertTitle>{copy.expiredAccess.title}</AlertTitle>
+        <AlertDescription>{copy.expiredAccess.description}</AlertDescription>
+        <AlertAction>
+          <a
+            data-slot="button"
+            data-variant="outline"
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            href={WORKSPACE_ENTRY}
+            onClick={enterStudio}
+          >
+            {copy.expiredAccess.action}
+          </a>
+        </AlertAction>
+      </Alert>
+    )
+  }
+  return null
 }
 
 export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictionary }) {
@@ -329,7 +358,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
             <div data-studio-hero-copy>
               {/* Only this notice depends on the address, so only it waits for the client. */}
               <Suspense fallback={null}>
-                <PartialLogoutNotice copy={copy.partialLogout} />
+                <ReturnNotice copy={copy} />
               </Suspense>
               <Title
                 as="h1"
