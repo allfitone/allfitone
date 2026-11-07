@@ -21,7 +21,6 @@
  * `--subject` is the WorkOS user id of the Backoffice Application user you sign in with.
  */
 
-import { randomBytes, randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
@@ -42,7 +41,6 @@ async function bootstrap(input: Options): Promise<void> {
   const sql = postgres(input.databaseUrl, { prepare: false, max: 1 })
   try {
     const operator = await ensureOperator(sql, input)
-    const approvers = await armWitnessToApprove(sql, operator, input.issuer)
 
     const effective = await sql<Array<{ duty_code: string; basis: string; valid_to: Date }>>`
       select duty_code, basis, valid_to
@@ -77,10 +75,6 @@ async function bootstrap(input: Options): Promise<void> {
     if (missing.length) {
       console.log(`Still not in force: ${missing.map((row) => row.duty_code).join(', ')}`)
       process.exitCode = 1
-    }
-    if (approvers >= 2) {
-      console.log(`${approvers} local approvers, which is enough for a restricted window:`)
-      console.log('  bun packages/db/scripts/approve-local-break-glass.ts')
     }
     console.log('Sign in at http://localhost:3001 and enrol TOTP if you have not yet.')
   } finally {
@@ -130,93 +124,6 @@ async function ensureOperator(sql: postgres.Sql, input: Options): Promise<string
   })
 }
 
-/**
- * A break-glass window needs somebody who is not the requester, and a restricted one —
- * body measurements, health notes, meals — needs two of them. Locally there is one
- * witness, so without this the operator can ask for a window and nothing can ever open
- * it: `HU-BO-008` and `HU-BO-009` cannot be looked at at all.
- *
- * Two local approvers are ensured here. The operator grants a second witness the role,
- * the way the Team screen does, and the role brings `approve_break_glass` with it. The
- * operator's session lives only for this transaction. Nobody signs in as either witness.
- */
-async function armWitnessToApprove(
-  sql: postgres.Sql,
-  operator: string,
-  issuer: string,
-): Promise<number> {
-  return sql.begin(async (transaction) => {
-    const [operatorAccount] = await transaction<Array<{ id: string }>>`
-      select id from identity.access_accounts
-      where person_id = ${operator}::uuid
-      order by created_at desc
-      limit 1
-    `
-    if (!operatorAccount) return 0
-
-    const sessionId = randomUUID()
-    await transaction`
-      insert into identity.access_sessions (
-        id, access_account_id, provider_session_id, surface, token_hash, token_ciphertext,
-        access_token_expires_at, assurance_level, authentication_method,
-        assurance_verified_at, last_activity_at, absolute_expires_at
-      ) values (
-        ${sessionId}::uuid, ${operatorAccount.id}::uuid, ${`local_operator_${sessionId}`},
-        'backoffice', ${randomBytes(32)}, 'v1.local-operator',
-        clock_timestamp() + interval '5 minutes', 2, 'password_totp',
-        clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '5 minutes'
-      )
-    `
-
-    // The second approver does not come from the bootstrap ceremony, which makes exactly
-    // two administrators. Now that two exist, the operator can appoint a third the way
-    // the Team screen does.
-    const [second] = await transaction<Array<{ person_id: string }>>`
-      select person_id from identity.access_accounts
-      where subject like 'local_witness_2_%' and person_id is not null
-      limit 1
-    `
-    if (!second) {
-      const [person] = await transaction<Array<{ id: string }>>`
-        insert into identity.people (given_name, family_name, status)
-        values ('Local', 'Witness Two', 'active')
-        returning id
-      `
-      if (!person) throw new Error('PostgreSQL did not create the second local witness')
-      await transaction`
-        insert into identity.access_accounts (provider, issuer, subject, person_id)
-        values ('workos', ${issuer}, ${`local_witness_2_${person.id.slice(0, 8)}`},
-          ${person.id}::uuid)
-      `
-      await transaction`
-        select result from support.assign_platform_role(
-          ${operator}::uuid, ${sessionId}::uuid, ${person.id}::uuid, 'allfit_admin',
-          ${randomUUID()}::uuid, ${uuidV7()}::uuid, ${randomBytes(32)}
-        )
-      `
-    }
-
-    await transaction`
-      update identity.access_sessions set revoked_at = clock_timestamp()
-      where id = ${sessionId}::uuid
-    `
-
-    // People, not rows: a witness may hold the duty both through the role and granted.
-    const [held] = await transaction<Array<{ count: number }>>`
-      select count(distinct account.person_id)::integer as count
-      from identity.access_accounts as account
-      join support.platform_duty_assignments as duty
-        on duty.person_id = account.person_id
-       and duty.duty_code = 'approve_break_glass'
-       and duty.status = 'active'
-       and duty.valid_to > clock_timestamp()
-      where account.subject like 'local_witness_%'
-        and account.person_id <> ${operator}::uuid
-    `
-    return held?.count ?? 0
-  })
-}
-
 function readOptions(argv: string[]): Options {
   const values = new Map<string, string>()
   for (let index = 0; index < argv.length; index += 2) {
@@ -245,18 +152,4 @@ function readOptions(argv: string[]): Options {
     issuer,
     databaseUrl,
   }
-}
-
-/** The command takes a UUIDv7 command id. */
-function uuidV7(): string {
-  const bytes = Buffer.from(randomUUID().replaceAll('-', ''), 'hex')
-  let timestamp = Date.now()
-  for (let index = 5; index >= 0; index -= 1) {
-    bytes[index] = timestamp & 0xff
-    timestamp = Math.floor(timestamp / 256)
-  }
-  bytes[6] = ((bytes.at(6) ?? 0) & 0x0f) | 0x70
-  bytes[8] = ((bytes.at(8) ?? 0) & 0x3f) | 0x80
-  const hex = bytes.toString('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }

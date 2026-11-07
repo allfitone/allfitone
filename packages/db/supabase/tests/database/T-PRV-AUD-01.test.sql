@@ -8,7 +8,8 @@
 -- window is disqualified from auditing that window, and stays a perfectly good
 -- auditor for every other one. A global exclusion would be easier to write and
 -- would quietly make the whole log unauditable for anyone who ever approved
--- anything.
+-- anything. Since ADR-046 asking opens the window and nobody approves, but the
+-- windows approved before keep their approvers, and those stay disqualified.
 --
 -- The withheld rows are counted rather than silently dropped, and the count is a
 -- second closed query instead of a column on the rows. An auditor who filters
@@ -23,7 +24,7 @@
 
 begin;
 
-select plan(20);
+select plan(21);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -281,7 +282,7 @@ select support.assign_platform_duty(
 select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019a9000-0000-7000-8000-000000000003', true);
 
--- Case A: the auditor is the requester, and the approver approved it.
+-- Case A: the auditor is the requester, and asking opened it (ADR-046 decision 2).
 create temp table audit_cases on commit drop as
 select (opened.result->>'id')::uuid as own_case
 from support.request_break_glass(
@@ -292,37 +293,42 @@ from support.request_break_glass(
   decode(repeat('71', 32), 'hex')
 ) as opened;
 
-select support.decide_break_glass(
-  '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-  (select own_case from audit_cases), 'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111402', '019a9000-0000-7000-8000-000000000302',
-  decode(repeat('72', 32), 'hex')
-);
 select support.exercise_break_glass(
   '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
   (select own_case from audit_cases), 'relationship_training',
   'execution.executed_sessions', null
 );
 
--- Case B: somebody else's, which the auditor never touched.
+-- Case B: somebody else's, which the auditor never touched. Epsilon approved it before
+-- ADR-046, so it is written as it was then: standard, one approval, thirty minutes.
 select set_config('app.actor_person_id', '019a9000-0000-7000-8000-000000000004', true);
 
-create temp table other_cases on commit drop as
-select (opened.result->>'id')::uuid as other_case
-from support.request_break_glass(
-  '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000024',
+insert into support.break_glass_requests (
+  requester_person_id, requester_duty_assignment_id, subject_person_id, categories,
+  purpose, case_reference, sensitivity_tier, required_approvals,
+  requested_duration_minutes, requested_at, request_expires_at, status,
+  window_starts_at, window_ends_at
+) select '019a9000-0000-7000-8000-000000000004', id,
   '019a9000-0000-7000-8000-000000000007', array['relationship_training'],
-  'security_investigation', 'CASE-2026-B01',
-  '11111111-1111-4111-8111-111111111403', '019a9000-0000-7000-8000-000000000303',
-  decode(repeat('73', 32), 'hex')
-) as opened;
+  'security_investigation', 'CASE-2026-B01', 'standard', 1, 30, now(),
+  now() + interval '30 minutes', 'approved', now(), now() + interval '30 minutes'
+from support.platform_duty_assignments
+where person_id = '019a9000-0000-7000-8000-000000000004'
+  and duty_code = 'request_break_glass' and status = 'active'
+limit 1;
 
-select support.decide_break_glass(
-  '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-  (select other_case from other_cases), 'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111404', '019a9000-0000-7000-8000-000000000304',
-  decode(repeat('74', 32), 'hex')
-);
+create temp table other_cases on commit drop as
+select id as other_case from support.break_glass_requests
+where case_reference = 'CASE-2026-B01';
+
+insert into support.break_glass_approvals (
+  request_id, approver_person_id, approver_duty_assignment_id, decision, reason_code
+) select (select other_case from other_cases), duty.person_id, duty.id, 'approved', 'REASON-OK'
+from support.platform_duty_assignments as duty
+where duty.person_id = '019a9000-0000-7000-8000-000000000005'
+  and duty.duty_code = 'approve_break_glass' and duty.status = 'active'
+limit 1;
+
 select support.exercise_break_glass(
   '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000024',
   (select other_case from other_cases), 'relationship_training',
@@ -382,9 +388,22 @@ select is(
      '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
      null, null, null, null, 50
    ) as row
-   where row.access_mode = 'break_glass'),
+   where row.access_mode = 'break_glass'
+     and row.actor_person_id = '019a9000-0000-7000-8000-000000000004'),
   0,
-  'whoever approved a window cannot audit it either'
+  'whoever approved a window before ADR-046 cannot audit it either'
+);
+
+select is(
+  (select count(*)::integer
+   from privacy.list_access_events(
+     '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
+     null, null, null, null, 50
+   ) as row
+   where row.access_mode = 'break_glass'
+     and row.actor_person_id = '019a9000-0000-7000-8000-000000000003'),
+  1,
+  'and stays an auditor of the window nobody approved'
 );
 
 -- The paged read (HU-BO-030) is the read the API serves now. It must withhold exactly

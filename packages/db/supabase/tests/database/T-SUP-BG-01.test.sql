@@ -1,19 +1,20 @@
--- T-SUP-BG-01 — PR-22 / OP-SUP-001..004: break-glass windows.
+-- T-SUP-BG-01 — PR-22 / OP-SUP-001, 003, 004, 006: break-glass windows.
 --
 -- `HU-BO-008`. This is the exceptional path, so almost every assertion here is a
--- denial. The ones that matter most:
+-- denial. Since ADR-046 decision 2 asking opens the window and the approval step
+-- (OP-SUP-002) is gone. The ones that matter most:
 --
 --   * a forbidden category never becomes a window, at any tier;
---   * the server computes tier, quorum and duration — a caller cannot ask for the
---     cheap ones;
---   * a restricted window does not open on one approval;
---   * the requester never approves their own request, and no approver counts twice;
+--   * the server computes tier, quorum and duration — a caller cannot ask for
+--     others: every window opens at once, for sixty minutes, with no approval;
+--   * the requester never reviews their own window, and a case is reviewed once;
 --   * only the exact requester exercises, and every attempt leaves evidence;
---   * a rejection is terminal, a closure is final, and neither is reversible.
+--   * a terminal state from before is terminal, a closure is final, and neither
+--     is reversible.
 
 begin;
 
-select plan(47);
+select plan(49);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -185,8 +186,8 @@ select is(
 
 select ok(
   (select (result->>'sensitivity_tier') = 'standard'
-     and (result->>'required_approvals')::integer = 1
-     and (result->>'requested_duration_minutes')::integer = 30
+     and (result->>'required_approvals')::integer = 0
+     and (result->>'requested_duration_minutes')::integer = 60
    from support.request_break_glass(
      '019a8000-0000-7000-8000-000000000003', '019a8000-0000-7000-8000-000000000023',
      '019a8000-0000-7000-8000-000000000006', array['nutrition_guidance'],
@@ -194,13 +195,13 @@ select ok(
      '11111111-1111-4111-8111-111111111205', '019a8000-0000-7000-8000-000000000305',
      decode(repeat('95', 32), 'hex')
    )),
-  'guidance is standard: one approval, thirty minutes'
+  'guidance is standard: no approval, sixty minutes'
 );
 
 select ok(
   (select (result->>'sensitivity_tier') = 'restricted'
-     and (result->>'required_approvals')::integer = 2
-     and (result->>'requested_duration_minutes')::integer = 15
+     and (result->>'required_approvals')::integer = 0
+     and (result->>'requested_duration_minutes')::integer = 60
    from support.request_break_glass(
      '019a8000-0000-7000-8000-000000000003', '019a8000-0000-7000-8000-000000000023',
      '019a8000-0000-7000-8000-000000000006', array['nutrition_intake'],
@@ -208,7 +209,7 @@ select ok(
      '11111111-1111-4111-8111-111111111206', '019a8000-0000-7000-8000-000000000306',
      decode(repeat('96', 32), 'hex')
    )),
-  'intake is restricted: two approvals, fifteen minutes'
+  'intake is restricted, and since ADR-046 also no approval and sixty minutes'
 );
 
 -- A mixed scope inherits the most restrictive tier rather than averaging.
@@ -230,7 +231,7 @@ select is(
   (select request_expires_at - requested_at from support.break_glass_requests
    where case_reference = 'CASE-2026-001'),
   interval '30 minutes',
-  'a pending request dies on its own after thirty minutes'
+  'the request still carries the thirty-minute expiry a pending one from before dies by'
 );
 
 select throws_ok(
@@ -248,128 +249,88 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
--- Nobody approves their own request
+-- Nobody decides: asking opens the window (ADR-046 decision 2)
 -- ---------------------------------------------------------------------------
 
-select throws_ok(
-  $$ select * from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000003', '019a8000-0000-7000-8000-000000000023',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-001'),
-    'approved', 'REASON-OK',
-    '11111111-1111-4111-8111-111111111209', '019a8000-0000-7000-8000-000000000309',
-    decode(repeat('99', 32), 'hex')
-  ) $$,
-  '42501',
-  'a break-glass request is never approved by the person who asked for it',
-  'the requester holds the approving duty through the role, and still never approves their own'
+-- Who may check the window is the review, asserted below: never the requester.
+select hasnt_function(
+  'support', 'decide_break_glass',
+  'nobody approves a window any more, the requester included: the decision is gone'
 );
 
--- ---------------------------------------------------------------------------
--- Standard: one approval opens the window
--- ---------------------------------------------------------------------------
-
-select is(
-  (select result->>'status' from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-001'),
-    'approved', 'REASON-OK',
-    '11111111-1111-4111-8111-111111111210', '019a8000-0000-7000-8000-000000000310',
-    decode(repeat('a1', 32), 'hex')
-  )),
-  'approved',
-  'a standard request opens on one approval'
+select ok(
+  (select status = 'approved' and window_starts_at = requested_at
+   from support.break_glass_requests where case_reference = 'CASE-2026-001'),
+  'a standard request is open from the instant it was asked for'
 );
 
 select is(
   (select window_ends_at - window_starts_at from support.break_glass_requests
    where case_reference = 'CASE-2026-001'),
-  interval '30 minutes',
+  interval '60 minutes',
   'the window lasts exactly what the tier allows'
 );
 
--- ---------------------------------------------------------------------------
--- Restricted: one approval is not enough
--- ---------------------------------------------------------------------------
-
-select is(
-  (select result->>'status' from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-002'),
-    'approved', 'REASON-OK',
-    '11111111-1111-4111-8111-111111111211', '019a8000-0000-7000-8000-000000000311',
-    decode(repeat('a2', 32), 'hex')
-  )),
-  'requested',
-  'a restricted request does not open on a single approval'
+select ok(
+  (select status = 'approved' and window_starts_at = requested_at
+   from support.break_glass_requests where case_reference = 'CASE-2026-002'),
+  'a restricted request opens at once too: nobody else is waited for'
 );
 
 select is(
-  (select window_starts_at from support.break_glass_requests
-   where case_reference = 'CASE-2026-002'),
-  null,
-  'and no window exists while the quorum is incomplete'
-);
-
--- The same approver cannot supply the second approval.
-select throws_ok(
-  $$ select * from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-002'),
-    'approved', 'REASON-AGAIN',
-    '11111111-1111-4111-8111-111111111212', '019a8000-0000-7000-8000-000000000312',
-    decode(repeat('a3', 32), 'hex')
-  ) $$,
-  '23505',
-  null,
-  'one approver counts once: a second decision is refused'
-);
-
-select is(
-  (select result->>'status' from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000005', '019a8000-0000-7000-8000-000000000025',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-002'),
-    'approved', 'REASON-OK',
-    '11111111-1111-4111-8111-111111111213', '019a8000-0000-7000-8000-000000000313',
-    decode(repeat('a4', 32), 'hex')
-  )),
-  'approved',
-  'two distinct approvers open a restricted window'
+  (select count(*)::integer from support.break_glass_approvals as approval
+   join support.break_glass_requests as file on file.id = approval.request_id
+   where file.case_reference in ('CASE-2026-001', 'CASE-2026-002', 'CASE-2026-003')),
+  0,
+  'and no approval is recorded for any of them, because none happened'
 );
 
 select is(
   (select window_ends_at - window_starts_at from support.break_glass_requests
    where case_reference = 'CASE-2026-002'),
-  interval '15 minutes',
-  'a restricted window is shorter, as its tier says'
+  interval '60 minutes',
+  'a restricted window lasts as long as a standard one'
+);
+
+select is(
+  (select count(*)::integer from system.outbox_events
+   where aggregate_type = 'break_glass_request'
+     and event_type = 'support.break_glass_window_opened.v1'
+     and aggregate_id in (
+       select id from support.break_glass_requests
+       where case_reference in ('CASE-2026-001', 'CASE-2026-002', 'CASE-2026-003')
+     )),
+  3,
+  'each opening is announced once'
 );
 
 -- ---------------------------------------------------------------------------
--- A rejection is terminal
+-- A rejection from before is terminal
 -- ---------------------------------------------------------------------------
 
-select is(
-  (select result->>'status' from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-003'),
-    'rejected', 'REASON-NO',
-    '11111111-1111-4111-8111-111111111214', '019a8000-0000-7000-8000-000000000314',
-    decode(repeat('a5', 32), 'hex')
-  )),
-  'rejected',
-  'a rejection closes the request'
+-- A request rejected before the approval step was dropped, written as it was then.
+select lives_ok(
+  $$ insert into support.break_glass_requests (
+       requester_person_id, requester_duty_assignment_id, subject_person_id, categories,
+       purpose, case_reference, sensitivity_tier, required_approvals,
+       requested_duration_minutes, requested_at, request_expires_at, status
+     ) select '019a8000-0000-7000-8000-000000000003', id,
+       '019a8000-0000-7000-8000-000000000006', array['relationship_training'],
+       'customer_support_request', 'CASE-2026-012', 'standard', 1, 30, now(),
+       now() + interval '30 minutes', 'rejected'
+     from support.platform_duty_assignments
+     where person_id = '019a8000-0000-7000-8000-000000000003'
+       and duty_code = 'request_break_glass' and status = 'active'
+     limit 1 $$,
+  'a request rejected before ADR-046 keeps its shape'
 );
 
 select throws_ok(
-  $$ select * from support.decide_break_glass(
-    '019a8000-0000-7000-8000-000000000005', '019a8000-0000-7000-8000-000000000025',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-003'),
-    'approved', 'REASON-OK',
-    '11111111-1111-4111-8111-111111111215', '019a8000-0000-7000-8000-000000000315',
-    decode(repeat('a6', 32), 'hex')
-  ) $$,
+  $$ update support.break_glass_requests set status = 'approved'
+     where case_reference = 'CASE-2026-012' $$,
   '55000',
-  'only a pending break-glass request can be decided',
-  'a later approval cannot revive a rejected request'
+  'a closed break-glass window is never reopened: request another',
+  'and nothing revives it: a rejected request is not reopened'
 );
 
 -- ---------------------------------------------------------------------------
@@ -383,7 +344,7 @@ select is(
     'nutrition_guidance', 'nutrition.guidance_notes', null
   )->>'reason_code'),
   'not_the_requester',
-  'an approver cannot exercise the window they approved'
+  'another administrator cannot exercise a window they did not open'
 );
 
 -- Outside the approved scope: denied, and recorded as such.
@@ -471,14 +432,6 @@ select support.request_break_glass(
   decode(repeat('c1', 32), 'hex')
 );
 
-select support.decide_break_glass(
-  '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-  (select id from support.break_glass_requests where case_reference = 'CASE-2026-010'),
-  'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111231', '019a8000-0000-7000-8000-000000000331',
-  decode(repeat('c2', 32), 'hex')
-);
-
 create temporary table training_read on commit drop as
 select support.exercise_break_glass(
   '019a8000-0000-7000-8000-000000000003', '019a8000-0000-7000-8000-000000000023',
@@ -491,7 +444,7 @@ select results_eq(
      from training_read, jsonb_array_elements(answer->'content'->'prior_training_history') as entry $$,
   $$ values ('019a8000-0000-7000-8000-000000000901'::text),
             ('019a8000-0000-7000-8000-000000000902'::text) $$,
-  'the approved window reads the subject''s training, most recent first'
+  'the open window reads the subject''s training, most recent first'
 );
 
 select is(
@@ -518,7 +471,7 @@ select ok(
   access_control.reads_under_break_glass(
     '019a8000-0000-7000-8000-000000000006', 'prior_training_history'
   ),
-  'under a live approved window, the reader may see the person it names'
+  'under a live open window, the reader may see the person it names'
 );
 
 select ok(
@@ -543,25 +496,31 @@ select ok(
     from (select set_config('app.actor_person_id',
       '019a8000-0000-7000-8000-000000000004', true)) as other_actor
   ),
-  'and only for the one who opened it, never for whoever approved it'
+  'and only for the one who opened it, never for another administrator'
 );
 
 select set_config('app.actor_person_id', '019a8000-0000-7000-8000-000000000003', true);
 
--- Asking is not being allowed. A window nobody has approved opens nothing.
-select support.request_break_glass(
-  '019a8000-0000-7000-8000-000000000003', '019a8000-0000-7000-8000-000000000023',
+-- A request asked for before ADR-046 and never approved stays pending until it expires,
+-- and a pending request opens nothing.
+insert into support.break_glass_requests (
+  requester_person_id, requester_duty_assignment_id, subject_person_id, categories,
+  purpose, case_reference, sensitivity_tier, required_approvals,
+  requested_duration_minutes, requested_at, request_expires_at
+) select '019a8000-0000-7000-8000-000000000003', id,
   '019a8000-0000-7000-8000-000000000007', array['prior_training_history'],
-  'customer_support_request', 'CASE-2026-011',
-  '11111111-1111-4111-8111-111111111232', '019a8000-0000-7000-8000-000000000332',
-  decode(repeat('c3', 32), 'hex')
-);
+  'customer_support_request', 'CASE-2026-011', 'standard', 1, 30, now(),
+  now() + interval '30 minutes'
+from support.platform_duty_assignments
+where person_id = '019a8000-0000-7000-8000-000000000003'
+  and duty_code = 'request_break_glass' and status = 'active'
+limit 1;
 
 select ok(
   not access_control.reads_under_break_glass(
     '019a8000-0000-7000-8000-000000000007', 'prior_training_history'
   ),
-  'a window that nobody has approved yet reads nothing'
+  'a request from before that nobody approved reads nothing'
 );
 
 -- Closing is what a window in the past looks like inside a transaction: the dates
@@ -596,11 +555,21 @@ select throws_ok(
   'evidence cannot be rewritten'
 );
 
+-- An approval recorded before ADR-046, so the append-only rule has a row to guard.
+insert into support.break_glass_approvals (
+  request_id, approver_person_id, approver_duty_assignment_id, decision, reason_code
+) select file.id, duty.person_id, duty.id, 'approved', 'REASON-OK'
+from support.break_glass_requests as file, support.platform_duty_assignments as duty
+where file.case_reference = 'CASE-2026-011'
+  and duty.person_id = '019a8000-0000-7000-8000-000000000004'
+  and duty.duty_code = 'approve_break_glass' and duty.status = 'active'
+limit 1;
+
 select throws_ok(
   $$ delete from support.break_glass_approvals $$,
   '55000',
   'a break-glass decision is append-only',
-  'an approval cannot be deleted'
+  'an approval recorded before cannot be deleted'
 );
 
 select throws_ok(
@@ -646,6 +615,52 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
+-- Somebody else reviews it, once
+-- ---------------------------------------------------------------------------
+
+-- With nobody approving, the review is the only check by another person.
+select throws_ok(
+  $$ select * from support.review_break_glass(
+    '019a8000-0000-7000-8000-000000000003', '019a8000-0000-7000-8000-000000000023',
+    (select id from support.break_glass_requests where case_reference = 'CASE-2026-001'),
+    'justified', '11111111-1111-4111-8111-111111111234',
+    '019a8000-0000-7000-8000-000000000334', decode(repeat('c5', 32), 'hex')
+  ) $$,
+  '42501',
+  'a break-glass case is reviewed by somebody who neither asked for it, approved it nor is its subject',
+  'the requester holds the auditing duty through the role, and still never reviews their own window'
+);
+
+select set_config('app.actor_person_id', '019a8000-0000-7000-8000-000000000004', true);
+
+select is(
+  (select result->>'review_outcome' from support.review_break_glass(
+    '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
+    (select id from support.break_glass_requests where case_reference = 'CASE-2026-001'),
+    'justified', '11111111-1111-4111-8111-111111111235',
+    '019a8000-0000-7000-8000-000000000335', decode(repeat('c6', 32), 'hex')
+  )),
+  'justified',
+  'another administrator reviews it'
+);
+
+select set_config('app.actor_person_id', '019a8000-0000-7000-8000-000000000005', true);
+
+select throws_ok(
+  $$ select * from support.review_break_glass(
+    '019a8000-0000-7000-8000-000000000005', '019a8000-0000-7000-8000-000000000025',
+    (select id from support.break_glass_requests where case_reference = 'CASE-2026-001'),
+    'unjustified', '11111111-1111-4111-8111-111111111236',
+    '019a8000-0000-7000-8000-000000000336', decode(repeat('c7', 32), 'hex')
+  ) $$,
+  '55000',
+  'this break-glass case was already reviewed',
+  'one reviewer''s verdict counts: a second review is refused'
+);
+
+select set_config('app.actor_person_id', '019a8000-0000-7000-8000-000000000003', true);
+
+-- ---------------------------------------------------------------------------
 -- The debt AFO-241 left behind
 -- ---------------------------------------------------------------------------
 
@@ -655,13 +670,6 @@ select support.request_break_glass(
   'security_investigation', 'CASE-2026-004',
   '11111111-1111-4111-8111-111111111218', '019a8000-0000-7000-8000-000000000318',
   decode(repeat('a9', 32), 'hex')
-);
-select support.decide_break_glass(
-  '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-  (select id from support.break_glass_requests where case_reference = 'CASE-2026-004'),
-  'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111219', '019a8000-0000-7000-8000-000000000319',
-  decode(repeat('b1', 32), 'hex')
 );
 
 select support.close_break_glass_for_withdrawn_duty('019a8000-0000-7000-8000-000000000003');
@@ -679,13 +687,6 @@ select support.request_break_glass(
   'security_investigation', 'CASE-2026-005',
   '11111111-1111-4111-8111-111111111220', '019a8000-0000-7000-8000-000000000320',
   decode(repeat('b2', 32), 'hex')
-);
-select support.decide_break_glass(
-  '019a8000-0000-7000-8000-000000000004', '019a8000-0000-7000-8000-000000000024',
-  (select id from support.break_glass_requests where case_reference = 'CASE-2026-005'),
-  'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111221', '019a8000-0000-7000-8000-000000000321',
-  decode(repeat('b3', 32), 'hex')
 );
 
 -- An admin's request_break_glass follows the role (ADR-046), so the command that

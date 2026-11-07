@@ -159,7 +159,7 @@ select is(
      false, null, 50
    )),
   array['CASE-ETA-1', 'CASE-GAMMA-1'],
-  'an approver decides on requests that are not theirs, so they read the whole tray'
+  'a holder of the approving duty reads the whole tray, which now means every admin'
 );
 
 select is(
