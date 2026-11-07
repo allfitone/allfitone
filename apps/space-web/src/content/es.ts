@@ -1,5 +1,5 @@
 /**
- * Spanish copy for the Space landing and its legal drafts.
+ * Spanish copy for the Space landing.
  *
  * This is the shape every other language must match: `Dictionary` is derived
  * from it, so a missing or extra key in English is a type error, and the unit
@@ -13,12 +13,6 @@ export const es = {
       'App de entrenamiento y nutrición: tu programa, cada serie y lo que comes en un solo lugar. Tu historial viaja contigo y tus datos son tuyos.',
     shareImageAlt:
       'Una atleta prepara un peso muerto con la barra cargada en un gimnasio en penumbra.',
-    privacyTitle: 'Política de tratamiento de datos · Allfit Space',
-    privacyDescription:
-      'Qué datos trata Allfit Space, para qué los usa, qué compartes con tu gimnasio y cómo ejerces tus derechos según la Ley 1581 de 2012.',
-    termsTitle: 'Términos y condiciones · Allfit Space',
-    termsDescription:
-      'Las condiciones para usar Allfit Space: quién puede usarla, qué incluyen el servicio y Allfit Pro, y cómo funciona con gimnasios y entrenadores.',
   },
   nav: {
     skip: 'Saltar al contenido',
@@ -142,130 +136,6 @@ export const es = {
     studio: 'Allfit Studio',
     rights: '© 2026 Allfit One',
     newWindow: 'Se abre en una pestaña nueva.',
-  },
-  legal: {
-    draft: 'Versión preliminar',
-    draftNote:
-      'Este texto es un borrador en revisión legal. Puede cambiar antes del lanzamiento de la app.',
-    updated: 'Última actualización: 20 de octubre de 2026',
-    back: 'Volver a Allfit Space',
-    pending: '[Pendiente de confirmar]',
-    privacy: {
-      title: 'Política de tratamiento de datos personales',
-      sections: [
-        {
-          heading: '1. Quién es responsable',
-          body: [
-            'El responsable del tratamiento de tus datos en Allfit Space es [Pendiente de confirmar: razón social y NIT], con domicilio en [Pendiente de confirmar], Colombia.',
-            'Para cualquier consulta o reclamo sobre tus datos escríbenos a [Pendiente de confirmar: correo de privacidad].',
-            'Esta política sigue la Ley 1581 de 2012 y el Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015).',
-          ],
-        },
-        {
-          heading: '2. Qué datos tratamos',
-          body: [
-            'Datos de identificación y contacto: nombre, apellido, correo y, si lo das, tu celular.',
-            'Datos de entrenamiento: programas, sesiones, series, cargas, tiempos y récords.',
-            'Datos de nutrición no clínica: comidas, alimentos, nutrientes y, si las subes, fotos de tus comidas.',
-            'Datos de progreso corporal y contexto de salud, solo si decides registrarlos. Son datos sensibles: darlos es opcional y nunca condiciona el uso de la app.',
-          ],
-        },
-        {
-          heading: '3. Para qué los usamos',
-          body: [
-            'Para prestarte el servicio: guardar tu historial, mostrarte tu progreso y proponerte programas.',
-            'Para compartir con un gimnasio o entrenador exactamente las categorías que tú autorices, y solo mientras las autorices.',
-            'Para la seguridad de tu cuenta, el soporte y el cumplimiento de obligaciones legales.',
-            'No vendemos tus datos ni los usamos para publicidad de terceros.',
-          ],
-        },
-        {
-          heading: '4. Lo que compartes con tu gimnasio',
-          body: [
-            'Aceptar a un gimnasio no comparte ningún dato por sí solo. Tú eliges qué categorías ve, una por una.',
-            'Puedes retirar cualquier permiso en cualquier momento desde la app. Desde ese instante dejan de verlo, y lo demás que compartes no cambia.',
-            'Si terminas la relación con un gimnasio, tu historial sigue siendo tuyo y sigue en tu cuenta.',
-          ],
-        },
-        {
-          heading: '5. Tus derechos',
-          body: [
-            'Conocer, actualizar y rectificar tus datos; pedir prueba de la autorización; saber cómo se han usado; revocar la autorización o pedir la supresión cuando no exista un deber legal de conservarlos; y presentar quejas ante la Superintendencia de Industria y Comercio.',
-            'Las consultas se responden en un máximo de diez días hábiles y los reclamos en un máximo de quince días hábiles, en los términos de la ley.',
-          ],
-        },
-        {
-          heading: '6. Seguridad, conservación y transferencias',
-          body: [
-            'Protegemos tus datos con controles técnicos y organizativos, y cada acceso autorizado a ellos queda registrado.',
-            'Usamos proveedores de infraestructura en la nube que pueden alojar datos fuera de Colombia, con garantías adecuadas de protección.',
-            'Conservamos tus datos mientras tengas una cuenta activa y durante los plazos que exija la ley.',
-          ],
-        },
-        {
-          heading: '7. Edad mínima',
-          body: ['Allfit Space es solo para personas de 18 años o más.'],
-        },
-      ],
-    },
-    terms: {
-      title: 'Términos y condiciones de uso',
-      sections: [
-        {
-          heading: '1. Aceptación',
-          body: [
-            'Al crear una cuenta en Allfit Space aceptas estos términos. La cuenta se crea únicamente desde la app.',
-            'El servicio lo presta [Pendiente de confirmar: razón social y NIT].',
-          ],
-        },
-        {
-          heading: '2. Quién puede usarla',
-          body: [
-            'Debes tener 18 años o más y dar información verdadera. Tu cuenta es personal y eres responsable de su uso.',
-          ],
-        },
-        {
-          heading: '3. El servicio',
-          body: [
-            'Allfit Space te permite seguir programas de entrenamiento, registrar tus sesiones y tu nutrición no clínica, y compartir lo que elijas con tu gimnasio o entrenador.',
-            'La app no ofrece consejo médico ni nutricional clínico. Consulta a un profesional de la salud antes de empezar un programa si tienes cualquier condición médica.',
-          ],
-        },
-        {
-          heading: '4. Gimnasios y entrenadores',
-          body: [
-            'Los gimnasios y entrenadores que usan Allfit Studio son independientes de Allfit One. Su servicio y sus cobros se rigen por lo que acuerdes con ellos.',
-            'Allfit One no recibe ni maneja el dinero que le pagas a tu gimnasio.',
-          ],
-        },
-        {
-          heading: '5. Allfit Pro',
-          body: [
-            'La app es gratis. Allfit Pro es una suscripción opcional que se compra en la App Store o en Google Play, con sus condiciones de pago y cancelación.',
-            'Si tu gimnasio usa Allfit Studio, Pro te sale incluido mientras sigas activo con ellos. Si Pro termina, conservas todo tu historial.',
-          ],
-        },
-        {
-          heading: '6. Uso aceptable',
-          body: [
-            'No uses la app para fines ilícitos, para acceder a cuentas ajenas ni para afectar su funcionamiento.',
-          ],
-        },
-        {
-          heading: '7. Responsabilidad',
-          body: [
-            'Entrenar implica riesgos físicos que asumes al seguir un programa. Allfit One responde en los términos de la ley colombiana aplicable.',
-          ],
-        },
-        {
-          heading: '8. Cambios y ley aplicable',
-          body: [
-            'Si cambiamos estos términos te avisaremos en la app antes de que entren en vigor.',
-            'Estos términos se rigen por las leyes de la República de Colombia.',
-          ],
-        },
-      ],
-    },
   },
 }
 

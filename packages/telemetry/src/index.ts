@@ -7,7 +7,8 @@
  */
 
 export const TELEMETRY_NOTICE_VERSION = 'analytics-v1' as const
-export const ANALYTICS_PRIVACY_NOTICE_URL = 'https://www.allfit.one/privacy/analytics' as const
+// The notice lives with the terms and the privacy policy under www.allfit.one/legal.
+export const ANALYTICS_PRIVACY_NOTICE_URL = 'https://www.allfit.one/es/legal/analytics' as const
 
 export {
   createClientTelemetryRuntime,

@@ -54,6 +54,7 @@ import {
   type ProPlanCatalogue,
   type ProStatus,
 } from '../../src/client/pro'
+import { LEGAL_URLS } from '../../src/client/legal'
 import { deviceStore, loadOffer, type StoreOffer } from '../../src/client/pro-store'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
 import { ComparisonTable, UnlockCarousel } from '../../src/components/plan-comparison'
@@ -64,7 +65,6 @@ const NOT_ON_SALE = 'Pro todavía no está a la venta en esta tienda.'
 const PER: Record<string, string> = { month: '/mes', year: '/año' }
 const RENEWS: Record<string, string> = { month: 'cada mes', year: 'cada año' }
 const STORE: Record<string, string> = { app_store: 'la App Store', google_play: 'Google Play' }
-const SITE = 'https://space.allfit.one/es'
 const HERO_HEIGHT = 430
 const FOOTER_HEIGHT = 176
 const COVERS = [cover0, cover1, cover2, cover3]
@@ -282,14 +282,17 @@ export function ProPlans({
               Restaurar compras
             </Text>
           </Pressable>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(`${SITE}/terms`)}>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
+          >
             <Text role="control" size="xs">
               Términos
             </Text>
           </Pressable>
           <Pressable
             accessibilityRole="link"
-            onPress={() => void Linking.openURL(`${SITE}/privacy`)}
+            onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
           >
             <Text role="control" size="xs">
               Privacidad

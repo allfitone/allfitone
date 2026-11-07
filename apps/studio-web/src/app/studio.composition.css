@@ -1237,6 +1237,14 @@
   text-underline-offset: 3px;
 }
 
+/* The terms and the privacy policy, linked inside the activation's confirmations. */
+[data-legal-link] {
+  color: var(--afo-color-text-accent);
+  font-weight: var(--afo-font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 [data-analytics-actions] {
   display: flex;
   flex-wrap: wrap;
