@@ -2,7 +2,7 @@
 
 import { ProductLockup } from '@allfitone/react/brand'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
+import { buttonVariants } from '@allfitone/react/components/button'
 import {
   SiteContainer,
   SiteFooter,
@@ -29,7 +29,6 @@ import { Suspense, useEffect, useRef, useState, type MouseEvent } from 'react'
 
 import type { Dictionary } from '@/content'
 import { useLandingMotion } from './landing-motion'
-import { openAnalyticsPreferences } from '@/lib/analytics-preferences'
 import { readPendingInvitationToken } from '@/lib/invitation-token'
 import { legalUrl, type LegalDocument } from '@/lib/legal'
 import { LOCALES, type Locale } from '@/lib/locale'
@@ -59,8 +58,7 @@ import { studioApi } from '@/lib/studio-api'
  * The footer matches the Space landing's: Allfit One and Allfit Space as two
  * buttons, the company's filled and the sibling product's outlined, then the
  * three legal documents on www.allfit.one. Every one of those leaves the
- * landing, so each opens in a new tab and says so in its accessible name. The
- * analytics preferences are the one entry that stays, because they open here.
+ * landing, so each opens in a new tab and says so in its accessible name.
  */
 
 const AUTH_START_URL = `${studioApi.apiUrl}/studio/v1/auth/start`
@@ -598,17 +596,6 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                 {copy.footer[document]}
               </SiteFooterLink>
             ))}
-            <SiteFooterLink
-              render={
-                <Button
-                  variant="link"
-                  data-studio-footer-action
-                  onClick={openAnalyticsPreferences}
-                />
-              }
-            >
-              {copy.footer.preferences}
-            </SiteFooterLink>
           </SiteFooterLinks>
         </SiteFooterBar>
         <SiteFooterMeta>{copy.footer.rights}</SiteFooterMeta>

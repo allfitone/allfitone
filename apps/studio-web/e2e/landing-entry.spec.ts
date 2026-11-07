@@ -114,41 +114,30 @@ test('a tab holding an invitation is taken back to it from the landing', async (
 })
 
 /**
- * The landing has a footer, so its analytics preferences live there, beside the
- * legal documents, and nothing floats over the page once a visitor has decided.
+ * The landing keeps nothing over the page: the consent bar asks once, and once
+ * the visitor has answered it leaves and no control floats in its place.
  */
 test.describe('privacy', () => {
-  test('is a footer entry that opens the analytics preferences', async ({ page }) => {
-    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+  test('the consent bar leaves once the visitor answers', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
+      consent: 'undecided',
+    })
     await page.goto('/es')
 
-    const entry = page
-      .getByRole('contentinfo')
-      .getByRole('button', { name: 'Preferencias de analítica' })
-    await expect(entry).toBeVisible()
-    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
-
-    // The panel opens far from the footer, so focus travels to it and back.
-    await entry.focus()
-    await page.keyboard.press('Enter')
     const panel = page.locator('[data-analytics-panel]')
     await expect(panel.getByText('Analítica opcional')).toBeVisible()
-    await expect(panel).toBeFocused()
-
     await panel.getByRole('button', { name: 'No permitir' }).click()
+
     await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
-    await expect(entry).toBeFocused()
   })
 
-  test('speaks English on the English landing', async ({ page }) => {
+  test('a decided visitor finds nothing floating over the landing', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
     await page.goto('/en')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.waitForLoadState('networkidle')
 
-    await page
-      .getByRole('contentinfo')
-      .getByRole('button', { name: 'Analytics preferences' })
-      .click()
-    await expect(page.getByText('Optional analytics')).toBeVisible()
+    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
   })
 })
 

@@ -1710,16 +1710,6 @@
   border-color: var(--border);
 }
 
-/* The footer's analytics preferences open a panel, so they are a button set like its links.
-   The link variant leaves the browser's own button face, so it is cleared here. */
-[data-studio-footer-action] {
-  padding: 0;
-  background: none;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
-
 /* ------------------------------------------------------------------ type */
 
 [data-studio-display] {

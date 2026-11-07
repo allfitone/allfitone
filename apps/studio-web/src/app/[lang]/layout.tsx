@@ -56,7 +56,7 @@ export default async function LandingLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeStructuredData(structuredData(lang)) }}
         />
-        <StudioShell locale={lang} privacyEntry="footer">
+        <StudioShell locale={lang} privacyEntry="none">
           {children}
         </StudioShell>
       </body>

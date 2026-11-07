@@ -151,7 +151,6 @@ export const en: Dictionary = {
     terms: 'Terms',
     privacy: 'Privacy',
     analytics: 'Analytics',
-    preferences: 'Analytics preferences',
     rights: '© 2026 Allfit One',
   },
 }

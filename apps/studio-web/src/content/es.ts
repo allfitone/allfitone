@@ -158,7 +158,6 @@ export const es = {
     terms: 'Términos',
     privacy: 'Privacidad',
     analytics: 'Analítica',
-    preferences: 'Preferencias de analítica',
     rights: '© 2026 Allfit One',
   },
 }

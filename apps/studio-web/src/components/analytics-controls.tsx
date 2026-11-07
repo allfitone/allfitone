@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import { useReportWebVitals } from 'next/web-vitals'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
-import { onAnalyticsPreferencesRequested } from '@/lib/analytics-preferences'
 import {
   captureStudioTelemetry,
   initializeStudioTelemetry,
@@ -26,9 +25,8 @@ import type { Locale } from '@/lib/locale'
  * workspace alike, so it never covers a page's heading or its first content.
  *
  * Once a visitor has decided, the workspace keeps a floating control to reopen
- * the panel. The landing does not float one (`floating={false}`): its footer
- * asks for the panel through `openAnalyticsPreferences`, and focus moves into
- * the panel and back to that entry, because the two sit far apart.
+ * the panel. The landing keeps nothing over the page (`floating={false}`): there
+ * the bar only appears until the visitor answers.
  */
 const COPY = {
   es: {
@@ -68,19 +66,9 @@ export function AnalyticsControls({
   )
   const [expanded, setExpanded] = useState(false)
   const panel = useRef<HTMLDivElement>(null)
-  const requester = useRef<HTMLElement | null>(null)
   const pathname = usePathname()
 
   useEffect(() => initializeStudioTelemetry(), [])
-  useEffect(
-    () =>
-      onAnalyticsPreferencesRequested(() => {
-        requester.current =
-          document.activeElement instanceof HTMLElement ? document.activeElement : null
-        setExpanded(true)
-      }),
-    [],
-  )
   useEffect(() => {
     if (expanded) panel.current?.focus()
   }, [expanded])
@@ -114,8 +102,6 @@ export function AnalyticsControls({
   const decide = (decision: 'denied' | 'granted') => {
     setStudioAnalyticsConsent(decision)
     setExpanded(false)
-    requester.current?.focus()
-    requester.current = null
   }
 
   return (
