@@ -101,8 +101,9 @@ export function studioIdentityRoutes(injectedService?: StudioSessionService): Ho
         recordStudioAuthCallback('failed', 'state-mismatch')
         return fail(c, 'invalid-request', 'state mismatch')
       }
+      // The code is never used without its state; the landing offers a fresh start.
       recordStudioAuthCallback('failed', 'missing-state-cookie')
-      return fail(c, 'invalid-request', 'missing or expired state cookie')
+      return c.redirect(expiredAccessReturnTo(studioWebUrl), 303)
     }
     deleteCookie(c, matchingCookie, { path: STATE_COOKIE_PATH })
 
@@ -178,6 +179,12 @@ async function logoutTrigger(
 function partialLogoutReturnTo(studioWebUrl: string): string {
   const returnTo = new URL(studioWebUrl)
   returnTo.searchParams.set('logout', 'partial')
+  return returnTo.toString()
+}
+
+function expiredAccessReturnTo(studioWebUrl: string): string {
+  const returnTo = new URL(studioWebUrl)
+  returnTo.searchParams.set('access', 'expired')
   return returnTo.toString()
 }
 

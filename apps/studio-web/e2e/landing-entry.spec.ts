@@ -212,6 +212,29 @@ test.describe('languages', () => {
     await expect(page).toHaveURL('/es')
   })
 
+  // A sign-up that waited on its email past the ten-minute state comes back here.
+  test('an expired sign-in explains itself and starts a fresh one', async ({ page }) => {
+    const fixture = createStudioApiFixture({
+      signedOut: true,
+      intercept: (request) =>
+        request.method === 'GET' && request.path === '/studio/v1/auth/start'
+          ? { status: 200, body: { hosted: 'sign-in' } }
+          : undefined,
+    })
+    await installStudioApiMock(page, fixture)
+
+    await page.goto('/?access=expired')
+
+    const notice = page.getByRole('status').filter({ hasText: 'El acceso tardó demasiado' })
+    await expect(notice).toBeVisible()
+    await expect(page).toHaveURL('/es')
+
+    await notice.getByRole('link', { name: 'Entrar de nuevo' }).click()
+
+    await expect(page).toHaveURL(AUTH_START)
+    expect(fixture.requests.map((request) => request.path)).toEqual(['/studio/v1/auth/start'])
+  })
+
   test('the workspace has no language prefix', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
 

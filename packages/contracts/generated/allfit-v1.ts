@@ -14891,7 +14891,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Session created; redirect to Studio without credentials in the URL */
+      /** @description Session created; redirect to the Studio workspace without credentials in the URL. When the flow's state cookie is missing or expired (it lasts ten minutes), the code is not used, no session is created, and the redirect goes to the Studio landing with `?access=expired` instead. */
       303: {
         headers: {
           'Cache-Control': components['headers']['NoStore']

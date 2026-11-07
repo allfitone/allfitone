@@ -33,6 +33,12 @@ export const es = {
     description:
       'No pudimos confirmar todo el cierre remoto. Si vuelves a entrar, completa de nuevo el acceso con el proveedor de identidad.',
   },
+  expiredAccess: {
+    title: 'El acceso tardó demasiado',
+    description:
+      'Por seguridad, cada intento de entrar vence a los 10 minutos. Si ya creaste tu cuenta, sigue creada: entra de nuevo para continuar.',
+    action: 'Entrar de nuevo',
+  },
   hero: {
     title: ['Tu plan.', 'Su sesión.', 'Un solo panel.'],
     lead: 'Allfit Studio reúne a tus clientes, sus programas y lo que registran en cada sesión. Comparas el plan con lo que pasó y ajustas sin perder el hilo.',
