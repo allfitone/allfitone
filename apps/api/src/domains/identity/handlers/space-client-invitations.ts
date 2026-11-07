@@ -313,7 +313,22 @@ function presentInvitation(invitation: ClientInvitationPresentation) {
     organization: {
       id: invitation.organization.id,
       display_name: invitation.organization.displayName,
-      responsible_party: invitation.organization.responsibleParty,
+      /*
+       * Mapped, not passed through. `responsibleParty` is the JSON column as
+       * PostgreSQL stores it — `{party_kind, party_name, purpose}` — and the
+       * contract's shared `ResponsibleParty` is `{kind, name}` with
+       * `additionalProperties: false`. The team invitation next door has always
+       * mapped it; this view leaked the row because the domain types the field
+       * as `Record<string, unknown>`, so no compiler could see the difference.
+       *
+       * `purpose` is dropped on purpose: it is the constant
+       * `'studio_operations'` the column carries, not the purpose a client is
+       * shown — that one is per scope and travels in `scope_options[].purpose`.
+       */
+      responsible_party: {
+        kind: invitation.organization.responsibleParty['party_kind'],
+        name: invitation.organization.responsibleParty['party_name'],
+      },
     },
     expires_at: invitation.expiresAt.toISOString(),
     scope_options: invitation.scopeOptions.map((option) => ({
