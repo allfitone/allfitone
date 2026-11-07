@@ -275,9 +275,11 @@ module "landing" {
   oidc_provider_arn = module.github_oidc.provider_arn
   github_repository = "allfitone@163363230/allfitone-landing-page@1297734568"
   redirects = {
-    "/"                    = { location = "/es", status = 307 }
-    "/privacy/analytics"   = { location = "/es/privacy/analytics", status = 308 }
-    "/ambassadors/william" = { location = "/es/ambassadors/william", status = 308 }
+    "/"                     = { location = "/es", status = 307 }
+    "/privacy/analytics"    = { location = "/es/legal/analytics", status = 308 }
+    "/es/privacy/analytics" = { location = "/es/legal/analytics", status = 308 }
+    "/en/privacy/analytics" = { location = "/en/legal/analytics", status = 308 }
+    "/ambassadors/william"  = { location = "/es/ambassadors/william", status = 308 }
   }
 }
 
