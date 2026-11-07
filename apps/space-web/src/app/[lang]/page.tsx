@@ -49,10 +49,6 @@ export default async function Landing({ params }: LocaleParams) {
       <Header locale={lang} copy={copy.nav} />
       <main id="contenido">
         <section className="hero" aria-labelledby="hero-title">
-          <div className="hero__photo">
-            <Image src="/images/photos/hero.webp" alt="" fill priority sizes="100vw" />
-          </div>
-          <div className="hero__veil" />
           <div className="wrap hero__grid">
             <div className="hero__copy">
               <Title

@@ -287,40 +287,10 @@ a.store:active {
 
 .hero {
   position: relative;
-  isolation: isolate;
   min-height: max(760px, 100dvh);
   overflow: clip;
   display: grid;
   align-items: center;
-}
-
-.hero__photo {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-}
-
-.hero__photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 42% center;
-}
-
-.hero__veil {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(
-      90deg,
-      var(--bg) 0%,
-      color-mix(in srgb, var(--bg) 82%, transparent) 30%,
-      transparent 64%
-    ),
-    linear-gradient(0deg, var(--bg) 0%, transparent 34%),
-    /* Keeps the header's links legible where the photo is brightest. */
-    linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent) 0, transparent 200px);
 }
 
 .hero__grid {
@@ -404,12 +374,6 @@ a.store:active {
     grid-template-columns: 1fr;
     padding-block: 120px 72px;
     gap: 56px;
-  }
-
-  .hero__veil {
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--bg) 70%, transparent) 0%, var(--bg) 62%),
-      linear-gradient(0deg, var(--bg) 0%, transparent 40%);
   }
 
   .hero__phones {
