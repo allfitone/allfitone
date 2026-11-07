@@ -1527,6 +1527,41 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/pedirá permiso para registrar su entrenamiento/)).toBeVisible()
     },
   },
+  {
+    /*
+     * HU-013. The state worth sweeping is the dialog open: four paragraphs and
+     * a warning, which is the most text this product puts in front of one
+     * decision, and the only dialog whose own reader loses access by
+     * succeeding. The default fixture ships a live subscription, so the
+     * subscriptions are cleared — otherwise the button is disabled and the
+     * dialog never opens.
+     */
+    stories: 'HU-013 · the warning before closing the organization',
+    path: `${workspace}/organization`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSubscriptions = []
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Cerrar la organización', exact: true }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('incluida la tuya')
+    },
+  },
+  {
+    /*
+     * Blocked, which is the state most owners meet first: a gym with a live
+     * subscription cannot close, and the reason sits beside a disabled button
+     * rather than replacing it. The default fixture already has one.
+     */
+    stories: 'HU-013 · a closure a live subscription blocks',
+    path: `${workspace}/organization`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No puedes cerrarla todavía')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/content` · HU-044 ---
   {
     /*

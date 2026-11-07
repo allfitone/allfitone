@@ -1513,7 +1513,8 @@
   gap: 0;
 }
 
-[data-relationship-subheading] {
+[data-relationship-subheading],
+[data-organization-closure-title] {
   margin: 0;
   font-size: var(--afo-font-size-lg);
 }
@@ -1528,25 +1529,40 @@
    `justify-items: start` porque el botón se dimensiona a su etiqueta: estirado
    de lado a lado se leería como el siguiente paso de la página en vez de como
    lo que es. */
-[data-relationship-termination] {
+[data-relationship-termination],
+[data-organization-closure] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-2);
 }
 
-[data-relationship-termination-lead] {
+[data-relationship-termination-lead],
+[data-organization-closure-lead] {
   max-width: 62ch;
   margin-block: 0;
   color: var(--afo-color-text-muted);
 }
 
-[data-relationship-termination] > [data-relationship-terminate] {
+[data-relationship-termination] > [data-relationship-terminate],
+[data-organization-closure] > [data-organization-close] {
   margin-block-start: var(--afo-space-3);
+}
+
+/* El motivo del bloqueo toma el ancho: es una alerta, no una etiqueta, y con
+   `justify-items: start` encima se encogeria a su texto y se leeria como un
+   badge en vez de como lo que impide cerrar. */
+[data-organization-closure] > [data-organization-closure-blocked] {
+  justify-self: stretch;
 }
 
 /* Lo que se conserva, lo que se deja de ver y bajo qué condición se lee: una
    sola frase dentro del diálogo, al mismo ancho que la pregunta. */
-[data-relationship-termination-kept] {
+[data-relationship-termination-kept],
+[data-organization-closure-effect],
+[data-organization-closure-kept],
+[data-organization-closure-evidence],
+[data-organization-closure-atomic],
+[data-organization-closed-kept] {
   margin-block: 0;
 }
 

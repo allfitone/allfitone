@@ -83,6 +83,7 @@ export type OrganizationRoleGrant = AllfitV1Schemas['OrganizationRoleGrant']
 export type OrganizationRoleGrantCreate = AllfitV1Schemas['OrganizationRoleGrantCreate']
 export type OrganizationRoleRevocation = AllfitV1Schemas['OrganizationRoleRevocation']
 export type OrganizationMembershipTermination = AllfitV1Schemas['OrganizationMembershipTermination']
+export type OrganizationClosure = AllfitV1Schemas['OrganizationClosure']
 export type OrganizationMembershipResignation = AllfitV1Schemas['OrganizationMembershipResignation']
 export type AssignableOrganizationRoleCode = AllfitV1Schemas['AssignableOrganizationRoleCode']
 export type OrganizationSubscriptionPage = AllfitV1Schemas['OrganizationSubscriptionPage']
@@ -616,6 +617,17 @@ export const studioApi = {
         headers: commandHeaders(command),
       },
     ),
+
+  /*
+   * OP-ORG-012. No body: the organization comes from the path and the actor
+   * from the session, and one transaction coordinates six domains — so there
+   * is nothing to parameterise and nothing partial to undo.
+   */
+  closeOrganization: (organizationId: string, command: CommandHeaders) =>
+    request<OrganizationClosure>(`/studio/v1/organizations/${organizationId}/closure`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+    }),
 
   organization: (organizationId: string, signal?: AbortSignal) =>
     request<Organization>(`/studio/v1/organizations/${organizationId}`, signal ? { signal } : {}),

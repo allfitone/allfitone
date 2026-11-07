@@ -83,6 +83,15 @@ export interface StudioApiFixture {
   /** What `GET /session-templates` answers. */
   organizationSessionTemplates: unknown[]
   /**
+   * `closed` ends the organization and reports how many relationships it took
+   * with it, the way the response does. `rejected` is the `422` the screen
+   * tries to prevent — a subscription that was still live when the transaction
+   * ran — and `not-allowed` is somebody who stopped being the owner.
+   */
+  organizationClosureOutcome: 'closed' | 'rejected' | 'not-allowed'
+  /** How many relationships the closure reports having ended. */
+  closedRelationships: number
+  /**
    * `proposed` accepts the program. `stale` is the only refusal the form cannot
    * prevent: a `422` for a version somebody retired while the form was open,
    * which is what the copy tells the reader to re-read.
@@ -1048,6 +1057,8 @@ export function createStudioApiFixture(
       adaptedTemplate,
       archivedTemplate,
     ],
+    organizationClosureOutcome: 'closed',
+    closedRelationships: 3,
     programProposalOutcome: 'proposed',
     offerableScopes: [...offerableScopeCatalog],
     informationCategories: [...informationCategoryCatalog],
@@ -1672,6 +1683,55 @@ function defaultResponse(
       return { ...entry, status: 'terminated', ended_at: endedAt }
     })
     return { status: 200, body: { membership_id: membershipId, ended_at: endedAt } }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/closure$/.test(request.path)
+  ) {
+    if (fixture.organizationClosureOutcome !== 'closed') {
+      return {
+        status: fixture.organizationClosureOutcome === 'rejected' ? 422 : 403,
+        body: {
+          error: {
+            code:
+              fixture.organizationClosureOutcome === 'rejected' ? 'validation-failed' : 'forbidden',
+          },
+        },
+      }
+    }
+    /*
+     * Marks the organization closed in the fixture, the way the command does.
+     * The screen navigates away on success, so nothing reads it back — but a
+     * fixture that lied here would mislead the next test that does.
+     */
+    const organizationId = request.path.split('/').slice(-2, -1)[0]
+    if (typeof fixture.organization === 'object' && fixture.organization !== null) {
+      fixture.organization = { ...fixture.organization, status: 'closed' }
+    }
+    /*
+     * And it closes every membership, including the one that ran it, because
+     * the command does: `close_organization` sets them all to `terminated`.
+     * Leaving them active made the entry screen bounce the owner back into the
+     * gym they had just closed — which looked like a flaky assertion and was
+     * really this fixture not writing what the command writes.
+     */
+    const closeMembership = (entry: unknown) =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      'organization_id' in entry &&
+      entry.organization_id === organizationId
+        ? { ...entry, status: 'terminated', ended_at: '2026-11-07T10:00:00.000Z' }
+        : entry
+    fixture.memberships = fixture.memberships.map(closeMembership)
+    fixture.me = { ...fixture.me, memberships: fixture.me.memberships.map(closeMembership) }
+    return {
+      status: 200,
+      body: {
+        organization_id: organizationId,
+        closed_at: '2026-11-07T10:00:00.000Z',
+        relationships_terminated: fixture.closedRelationships,
+      },
+    }
   }
   if (
     request.method === 'POST' &&
