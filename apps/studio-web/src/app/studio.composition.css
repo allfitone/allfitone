@@ -1762,9 +1762,23 @@
   color: var(--afo-color-text-accent);
 }
 
-/* No word left alone on a paragraph's last line. */
+/* No word left alone on a paragraph's last line, and no heading that ends on one. */
 [data-studio-site] p {
   text-wrap: pretty;
+}
+
+[data-studio-site] h3 {
+  text-wrap: balance;
+}
+
+[data-studio-site] ::selection {
+  background: color-mix(in srgb, var(--afo-color-action-primary) 45%, transparent);
+}
+
+/* Scrolled, the shared header is 86% white; over the dark privacy band that
+   reads as a grey slab, so the landing's header stays solid white. */
+[data-studio-site] [data-slot='site-header'][data-scrolled='true'] {
+  background-color: var(--afo-site-surface);
 }
 
 [data-studio-lead] {
@@ -2699,6 +2713,13 @@
 @media (max-width: 59.99rem) {
   [data-studio-header-action] {
     display: none;
+  }
+}
+
+/* Below the button rather than beside it, the closing note centres with it. */
+@media (max-width: 39.99rem) {
+  [data-studio-closing-actions] [data-studio-note] {
+    text-align: center;
   }
 }
 
