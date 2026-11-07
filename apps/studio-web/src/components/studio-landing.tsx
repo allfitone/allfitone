@@ -10,7 +10,6 @@ import {
   SiteFooterLink,
   SiteFooterLinks,
   SiteFooterMeta,
-  SiteFooterParent,
   SiteFooterPartner,
   SiteFooterPartnerLegal,
   SiteFooterPartnerText,
@@ -32,6 +31,7 @@ import type { Dictionary } from '@/content'
 import { useLandingMotion } from './landing-motion'
 import { openAnalyticsPreferences } from '@/lib/analytics-preferences'
 import { readPendingInvitationToken } from '@/lib/invitation-token'
+import { legalUrl, type LegalDocument } from '@/lib/legal'
 import { LOCALES, type Locale } from '@/lib/locale'
 import { prepareStudioAuthentication, readStudioSessionActivity } from '@/lib/session-activity'
 import { studioApi } from '@/lib/studio-api'
@@ -55,6 +55,12 @@ import { studioApi } from '@/lib/studio-api'
  *
  * It speaks Spanish and English, at `/es` and `/en`. Its words come from
  * `@/content`; what stays the same in both languages is declared below.
+ *
+ * The footer matches the Space landing's: Allfit One and Allfit Space as two
+ * buttons, the company's filled and the sibling product's outlined, then the
+ * three legal documents on www.allfit.one. Every one of those leaves the
+ * landing, so each opens in a new tab and says so in its accessible name. The
+ * analytics preferences are the one entry that stays, because they open here.
  */
 
 const AUTH_START_URL = `${studioApi.apiUrl}/studio/v1/auth/start`
@@ -114,6 +120,8 @@ const ROSTER = [
 ] as const
 
 const STEPS = ['invite', 'versions', 'week'] as const
+
+const LEGAL: readonly LegalDocument[] = ['terms', 'privacy', 'analytics']
 
 const VERSIONS = [
   { label: 'v3', current: true },
@@ -275,6 +283,10 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
   useLandingMotion(site)
   const parentSiteUrl = `https://www.allfit.one/${locale}`
   const spaceSiteUrl = `https://space.allfit.one/${locale}`
+  const family = [
+    { name: 'Allfit One', href: parentSiteUrl, variant: 'default' },
+    { name: 'Allfit Space', href: spaceSiteUrl, variant: 'outline' },
+  ] as const
 
   // A tab that opened an invitation belongs on it, including after a close the
   // recovery lock forced on the way: that close always returns here.
@@ -557,11 +569,35 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           </div>
         </SiteFooterPartner>
         <SiteFooterBar>
-          <SiteFooterParent href={parentSiteUrl}>
-            Allfit One
-            <ExternalIcon size="sm" decorative />
-          </SiteFooterParent>
+          <div data-studio-footer-family>
+            {family.map(({ name, href, variant }) => (
+              <a
+                key={href}
+                data-slot="button"
+                data-variant={variant}
+                className={buttonVariants({ variant })}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${name} ${copy.links.newTab}`}
+              >
+                {name}
+                <ExternalIcon data-icon="inline-end" decorative />
+              </a>
+            ))}
+          </div>
           <SiteFooterLinks>
+            {LEGAL.map((document) => (
+              <SiteFooterLink
+                key={document}
+                href={legalUrl(locale, document)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${copy.footer[document]} ${copy.links.newTab}`}
+              >
+                {copy.footer[document]}
+              </SiteFooterLink>
+            ))}
             <SiteFooterLink
               render={
                 <Button
@@ -571,15 +607,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                 />
               }
             >
-              {copy.footer.privacy}
-            </SiteFooterLink>
-            <SiteFooterLink
-              href={spaceSiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Allfit Space ${copy.links.newTab}`}
-            >
-              Allfit Space
+              {copy.footer.preferences}
             </SiteFooterLink>
           </SiteFooterLinks>
         </SiteFooterBar>

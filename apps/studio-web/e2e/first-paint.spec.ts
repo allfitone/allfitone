@@ -27,7 +27,7 @@ test.describe('server-rendered first paint', () => {
   test('offers the privacy control without opening the consent panel', async ({ page }) => {
     await page.goto('/es')
 
-    await expect(page.getByRole('button', { name: 'Privacidad' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Preferencias de analítica' })).toBeVisible()
     await expect(page.getByText('Analítica opcional')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Permitir analítica' })).toHaveCount(0)
   })
@@ -67,7 +67,7 @@ test('a decided visitor never sees the consent panel', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
   await page.goto('/es')
 
-  await expect(page.getByRole('button', { name: 'Privacidad' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Preferencias de analítica' })).toBeVisible()
   await expect(page.getByText('Analítica opcional')).toHaveCount(0)
 })
 

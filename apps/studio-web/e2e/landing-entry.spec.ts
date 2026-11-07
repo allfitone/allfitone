@@ -114,15 +114,17 @@ test('a tab holding an invitation is taken back to it from the landing', async (
 })
 
 /**
- * The landing has a footer, so its privacy entry lives there, as on the Space
- * landing, and nothing floats over the page once a visitor has decided.
+ * The landing has a footer, so its analytics preferences live there, beside the
+ * legal documents, and nothing floats over the page once a visitor has decided.
  */
 test.describe('privacy', () => {
   test('is a footer entry that opens the analytics preferences', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
     await page.goto('/es')
 
-    const entry = page.getByRole('contentinfo').getByRole('button', { name: 'Privacidad' })
+    const entry = page
+      .getByRole('contentinfo')
+      .getByRole('button', { name: 'Preferencias de analítica' })
     await expect(entry).toBeVisible()
     await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
 
@@ -142,8 +144,59 @@ test.describe('privacy', () => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
     await page.goto('/en')
 
-    await page.getByRole('contentinfo').getByRole('button', { name: 'Privacy' }).click()
+    await page
+      .getByRole('contentinfo')
+      .getByRole('button', { name: 'Analytics preferences' })
+      .click()
     await expect(page.getByText('Optional analytics')).toBeVisible()
+  })
+})
+
+/**
+ * Like the Space landing's footer: the company and the sibling product side by
+ * side, then the three legal documents on www.allfit.one, every one of them in
+ * a new tab because each leaves the landing.
+ */
+test.describe('footer', () => {
+  test('opens Allfit One and Allfit Space side by side, in new tabs', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+    await page.goto('/es')
+
+    const family = page
+      .getByRole('contentinfo')
+      .getByRole('link', { name: /^Allfit (One|Space)\b/ })
+    await expect(family).toHaveCount(2)
+    await expect(family.nth(0)).toHaveAttribute('href', 'https://www.allfit.one/es')
+    await expect(family.nth(1)).toHaveAttribute('href', 'https://space.allfit.one/es')
+    for (const link of await family.all()) {
+      await expect(link).toHaveAttribute('target', '_blank')
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+    const [one, space] = await Promise.all([
+      family.nth(0).boundingBox(),
+      family.nth(1).boundingBox(),
+    ])
+    expect(Math.abs((one?.y ?? 0) - (space?.y ?? -100))).toBeLessThan(4)
+  })
+
+  test('opens the three legal documents in the page’s language, in new tabs', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+    for (const [locale, names, newTab] of [
+      ['es', ['Términos', 'Privacidad', 'Analítica'], '(se abre en una pestaña nueva)'],
+      ['en', ['Terms', 'Privacy', 'Analytics'], '(opens in a new tab)'],
+    ] as const) {
+      await page.goto(`/${locale}`)
+      const footer = page.getByRole('contentinfo')
+      for (const [index, document] of (['terms', 'privacy', 'analytics'] as const).entries()) {
+        const link = footer.getByRole('link', { name: `${names[index]} ${newTab}`, exact: true })
+        await expect(link).toHaveAttribute(
+          'href',
+          `https://www.allfit.one/${locale}/legal/${document}`,
+        )
+        await expect(link).toHaveAttribute('target', '_blank')
+        await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      }
+    }
   })
 })
 

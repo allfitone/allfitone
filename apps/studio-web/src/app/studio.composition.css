@@ -1697,7 +1697,20 @@
   background: var(--afo-color-action-primary-hover);
 }
 
-/* The footer's privacy entry opens a panel, so it is a button set like its links.
+/* Allfit One and Allfit Space, side by side at the start of the footer bar. */
+[data-studio-footer-family] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-3);
+}
+
+/* The Design System's outline button loses its own border colour to the
+   transparent one it also carries, so the outlined Space button sets it here. */
+[data-studio-footer-family] [data-variant='outline'] {
+  border-color: var(--border);
+}
+
+/* The footer's analytics preferences open a panel, so they are a button set like its links.
    The link variant leaves the browser's own button face, so it is cleared here. */
 [data-studio-footer-action] {
   padding: 0;

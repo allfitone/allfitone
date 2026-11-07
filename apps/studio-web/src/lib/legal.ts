@@ -1,12 +1,27 @@
 /**
  * Allfit One's legal documents. They live on www.allfit.one, one set for every
- * product, in Spanish, the workspace's language. The analytics notice's address
- * comes from `@allfitone/telemetry`, next to the consent version it belongs to.
+ * product: the terms, the privacy policy and the analytics notice, in each
+ * language. The landing links all three in its own language; the workspace
+ * speaks Spanish, so the activation links the Spanish terms and policy. The
+ * analytics panel takes its notice's address from `@allfitone/telemetry`, next
+ * to the consent version it belongs to.
  *
  * Duplicated on purpose in `apps/space` and `apps/space-web`: three addresses do
  * not earn a package, and an app never imports another.
  */
+
+import type { Locale } from './locale'
+
+export const LEGAL_SITE_URL = 'https://www.allfit.one'
+
+export type LegalDocument = 'terms' | 'privacy' | 'analytics'
+
+/** The address of one legal document in the given language. */
+export function legalUrl(locale: Locale, document: LegalDocument): string {
+  return `${LEGAL_SITE_URL}/${locale}/legal/${document}`
+}
+
 export const LEGAL_URLS = {
-  terms: 'https://www.allfit.one/es/legal/terms',
-  privacy: 'https://www.allfit.one/es/legal/privacy',
+  terms: legalUrl('es', 'terms'),
+  privacy: legalUrl('es', 'privacy'),
 } as const

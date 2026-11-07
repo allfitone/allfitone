@@ -1,8 +1,8 @@
 /**
  * Opens the analytics preferences panel from outside the control that owns it.
  *
- * The landing has no floating privacy control: its footer carries a "Privacidad"
- * entry instead, as the Space landing does, and pressing it asks the control to
+ * The landing has no floating privacy control: its footer carries a
+ * "Preferencias de analítica" entry instead, and pressing it asks the control to
  * open. A plain listener set is enough, because a request carries no state.
  */
 const listeners = new Set<() => void>()

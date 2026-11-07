@@ -148,7 +148,10 @@ export const en: Dictionary = {
   },
   footer: {
     nvidia: 'Allfit One is a member of NVIDIA Inception.',
+    terms: 'Terms',
     privacy: 'Privacy',
+    analytics: 'Analytics',
+    preferences: 'Analytics preferences',
     rights: '© 2026 Allfit One',
   },
 }

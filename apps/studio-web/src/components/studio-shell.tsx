@@ -17,7 +17,7 @@ import type { Locale } from '@/lib/locale'
  * the workspace and stay in Spanish on the English landing.
  *
  * The workspace keeps the floating privacy control. The landing has a footer,
- * so its privacy entry lives there, as on the Space landing.
+ * so its analytics preferences entry lives there, beside the legal documents.
  */
 export function StudioShell({
   locale,
