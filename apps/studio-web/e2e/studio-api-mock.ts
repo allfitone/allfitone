@@ -80,6 +80,8 @@ export interface StudioApiFixture {
   membershipResignationOutcome: 'resigned' | 'rejected' | 'gone'
   /** What `GET /programs` answers; the picker offers only published versions. */
   organizationPrograms: unknown[]
+  /** What `GET /session-templates` answers. */
+  organizationSessionTemplates: unknown[]
   /**
    * `proposed` accepts the program. `stale` is the only refusal the form cannot
    * prevent: a `422` for a version somebody retired while the form was open,
@@ -157,6 +159,122 @@ export const terminatedMembership = {
   joined_at: '2023-01-01T16:45:22.870Z',
   ended_at: '2025-06-01T21:08:44.319Z',
   roles: ['staff'],
+}
+
+/*
+ * The four template states the content screen tells apart, one fixture each.
+ *
+ * The listing gives a template's versions as `SessionTemplateVersionSummary`,
+ * which carries no title — that is the contract, not an omission here — so a
+ * row's name comes from its draft. The draft survives publishing, which is why
+ * every one of these has one.
+ */
+
+/** Published twice, with the older version retired. */
+export const publishedTemplate = {
+  id: '01991600-a000-7000-8000-000000000001',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  discipline_code: 'strength',
+  status: 'published',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: {
+    id: '01991600-a000-7000-8000-000000000011',
+    template_id: '01991600-a000-7000-8000-000000000001',
+    content_schema_version: 1,
+    content: {
+      title: 'Fuerza tren superior',
+      activity_type_id: '01991600-b000-7000-8000-000000000001',
+      steps: [],
+    },
+    derived_from_version_id: null,
+    etag: '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+    updated_at: '2026-10-03T10:00:00.000Z',
+  },
+  versions: [
+    {
+      id: '01991600-a000-7000-8000-000000000021',
+      template_id: '01991600-a000-7000-8000-000000000001',
+      version_number: 2,
+      status: 'published',
+      published_at: '2026-10-02T14:00:00.000Z',
+    },
+    {
+      id: '01991600-a000-7000-8000-000000000022',
+      template_id: '01991600-a000-7000-8000-000000000001',
+      version_number: 1,
+      status: 'deprecated',
+      published_at: '2026-08-02T14:00:00.000Z',
+    },
+  ],
+}
+
+/** A draft and nothing published: it cannot be assigned, and the screen says so. */
+export const unpublishedTemplate = {
+  id: '01991600-a000-7000-8000-000000000002',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  discipline_code: 'mobility',
+  status: 'draft',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: {
+    id: '01991600-a000-7000-8000-000000000012',
+    template_id: '01991600-a000-7000-8000-000000000002',
+    content_schema_version: 1,
+    content: {
+      title: 'Movilidad matutina',
+      activity_type_id: '01991600-b000-7000-8000-000000000001',
+      steps: [],
+    },
+    derived_from_version_id: null,
+    etag: '"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"',
+    updated_at: '2026-10-04T10:00:00.000Z',
+  },
+  versions: [],
+}
+
+/** Started from another version (ADR-009), which the screen marks. */
+export const adaptedTemplate = {
+  id: '01991600-a000-7000-8000-000000000003',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  discipline_code: 'strength',
+  status: 'draft',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: {
+    id: '01991600-a000-7000-8000-000000000013',
+    template_id: '01991600-a000-7000-8000-000000000003',
+    content_schema_version: 1,
+    content: {
+      title: 'Fuerza adaptada a lesión de hombro',
+      activity_type_id: '01991600-b000-7000-8000-000000000001',
+      steps: [],
+    },
+    derived_from_version_id: '01991600-a000-7000-8000-000000000021',
+    etag: '"sha256:ccccccccccccccccccccccccccccccccccccccccccc"',
+    updated_at: '2026-10-05T10:00:00.000Z',
+  },
+  versions: [],
+}
+
+/** Archived: out of the main list and counted in the disclosure. */
+export const archivedTemplate = {
+  id: '01991600-a000-7000-8000-000000000004',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  discipline_code: 'strength',
+  status: 'archived',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: {
+    id: '01991600-a000-7000-8000-000000000014',
+    template_id: '01991600-a000-7000-8000-000000000004',
+    content_schema_version: 1,
+    content: {
+      title: 'Circuito antiguo',
+      activity_type_id: '01991600-b000-7000-8000-000000000001',
+      steps: [],
+    },
+    derived_from_version_id: null,
+    etag: '"sha256:ddddddddddddddddddddddddddddddddddddddddddd"',
+    updated_at: '2026-06-05T10:00:00.000Z',
+  },
+  versions: [],
 }
 
 /** The one version a coach may propose. Named so a test never indexes for it. */
@@ -685,6 +803,15 @@ const adminCapabilities = [
   'manage_plans',
   'manage_billing',
   'manage_historical_access',
+  /*
+   * The content block's own migration adds it to both administrators:
+   * `20260817192832_studio_content_programs.sql:15` inserts
+   * ('owner','manage_content') and ('admin','manage_content'). The base
+   * catalogue only gave it to `coach`, and this list had stayed there — so an
+   * owner could not have read the content screen in a test while production
+   * let them.
+   */
+  'manage_content',
 ] as const
 
 const coachCapabilities = [
@@ -915,6 +1042,12 @@ export function createStudioApiFixture(
     membershipTerminationOutcome: 'terminated',
     membershipResignationOutcome: 'resigned',
     organizationPrograms: [publishedProgram, archivedProgram],
+    organizationSessionTemplates: [
+      publishedTemplate,
+      unpublishedTemplate,
+      adaptedTemplate,
+      archivedTemplate,
+    ],
     programProposalOutcome: 'proposed',
     offerableScopes: [...offerableScopeCatalog],
     informationCategories: [...informationCategoryCatalog],
@@ -1049,6 +1182,18 @@ function defaultResponse(
         )
       : fixture.organizationMemberships
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates$/.test(request.path)
+  ) {
+    return {
+      status: 200,
+      body: {
+        data: fixture.organizationSessionTemplates,
+        page: { has_more: false, next_cursor: null },
+      },
+    }
   }
   if (
     request.method === 'GET' &&

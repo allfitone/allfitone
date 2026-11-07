@@ -12,6 +12,12 @@ describe('organization workspace navigation', () => {
     })
   })
 
+  test('resolves the content title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content`, organizationId)).toEqual({
+      title: 'Contenido',
+    })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

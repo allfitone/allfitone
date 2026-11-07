@@ -20,6 +20,7 @@ import {
   type OrganizationSubscriptionPage,
   type SubscriptionStatus,
   type ProgramPage,
+  type SessionTemplatePage,
   type ProfessionalCredential,
   type ProfessionalProfile,
   type StudioMe,
@@ -58,6 +59,8 @@ export const studioQueryKeys = {
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
   organizationPrograms: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'programs', { limit }] as const,
+  organizationSessionTemplates: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
@@ -408,6 +411,15 @@ export function offerableScopesQueryOptions() {
  * exactly the case the command refuses, and a two-minute-old list would offer
  * it. The server checks it again under a share lock either way.
  */
+export function organizationSessionTemplatesQueryOptions(organizationId: string, limit: number) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationSessionTemplates(organizationId, limit),
+    queryFn: ({ signal }): Promise<SessionTemplatePage> =>
+      studioApi.organizationSessionTemplates(organizationId, limit, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
 export function organizationProgramsQueryOptions(organizationId: string, limit: number) {
   return queryOptions({
     queryKey: studioQueryKeys.organizationPrograms(organizationId, limit),
