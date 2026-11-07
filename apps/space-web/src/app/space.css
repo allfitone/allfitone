@@ -336,15 +336,15 @@ a.store:active {
   gap: 32px;
 }
 
-/* The title is written in three lines and keeps them: its longest line («NOT WITH
-   LUCK.») is 5.8em, so the size follows the column instead of the screen. */
+/* The title is written in three lines and keeps them: its longest line («YOUR
+   HISTORY») is 5.05em, so the size follows the column instead of the screen. */
 .hero .display--xl {
-  font-size: clamp(46px, 14.5vw, 120px);
+  font-size: clamp(46px, 16.5vw, 128px);
 }
 
 @media (min-width: 961px) {
   .hero .display--xl {
-    font-size: min(9vw - 4px, 128px);
+    font-size: min(10.2vw - 4px, 144px);
   }
 }
 

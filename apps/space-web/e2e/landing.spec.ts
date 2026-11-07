@@ -14,8 +14,8 @@ const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844 },
 ]
 const PAGES = [
-  { path: '/es', heading: /ENTRENA/ },
-  { path: '/en', heading: /TRAIN/ },
+  { path: '/es', heading: /TU HISTORIAL/ },
+  { path: '/en', heading: /YOUR HISTORY/ },
 ]
 
 test.describe('language', () => {

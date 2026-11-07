@@ -4,7 +4,7 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Allfit Space · The app to train with a plan, not with luck',
+    title: 'Allfit Space · Your history goes with you',
     description:
       'Training and nutrition app: your programme, every set and what you eat in one place. Your history goes with you, and your data is yours.',
     shareImageAlt: 'An athlete sets up a deadlift with a loaded barbell in a dimly lit gym.',
@@ -26,8 +26,8 @@ export const en: Dictionary = {
     download: 'Get it on',
   },
   hero: {
-    lines: ['TRAIN', 'WITH A PLAN.', 'NOT WITH LUCK.'],
-    lead: 'Your programme, every set and what you eat, in one app. If you change gyms, your history comes with you.',
+    lines: ['YOUR HISTORY', 'GOES', 'WITH YOU.'],
+    lead: "Your programme, every set and what you eat, in one app. If you change gyms, you don't start from scratch.",
     todayAlt: "Allfit Space Today screen: the day's Pull session and the week at a glance.",
     programAlt: 'Upper and lower programme detail: 10 weeks, 4 days a week and its sessions.',
   },
@@ -113,7 +113,7 @@ export const en: Dictionary = {
     cta: 'Discover Allfit Studio',
   },
   closing: {
-    title: ['YOUR NEXT RECORD', 'HAS A PLAN.'],
+    title: ['CHANGE GYMS,', 'NOT APPS.'],
   },
   nvidia: {
     member: 'Allfit One is a member of NVIDIA Inception.',

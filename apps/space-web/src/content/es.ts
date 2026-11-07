@@ -8,7 +8,7 @@
 
 export const es = {
   meta: {
-    title: 'Allfit Space · La app para entrenar con plan, no con suerte',
+    title: 'Allfit Space · Tu historial se va contigo',
     description:
       'App de entrenamiento y nutrición: tu programa, cada serie y lo que comes en un solo lugar. Tu historial viaja contigo y tus datos son tuyos.',
     shareImageAlt:
@@ -31,8 +31,8 @@ export const es = {
     download: 'Descárgala en',
   },
   hero: {
-    lines: ['ENTRENA', 'CON PLAN.', 'NO CON SUERTE.'],
-    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Si cambias de gimnasio, tu historial se va contigo.',
+    lines: ['TU HISTORIAL', 'SE VA', 'CONTIGO.'],
+    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Si cambias de gimnasio, no empiezas de cero.',
     todayAlt: 'Pantalla Hoy de Allfit Space: la sesión de Tirón del día y el resumen de la semana.',
     programAlt:
       'Detalle del programa Torso y pierna: 10 semanas, 4 días por semana y sus sesiones.',
@@ -119,7 +119,7 @@ export const es = {
     cta: 'Conocer Allfit Studio',
   },
   closing: {
-    title: ['TU PRÓXIMO RÉCORD', 'YA TIENE PLAN.'],
+    title: ['CAMBIA DE GIMNASIO,', 'NO DE APP.'],
   },
   nvidia: {
     member: 'Allfit One es miembro de NVIDIA Inception.',
