@@ -570,12 +570,16 @@ a.store:active {
   font-weight: 800;
 }
 
+/* On narrow screens the row runs to the screen's edges, so the next card peeking
+   in shows that it scrolls. */
 @media (max-width: 1080px) {
   .programs__grid {
-    grid-template-columns: repeat(4, minmax(240px, 72vw));
+    grid-template-columns: repeat(4, minmax(240px, min(72vw, 340px)));
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    padding-bottom: 12px;
+    scroll-padding-inline: var(--gutter);
+    margin-inline: calc(-1 * var(--gutter));
+    padding: 0 var(--gutter) 12px;
     scrollbar-width: none;
   }
 
@@ -735,15 +739,22 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
     linear-gradient(180deg, var(--bg) 0%, transparent 22%);
 }
 
+/* Copy and steps sit together on the left, centred against the phone. */
 .records__grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: clamp(40px, 6vw, 120px);
+  grid-template-rows: 1fr auto auto 1fr;
+  grid-template-areas:
+    '. stage'
+    'copy stage'
+    'steps stage'
+    '. stage';
+  column-gap: clamp(40px, 6vw, 120px);
   padding-block: 100px 40px;
 }
 
 .records__copy {
+  grid-area: copy;
   display: grid;
   gap: 24px;
   max-width: 640px;
@@ -754,7 +765,9 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
 }
 
 .steps {
-  margin: 8px 0 0;
+  grid-area: steps;
+  max-width: 640px;
+  margin: 32px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -765,10 +778,20 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   grid-template-columns: 132px 1fr;
   align-items: center;
   gap: 12px;
-  padding-block: 18px;
+  width: 100%;
+  padding: 18px 0;
+  border: 0;
   border-top: 1px solid var(--line);
+  background: none;
   color: var(--text-faint);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   transition: color 0.5s var(--ease);
+}
+
+.step:not([aria-current]):hover {
+  color: var(--text-soft);
 }
 
 .step::before {
@@ -795,15 +818,16 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   font-size: 15px;
 }
 
-.step[data-active='true'] {
+.step[aria-current='step'] {
   color: var(--text);
 }
 
-.step[data-active='true']::before {
+.step[aria-current='step']::before {
   transform: scaleX(1);
 }
 
 .records__stage {
+  grid-area: stage;
   position: relative;
   display: grid;
   place-items: center end;
@@ -826,12 +850,23 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
 
   .records__grid {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-template-areas:
+      'copy'
+      'stage'
+      'steps';
     justify-items: center;
+    row-gap: 40px;
     padding-block: 104px 96px;
   }
 
-  .records__copy {
+  .records__copy,
+  .steps {
     justify-self: stretch;
+  }
+
+  .steps {
+    margin-top: 0;
   }
 
   .records__veil {

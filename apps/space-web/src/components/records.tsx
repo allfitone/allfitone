@@ -6,9 +6,9 @@
  *
  * On wide screens the section is three viewports tall and its content sticks;
  * three invisible markers, one per viewport, decide the step as they cross the
- * middle of the screen. On narrow screens nothing sticks, so the story editor
- * steps on its own while it is in view. With reduced motion it stays on the
- * first card unless the visitor scrolls the markers.
+ * middle of the screen. On narrow screens nothing sticks, and the steps sit
+ * under the phone. The story never advances on its own: each step is a button,
+ * which shows its card on narrow screens and scrolls to its marker on wide ones.
  */
 
 import Image from 'next/image'
@@ -30,7 +30,7 @@ import { Phone } from './phone'
 import { Title } from './title'
 
 const CARDS = ['/images/cards/card5.webp', '/images/cards/card2.webp', '/images/cards/photoA.webp']
-const AUTO_STEP_MS = 2800
+const STICKY = '(min-width: 961px)'
 
 export function Records({ copy }: { copy: Dictionary['records'] }) {
   const section = useRef<HTMLElement>(null)
@@ -38,42 +38,26 @@ export function Records({ copy }: { copy: Dictionary['records'] }) {
 
   useEffect(() => {
     const element = section.current
-    if (!element) return
+    if (!element || !window.matchMedia(STICKY).matches) return
     const markers = [...element.querySelectorAll<HTMLElement>('[data-marker]')]
-    const sticky = window.matchMedia('(min-width: 961px)').matches
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    if (sticky) {
-      const observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting)
-              setStep(markers.findIndex((marker) => marker === entry.target))
-          }
-        },
-        { rootMargin: '-50% 0px -50% 0px' },
-      )
-      for (const marker of markers) observer.observe(marker)
-      return () => observer.disconnect()
-    }
-    if (reduced) return
-
-    let timer = 0
-    const observer = new IntersectionObserver(([entry]) => {
-      window.clearInterval(timer)
-      if (entry?.isIntersecting) {
-        timer = window.setInterval(
-          () => setStep((current) => (current + 1) % CARDS.length),
-          AUTO_STEP_MS,
-        )
-      }
-    })
-    observer.observe(element)
-    return () => {
-      observer.disconnect()
-      window.clearInterval(timer)
-    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) setStep(markers.findIndex((marker) => marker === entry.target))
+        }
+      },
+      { rootMargin: '-50% 0px -50% 0px' },
+    )
+    for (const marker of markers) observer.observe(marker)
+    return () => observer.disconnect()
   }, [])
+
+  // While the section sticks, the scroll position owns the step, so a step scrolls there.
+  function show(index: number) {
+    const marker = section.current?.querySelectorAll<HTMLElement>('[data-marker]')[index]
+    if (marker && window.matchMedia(STICKY).matches) marker.scrollIntoView({ block: 'center' })
+    else setStep(index)
+  }
 
   return (
     <section ref={section} className="records" aria-labelledby="records-title">
@@ -91,17 +75,30 @@ export function Records({ copy }: { copy: Dictionary['records'] }) {
           <div className="records__copy">
             <Title id="records-title" lines={copy.title} size="xl" />
             <p className="lead">{copy.lead}</p>
-            <ol className="steps">
-              {copy.steps.map((item, index) => (
-                <li key={item.verb} className="step" data-active={String(index === step)}>
+          </div>
+          <ol className="steps">
+            {copy.steps.map((item, index) => (
+              <li key={item.verb}>
+                <button
+                  type="button"
+                  className="step"
+                  aria-controls="records-story"
+                  aria-current={index === step ? 'step' : undefined}
+                  onClick={() => show(index)}
+                >
                   <span className="step__verb">{item.verb}</span>
                   <span className="step__text">{item.text}</span>
-                </li>
-              ))}
-            </ol>
-          </div>
+                </button>
+              </li>
+            ))}
+          </ol>
           <div className="records__stage">
-            <figure className="story" data-step={step} aria-label={copy.editor.label}>
+            <figure
+              id="records-story"
+              className="story"
+              data-step={step}
+              aria-label={copy.editor.label}
+            >
               <Phone>
                 <span className="story__close" aria-hidden="true">
                   <CloseIcon size="md" decorative />
