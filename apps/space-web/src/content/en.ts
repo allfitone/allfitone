@@ -4,7 +4,7 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Allfit Space · Your history goes with you',
+    title: 'Allfit Space | Your history goes with you',
     description:
       'Training and nutrition app: your programme, every set and what you eat in one place. Your history goes with you, and your data is yours.',
     shareImageAlt: 'An athlete sets up a deadlift with a loaded barbell in a dimly lit gym.',
