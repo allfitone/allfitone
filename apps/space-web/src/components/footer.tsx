@@ -1,10 +1,20 @@
+/**
+ * The site footer, built from the Design System's site shell like the one on
+ * studio.allfit.one.
+ *
+ * Allfit One and Allfit Studio sit together as two buttons, because they are
+ * the family this app belongs to: Allfit One is the filled cyan one, since it is
+ * the company behind both, and Allfit Studio is the outlined one. Both leave
+ * the landing, so both open in a new tab and say so to screen readers.
+ */
+
+import { buttonVariants } from '@allfitone/react/components/button'
 import {
   SiteFooter,
   SiteFooterBar,
   SiteFooterLink,
   SiteFooterLinks,
   SiteFooterMeta,
-  SiteFooterParent,
   SiteFooterPartner,
   SiteFooterPartnerLegal,
   SiteFooterPartnerText,
@@ -16,8 +26,12 @@ import type { Dictionary } from '@/content'
 import { legalUrl } from '@/lib/legal'
 import type { Locale } from '@/lib/locale'
 
-/** The site footer shared with studio.allfit.one, from the Design System. */
 export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
+  const family = [
+    { name: 'Allfit One', href: `https://www.allfit.one/${locale}`, variant: 'default' },
+    { name: copy.footer.studio, href: `https://studio.allfit.one/${locale}`, variant: 'outline' },
+  ] as const
+
   return (
     <SiteFooter>
       <SiteFooterPartner>
@@ -33,21 +47,24 @@ export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
         </div>
       </SiteFooterPartner>
       <SiteFooterBar>
-        <SiteFooterParent href={`https://www.allfit.one/${locale}`}>
-          Allfit One
-          <ExternalIcon size="sm" decorative />
-        </SiteFooterParent>
+        <div className="footer-family">
+          {family.map(({ name, href, variant }) => (
+            <a
+              key={href}
+              className={`${buttonVariants({ variant })} footer-family__${variant}`}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {name}
+              <ExternalIcon data-icon="inline-end" decorative />
+              <span className="sr-only"> {copy.footer.newWindow}</span>
+            </a>
+          ))}
+        </div>
         <SiteFooterLinks>
           <SiteFooterLink href={legalUrl(locale, 'terms')}>{copy.footer.terms}</SiteFooterLink>
           <SiteFooterLink href={legalUrl(locale, 'privacy')}>{copy.footer.privacy}</SiteFooterLink>
-          <SiteFooterLink
-            href={`https://studio.allfit.one/${locale}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {copy.footer.studio}
-            <span className="sr-only"> {copy.footer.newWindow}</span>
-          </SiteFooterLink>
         </SiteFooterLinks>
       </SiteFooterBar>
       <SiteFooterMeta>{copy.footer.rights}</SiteFooterMeta>

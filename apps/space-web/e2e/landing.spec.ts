@@ -70,6 +70,27 @@ test('the share story moves only when the visitor picks a step', async ({ page }
   await expect(choose).toHaveAttribute('aria-current', 'step')
 })
 
+test('the footer opens Allfit One and Allfit Studio side by side, in new tabs', async ({
+  page,
+}) => {
+  await page.goto('/es')
+  const footer = page.getByRole('contentinfo')
+  const family = footer.getByRole('link', { name: /^Allfit (One|Studio)\b/ })
+  await expect(family).toHaveCount(2)
+  await expect(family.nth(0)).toHaveAttribute('href', 'https://www.allfit.one/es')
+  await expect(family.nth(1)).toHaveAttribute('href', 'https://studio.allfit.one/es')
+  for (const link of await family.all()) {
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  }
+  // Side by side: the two share a row, apart from the legal links.
+  const [one, studio] = await Promise.all([
+    family.nth(0).boundingBox(),
+    family.nth(1).boundingBox(),
+  ])
+  expect(Math.abs((one?.y ?? 0) - (studio?.y ?? -100))).toBeLessThan(4)
+})
+
 test.describe('legal documents', () => {
   test('the footer links the terms and the privacy policy on www.allfit.one', async ({ page }) => {
     await page.goto('/en')

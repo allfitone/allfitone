@@ -1302,6 +1302,20 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   margin-top: 48px;
 }
 
+/* ----------------------------------------------------------------- footer */
+
+.footer-family {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* The Design System's outline button loses its border to its own
+   `border-transparent`, which comes later in its stylesheet (DS 0.15.0). */
+.footer-family__outline {
+  border-color: var(--border);
+}
+
 /* ------------------------------------------------------------- keyframes */
 
 @keyframes rise {
