@@ -1527,6 +1527,64 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/pedirá permiso para registrar su entrenamiento/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/content` · HU-044 ---
+  {
+    /*
+     * The first screen of the content block, and the shape nine more inherit.
+     * The default tab carries the three living states at once — published with
+     * a retired version, a draft with nothing published, and an adaptation —
+     * which is what makes the state line worth auditing: it has to read as
+     * three different things in one column.
+     */
+    stories: 'HU-044 · the content a gym has made',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('tab', { name: 'Plantillas' })).toBeVisible()
+      await expect(page.getByText(/1 versión publicada · 1 retirada/)).toBeVisible()
+    },
+  },
+  {
+    // The versions open, which is the widest a card gets and the only place a
+    // retired version is named.
+    stories: 'HU-044 · the versions of a template',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page
+        .locator('[data-content-register-item]', { hasText: 'Fuerza tren superior' })
+        .getByRole('button', { name: /Ver versiones/ })
+        .click()
+      /*
+       * Scoped to the version row, and exact: the state line above says «1
+       * retirada», and `getByText` matches a substring without regard to case,
+       * so an unscoped assertion resolved to two elements.
+       */
+      await expect(
+        page.locator('[data-content-version-list] > li', { hasText: 'Retirada' }),
+      ).toBeVisible()
+    },
+  },
+  {
+    /*
+     * Both tabs are empty, which is the screen every gym meets first and the
+     * one that has to explain the order to work in: a program is built out of
+     * published template versions, so the templates tab says so.
+     */
+    stories: 'HU-044 · a gym that has made nothing yet',
+    path: `${workspace}/content`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = []
+      fixture.organizationPrograms = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Todavía no hay plantillas/)).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',

@@ -79,6 +79,8 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
   const teamActive = pathname.startsWith(teamHref)
   const clientsHref = `${basePath}/clients`
   const clientsActive = pathname.startsWith(clientsHref)
+  const contentHref = `${basePath}/content`
+  const contentActive = pathname.startsWith(contentHref)
   const billingHref = `${basePath}/billing`
   const billingActive = pathname.startsWith(billingHref)
 
@@ -212,6 +214,21 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                 >
                   <FoundationIcon name="person" decorative />
                   <span>Clientes</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* Between Clientes and Cobros: content is what a gym makes, and
+                  it is read by the same people who attend those clients. Shown
+                  to everybody for the same reason as Cobros below — the screen
+                  says no when the role has no `manage_content`, and hiding the
+                  entry would need a second copy of that grant here. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href={contentHref} onClick={closeMobileNavigation} />}
+                  isActive={contentActive}
+                  aria-current={contentActive ? 'page' : undefined}
+                >
+                  <FoundationIcon name="overview" decorative />
+                  <span>Contenido</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {/* Shown to everybody; the screen itself says no when the role has no

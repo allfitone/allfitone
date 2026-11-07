@@ -213,6 +213,8 @@
 [data-studio-form],
 [data-invitation-waiting],
 [data-team-page],
+[data-content-page],
+[data-content-panel],
 [data-client-page],
 [data-billing-page],
 [data-authorized-scope-page],
@@ -232,6 +234,7 @@
 [data-membership-list],
 [data-ready-later],
 [data-role-register],
+[data-content-register],
 [data-category-register],
 [data-organization-overview],
 [data-organization-details],
@@ -296,6 +299,7 @@
 
 [data-studio-loading-body],
 [data-role-catalog-state],
+[data-content-catalog-state],
 [data-category-catalog-state],
 [data-session-ending-body],
 [data-organization-status-body] {
@@ -468,6 +472,7 @@
 [data-overview-orientation-roles],
 [data-membership-roles],
 [data-role-disclosure],
+[data-content-disclosure],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -628,6 +633,7 @@
 [data-relationship-substitution-list],
 [data-relationship-grant-cards],
 [data-relationship-history-list],
+[data-content-version-list],
 [data-role-capability-list] {
   display: grid;
   gap: var(--afo-space-3);
@@ -637,6 +643,7 @@
 [data-overview-team-list] > li,
 [data-organization-site-list] > li,
 [data-relationship-substitution-list] > li,
+[data-content-version-list] > li,
 [data-role-capability-list] > li {
   display: flex;
   min-width: 0;
@@ -736,7 +743,8 @@
    with one gap owns the spacing on both, which also matches the 20px the
    section leaves above the trigger. */
 [data-credential-history],
-[data-membership-history] {
+[data-membership-history],
+[data-content-archive] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -745,7 +753,8 @@
 /* Both roots are grids now, so without this the trigger stretches to the whole
    canvas — 1024px of ghost button for a six-word label. */
 [data-credential-history] > [data-history-trigger],
-[data-membership-history] > [data-history-trigger] {
+[data-membership-history] > [data-history-trigger],
+[data-content-archive] > [data-history-trigger] {
   justify-self: start;
 }
 
@@ -805,23 +814,28 @@
 /* `min(24rem, 100%)` and not a bare `24rem`: a fixed minimum cannot shrink, so
    below 384px the track kept its width and the cards ran out of the screen with
    their badges cut off. */
-[data-role-register] {
+[data-role-register],
+[data-content-register] {
   grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
 }
 
 /* Roles read as a matrix, so paired cards end on the same line and their
    disclosure rows sit on one baseline whatever the policy note costs. */
-[data-role-card] {
+[data-role-card],
+[data-content-card] {
   display: grid;
 }
 
-[data-role-card-body] {
+[data-role-card-body],
+[data-content-card-body] {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: var(--afo-space-3);
 }
 
-[data-role-disclosure] {
+[data-role-disclosure],
+[data-content-disclosure] {
   justify-content: space-between;
   margin-block-start: auto;
   padding-block-start: var(--afo-space-4);
@@ -1083,6 +1097,7 @@
      row, they are direct children of the collapsible, so they take the width
      themselves. */
   [data-membership-history] > [data-history-trigger],
+  [data-content-archive] > [data-history-trigger],
   [data-credential-history] > [data-history-trigger] {
     width: 100%;
     justify-self: stretch;

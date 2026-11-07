@@ -43,6 +43,9 @@ export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
 export type Program = AllfitV1Schemas['Program']
 export type ProgramPage = AllfitV1Schemas['ProgramPage']
 export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
+export type SessionTemplate = AllfitV1Schemas['SessionTemplate']
+export type SessionTemplatePage = AllfitV1Schemas['SessionTemplatePage']
+export type SessionTemplateVersion = AllfitV1Schemas['SessionTemplateVersion']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
 export type StudioGuestQuota = AllfitV1Schemas['StudioGuestQuota']
 export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
@@ -314,9 +317,16 @@ export const studioApi = {
   },
 
   /*
-   * Read-only, and the only reason Studio asks for it is the program a coach
-   * may offer with an invitation: the picker needs the versions that exist.
+   * The two reads the content screen is built on (OP-PLN-019 and OP-PLN-020).
+   * Both are organization-scoped in PostgreSQL, so nothing here filters: a
+   * second place for that rule is a second place for it to be wrong.
    */
+  organizationSessionTemplates: (organizationId: string, limit: number, signal?: AbortSignal) =>
+    request<SessionTemplatePage>(
+      `/studio/v1/organizations/${organizationId}/session-templates?limit=${limit}`,
+      signal ? { signal } : {},
+    ),
+
   organizationPrograms: (organizationId: string, limit: number, signal?: AbortSignal) =>
     request<ProgramPage>(
       `/studio/v1/organizations/${organizationId}/programs?limit=${limit}`,
