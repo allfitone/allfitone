@@ -9,8 +9,10 @@
  * inventory says the operator holds. That is deliberate. The inventory is
  * evidence, and using it to decide what to render would turn it into an
  * authorization cache — exactly what the story forbids. Every action is
- * attempted and the API answers from its own transaction, so a duty that expires
- * mid-session fails the next command instead of the next render.
+ * attempted and the API answers from its own transaction.
+ *
+ * ADR-046: the admin role brings every duty and they last as long as it does, so
+ * there is no duty form. A duty held through the role offers no action of its own.
  */
 
 import {
@@ -68,19 +70,16 @@ import {
 import {
   actorModeLabel,
   canRecertify,
-  DEFAULT_DUTY_DAYS,
   DUTY_STATUS_FILTERS,
-  MAX_DUTY_DAYS,
   PLATFORM_DUTY_CODES,
-  dutyExpiryFromDays,
   dutyLabel,
   dutyStatusLabel,
   dutyStatusTone,
+  dutyWindowLabel,
   formatInstant,
   isDutyClosed,
-  isValidDutyDays,
+  isHeldThroughRole,
   isValidPersonId,
-  isValidReasonCode,
   platformAccessMessage,
   roleStatusLabel,
   roleStatusTone,
@@ -216,8 +215,8 @@ export function PlatformAccess() {
         title="No puedes ver este inventario"
         duties={['manage_platform_access', 'audit_platform_access']}
       >
-        Consultarlo exige un deber vigente de administración o de auditoría de accesos, con AAL2. El
-        rol base por sí solo no alcanza.
+        Consultarlo exige el rol de administrador vigente, con AAL2. Si lo tenías, puede haber sido
+        retirado.
       </ScreenRefusal>
     )
   }
@@ -271,12 +270,6 @@ export function PlatformAccess() {
         hasMore={inventory.dutyCursor !== null}
         appending={appending === 'duties'}
         onLoadMore={() => void loadMore('duties')}
-        onGrant={(input) =>
-          run(
-            () => backofficeApi.grantPlatformDuty(input, newBackofficeCommand()),
-            'Deber otorgado.',
-          )
-        }
         onSuspend={(assignmentId) =>
           run(
             () => backofficeApi.suspendPlatformDuty(assignmentId, newBackofficeCommand()),
@@ -339,8 +332,8 @@ function BaseRoleSection({
           Rol base
         </CardTitle>
         <CardDescription>
-          `allfit_admin` permite iniciar sesión y nada más. No concede ninguna operación sin un
-          deber vigente.
+          `allfit_admin` trae todos los deberes mientras dure. Nadie se lo otorga a sí mismo, y
+          retirarlo revoca sus deberes y cierra su sesión.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -471,7 +464,6 @@ function DutySection({
   hasMore,
   appending,
   onLoadMore,
-  onGrant,
   onSuspend,
   onRevoke,
   onRecertify,
@@ -483,48 +475,11 @@ function DutySection({
   hasMore: boolean
   appending: boolean
   onLoadMore: () => void
-  onGrant: (input: {
-    personId: string
-    dutyCode: PlatformDutyCode
-    validTo: string
-    reasonCode: string
-  }) => void
   onSuspend: (assignmentId: string) => void
   onRevoke: (assignmentId: string) => Promise<void>
   onRecertify: (assignmentId: string) => void
 }) {
-  const [personId, setPersonId] = useState('')
-  const [dutyCode, setDutyCode] = useState<PlatformDutyCode>('diagnose_support_metadata')
-  const [days, setDays] = useState(String(DEFAULT_DUTY_DAYS))
-  const [reasonCode, setReasonCode] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<string | null>(null)
-
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    const parsedDays = Number(days)
-    if (!isValidPersonId(personId)) {
-      setError('Escribe el identificador de la persona.')
-      return
-    }
-    if (!isValidDutyDays(parsedDays)) {
-      setError(`La vigencia va de 1 a ${MAX_DUTY_DAYS} días.`)
-      return
-    }
-    if (!isValidReasonCode(reasonCode)) {
-      setError('La referencia sólo admite letras, números y . _ : - y espacios.')
-      return
-    }
-    setError(null)
-    setPersonId('')
-    setReasonCode('')
-    onGrant({
-      personId,
-      dutyCode,
-      validTo: dutyExpiryFromDays(parsedDays),
-      reasonCode,
-    })
-  }
 
   return (
     <Card>
@@ -533,74 +488,11 @@ function DutySection({
           Deberes de plataforma
         </CardTitle>
         <CardDescription>
-          Cada deber es temporal, exige AAL2 y lo otorga otra persona. Vencer, suspender o revocar
-          corta sus operaciones en la siguiente transacción.
+          El rol de administrador trae los trece deberes, con AAL2, y duran lo que dure el rol. Un
+          deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} data-backoffice-form data-platform-form noValidate>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-person">Persona que recibe el deber</FieldLabel>
-              <Input
-                id="platform-duty-person"
-                value={personId}
-                onChange={(event) => setPersonId(event.target.value)}
-                placeholder="019a3000-0000-7000-8000-000000000001"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-code">Deber</FieldLabel>
-              <Select
-                value={dutyCode}
-                onValueChange={(value) => setDutyCode(value as PlatformDutyCode)}
-              >
-                <SelectTrigger id="platform-duty-code" disabled={busy}>
-                  <SelectValue>{dutyLabel(dutyCode)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PLATFORM_DUTY_CODES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {dutyLabel(code)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-days">Vigencia en días</FieldLabel>
-              <Input
-                id="platform-duty-days"
-                type="number"
-                min={1}
-                max={MAX_DUTY_DAYS}
-                value={days}
-                onChange={(event) => setDays(event.target.value)}
-                disabled={busy}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-reason">Referencia</FieldLabel>
-              <Input
-                id="platform-duty-reason"
-                value={reasonCode}
-                onChange={(event) => setReasonCode(event.target.value)}
-                placeholder="CASE-2026-014"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </Field>
-            {error ? <FieldError>{error}</FieldError> : null}
-            <div data-form-actions>
-              <Button type="submit" disabled={busy}>
-                Otorgar deber
-              </Button>
-            </div>
-          </FieldGroup>
-        </form>
-
         <FieldGroup data-platform-duty-filters>
           <Field>
             <FieldLabel htmlFor="platform-duty-status-filter">Estado del deber</FieldLabel>
@@ -674,8 +566,8 @@ function DutySection({
               <TableState
                 colSpan={9}
                 state="empty"
-                title="Nadie tiene deberes vigentes"
-                description="Sin un deber, quien tenga rol base puede entrar pero no ejecutar nada."
+                title="Nadie tiene deberes"
+                description="Los deberes llegan con el rol de administrador."
               />
             ) : (
               assignments.map((assignment) => (
@@ -693,9 +585,7 @@ function DutySection({
                     </Badge>
                   </TableCell>
                   <TableCell numeric>{assignment.required_aal}</TableCell>
-                  <TableCell>
-                    {formatInstant(assignment.valid_from)} → {formatInstant(assignment.valid_to)}
-                  </TableCell>
+                  <TableCell>{dutyWindowLabel(assignment)}</TableCell>
                   <TableCell>
                     <code>{assignment.granted_by_person_id}</code>
                   </TableCell>
@@ -703,6 +593,8 @@ function DutySection({
                   <TableCell align="end">
                     {isDutyClosed(assignment.status) ? (
                       <span>—</span>
+                    ) : isHeldThroughRole(assignment) ? (
+                      <span>Sigue al rol</span>
                     ) : (
                       <>
                         {canRecertify(assignment.status) ? (

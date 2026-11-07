@@ -1735,6 +1735,7 @@ export interface PlatformDutyFixture {
   duty_code: string
   actor_mode: 'A10' | 'A11' | 'A12'
   status: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
+  basis: 'granted' | 'admin_role'
   valid_from: string
   valid_to: string
   required_aal: 2
@@ -2104,20 +2105,10 @@ async function routePlatformAccess(
     const body = request.body as { person_id?: string } | undefined
     const created = platformRole({ person_id: body?.person_id ?? SUBJECT_PERSON_ID })
     access.roles.push(created)
-    await fulfill(route, 201, created)
-    return
-  }
-  if (resource === 'duty-assignments') {
-    const body = request.body as
-      | { person_id?: string; duty_code?: string; valid_to?: string; reason_code?: string }
-      | undefined
-    const created = platformDuty({
-      person_id: body?.person_id ?? SUBJECT_PERSON_ID,
-      duty_code: body?.duty_code ?? 'diagnose_support_metadata',
-      valid_to: body?.valid_to ?? new Date(Date.now() + 30 * 86400000).toISOString(),
-      reason_code: body?.reason_code ?? 'CASE-000',
-    })
-    access.duties.push(created)
+    // The role brings every duty with it, as the database's trigger does.
+    for (const dutyCode of STANDING_DUTY_CODES) {
+      access.duties.push(standingDuty({ person_id: created.person_id, duty_code: dutyCode }))
+    }
     await fulfill(route, 201, created)
     return
   }
@@ -4384,6 +4375,33 @@ export function actorModeFor(dutyCode: string): PlatformDutyFixture['actor_mode'
   return 'A10'
 }
 
+// The closed catalogue the role brings, as the database's role trigger writes it.
+const STANDING_DUTY_CODES = [
+  'view_platform_metrics',
+  'diagnose_support_metadata',
+  'view_billing_metadata',
+  'manage_organization_lifecycle',
+  'request_break_glass',
+  'verify_professional_credentials',
+  'curate_global_catalog',
+  'manage_platform_commercial',
+  'manage_platform_access',
+  'audit_platform_access',
+  'approve_break_glass',
+  'audit_break_glass',
+  'manage_privacy_requests',
+] as const
+
+/** ADR-046: a duty brought by the admin role, with no end of its own. */
+export function standingDuty(overrides: Partial<PlatformDutyFixture> = {}): PlatformDutyFixture {
+  return platformDuty({
+    basis: 'admin_role',
+    valid_to: '9999-12-31T00:00:00.000Z',
+    reason_code: 'admin_role',
+    ...overrides,
+  })
+}
+
 export function platformDuty(overrides: Partial<PlatformDutyFixture> = {}): PlatformDutyFixture {
   const now = Date.now()
   const dutyCode = overrides.duty_code ?? 'diagnose_support_metadata'
@@ -4393,6 +4411,7 @@ export function platformDuty(overrides: Partial<PlatformDutyFixture> = {}): Plat
     duty_code: dutyCode,
     actor_mode: actorModeFor(dutyCode),
     status: 'active',
+    basis: 'granted',
     valid_from: new Date(now).toISOString(),
     valid_to: new Date(now + 30 * 86400000).toISOString(),
     required_aal: 2,
@@ -4416,8 +4435,8 @@ export function activeSession(): SessionFixture {
     authentication_method: 'password_totp',
     operator: { given_name: 'Ada', family_name: 'Lovelace' },
     assurance_verified_at: new Date(now).toISOString(),
-    inactivity_expires_at: new Date(now + 15 * 60_000).toISOString(),
-    absolute_expires_at: new Date(now + 8 * 60 * 60_000).toISOString(),
+    inactivity_expires_at: new Date(now + 60 * 60_000).toISOString(),
+    absolute_expires_at: new Date(now + 12 * 60 * 60_000).toISOString(),
   }
 }
 

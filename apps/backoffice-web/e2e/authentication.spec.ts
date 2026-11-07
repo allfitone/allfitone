@@ -150,8 +150,8 @@ test('keeps strict recovery when an earlier session cannot be verified', async (
         version: 1,
         status: 'active',
         lastVerifiedAt: Date.now(),
-        inactivityExpiresAt: Date.now() + 15 * 60_000,
-        absoluteExpiresAt: Date.now() + 8 * 60 * 60_000,
+        inactivityExpiresAt: Date.now() + 60 * 60_000,
+        absoluteExpiresAt: Date.now() + 12 * 60 * 60_000,
       }),
     )
   })

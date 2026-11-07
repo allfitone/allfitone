@@ -109,6 +109,22 @@ export function isDutyClosed(status: PlatformDutyStatus): boolean {
 }
 
 /**
+ * ADR-046: the admin role brings every duty and they last as long as it does. Such a
+ * duty is never suspended, revoked or recertified alone; withdrawing the role ends it.
+ */
+export function isHeldThroughRole(assignment: Pick<PlatformDutyAssignment, 'basis'>): boolean {
+  return assignment.basis === 'admin_role'
+}
+
+/** The far `valid_to` of a duty the role brings is storage, not a date to read. */
+export function dutyWindowLabel(
+  assignment: Pick<PlatformDutyAssignment, 'basis' | 'valid_from' | 'valid_to'>,
+): string {
+  if (isHeldThroughRole(assignment)) return 'Permanente · rol admin'
+  return `${formatInstant(assignment.valid_from)} → ${formatInstant(assignment.valid_to)}`
+}
+
+/**
  * HU-BO-028 c4: only a duty in force is attested as still needed. A suspended one is
  * reinstated and a closed one granted again; the command refuses them either way.
  */
@@ -146,30 +162,6 @@ export function formatInstant(value: string | null | undefined): string {
   }).format(new Date(parsed))
 }
 
-/**
- * The ninety-day bound belongs to the database. The form offers a default well
- * inside it rather than the maximum, so a routine grant is not automatically the
- * longest one the rules allow.
- */
-export const DEFAULT_DUTY_DAYS = 30
-export const MAX_DUTY_DAYS = 90
-
-export function dutyExpiryFromDays(days: number, now: Date = new Date()): string {
-  const bounded = Math.min(Math.max(Math.trunc(days), 1), MAX_DUTY_DAYS)
-  return new Date(now.getTime() + bounded * 24 * 60 * 60 * 1000).toISOString()
-}
-
-export function isValidDutyDays(value: number): boolean {
-  return Number.isInteger(value) && value >= 1 && value <= MAX_DUTY_DAYS
-}
-
-const REASON_CODE = /^[A-Za-z0-9][A-Za-z0-9 ._:-]*$/
-
-/** The reason is an operational reference, never a name or free narrative. */
-export function isValidReasonCode(value: string): boolean {
-  return value.length > 0 && value.length <= 120 && REASON_CODE.test(value)
-}
-
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export function isValidPersonId(value: string): boolean {
@@ -179,18 +171,16 @@ export function isValidPersonId(value: string): boolean {
 /**
  * What the operator is told when a command is refused.
  *
- * `forbidden` is the interesting one: it means the duty was not effective in the
- * transaction that just ran, which can happen mid-session because a duty expired
- * or was revoked. The database answers the same code to an order about oneself, which
- * nobody may give, so the message names both instead of blaming expiry alone.
+ * `forbidden` is the interesting one. An admin holds every duty (ADR-046), so it means
+ * an order about oneself, which nobody may give, or a role withdrawn mid-session.
  */
 export function platformAccessMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'No se aplicó. Nadie se asigna ni se retira a sí mismo un rol o un deber: si la persona eras tú, pídeselo a otra persona del equipo. Si era otra persona, tu sesión no tiene un deber vigente para esta operación: puede haber vencido o haber sido revocado.',
+      'No se aplicó. Nadie se otorga ni se retira a sí mismo un rol o un deber: si la persona eras tú, pídeselo al otro administrador. Si era otra persona, tu sesión ya no tiene el rol de administrador: puede haber sido retirado.',
     'not-found': 'La asignación ya no existe.',
     conflict:
-      'La base de datos rechazó el cambio: puede ser el último administrador base, o una asignación ya cerrada.',
+      'La base de datos rechazó el cambio: puede ser el último administrador base, una asignación ya cerrada o un deber que llega con el rol de administrador, que sólo se retira retirando el rol.',
     'validation-failed': 'Revisa los datos: alguno no cumple el catálogo cerrado o la vigencia.',
     'invalid-request': 'Falta un identificador de comando. Vuelve a intentarlo.',
     'idempotency-in-progress': 'El comando anterior sigue procesándose. Reintenta en un momento.',
