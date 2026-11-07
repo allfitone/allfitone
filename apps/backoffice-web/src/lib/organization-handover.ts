@@ -28,7 +28,7 @@ export type PartyKind = AllfitV1Schemas['OrganizationPartyKind']
 export const ORGANIZATION_TYPES: ReadonlyArray<{ code: OrganizationTypeCode; label: string }> = [
   { code: 'gym', label: 'Gimnasio' },
   { code: 'studio', label: 'Estudio' },
-  { code: 'professional_practice', label: 'Práctica profesional' },
+  { code: 'professional_practice', label: 'Profesional independiente' },
 ]
 
 export const PARTY_KINDS: ReadonlyArray<{ code: PartyKind; label: string }> = [

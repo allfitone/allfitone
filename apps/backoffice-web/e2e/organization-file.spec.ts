@@ -126,7 +126,7 @@ test('an independent professional’s name and home address stay out of the file
       ...organizationFileRecord().organization,
       display_name: 'Consultorio Solo',
       type_code: 'professional_practice',
-      type_name: 'Práctica profesional',
+      type_name: 'Profesional independiente',
       party_kind: 'natural_person',
       legal_name: null,
     },
