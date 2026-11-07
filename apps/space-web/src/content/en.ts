@@ -69,15 +69,15 @@ export const en: Dictionary = {
     pillars: [
       {
         title: 'Nothing is shared on its own',
-        text: 'Accepting a gym shares no data. You choose what it sees, category by category.',
+        text: 'Accepting a gym shows it nothing. You decide whether it sees your training with them, your measurements and photos, or your meals.',
       },
       {
         title: 'Cut it off whenever you want',
-        text: 'Remove a permission and they stop seeing it instantly. Your data stays with you.',
+        text: 'Tap “Remove” and they stop seeing it at once. If you end things with a gym, it keeps only what you shared up to that day, and you can take that back too.',
       },
       {
         title: 'You leave with everything',
-        text: 'If you leave a gym, your history stays with you and you keep training without losing anything.',
+        text: 'If you leave a gym, your programmes, your sets and your records stay in your account, and you pick up where you left off.',
       },
     ],
   },
@@ -101,11 +101,10 @@ export const en: Dictionary = {
       friends: 'Friends',
       published: 'Shared to your story',
     },
-    background: 'Athlete checking her phone at the gym after training.',
   },
   pro: {
-    title: ['ALLFIT PRO,', 'INCLUDED WITH', 'YOUR GYM.'],
-    text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym uses Allfit Studio, Pro is included for as long as you stay with them.',
+    title: ['DOES YOUR GYM', 'USE ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
+    text: "The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail, and you don't pay for it while you stay with that gym.",
     alt: 'Athlete with headphones focusing before training at the gym.',
   },
   studio: {

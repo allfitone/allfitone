@@ -1092,8 +1092,9 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   max-width: 44ch;
 }
 
+/* Sized so the longest line («USE ALLFIT STUDIO?», 7.2em) fits its half of the card. */
 .pro__copy .display {
-  font-size: clamp(48px, 5.6vw, 88px);
+  font-size: clamp(36px, 4.6vw, 68px);
 }
 
 .pro__photo {
@@ -1170,6 +1171,10 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
 @media (max-width: 900px) {
   .pro {
     grid-template-columns: 1fr;
+  }
+
+  .pro__copy .display {
+    font-size: clamp(36px, 8vw, 64px);
   }
 
   .pro__photo {
