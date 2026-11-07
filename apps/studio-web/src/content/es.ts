@@ -15,7 +15,7 @@ export const es = {
     description:
       'Reúne a tus clientes, sus programas de entrenamiento y cada sesión que registran en un solo panel. Para entrenadores personales, estudios y gimnasios.',
     shareImageAlt:
-      'Portada de Allfit Studio: «Tu plan. Su sesión. Un solo panel.», junto a la ficha de una persona que compara lo planeado con lo que registró.',
+      'Portada de Allfit Studio: «Tus clientes entrenan. Tú ves cada sesión.», junto a la ficha de una persona que compara lo planeado con lo que registró.',
   },
   nav: {
     label: 'Principal',
@@ -34,7 +34,7 @@ export const es = {
       'No pudimos confirmar todo el cierre remoto. Si vuelves a entrar, completa de nuevo el acceso con el proveedor de identidad.',
   },
   hero: {
-    title: ['Tu plan.', 'Su sesión.', 'Un solo panel.'],
+    title: ['Tus clientes', 'entrenan.', 'Tú ves cada', 'sesión.'],
     lead: 'Allfit Studio reúne a tus clientes, sus programas y lo que registran en cada sesión. Comparas el plan con lo que pasó y ajustas sin perder el hilo.',
     cta: 'Empezar con Studio',
     note: '¿Ya tienes cuenta? Con el mismo botón entras.',

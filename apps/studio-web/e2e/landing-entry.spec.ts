@@ -27,7 +27,7 @@ test('an anonymous visit reads nothing from the API', async ({ page }) => {
   await installStudioApiMock(page, fixture)
 
   await page.goto('/es')
-  await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /Tus clientes/ })).toBeVisible()
   // A late bootstrap would show up here; idle is when its absence means something.
   await page.waitForLoadState('networkidle')
 
@@ -63,7 +63,7 @@ test('a signed-in browser enters its workspace without the provider', async ({ p
 
   await page.goto('/es')
   // Holding a session does not move anybody off the landing on its own.
-  await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /Tus clientes/ })).toBeVisible()
   await expect(page).toHaveURL('/es')
 
   await page.getByRole('link', { name: 'Empezar con Studio' }).first().click()
@@ -219,7 +219,7 @@ test.describe('languages', () => {
       await page.goto('/en')
 
       await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-      await expect(page.getByRole('heading', { level: 1, name: /Your plan/ })).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: /Your clients/ })).toBeVisible()
       await expect(page.getByRole('link', { name: 'Start with Studio' }).first()).toHaveAttribute(
         'href',
         '/app',
@@ -241,7 +241,7 @@ test.describe('languages', () => {
 
     await expect(page).toHaveURL('/en')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await expect(page.getByRole('heading', { level: 1, name: /Your plan/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Your clients/ })).toBeVisible()
   })
 
   // The API knows no language: it returns every close to `/`.

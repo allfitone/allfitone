@@ -43,7 +43,7 @@ test.describe('server-rendered first paint', () => {
   test('paints the landing itself rather than an empty frame', async ({ page }) => {
     await page.goto('/es')
 
-    await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Tus clientes/ })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toHaveAttribute(
       'href',
       '/app',

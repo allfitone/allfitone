@@ -1716,7 +1716,9 @@
   margin: 0;
   font-family: var(--afo-font-family-display);
   font-weight: 800;
-  line-height: 0.86;
+  /* Barlow's accented capitals reach 0.885em: below 0.92 the accent on Ó, É
+     or Ú touches the line above. */
+  line-height: 0.92;
   letter-spacing: -0.01em;
   text-transform: uppercase;
   text-wrap: balance;
@@ -1732,12 +1734,13 @@
   font-size: clamp(3rem, 6vw, 5.25rem);
 }
 
-/* Each line rises out of its own mask, as the Space titles do. */
+/* Each line rises out of its own mask, as the Space titles do. The mask reaches
+   above the line, without moving it, so the accents on capitals are never cut. */
 [data-studio-display-line] {
   display: block;
   overflow: clip;
-  padding-block-end: 0.05em;
-  margin-block-end: -0.05em;
+  padding-block: 0.1em 0.05em;
+  margin-block: -0.1em -0.05em;
 }
 
 [data-studio-display-line] > span {
@@ -1805,8 +1808,9 @@
 /* ------------------------------------------------------------------ hero */
 
 [data-studio-hero] {
-  /* Clears the fixed 5.25rem header with room to spare. */
-  padding-block: clamp(8rem, 17vh, 10rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
+  /* Clears the fixed 5.25rem header with room to spare, and no more: the way in
+     has to stay above the consent bar at 1280x720. */
+  padding-block: clamp(7rem, 15vh, 10rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
   overflow: clip;
 }
 
@@ -1818,7 +1822,7 @@
 
 [data-studio-hero-copy] {
   display: grid;
-  gap: var(--afo-space-8);
+  gap: var(--afo-space-6);
   justify-items: start;
 }
 
@@ -2604,6 +2608,10 @@
     animation-delay: 220ms;
   }
 
+  [data-studio-display-line][data-line='3'] > span {
+    animation-delay: 330ms;
+  }
+
   [data-studio-sheet-row][data-row='1']
     :is([data-studio-sheet-logged], [data-studio-sheet-change]) {
     animation-delay: 1340ms;
@@ -2692,7 +2700,8 @@
   }
 
   [data-studio-display='hero'] {
-    font-size: clamp(4.5rem, 7vw, 7.25rem);
+    /* Four lines beside the sheet: still a step above the section titles. */
+    font-size: clamp(4.5rem, 6.2vw, 6.75rem);
   }
 
   [data-studio-steps] {

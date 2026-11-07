@@ -345,7 +345,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                 as="h1"
                 id="studio-landing-title"
                 lines={copy.hero.title}
-                tones={['solid', 'ghost', 'accent']}
+                tones={['solid', 'solid', 'accent', 'accent']}
               />
               <p data-studio-lead>{copy.hero.lead}</p>
               <div data-studio-actions>

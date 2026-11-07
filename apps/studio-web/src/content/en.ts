@@ -8,7 +8,7 @@ export const en: Dictionary = {
     description:
       'Bring your clients, their training programs and every session they log into one panel. For personal trainers, studios and gyms.',
     shareImageAlt:
-      'Allfit Studio’s front page: “Your plan. Their session. One panel.”, beside a client’s sheet comparing what was planned with what was logged.',
+      'Allfit Studio’s front page: “Your clients train. You see every session.”, beside a client’s sheet comparing what was planned with what was logged.',
   },
   nav: {
     label: 'Main',
@@ -27,7 +27,7 @@ export const en: Dictionary = {
       'We could not confirm the whole remote sign-out. If you sign in again, complete the access with the identity provider once more.',
   },
   hero: {
-    title: ['Your plan.', 'Their session.', 'One panel.'],
+    title: ['Your clients', 'train.', 'You see every', 'session.'],
     lead: 'Allfit Studio brings together your clients, their programs and what they log in every session. Compare the plan with what happened and adjust without losing the thread.',
     cta: 'Start with Studio',
     note: 'Already have an account? The same button signs you in.',
