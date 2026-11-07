@@ -28,7 +28,7 @@ export function createAccountRecoveryDatabase(): AccountRecoveryDatabase {
         const [row] = await transaction<ReadRow[]>`
           select identity.read_account_recovery(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
-            ${input.caseReference}, ${input.personId}::uuid
+            ${input.caseReference}::text, ${input.personId}::uuid
           )
         `
         if (!row) throw new Error('PostgreSQL did not read the account recovery')

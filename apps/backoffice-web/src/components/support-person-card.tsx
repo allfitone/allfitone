@@ -1,12 +1,11 @@
 'use client'
 
 /**
- * `HU-BO-007` — the operational state of a person, minimised.
+ * `HU-BO-007` — the operational state of a person, with her name and contact.
  *
- * The card refuses to load without a case reference rather than defaulting to
- * one. That is not strictness for its own sake: the read is recorded against
- * that reference, and a card that opened without one would produce a record
- * nobody can follow.
+ * The case reference is optional (ADR-046 decision 5): the read is recorded either
+ * way, against the case when there is one. A reference written in free text is
+ * refused before anything is read, because it would look traceable and not be.
  *
  * The four blocks Allfit does not store yet are shown, not omitted. An operator
  * who simply does not see "relaciones" cannot tell whether the screen forgot it
@@ -50,7 +49,7 @@ import {
 import { formatInstant } from '@/lib/platform-access'
 import {
   fileFacts,
-  isValidCaseReference,
+  isValidOptionalCaseReference,
   supportMetadataMessage,
   verificationLabel,
 } from '@/lib/support-metadata'
@@ -60,7 +59,7 @@ type LoadState = 'loading' | 'ready' | 'failed'
 
 export function SupportPersonCard({ personId }: { personId: string }) {
   const caseReference = useSearchParams().get('case_reference') ?? ''
-  const traceable = isValidCaseReference(caseReference)
+  const traceable = isValidOptionalCaseReference(caseReference)
   const [state, setState] = useState<LoadState>('loading')
   const [metadata, setMetadata] = useState<SupportPersonMetadata | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
@@ -90,10 +89,9 @@ export function SupportPersonCard({ personId }: { personId: string }) {
   if (!traceable) {
     return (
       <Alert live="polite" variant="warning">
-        <AlertTitle>Esta ficha necesita una referencia de caso</AlertTitle>
+        <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
         <AlertDescription>
-          La consulta queda registrada contra el caso que la justifica, así que no se abre sin una.
-          Vuelve a la búsqueda y empieza desde ahí.{' '}
+          Va en mayúsculas, como CASE-2026-001, o no va. Vuelve a la búsqueda y empieza desde ahí.{' '}
           <Button size="sm" variant="ghost" render={<Link href="/people" />} nativeButton={false}>
             Ir a la búsqueda
           </Button>
@@ -123,8 +121,8 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             Estado operativo
           </CardTitle>
           <CardDescription>
-            Caso {caseReference}. Sin nombres ni contactos completos: para resolver un caso de
-            entrenamiento, cuerpo, salud o nutrición hace falta un acceso excepcional aparte.{' '}
+            {caseReference ? `Caso ${caseReference}. ` : ''}Para resolver un caso de entrenamiento,
+            cuerpo, salud o nutrición hace falta un acceso excepcional aparte.{' '}
             <Link
               href={breakGlassRequestHref(metadata.person_id, caseReference)}
               data-person-break-glass-link
@@ -135,6 +133,10 @@ export function SupportPersonCard({ personId }: { personId: string }) {
         </CardHeader>
         <CardContent>
           <dl data-facts>
+            <dt>Nombre</dt>
+            <dd>
+              <span id="person-name">{metadata.display_name}</span>
+            </dd>
             <dt>Identificador</dt>
             <dd>
               <code id="person-id">{metadata.person_id}</code>
@@ -163,7 +165,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Contacto</TableHead>
-                <TableHead>Valor parcial</TableHead>
+                <TableHead>Valor</TableHead>
                 <TableHead>Verificación</TableHead>
               </TableRow>
             </TableHeader>
@@ -171,7 +173,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
               <TableRow>
                 <TableCell>Correo</TableCell>
                 <TableCell>
-                  <code>{metadata.contact_email_masked ?? 'sin correo'}</code>
+                  <span id="person-email">{metadata.contact_email ?? 'Sin correo'}</span>
                 </TableCell>
                 <TableCell>
                   {verificationLabel(metadata.email_verified_at)}
@@ -183,7 +185,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
               <TableRow>
                 <TableCell>Teléfono</TableCell>
                 <TableCell>
-                  <code>{metadata.contact_phone_masked ?? 'sin teléfono'}</code>
+                  <span id="person-phone">{metadata.contact_phone ?? 'Sin teléfono'}</span>
                 </TableCell>
                 <TableCell>
                   {verificationLabel(metadata.phone_verified_at)}

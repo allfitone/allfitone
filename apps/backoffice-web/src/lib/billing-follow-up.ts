@@ -59,7 +59,8 @@ export function followUpDetail(item: BillingFollowUpItem): string {
 }
 
 export function followUpHref(item: BillingFollowUpItem, caseReference: string): string {
-  return `/people/${item.person_id}?case_reference=${encodeURIComponent(caseReference)}`
+  const file = `/people/${item.person_id}`
+  return caseReference ? `${file}?case_reference=${encodeURIComponent(caseReference)}` : file
 }
 
 export function followUpSummary(followUp: BillingFollowUp): string {
@@ -75,7 +76,7 @@ export function followUpMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
       'Esta lista nombra a quien paga, así que pide el deber «view_billing_metadata». Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
-    'invalid-request': 'Falta una referencia de caso válida, como CASE-2026-001.',
+    'invalid-request': 'La referencia del caso va como CASE-2026-001, o se deja vacía.',
     'validation-failed': 'Falta una referencia de caso válida, como CASE-2026-001.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
     'upstream-unavailable': 'El servicio no respondió. Reintenta en un momento.',

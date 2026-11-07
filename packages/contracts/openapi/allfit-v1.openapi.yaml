@@ -1073,25 +1073,25 @@ paths:
       operationId: searchBackofficeSupportPeople
       x-allfit-operation: OP-SUP-005
       x-allfit-cache: no-store
-      summary: Find a person by something they handed over in their own case
+      summary: Find a person by part of a name, an email or a phone
       description: >-
-        Exact match on exactly one of an identifier, an email or a phone. There is
-        no exploratory search by name, so no parameter offers one. The search is
-        recorded whether or not it matched: a fruitless search is the one most
-        worth being able to review later. A match answers only what HU-BO-006
-        criterion 2 lists, and is also recorded in the person's own access log.
+        Part of a name, an email or a phone number, or a person's identifier,
+        matched as text and regardless of case (ADR-046 decision 4). Answers up
+        to `limit` people in name order, with their name and contact, and whether
+        more match. The search is recorded whether or not it matched: a fruitless
+        search is the one most worth being able to review later. Every person it
+        answers is recorded in her own access log before the answer travels.
       security:
         - backofficeCookieAuth: []
       parameters:
         - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/SupportPeopleQuery'
         - $ref: '#/components/parameters/SupportCaseReference'
-        - $ref: '#/components/parameters/SupportLookupIdentifier'
-        - $ref: '#/components/parameters/SupportLookupEmail'
-        - $ref: '#/components/parameters/SupportLookupPhone'
+        - $ref: '#/components/parameters/SupportPeopleLimit'
       responses:
         '200':
           description: >-
-            The match, or an explicit not-found outcome. Never a bare empty list:
+            The matches, or an explicit not-found outcome. Never a bare empty list:
             the outcome says which of the two happened.
           headers:
             Cache-Control:
@@ -2183,9 +2183,8 @@ paths:
       x-allfit-cache: no-store
       summary: Read the break-glass tray
       description: >-
-        Requests to decide, or your own. Reading the tray is never a permission:
-        every operation revalidates its duty, its quorum and its window in its own
-        transaction.
+        Every file, or your own. Reading the tray is never a permission: every
+        operation revalidates its role and its window in its own transaction.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -2221,8 +2220,10 @@ paths:
         The body names the subject, the categories, one of five closed purposes
         and a traceable case. It does **not** name the tier, the number of
         approvals or the duration: the server derives all three from the
-        categories, so a caller cannot ask for the cheap ones. A forbidden
-        category is refused rather than priced higher.
+        categories. Asking opens the window at once, for sixty minutes whatever
+        the tier, because nobody else has to approve it (ADR-046); somebody
+        other than the requester reviews it afterwards. A forbidden category is
+        refused, and a window is never opened over your own data.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -2238,60 +2239,6 @@ paths:
       responses:
         '201':
           description: The file, or the converged one for a repeated command
-          headers:
-            Cache-Control:
-              $ref: '#/components/headers/NoStore'
-            Idempotent-Replay:
-              $ref: '#/components/headers/IdempotentReplay'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BreakGlassRequest'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthenticated'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '415':
-          $ref: '#/components/responses/UnsupportedMediaType'
-        '422':
-          $ref: '#/components/responses/ValidationFailed'
-        '503':
-          $ref: '#/components/responses/UpstreamUnavailable'
-
-  /backoffice/v1/break-glass/requests/{requestId}/decisions:
-    post:
-      tags: [Backoffice Break Glass]
-      operationId: decideBackofficeBreakGlass
-      x-allfit-operation: OP-SUP-002
-      x-allfit-cache: no-store
-      summary: Approve or reject a break-glass request
-      description: >-
-        A rejection is terminal. An approval that completes the quorum opens the
-        window in the same transaction; one that does not leaves the request
-        exactly where it was. The approver is never the requester or the subject,
-        and never counts twice.
-      security:
-        - backofficeCookieAuth: []
-      parameters:
-        - $ref: '#/components/parameters/Origin'
-        - $ref: '#/components/parameters/BreakGlassRequestId'
-        - $ref: '#/components/parameters/IdempotencyKey'
-        - $ref: '#/components/parameters/CommandId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BreakGlassDecision'
-      responses:
-        '200':
-          description: The file after the decision
           headers:
             Cache-Control:
               $ref: '#/components/headers/NoStore'
@@ -13840,10 +13787,11 @@ components:
     SupportCaseReference:
       name: case_reference
       in: query
-      required: true
+      required: false
       description: >-
-        The case this read belongs to. A structured reference rather than free
-        prose, so the record can be followed back to a case months later.
+        The case this read belongs to, when there is one: optional since ADR-046
+        decision 5. A structured reference rather than free prose, so the record
+        can be followed back to a case months later; free text is refused.
       schema:
         type: string
         pattern: '^[A-Z][A-Z0-9_-]{2,63}$'
@@ -13853,30 +13801,26 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
-    SupportLookupIdentifier:
-      name: identifier
+    SupportPeopleQuery:
+      name: q
       in: query
-      required: false
-      description: Exactly one lookup parameter is accepted per search.
-      schema:
-        $ref: '#/components/schemas/Uuid'
-    SupportLookupEmail:
-      name: email
-      in: query
-      required: false
-      description: Exact match only. Exactly one lookup parameter is accepted per search.
+      required: true
+      description: >-
+        Part of a name, an email or a phone number, or a person's identifier.
+        Matched as text: `%` and `_` are characters, never wildcards.
       schema:
         type: string
-        format: email
-        maxLength: 254
-    SupportLookupPhone:
-      name: phone
+        minLength: 2
+        maxLength: 100
+    SupportPeopleLimit:
+      name: limit
       in: query
       required: false
-      description: Exact match only. Exactly one lookup parameter is accepted per search.
       schema:
-        type: string
-        pattern: '^\+[1-9][0-9]{6,14}$'
+        type: integer
+        minimum: 1
+        maximum: 25
+        default: 25
     OnboardingAttemptId:
       name: attemptId
       in: path
@@ -15874,7 +15818,6 @@ components:
         - approvals
         - exercise_count
         - viewer_is_requester
-        - viewer_can_decide
         - viewer_can_exercise
       properties:
         id:
@@ -15897,12 +15840,18 @@ components:
           $ref: '#/components/schemas/BreakGlassTier'
         required_approvals:
           type: integer
-          minimum: 1
+          minimum: 0
           maximum: 2
+          description: >-
+            0 for every window asked for since ADR-046, because asking opens it.
+            1 or 2 only on files asked for before, which keep their quorum.
         requested_duration_minutes:
           type: integer
           minimum: 1
-          maximum: 30
+          maximum: 60
+          description: >-
+            60 for every window asked for since ADR-046; 30 or 15 on files asked
+            for before.
         requested_at:
           type: string
           format: date-time
@@ -15928,6 +15877,7 @@ components:
           enum: [justified, unjustified, incident_opened, null]
         approvals:
           type: array
+          description: Approvals recorded before ADR-046; empty on every window opened since.
           items:
             $ref: '#/components/schemas/BreakGlassApproval'
         exercise_count:
@@ -15939,14 +15889,11 @@ components:
             Whether the caller opened this file. The Backoffice session carries no
             domain identifier, so the server answers this rather than the client
             re-deriving it from one.
-        viewer_can_decide:
+        viewer_can_exercise:
           type: boolean
           description: >-
             A hint for the screen, never authority: it saves offering a button that
             would always be refused. Every command revalidates on its own.
-        viewer_can_exercise:
-          type: boolean
-          description: A hint for the screen, on the same terms as `viewer_can_decide`.
     BreakGlassRequestList:
       type: object
       additionalProperties: false
@@ -15975,17 +15922,6 @@ components:
         purpose:
           $ref: '#/components/schemas/BreakGlassPurpose'
         case_reference:
-          type: string
-          pattern: '^[A-Z][A-Z0-9_-]{2,63}$'
-    BreakGlassDecision:
-      type: object
-      additionalProperties: false
-      required: [decision, reason_code]
-      properties:
-        decision:
-          type: string
-          enum: [approved, rejected]
-        reason_code:
           type: string
           pattern: '^[A-Z][A-Z0-9_-]{2,63}$'
     BreakGlassExercise:
@@ -16631,10 +16567,14 @@ components:
       type: object
       additionalProperties: false
       description: >-
-        The minimised operational state. No name, no full contact and no identity
-        provider subject appear here, by construction rather than by filtering.
+        The operational state, with her name and full contact for an
+        administrator (ADR-046 decision 4). No identity provider subject appears
+        here, by construction rather than by filtering.
       required:
         - person_id
+        - display_name
+        - contact_email
+        - contact_phone
         - account_status
         - created_at
         - activated_at
@@ -16656,6 +16596,16 @@ components:
       properties:
         person_id:
           $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        contact_email:
+          type: [string, 'null']
+          maxLength: 254
+        contact_phone:
+          type: [string, 'null']
+          maxLength: 32
         account_status:
           type: string
           minLength: 1
@@ -16789,21 +16739,25 @@ components:
       type: object
       additionalProperties: false
       description: >-
-        HU-BO-006 criterion 2: the identifier, the masked contact and the
-        operational state of the account, and nothing else.
-      required: [person_id, account_status, contact_email_masked, contact_phone_masked]
+        Who she is, how to reach her and the state of her account: what an
+        administrator needs to tell two people apart (ADR-046 decision 4).
+      required: [person_id, display_name, contact_email, contact_phone, account_status]
       properties:
         person_id:
           $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        contact_email:
+          type: [string, 'null']
+          maxLength: 254
+        contact_phone:
+          type: [string, 'null']
+          maxLength: 32
         account_status:
           type: string
           minLength: 1
-          maxLength: 32
-        contact_email_masked:
-          type: [string, 'null']
-          maxLength: 254
-        contact_phone_masked:
-          type: [string, 'null']
           maxLength: 32
     SupportPeopleSearch:
       type: object
@@ -16812,16 +16766,19 @@ components:
         The outcome travels beside the items so a client cannot render an
         unexplained empty list. `HU-BO-006` criterion 3 is a contract obligation
         here, not a copy decision in one screen.
-      required: [outcome, items]
+      required: [outcome, items, has_more]
       properties:
         outcome:
           type: string
           enum: [found, not_found]
         items:
           type: array
-          maxItems: 1
+          maxItems: 25
           items:
             $ref: '#/components/schemas/SupportPersonMatch'
+        has_more:
+          type: boolean
+          description: More people match than this page answers; a narrower search finds them.
     PlatformRoleAssignmentPage:
       type: object
       additionalProperties: false

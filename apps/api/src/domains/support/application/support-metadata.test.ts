@@ -10,9 +10,9 @@ const READER = {
 }
 const SEARCH = {
   requestId: '019a5000-0000-7000-8000-000000000901',
-  caseReference: 'CASE-2026-101',
-  lookupKind: 'email' as const,
-  lookupValue: 'subject.epsilon@example.test',
+  caseReference: null,
+  query: 'epsi',
+  limit: 25,
 }
 
 function database(found: unknown): SupportMetadataDatabase {
@@ -25,17 +25,22 @@ function database(found: unknown): SupportMetadataDatabase {
 }
 
 describe('finding a person (HU-BO-006)', () => {
-  test('T-SUP-UNIT-01 a match answers its four fields, whatever else the database sends', async () => {
-    // A database older than the API still answers the whole file; the search must not.
+  test('T-SUP-UNIT-01 each match answers its five fields, whatever else the database sends', async () => {
+    // A database ahead of the API may answer more; the search passes on only its contract.
     const answer = await createSupportMetadataService(
       database({
-        person_id: '019a5000-0000-7000-8000-000000000005',
-        account_status: 'active',
-        contact_email_masked: '••••••••on@example.test',
-        contact_phone_masked: null,
-        active_session_count: 2,
-        last_seen_at: '2026-09-09T18:00:00.000Z',
-        membership_count: 1,
+        matches: [
+          {
+            person_id: '019a5000-0000-7000-8000-000000000005',
+            display_name: 'Epsilon Ramírez',
+            contact_email: 'subject.epsilon@example.test',
+            contact_phone: null,
+            account_status: 'active',
+            contact_email_masked: '••••••••on@example.test',
+            active_session_count: 2,
+          },
+        ],
+        has_more: true,
       }),
     ).search(READER, SEARCH)
 
@@ -44,17 +49,21 @@ describe('finding a person (HU-BO-006)', () => {
       items: [
         {
           person_id: '019a5000-0000-7000-8000-000000000005',
+          display_name: 'Epsilon Ramírez',
+          contact_email: 'subject.epsilon@example.test',
+          contact_phone: null,
           account_status: 'active',
-          contact_email_masked: '••••••••on@example.test',
-          contact_phone_masked: null,
         },
       ],
+      has_more: true,
     })
   })
 
   test('T-SUP-UNIT-02 no match is said, not answered as an empty list', async () => {
-    const answer = await createSupportMetadataService(database(undefined)).search(READER, SEARCH)
+    const answer = await createSupportMetadataService(
+      database({ matches: [], has_more: false }),
+    ).search(READER, SEARCH)
 
-    expect(answer).toEqual({ outcome: 'not_found', items: [] })
+    expect(answer).toEqual({ outcome: 'not_found', items: [], has_more: false })
   })
 })

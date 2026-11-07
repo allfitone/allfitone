@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  SUPPORT_LOOKUP_KINDS,
+  SEARCH_QUERY,
   fileFacts,
+  isSearchable,
   isValidCaseReference,
-  isValidLookup,
-  lookupIssueMessage,
-  lookupLabel,
+  isValidOptionalCaseReference,
   supportMetadataMessage,
   verificationLabel,
   type SupportPersonMetadata,
@@ -14,6 +13,9 @@ import {
 
 const metadata: SupportPersonMetadata = {
   person_id: '019a5000-0000-7000-8000-000000000005',
+  display_name: 'Epsilon Ramírez',
+  contact_email: 'subject.epsilon@example.test',
+  contact_phone: null,
   account_status: 'active',
   created_at: '2026-01-04T10:00:00.000Z',
   activated_at: null,
@@ -49,9 +51,13 @@ const metadata: SupportPersonMetadata = {
 const day = (instant: string) => instant.slice(0, 10)
 
 describe('support metadata presentation rules', () => {
-  test('offers exactly the three exact lookups, and no name', () => {
-    expect(SUPPORT_LOOKUP_KINDS).toEqual(['identifier', 'email', 'phone'])
-    expect(SUPPORT_LOOKUP_KINDS.map((kind) => lookupLabel(kind)).join(' ')).not.toContain('ombre')
+  test('searches by two characters or more of a name, an email or a phone, up to 100', () => {
+    expect(isSearchable('ep')).toBe(true)
+    expect(isSearchable('  Ramírez ')).toBe(true)
+    expect(isSearchable('3001')).toBe(true)
+    expect(isSearchable(' e ')).toBe(false)
+    expect(isSearchable('')).toBe(false)
+    expect(isSearchable('e'.repeat(SEARCH_QUERY.max + 1))).toBe(false)
   })
 
   test('accepts a structured case reference and refuses free prose', () => {
@@ -63,19 +69,11 @@ describe('support metadata presentation rules', () => {
     expect(isValidCaseReference('')).toBe(false)
   })
 
-  test('checks each lookup against its own shape before it travels', () => {
-    expect(isValidLookup('identifier', '019a5000-0000-7000-8000-000000000005')).toBe(true)
-    expect(isValidLookup('identifier', 'not-a-uuid')).toBe(false)
-    expect(isValidLookup('email', 'persona@ejemplo.com')).toBe(true)
-    expect(isValidLookup('email', 'persona')).toBe(false)
-    expect(isValidLookup('phone', '+573001234567')).toBe(true)
-    expect(isValidLookup('phone', '573001234567')).toBe(false)
-  })
-
-  test('explains a malformed lookup in the terms of what was asked for', () => {
-    const messages = SUPPORT_LOOKUP_KINDS.map((kind) => lookupIssueMessage(kind))
-    expect(new Set(messages).size).toBe(SUPPORT_LOOKUP_KINDS.length)
-    expect(lookupIssueMessage('phone')).toContain('+')
+  test('takes no case at all, but never a case in free text (ADR-046)', () => {
+    expect(isValidOptionalCaseReference('')).toBe(true)
+    expect(isValidOptionalCaseReference('   ')).toBe(true)
+    expect(isValidOptionalCaseReference('CASE-2026-001')).toBe(true)
+    expect(isValidOptionalCaseReference('el usuario no puede entrar')).toBe(false)
   })
 
   test('says what exists around the person, with states and dates (HU-BO-007 c2)', () => {
@@ -156,6 +154,7 @@ describe('support metadata presentation rules', () => {
   test('explains a refusal as an expired duty rather than a mistake', () => {
     expect(supportMetadataMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(supportMetadataMessage('not-found')).toContain('ninguna persona')
+    expect(supportMetadataMessage('invalid-request')).toContain('dos caracteres')
     expect(supportMetadataMessage('anything-else')).toBe(
       'No se pudo leer la información de soporte.',
     )

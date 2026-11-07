@@ -99,10 +99,9 @@ export function scopeDefinition(
 /**
  * Break-glass files.
  *
- * This mock reproduces the *command's* rules, not the screen's expectations. A
- * decision appends an approval and the window opens only once the quorum is
- * complete; the requester may never decide on their own file; a rejection is
- * final; and a denied attempt still answers 200 with its reason. A mock more
+ * This mock reproduces the *command's* rules, not the screen's expectations. Asking
+ * opens the window for sixty minutes with no approval (ADR-046); only the requester
+ * exercises it; and a denied attempt still answers 200 with its reason. A mock more
  * permissive than the real command would let the screen pass while production
  * refused — which is the whole failure this file exists to prevent.
  */
@@ -369,12 +368,11 @@ export interface BreakGlassFileFixture {
   }>
   exercise_count: number
   /**
-   * Whether the viewer opened this file. The other two viewer fields are derived
-   * from it on every answer, never set by a test, so a spec cannot grant itself a
-   * button the server would withhold.
+   * Whether the viewer opened this file. `viewer_can_exercise` is derived from it on
+   * every answer, never set by a test, so a spec cannot grant itself a button the
+   * server would withhold.
    */
   viewer_is_requester: boolean
-  viewer_has_decided: boolean
 }
 
 export const BREAK_GLASS_PEER_ID = '019a4000-0000-7000-8000-000000000001'
@@ -387,12 +385,15 @@ function breakGlassTier(categories: string[]): 'standard' | 'restricted' {
     : 'standard'
 }
 
+const BREAK_GLASS_WINDOW_MINUTES = 60
+
+/** A window opened `minutesAgo` minutes ago, the way asking opens one since ADR-046. */
 export function breakGlassFile(
   overrides: Partial<BreakGlassFileFixture> = {},
+  minutesAgo = 1,
 ): BreakGlassFileFixture {
   const categories = overrides.categories ?? ['nutrition_guidance']
-  const tier = breakGlassTier(categories)
-  const now = Date.now()
+  const opened = Date.now() - minutesAgo * 60_000
   return {
     id: nextAssignmentId(),
     requester_person_id: ACTOR_PERSON_ID,
@@ -400,21 +401,20 @@ export function breakGlassFile(
     categories,
     purpose: 'customer_support_request',
     case_reference: 'CASE-2026-001',
-    sensitivity_tier: tier,
-    required_approvals: tier === 'restricted' ? 2 : 1,
-    requested_duration_minutes: tier === 'restricted' ? 15 : 30,
-    requested_at: new Date(now - 120_000).toISOString(),
-    request_expires_at: new Date(now + 1_680_000).toISOString(),
-    status: 'requested',
-    window_starts_at: null,
-    window_ends_at: null,
+    sensitivity_tier: breakGlassTier(categories),
+    required_approvals: 0,
+    requested_duration_minutes: BREAK_GLASS_WINDOW_MINUTES,
+    requested_at: new Date(opened).toISOString(),
+    request_expires_at: new Date(opened + 30 * 60_000).toISOString(),
+    status: 'approved',
+    window_starts_at: new Date(opened).toISOString(),
+    window_ends_at: new Date(opened + BREAK_GLASS_WINDOW_MINUTES * 60_000).toISOString(),
     closed_at: null,
     reviewed_at: null,
     review_outcome: null,
     approvals: [],
     exercise_count: 0,
     viewer_is_requester: true,
-    viewer_has_decided: false,
     ...overrides,
   }
 }
@@ -424,22 +424,24 @@ export function openBreakGlassWindow(
   minutes: number,
   overrides: Partial<BreakGlassFileFixture> = {},
 ): BreakGlassFileFixture {
+  return breakGlassFile(overrides, BREAK_GLASS_WINDOW_MINUTES - minutes)
+}
+
+/** A request asked for before ADR-046 that nobody approved: it can only lapse. */
+export function legacyPendingBreakGlass(
+  overrides: Partial<BreakGlassFileFixture> = {},
+): BreakGlassFileFixture {
   const now = Date.now()
-  const file = breakGlassFile(overrides)
-  return {
-    ...file,
-    status: 'approved',
-    reviewed_at: new Date(now - 60_000).toISOString(),
-    review_outcome: 'approved',
-    window_starts_at: new Date(now - 60_000).toISOString(),
-    window_ends_at: new Date(now + minutes * 60_000).toISOString(),
-    approvals: Array.from({ length: file.required_approvals }, (_unused, index) => ({
-      approver_person_id: `019a4000-0000-7000-8000-00000000000${index + 1}`,
-      decision: 'approved' as const,
-      reason_code: 'REASON-APPROVED',
-      decided_at: new Date(now - 60_000).toISOString(),
-    })),
-  }
+  return breakGlassFile({
+    required_approvals: 1,
+    requested_duration_minutes: 30,
+    requested_at: new Date(now - 120_000).toISOString(),
+    request_expires_at: new Date(now + 1_680_000).toISOString(),
+    status: 'requested',
+    window_starts_at: null,
+    window_ends_at: null,
+    ...overrides,
+  })
 }
 
 /**
@@ -1286,7 +1288,7 @@ async function routeBillingFollowUp(
     return
   }
   const parameters = new URLSearchParams(request.query)
-  if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(parameters.get('case_reference') ?? '')) {
+  if (untraceableCase(parameters.get('case_reference'))) {
     await fulfillProblem(route, 400, 'invalid-request')
     return
   }
@@ -1551,6 +1553,9 @@ export function personPaymentsRecord(
 
 export interface SupportPersonFixture {
   person_id: string
+  display_name: string
+  contact_email: string | null
+  contact_phone: string | null
   account_status: string
   created_at: string
   activated_at: string | null
@@ -1595,10 +1600,14 @@ export interface SupportPersonFixture {
 
 export const SUPPORT_SUBJECT_ID = '019a5000-0000-7000-8000-000000000005'
 export const SUPPORT_SUBJECT_EMAIL = 'subject.epsilon@example.test'
+export const SUPPORT_SUBJECT_NAME = 'Epsilon Ramírez'
 
 export function supportPerson(overrides: Partial<SupportPersonFixture> = {}): SupportPersonFixture {
   return {
     person_id: SUPPORT_SUBJECT_ID,
+    display_name: SUPPORT_SUBJECT_NAME,
+    contact_email: SUPPORT_SUBJECT_EMAIL,
+    contact_phone: '+573001234567',
     account_status: 'active',
     created_at: '2026-01-04T10:00:00.000Z',
     activated_at: '2026-01-05T10:00:00.000Z',
@@ -2308,20 +2317,17 @@ function paginate<T>(rows: T[], pageSize: number | undefined, offset: number) {
  * happens to render.
  */
 /**
- * The two derived viewer fields. Deriving them here rather than letting a test set
- * them is what keeps the mock honest: the rule is the one the database trigger
- * enforces — an approver is never the requester and never decides twice.
+ * The derived viewer field. Deriving it here rather than letting a test set it is
+ * what keeps the mock honest: only the requester exercises an open window.
  */
 function breakGlassProjection(file: BreakGlassFileFixture) {
-  const { viewer_has_decided, ...row } = file
   // The status is effective, not stored: a window whose end has passed and a
-  // request nobody decided in time both read as expired, the way
+  // request from before that never opened both read as expired, the way
   // `support.effective_break_glass_status` computes them.
   const status = breakGlassEffectiveStatus(file)
   return {
-    ...row,
+    ...file,
     status,
-    viewer_can_decide: status === 'requested' && !file.viewer_is_requester && !viewer_has_decided,
     viewer_can_exercise: status === 'approved' && file.viewer_is_requester,
   }
 }
@@ -2409,15 +2415,18 @@ async function routeBreakGlass(
           case_reference?: string
         }
       | undefined
-    // Tier, quorum and duration are derived from the categories here exactly as the
-    // server derives them, so a body that tried to set them would be ignored.
-    const created = breakGlassFile({
-      ...(body?.subject_person_id ? { subject_person_id: body.subject_person_id } : {}),
-      ...(body?.categories ? { categories: body.categories } : {}),
-      ...(body?.purpose ? { purpose: body.purpose } : {}),
-      ...(body?.case_reference ? { case_reference: body.case_reference } : {}),
-      viewer_is_requester: true,
-    })
+    // Tier and duration are derived from the categories here exactly as the server
+    // derives them, and asking opens the window, so a body cannot set any of it.
+    const created = breakGlassFile(
+      {
+        ...(body?.subject_person_id ? { subject_person_id: body.subject_person_id } : {}),
+        ...(body?.categories ? { categories: body.categories } : {}),
+        ...(body?.purpose ? { purpose: body.purpose } : {}),
+        ...(body?.case_reference ? { case_reference: body.case_reference } : {}),
+        viewer_is_requester: true,
+      },
+      0,
+    )
     glass.files.push(created)
     await fulfill(route, 201, breakGlassProjection(created))
     return
@@ -2430,42 +2439,6 @@ async function routeBreakGlass(
   }
   const action = segments[5]
   const now = new Date().toISOString()
-
-  if (action === 'decisions') {
-    if (file.viewer_is_requester || file.viewer_has_decided) {
-      await fulfillProblem(route, 403, 'forbidden')
-      return
-    }
-    if (breakGlassEffectiveStatus(file) !== 'requested') {
-      await fulfillProblem(route, 409, 'conflict')
-      return
-    }
-    const body = request.body as
-      { decision?: 'approved' | 'rejected'; reason_code?: string } | undefined
-    const decision = body?.decision === 'rejected' ? 'rejected' : 'approved'
-    file.approvals.push({
-      approver_person_id: ACTOR_PERSON_ID,
-      decision,
-      reason_code: body?.reason_code ?? 'REASON-UNSTATED',
-      decided_at: now,
-    })
-    file.viewer_has_decided = true
-    file.reviewed_at = now
-    file.review_outcome = decision
-    const approved = file.approvals.filter((approval) => approval.decision === 'approved').length
-    if (decision === 'rejected') {
-      // One rejection is final. No later approval reopens the file.
-      file.status = 'rejected'
-    } else if (approved >= file.required_approvals) {
-      file.status = 'approved'
-      file.window_starts_at = now
-      file.window_ends_at = new Date(
-        Date.now() + file.requested_duration_minutes * 60_000,
-      ).toISOString()
-    }
-    await fulfill(route, 200, breakGlassProjection(file))
-    return
-  }
 
   if (action === 'reads') {
     const body = request.body as { category?: string; resource_type?: string } | undefined
@@ -3795,8 +3768,7 @@ async function routeAccountRecovery(
       await fulfillProblem(route, state.refusal.status, state.refusal.code)
       return
     }
-    const caseReference = new URLSearchParams(request.query).get('case_reference') ?? ''
-    if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(caseReference)) {
+    if (untraceableCase(new URLSearchParams(request.query).get('case_reference'))) {
       await fulfillProblem(route, 400, 'invalid-request')
       return
     }
@@ -4253,6 +4225,11 @@ async function routeDiagnosis(
  * The real surface refuses without a traceable case reference, so the mock does
  * too: a screen that forgot to send one would otherwise pass its own E2E.
  */
+function untraceableCase(value: string | null): boolean {
+  // Optional since ADR-046; one given in free text is still refused.
+  return value !== null && !/^[A-Z][A-Z0-9_-]{2,63}$/.test(value)
+}
+
 async function routeSupport(
   route: Route,
   request: MockRequest,
@@ -4265,8 +4242,7 @@ async function routeSupport(
   }
 
   const parameters = new URLSearchParams(request.query)
-  const caseReference = parameters.get('case_reference') ?? ''
-  if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(caseReference)) {
+  if (untraceableCase(parameters.get('case_reference'))) {
     await fulfillProblem(route, 400, 'invalid-request')
     return
   }
@@ -4292,33 +4268,36 @@ async function routeSupport(
     return
   }
 
-  const lookups = (['identifier', 'email', 'phone'] as const).filter((kind) => parameters.has(kind))
-  if (lookups.length !== 1) {
+  // Part of a name, an email or a phone, or the identifier, matched as text the way
+  // `support.search_people` does; the old exact lookups are refused, as the API does.
+  const term = (parameters.get('q') ?? '').trim().toLowerCase()
+  const limit = Number(parameters.get('limit') ?? 25)
+  const known = new Set(['q', 'case_reference', 'limit'])
+  if (term.length < 2 || [...parameters.keys()].some((key) => !known.has(key))) {
     await fulfillProblem(route, 400, 'invalid-request')
     return
   }
-  const [kind] = lookups
-  const value = parameters.get(kind ?? 'email') ?? ''
-  const found = support.people.find((person) =>
-    kind === 'identifier'
-      ? person.person_id === value
-      : kind === 'email'
-        ? value === SUPPORT_SUBJECT_EMAIL
-        : value === '+573001234567',
-  )
+  const matches = support.people
+    .filter(
+      (person) =>
+        person.person_id === term ||
+        person.display_name.toLowerCase().includes(term) ||
+        (person.contact_email ?? '').toLowerCase().includes(term) ||
+        (person.contact_phone ?? '').includes(term),
+    )
+    .sort((left, right) => left.display_name.localeCompare(right.display_name))
+  const page = matches.slice(0, limit)
   await fulfill(route, 200, {
-    outcome: found ? 'found' : 'not_found',
-    // HU-BO-006 criterion 2: a match is four fields, as the API answers it.
-    items: found
-      ? [
-          {
-            person_id: found.person_id,
-            account_status: found.account_status,
-            contact_email_masked: found.contact_email_masked,
-            contact_phone_masked: found.contact_phone_masked,
-          },
-        ]
-      : [],
+    outcome: page.length > 0 ? 'found' : 'not_found',
+    // A match is five fields, as the API answers it.
+    items: page.map((person) => ({
+      person_id: person.person_id,
+      display_name: person.display_name,
+      contact_email: person.contact_email,
+      contact_phone: person.contact_phone,
+      account_status: person.account_status,
+    })),
+    has_more: matches.length > limit,
   })
 }
 

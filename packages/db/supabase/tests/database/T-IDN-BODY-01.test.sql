@@ -387,6 +387,7 @@ select results_eq(
 select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019b5000-0000-7000-8000-000000000013', true);
 
+-- Asking opens the window, restricted or not (ADR-046 decision 2).
 create temporary table body_window on commit drop as
 select result from support.request_break_glass(
   '019b5000-0000-7000-8000-000000000013', '019b5000-0000-7000-8000-000000000213',
@@ -395,17 +396,6 @@ select result from support.request_break_glass(
   'b0000000-0000-4000-8000-000000000701', '019b5000-0000-7000-8000-000000000701',
   decode(repeat('71', 32), 'hex')
 );
-
-select support.decide_break_glass(
-  person_id, session_id, (select (result->>'id')::uuid from body_window), 'approved', 'REASON-OK',
-  key, command, decode(repeat(hash_byte, 32), 'hex')
-)
-from (values
-  ('019b5000-0000-7000-8000-000000000014'::uuid, '019b5000-0000-7000-8000-000000000214'::uuid,
-    'b0000000-0000-4000-8000-000000000702'::uuid, '019b5000-0000-7000-8000-000000000702'::uuid, '72'),
-  ('019b5000-0000-7000-8000-000000000015'::uuid, '019b5000-0000-7000-8000-000000000215'::uuid,
-    'b0000000-0000-4000-8000-000000000703'::uuid, '019b5000-0000-7000-8000-000000000703'::uuid, '73')
-) as approval(person_id, session_id, key, command, hash_byte);
 
 create temporary table body_read on commit drop as
 select support.exercise_break_glass(
@@ -417,7 +407,7 @@ select support.exercise_break_glass(
 select results_eq(
   $$ select answer->>'outcome', jsonb_array_length(answer->'content'->'body_progress') from body_read $$,
   $$ values ('allowed'::text, 3) $$,
-  'the approved window reads the subject''s three measurements'
+  'the open window reads the subject''s three measurements'
 );
 
 select ok(

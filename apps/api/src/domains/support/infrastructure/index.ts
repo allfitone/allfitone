@@ -30,7 +30,7 @@ import type {
   SupportDiagnosisDatabase,
   SupportOperation,
   SupportMetadataDatabase,
-  SupportPersonMatch,
+  SupportPeopleFound,
   SupportPersonMetadata,
   SupportPersonPayments,
   SupportBillingFollowUp,
@@ -239,13 +239,14 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
   return {
     search: (input) =>
       inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
-        const rows = await transaction<{ result: SupportPersonMatch }[]>`
-          select * from support.search_people(
+        const [row] = await transaction<{ search_people: SupportPeopleFound }[]>`
+          select support.search_people(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
-            ${input.caseReference}, ${input.lookupKind}, ${input.lookupValue}
+            ${input.caseReference}::text, ${input.query}::text, ${input.limit}::integer
           )
         `
-        return rows[0]?.result
+        if (!row) throw new Error('PostgreSQL did not search for people')
+        return row.search_people
       }),
 
     read: (input) =>
@@ -253,7 +254,7 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
         const [row] = await transaction<{ person_metadata: SupportPersonMetadata }[]>`
           select support.person_metadata(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
-            ${input.caseReference}, ${input.personId}::uuid
+            ${input.caseReference}::text, ${input.personId}::uuid
           )
         `
         if (!row) throw new Error('PostgreSQL did not project the operational state')
@@ -265,7 +266,7 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
         const [row] = await transaction<{ person_payments: SupportPersonPayments }[]>`
           select support.person_payments(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
-            ${input.caseReference}, ${input.personId}::uuid
+            ${input.caseReference}::text, ${input.personId}::uuid
           )
         `
         if (!row) throw new Error('PostgreSQL did not project what the person pays')
@@ -277,7 +278,7 @@ export function createSupportMetadataDatabase(): SupportMetadataDatabase {
         const [row] = await transaction<{ billing_follow_up: SupportBillingFollowUp }[]>`
           select support.billing_follow_up(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
-            ${input.caseReference}, ${input.limit}::integer
+            ${input.caseReference}::text, ${input.limit}::integer
           )
         `
         if (!row) throw new Error('PostgreSQL did not list the charges to follow up')
@@ -392,20 +393,6 @@ export function createBreakGlassDatabase(): BreakGlassDatabase {
           )
         `
         if (!row) throw new Error('PostgreSQL did not open the break-glass file')
-        return { resource: row.result, replayed: row.replayed }
-      }),
-
-    decide: (input) =>
-      inTransaction(sql, input.actorPersonId, input.requestId, async (transaction) => {
-        const [row] = await transaction<BreakGlassRow[]>`
-          select * from support.decide_break_glass(
-            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
-            ${input.breakGlassRequestId}::uuid,
-            ${input.decision}, ${input.reasonCode},
-            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
-          )
-        `
-        if (!row) throw new Error('PostgreSQL did not record the break-glass decision')
         return { resource: row.result, replayed: row.replayed }
       }),
 

@@ -137,7 +137,8 @@ describe('access log presentation rules', () => {
   })
 
   test('explains the basis for the read rather than naming the mode', () => {
-    expect(modeBasis('break_glass')).toContain('ventana excepcional aprobada por otra persona')
+    expect(modeBasis('break_glass')).toContain('otra persona la revisa después')
+    expect(modeBasis('break_glass')).not.toContain('aprobada')
     expect(modeBasis('frozen')).toContain('histórico que quedó congelado')
     expect(modeBasis('live')).toContain('permiso vigente')
     expect(modeBasis('organization_operational')).toContain('no una lectura de datos de salud')

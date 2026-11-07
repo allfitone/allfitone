@@ -79,14 +79,6 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'POST',
-      path: '/backoffice/v1/break-glass/requests/{requestId}/decisions',
-      operationId: 'decideBackofficeBreakGlass',
-      allfitOperation: 'OP-SUP-002',
-      responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
-      security: ['backofficeCookieAuth'],
-    },
-    {
-      method: 'POST',
       path: '/backoffice/v1/break-glass/requests/{requestId}/reads',
       operationId: 'exerciseBackofficeBreakGlass',
       allfitOperation: 'OP-SUP-003',

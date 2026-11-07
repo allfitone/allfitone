@@ -191,6 +191,7 @@ set constraints support.trg_platform_duty_assignments_change_require_role deferr
 -- Withdrawing the base role closes the requester's windows (HU-BO-028 c5)
 -- ---------------------------------------------------------------------------
 
+-- Asking opens the window (ADR-046 decision 2).
 create temporary table gamma_window on commit drop as
 select result from support.request_break_glass(
   '019a8100-0000-7000-8000-000000000003', '019a8100-0000-7000-8000-000000000023',
@@ -198,12 +199,6 @@ select result from support.request_break_glass(
   'customer_support_request', 'CASE-2026-082',
   'c1000000-0000-4000-8000-000000000006', '019a8100-0000-7000-8000-000000000306',
   decode(repeat('96', 32), 'hex')
-);
-select support.decide_break_glass(
-  '019a8100-0000-7000-8000-000000000004', '019a8100-0000-7000-8000-000000000024',
-  (select (result->>'id')::uuid from gamma_window), 'approved', 'REASON-OK',
-  'c1000000-0000-4000-8000-000000000007', '019a8100-0000-7000-8000-000000000307',
-  decode(repeat('97', 32), 'hex')
 );
 
 select support.revoke_platform_role(
@@ -231,12 +226,6 @@ select result from support.request_break_glass(
   'customer_support_request', 'CASE-2026-083',
   'c1000000-0000-4000-8000-000000000009', '019a8100-0000-7000-8000-000000000309',
   decode(repeat('99', 32), 'hex')
-);
-select support.decide_break_glass(
-  '019a8100-0000-7000-8000-000000000004', '019a8100-0000-7000-8000-000000000024',
-  (select (result->>'id')::uuid from eta_window), 'approved', 'REASON-OK',
-  'c1000000-0000-4000-8000-000000000010', '019a8100-0000-7000-8000-000000000310',
-  decode(repeat('9a', 32), 'hex')
 );
 
 -- The worker may close an open window and nothing else.

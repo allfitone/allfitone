@@ -7,10 +7,10 @@
 -- every admin holds through the role (ADR-046): a Backoffice session without the role
 -- does not open her money, and the test proves that denial from inside the Backoffice.
 --
--- **A case reference, and the read is recorded.** Payments are not a break-glass
--- category — the dictionary is explicit — so this is an ordinary support read with
--- the same ritual as the card: a traceable case, and one `privacy.access_events` row
--- written before the content travels.
+-- **The read is recorded.** Payments are not a break-glass category — the dictionary
+-- is explicit — so this is an ordinary support read with the same ritual as the card:
+-- a case reference, optional since ADR-046 decision 5 but a traceable code when given,
+-- and one `privacy.access_events` row written before the content travels.
 --
 -- **No card data, because Allfit holds none.** Criterion 4 is honoured by there being
 -- nothing to hide: the schema stores a store transaction id and an amount, never a
@@ -212,7 +212,7 @@ select throws_ok(
   ) $$,
   '22023',
   null,
-  'and no read happens without a traceable case reference'
+  'and a case given in free text is refused before any read'
 );
 
 select throws_ok(

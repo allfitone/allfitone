@@ -24,6 +24,9 @@ const CASE = 'CASE-2026-101'
 
 const metadata: AllfitV1Schemas['SupportPersonMetadata'] = {
   person_id: SUBJECT_ID,
+  display_name: 'Epsilon Ramírez',
+  contact_email: 'subject.epsilon@example.test',
+  contact_phone: '+573001234567',
   account_status: 'active',
   created_at: '2026-01-04T10:00:00.000Z',
   activated_at: '2026-01-05T10:00:00.000Z',
@@ -57,9 +60,10 @@ const metadata: AllfitV1Schemas['SupportPersonMetadata'] = {
 
 const match: AllfitV1Schemas['SupportPersonMatch'] = {
   person_id: SUBJECT_ID,
+  display_name: 'Epsilon Ramírez',
+  contact_email: 'subject.epsilon@example.test',
+  contact_phone: '+573001234567',
   account_status: 'active',
-  contact_email_masked: '••••••••on@example.test',
-  contact_phone_masked: '••••••4567',
 }
 
 interface CapturedCall {
@@ -135,7 +139,7 @@ function metadataService(overrides: Partial<SupportMetadataService> = {}): Suppo
   return {
     search: (reader, input) => {
       captured.push({ operation: 'search', reader, input })
-      return Promise.resolve({ outcome: 'found', items: [match] })
+      return Promise.resolve({ outcome: 'found', items: [match], has_more: false })
     },
     read: (reader, input) => {
       captured.push({ operation: 'read', reader, input })
@@ -430,28 +434,35 @@ describe('Backoffice support metadata API contract', () => {
     ])
   })
 
-  test('T-SUP-API-23 finds a person by an exact contact and carries the case through', async () => {
+  test('T-SUP-API-23 finds people by part of a name, with the case and page carried through', async () => {
     const response = await routes().fetch(
-      request(`/support/people?case_reference=${CASE}&email=subject.epsilon%40example.test`),
+      request(`/support/people?q=%20Epsi%20&case_reference=${CASE}&limit=10`),
     )
+    const plain = await routes().fetch(request('/support/people?q=ramírez'))
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ outcome: 'found', items: [match] })
+    await expect(response.json()).resolves.toEqual({
+      outcome: 'found',
+      items: [match],
+      has_more: false,
+    })
+    expect(plain.status).toBe(200)
     expect(captured[0]?.reader).toEqual({
       actorPersonId: ACTOR_PERSON_ID,
       actorSessionId: ACTOR_SESSION_ID,
     })
-    expect(captured[0]?.input).toMatchObject({
-      caseReference: CASE,
-      lookupKind: 'email',
-      lookupValue: 'subject.epsilon@example.test',
-    })
+    expect(captured.map((call) => call.input)).toMatchObject([
+      { caseReference: CASE, query: 'Epsi', limit: 10 },
+      { caseReference: null, query: 'ramírez', limit: 25 },
+    ])
   })
 
   test('T-SUP-API-24 says nothing was found instead of answering a bare empty list', async () => {
     const response = await routes(
-      metadataService({ search: async () => ({ outcome: 'not_found', items: [] }) }),
-    ).fetch(request(`/support/people?case_reference=${CASE}&identifier=${SUBJECT_ID}`))
+      metadataService({
+        search: async () => ({ outcome: 'not_found', items: [], has_more: false }),
+      }),
+    ).fetch(request(`/support/people?q=${SUBJECT_ID}`))
 
     expect(response.status).toBe(200)
     const body = (await response.json()) as { outcome: string; items: unknown[] }
@@ -459,22 +470,27 @@ describe('Backoffice support metadata API contract', () => {
     expect(body.items).toEqual([])
   })
 
-  test('T-SUP-API-25 accepts exactly one lookup parameter, never two and never none', async () => {
-    const two = await routes().fetch(
-      request(
-        `/support/people?case_reference=${CASE}&identifier=${SUBJECT_ID}&phone=%2B573001234567`,
-      ),
+  test('T-SUP-API-25 refuses a search too short, too long or with a page outside the contract', async () => {
+    const answers = await Promise.all(
+      [
+        '/support/people',
+        '/support/people?q=e',
+        '/support/people?q=%20e%20',
+        `/support/people?q=${'e'.repeat(101)}`,
+        '/support/people?q=epsi&limit=0',
+        '/support/people?q=epsi&limit=26',
+        '/support/people?q=epsi&limit=diez',
+      ].map((path) => routes().fetch(request(path))),
     )
-    const none = await routes().fetch(request(`/support/people?case_reference=${CASE}`))
 
-    expect([two.status, none.status]).toEqual([400, 400])
+    expect(answers.map((response) => response.status)).toEqual([400, 400, 400, 400, 400, 400, 400])
     expect(captured).toEqual([])
   })
 
-  test('T-SUP-API-26 refuses a malformed lookup before it becomes a recorded search', async () => {
+  test('T-SUP-API-26 refuses the exact lookups the search no longer takes', async () => {
     const answers = await Promise.all(
-      [`identifier=not-a-uuid`, `email=subject.epsilon`, `phone=573001234567`].map((lookup) =>
-        routes().fetch(request(`/support/people?case_reference=${CASE}&${lookup}`)),
+      [`identifier=${SUBJECT_ID}`, 'email=subject.epsilon%40example.test', 'phone=%2B57300'].map(
+        (lookup) => routes().fetch(request(`/support/people?q=epsi&${lookup}`)),
       ),
     )
 
@@ -482,18 +498,23 @@ describe('Backoffice support metadata API contract', () => {
     expect(captured).toEqual([])
   })
 
-  test('T-SUP-API-27 requires a traceable case reference on both reads', async () => {
-    const searchWithout = await routes().fetch(request(`/support/people?identifier=${SUBJECT_ID}`))
+  test('T-SUP-API-27 takes a case reference when there is one, and refuses one in free text', async () => {
     const searchProse = await routes().fetch(
-      request(`/support/people?case_reference=el%20usuario%20no%20entra&identifier=${SUBJECT_ID}`),
+      request('/support/people?q=epsi&case_reference=el%20usuario%20no%20entra'),
     )
+    const readEmpty = await routes().fetch(request(`/support/people/${SUBJECT_ID}?case_reference=`))
     const readWithout = await routes().fetch(request(`/support/people/${SUBJECT_ID}`))
 
-    expect([searchWithout.status, searchProse.status, readWithout.status]).toEqual([400, 400, 400])
-    expect(captured).toEqual([])
+    expect([searchProse.status, readEmpty.status, readWithout.status]).toEqual([400, 400, 200])
+    expect(captured).toEqual([
+      expect.objectContaining({
+        operation: 'read',
+        input: expect.objectContaining({ caseReference: null }),
+      }),
+    ])
   })
 
-  test('T-SUP-API-28 opens the operational state without a name or a full contact', async () => {
+  test('T-SUP-API-28 opens her file with her name and full contact, and no provider subject', async () => {
     const response = await routes().fetch(
       request(`/support/people/${SUBJECT_ID}?case_reference=${CASE}`),
     )
@@ -502,12 +523,18 @@ describe('Backoffice support metadata API contract', () => {
     expect(response.headers.get('cache-control')).toBe('no-store')
     const body = (await response.json()) as Record<string, unknown>
     expect(body.person_id).toBe(SUBJECT_ID)
+    expect(body).toMatchObject({
+      display_name: 'Epsilon Ramírez',
+      contact_email: 'subject.epsilon@example.test',
+      contact_phone: '+573001234567',
+    })
     // HU-BO-007 criterion 2: what exists, with states and dates, never which gym or scope.
     expect(body.relationships).toEqual(metadata.relationships)
     expect(body.pro).toEqual({ source: 'organization', until: null })
-    for (const forbidden of ['given_name', 'family_name', 'display_name', 'username', 'subject']) {
+    for (const forbidden of ['given_name', 'family_name', 'username', 'subject']) {
       expect(body).not.toHaveProperty(forbidden)
     }
+    expect(captured[0]?.input).toMatchObject({ caseReference: CASE, personId: SUBJECT_ID })
   })
 
   test('T-SUP-API-45 opens what a person pays, with her case reference carried through', async () => {
@@ -522,11 +549,17 @@ describe('Backoffice support metadata API contract', () => {
     expect(call?.input).toMatchObject({ caseReference: CASE, personId: SUBJECT_ID })
   })
 
-  test('T-SUP-API-46 refuses the read without a case reference, before the database', async () => {
-    const response = await routes().fetch(request(`/support/people/${SUBJECT_ID}/payments`))
+  test('T-SUP-API-46 opens what she pays without a case, and refuses one in free text', async () => {
+    const without = await routes().fetch(request(`/support/people/${SUBJECT_ID}/payments`))
+    const prose = await routes().fetch(
+      request(`/support/people/${SUBJECT_ID}/payments?case_reference=sin%20caso`),
+    )
 
-    expect(response.status).toBe(400)
-    expect(captured.some((entry) => entry.operation === 'payments')).toBe(false)
+    expect([without.status, prose.status]).toEqual([200, 400])
+    const calls = captured.filter((entry) => entry.operation === 'payments')
+    expect(calls.map((call) => call.input)).toMatchObject([
+      { caseReference: null, personId: SUBJECT_ID },
+    ])
   })
 
   test('T-SUP-API-47 refuses a person identifier that is not one', async () => {
@@ -542,9 +575,7 @@ describe('Backoffice support metadata API contract', () => {
     const response = await routes().fetch(
       request(`/support/billing-follow-up?case_reference=${CASE}&limit=20`),
     )
-    const defaulted = await routes().fetch(
-      request(`/support/billing-follow-up?case_reference=${CASE}`),
-    )
+    const defaulted = await routes().fetch(request('/support/billing-follow-up'))
 
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toBe('no-store')
@@ -553,14 +584,13 @@ describe('Backoffice support metadata API contract', () => {
     const calls = captured.filter((entry) => entry.operation === 'billingFollowUp')
     expect(calls.map((call) => call.input)).toMatchObject([
       { caseReference: CASE, limit: 20 },
-      { caseReference: CASE, limit: 50 },
+      { caseReference: null, limit: 50 },
     ])
   })
 
-  test('T-SUP-API-49 refuses the list without a case or with a page outside the contract', async () => {
+  test('T-SUP-API-49 refuses a case in free text or a page outside the contract', async () => {
     const answers = await Promise.all(
       [
-        '/support/billing-follow-up',
         '/support/billing-follow-up?case_reference=sin%20caso',
         `/support/billing-follow-up?case_reference=${CASE}&limit=0`,
         `/support/billing-follow-up?case_reference=${CASE}&limit=201`,
@@ -569,7 +599,7 @@ describe('Backoffice support metadata API contract', () => {
       ].map((path) => routes().fetch(request(path))),
     )
 
-    expect(answers.map((response) => response.status)).toEqual([400, 400, 400, 400, 400, 400])
+    expect(answers.map((response) => response.status)).toEqual([400, 400, 400, 400, 400])
     expect(captured.some((entry) => entry.operation === 'billingFollowUp')).toBe(false)
   })
 

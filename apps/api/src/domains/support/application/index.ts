@@ -37,7 +37,6 @@ import type {
   SupportPeopleSearch,
   SupportPersonMatch,
   SupportPersonMetadata,
-  SupportLookupKind,
   SupportReader,
   PlatformAccessDatabase,
   PlatformCommandContext,
@@ -132,16 +131,11 @@ export function createPlatformAccessService(
 export interface SupportMetadataService {
   search(
     reader: SupportReader,
-    input: {
-      requestId: string
-      caseReference: string
-      lookupKind: SupportLookupKind
-      lookupValue: string
-    },
+    input: { requestId: string; caseReference: string | null; query: string; limit: number },
   ): Promise<SupportPeopleSearch>
   read(
     reader: SupportReader,
-    input: { requestId: string; caseReference: string; personId: string },
+    input: { requestId: string; caseReference: string | null; personId: string },
   ): Promise<SupportPersonMetadata>
   /**
    * What she pays. Nothing is decided here: the duty, the case reference and what
@@ -150,12 +144,12 @@ export interface SupportMetadataService {
    */
   payments(
     reader: SupportReader,
-    input: { requestId: string; caseReference: string; personId: string },
+    input: { requestId: string; caseReference: string | null; personId: string },
   ): Promise<SupportPersonPayments>
   /** Who needs following up for what they pay; the duty, case and record are the database's. */
   billingFollowUp(
     reader: SupportReader,
-    input: { requestId: string; caseReference: string; limit: number },
+    input: { requestId: string; caseReference: string | null; limit: number },
   ): Promise<SupportBillingFollowUp>
 }
 
@@ -165,15 +159,19 @@ export function createSupportMetadataService(
   return {
     search: async (reader, input) => {
       const found = await database.search({ ...reader, ...input })
-      if (!found) return { outcome: 'not_found', items: [] }
       // Named field by field: whatever else a database answers never travels.
-      const match: SupportPersonMatch = {
-        person_id: found.person_id,
-        account_status: found.account_status,
-        contact_email_masked: found.contact_email_masked,
-        contact_phone_masked: found.contact_phone_masked,
+      const items = found.matches.map((match): SupportPersonMatch => ({
+        person_id: match.person_id,
+        display_name: match.display_name,
+        contact_email: match.contact_email,
+        contact_phone: match.contact_phone,
+        account_status: match.account_status,
+      }))
+      return {
+        outcome: items.length > 0 ? 'found' : 'not_found',
+        items,
+        has_more: found.has_more,
       }
-      return { outcome: 'found', items: [match] }
     },
     read: (reader, input) => database.read({ ...reader, ...input }),
     payments: (reader, input) => database.payments({ ...reader, ...input }),
@@ -265,14 +263,6 @@ export interface BreakGlassService {
     actor: BackofficeActor,
     input: PlatformCommandContext & { publication: BreakGlassRequestCreate },
   ): Promise<BreakGlassCommandResult>
-  decide(
-    actor: BackofficeActor,
-    input: PlatformCommandContext & {
-      breakGlassRequestId: string
-      decision: 'approved' | 'rejected'
-      reasonCode: string
-    },
-  ): Promise<BreakGlassCommandResult>
   exercise(
     actor: BackofficeActor,
     input: {
@@ -311,7 +301,6 @@ export function createBreakGlassService(database: BreakGlassDatabase): BreakGlas
   })
   return {
     request: (actor, input) => database.request({ ...from(actor), ...input }),
-    decide: (actor, input) => database.decide({ ...from(actor), ...input }),
     exercise: (actor, input) => database.exercise({ ...from(actor), ...input }),
     close: (actor, input) => database.close({ ...from(actor), ...input }),
     review: (actor, input) => database.review({ ...from(actor), ...input }),

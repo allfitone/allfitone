@@ -27,21 +27,20 @@ const file: AllfitV1Schemas['BreakGlassRequest'] = {
   purpose: 'customer_support_request',
   case_reference: 'CASE-2026-001',
   sensitivity_tier: 'standard',
-  required_approvals: 1,
-  requested_duration_minutes: 30,
+  required_approvals: 0,
+  requested_duration_minutes: 60,
   requested_at: '2026-09-10T18:00:00.000Z',
   request_expires_at: '2026-09-10T18:30:00.000Z',
-  status: 'requested',
-  window_starts_at: null,
-  window_ends_at: null,
+  status: 'approved',
+  window_starts_at: '2026-09-10T18:00:00.000Z',
+  window_ends_at: '2026-09-10T19:00:00.000Z',
   closed_at: null,
   reviewed_at: null,
   review_outcome: null,
   approvals: [],
   exercise_count: 0,
   viewer_is_requester: true,
-  viewer_can_decide: false,
-  viewer_can_exercise: false,
+  viewer_can_exercise: true,
 }
 
 const review: AllfitV1Schemas['BreakGlassReview'] = {
@@ -76,10 +75,6 @@ function windowService(overrides: Partial<BreakGlassService> = {}): BreakGlassSe
     request: (_actor, input) => {
       captured.push({ operation: 'request', input })
       return Promise.resolve({ resource: file, replayed: false })
-    },
-    decide: (_actor, input) => {
-      captured.push({ operation: 'decide', input })
-      return Promise.resolve({ resource: { ...file, status: 'approved' }, replayed: false })
     },
     exercise: (_actor, input) => {
       captured.push({ operation: 'exercise', input })
@@ -193,7 +188,8 @@ describe('Backoffice break-glass API contract', () => {
       .map((route) => `${route.method} /backoffice/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(7)
+    // OP-SUP-002 is gone (ADR-046): asking opens the window, so nobody decides it.
+    expect(contract).toHaveLength(6)
     expect(mounted).toEqual(contract)
   })
 
@@ -205,7 +201,7 @@ describe('Backoffice break-glass API contract', () => {
       .map((route) => `${route.method} ${route.path}`)
 
     expect(mounted).toContain('POST /backoffice/v1/break-glass/requests')
-    expect(mounted).toContain('POST /backoffice/v1/break-glass/requests/:requestId/decisions')
+    expect(mounted).not.toContain('POST /backoffice/v1/break-glass/requests/:requestId/decisions')
     expect(mounted).toContain('POST /backoffice/v1/break-glass/requests/:requestId/reads')
     expect(mounted).toContain('POST /backoffice/v1/break-glass/requests/:requestId/closure')
   })
@@ -273,43 +269,30 @@ describe('Backoffice break-glass API contract', () => {
     expect(captured).toEqual([])
   })
 
-  test('T-BG-API-08 records a decision and marks a replay instead of deciding twice', async () => {
+  test('T-BG-API-08 has no approval step left: deciding a request is not an operation', async () => {
     const decided = await routes().fetch(
       post(`/break-glass/requests/${REQUEST_ID}/decisions`, {
         body: { decision: 'approved', reason_code: 'REASON-OK' },
       }),
     )
-    expect(decided.status).toBe(200)
-    expect(captured[0]).toMatchObject({
-      operation: 'decide',
-      input: { decision: 'approved', reasonCode: 'REASON-OK' },
+
+    expect(decided.status).toBe(404)
+    expect(captured).toEqual([])
+  })
+
+  test('T-BG-API-09 answers the open window at once, and marks a repeated request as a replay', async () => {
+    const opened = await routes().fetch(post('/break-glass/requests'))
+    expect(opened.status).toBe(201)
+    await expect(opened.json()).resolves.toMatchObject({
+      status: 'approved',
+      required_approvals: 0,
+      requested_duration_minutes: 60,
     })
 
     const replayed = await routes(
-      windowService({
-        decide: () => Promise.resolve({ resource: file, replayed: true }),
-      }),
-    ).fetch(
-      post(`/break-glass/requests/${REQUEST_ID}/decisions`, {
-        body: { decision: 'approved', reason_code: 'REASON-OK' },
-      }),
-    )
+      windowService({ request: () => Promise.resolve({ resource: file, replayed: true }) }),
+    ).fetch(post('/break-glass/requests'))
     expect(replayed.headers.get('idempotent-replay')).toBe('true')
-  })
-
-  test('T-BG-API-09 refuses a decision outside its closed vocabulary', async () => {
-    const answers = await Promise.all(
-      [
-        { decision: 'maybe', reason_code: 'REASON-OK' },
-        { decision: 'approved', reason_code: 'porque sí' },
-        { decision: 'approved' },
-      ].map((body) =>
-        routes().fetch(post(`/break-glass/requests/${REQUEST_ID}/decisions`, { body })),
-      ),
-    )
-
-    expect(answers.map((response) => response.status)).toEqual([422, 422, 422])
-    expect(captured).toEqual([])
   })
 
   test('T-BG-API-10 answers a denied exercise with its recorded reason, not an error', async () => {
@@ -447,7 +430,7 @@ describe('Backoffice break-glass API contract', () => {
 
   test('T-BG-API-20 carries the viewer capabilities the screen cannot derive', async () => {
     // The Backoffice session carries no domain person identifier, so a client has no
-    // way to work out whether this operator may decide or exercise. Dropping these
+    // way to work out whether this operator may exercise. Dropping these
     // three would leave the screen showing a file with no action on it at all.
     const tray = await routes().fetch(get('/break-glass/requests'))
     const opened = await routes().fetch(post('/break-glass/requests'))
@@ -457,8 +440,7 @@ describe('Backoffice break-glass API contract', () => {
     for (const row of [listed.items[0], created]) {
       expect(row).toMatchObject({
         viewer_is_requester: true,
-        viewer_can_decide: false,
-        viewer_can_exercise: false,
+        viewer_can_exercise: true,
       })
     }
   })
