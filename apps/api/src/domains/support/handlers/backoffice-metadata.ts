@@ -1,17 +1,15 @@
 /**
  * Backoffice support metadata routes: `OP-SUP-005` and `NEW-SUP-ATTENTION`.
  *
- * `HU-BO-006` finds a person, `HU-BO-007` opens their operational state, and
- * both read the same minimised projection. The handler shapes and rejects; it
- * never decides access. `diagnose_support_metadata` and AAL2 are resolved inside
- * the read's own transaction, and the access record is written there too — if
- * the record fails, the read fails.
+ * `HU-BO-006` finds a person by part of a name, an email or a phone, and
+ * `HU-BO-007` opens their operational state with her name and contact (ADR-046).
+ * The handler shapes and rejects; it never decides access. The admin role and
+ * AAL2 are resolved inside the read's own transaction, and the access record is
+ * written there too — if the record fails, the read fails.
  *
- * Two rejections are worth reading as design rather than validation. Exactly one
- * lookup parameter is accepted, because a search that could combine them would
- * become an exploration; and the case reference is required on both routes,
- * because a read nobody can trace back to a case is the thing `PR-22` exists to
- * prevent.
+ * The case reference is optional on every support read (ADR-046 decision 5), but
+ * one given in free text is refused: a reference nobody can follow back to a case
+ * is worse than none, because it looks traceable.
  *
  * The attention panel (`HU-BO-005`) and the business panel (`HU-BO-004`) live here
  * because they are support reads with no subject, like the diagnosis feed. Which of
@@ -48,16 +46,16 @@ import {
   SUPPORT_CASE_REFERENCE,
   SUPPORT_OPERATION_SOURCES,
   SUPPORT_OPERATION_STATES,
-  type SupportLookupKind,
   type SupportOperationCursor,
   type SupportOperationSourceKind,
   type SupportOperationState,
 } from '../domain/index.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const EMAIL = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/
-const PHONE = /^\+[1-9][0-9]{6,14}$/
 const MAX_PAGE = 100
+const SEARCH_PAGE = 25
+const SEARCH_QUERY = { min: 2, max: 100 }
+const SEARCH_PARAMETERS = new Set(['q', 'case_reference', 'limit'])
 
 export function backofficeSupportMetadataRoutes(
   injectedMetadata?: SupportMetadataService,
@@ -92,14 +90,16 @@ export function backofficeSupportMetadataRoutes(
   })
 
   routes.get('/support/people', async (c) => {
-    const caseReference = c.req.query('case_reference')
-    if (!caseReference || !SUPPORT_CASE_REFERENCE.test(caseReference)) {
-      return problem(c, 'invalid-request', 'a traceable case reference is required')
+    const search = peopleSearch(c)
+    if (!search) {
+      return problem(
+        c,
+        'invalid-request',
+        'search with two to 100 characters and a page of 1 to 25',
+      )
     }
-    const lookup = exactlyOneLookup(c)
-    if (!lookup) {
-      return problem(c, 'invalid-request', 'search by exactly one identifier, email or phone')
-    }
+    const caseReference = optionalCaseReference(c)
+    if (caseReference === undefined) return untraceableCase(c)
 
     try {
       const actor = await backofficeActor(c, sessions())
@@ -107,7 +107,7 @@ export function backofficeSupportMetadataRoutes(
       return c.json(
         await metadata().search(
           { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
-          { requestId: randomUUID(), caseReference, ...lookup },
+          { requestId: randomUUID(), caseReference, ...search },
         ),
       )
     } catch (error) {
@@ -118,10 +118,8 @@ export function backofficeSupportMetadataRoutes(
   routes.get('/support/people/:personId', async (c) => {
     const personId = c.req.param('personId')
     if (!UUID.test(personId)) return problem(c, 'invalid-request')
-    const caseReference = c.req.query('case_reference')
-    if (!caseReference || !SUPPORT_CASE_REFERENCE.test(caseReference)) {
-      return problem(c, 'invalid-request', 'a traceable case reference is required')
-    }
+    const caseReference = optionalCaseReference(c)
+    if (caseReference === undefined) return untraceableCase(c)
 
     try {
       const actor = await backofficeActor(c, sessions())
@@ -143,10 +141,8 @@ export function backofficeSupportMetadataRoutes(
   routes.get('/support/people/:personId/payments', async (c) => {
     const personId = c.req.param('personId')
     if (!UUID.test(personId)) return problem(c, 'invalid-request')
-    const caseReference = c.req.query('case_reference')
-    if (!caseReference || !SUPPORT_CASE_REFERENCE.test(caseReference)) {
-      return problem(c, 'invalid-request', 'a traceable case reference is required')
-    }
+    const caseReference = optionalCaseReference(c)
+    if (caseReference === undefined) return untraceableCase(c)
 
     try {
       const actor = await backofficeActor(c, sessions())
@@ -163,16 +159,14 @@ export function backofficeSupportMetadataRoutes(
   })
 
   // The list the attention panel's billing count stands for. It names payers, so it
-  // carries a case like a person's payments and never a filter beyond its page.
+  // takes a case like a person's payments and never a filter beyond its page.
   routes.get('/support/billing-follow-up', async (c) => {
     const query = c.req.query()
     if (Object.keys(query).some((key) => key !== 'case_reference' && key !== 'limit')) {
       return problem(c, 'invalid-request')
     }
-    const caseReference = query.case_reference
-    if (!caseReference || !SUPPORT_CASE_REFERENCE.test(caseReference)) {
-      return problem(c, 'invalid-request', 'a traceable case reference is required')
-    }
+    const caseReference = optionalCaseReference(c)
+    if (caseReference === undefined) return untraceableCase(c)
     const limit = query.limit === undefined ? 50 : Number(query.limit)
     if (!/^[0-9]{1,3}$/.test(query.limit ?? '50') || limit < 1 || limit > 200) {
       return problem(c, 'invalid-request')
@@ -192,8 +186,8 @@ export function backofficeSupportMetadataRoutes(
     }
   })
 
-  // No case reference on the two diagnosis routes, unlike every other support
-  // read: this feed has no subject, so there is nothing to trace back to a case.
+  // No case reference on the two diagnosis routes, not even an optional one: this
+  // feed has no subject, so there is nothing to trace back to a case.
   routes.get('/support/operations', async (c) => {
     const filters = operationFilters(c)
     if (!filters) return problem(c, 'invalid-request')
@@ -333,24 +327,30 @@ function decodeCursor(encoded: string): SupportOperationCursor | undefined {
 }
 
 /**
- * One parameter, matched exactly. Two would let a caller widen a lookup into a
- * search, and a malformed one is refused here so it never becomes a recorded
- * query the database would have rejected anyway.
+ * The term and its page, refused here so a malformed search never becomes a
+ * recorded query. The old exact lookups (`email`, `phone`, `identifier`) are
+ * refused rather than ignored, so a stale client fails loudly instead of listing.
  */
-function exactlyOneLookup(
-  c: Context,
-): { lookupKind: SupportLookupKind; lookupValue: string } | undefined {
-  const candidates: { kind: SupportLookupKind; value: string | undefined; shape: RegExp }[] = [
-    { kind: 'identifier', value: c.req.query('identifier'), shape: UUID },
-    { kind: 'email', value: c.req.query('email'), shape: EMAIL },
-    { kind: 'phone', value: c.req.query('phone'), shape: PHONE },
-  ]
-  const supplied = candidates.filter((candidate) => candidate.value !== undefined)
-  if (supplied.length !== 1) return undefined
+function peopleSearch(c: Context): { query: string; limit: number } | undefined {
+  const parameters = c.req.query()
+  if (Object.keys(parameters).some((key) => !SEARCH_PARAMETERS.has(key))) return undefined
+  const query = (parameters.q ?? '').trim()
+  if (query.length < SEARCH_QUERY.min || query.length > SEARCH_QUERY.max) return undefined
+  if (parameters.limit !== undefined && !/^[0-9]{1,2}$/.test(parameters.limit)) return undefined
+  const limit = parameters.limit === undefined ? SEARCH_PAGE : Number(parameters.limit)
+  if (limit < 1 || limit > SEARCH_PAGE) return undefined
+  return { query, limit }
+}
 
-  const [only] = supplied
-  if (!only?.value || !only.shape.test(only.value)) return undefined
-  return { lookupKind: only.kind, lookupValue: only.value }
+/** Null when no case was given; undefined when one was given and is not traceable. */
+function optionalCaseReference(c: Context): string | null | undefined {
+  const caseReference = c.req.query('case_reference')
+  if (caseReference === undefined) return null
+  return SUPPORT_CASE_REFERENCE.test(caseReference) ? caseReference : undefined
+}
+
+function untraceableCase(c: Context) {
+  return problem(c, 'invalid-request', 'a case reference is a traceable code, never free text')
 }
 
 async function backofficeActor(c: Context, sessions: BackofficeAuthenticationService) {

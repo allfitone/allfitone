@@ -135,27 +135,28 @@ export type PlatformDutyClosure = PlatformCommandContext & {
 }
 
 /**
- * The minimised operational projection: `OP-SUP-005`.
+ * The operational projection: `OP-SUP-005`.
  *
- * What makes it safe is what it cannot say. There is no name, no full contact
- * and no provider subject in the shape, so no handler can leak one by forgetting
- * to filter, and no exploratory search exists because the lookup kinds are a
- * closed set rather than a free query.
+ * An administrator sees her name and full contact (ADR-046 decision 4). What
+ * keeps it safe is that every search and every read is recorded in her own log
+ * before it is answered, and the shape never carries a provider subject.
  */
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPersonPayments = AllfitV1Schemas['SupportPersonPayments']
 export type SupportBillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
-/** `HU-BO-006` criterion 2: what a search may answer, and nothing more. */
+/** What a search may answer for each person, and nothing more. */
 export type SupportPersonMatch = AllfitV1Schemas['SupportPersonMatch']
 
-export type SupportLookupKind = 'identifier' | 'email' | 'phone'
-
-export const SUPPORT_LOOKUP_KINDS: readonly SupportLookupKind[] = ['identifier', 'email', 'phone']
+/** The database's answer to a search, before the outcome is said. */
+export interface SupportPeopleFound {
+  matches: SupportPersonMatch[]
+  has_more: boolean
+}
 
 /**
- * The case reference travels on every read. It is checked here to answer 400
- * rather than a database error; the CHECK in PostgreSQL stays the authority.
+ * A read names a case when there is one. It is checked here to answer 400 rather
+ * than a database error; the CHECK in PostgreSQL stays the authority.
  */
 export const SUPPORT_CASE_REFERENCE = /^[A-Z][A-Z0-9_-]{2,63}$/
 
@@ -168,25 +169,25 @@ export interface SupportMetadataDatabase {
   search(
     input: SupportReader & {
       requestId: string
-      caseReference: string
-      lookupKind: SupportLookupKind
-      lookupValue: string
+      caseReference: string | null
+      query: string
+      limit: number
     },
-  ): Promise<SupportPersonMatch | undefined>
+  ): Promise<SupportPeopleFound>
   payments(
     input: SupportReader & {
       requestId: string
-      caseReference: string
+      caseReference: string | null
       personId: string
     },
   ): Promise<SupportPersonPayments>
   billingFollowUp(
-    input: SupportReader & { requestId: string; caseReference: string; limit: number },
+    input: SupportReader & { requestId: string; caseReference: string | null; limit: number },
   ): Promise<SupportBillingFollowUp>
   read(
     input: SupportReader & {
       requestId: string
-      caseReference: string
+      caseReference: string | null
       personId: string
     },
   ): Promise<SupportPersonMetadata>
@@ -342,15 +343,6 @@ export interface BreakGlassDatabase {
       actorPersonId: string
       actorSessionId: string
       publication: BreakGlassRequestCreate
-    },
-  ): Promise<BreakGlassCommandResult>
-  decide(
-    input: PlatformCommandContext & {
-      actorPersonId: string
-      actorSessionId: string
-      breakGlassRequestId: string
-      decision: 'approved' | 'rejected'
-      reasonCode: string
     },
   ): Promise<BreakGlassCommandResult>
   exercise(input: {

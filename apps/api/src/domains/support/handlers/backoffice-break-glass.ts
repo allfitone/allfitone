@@ -1,9 +1,11 @@
 /**
- * Backoffice break-glass routes: `OP-SUP-001` through `OP-SUP-004`.
+ * Backoffice break-glass routes: `OP-SUP-001`, `OP-SUP-003`, `OP-SUP-004` and
+ * the review.
  *
- * The handler shapes and rejects; it decides nothing. The duty, the quorum, the
- * independence of approvers and the window are all resolved inside each command's
- * own transaction, against the tables.
+ * The handler shapes and rejects; it decides nothing. The role, the window and the
+ * independence of the reviewer are all resolved inside each command's own
+ * transaction, against the tables. Asking opens the window (ADR-046), so there is
+ * no approval route: `OP-SUP-002` is retired.
  *
  * Two things here are worth reading as design rather than plumbing.
  *
@@ -123,32 +125,6 @@ export function backofficeBreakGlassRoutes(
       const result = await windows().request(actor, { ...command, publication })
       replay(c, result.replayed)
       return c.json(result.resource, 201)
-    } catch (error) {
-      return operationFailure(c, error)
-    }
-  })
-
-  routes.post('/break-glass/requests/:requestId/decisions', async (c) => {
-    if (!exactOrigin(c, origin)) return problem(c, 'forbidden')
-    const breakGlassRequestId = c.req.param('requestId')
-    if (!UUID_V7.test(breakGlassRequestId)) return problem(c, 'invalid-request')
-    const payload = await jsonPayload(c)
-    if (payload instanceof Response) return payload
-    const decided = decision(payload.value)
-    if (!decided) return problem(c, 'validation-failed')
-    const command = commandContext(c, { breakGlassRequestId, ...decided })
-    if (!command) return problem(c, 'invalid-request')
-
-    try {
-      const actor = await backofficeActor(c, sessions())
-      if (actor instanceof Response) return actor
-      const result = await windows().decide(actor, {
-        ...command,
-        breakGlassRequestId,
-        ...decided,
-      })
-      replay(c, result.replayed)
-      return c.json(result.resource)
     } catch (error) {
       return operationFailure(c, error)
     }
@@ -302,19 +278,6 @@ function breakGlassRequestCreate(body: unknown): BreakGlassRequestCreate | undef
   }
 }
 
-function decision(
-  body: unknown,
-): { decision: 'approved' | 'rejected'; reasonCode: string } | undefined {
-  if (!isObject(body)) return undefined
-  const allowed = new Set(['decision', 'reason_code'])
-  if (Object.keys(body).some((key) => !allowed.has(key))) return undefined
-  if (body.decision !== 'approved' && body.decision !== 'rejected') return undefined
-  if (typeof body.reason_code !== 'string' || !CASE_REFERENCE.test(body.reason_code)) {
-    return undefined
-  }
-  return { decision: body.decision, reasonCode: body.reason_code }
-}
-
 function breakGlassExercise(
   body: unknown,
 ): { category: BreakGlassCategory; resourceType: string; resourceId?: string } | undefined {
@@ -431,8 +394,8 @@ function databaseErrorCode(error: unknown): ApiErrorCode | undefined {
   // refuses them the same way, and so does the answer.
   if (sqlState === '42501') return 'forbidden'
   if (sqlState === '22023' || sqlState === '23503') return 'validation-failed'
-  // 55000 is the state machine saying no: a rejected request cannot be approved,
-  // a closed window cannot reopen. 23505 is a second decision by one approver.
+  // 55000 is the state machine saying no: a closed window cannot reopen or be
+  // reviewed twice. 23505 is a row the command tried to write twice.
   if (sqlState === '23514' || sqlState === '23505' || sqlState === '55000') return 'conflict'
   if (sqlState === '40001') return 'idempotency-in-progress'
   return undefined
