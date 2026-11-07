@@ -3901,7 +3901,7 @@ async function routeOrganizationHandover(
           ? 'Estudio'
           : body.type_code === 'gym'
             ? 'Gimnasio'
-            : 'Práctica profesional',
+            : 'Profesional independiente',
       party_kind: partyKind,
       legal_name: partyKind === 'legal_entity' ? legalName : null,
       created_at: new Date().toISOString(),
