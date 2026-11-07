@@ -1723,8 +1723,10 @@
   font-size: clamp(3.5rem, 11vw, 7.5rem);
 }
 
+/* Every section title stays a step below the hero's, so the page has one
+   headline. At 7.5rem two of them outsized it at 1440. */
 [data-studio-display='section'] {
-  font-size: clamp(3rem, 8.4vw, 7.5rem);
+  font-size: clamp(3rem, 6vw, 5.25rem);
 }
 
 /* Each line rises out of its own mask, as the Space titles do. */
@@ -1745,6 +1747,11 @@
 
 [data-studio-display-line][data-tone='accent'] {
   color: var(--afo-color-text-accent);
+}
+
+/* No word left alone on a paragraph's last line. */
+[data-studio-site] p {
+  text-wrap: pretty;
 }
 
 [data-studio-lead] {
@@ -2231,11 +2238,6 @@
   gap: var(--afo-space-8);
 }
 
-/* Two long lines; at the section size they would break into four. */
-[data-studio-privacy-copy] [data-studio-display] {
-  font-size: clamp(3rem, 6.4vw, 6.25rem);
-}
-
 [data-studio-privacy-stage] {
   display: flex;
   justify-content: center;
@@ -2482,10 +2484,6 @@
   display: grid;
   justify-items: center;
   gap: var(--afo-space-10);
-}
-
-[data-studio-closing] [data-studio-display] {
-  font-size: clamp(3rem, 6.4vw, 6.25rem);
 }
 
 [data-studio-closing-actions] {
