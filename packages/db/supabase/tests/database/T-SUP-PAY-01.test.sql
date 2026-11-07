@@ -3,9 +3,9 @@
 -- The screen somebody opens when a person writes «me cobraron y no debían». Four
 -- decisions shape what it may say.
 --
--- **It is a billing read, not a diagnosis.** It asks for `view_billing_metadata` and
--- nothing else stands in for it: the support duty that opens the person's card does
--- not open her money, and the test proves that denial from inside the Backoffice.
+-- **It is a billing read, not a diagnosis.** It asks for `view_billing_metadata`, which
+-- every admin holds through the role (ADR-046): a Backoffice session without the role
+-- does not open her money, and the test proves that denial from inside the Backoffice.
 --
 -- **A case reference, and the read is recorded.** Payments are not a break-glass
 -- category — the dictionary is explicit — so this is an ordinary support read with
@@ -31,7 +31,7 @@ values
   ('019c8000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active', null),
   ('019c8000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active', null),
   ('019c8000-0000-7000-8000-000000000003', 'Billing', 'Gamma', 'active', null),
-  ('019c8000-0000-7000-8000-000000000004', 'Support', 'Delta', 'active', null),
+  ('019c8000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active', null),
   ('019c8000-0000-7000-8000-000000000011', 'Paga', 'Directo', 'active', null),
   ('019c8000-0000-7000-8000-000000000012', 'Pro', 'PorGimnasio', 'active', null),
   ('019c8000-0000-7000-8000-000000000013', 'Cobro', 'Suspendido', 'active', null);
@@ -75,11 +75,11 @@ select support.assign_platform_role(
 )
 from (values
   ('019c8000-0000-7000-8000-000000000003'::uuid, '019c8000-0000-7000-8000-000000000103'::uuid,
-    '019c8000-0000-7000-8000-000000000203'::uuid, '73'),
-  ('019c8000-0000-7000-8000-000000000004'::uuid, '019c8000-0000-7000-8000-000000000104'::uuid,
-    '019c8000-0000-7000-8000-000000000204'::uuid, '74')
+    '019c8000-0000-7000-8000-000000000203'::uuid, '73')
 ) as role_row(person_id, key, command, hash_byte);
 
+-- Delta keeps a live Backoffice session and is never granted the role.
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019c8000-0000-7000-8000-000000000001', '019c8000-0000-7000-8000-000000000041',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -88,10 +88,7 @@ select support.assign_platform_duty(
 from (values
   ('019c8000-0000-7000-8000-000000000003'::uuid, 'view_billing_metadata',
     '019c8000-0000-7000-8000-000000000113'::uuid, '019c8000-0000-7000-8000-000000000213'::uuid,
-    '83'),
-  ('019c8000-0000-7000-8000-000000000004'::uuid, 'diagnose_support_metadata',
-    '019c8000-0000-7000-8000-000000000114'::uuid, '019c8000-0000-7000-8000-000000000214'::uuid,
-    '84')
+    '83')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
 
 -- ---------------------------------------------------------------------------
@@ -104,7 +101,8 @@ insert into payments.platform_plans (
 select '019c8000-0000-7000-8000-000000000301', 'pro', 'Pro', 'paid', 'published',
   '019c8000-0000-7000-8000-000000000001', duty.id
 from support.platform_duty_assignments as duty
-where duty.person_id = '019c8000-0000-7000-8000-000000000003';
+where duty.person_id = '019c8000-0000-7000-8000-000000000003'
+  and duty.duty_code = 'view_billing_metadata';
 
 insert into payments.platform_plan_versions (
   id, platform_plan_id, plan_kind, version_number, amount_minor, currency_code,
@@ -116,7 +114,8 @@ select '019c8000-0000-7000-8000-000000000302', '019c8000-0000-7000-8000-00000000
   '019c8000-0000-7000-8000-000000000001', duty.id,
   '019c8000-0000-7000-8000-000000000002', duty.id, clock_timestamp()
 from support.platform_duty_assignments as duty
-where duty.person_id = '019c8000-0000-7000-8000-000000000003';
+where duty.person_id = '019c8000-0000-7000-8000-000000000003'
+  and duty.duty_code = 'view_billing_metadata';
 
 insert into payments.platform_store_products (store, product_id, platform_plan_version_id)
 values
@@ -201,7 +200,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the duty that opens the person''s card does not open her money'
+  'a Backoffice session without the admin role does not open her money'
 );
 
 select set_config('app.actor_person_id', '019c8000-0000-7000-8000-000000000003', true);

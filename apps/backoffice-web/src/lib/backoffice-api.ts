@@ -167,21 +167,6 @@ export const backofficeApi = {
       { method: 'POST', headers: commandHeaders(command), body: '{}' },
     ),
 
-  grantPlatformDuty: (
-    input: { personId: string; dutyCode: PlatformDutyCode; validTo: string; reasonCode: string },
-    command: BackofficeCommand,
-  ) =>
-    requestJson<PlatformDutyAssignment>('/backoffice/v1/platform/duty-assignments', {
-      method: 'POST',
-      headers: commandHeaders(command),
-      body: JSON.stringify({
-        person_id: input.personId,
-        duty_code: input.dutyCode,
-        valid_to: input.validTo,
-        reason_code: input.reasonCode,
-      }),
-    }),
-
   suspendPlatformDuty: (assignmentId: string, command: BackofficeCommand) =>
     requestJson<PlatformDutyAssignment>(
       `/backoffice/v1/platform/duty-assignments/${assignmentId}/suspension`,

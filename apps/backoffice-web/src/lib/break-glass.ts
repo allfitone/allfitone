@@ -808,7 +808,7 @@ export function emptyReadMessage(category: BreakGlassCategory | undefined): stri
 export function breakGlassMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber que esta operación exige. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber que esta operación exige. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'El expediente ya no admite esta acción: una solicitud rechazada no se aprueba, y una ventana cerrada no se reabre. Para continuar, pide otra.',
     'not-found': 'Ese expediente no existe.',

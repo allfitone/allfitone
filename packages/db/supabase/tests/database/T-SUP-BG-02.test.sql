@@ -7,6 +7,10 @@
 -- need it — an approver decides on requests that are not theirs and an auditor reviews
 -- them all — so those duties keep the whole tray. A requester sees their own, whatever
 -- they ask for.
+--
+-- Since ADR-046 every admin holds the approving and auditing duties through the role, so
+-- every admin reads the whole tray, the requester included. Asking for their own still
+-- answers only theirs, and a Backoffice session without the role reads no tray at all.
 
 begin;
 
@@ -19,7 +23,8 @@ values
   ('019b9000-0000-7000-8000-000000000003', 'Requester', 'Gamma', 'active'),
   ('019b9000-0000-7000-8000-000000000004', 'Approver', 'Delta', 'active'),
   ('019b9000-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active'),
-  ('019b9000-0000-7000-8000-000000000007', 'Requester', 'Eta', 'active');
+  ('019b9000-0000-7000-8000-000000000007', 'Requester', 'Eta', 'active'),
+  ('019b9000-0000-7000-8000-000000000008', 'Outsider', 'Theta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -30,7 +35,9 @@ values
   ('019b9000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta_bg2',
     '019b9000-0000-7000-8000-000000000004'),
   ('019b9000-0000-7000-8000-000000000017', 'workos', 'https://issuer.test', 'eta_bg2',
-    '019b9000-0000-7000-8000-000000000007');
+    '019b9000-0000-7000-8000-000000000007'),
+  ('019b9000-0000-7000-8000-000000000018', 'workos', 'https://issuer.test', 'theta_bg2',
+    '019b9000-0000-7000-8000-000000000008');
 
 select support.bootstrap_backoffice_administrators(
   '019b9000-0000-7000-8000-000000000001', 'alpha_bg2',
@@ -54,7 +61,9 @@ from (values
   ('019b9000-0000-7000-8000-000000000024'::uuid, '019b9000-0000-7000-8000-000000000014'::uuid,
     'delta_bg2', 'f4'),
   ('019b9000-0000-7000-8000-000000000027'::uuid, '019b9000-0000-7000-8000-000000000017'::uuid,
-    'eta_bg2', 'f7')
+    'eta_bg2', 'f7'),
+  ('019b9000-0000-7000-8000-000000000028'::uuid, '019b9000-0000-7000-8000-000000000018'::uuid,
+    'theta_bg2', 'f8')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
 select support.assign_platform_role(
@@ -70,6 +79,7 @@ from (values
     '019b9000-0000-7000-8000-000000000207'::uuid, '77')
 ) as role_row(person_id, key, command, hash_byte);
 
+-- Each grant converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b9000-0000-7000-8000-000000000001', '019b9000-0000-7000-8000-000000000021',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -107,34 +117,37 @@ select support.request_break_glass(
 select set_config('app.actor_person_id', '019b9000-0000-7000-8000-000000000003', true);
 
 select is(
-  (select array_agg(result->>'case_reference')
+  (select array_agg(result->>'case_reference' order by result->>'case_reference')
    from support.list_break_glass_requests(
      '019b9000-0000-7000-8000-000000000003', '019b9000-0000-7000-8000-000000000023',
      false, null, 50
    )),
-  array['CASE-GAMMA-1'],
-  'a requester asking for the whole tray reads only their own request'
+  array['CASE-ETA-1', 'CASE-GAMMA-1'],
+  'a requester holds the approving duty through the role, so reads the whole tray'
 );
 
-select is(
-  (select count(*)::integer
-   from support.list_break_glass_requests(
-     '019b9000-0000-7000-8000-000000000003', '019b9000-0000-7000-8000-000000000023',
+select set_config('app.actor_person_id', '019b9000-0000-7000-8000-000000000008', true);
+
+select throws_ok(
+  $$ select * from support.list_break_glass_requests(
+     '019b9000-0000-7000-8000-000000000008', '019b9000-0000-7000-8000-000000000028',
      false, null, 50
-   )
-   where result::text like '%CASE-ETA-1%'),
-  0,
-  'and never a colleague''s subject and case'
+   ) $$,
+  '42501',
+  'reading the break-glass tray requires an effective duty',
+  'a Backoffice session without the role reads no request, nor a colleague''s subject and case'
 );
 
+select set_config('app.actor_person_id', '019b9000-0000-7000-8000-000000000003', true);
+
 select is(
-  (select count(*)::integer
+  (select array_agg(result->>'case_reference')
    from support.list_break_glass_requests(
      '019b9000-0000-7000-8000-000000000003', '019b9000-0000-7000-8000-000000000023',
      true, null, 50
    )),
-  1,
-  'asking for their own answers the same'
+  array['CASE-GAMMA-1'],
+  'asking for their own answers only their own request'
 );
 
 select set_config('app.actor_person_id', '019b9000-0000-7000-8000-000000000004', true);

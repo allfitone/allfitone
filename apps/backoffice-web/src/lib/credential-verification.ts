@@ -241,13 +241,13 @@ export const RENEWAL_OPENED = 'Renovación abierta. La verificación anterior qu
 /** Reading the queue decides nothing, so a refusal there names the duty to ask for. */
 export function verificationQueueMessage(code: string): string {
   if (code !== 'forbidden') return verificationMessage(code)
-  return 'Leer la cola de verificación exige el deber «Verificar credenciales profesionales» vigente. Los deberes vencen por diseño: pide que te lo asignen en «Equipo de Allfit One».'
+  return 'Leer la cola de verificación exige el deber «Verificar credenciales profesionales» vigente. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.'
 }
 
 export function verificationMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'No puedes decidir esta verificación: tu deber de verificación no está vigente o tienes un conflicto con esta persona. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'No puedes decidir esta verificación: tu deber de verificación no está vigente o tienes un conflicto con esta persona. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'Esta solicitud ya no está pendiente: otra persona la decidió, o el título se retiró o se corrigió mientras la tenías abierta.',
     'not-found': 'Esa solicitud no existe.',

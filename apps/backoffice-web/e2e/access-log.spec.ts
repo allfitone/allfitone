@@ -54,9 +54,11 @@ test("sends the period in the operator's local time; a bare end day covers the w
   context,
   page,
 }) => {
+  // Noon local inside the period asked for below; "an hour ago" fell outside it once the day passed.
+  const occurredAt = new Date(2026, 10, 4, 12, 0).toISOString()
   const fixture = createBackofficeFixture({
     session: activeSession(),
-    accessLog: { events: [accessEvent()] },
+    accessLog: { events: [accessEvent({ occurred_at: occurredAt })] },
   })
   await mockBackofficeApi(context, fixture)
 
@@ -293,7 +295,7 @@ test('a withdrawn audit duty is explained as expiry by design', async ({ context
   await page.getByRole('button', { name: 'Consultar' }).click()
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test("a read by Allfit staff is never presented as the person's permission", async ({

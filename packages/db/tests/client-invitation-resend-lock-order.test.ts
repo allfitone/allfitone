@@ -26,7 +26,6 @@ const SUPPORT = id(2)
 const GRANTOR = id(3)
 const ACCOUNT = id(21)
 const SESSION = id(41)
-const DUTY = id(51)
 const GYM = id(101)
 const MEMBERSHIP = id(201)
 const SCOPE = id(401)
@@ -74,7 +73,11 @@ async function cleanup() {
     await tx`delete from identity.invitations where organization_id = ${GYM}::uuid`
     await tx`delete from privacy.scope_resource_rules where scope_definition_id = ${SCOPE}::uuid`
     await tx`delete from privacy.scope_definitions where id = ${SCOPE}::uuid`
-    await tx`delete from support.platform_duty_assignments where id = ${DUTY}::uuid`
+    // The role brings every duty as a row of its own (ADR-046); those go with it.
+    await tx`delete from system.outbox_events where aggregate_type = 'platform_duty_assignment'
+      and aggregate_id in (select id from support.platform_duty_assignments
+        where person_id = ${SUPPORT}::uuid)`
+    await tx`delete from support.platform_duty_assignments where person_id = ${SUPPORT}::uuid`
     await tx`delete from support.platform_role_assignments where person_id = ${SUPPORT}::uuid`
     await tx`set local role allfit_owner`
     for (const table of GUARDED) await tx.unsafe(`alter table ${table} enable trigger user`)
@@ -112,18 +115,9 @@ beforeAll(async () => {
         extensions.digest(${`session_${run}`}, 'sha256'), ${`v1.${run}`},
         clock_timestamp() + interval '5 minutes', 2, 'password_totp',
         clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours')`
+    // The role brings `diagnose_support_metadata` with every other duty (ADR-046).
     await tx`insert into support.platform_role_assignments (person_id, platform_role, granted_by_person_id)
       values (${SUPPORT}::uuid, 'allfit_admin', ${GRANTOR}::uuid)`
-    // The duty's own guard is not under test; it stays off only for this insert.
-    await tx`alter table support.platform_duty_assignments disable trigger user`
-    await tx`insert into support.platform_duty_assignments (
-        id, person_id, duty_code, actor_mode, status, valid_from, valid_to,
-        granted_by_person_id, reason_code
-      ) values (
-        ${DUTY}::uuid, ${SUPPORT}::uuid, 'diagnose_support_metadata', 'A10', 'active',
-        clock_timestamp() - interval '1 minute', clock_timestamp() + interval '30 days',
-        ${GRANTOR}::uuid, 'RACE')`
-    await tx`alter table support.platform_duty_assignments enable trigger user`
     await tx`insert into organizations.organizations (id, type_code, display_name, responsible_party)
       values (${GYM}::uuid, 'gym', 'Resend race',
       '{"party_kind":"legal_entity","party_name":"Resend race","purpose":"studio_operations"}')`

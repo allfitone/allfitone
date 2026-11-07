@@ -37,7 +37,8 @@ values
   ('019ac000-0000-7000-8000-000000000003', 'Officer', 'Gamma', 'active'),
   ('019ac000-0000-7000-8000-000000000004', 'Operator', 'Delta', 'active'),
   ('019ac000-0000-7000-8000-000000000005', 'Subject', 'Zeta', 'active'),
-  ('019ac000-0000-7000-8000-000000000006', 'Subject', 'Eta', 'active');
+  ('019ac000-0000-7000-8000-000000000006', 'Subject', 'Eta', 'active'),
+  ('019ac000-0000-7000-8000-000000000007', 'Outsider', 'Theta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -46,7 +47,9 @@ values
   ('019ac000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gammaE',
     '019ac000-0000-7000-8000-000000000003'),
   ('019ac000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'deltaE',
-    '019ac000-0000-7000-8000-000000000004');
+    '019ac000-0000-7000-8000-000000000004'),
+  ('019ac000-0000-7000-8000-000000000017', 'workos', 'https://issuer.test', 'thetaE',
+    '019ac000-0000-7000-8000-000000000007');
 
 select support.bootstrap_backoffice_administrators(
   '019ac000-0000-7000-8000-000000000001', 'alphaE',
@@ -74,6 +77,10 @@ insert into identity.access_sessions (
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
   ('019ac000-0000-7000-8000-000000000025', '019ac000-0000-7000-8000-000000000014',
     'sid_delta_e', 'backoffice', decode(repeat('c5', 32), 'hex'), 'v1.delta',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019ac000-0000-7000-8000-000000000027', '019ac000-0000-7000-8000-000000000017',
+    'sid_theta_e', 'backoffice', decode(repeat('c7', 32), 'hex'), 'v1.theta',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
@@ -183,23 +190,24 @@ select privacy.dispose_on_owner_request(
 );
 
 -- ---------------------------------------------------------------------------
--- Criterion 4 — the duty, and only the duty, opens this
+-- Criterion 4 — the duty, held through the admin role, and only it opens this
 -- ---------------------------------------------------------------------------
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select * from privacy.list_erasure_requests(
-    '019ac000-0000-7000-8000-000000000004', '019ac000-0000-7000-8000-000000000025',
+    '019ac000-0000-7000-8000-000000000007', '019ac000-0000-7000-8000-000000000027',
     'open', 50, null, null
   ) $$,
   '42501',
   null,
-  'the platform administrator role alone cannot follow erasure requests'
+  'a Backoffice session without the admin role cannot follow erasure requests'
 );
 
-select support.assign_platform_duty(
+select support.revoke_platform_role(
   '019ac000-0000-7000-8000-000000000001', '019ac000-0000-7000-8000-000000000021',
-  '019ac000-0000-7000-8000-000000000004', 'audit_platform_access',
-  clock_timestamp(), clock_timestamp() + interval '7 days', 'CASE-ERA-DELTA',
+  (select id from support.platform_role_assignments
+    where person_id = '019ac000-0000-7000-8000-000000000004' and status = 'active'),
   '019ac000-0000-7000-8000-000000000103', '019ac000-0000-7000-8000-000000000203',
   decode(repeat('63', 32), 'hex')
 );
@@ -211,9 +219,10 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'another duty does not open the erasure panel'
+  'nor can an administrator whose role was withdrawn, with the duties it brought'
 );
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019ac000-0000-7000-8000-000000000001', '019ac000-0000-7000-8000-000000000021',
   '019ac000-0000-7000-8000-000000000003', 'manage_privacy_requests',
@@ -273,7 +282,9 @@ select is(
 
 select is(
   (select count(*)::int from privacy.access_events
-    where actor_person_id = '019ac000-0000-7000-8000-000000000004'),
+    where actor_person_id in (
+      '019ac000-0000-7000-8000-000000000004', '019ac000-0000-7000-8000-000000000007'
+    )),
   0,
   'a refused read reveals nothing, so it records no access'
 );

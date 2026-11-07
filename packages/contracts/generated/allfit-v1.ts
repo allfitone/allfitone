@@ -165,7 +165,7 @@ export interface paths {
     put?: never
     /**
      * Grant a closed-catalogue platform duty for at most ninety days
-     * @description The actor mode is derived from the duty code and never accepted from the client. The target must already hold an active base role.
+     * @description The actor mode is derived from the duty code and never accepted from the client. The target must already hold an active base role. Since ADR-046 that role brings every duty, so granting one an administrator already holds answers with the assignment in force (`basis: admin_role`) and adds no row.
      */
     post: operations['grantBackofficePlatformDuty']
     delete?: never
@@ -6532,6 +6532,11 @@ export interface components {
       actor_mode: components['schemas']['PlatformActorMode']
       /** @enum {string} */
       status: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
+      /**
+       * @description `granted`: granted by another administrator for at most ninety days. `admin_role`: brought by the `allfit_admin` role (ADR-046); it has no end of its own, is never suspended, revoked or recertified alone, and ends when the role is withdrawn.
+       * @enum {string}
+       */
+      basis: 'granted' | 'admin_role'
       /** Format: date-time */
       valid_from: string
       /** Format: date-time */

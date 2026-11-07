@@ -39,6 +39,7 @@ const dutyAssignment: AllfitV1Schemas['PlatformDutyAssignment'] = {
   duty_code: 'diagnose_support_metadata',
   actor_mode: 'A10',
   status: 'active',
+  basis: 'granted',
   valid_from: NOW,
   valid_to: VALID_TO,
   required_aal: 2,

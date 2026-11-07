@@ -25,7 +25,7 @@ insert into identity.people (id, given_name, family_name, status)
 values
   ('019b3000-0000-7000-8000-000000000001', 'Owner', 'Uno', 'active'),
   ('019b3000-0000-7000-8000-000000000002', 'Support', 'Dos', 'active'),
-  ('019b3000-0000-7000-8000-000000000003', 'Badged', 'Tres', 'active'),
+  ('019b3000-0000-7000-8000-000000000003', 'Outsider', 'Tres', 'active'),
   ('019b3000-0000-7000-8000-000000000004', 'Admin', 'Cuatro', 'active'),
   ('019b3000-0000-7000-8000-000000000005', 'Admin', 'Cinco', 'active'),
   ('019b3000-0000-7000-8000-000000000006', 'Client', 'Seis', 'active'),
@@ -64,18 +64,16 @@ from (values
     'tres_cr', 'c3')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
+-- Tres keeps a Backoffice session but is never granted the role: every admin holds every
+-- duty (ADR-046), so a session without the role is the refusal left.
 select support.assign_platform_role(
   '019b3000-0000-7000-8000-000000000004', '019b3000-0000-7000-8000-000000000041',
-  person_id, 'allfit_admin', key, command, decode(repeat(hash_byte, 32), 'hex')
-)
-from (values
-  ('019b3000-0000-7000-8000-000000000002'::uuid, '019b3000-0000-7000-8000-000000000102'::uuid,
-    '019b3000-0000-7000-8000-000000000202'::uuid, '72'),
-  ('019b3000-0000-7000-8000-000000000003'::uuid, '019b3000-0000-7000-8000-000000000103'::uuid,
-    '019b3000-0000-7000-8000-000000000203'::uuid, '73')
-) as grant_row(person_id, key, command, hash_byte);
+  '019b3000-0000-7000-8000-000000000002', 'allfit_admin',
+  '019b3000-0000-7000-8000-000000000102', '019b3000-0000-7000-8000-000000000202',
+  decode(repeat('72', 32), 'hex')
+);
 
--- Only one of the two support people carries the duty that resends.
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b3000-0000-7000-8000-000000000004', '019b3000-0000-7000-8000-000000000041',
   '019b3000-0000-7000-8000-000000000002', 'diagnose_support_metadata',
@@ -216,7 +214,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone does not see a gym''s client invitations'
+  'a Backoffice session without the admin role does not see a gym''s client invitations'
 );
 
 -- The same read, by the person the duty belongs to, from a session that is not theirs.
@@ -709,7 +707,7 @@ select is_empty(
   $$ select 1 from privacy.invitation_scope_options as option
      join identity.invitation_intents as intent on intent.id = option.invitation_intent_id
     where intent.invitation_id = '019b3000-0000-7000-8000-000000000501' $$,
-  'the base role without that duty reads none of it'
+  'a Backoffice session without the admin role reads none of it'
 );
 
 select set_config('app.actor_kind', 'person', true),

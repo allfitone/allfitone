@@ -1059,7 +1059,7 @@ test('a withdrawn duty is explained as expiry by design, not as an error', async
   await page.goto(PATH)
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test('an empty tray says what will appear rather than nothing at all', async ({

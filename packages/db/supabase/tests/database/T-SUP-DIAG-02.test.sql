@@ -24,7 +24,7 @@ values
   ('019b6000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019b6000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019b6000-0000-7000-8000-000000000003', 'Diagnostician', 'Gamma', 'active'),
-  ('019b6000-0000-7000-8000-000000000004', 'Badged', 'Delta', 'active');
+  ('019b6000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -59,17 +59,15 @@ insert into identity.access_sessions (
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
+-- Delta keeps a Backoffice session but never the role: the refusal ADR-046 leaves.
 select support.assign_platform_role(
   '019b6000-0000-7000-8000-000000000001', '019b6000-0000-7000-8000-000000000021',
-  person_id, 'allfit_admin', key, command, decode(repeat(hash_byte, 32), 'hex')
-)
-from (values
-  ('019b6000-0000-7000-8000-000000000003'::uuid, '019b6000-0000-7000-8000-000000000101'::uuid,
-    '019b6000-0000-7000-8000-000000000201'::uuid, '41'),
-  ('019b6000-0000-7000-8000-000000000004'::uuid, '019b6000-0000-7000-8000-000000000102'::uuid,
-    '019b6000-0000-7000-8000-000000000202'::uuid, '42')
-) as role_row(person_id, key, command, hash_byte);
+  '019b6000-0000-7000-8000-000000000003', 'allfit_admin',
+  '019b6000-0000-7000-8000-000000000101', '019b6000-0000-7000-8000-000000000201',
+  decode(repeat('41', 32), 'hex')
+);
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b6000-0000-7000-8000-000000000001', '019b6000-0000-7000-8000-000000000021',
   '019b6000-0000-7000-8000-000000000003', 'diagnose_support_metadata',
@@ -214,13 +212,17 @@ select ok(
   'and when each job last ran, which is how a stopped worker is noticed'
 );
 
+select set_config('app.actor_person_id', '019b6000-0000-7000-8000-000000000004', true);
+
 select throws_ok(
   $$ select support.list_job_health(
     '019b6000-0000-7000-8000-000000000004', '019b6000-0000-7000-8000-000000000024'
   ) $$,
   '42501', null,
-  'the base role alone does not read the job health'
+  'a Backoffice session without the admin role does not read the job health'
 );
+
+select set_config('app.actor_person_id', '019b6000-0000-7000-8000-000000000003', true);
 
 -- ---------------------------------------------------------------------------
 -- A refused store notice is counted

@@ -10,6 +10,7 @@ export type {
   StoredBackofficeAttempt,
   StoredBackofficeSession,
 } from './backoffice.js'
+export { BACKOFFICE_IDLE_LIMIT_MS, BACKOFFICE_SESSION_LIFETIME_SECONDS } from './backoffice.js'
 export { VERIFICATION_METHODS, VERIFICATION_RESULTS } from './credential-verification.js'
 export type {
   CredentialRenewalDue,

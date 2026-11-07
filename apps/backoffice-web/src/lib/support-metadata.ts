@@ -170,7 +170,7 @@ export function verificationLabel(verifiedAt: string | null): string {
 export function supportMetadataMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber de diagnóstico de soporte. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber de diagnóstico de soporte. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'not-found': 'No hay ninguna persona con ese identificador.',
     'invalid-request': 'Falta la referencia del caso o el dato buscado no tiene la forma esperada.',
     'validation-failed': 'El servidor rechazó la referencia del caso. Revisa su formato.',

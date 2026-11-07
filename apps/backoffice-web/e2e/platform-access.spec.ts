@@ -8,6 +8,7 @@ import {
   mockBackofficeApi,
   platformDuty,
   platformRole,
+  standingDuty,
 } from './backoffice-api-mock'
 
 const NEW_PERSON_ID = '019a3000-0000-7000-8000-0000000000ff'
@@ -19,7 +20,12 @@ function seeded() {
       platformRole({ person_id: SUBJECT_PERSON_ID }),
     ],
     duties: [
-      platformDuty({ person_id: ACTOR_PERSON_ID, duty_code: 'manage_platform_access' }),
+      standingDuty({
+        person_id: ACTOR_PERSON_ID,
+        duty_code: 'manage_platform_access',
+        granted_by_person_id: SUBJECT_PERSON_ID,
+      }),
+      // A temporary duty from before ADR-046, which still lapses on its own date.
       platformDuty({ person_id: SUBJECT_PERSON_ID, duty_code: 'diagnose_support_metadata' }),
     ],
   }
@@ -38,8 +44,7 @@ test('shows who reaches the data, with the state and window of every duty', asyn
 
   await expect(page.getByRole('heading', { name: 'Rol base' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Deberes de plataforma' })).toBeVisible()
-  // Scoped to the table: the duty the grant form has selected carries the same name in
-  // its closed selector, so a loose text match finds two.
+  // Scoped to the table: the duty filter's options carry the same names.
   await expect(page.getByRole('cell', { name: 'Administrar accesos de plataforma' })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Diagnosticar metadatos de soporte' })).toBeVisible()
   // The duty carries its mode and its required assurance, not just its name.
@@ -61,10 +66,10 @@ test('refuses the inventory without a reading duty and says why', async ({ conte
   await page.goto('/team')
 
   await expect(page.getByText('No puedes ver este inventario')).toBeVisible()
-  await expect(page.getByText(/deber vigente de administración o de auditoría/)).toBeVisible()
+  await expect(page.getByText(/rol de administrador vigente/)).toBeVisible()
 })
 
-test('grants a base role and then a duty for it', async ({ context, page }) => {
+test('grants a base role, and the role brings every duty with it', async ({ context, page }) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),
     platformAccess: seeded(),
@@ -73,50 +78,47 @@ test('grants a base role and then a duty for it', async ({ context, page }) => {
 
   await page.goto('/team')
   await expect(page.getByRole('heading', { name: 'Rol base' })).toBeVisible()
+  // ADR-046: there is nothing to grant one by one, so the screen offers no duty form.
+  await expect(page.getByRole('button', { name: 'Otorgar deber' })).toHaveCount(0)
 
   await page.getByLabel('Persona que recibe el rol').fill(NEW_PERSON_ID)
   await page.getByRole('button', { name: 'Otorgar rol base' }).click()
   await expect(page.getByText('Rol base otorgado.')).toBeVisible()
 
-  await page.getByLabel('Persona que recibe el deber').fill(NEW_PERSON_ID)
-  await page.getByLabel('Referencia', { exact: true }).fill('CASE-2026-014')
-  await page.getByRole('button', { name: 'Otorgar deber' }).click()
-  await expect(page.getByText('Deber otorgado.')).toBeVisible()
-
-  const grant = fixture.requests.find(
-    (request) =>
-      request.method === 'POST' && request.path === '/backoffice/v1/platform/duty-assignments',
-  )
-  expect(grant?.headers['idempotency-key']).toBeTruthy()
-  expect(grant?.headers['command-id']).toBeTruthy()
-  // The window travels as an instant the server bounds, never as a raw duration.
-  expect((grant?.body as { valid_to?: string })?.valid_to).toMatch(/^\d{4}-\d{2}-\d{2}T/)
-  expect((grant?.body as { reason_code?: string })?.reason_code).toBe('CASE-2026-014')
-})
-
-test('refuses a proposed window longer than the rules allow before sending it', async ({
-  context,
-  page,
-}) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    platformAccess: seeded(),
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto('/team')
-  await page.getByLabel('Persona que recibe el deber').fill(NEW_PERSON_ID)
-  await page.getByLabel('Vigencia en días', { exact: true }).fill('120')
-  await page.getByLabel('Referencia', { exact: true }).fill('CASE-2026-015')
-  await page.getByRole('button', { name: 'Otorgar deber' }).click()
-
-  await expect(page.getByText('La vigencia va de 1 a 90 días.')).toBeVisible()
+  const duties = page
+    .getByRole('row')
+    .filter({ hasText: NEW_PERSON_ID })
+    .filter({ hasText: 'Permanente · rol admin' })
+  await expect(duties).toHaveCount(13)
   expect(
     fixture.requests.filter(
       (request) =>
         request.method === 'POST' && request.path === '/backoffice/v1/platform/duty-assignments',
     ),
   ).toHaveLength(0)
+})
+
+test('a duty the role brings reads as permanent and offers no action of its own', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), platformAccess: seeded() }),
+  )
+
+  await page.goto('/team')
+
+  const standing = page.getByRole('row').filter({ hasText: 'Administrar accesos de plataforma' })
+  await expect(standing).toContainText('Permanente · rol admin')
+  await expect(standing).toContainText('Sigue al rol')
+  // Withdrawing the role is the only way to end it, so nothing here pretends otherwise.
+  for (const name of ['Recertificar', 'Suspender', 'Revocar']) {
+    await expect(standing.getByRole('button', { name })).toHaveCount(0)
+  }
+  // A temporary duty from before keeps its actions until it lapses.
+  const temporary = page.getByRole('row').filter({ hasText: 'Diagnosticar metadatos de soporte' })
+  await expect(temporary.getByRole('button', { name: 'Revocar' })).toHaveCount(1)
 })
 
 test('withdrawing the base role closes the duties it carried', async ({ context, page }) => {
@@ -205,7 +207,7 @@ test('keeping a duty from the confirmation revokes nothing', async ({ context, p
   expect(access.duties[1]?.status).toBe('active')
 })
 
-test('explains a refused command as an expired duty rather than a bad request', async ({
+test('explains a refused command as an order about oneself or a withdrawn role', async ({
   context,
   page,
 }) => {
@@ -224,7 +226,7 @@ test('explains a refused command as an expired duty rather than a bad request', 
   await page.getByLabel('Persona que recibe el rol').fill(NEW_PERSON_ID)
   await page.getByRole('button', { name: 'Otorgar rol base' }).click()
 
-  await expect(page.getByText(/no tiene un deber vigente/)).toBeVisible()
+  await expect(page.getByText(/ya no tiene el rol de administrador/)).toBeVisible()
 })
 
 test('recertifies a duty in force, and the inventory says who and when', async ({
@@ -294,7 +296,7 @@ test('filters the duties by state, asking the API rather than hiding rows', asyn
   await page.getByRole('combobox', { name: 'Estado del deber' }).click()
   await page.getByRole('option', { name: 'Suspendido', exact: true }).click()
 
-  // Cells only: the grant form's selector shows a duty name too, but never as a cell.
+  // Cells only: the duty filter's selector shows a duty name too, but never as a cell.
   await expect(page.getByRole('cell', { name: 'Ver métricas de plataforma' })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Diagnosticar metadatos de soporte' })).toHaveCount(0)
   const filtered = fixture.requests.filter(

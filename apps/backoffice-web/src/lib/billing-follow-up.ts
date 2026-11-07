@@ -74,7 +74,7 @@ export function followUpSummary(followUp: BillingFollowUp): string {
 export function followUpMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Esta lista nombra a quien paga, así que pide el deber «view_billing_metadata». Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Esta lista nombra a quien paga, así que pide el deber «view_billing_metadata». Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'invalid-request': 'Falta una referencia de caso válida, como CASE-2026-001.',
     'validation-failed': 'Falta una referencia de caso válida, como CASE-2026-001.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',

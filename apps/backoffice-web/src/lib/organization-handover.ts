@@ -224,7 +224,7 @@ export function fileLink(
 export function handoverMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber de ciclo de vida de gimnasios. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber de ciclo de vida de gimnasios. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'El gimnasio ya no espera a su dueño: puede que lo haya aceptado o que alguien haya cancelado la creación. Se volvió a leer su estado.',
     'not-found':

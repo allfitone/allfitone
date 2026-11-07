@@ -246,7 +246,7 @@ describe('organization file presentation', () => {
   })
 
   test('a withdrawn duty is explained as expiry by design', () => {
-    expect(fileMessage('forbidden')).toContain('vencen por diseño')
+    expect(fileMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(fileMessage('unknown-code')).toBe('No se pudo abrir la ficha.')
   })
 })

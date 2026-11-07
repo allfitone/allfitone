@@ -38,7 +38,8 @@ values
   ('019ae000-0000-7000-8000-000000000004', 'Operator', 'Delta', 'active'),
   ('019ae000-0000-7000-8000-000000000007', 'Officer', 'Theta', 'active'),
   ('019ae000-0000-7000-8000-000000000005', 'Subject', 'Zeta', 'active'),
-  ('019ae000-0000-7000-8000-000000000006', 'Subject', 'Eta', 'active');
+  ('019ae000-0000-7000-8000-000000000006', 'Subject', 'Eta', 'active'),
+  ('019ae000-0000-7000-8000-000000000008', 'Outsider', 'Iota', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -49,7 +50,9 @@ values
   ('019ae000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'deltaH',
     '019ae000-0000-7000-8000-000000000004'),
   ('019ae000-0000-7000-8000-000000000017', 'workos', 'https://issuer.test', 'thetaH',
-    '019ae000-0000-7000-8000-000000000007');
+    '019ae000-0000-7000-8000-000000000007'),
+  ('019ae000-0000-7000-8000-000000000018', 'workos', 'https://issuer.test', 'iotaH',
+    '019ae000-0000-7000-8000-000000000008');
 
 select support.bootstrap_backoffice_administrators(
   '019ae000-0000-7000-8000-000000000001', 'alphaH',
@@ -76,6 +79,10 @@ insert into identity.access_sessions (
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
   ('019ae000-0000-7000-8000-000000000027', '019ae000-0000-7000-8000-000000000017',
     'sid_theta_h', 'backoffice', decode(repeat('e7', 32), 'hex'), 'v1.theta',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019ae000-0000-7000-8000-000000000028', '019ae000-0000-7000-8000-000000000018',
+    'sid_iota_h', 'backoffice', decode(repeat('e8', 32), 'hex'), 'v1.iota',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
@@ -161,12 +168,13 @@ insert into privacy.disposition_items (
     'delete', 'pending', 'body_progress', '019ae000-0000-7000-8000-000000000304');
 
 -- ---------------------------------------------------------------------------
--- Criterion 5 — the duty, and only the duty
+-- Criterion 5 — the duty, held through the admin role, and only it
 -- ---------------------------------------------------------------------------
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select * from privacy.apply_legal_hold(
-    '019ae000-0000-7000-8000-000000000004', '019ae000-0000-7000-8000-000000000025',
+    '019ae000-0000-7000-8000-000000000008', '019ae000-0000-7000-8000-000000000028',
     'Mediciones de la persona en el expediente 2026-114', 'judicial_order',
     'JUZGADO-2026-114', clock_timestamp() + interval '90 days',
     '019ae000-0000-7000-8000-000000000005', array['body'],
@@ -175,9 +183,10 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the platform administrator role alone cannot suspend a disposition'
+  'a Backoffice session without the admin role cannot suspend a disposition'
 );
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019ae000-0000-7000-8000-000000000001', '019ae000-0000-7000-8000-000000000021',
   '019ae000-0000-7000-8000-000000000003', 'manage_privacy_requests',

@@ -154,7 +154,7 @@ describe('support metadata presentation rules', () => {
   })
 
   test('explains a refusal as an expired duty rather than a mistake', () => {
-    expect(supportMetadataMessage('forbidden')).toContain('vencen por diseño')
+    expect(supportMetadataMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(supportMetadataMessage('not-found')).toContain('ninguna persona')
     expect(supportMetadataMessage('anything-else')).toBe(
       'No se pudo leer la información de soporte.',

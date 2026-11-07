@@ -5,7 +5,8 @@
 -- led nowhere: a person's payments opened only for somebody whose identifier was
 -- already known. This is the list the count stands for.
 --
--- **It names payers, so it is a billing read.** `view_billing_metadata` and a traceable
+-- **It names payers, so it is a billing read.** `view_billing_metadata` (every admin holds
+-- it through the role, ADR-046; a session without the role does not) and a traceable
 -- case, as for one person's payments (`HU-BO-020` c4), and one access record per person
 -- listed, written before the list travels.
 --
@@ -25,7 +26,7 @@ values
   ('019b4000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019b4000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019b4000-0000-7000-8000-000000000003', 'Billing', 'Gamma', 'active'),
-  ('019b4000-0000-7000-8000-000000000004', 'Support', 'Delta', 'active'),
+  ('019b4000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active'),
   ('019b4000-0000-7000-8000-000000000011', 'Suscripcion', 'Suspendida', 'active'),
   ('019b4000-0000-7000-8000-000000000012', 'En', 'Gracia', 'active'),
   ('019b4000-0000-7000-8000-000000000013', 'Cobro', 'Fallido', 'active'),
@@ -71,11 +72,11 @@ select support.assign_platform_role(
 )
 from (values
   ('019b4000-0000-7000-8000-000000000003'::uuid, '019b4000-0000-7000-8000-000000000103'::uuid,
-    '019b4000-0000-7000-8000-000000000203'::uuid, '73'),
-  ('019b4000-0000-7000-8000-000000000004'::uuid, '019b4000-0000-7000-8000-000000000104'::uuid,
-    '019b4000-0000-7000-8000-000000000204'::uuid, '74')
+    '019b4000-0000-7000-8000-000000000203'::uuid, '73')
 ) as role_row(person_id, key, command, hash_byte);
 
+-- Delta keeps a live Backoffice session and is never granted the role.
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b4000-0000-7000-8000-000000000001', '019b4000-0000-7000-8000-000000000041',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -84,10 +85,7 @@ select support.assign_platform_duty(
 from (values
   ('019b4000-0000-7000-8000-000000000003'::uuid, 'view_billing_metadata',
     '019b4000-0000-7000-8000-000000000113'::uuid, '019b4000-0000-7000-8000-000000000213'::uuid,
-    '83'),
-  ('019b4000-0000-7000-8000-000000000004'::uuid, 'diagnose_support_metadata',
-    '019b4000-0000-7000-8000-000000000114'::uuid, '019b4000-0000-7000-8000-000000000214'::uuid,
-    '84')
+    '83')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
 
 insert into payments.platform_plans (
@@ -96,7 +94,8 @@ insert into payments.platform_plans (
 select '019b4000-0000-7000-8000-000000000301', 'pro', 'Pro', 'paid', 'published',
   '019b4000-0000-7000-8000-000000000001', duty.id
 from support.platform_duty_assignments as duty
-where duty.person_id = '019b4000-0000-7000-8000-000000000003';
+where duty.person_id = '019b4000-0000-7000-8000-000000000003'
+  and duty.duty_code = 'view_billing_metadata';
 
 insert into payments.platform_plan_versions (
   id, platform_plan_id, plan_kind, version_number, amount_minor, currency_code,
@@ -108,7 +107,8 @@ select '019b4000-0000-7000-8000-000000000302', '019b4000-0000-7000-8000-00000000
   '019b4000-0000-7000-8000-000000000001', duty.id,
   '019b4000-0000-7000-8000-000000000002', duty.id, clock_timestamp()
 from support.platform_duty_assignments as duty
-where duty.person_id = '019b4000-0000-7000-8000-000000000003';
+where duty.person_id = '019b4000-0000-7000-8000-000000000003'
+  and duty.duty_code = 'view_billing_metadata';
 
 insert into payments.platform_store_products (store, product_id, platform_plan_version_id)
 values ('google_play', 'allfit.pro.monthly.fu', '019b4000-0000-7000-8000-000000000302');
@@ -151,7 +151,7 @@ values
     clock_timestamp() - interval '2 days');
 
 -- ---------------------------------------------------------------------------
--- A billing read, and nothing else stands in for it
+-- A billing read, refused to a session without the admin role
 -- ---------------------------------------------------------------------------
 
 select set_config('app.actor_kind', 'support', true),
@@ -163,7 +163,7 @@ select throws_ok(
     'CASE-2026-FU', 50
   ) $$,
   '42501', null,
-  'the support duty does not open who fails to pay'
+  'a Backoffice session without the admin role does not open who fails to pay'
 );
 
 select set_config('app.actor_person_id', '019b4000-0000-7000-8000-000000000003', true);

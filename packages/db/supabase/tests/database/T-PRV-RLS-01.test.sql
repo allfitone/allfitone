@@ -17,7 +17,7 @@ values
   ('019a7000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019a7000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019a7000-0000-7000-8000-000000000003', 'Curator', 'Gamma', 'active'),
-  ('019a7000-0000-7000-8000-000000000004', 'Badged', 'Delta', 'active'),
+  ('019a7000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active'),
   ('019a7000-0000-7000-8000-000000000005', 'Reader', 'Epsilon', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
@@ -59,12 +59,8 @@ select support.assign_platform_role(
   '019a7000-0000-7000-8000-000000000101', '019a7000-0000-7000-8000-000000000201',
   decode(repeat('51', 32), 'hex')
 );
-select support.assign_platform_role(
-  '019a7000-0000-7000-8000-000000000001', '019a7000-0000-7000-8000-000000000021',
-  '019a7000-0000-7000-8000-000000000004', 'allfit_admin',
-  '019a7000-0000-7000-8000-000000000102', '019a7000-0000-7000-8000-000000000202',
-  decode(repeat('52', 32), 'hex')
-);
+-- Delta keeps a Backoffice session but never the role: the refusal ADR-046 leaves.
+-- Gamma's grant converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a7000-0000-7000-8000-000000000001', '019a7000-0000-7000-8000-000000000021',
   '019a7000-0000-7000-8000-000000000003', 'curate_global_catalog',
@@ -79,8 +75,10 @@ select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019a7000-0000-7000-8000-000000000003', true);
 
 -- ---------------------------------------------------------------------------
--- Criterion 4 — the curation duty is the control
+-- Criterion 4 — the curation duty, held through the admin role, is the control
 -- ---------------------------------------------------------------------------
+
+select set_config('app.actor_person_id', '019a7000-0000-7000-8000-000000000004', true);
 
 select throws_ok(
   $$ select * from privacy.publish_scope_definition(
@@ -92,8 +90,10 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone cannot publish a permission definition'
+  'a Backoffice session without the admin role cannot publish a permission definition'
 );
+
+select set_config('app.actor_person_id', '019a7000-0000-7000-8000-000000000003', true);
 
 select is(
   (select count(*) from privacy.scope_definitions)::integer,
@@ -285,13 +285,15 @@ select is(
   'the curator reads what is published, newest version of each scope first'
 );
 
+select set_config('app.actor_person_id', '019a7000-0000-7000-8000-000000000004', true);
+
 select throws_ok(
   $$ select * from privacy.list_scope_definitions(
     '019a7000-0000-7000-8000-000000000004', '019a7000-0000-7000-8000-000000000024'
   ) $$,
   '42501',
   null,
-  'reading the published definitions still needs the curation duty'
+  'reading the published definitions still needs the admin role and its curation duty'
 );
 
 -- ---------------------------------------------------------------------------

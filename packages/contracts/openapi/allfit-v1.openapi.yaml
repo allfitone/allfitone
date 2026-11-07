@@ -579,7 +579,9 @@ paths:
       summary: Grant a closed-catalogue platform duty for at most ninety days
       description: >-
         The actor mode is derived from the duty code and never accepted from the
-        client. The target must already hold an active base role.
+        client. The target must already hold an active base role. Since ADR-046 that
+        role brings every duty, so granting one an administrator already holds answers
+        with the assignment in force (`basis: admin_role`) and adds no row.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -17236,6 +17238,7 @@ components:
         - duty_code
         - actor_mode
         - status
+        - basis
         - valid_from
         - valid_to
         - required_aal
@@ -17259,6 +17262,14 @@ components:
         status:
           type: string
           enum: [scheduled, active, suspended, expired, revoked]
+        basis:
+          type: string
+          enum: [granted, admin_role]
+          description: >-
+            `granted`: granted by another administrator for at most ninety days.
+            `admin_role`: brought by the `allfit_admin` role (ADR-046); it has no end of its
+            own, is never suspended, revoked or recertified alone, and ends when the role is
+            withdrawn.
         valid_from:
           type: string
           format: date-time

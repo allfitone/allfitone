@@ -29,10 +29,10 @@ values
   ('019aa000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019aa000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019aa000-0000-7000-8000-000000000003', 'Verifier', 'Gamma', 'active'),
-  ('019aa000-0000-7000-8000-000000000004', 'Curator', 'Delta', 'active'),
+  ('019aa000-0000-7000-8000-000000000004', 'Former', 'Delta', 'active'),
   ('019aa000-0000-7000-8000-000000000005', 'Professional', 'Epsilon', 'active'),
   ('019aa000-0000-7000-8000-000000000006', 'Colleague', 'Zeta', 'active'),
-  ('019aa000-0000-7000-8000-000000000007', 'Badged', 'Eta', 'active');
+  ('019aa000-0000-7000-8000-000000000007', 'Outsider', 'Eta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -85,7 +85,8 @@ insert into identity.access_sessions (
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
--- Every team member here holds the base role. What differs is the duty.
+-- Every admin holds every duty (ADR-046), so what refuses is the role: Eta has a Backoffice
+-- session and never held it, and Delta's is withdrawn before the queue opens.
 select support.assign_platform_role(
   '019aa000-0000-7000-8000-000000000001', '019aa000-0000-7000-8000-000000000021',
   person_id, 'allfit_admin', key, command, decode(repeat(hash_byte, 32), 'hex')
@@ -98,13 +99,12 @@ from (values
   ('019aa000-0000-7000-8000-000000000005'::uuid, '019aa000-0000-7000-8000-000000000105'::uuid,
     '019aa000-0000-7000-8000-000000000205'::uuid, '65'),
   ('019aa000-0000-7000-8000-000000000006'::uuid, '019aa000-0000-7000-8000-000000000106'::uuid,
-    '019aa000-0000-7000-8000-000000000206'::uuid, '66'),
-  ('019aa000-0000-7000-8000-000000000007'::uuid, '019aa000-0000-7000-8000-000000000107'::uuid,
-    '019aa000-0000-7000-8000-000000000207'::uuid, '67')
+    '019aa000-0000-7000-8000-000000000206'::uuid, '66')
 ) as grant_row(person_id, key, command, hash_byte);
 
 -- The holder also works at Allfit and holds the verification duty, so the only
 -- thing stopping them from verifying their own credential is the conflict rule.
+-- Converges onto the duties the role already brings.
 select support.assign_platform_duty(
   '019aa000-0000-7000-8000-000000000001', '019aa000-0000-7000-8000-000000000021',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -113,8 +113,6 @@ select support.assign_platform_duty(
 from (values
   ('019aa000-0000-7000-8000-000000000003'::uuid, 'verify_professional_credentials',
     '019aa000-0000-7000-8000-000000000113'::uuid, '019aa000-0000-7000-8000-000000000213'::uuid, '73'),
-  ('019aa000-0000-7000-8000-000000000004'::uuid, 'curate_global_catalog',
-    '019aa000-0000-7000-8000-000000000114'::uuid, '019aa000-0000-7000-8000-000000000214'::uuid, '74'),
   ('019aa000-0000-7000-8000-000000000005'::uuid, 'verify_professional_credentials',
     '019aa000-0000-7000-8000-000000000115'::uuid, '019aa000-0000-7000-8000-000000000215'::uuid, '75'),
   ('019aa000-0000-7000-8000-000000000006'::uuid, 'verify_professional_credentials',
@@ -205,7 +203,15 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone cannot open the verification queue'
+  'a Backoffice session without the admin role cannot open the verification queue'
+);
+
+select support.revoke_platform_role(
+  '019aa000-0000-7000-8000-000000000001', '019aa000-0000-7000-8000-000000000021',
+  (select id from support.platform_role_assignments
+    where person_id = '019aa000-0000-7000-8000-000000000004' and status = 'active'),
+  '019aa000-0000-7000-8000-000000000124', '019aa000-0000-7000-8000-000000000224',
+  decode(repeat('a4', 32), 'hex')
 );
 
 select set_config('app.actor_person_id', '019aa000-0000-7000-8000-000000000004', true);
@@ -216,7 +222,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the catalogue curation duty does not stand in for verification'
+  'nor does the session of an admin whose role was withdrawn, with every duty it brought'
 );
 
 -- ---------------------------------------------------------------------------

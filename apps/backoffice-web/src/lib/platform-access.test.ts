@@ -2,20 +2,17 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   actorModeLabel,
-  DEFAULT_DUTY_DAYS,
-  MAX_DUTY_DAYS,
   PLATFORM_DUTY_CODES,
-  dutyExpiryFromDays,
   dutyLabel,
   dutyStatusLabel,
   dutyStatusTone,
+  dutyWindowLabel,
   formatInstant,
   isDutyClosed,
+  isHeldThroughRole,
   canRecertify,
   DUTY_STATUS_FILTERS,
-  isValidDutyDays,
   isValidPersonId,
-  isValidReasonCode,
   platformAccessMessage,
   roleStatusLabel,
   shortIdentifier,
@@ -92,32 +89,20 @@ describe('platform access presentation rules', () => {
     expect(formatInstant('2026-09-06T12:00:00.000Z')).not.toBe('—')
   })
 
-  test('keeps a proposed duty window inside the ninety-day bound', () => {
-    const now = new Date('2026-09-06T12:00:00.000Z')
-    expect(DEFAULT_DUTY_DAYS).toBeLessThan(MAX_DUTY_DAYS)
-    expect(dutyExpiryFromDays(DEFAULT_DUTY_DAYS, now)).toBe('2026-10-06T12:00:00.000Z')
-    // A caller asking for more than the rules allow is clamped, not obeyed.
-    expect(dutyExpiryFromDays(365, now)).toBe(
-      new Date(now.getTime() + MAX_DUTY_DAYS * 86_400_000).toISOString(),
+  test('a duty the admin role brings has no end of its own and follows the role (ADR-046)', () => {
+    const standing = {
+      basis: 'admin_role' as const,
+      valid_from: '2026-11-07T12:00:00.000Z',
+      valid_to: '9999-12-31T00:00:00.000Z',
+    }
+    const granted = { ...standing, basis: 'granted' as const, valid_to: '2026-12-07T12:00:00.000Z' }
+    expect(isHeldThroughRole(standing)).toBe(true)
+    expect(isHeldThroughRole(granted)).toBe(false)
+    // The far date is storage, not a date anyone should read.
+    expect(dutyWindowLabel(standing)).toBe('Permanente · rol admin')
+    expect(dutyWindowLabel(granted)).toBe(
+      `${formatInstant(granted.valid_from)} → ${formatInstant(granted.valid_to)}`,
     )
-    expect(dutyExpiryFromDays(0, now)).toBe(new Date(now.getTime() + 86_400_000).toISOString())
-  })
-
-  test('rejects a duty length outside the bound before sending it', () => {
-    expect(isValidDutyDays(1)).toBe(true)
-    expect(isValidDutyDays(90)).toBe(true)
-    expect(isValidDutyDays(91)).toBe(false)
-    expect(isValidDutyDays(0)).toBe(false)
-    expect(isValidDutyDays(1.5)).toBe(false)
-  })
-
-  test('accepts an operational reference and refuses free narrative', () => {
-    expect(isValidReasonCode('CASE-2026-014')).toBe(true)
-    expect(isValidReasonCode('incidente 42')).toBe(true)
-    expect(isValidReasonCode('')).toBe(false)
-    expect(isValidReasonCode(' leading space')).toBe(false)
-    expect(isValidReasonCode('porque Ada lo pidió <script>')).toBe(false)
-    expect(isValidReasonCode('x'.repeat(121))).toBe(false)
   })
 
   test('accepts only a well formed person identifier', () => {
@@ -126,10 +111,12 @@ describe('platform access presentation rules', () => {
   })
 
   test('explains a refused command without blaming the request', () => {
-    expect(platformAccessMessage('forbidden')).toContain('deber vigente')
-    // A self-assignment is refused with the same code; the message must not blame expiry alone.
+    // An admin holds every duty, so a refusal is an order about oneself or a withdrawn role.
     expect(platformAccessMessage('forbidden')).toContain('a sí mismo')
+    expect(platformAccessMessage('forbidden')).toContain('rol de administrador')
+    expect(platformAccessMessage('forbidden')).not.toContain('deber vigente')
     expect(platformAccessMessage('conflict')).toContain('último administrador')
+    expect(platformAccessMessage('conflict')).toContain('llega con el rol')
     expect(platformAccessMessage('unauthenticated')).toContain('sesión')
     expect(platformAccessMessage('something-new')).toBe('No se pudo completar la operación.')
   })

@@ -655,7 +655,7 @@ describe('break-glass presentation rules', () => {
   test('answers the state machine with the next action, never a retry', () => {
     expect(breakGlassMessage('conflict')).toContain('pide otra')
     expect(breakGlassMessage('conflict')).toContain('no se reabre')
-    expect(breakGlassMessage('forbidden')).toContain('vencen por diseño')
+    expect(breakGlassMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(breakGlassMessage('anything-else')).toBe('No se pudo completar la operación.')
   })
 })

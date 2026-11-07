@@ -186,7 +186,7 @@ export function isValidOperationIdentifier(value: string): boolean {
 export function supportDiagnosisMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber de diagnóstico de soporte. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber de diagnóstico de soporte. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'invalid-request': 'Uno de los filtros no es válido. Vuelve a cargar la página.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
     'upstream-unavailable': 'El servicio no respondió. Reintenta en un momento.',

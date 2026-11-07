@@ -250,7 +250,7 @@ test('a withdrawn verification duty is explained as expiry by design', async ({
   await page.goto(PATH)
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
   // Reading decides nothing: the refusal names the duty to ask for, not a decision.
   await expect(page.getByText(/«Verificar credenciales profesionales»/)).toBeVisible()
   await expect(page.getByText(/No puedes decidir/)).toHaveCount(0)

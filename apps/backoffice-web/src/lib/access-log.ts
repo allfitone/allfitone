@@ -183,7 +183,7 @@ export function hasWithheld(page: AccessEventPage): boolean {
 export function accessLogMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber de auditoría que esta consulta exige. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber de auditoría que esta consulta exige. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'invalid-request':
       'Alguno de los filtros no se pudo leer. Se rechaza en vez de ignorarlo, porque ignorarlo ampliaría la consulta.',
     'validation-failed': 'La consulta no cumple el contrato. Revisa los identificadores y fechas.',

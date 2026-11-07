@@ -70,7 +70,8 @@ insert into identity.access_sessions (
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
--- Four people with the base role; the duties are what separate them.
+-- Three people get the base role, which brings every duty (ADR-046); Eta keeps an AAL2
+-- Backoffice session without it.
 select support.assign_platform_role(
   '019a8000-0000-7000-8000-000000000001', '019a8000-0000-7000-8000-000000000021',
   person_id, 'allfit_admin',
@@ -81,10 +82,10 @@ select support.assign_platform_role(
 from (values
   ('019a8000-0000-7000-8000-000000000003'::uuid),
   ('019a8000-0000-7000-8000-000000000004'::uuid),
-  ('019a8000-0000-7000-8000-000000000005'::uuid),
-  ('019a8000-0000-7000-8000-000000000007'::uuid)
+  ('019a8000-0000-7000-8000-000000000005'::uuid)
 ) as candidates(person_id);
 
+-- Each grant converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a8000-0000-7000-8000-000000000001', '019a8000-0000-7000-8000-000000000021',
   '019a8000-0000-7000-8000-000000000003', 'request_break_glass',
@@ -124,7 +125,7 @@ select throws_ok(
   ) $$,
   '42501',
   'this break-glass operation requires an effective duty',
-  'the base role alone cannot request a window'
+  'a Backoffice session without the admin role cannot request a window'
 );
 
 select throws_ok(
@@ -259,8 +260,8 @@ select throws_ok(
     decode(repeat('99', 32), 'hex')
   ) $$,
   '42501',
-  'this break-glass operation requires an effective duty',
-  'the requester holds no approving duty, so cannot approve at all'
+  'a break-glass request is never approved by the person who asked for it',
+  'the requester holds the approving duty through the role, and still never approves their own'
 );
 
 -- ---------------------------------------------------------------------------
@@ -687,11 +688,12 @@ select support.decide_break_glass(
   decode(repeat('b3', 32), 'hex')
 );
 
-select support.revoke_platform_duty(
+-- An admin's request_break_glass follows the role (ADR-046), so the command that
+-- withdraws it is withdrawing the role.
+select support.revoke_platform_role(
   '019a8000-0000-7000-8000-000000000001', '019a8000-0000-7000-8000-000000000021',
-  (select id from support.platform_duty_assignments
-   where person_id = '019a8000-0000-7000-8000-000000000003'
-     and duty_code = 'request_break_glass'),
+  (select id from support.platform_role_assignments
+   where person_id = '019a8000-0000-7000-8000-000000000003' and status = 'active'),
   '11111111-1111-4111-8111-111111111222', '019a8000-0000-7000-8000-000000000322',
   decode(repeat('b4', 32), 'hex')
 );
@@ -699,7 +701,7 @@ select support.revoke_platform_duty(
 select is(
   (select status from support.break_glass_requests where case_reference = 'CASE-2026-005'),
   'closed',
-  'revoking request_break_glass closes the window in the same transaction'
+  'withdrawing the role, and request_break_glass with it, closes the window in the same transaction'
 );
 
 select is(

@@ -11,6 +11,7 @@ import {
   type BackofficeAuthenticationService,
 } from '../application/backoffice.js'
 import { backofficeAuthenticationService, trustedBackofficeWebUrl } from '../dependencies.js'
+import { BACKOFFICE_SESSION_LIFETIME_SECONDS } from '../domain/index.js'
 
 export const BACKOFFICE_ATTEMPT_COOKIE = 'allfit_backoffice_auth_attempt'
 export const BACKOFFICE_SESSION_COOKIE = 'allfit_backoffice_session'
@@ -18,7 +19,6 @@ export const BACKOFFICE_SESSION_COOKIE = 'allfit_backoffice_session'
 export const BACKOFFICE_ATTEMPT_COOKIE_PATH = '/backoffice/v1/auth'
 export const BACKOFFICE_SESSION_COOKIE_PATH = '/backoffice/v1'
 const ATTEMPT_TTL_SECONDS = 10 * 60
-const SESSION_TTL_SECONDS = 8 * 60 * 60
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -223,6 +223,6 @@ function sessionCookieOptions() {
     sameSite: 'Strict' as const,
     secure: process.env.NODE_ENV === 'production',
     path: BACKOFFICE_SESSION_COOKIE_PATH,
-    maxAge: SESSION_TTL_SECONDS,
+    maxAge: BACKOFFICE_SESSION_LIFETIME_SECONDS,
   }
 }

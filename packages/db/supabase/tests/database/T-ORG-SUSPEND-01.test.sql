@@ -28,7 +28,7 @@ values
   ('019af000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019af000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019af000-0000-7000-8000-000000000003', 'Lifecycle', 'Gamma', 'active'),
-  ('019af000-0000-7000-8000-000000000004', 'Badged', 'Delta', 'active'),
+  ('019af000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active'),
   ('019af000-0000-7000-8000-000000000006', 'Owner', 'Zeta', 'active'),
   ('019af000-0000-7000-8000-000000000008', 'Client', 'Theta', 'active'),
   ('019af000-0000-7000-8000-000000000009', 'Client', 'Iota', 'active'),
@@ -73,13 +73,11 @@ select support.assign_platform_role(
 )
 from (values
   ('019af000-0000-7000-8000-000000000003'::uuid, '019af000-0000-7000-8000-000000000103'::uuid,
-    '019af000-0000-7000-8000-000000000203'::uuid, 'c3'),
-  ('019af000-0000-7000-8000-000000000004'::uuid, '019af000-0000-7000-8000-000000000104'::uuid,
-    '019af000-0000-7000-8000-000000000204'::uuid, 'c4')
+    '019af000-0000-7000-8000-000000000203'::uuid, 'c3')
 ) as grant_row(person_id, key, command, hash_byte);
 
--- Only Gamma may stop a gym. Delta carries the base role and no duty at all, which is
--- what the first assertion is for.
+-- Every admin holds every duty (ADR-046). Delta has a live Backoffice session and never
+-- the role, which is what the first assertion is for. Gamma's grant converges.
 select support.assign_platform_duty(
   '019af000-0000-7000-8000-000000000001', '019af000-0000-7000-8000-000000000041',
   '019af000-0000-7000-8000-000000000003', 'manage_organization_lifecycle',
@@ -88,8 +86,8 @@ select support.assign_platform_duty(
   decode(repeat('e3', 32), 'hex')
 );
 
--- Publishing a plan version needs two signatures. Beta supplies the second one and
--- holds nothing that touches an organization, so the duty assertions are unaffected.
+-- Publishing a plan version needs two signatures; Beta supplies the second one.
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019af000-0000-7000-8000-000000000001', '019af000-0000-7000-8000-000000000041',
   '019af000-0000-7000-8000-000000000002', 'manage_platform_commercial',
@@ -137,7 +135,8 @@ insert into payments.platform_plans (
 select '019af000-0000-7000-8000-000000000401', 'pro', 'Pro', 'paid', 'published',
   '019af000-0000-7000-8000-000000000003', duty.id
 from support.platform_duty_assignments as duty
-where duty.person_id = '019af000-0000-7000-8000-000000000003';
+where duty.person_id = '019af000-0000-7000-8000-000000000003'
+  and duty.duty_code = 'manage_organization_lifecycle';
 
 insert into payments.platform_plan_versions (
   id, platform_plan_id, plan_kind, version_number, amount_minor, currency_code,
@@ -148,10 +147,12 @@ values ('019af000-0000-7000-8000-000000000402', '019af000-0000-7000-8000-0000000
   'paid', 1, 1990000, 'COP', 'month', 'published',
   '019af000-0000-7000-8000-000000000002',
   (select id from support.platform_duty_assignments
-    where person_id = '019af000-0000-7000-8000-000000000002' limit 1),
+    where person_id = '019af000-0000-7000-8000-000000000002'
+      and duty_code = 'manage_platform_commercial'),
   '019af000-0000-7000-8000-000000000003',
   (select id from support.platform_duty_assignments
-    where person_id = '019af000-0000-7000-8000-000000000003' limit 1),
+    where person_id = '019af000-0000-7000-8000-000000000003'
+      and duty_code = 'manage_organization_lifecycle'),
   clock_timestamp());
 
 select set_config('app.actor_kind', 'support', true),
@@ -171,7 +172,7 @@ select throws_ok(
   ) $$,
   '42501',
   'managing the organization lifecycle requires an effective duty',
-  'the base role alone does not stop a gym'
+  'a Backoffice session without the admin role does not stop a gym'
 );
 
 select throws_ok(
@@ -519,7 +520,7 @@ select is(
   (select count(*)::integer from planning.service_access_blocks
    where organization_id = '019af000-0000-7000-8000-000000000301'),
   0,
-  'and somebody of Allfit without that duty reads none of them'
+  'and a Backoffice session without the admin role reads none of them'
 );
 
 reset role;

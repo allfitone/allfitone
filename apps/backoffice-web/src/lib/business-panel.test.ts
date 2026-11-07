@@ -300,7 +300,7 @@ describe('business panel presentation', () => {
 
   test('a refusal explains the duty rather than blaming the operator', () => {
     expect(businessMessage('forbidden')).toContain('view_platform_metrics')
-    expect(businessMessage('forbidden')).toContain('vencen por diseño')
+    expect(businessMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(businessMessage('network-unavailable')).toBe('No hay conexión con el API.')
     expect(businessMessage('anything-else')).toBe('No se pudo leer cómo va el negocio.')
   })
