@@ -30,9 +30,7 @@ export const en: Dictionary = {
     lead: 'Your programme, every set and what you eat, in one app. If you change gyms, your history comes with you.',
     todayAlt: "Allfit Space Today screen: the day's Pull session and the week at a glance.",
     programAlt: 'Upper and lower programme detail: 10 weeks, 4 days a week and its sessions.',
-    scroll: 'Scroll',
   },
-  ticker: ['Strength', 'Hypertrophy', 'Running', 'Nutrition', 'Records', 'Consistency'],
   features: {
     title: ['FROM THE FIRST SET', 'TO THE LAST BITE.'],
     cards: [

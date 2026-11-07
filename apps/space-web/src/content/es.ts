@@ -36,9 +36,7 @@ export const es = {
     todayAlt: 'Pantalla Hoy de Allfit Space: la sesión de Tirón del día y el resumen de la semana.',
     programAlt:
       'Detalle del programa Torso y pierna: 10 semanas, 4 días por semana y sus sesiones.',
-    scroll: 'Desliza',
   },
-  ticker: ['Fuerza', 'Hipertrofia', 'Carrera', 'Nutrición', 'Récords', 'Constancia'],
   features: {
     title: ['DEL PRIMER SET', 'AL ÚLTIMO BOCADO.'],
     cards: [

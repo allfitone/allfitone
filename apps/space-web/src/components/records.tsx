@@ -89,26 +89,18 @@ export function Records({ copy }: { copy: Dictionary['records'] }) {
         <div className="records__veil" />
         <div className="wrap records__grid">
           <div className="records__copy">
-            <Title
-              id="records-title"
-              lines={copy.title}
-              tones={['solid', 'ghost', 'cyan']}
-              size="xl"
-            />
-            <p className="lead" data-reveal="">
-              {copy.lead}
-            </p>
-            <ol className="steps" data-reveal="">
+            <Title id="records-title" lines={copy.title} size="xl" />
+            <p className="lead">{copy.lead}</p>
+            <ol className="steps">
               {copy.steps.map((item, index) => (
                 <li key={item.verb} className="step" data-active={String(index === step)}>
-                  <span className="step__num">0{index + 1}</span>
                   <span className="step__verb">{item.verb}</span>
                   <span className="step__text">{item.text}</span>
                 </li>
               ))}
             </ol>
           </div>
-          <div className="records__stage" data-reveal="">
+          <div className="records__stage">
             <figure className="story" data-step={step} aria-label={copy.editor.label}>
               <Phone>
                 <span className="story__close" aria-hidden="true">

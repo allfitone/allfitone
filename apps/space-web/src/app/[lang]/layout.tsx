@@ -72,7 +72,6 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
         <a className="skip" href="#contenido">
           {copy.nav.skip}
         </a>
-        <div className="progress" aria-hidden="true" />
         {children}
         <Motion />
       </body>
