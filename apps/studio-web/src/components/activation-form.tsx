@@ -33,6 +33,7 @@ import { useState, type FormEvent } from 'react'
 
 import { StudioFrame } from './studio-frame'
 import { createCommandIntentManager } from '@/lib/command-intent'
+import { LEGAL_URLS } from '@/lib/legal'
 import {
   StudioApiError,
   newCommand,
@@ -223,7 +224,19 @@ export function ActivationForm({
                     onCheckedChange={(checked) => setTerms(checked === true)}
                   />
                   <FieldLabel htmlFor="terms-confirmation">
-                    Acepto los Términos de la plataforma.
+                    <span>
+                      Acepto los{' '}
+                      <a
+                        data-legal-link
+                        href={LEGAL_URLS.terms}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Términos y condiciones (se abre en una pestaña nueva)"
+                      >
+                        Términos y condiciones
+                      </a>
+                      .
+                    </span>
                   </FieldLabel>
                 </Field>
                 <Field orientation="horizontal">
@@ -233,7 +246,19 @@ export function ActivationForm({
                     onCheckedChange={(checked) => setPrivacy(checked === true)}
                   />
                   <FieldLabel htmlFor="privacy-confirmation">
-                    Acepto el Aviso de privacidad.
+                    <span>
+                      Acepto la{' '}
+                      <a
+                        data-legal-link
+                        href={LEGAL_URLS.privacy}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="Política de privacidad (se abre en una pestaña nueva)"
+                      >
+                        Política de privacidad
+                      </a>
+                      .
+                    </span>
                   </FieldLabel>
                 </Field>
               </FieldSet>

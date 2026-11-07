@@ -4,9 +4,8 @@ import { LOCALES } from '@/lib/locale'
 import { alternates, shareImage } from '@/lib/site'
 
 /**
- * Only the landing is listed. The privacy policy and the terms are drafts under
- * legal review that still carry placeholders, so they stay out of search until
- * they are final; see `LEGAL_ROBOTS`.
+ * The landing is the site's only page. The legal documents live on
+ * www.allfit.one, whose own sitemap lists them.
  */
 const LANDING_UPDATED = new Date('2026-11-04')
 

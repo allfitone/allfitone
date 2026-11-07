@@ -16,10 +16,6 @@ const VIEWPORTS = [
 const PAGES = [
   { path: '/es', heading: /ENTRENA/ },
   { path: '/en', heading: /TRAIN/ },
-  { path: '/es/privacy', heading: /Política de tratamiento/ },
-  { path: '/en/privacy', heading: /Personal data processing/ },
-  { path: '/es/terms', heading: /Términos y condiciones/ },
-  { path: '/en/terms', heading: /Terms and conditions/ },
 ]
 
 test.describe('language', () => {
@@ -33,12 +29,12 @@ test.describe('language', () => {
     }
   })
 
-  test('a page without a language opens in Spanish and keeps its path', async ({ browser }) => {
-    const context = await browser.newContext({ locale: 'en-US' })
-    const page = await context.newPage()
-    await page.goto('/privacy')
-    await expect(page).toHaveURL(/\/es\/privacy$/)
-    await context.close()
+  test('a page without a language opens in Spanish and keeps its path', async ({ request }) => {
+    const response = await request.get('/programs', {
+      headers: { 'accept-language': 'en-US' },
+      maxRedirects: 0,
+    })
+    expect(response.headers().location).toMatch(/\/es\/programs$/)
   })
 
   test('a language the site does not have is not found', async ({ page }) => {
@@ -47,9 +43,9 @@ test.describe('language', () => {
   })
 
   test('the switch keeps the visitor on the same page', async ({ page }) => {
-    await page.goto('/es/terms')
+    await page.goto('/es')
     await page.getByRole('link', { name: 'EN', exact: true }).click()
-    await expect(page).toHaveURL(/\/en\/terms$/)
+    await expect(page).toHaveURL(/\/en$/)
   })
 })
 
@@ -59,9 +55,31 @@ test('the stores read as coming soon while there is no link', async ({ page }) =
   await expect(page.getByRole('link', { name: /App Store|Google Play/ })).toHaveCount(0)
 })
 
-test('the legal pages say they are drafts', async ({ page }) => {
-  await page.goto('/es/privacy')
-  await expect(page.getByText('Versión preliminar')).toBeVisible()
+test.describe('legal documents', () => {
+  test('the footer links the terms and the privacy policy on www.allfit.one', async ({ page }) => {
+    await page.goto('/en')
+    const footer = page.getByRole('contentinfo')
+    await expect(footer.getByRole('link', { name: 'Terms', exact: true })).toHaveAttribute(
+      'href',
+      'https://www.allfit.one/en/legal/terms',
+    )
+    await expect(footer.getByRole('link', { name: 'Privacy', exact: true })).toHaveAttribute(
+      'href',
+      'https://www.allfit.one/en/legal/privacy',
+    )
+  })
+
+  test('the former legal pages redirect there for good', async ({ request }) => {
+    for (const [from, to] of [
+      ['/es/terms', 'https://www.allfit.one/es/legal/terms'],
+      ['/en/privacy', 'https://www.allfit.one/en/legal/privacy'],
+      ['/privacy', 'https://www.allfit.one/es/legal/privacy'],
+    ] as const) {
+      const response = await request.get(from, { maxRedirects: 0 })
+      expect(response.status(), from).toBe(308)
+      expect(response.headers().location).toBe(to)
+    }
+  })
 })
 
 test.describe('search engines', () => {
@@ -89,17 +107,6 @@ test.describe('search engines', () => {
       url: `${SITE}/en`,
       publisher: { '@id': 'https://www.allfit.one/#organization' },
     })
-  })
-
-  test('a legal draft shares its own title but stays out of the index', async ({ request }) => {
-    const html = await (await request.get('/en/terms')).text()
-
-    expect(html).toContain('<meta name="robots" content="noindex, follow"/>')
-    expect(html).toContain(`<link rel="canonical" href="${SITE}/en/terms"/>`)
-    expect(html).toContain(`<meta property="og:url" content="${SITE}/en/terms"/>`)
-    expect(html).toContain(
-      '<meta property="og:title" content="Terms and conditions · Allfit Space"/>',
-    )
   })
 
   test('robots.txt and the sitemap point at the landing only', async ({ request }) => {
