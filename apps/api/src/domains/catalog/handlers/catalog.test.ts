@@ -156,7 +156,7 @@ describe('Global catalogue surface', () => {
       .filter((route) => !route.startsWith('ALL '))
       .sort()
 
-    expect(contract).toHaveLength(4)
+    expect(contract).toHaveLength(6)
     expect(mounted).toEqual(contract)
   })
 
@@ -175,6 +175,8 @@ describe('Global catalogue surface', () => {
       'GET /backoffice/v1/catalog/activity-types/:activityTypeId/result-contracts',
     )
     expect(mounted).toContain('GET /studio/v1/catalog/information-categories')
+    expect(mounted).toContain('GET /studio/v1/catalog/disciplines')
+    expect(mounted).toContain('GET /studio/v1/catalog/activity-types')
     expect(mounted.filter((route) => route.startsWith('GET /catalog/v1/')).sort()).toEqual([
       'GET /catalog/v1/equipment',
       'GET /catalog/v1/movements',
@@ -395,6 +397,65 @@ describe('Global catalogue surface', () => {
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.not.toEqual({ items: [] })
+    expect(readers).toEqual([])
+  })
+
+  /*
+   * `OP-CAT-007`, `OP-CAT-008`, `HU-STUDIO-036`. A template names a discipline and a
+   * draft an activity type; without these reads a member could only guess the codes.
+   */
+  test('T-CAT-API-29 serves disciplines and activity types to a member of a gym', async () => {
+    const disciplines = await routes().fetch(request(`${STUDIO_CATALOG}/disciplines`))
+    expect(disciplines.status).toBe(200)
+    expect(disciplines.headers.get('cache-control')).toBe('private, no-store')
+    await expect(disciplines.json()).resolves.toEqual({ items: [discipline] })
+
+    const types = await routes().fetch(request(`${STUDIO_CATALOG}/activity-types`))
+    expect(types.status).toBe(200)
+    expect(types.headers.get('cache-control')).toBe('private, no-store')
+    await expect(types.json()).resolves.toEqual({ items: [activityType] })
+
+    expect(readers).toEqual([
+      { personId: PERSON_ID, actorKind: 'person' },
+      { personId: PERSON_ID, actorKind: 'person' },
+    ])
+  })
+
+  test('T-CAT-API-30 refuses those reads without a Studio session or a person', async () => {
+    const paths = [`${STUDIO_CATALOG}/disciplines`, `${STUDIO_CATALOG}/activity-types`]
+    const unregistered = studioSessions({ resolveActor: async () => ({ accountId: 'account' }) })
+
+    const answers = await Promise.all(
+      paths.flatMap((path) => [
+        routes().fetch(request(path, { cookie: null })),
+        routes().fetch(request(path, { cookie: BACKOFFICE_COOKIE })),
+        routes(catalog(), unregistered).fetch(request(path)),
+      ]),
+    )
+
+    expect(answers.map((response) => response.status)).toEqual([401, 401, 403, 401, 401, 403])
+    expect(readers).toEqual([])
+  })
+
+  // An empty catalogue is a real state, not an error: production holds no
+  // discipline until Backoffice publishes one, and Studio must say so, not fail.
+  test('T-CAT-API-31 answers an empty catalogue as an empty list', async () => {
+    const empty = catalog({ listDisciplines: async () => [], listActivityTypes: async () => [] })
+
+    for (const path of ['disciplines', 'activity-types']) {
+      const response = await routes(empty).fetch(request(`${STUDIO_CATALOG}/${path}`))
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({ items: [] })
+    }
+  })
+
+  // Result contracts validate what a person logs; nothing Studio authors reads them.
+  test('T-CAT-API-32 keeps result contracts off the Studio surface', async () => {
+    const response = await routes().fetch(
+      request(`${STUDIO_CATALOG}/activity-types/${ACTIVITY_TYPE_ID}/result-contracts`),
+    )
+
+    expect(response.status).toBe(404)
     expect(readers).toEqual([])
   })
 })

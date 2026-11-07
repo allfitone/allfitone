@@ -13,7 +13,9 @@
  * Each router reads its own cookie and nothing else, so a browser that has signed
  * into both products can no longer be read as the wrong one. Only the reads a
  * product uses are mounted on it: Backoffice publishes result contracts, and
- * Studio shows a member what they may ask a client for.
+ * Studio shows a member what they may ask a client for and which disciplines and
+ * activity types their templates may name. Result contracts stay off Studio:
+ * they validate what a person logs, and nothing a gym authors reads them.
  *
  * It is still not public. The operation sheets require any authenticated
  * account, and the closed database functions refuse a caller that is not an
@@ -131,12 +133,26 @@ export function studioCatalogReadRoutes(
     }
   }
 
+  routes.use('*', async (c, next) => {
+    await next()
+    c.header('Cache-Control', 'private, no-store')
+  })
+
   // `OP-PRV-022`. What a member reads to know what they may ask a client for; the
   // closed function admits a person alone, so a support actor is refused, never served.
-  routes.get('/information-categories', (c) => {
-    c.header('Cache-Control', 'private, no-store')
-    return catalogResponse(c, reader, (actor) => catalog().listInformationCategories(actor))
-  })
+  routes.get('/information-categories', (c) =>
+    catalogResponse(c, reader, (actor) => catalog().listInformationCategories(actor)),
+  )
+
+  // `OP-CAT-007` and `OP-CAT-008`. A template names a discipline and its draft an
+  // activity type; a member picks them here instead of guessing a code.
+  routes.get('/disciplines', (c) =>
+    catalogResponse(c, reader, (actor) => catalog().listDisciplines(actor)),
+  )
+
+  routes.get('/activity-types', (c) =>
+    catalogResponse(c, reader, (actor) => catalog().listActivityTypes(actor)),
+  )
 
   return routes
 }
