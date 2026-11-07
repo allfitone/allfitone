@@ -468,10 +468,6 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                     <p>{copy.modules.items[module.key].description}</p>
                   </li>
                 ))}
-                <li data-studio-module data-studio-module-upcoming>
-                  <h3>{copy.modules.upcoming.label}</h3>
-                  <p>{copy.modules.upcoming.text}</p>
-                </li>
               </ol>
 
               {/* The workspace itself: the sidebar these five become, open on Personas. */}

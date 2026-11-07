@@ -2314,10 +2314,6 @@
   text-transform: uppercase;
 }
 
-[data-studio-module-upcoming] h3 {
-  color: var(--afo-color-text-muted);
-}
-
 [data-studio-module] p {
   margin: 0;
   max-width: 44ch;

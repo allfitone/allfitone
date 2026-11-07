@@ -44,7 +44,7 @@ test.describe('server-rendered first paint', () => {
     await page.goto('/es')
 
     await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toHaveAttribute(
       'href',
       '/app',
     )
