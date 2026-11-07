@@ -66,7 +66,8 @@ const NVIDIA_TRADEMARK =
 type Tone = 'solid' | 'ghost' | 'accent'
 
 /** A display title whose lines rise one after another, as on the Space landing:
- *  the hero's on load, every other one the first time it scrolls into view. */
+ *  the hero's on load, every other one the first time it scrolls into view. Only
+ *  the hero's lines change tone; every section title is one colour. */
 function Title({
   as: Tag = 'h2',
   id,
@@ -136,10 +137,10 @@ const SHARING = [
   { category: 'health', shared: false },
 ] as const
 
-const PILLARS: readonly { key: keyof Dictionary['privacy']['pillars']; icon: IconName }[] = [
-  { key: 'consent', icon: 'permissions' },
-  { key: 'purpose', icon: 'locked' },
-  { key: 'history', icon: 'history' },
+const PILLARS: readonly (keyof Dictionary['privacy']['pillars'])[] = [
+  'consent',
+  'purpose',
+  'history',
 ]
 
 const MODULES: readonly { key: keyof Dictionary['modules']['items']; icon: IconName }[] = [
@@ -283,7 +284,6 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
 
   return (
     <div data-studio-site ref={site}>
-      <div data-studio-scroll-progress aria-hidden="true" />
       <SiteHeader>
         {/* Not a link: this page is home. */}
         <SiteHeaderHome render={<div />}>
@@ -401,14 +401,11 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
         <section id="como-funciona" data-studio-section aria-labelledby="studio-landing-how">
           <SiteContainer>
             <div data-studio-section-head>
-              <Title id="studio-landing-how" lines={copy.how.title} tones={['solid', 'ghost']} />
+              <Title id="studio-landing-how" lines={copy.how.title} />
             </div>
-            <ul data-studio-steps>
-              {STEPS.map((step, index) => (
-                <li key={step} data-studio-step data-reveal="card" data-i={index} data-spotlight>
-                  <span data-studio-step-index aria-hidden="true">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
+            <ul data-studio-steps data-reveal="card">
+              {STEPS.map((step) => (
+                <li key={step} data-studio-step>
                   <h3>{copy.how.steps[step].title}</h3>
                   <p>{copy.how.steps[step].text}</p>
                   <div data-studio-step-stage aria-hidden="true">
@@ -430,14 +427,8 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           <SiteContainer>
             <div data-studio-privacy>
               <div data-studio-privacy-copy>
-                <Title
-                  id="studio-landing-privacy"
-                  lines={copy.privacy.title}
-                  tones={['solid', 'accent']}
-                />
-                <p data-studio-lead data-reveal>
-                  {copy.privacy.lead}
-                </p>
+                <Title id="studio-landing-privacy" lines={copy.privacy.title} />
+                <p data-studio-lead>{copy.privacy.lead}</p>
               </div>
               <div data-studio-privacy-stage aria-hidden="true" data-reveal>
                 <div data-studio-object="invite">
@@ -453,13 +444,10 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
               </div>
             </div>
             <ul data-studio-pillars>
-              {PILLARS.map((pillar, index) => (
-                <li key={pillar.key} data-studio-pillar data-reveal data-i={index}>
-                  <span data-studio-pillar-icon>
-                    <FoundationIcon name={pillar.icon} decorative />
-                  </span>
-                  <h3>{copy.privacy.pillars[pillar.key].title}</h3>
-                  <p>{copy.privacy.pillars[pillar.key].text}</p>
+              {PILLARS.map((pillar) => (
+                <li key={pillar} data-studio-pillar>
+                  <h3>{copy.privacy.pillars[pillar].title}</h3>
+                  <p>{copy.privacy.pillars[pillar].text}</p>
                 </li>
               ))}
             </ul>
@@ -469,32 +457,20 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
         <section id="modulos" data-studio-section aria-labelledby="studio-landing-modules">
           <SiteContainer>
             <div data-studio-section-head data-split="true">
-              <Title
-                id="studio-landing-modules"
-                lines={copy.modules.title}
-                tones={['solid', 'ghost']}
-              />
-              <p data-studio-lead data-reveal>
-                {copy.modules.lead}
-              </p>
+              <Title id="studio-landing-modules" lines={copy.modules.title} />
+              <p data-studio-lead>{copy.modules.lead}</p>
             </div>
             <div data-studio-modules-grid>
               <ol data-studio-modules>
-                {MODULES.map((module, index) => (
-                  <li key={module.key} data-studio-module data-reveal data-i={index}>
+                {MODULES.map((module) => (
+                  <li key={module.key} data-studio-module>
                     <h3>{copy.modules.items[module.key].name}</h3>
                     <p>{copy.modules.items[module.key].description}</p>
-                    <span data-studio-module-icon>
-                      <FoundationIcon name={module.icon} decorative />
-                    </span>
                   </li>
                 ))}
-                <li data-studio-module data-studio-module-upcoming data-reveal data-i={5}>
+                <li data-studio-module data-studio-module-upcoming>
                   <h3>{copy.modules.upcoming.label}</h3>
                   <p>{copy.modules.upcoming.text}</p>
-                  <span data-studio-module-icon>
-                    <FoundationIcon name="calendar" decorative />
-                  </span>
                 </li>
               </ol>
 
@@ -529,7 +505,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
             </div>
 
             {/* Space's night, because this is the one thing here that is Space. */}
-            <div data-studio-space data-afo-theme="dark" data-reveal>
+            <div data-studio-space data-afo-theme="dark">
               <ProductLockup product="space" surface="dark" aria-hidden="true" />
               <div>
                 <h3>{copy.modules.space.title}</h3>
@@ -553,12 +529,8 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
 
         <section data-studio-closing aria-labelledby="studio-landing-closing">
           <SiteContainer data-studio-closing-inner>
-            <Title
-              id="studio-landing-closing"
-              lines={copy.closing.title}
-              tones={['solid', 'accent']}
-            />
-            <div data-studio-closing-actions data-reveal>
+            <Title id="studio-landing-closing" lines={copy.closing.title} />
+            <div data-studio-closing-actions>
               <a
                 data-slot="button"
                 data-variant="default"
