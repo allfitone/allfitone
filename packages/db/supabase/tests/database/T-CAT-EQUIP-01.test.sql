@@ -5,8 +5,8 @@
 -- serves them, but nothing could put a row in them: the list a person filters movements
 -- by was always empty, and the curator's screen said equipment "has no table".
 --
--- **The same rules as the rest of the catalogue.** Only the curator duty publishes, a
--- published code is stable, an archived one returns only under the name it had, and a
+-- **The same rules as the rest of the catalogue.** Only the curator duty publishes (every
+-- admin holds it through the role, ADR-046), a published code is stable, an archived one returns only under the name it had, and a
 -- global entry is archived, never deleted.
 --
 -- **A movement names only published equipment.** Its list is replaced as a whole, so
@@ -25,14 +25,17 @@ values
   ('019b3000-0000-7000-8000-000000000001', 'Manager', 'Alpha'),
   ('019b3000-0000-7000-8000-000000000002', 'Manager', 'Beta'),
   ('019b3000-0000-7000-8000-000000000003', 'Curator', 'Gamma'),
-  ('019b3000-0000-7000-8000-000000000004', 'Owner', 'Delta');
+  ('019b3000-0000-7000-8000-000000000004', 'Owner', 'Delta'),
+  ('019b3000-0000-7000-8000-000000000005', 'Outsider', 'Epsilon');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
   ('019b3000-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha_eq', null),
   ('019b3000-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta_eq', null),
   ('019b3000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma_eq',
-    '019b3000-0000-7000-8000-000000000003');
+    '019b3000-0000-7000-8000-000000000003'),
+  ('019b3000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon_eq',
+    '019b3000-0000-7000-8000-000000000005');
 
 select support.bootstrap_backoffice_administrators(
   '019b3000-0000-7000-8000-000000000001', 'alpha_eq',
@@ -52,6 +55,10 @@ insert into identity.access_sessions (
   ('019b3000-0000-7000-8000-000000000023', '019b3000-0000-7000-8000-000000000013',
     'sid_gamma_eq', 'backoffice', decode(repeat('e3', 32), 'hex'), 'v1.gamma',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019b3000-0000-7000-8000-000000000025', '019b3000-0000-7000-8000-000000000015',
+    'sid_epsilon_eq', 'backoffice', decode(repeat('e5', 32), 'hex'), 'v1.epsilon',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
 select support.assign_platform_role(
@@ -62,19 +69,23 @@ select support.assign_platform_role(
 );
 
 select set_config('app.actor_kind', 'support', true),
-       set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000003', true);
+       set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000005', true);
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select * from catalog.publish_global_equipment(
-    '019b3000-0000-7000-8000-000000000003', '019b3000-0000-7000-8000-000000000023',
+    '019b3000-0000-7000-8000-000000000005', '019b3000-0000-7000-8000-000000000025',
     'test_barbell', 'Barra olímpica',
     'e0000000-0000-4000-8000-000000000001', '019b3000-0000-7000-8000-000000000601',
     decode(repeat('51', 32), 'hex')
   ) $$,
   '42501', null,
-  'the base role does not publish equipment'
+  'a Backoffice session without the admin role does not publish equipment'
 );
 
+select set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000003', true);
+
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b3000-0000-7000-8000-000000000001', '019b3000-0000-7000-8000-000000000021',
   '019b3000-0000-7000-8000-000000000003', 'curate_global_catalog',

@@ -2,12 +2,13 @@
 --
 -- Covers T-ROLE-1..5 and T-DUTY-01..08: no self-assignment, never zero active
 -- administrators, an append-only history with no DELETE, the closed catalogue
--- with its derived actor mode, the ninety-day bound, and a base role that
--- authorizes nothing on its own.
+-- with its derived actor mode, the ninety-day bound, and a base role that brings
+-- every duty with it (ADR-046) while a Backoffice session without it authorizes
+-- nothing.
 
 begin;
 
-select plan(37);
+select plan(39);
 
 insert into identity.people (id, given_name, family_name)
 values
@@ -22,7 +23,9 @@ values
   ('019a3000-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha', null),
   ('019a3000-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta', null),
   ('019a3000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma',
-    '019a3000-0000-7000-8000-000000000003');
+    '019a3000-0000-7000-8000-000000000003'),
+  ('019a3000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon',
+    '019a3000-0000-7000-8000-000000000005');
 
 select support.bootstrap_backoffice_administrators(
   '019a3000-0000-7000-8000-000000000001', 'alpha',
@@ -41,6 +44,10 @@ insert into identity.access_sessions (
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
   ('019a3000-0000-7000-8000-000000000023', '019a3000-0000-7000-8000-000000000013',
     'sid_gamma', 'backoffice', decode(repeat('a3', 32), 'hex'), 'v1.gamma',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019a3000-0000-7000-8000-000000000025', '019a3000-0000-7000-8000-000000000015',
+    'sid_epsilon', 'backoffice', decode(repeat('a5', 32), 'hex'), 'v1.epsilon',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
@@ -89,7 +96,7 @@ select throws_ok(
   'a granted duty window cannot be widened after the fact'
 );
 
--- T-ROLE-4 / T-DUTY-01 · the base role alone authorizes nothing.
+-- T-ROLE-4 / T-DUTY-01 · the base role brings every duty; a session without it holds none.
 select lives_ok(
   $$ select support.assign_platform_role(
     '019a3000-0000-7000-8000-000000000001', '019a3000-0000-7000-8000-000000000021',
@@ -115,23 +122,32 @@ select ok(
 );
 
 select ok(
-  not access_control.has_platform_duty(
+  access_control.has_platform_duty(
     '019a3000-0000-7000-8000-000000000003', '019a3000-0000-7000-8000-000000000023',
     'manage_platform_access'
   ),
-  'a base role without a duty resolves no authority'
+  'a granted base role brings manage_platform_access with it'
+);
+
+-- Epsilon has an AAL2 Backoffice session but was never granted the base role.
+select ok(
+  not access_control.has_platform_duty(
+    '019a3000-0000-7000-8000-000000000005', '019a3000-0000-7000-8000-000000000025',
+    'manage_platform_access'
+  ),
+  'a Backoffice session without the base role resolves no authority'
 );
 
 select throws_ok(
   $$ select support.assign_platform_role(
-    '019a3000-0000-7000-8000-000000000003', '019a3000-0000-7000-8000-000000000023',
+    '019a3000-0000-7000-8000-000000000005', '019a3000-0000-7000-8000-000000000025',
     '019a3000-0000-7000-8000-000000000004', 'allfit_admin',
     '019a3000-0000-7000-8000-000000000103', '019a3000-0000-7000-8000-000000000203',
     decode(repeat('03', 32), 'hex')
   ) $$,
   '42501',
   'platform access management requires an effective duty',
-  'a base role without manage_platform_access cannot administer access'
+  'a Backoffice session without the base role cannot administer access'
 );
 
 -- T-ROLE-1 through the closed function, with a precise answer.
@@ -219,7 +235,8 @@ select throws_ok(
   'a duty cannot be granted to a person without an active base role'
 );
 
--- T-DUTY-02 · the actor mode is derived from the code, never supplied.
+-- T-DUTY-02 · the actor mode is derived from the code, never supplied. Gamma holds these
+-- through the role, so each grant converges on that row and answers with it.
 select is(
   (select (result->>'actor_mode') from support.assign_platform_duty(
     '019a3000-0000-7000-8000-000000000001', '019a3000-0000-7000-8000-000000000021',
@@ -264,31 +281,42 @@ select ok(
   'an effective duty resolves inside the transaction'
 );
 
--- T-DUTY-04 · suspension cuts authority in the very next resolution.
+-- T-DUTY-04 · a granted duty is still suspended. Grants to an admin now converge on the
+-- role's row, so the temporary duty production already holds is written directly.
+insert into support.platform_duty_assignments (
+  person_id, duty_code, actor_mode, status, valid_from, valid_to,
+  granted_by_person_id, reason_code
+) values (
+  '019a3000-0000-7000-8000-000000000003', 'diagnose_support_metadata', 'A10', 'active',
+  clock_timestamp(), clock_timestamp() + interval '30 days',
+  '019a3000-0000-7000-8000-000000000001', 'CASE-004'
+);
+
 select lives_ok(
   $$ select support.suspend_platform_duty(
     '019a3000-0000-7000-8000-000000000001', '019a3000-0000-7000-8000-000000000021',
     (select id from support.platform_duty_assignments
       where person_id = '019a3000-0000-7000-8000-000000000003'
-        and duty_code = 'diagnose_support_metadata'),
+        and duty_code = 'diagnose_support_metadata' and basis = 'granted'),
     '019a3000-0000-7000-8000-00000000020c', '019a3000-0000-7000-8000-00000000030c',
     decode(repeat('0c', 32), 'hex')
   ) $$,
-  'an access manager suspends an effective duty'
+  'an access manager suspends a granted duty'
 );
 
+-- What suspension cuts is that assignment; the role's duty ends only with the role.
 select ok(
-  not access_control.has_platform_duty(
+  access_control.has_platform_duty(
     '019a3000-0000-7000-8000-000000000003', '019a3000-0000-7000-8000-000000000023',
     'diagnose_support_metadata'
   ),
-  'a suspended duty stops authorizing immediately'
+  'suspending a granted duty leaves the one the role brings in force'
 );
 
 select throws_ok(
   $$ update support.platform_duty_assignments set status = 'active'
      where person_id = '019a3000-0000-7000-8000-000000000003'
-       and duty_code = 'diagnose_support_metadata' $$,
+       and duty_code = 'diagnose_support_metadata' and basis = 'granted' $$,
   '23514',
   'a suspended platform duty is only expired or revoked',
   'a suspended duty is never silently reopened'
@@ -307,18 +335,18 @@ insert into support.platform_duty_assignments (
 );
 
 select ok(
-  not access_control.has_platform_duty(
+  access_control.has_platform_duty(
     '019a3000-0000-7000-8000-000000000003', '019a3000-0000-7000-8000-000000000023',
     'view_platform_metrics'
   ),
-  'a duty whose window already closed stops authorizing without any job running'
+  'an elapsed granted window takes nothing from the duty the role brings'
 );
 
 select is(
   (select support.platform_duty_assignment_projection(assignment.id)->>'status'
     from support.platform_duty_assignments as assignment
     where assignment.person_id = '019a3000-0000-7000-8000-000000000003'
-      and assignment.duty_code = 'view_platform_metrics'),
+      and assignment.duty_code = 'view_platform_metrics' and assignment.basis = 'granted'),
   'expired',
   'the projection reports an elapsed window as expired even before a job runs'
 );
@@ -349,10 +377,19 @@ select ok(
   'withdrawing the base role revokes the Backoffice session'
 );
 
+select ok(
+  not access_control.has_platform_duty(
+    '019a3000-0000-7000-8000-000000000003', '019a3000-0000-7000-8000-000000000023',
+    'diagnose_support_metadata'
+  ),
+  'withdrawing the base role cuts authority in the very next resolution'
+);
+
+-- The thirteen the role brought and the two granted ones written above.
 select is(
   (select count(*) from support.platform_duty_assignments
     where person_id = '019a3000-0000-7000-8000-000000000003'),
-  4::bigint,
+  15::bigint,
   'withdrawal keeps the whole duty history instead of deleting it'
 );
 

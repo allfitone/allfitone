@@ -33,7 +33,8 @@ values
   ('019a9000-0000-7000-8000-000000000004', 'Operator', 'Delta', 'active'),
   ('019a9000-0000-7000-8000-000000000005', 'Approver', 'Epsilon', 'active'),
   ('019a9000-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active'),
-  ('019a9000-0000-7000-8000-000000000007', 'Subject', 'Eta', 'active');
+  ('019a9000-0000-7000-8000-000000000007', 'Subject', 'Eta', 'active'),
+  ('019a9000-0000-7000-8000-000000000008', 'Outsider', 'Theta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -44,7 +45,9 @@ values
   ('019a9000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta9',
     '019a9000-0000-7000-8000-000000000004'),
   ('019a9000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon9',
-    '019a9000-0000-7000-8000-000000000005');
+    '019a9000-0000-7000-8000-000000000005'),
+  ('019a9000-0000-7000-8000-000000000018', 'workos', 'https://issuer.test', 'theta9',
+    '019a9000-0000-7000-8000-000000000008');
 
 select support.bootstrap_backoffice_administrators(
   '019a9000-0000-7000-8000-000000000001', 'alpha9',
@@ -72,6 +75,10 @@ insert into identity.access_sessions (
   ('019a9000-0000-7000-8000-000000000025', '019a9000-0000-7000-8000-000000000015',
     'sid_epsilon_9', 'backoffice', decode(repeat('a5', 32), 'hex'), 'v1.epsilon',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019a9000-0000-7000-8000-000000000028', '019a9000-0000-7000-8000-000000000018',
+    'sid_theta_9', 'backoffice', decode(repeat('a8', 32), 'hex'), 'v1.theta',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
 select support.assign_platform_role(
@@ -94,19 +101,21 @@ select support.assign_platform_role(
 );
 
 -- ---------------------------------------------------------------------------
--- Criterion 5 — the base role is never enough, and a duty is not a rank
+-- Criterion 5 — the log is read through the admin role, never a session without it
 -- ---------------------------------------------------------------------------
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select * from privacy.list_access_events(
-    '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
+    '019a9000-0000-7000-8000-000000000008', '019a9000-0000-7000-8000-000000000028',
     null, null, null, null, 50
   ) $$,
   '42501',
   null,
-  'the base role alone cannot read the access log'
+  'a Backoffice session without the admin role cannot read the access log'
 );
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a9000-0000-7000-8000-000000000001', '019a9000-0000-7000-8000-000000000021',
   '019a9000-0000-7000-8000-000000000004', 'request_break_glass',
@@ -116,13 +125,13 @@ select support.assign_platform_duty(
 );
 
 select throws_ok(
-  $$ select * from privacy.list_access_events(
-    '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000024',
-    null, null, null, null, 50
+  $$ select privacy.count_withheld_access_events(
+    '019a9000-0000-7000-8000-000000000008', '019a9000-0000-7000-8000-000000000028',
+    null, null, null, null
   ) $$,
   '42501',
   null,
-  'another effective duty does not stand in for the audit duty'
+  'nor count what the log withholds'
 );
 
 select support.assign_platform_duty(

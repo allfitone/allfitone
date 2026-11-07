@@ -28,9 +28,9 @@ values
   ('019ad000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active', null),
   ('019ad000-0000-7000-8000-000000000003', 'Support', 'Gamma', 'active', null),
   ('019ad000-0000-7000-8000-000000000004', 'Lifecycle', 'Delta', 'active', null),
-  ('019ad000-0000-7000-8000-000000000005', 'Verifier', 'Epsilon', 'active', null),
+  ('019ad000-0000-7000-8000-000000000005', 'Withdrawn', 'Epsilon', 'active', null),
   ('019ad000-0000-7000-8000-000000000006', 'Owner', 'Zeta', 'active', 'owner.zeta@example.test'),
-  ('019ad000-0000-7000-8000-000000000007', 'Badged', 'Eta', 'active', null),
+  ('019ad000-0000-7000-8000-000000000007', 'Outsider', 'Eta', 'active', null),
   ('019ad000-0000-7000-8000-000000000008', 'Coach', 'Theta', 'active', null),
   ('019ad000-0000-7000-8000-000000000009', 'Admin', 'Iota', 'active', null),
   ('019ad000-0000-7000-8000-000000000010', 'Former', 'Kappa', 'active', null),
@@ -91,11 +91,20 @@ from (values
   ('019ad000-0000-7000-8000-000000000004'::uuid, '019ad000-0000-7000-8000-000000000104'::uuid,
     '019ad000-0000-7000-8000-000000000204'::uuid, '84'),
   ('019ad000-0000-7000-8000-000000000005'::uuid, '019ad000-0000-7000-8000-000000000105'::uuid,
-    '019ad000-0000-7000-8000-000000000205'::uuid, '85'),
-  ('019ad000-0000-7000-8000-000000000007'::uuid, '019ad000-0000-7000-8000-000000000107'::uuid,
-    '019ad000-0000-7000-8000-000000000207'::uuid, '87')
+    '019ad000-0000-7000-8000-000000000205'::uuid, '85')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Every admin holds every duty (ADR-046). Eta keeps a live Backoffice session and is
+-- never granted the role; Epsilon was an admin and no longer is.
+select support.revoke_platform_role(
+  '019ad000-0000-7000-8000-000000000001', '019ad000-0000-7000-8000-000000000031',
+  (select id from support.platform_role_assignments
+    where person_id = '019ad000-0000-7000-8000-000000000005' and status = 'active'),
+  '019ad000-0000-7000-8000-000000000125', '019ad000-0000-7000-8000-000000000225',
+  decode(repeat('95', 32), 'hex')
+);
+
+-- Converges onto the duties the role already brings.
 select support.assign_platform_duty(
   '019ad000-0000-7000-8000-000000000001', '019ad000-0000-7000-8000-000000000031',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -105,9 +114,7 @@ from (values
   ('019ad000-0000-7000-8000-000000000003'::uuid, 'diagnose_support_metadata',
     '019ad000-0000-7000-8000-000000000113'::uuid, '019ad000-0000-7000-8000-000000000213'::uuid, '93'),
   ('019ad000-0000-7000-8000-000000000004'::uuid, 'manage_organization_lifecycle',
-    '019ad000-0000-7000-8000-000000000114'::uuid, '019ad000-0000-7000-8000-000000000214'::uuid, '94'),
-  ('019ad000-0000-7000-8000-000000000005'::uuid, 'verify_professional_credentials',
-    '019ad000-0000-7000-8000-000000000115'::uuid, '019ad000-0000-7000-8000-000000000215'::uuid, '95')
+    '019ad000-0000-7000-8000-000000000114'::uuid, '019ad000-0000-7000-8000-000000000214'::uuid, '94')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
 
 -- A company gym with an owner, a coach, an admin, a former member and two sites.
@@ -183,7 +190,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone does not open a gym''s file'
+  'a Backoffice session without the admin role does not open a gym''s file'
 );
 
 select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000005', true);
@@ -195,7 +202,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'an unrelated duty does not stand in for reading a gym'
+  'nor does an admin whose role was withdrawn, with the duties and session it carried'
 );
 
 select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000003', true);
@@ -440,9 +447,11 @@ select ok(
   'the duty is what lets the count see a relationship at all'
 );
 
+-- Every admin holds every duty, so only a code no duty carries shows the predicate
+-- asks for the duty rather than for the role.
 select ok(
-  not access_control.holds_backoffice_duty('manage_privacy_requests'),
-  'and it is that duty, not any duty the reader happens to hold'
+  not access_control.holds_backoffice_duty('no_such_duty'),
+  'and it is that duty, not merely the role the reader holds'
 );
 
 select ok(
@@ -451,7 +460,7 @@ select ok(
     from (select set_config('app.actor_person_id',
       '019ad000-0000-7000-8000-000000000005', true)) as other_actor
   ),
-  'and somebody who only verifies credentials sees no row to count'
+  'and somebody whose admin role was withdrawn sees no row to count'
 );
 
 select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000003', true);

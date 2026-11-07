@@ -8,8 +8,9 @@
 -- **Every version, published and deprecated.** Newest first, with the status that says
 -- which. Deprecating one keeps it on the list as deprecated.
 --
--- **The curator's read.** `curate_global_catalog` with AAL2, like publishing; the base
--- role is refused, and a type outside the global catalogue is not found.
+-- **The curator's read.** `curate_global_catalog` with AAL2, like publishing; a Backoffice
+-- session without the admin role is refused, and a type outside the global catalogue is
+-- not found.
 
 begin;
 
@@ -19,14 +20,17 @@ insert into identity.people (id, given_name, family_name)
 values
   ('019b5000-0000-7000-8000-000000000001', 'Manager', 'Alpha'),
   ('019b5000-0000-7000-8000-000000000002', 'Manager', 'Beta'),
-  ('019b5000-0000-7000-8000-000000000003', 'Curator', 'Gamma');
+  ('019b5000-0000-7000-8000-000000000003', 'Curator', 'Gamma'),
+  ('019b5000-0000-7000-8000-000000000004', 'Outsider', 'Delta');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
   ('019b5000-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha_cv', null),
   ('019b5000-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta_cv', null),
   ('019b5000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma_cv',
-    '019b5000-0000-7000-8000-000000000003');
+    '019b5000-0000-7000-8000-000000000003'),
+  ('019b5000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta_cv',
+    '019b5000-0000-7000-8000-000000000004');
 
 select support.bootstrap_backoffice_administrators(
   '019b5000-0000-7000-8000-000000000001', 'alpha_cv',
@@ -45,6 +49,10 @@ insert into identity.access_sessions (
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
   ('019b5000-0000-7000-8000-000000000023', '019b5000-0000-7000-8000-000000000013',
     'sid_gamma_cv', 'backoffice', decode(repeat('c3', 32), 'hex'), 'v1.gamma',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019b5000-0000-7000-8000-000000000024', '019b5000-0000-7000-8000-000000000014',
+    'sid_delta_cv', 'backoffice', decode(repeat('c4', 32), 'hex'), 'v1.delta',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
@@ -65,17 +73,21 @@ values (
 );
 
 select set_config('app.actor_kind', 'support', true),
-       set_config('app.actor_person_id', '019b5000-0000-7000-8000-000000000003', true);
+       set_config('app.actor_person_id', '019b5000-0000-7000-8000-000000000004', true);
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select catalog.list_result_contract_versions(
-    '019b5000-0000-7000-8000-000000000003', '019b5000-0000-7000-8000-000000000023',
+    '019b5000-0000-7000-8000-000000000004', '019b5000-0000-7000-8000-000000000024',
     '019b5000-0000-7000-8000-000000000301'
   ) $$,
   '42501', null,
-  'the base role does not read the curator''s versions'
+  'a Backoffice session without the admin role does not read the curator''s versions'
 );
 
+select set_config('app.actor_person_id', '019b5000-0000-7000-8000-000000000003', true);
+
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b5000-0000-7000-8000-000000000001', '019b5000-0000-7000-8000-000000000021',
   '019b5000-0000-7000-8000-000000000003', 'curate_global_catalog',

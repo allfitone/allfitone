@@ -32,7 +32,7 @@ values
   ('019af000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019af000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019af000-0000-7000-8000-000000000003', 'Officer', 'Gamma', 'active'),
-  ('019af000-0000-7000-8000-000000000004', 'Operator', 'Delta', 'active'),
+  ('019af000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active'),
   ('019af000-0000-7000-8000-000000000007', 'Officer', 'Theta', 'active'),
   ('019af000-0000-7000-8000-000000000005', 'Subject', 'Zeta', 'active'),
   ('019af000-0000-7000-8000-000000000006', 'Subject', 'Eta', 'active');
@@ -76,6 +76,7 @@ from (values
     'thetaK', 'f7')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
+-- Delta keeps a Backoffice session and is never granted the role (ADR-046).
 select support.assign_platform_role(
   '019af000-0000-7000-8000-000000000001', '019af000-0000-7000-8000-000000000021',
   person_id, 'allfit_admin', key, command, decode(repeat(hash_byte, 32), 'hex')
@@ -83,12 +84,11 @@ select support.assign_platform_role(
 from (values
   ('019af000-0000-7000-8000-000000000003'::uuid, '019af000-0000-7000-8000-000000000103'::uuid,
     '019af000-0000-7000-8000-000000000203'::uuid, 'c3'),
-  ('019af000-0000-7000-8000-000000000004'::uuid, '019af000-0000-7000-8000-000000000104'::uuid,
-    '019af000-0000-7000-8000-000000000204'::uuid, 'c4'),
   ('019af000-0000-7000-8000-000000000007'::uuid, '019af000-0000-7000-8000-000000000107'::uuid,
     '019af000-0000-7000-8000-000000000207'::uuid, 'c7')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019af000-0000-7000-8000-000000000001', '019af000-0000-7000-8000-000000000021',
   person_id, 'manage_privacy_requests', clock_timestamp(),
@@ -599,7 +599,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the platform administrator role alone cannot read the holds'
+  'a Backoffice session without the admin role cannot read the holds'
 );
 
 create temporary table ended_holds on commit drop as

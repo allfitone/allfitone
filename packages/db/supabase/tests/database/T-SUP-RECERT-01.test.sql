@@ -8,6 +8,10 @@
 -- duty running out of time must also close the requester's break-glass windows. Both
 -- left them `approved` until their own end. A lapsed window could not be exercised,
 -- because exercising rechecks the duty, but the inbox said it was open.
+--
+-- Since ADR-046 an admin holds every duty through the role, and those follow the role:
+-- they are neither recertified nor lapse. What is recertified, and what lapses, is a duty
+-- granted on its own (`basis = 'granted'`), as production still holds.
 
 begin;
 
@@ -20,7 +24,8 @@ values
   ('019a8100-0000-7000-8000-000000000003', 'Requester', 'Gamma', 'active'),
   ('019a8100-0000-7000-8000-000000000004', 'Approver', 'Delta', 'active'),
   ('019a8100-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active'),
-  ('019a8100-0000-7000-8000-000000000007', 'Requester', 'Eta', 'active');
+  ('019a8100-0000-7000-8000-000000000007', 'Requester', 'Eta', 'active'),
+  ('019a8100-0000-7000-8000-000000000008', 'Outsider', 'Theta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -31,7 +36,9 @@ values
   ('019a8100-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta81',
     '019a8100-0000-7000-8000-000000000004'),
   ('019a8100-0000-7000-8000-000000000017', 'workos', 'https://issuer.test', 'eta81',
-    '019a8100-0000-7000-8000-000000000007');
+    '019a8100-0000-7000-8000-000000000007'),
+  ('019a8100-0000-7000-8000-000000000018', 'workos', 'https://issuer.test', 'theta81',
+    '019a8100-0000-7000-8000-000000000008');
 
 select support.bootstrap_backoffice_administrators(
   '019a8100-0000-7000-8000-000000000001', 'alpha81',
@@ -56,7 +63,9 @@ from (values
   ('019a8100-0000-7000-8000-000000000024'::uuid, '019a8100-0000-7000-8000-000000000014'::uuid,
     'delta81', 'a4'),
   ('019a8100-0000-7000-8000-000000000027'::uuid, '019a8100-0000-7000-8000-000000000017'::uuid,
-    'eta81', 'a7')
+    'eta81', 'a7'),
+  ('019a8100-0000-7000-8000-000000000028'::uuid, '019a8100-0000-7000-8000-000000000018'::uuid,
+    'theta81', 'a8')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
 select support.assign_platform_role(
@@ -72,24 +81,23 @@ from (values
     '019a8100-0000-7000-8000-000000000207'::uuid, '67')
 ) as grant_row(person_id, key, command, hash_byte);
 
-select support.assign_platform_duty(
-  '019a8100-0000-7000-8000-000000000001', '019a8100-0000-7000-8000-000000000021',
-  person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days', 'CASE-2026-081',
-  key, command, decode(repeat(hash_byte, 32), 'hex')
+-- Granting an admin converges on the duty the role brings, so the granted duties this
+-- test recertifies and lapses are written as the ones production already holds.
+insert into support.platform_duty_assignments (
+  person_id, duty_code, actor_mode, status, valid_from, valid_to,
+  granted_by_person_id, reason_code
 )
+select person_id, duty_code, actor_mode, 'active', clock_timestamp(),
+  clock_timestamp() + interval '30 days', '019a8100-0000-7000-8000-000000000001', 'CASE-2026-081'
 from (values
-  ('019a8100-0000-7000-8000-000000000003'::uuid, 'request_break_glass',
-    '019a8100-0000-7000-8000-000000000113'::uuid, '019a8100-0000-7000-8000-000000000213'::uuid, '73'),
-  ('019a8100-0000-7000-8000-000000000004'::uuid, 'approve_break_glass',
-    '019a8100-0000-7000-8000-000000000114'::uuid, '019a8100-0000-7000-8000-000000000214'::uuid, '74'),
-  ('019a8100-0000-7000-8000-000000000007'::uuid, 'request_break_glass',
-    '019a8100-0000-7000-8000-000000000117'::uuid, '019a8100-0000-7000-8000-000000000217'::uuid, '77'),
-  ('019a8100-0000-7000-8000-000000000007'::uuid, 'view_platform_metrics',
-    '019a8100-0000-7000-8000-000000000118'::uuid, '019a8100-0000-7000-8000-000000000218'::uuid, '78')
-) as duty_row(person_id, duty_code, key, command, hash_byte);
+  ('019a8100-0000-7000-8000-000000000003'::uuid, 'request_break_glass', 'A10'),
+  ('019a8100-0000-7000-8000-000000000004'::uuid, 'approve_break_glass', 'A12'),
+  ('019a8100-0000-7000-8000-000000000007'::uuid, 'request_break_glass', 'A10'),
+  ('019a8100-0000-7000-8000-000000000007'::uuid, 'view_platform_metrics', 'A10')
+) as duty_row(person_id, duty_code, actor_mode);
 
 create temporary table duty on commit drop as
-select assignment.person_id, assignment.duty_code, assignment.id
+select assignment.person_id, assignment.duty_code, assignment.basis, assignment.id
 from support.platform_duty_assignments as assignment;
 
 select set_config('app.actor_kind', 'support', true),
@@ -103,7 +111,7 @@ create temporary table recertified on commit drop as
 select * from support.recertify_platform_duty(
   '019a8100-0000-7000-8000-000000000001', '019a8100-0000-7000-8000-000000000021',
   (select id from duty where person_id = '019a8100-0000-7000-8000-000000000003'
-     and duty_code = 'request_break_glass'),
+     and duty_code = 'request_break_glass' and basis = 'granted'),
   'c1000000-0000-4000-8000-000000000001', '019a8100-0000-7000-8000-000000000301',
   decode(repeat('91', 32), 'hex')
 );
@@ -119,7 +127,7 @@ select is(
   (select replayed from support.recertify_platform_duty(
      '019a8100-0000-7000-8000-000000000001', '019a8100-0000-7000-8000-000000000021',
      (select id from duty where person_id = '019a8100-0000-7000-8000-000000000003'
-        and duty_code = 'request_break_glass'),
+        and duty_code = 'request_break_glass' and basis = 'granted'),
      'c1000000-0000-4000-8000-000000000001', '019a8100-0000-7000-8000-000000000301',
      decode(repeat('91', 32), 'hex')
    )),
@@ -140,21 +148,24 @@ select throws_ok(
   'T-SUP-RECERT-RLS-01 nobody recertifies their own duty: recertification is independent'
 );
 
+-- Every admin holds the access-management duty through the role; Theta has a Backoffice
+-- session and no role.
 select throws_ok(
   $$ select * from support.recertify_platform_duty(
-    '019a8100-0000-7000-8000-000000000007', '019a8100-0000-7000-8000-000000000027',
-    (select id from duty where person_id = '019a8100-0000-7000-8000-000000000004'),
+    '019a8100-0000-7000-8000-000000000008', '019a8100-0000-7000-8000-000000000028',
+    (select id from duty where person_id = '019a8100-0000-7000-8000-000000000004'
+       and basis = 'granted'),
     'c1000000-0000-4000-8000-000000000003', '019a8100-0000-7000-8000-000000000303',
     decode(repeat('93', 32), 'hex')
   ) $$,
   '42501',
   null,
-  'T-SUP-RECERT-RLS-02 recertifying needs the access-management duty, not only the base role'
+  'T-SUP-RECERT-RLS-02 recertifying needs the access-management duty, which a session without the role lacks'
 );
 
 select support.revoke_platform_duty(
   '019a8100-0000-7000-8000-000000000001', '019a8100-0000-7000-8000-000000000021',
-  (select id from duty where duty_code = 'view_platform_metrics'),
+  (select id from duty where duty_code = 'view_platform_metrics' and basis = 'granted'),
   'c1000000-0000-4000-8000-000000000004', '019a8100-0000-7000-8000-000000000304',
   decode(repeat('94', 32), 'hex')
 );
@@ -162,7 +173,7 @@ select support.revoke_platform_duty(
 select throws_ok(
   $$ select * from support.recertify_platform_duty(
     '019a8100-0000-7000-8000-000000000001', '019a8100-0000-7000-8000-000000000021',
-    (select id from duty where duty_code = 'view_platform_metrics'),
+    (select id from duty where duty_code = 'view_platform_metrics' and basis = 'granted'),
     'c1000000-0000-4000-8000-000000000005', '019a8100-0000-7000-8000-000000000305',
     decode(repeat('95', 32), 'hex')
   ) $$,
@@ -245,7 +256,8 @@ select set_config('app.actor_kind', 'support', true);
 
 -- The clock moves for one assignment only; its window guard is the test's to lift.
 select set_config('test.eta_duty', (select id::text from duty
-  where person_id = '019a8100-0000-7000-8000-000000000007' and duty_code = 'request_break_glass'), true);
+  where person_id = '019a8100-0000-7000-8000-000000000007' and duty_code = 'request_break_glass'
+    and basis = 'granted'), true);
 set constraints support.trg_platform_duty_assignments_change_require_role immediate;
 set constraints support.trg_platform_duty_assignments_change_require_role deferred;
 set local role allfit_owner;
@@ -270,20 +282,23 @@ select is(
 select is(
   (select status from support.platform_duty_assignments
    where id = (select id from duty where person_id = '019a8100-0000-7000-8000-000000000007'
-                 and duty_code = 'request_break_glass')),
+                 and duty_code = 'request_break_glass' and basis = 'granted')),
   'expired',
   'T-SUP-RECERT-INT-05 and the row says expired, not only the clock'
 );
 
+-- The window was opened under the duty the role brings, which is still in force: the
+-- sweep closes windows only when no assignment of `request_break_glass` is left.
 select ok(
-  (select status = 'closed' and closed_at is not null from support.break_glass_requests
+  (select status = 'approved' and closed_at is null from support.break_glass_requests
    where id = (select (result->>'id')::uuid from eta_window)),
-  'T-SUP-RECERT-INT-06 its requester''s window closes with it'
+  'T-SUP-RECERT-INT-06 its requester''s window stays open while the role still brings the duty'
 );
 
 select is(
   (select status from support.platform_duty_assignments
-   where id = (select id from duty where person_id = '019a8100-0000-7000-8000-000000000004')),
+   where id = (select id from duty where person_id = '019a8100-0000-7000-8000-000000000004'
+                 and basis = 'granted')),
   'active',
   'T-SUP-RECERT-INT-07 a duty still in force is left alone'
 );

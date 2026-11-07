@@ -22,7 +22,8 @@
 -- counted by state, and the states are a partition: what is collected, what the store
 -- suspended and what ran out while the store said nothing add up to the total.
 --
--- The panel needs `view_platform_metrics`, an `A10` duty: the base role reads nothing.
+-- The panel needs `view_platform_metrics`, an `A10` duty every admin holds through the
+-- role (ADR-046): a Backoffice session without the role reads nothing.
 
 begin;
 
@@ -47,7 +48,8 @@ values
   ('019b3000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019b3000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019b3000-0000-7000-8000-000000000003', 'Founder', 'Gamma', 'active'),
-  ('019b3000-0000-7000-8000-000000000004', 'Owner', 'Delta', 'active');
+  ('019b3000-0000-7000-8000-000000000004', 'Owner', 'Delta', 'active'),
+  ('019b3000-0000-7000-8000-000000000005', 'Outsider', 'Epsilon', 'active');
 
 -- Enough people to clear the minimum before the first reading, so every count below
 -- is a difference this test caused and not whatever the database already held.
@@ -63,7 +65,9 @@ values
   ('019b3000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma_biz',
     '019b3000-0000-7000-8000-000000000003'),
   ('019b3000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta_biz',
-    '019b3000-0000-7000-8000-000000000004');
+    '019b3000-0000-7000-8000-000000000004'),
+  ('019b3000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon_biz',
+    '019b3000-0000-7000-8000-000000000005');
 
 select support.bootstrap_backoffice_administrators(
   '019b3000-0000-7000-8000-000000000001', 'alpha_biz',
@@ -84,7 +88,9 @@ from (values
   ('019b3000-0000-7000-8000-000000000021'::uuid, '019b3000-0000-7000-8000-000000000011'::uuid,
     'alpha_biz', 'f1'),
   ('019b3000-0000-7000-8000-000000000023'::uuid, '019b3000-0000-7000-8000-000000000013'::uuid,
-    'gamma_biz', 'f3')
+    'gamma_biz', 'f3'),
+  ('019b3000-0000-7000-8000-000000000025'::uuid, '019b3000-0000-7000-8000-000000000015'::uuid,
+    'epsilon_biz', 'f5')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
 select support.assign_platform_role(
@@ -95,21 +101,25 @@ select support.assign_platform_role(
 );
 
 select set_config('app.actor_kind', 'support', true),
-       set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000003', true);
+       set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000005', true);
 
 -- ---------------------------------------------------------------------------
 -- Who reads the panel
 -- ---------------------------------------------------------------------------
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select support.read_business_panel(
-    '019b3000-0000-7000-8000-000000000003', '019b3000-0000-7000-8000-000000000023'
+    '019b3000-0000-7000-8000-000000000005', '019b3000-0000-7000-8000-000000000025'
   ) $$,
   '42501',
   null,
-  'the base role alone does not read how the business is going'
+  'a Backoffice session without the admin role does not read how the business is going'
 );
 
+select set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000003', true);
+
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b3000-0000-7000-8000-000000000001', '019b3000-0000-7000-8000-000000000021',
   '019b3000-0000-7000-8000-000000000003', 'view_platform_metrics',
@@ -338,9 +348,9 @@ select ok(
   not (
     select access_control.counts_platform_metrics()
     from (select set_config('app.actor_person_id',
-      '019b3000-0000-7000-8000-000000000001', true)) as other_actor
+      '019b3000-0000-7000-8000-000000000005', true)) as other_actor
   ),
-  'and an administrator with other duties and not this one sees no row to count'
+  'and a live Backoffice session without the admin role sees no row to count'
 );
 
 select set_config('app.actor_person_id', '019b3000-0000-7000-8000-000000000003', true);

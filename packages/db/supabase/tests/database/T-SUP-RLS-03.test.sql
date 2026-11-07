@@ -1,7 +1,7 @@
 -- T-SUP-RLS-03 — PR-22 / OP-SUP-005: the minimised support projection.
 --
--- Covers `HU-BO-006` and `HU-BO-007`. The base role alone opens nothing; the
--- projection never carries a name, a full contact or the provider's subject;
+-- Covers `HU-BO-006` and `HU-BO-007`. A Backoffice session without the admin role
+-- opens nothing; the projection never carries a name, a full contact or the provider's subject;
 -- there is no exploratory search; and a search that found nobody is recorded
 -- anyway, which is the whole reason `support.metadata_queries` exists.
 
@@ -15,7 +15,7 @@ insert into identity.people (
   ('019a5000-0000-7000-8000-000000000001', 'Manager', 'Alpha', null, null, 'active'),
   ('019a5000-0000-7000-8000-000000000002', 'Manager', 'Beta', null, null, 'active'),
   ('019a5000-0000-7000-8000-000000000003', 'Diagnostician', 'Gamma', null, null, 'active'),
-  ('019a5000-0000-7000-8000-000000000004', 'Badged', 'Delta', null, null, 'active'),
+  ('019a5000-0000-7000-8000-000000000004', 'Outsider', 'Delta', null, null, 'active'),
   ('019a5000-0000-7000-8000-000000000005', 'Subject', 'Epsilon',
     'subject.epsilon@example.test', '+573001234567', 'active');
 
@@ -54,20 +54,15 @@ insert into identity.access_sessions (
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
--- Both candidates carry the base role. Only one of them gets the duty, so the
--- denial below is about the duty and not about being unknown to the platform.
+-- Both candidates hold an AAL2 Backoffice session; only Gamma gets the role, which brings
+-- every duty (ADR-046), so the denial below is about the role.
 select support.assign_platform_role(
   '019a5000-0000-7000-8000-000000000001', '019a5000-0000-7000-8000-000000000021',
   '019a5000-0000-7000-8000-000000000003', 'allfit_admin',
   '019a5000-0000-7000-8000-000000000101', '019a5000-0000-7000-8000-000000000201',
   decode(repeat('31', 32), 'hex')
 );
-select support.assign_platform_role(
-  '019a5000-0000-7000-8000-000000000001', '019a5000-0000-7000-8000-000000000021',
-  '019a5000-0000-7000-8000-000000000004', 'allfit_admin',
-  '019a5000-0000-7000-8000-000000000102', '019a5000-0000-7000-8000-000000000202',
-  decode(repeat('32', 32), 'hex')
-);
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a5000-0000-7000-8000-000000000001', '019a5000-0000-7000-8000-000000000021',
   '019a5000-0000-7000-8000-000000000003', 'diagnose_support_metadata',
@@ -81,7 +76,7 @@ select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
 
 -- ---------------------------------------------------------------------------
--- The base role opens nothing on its own
+-- A Backoffice session without the admin role opens nothing
 -- ---------------------------------------------------------------------------
 
 select throws_ok(
@@ -91,7 +86,7 @@ select throws_ok(
   ) $$,
   '42501',
   'reading support metadata requires an effective duty',
-  'the base role alone cannot search for a person'
+  'a Backoffice session without the admin role cannot search for a person'
 );
 
 select throws_ok(
@@ -101,7 +96,7 @@ select throws_ok(
   ) $$,
   '42501',
   'reading support metadata requires an effective duty',
-  'the base role alone cannot open an operational state'
+  'a Backoffice session without the admin role cannot open an operational state'
 );
 
 select is(
@@ -324,7 +319,7 @@ select throws_ok(
 );
 select set_config('app.actor_kind', 'support', true);
 
--- The policy that lets the file count permissions: the operator with the duty, nobody else.
+-- The policy that lets the file count permissions: an admin, through the duty, nobody else.
 set local role allfit_owner;
 select is(
   (select count(*)::integer from privacy.data_grants where person_id = '019a5000-0000-7000-8000-000000000005'),
@@ -342,7 +337,7 @@ select set_config('app.actor_kind', 'support', true),
 select is(
   (select count(*)::integer from privacy.data_grants where person_id = '019a5000-0000-7000-8000-000000000005'),
   0,
-  'T-SUP-FILE-RLS-04 nor does a colleague without the duty'
+  'T-SUP-FILE-RLS-04 nor does a Backoffice session without the admin role'
 );
 reset role;
 select set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);

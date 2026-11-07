@@ -87,6 +87,7 @@ insert into identity.access_sessions (
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
+-- The role brings every duty (ADR-046); Eta keeps an AAL2 Backoffice session without it.
 select support.assign_platform_role(
   '019c1000-0000-7000-8000-000000000001', '019c1000-0000-7000-8000-000000000021',
   person_id, 'allfit_admin',
@@ -98,12 +99,12 @@ from (values
   ('019c1000-0000-7000-8000-000000000003'::uuid),
   ('019c1000-0000-7000-8000-000000000004'::uuid),
   ('019c1000-0000-7000-8000-000000000005'::uuid),
-  ('019c1000-0000-7000-8000-000000000007'::uuid),
   ('019c1000-0000-7000-8000-000000000008'::uuid)
 ) as candidates(person_id);
 
 -- Gamma requests and also audits: holding the auditing duty is not what makes a
--- reviewer independent, and asserting that needs somebody who holds both.
+-- reviewer independent, and asserting that needs somebody who holds both. Every grant
+-- below converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019c1000-0000-7000-8000-000000000001', '019c1000-0000-7000-8000-000000000021',
   '019c1000-0000-7000-8000-000000000003', 'request_break_glass',
@@ -233,7 +234,7 @@ select throws_ok(
   ) $$,
   '42501',
   'this break-glass operation requires an effective duty',
-  'the base role alone does not review a case'
+  'a Backoffice session without the admin role does not review a case'
 );
 
 select throws_ok(

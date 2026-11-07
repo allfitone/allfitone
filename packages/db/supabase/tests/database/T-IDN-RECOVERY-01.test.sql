@@ -27,7 +27,7 @@ values
   ('019b1000-0000-7000-8000-000000000002', 'Admin', 'Beta', 'active', null, null),
   ('019b1000-0000-7000-8000-000000000003', 'Support', 'Gamma', 'active',
     'gamma.support@example.test', clock_timestamp()),
-  ('019b1000-0000-7000-8000-000000000004', 'Badged', 'Delta', 'active', null, null),
+  ('019b1000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active', null, null),
   ('019b1000-0000-7000-8000-000000000005', 'Subject', 'Epsilon', 'active',
     'epsilon.subject@example.test', clock_timestamp()),
   ('019b1000-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active',
@@ -80,17 +80,16 @@ from (values
     'delta_recovery', 'c4')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
+-- Delta keeps a Backoffice session but is never granted the role: every admin holds every
+-- duty (ADR-046), so a session without the role is the refusal left.
 select support.assign_platform_role(
   '019b1000-0000-7000-8000-000000000001', '019b1000-0000-7000-8000-000000000041',
-  person_id, 'allfit_admin', key, command, decode(repeat(hash_byte, 32), 'hex')
-)
-from (values
-  ('019b1000-0000-7000-8000-000000000003'::uuid, '019b1000-0000-7000-8000-000000000103'::uuid,
-    '019b1000-0000-7000-8000-000000000203'::uuid, '83'),
-  ('019b1000-0000-7000-8000-000000000004'::uuid, '019b1000-0000-7000-8000-000000000104'::uuid,
-    '019b1000-0000-7000-8000-000000000204'::uuid, '84')
-) as grant_row(person_id, key, command, hash_byte);
+  '019b1000-0000-7000-8000-000000000003', 'allfit_admin',
+  '019b1000-0000-7000-8000-000000000103', '019b1000-0000-7000-8000-000000000203',
+  decode(repeat('83', 32), 'hex')
+);
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b1000-0000-7000-8000-000000000001', '019b1000-0000-7000-8000-000000000041',
   '019b1000-0000-7000-8000-000000000003', 'diagnose_support_metadata',
@@ -100,7 +99,7 @@ select support.assign_platform_duty(
 );
 
 select set_config('app.actor_kind', 'support', true);
-select set_config('app.actor_person_id', '019b1000-0000-7000-8000-000000000003', true);
+select set_config('app.actor_person_id', '019b1000-0000-7000-8000-000000000004', true);
 
 -- ---------------------------------------------------------------------------
 -- Who may look, and what a look records
@@ -112,8 +111,10 @@ select throws_ok(
     'CASE-2026-010', '019b1000-0000-7000-8000-000000000005'
   ) $$,
   '42501', null,
-  'an administrator without the support duty cannot read a recovery'
+  'a Backoffice session without the admin role cannot read a recovery'
 );
+
+select set_config('app.actor_person_id', '019b1000-0000-7000-8000-000000000003', true);
 
 select throws_ok(
   $$ select identity.read_account_recovery(
@@ -225,6 +226,8 @@ select throws_ok(
   'nobody in support recovers their own account'
 );
 
+select set_config('app.actor_person_id', '019b1000-0000-7000-8000-000000000004', true);
+
 select throws_ok(
   $$ select * from identity.start_account_recovery(
     '019b1000-0000-7000-8000-000000000004', '019b1000-0000-7000-8000-000000000044',
@@ -233,8 +236,10 @@ select throws_ok(
     decode(repeat('b3', 32), 'hex')
   ) $$,
   '42501', null,
-  'an administrator without the support duty cannot start a recovery'
+  'a Backoffice session without the admin role cannot start a recovery'
 );
+
+select set_config('app.actor_person_id', '019b1000-0000-7000-8000-000000000003', true);
 
 -- ---------------------------------------------------------------------------
 -- Starting: recorded, sent through the outbox, and nothing secret kept

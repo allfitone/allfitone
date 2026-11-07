@@ -35,6 +35,8 @@ export type Database = {
         Args: never
         Returns: Database['identity']['Enums']['actor_kind']
       }
+      backoffice_idle_limit: { Args: never; Returns: string }
+      backoffice_session_lifetime: { Args: never; Returns: string }
       can_access: {
         Args: {
           p_level: 'read' | 'contribute'

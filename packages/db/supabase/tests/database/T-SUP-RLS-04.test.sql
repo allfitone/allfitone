@@ -1,7 +1,8 @@
 -- T-SUP-RLS-04 — PR-22 / OP-SUP-005: technical diagnosis.
 --
--- `HU-BO-031`. The duty is required, the derived states name what an operator
--- actually needs to see, and — the assertion that matters most — no payload,
+-- `HU-BO-031`. The duty is required (every admin holds it through the role, ADR-046; a
+-- Backoffice session without the role is refused), the derived states name what an
+-- operator actually needs to see, and — the assertion that matters most — no payload,
 -- response body, principal fingerprint or request hash can leave through this
 -- projection. The story's whole point is diagnosing "sin abrir el dato de nadie".
 
@@ -14,7 +15,7 @@ values
   ('019a6000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019a6000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019a6000-0000-7000-8000-000000000003', 'Diagnostician', 'Gamma', 'active'),
-  ('019a6000-0000-7000-8000-000000000004', 'Badged', 'Delta', 'active');
+  ('019a6000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -55,12 +56,8 @@ select support.assign_platform_role(
   '019a6000-0000-7000-8000-000000000101', '019a6000-0000-7000-8000-000000000201',
   decode(repeat('41', 32), 'hex')
 );
-select support.assign_platform_role(
-  '019a6000-0000-7000-8000-000000000001', '019a6000-0000-7000-8000-000000000021',
-  '019a6000-0000-7000-8000-000000000004', 'allfit_admin',
-  '019a6000-0000-7000-8000-000000000102', '019a6000-0000-7000-8000-000000000202',
-  decode(repeat('42', 32), 'hex')
-);
+-- Delta keeps a Backoffice session but is never granted the role. Gamma's grant
+-- converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a6000-0000-7000-8000-000000000001', '019a6000-0000-7000-8000-000000000021',
   '019a6000-0000-7000-8000-000000000003', 'diagnose_support_metadata',
@@ -117,7 +114,7 @@ select throws_ok(
   ) $$,
   '42501',
   'reading support metadata requires an effective duty',
-  'the base role alone cannot read the operational feed'
+  'a Backoffice session without the admin role cannot read the operational feed'
 );
 
 select throws_ok(
@@ -126,7 +123,7 @@ select throws_ok(
   ) $$,
   '42501',
   'reading support metadata requires an effective duty',
-  'the base role alone cannot read delivery health'
+  'a Backoffice session without the admin role cannot read delivery health'
 );
 
 -- ---------------------------------------------------------------------------

@@ -1,8 +1,9 @@
 -- T-SUP-RLS-02 — PR-28: the read-only platform access inventory.
 --
--- Covers `OP-SUP-008` and `OP-SUP-011`: two duties may read it, the base role
--- alone may not, reading grants no authority to administer, retired assignments
--- stay visible, and an elapsed window reads as expired with no job involved.
+-- Covers `OP-SUP-008` and `OP-SUP-011`: two duties may read it, and every admin holds
+-- both through the role (ADR-046); a Backoffice session without the role neither reads
+-- nor administers it, retired assignments stay visible, and an elapsed window reads as
+-- expired with no job involved.
 
 begin;
 
@@ -13,7 +14,8 @@ values
   ('019a4000-0000-7000-8000-000000000001', 'Manager', 'Alpha'),
   ('019a4000-0000-7000-8000-000000000002', 'Manager', 'Beta'),
   ('019a4000-0000-7000-8000-000000000003', 'Auditor', 'Gamma'),
-  ('019a4000-0000-7000-8000-000000000004', 'Badged', 'Delta');
+  ('019a4000-0000-7000-8000-000000000004', 'Badged', 'Delta'),
+  ('019a4000-0000-7000-8000-000000000005', 'Outsider', 'Epsilon');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -22,7 +24,9 @@ values
   ('019a4000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma',
     '019a4000-0000-7000-8000-000000000003'),
   ('019a4000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta',
-    '019a4000-0000-7000-8000-000000000004');
+    '019a4000-0000-7000-8000-000000000004'),
+  ('019a4000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon',
+    '019a4000-0000-7000-8000-000000000005');
 
 select support.bootstrap_backoffice_administrators(
   '019a4000-0000-7000-8000-000000000001', 'alpha',
@@ -46,6 +50,10 @@ insert into identity.access_sessions (
   ('019a4000-0000-7000-8000-000000000024', '019a4000-0000-7000-8000-000000000014',
     'sid_delta_2', 'backoffice', decode(repeat('b4', 32), 'hex'), 'v1.delta',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019a4000-0000-7000-8000-000000000025', '019a4000-0000-7000-8000-000000000015',
+    'sid_epsilon_2', 'backoffice', decode(repeat('b5', 32), 'hex'), 'v1.epsilon',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
 select support.assign_platform_role(
@@ -60,6 +68,7 @@ select support.assign_platform_role(
   '019a4000-0000-7000-8000-000000000102', '019a4000-0000-7000-8000-000000000202',
   decode(repeat('22', 32), 'hex')
 );
+-- Both grants converge onto the duties the role already brings.
 select support.assign_platform_duty(
   '019a4000-0000-7000-8000-000000000001', '019a4000-0000-7000-8000-000000000021',
   '019a4000-0000-7000-8000-000000000003', 'audit_platform_access',
@@ -108,32 +117,34 @@ select is(
   'the independent auditor sees the same inventory'
 );
 
+-- Every admin holds both the reading and the managing duty, so the one left without
+-- the authority to change the inventory is a session without the role.
 select throws_ok(
   $$ select support.assign_platform_role(
-    '019a4000-0000-7000-8000-000000000003', '019a4000-0000-7000-8000-000000000023',
+    '019a4000-0000-7000-8000-000000000005', '019a4000-0000-7000-8000-000000000025',
     '019a4000-0000-7000-8000-000000000002', 'allfit_admin',
     '019a4000-0000-7000-8000-000000000104', '019a4000-0000-7000-8000-000000000204',
     decode(repeat('24', 32), 'hex')
   ) $$,
   '42501',
   'platform access management requires an effective duty',
-  'reading the inventory never confers the authority to change it'
+  'a Backoffice session without the role cannot change the inventory'
 );
 
--- T-ROLE-4 · the base role alone reads nothing.
+-- T-ROLE-4 · a Backoffice session without the role reads nothing.
 select throws_ok(
   $$ select * from support.list_platform_role_assignments(
-    '019a4000-0000-7000-8000-000000000004', '019a4000-0000-7000-8000-000000000024',
+    '019a4000-0000-7000-8000-000000000005', '019a4000-0000-7000-8000-000000000025',
     50, null, null, null
   ) $$,
   '42501',
   'reading platform access requires an effective duty',
-  'a base role without a reading duty cannot open the inventory'
+  'a Backoffice session without the role cannot open the inventory'
 );
 
 select throws_ok(
   $$ select * from support.list_platform_duty_assignments(
-    '019a4000-0000-7000-8000-000000000004', '019a4000-0000-7000-8000-000000000024',
+    '019a4000-0000-7000-8000-000000000005', '019a4000-0000-7000-8000-000000000025',
     null, null, null, 50, null, null, null, null
   ) $$,
   '42501',
@@ -222,13 +233,14 @@ select is(
   'withdrawing changes the state of a row, never the number of rows'
 );
 
--- Criterion 2: every duty state, with window, AAL, grantor and recertification.
+-- Criterion 2: every duty state, with window, AAL, grantor and recertification. Four
+-- admins hold thirteen each through the role, plus Gamma's elapsed granted window.
 select is(
   (select count(*) from support.list_platform_duty_assignments(
     '019a4000-0000-7000-8000-000000000001', '019a4000-0000-7000-8000-000000000021',
-    null, null, null, 50, null, null, null, null
+    null, null, null, 101, null, null, null, null
   )),
-  5::bigint,
+  53::bigint,
   'the duty inventory covers effective, elapsed and revoked assignments'
 );
 
@@ -250,7 +262,7 @@ select is(
     '019a4000-0000-7000-8000-000000000001', '019a4000-0000-7000-8000-000000000021',
     '019a4000-0000-7000-8000-000000000003', null, null, 50, null, null, null, null
   )),
-  2::bigint,
+  14::bigint,
   'the inventory filters by person'
 );
 
@@ -259,7 +271,7 @@ select is(
     '019a4000-0000-7000-8000-000000000001', '019a4000-0000-7000-8000-000000000021',
     null, 'manage_platform_access', null, 50, null, null, null, null
   )),
-  2::bigint,
+  4::bigint,
   'the inventory filters by duty code'
 );
 
@@ -277,8 +289,8 @@ select is(
     '019a4000-0000-7000-8000-000000000001', '019a4000-0000-7000-8000-000000000021',
     null, null, 'revoked', 50, null, null, null, null
   )),
-  1::bigint,
-  'withdrawing the base role left its duty visible as revoked'
+  13::bigint,
+  'withdrawing the base role left the thirteen duties it brought visible as revoked'
 );
 
 -- The cursor advances without repeating or skipping a row.

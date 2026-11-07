@@ -77,16 +77,20 @@ async function decide(requestId: string): Promise<boolean> {
   const witnesses = await sql<Array<{ person_id: string; account_id: string }>>`
     select account.person_id, account.id as account_id
     from identity.access_accounts as account
-    join support.platform_duty_assignments as duty
-      on duty.person_id = account.person_id
-     and duty.duty_code = 'approve_break_glass'
-     and duty.status = 'active'
-     and duty.valid_from <= clock_timestamp()
-     and duty.valid_to > clock_timestamp()
     join support.break_glass_requests as request
       on request.id = ${requestId}::uuid
      and request.requester_person_id <> account.person_id
     where account.subject like 'local_witness_%'
+      -- An existence test, not a join: the role's duty and a granted one would list a
+      -- witness twice, and an approver counts once.
+      and exists (
+        select 1 from support.platform_duty_assignments as duty
+        where duty.person_id = account.person_id
+          and duty.duty_code = 'approve_break_glass'
+          and duty.status = 'active'
+          and duty.valid_from <= clock_timestamp()
+          and duty.valid_to > clock_timestamp()
+      )
       and not exists (
         select 1 from support.break_glass_approvals as decided
         where decided.request_id = ${requestId}::uuid

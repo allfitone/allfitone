@@ -7,27 +7,18 @@
  * appoint themselves — which is exactly what blocks a fresh local database.
  *
  * This script performs that ceremony against a local database and nothing else. The
- * ceremony grants `allfit_admin` and `manage_platform_access` to the operator and to a
- * second administrator, the local witness, who exists only so there is somebody else.
- *
- * Every other duty is granted afterwards **by the witness**, through the same command
- * the Team screen calls. It has to be: a duty is never self-assigned, and the witness is
- * the only other administrator a local database has. Nobody signs in as the witness, so
- * the script opens a short AAL2 session for it, grants, and revokes that session in the
- * same transaction.
- *
- * Duties expire by design. Run the script again when they do: an operator that already
- * exists is left alone, and only the duties that are no longer in force are granted.
+ * ceremony grants `allfit_admin` to the operator and to a second administrator, the local
+ * witness, who exists only so there is somebody else. The role brings every duty with it
+ * for as long as it lasts (ADR-046), so nothing is granted one by one and nothing
+ * expires: running the script again leaves an existing operator alone.
  *
  * It refuses any database that is not on this machine. The ceremony is audited in
  * production and belongs to a real approval, never to a script.
  *
  *   bun --env-file=.env.local packages/db/scripts/bootstrap-local-operator.ts \
- *     --subject user_01ABC --given-name Jimmy --family-name Rozo \
- *     [--duties view_platform_metrics,diagnose_support_metadata]
+ *     --subject user_01ABC --given-name Jimmy --family-name Rozo
  *
  * `--subject` is the WorkOS user id of the Backoffice Application user you sign in with.
- * Without `--duties`, every duty in the closed list is granted.
  */
 
 import { randomBytes, randomUUID } from 'node:crypto'
@@ -35,23 +26,6 @@ import postgres from 'postgres'
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 const DEFAULT_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
-const DUTY_DAYS = 30
-
-// The closed list of ADR-028. `manage_platform_access` comes from the ceremony itself.
-const DUTIES = [
-  'view_platform_metrics',
-  'diagnose_support_metadata',
-  'view_billing_metadata',
-  'manage_organization_lifecycle',
-  'request_break_glass',
-  'verify_professional_credentials',
-  'curate_global_catalog',
-  'manage_platform_commercial',
-  'audit_platform_access',
-  'approve_break_glass',
-  'audit_break_glass',
-  'manage_privacy_requests',
-] as const
 
 interface Options {
   subject: string
@@ -59,7 +33,6 @@ interface Options {
   familyName: string
   issuer: string
   databaseUrl: string
-  duties: string[]
 }
 
 const options = readOptions(process.argv.slice(2))
@@ -69,28 +42,40 @@ async function bootstrap(input: Options): Promise<void> {
   const sql = postgres(input.databaseUrl, { prepare: false, max: 1 })
   try {
     const operator = await ensureOperator(sql, input)
-    const granted = await grantDuties(sql, operator, input.duties)
     const approvers = await armWitnessToApprove(sql, operator, input.issuer)
 
-    const effective = await sql<Array<{ duty_code: string; valid_to: Date }>>`
-      select duty_code, valid_to
+    const effective = await sql<Array<{ duty_code: string; basis: string; valid_to: Date }>>`
+      select duty_code, basis, valid_to
       from support.platform_duty_assignments
       where person_id = ${operator}::uuid
         and status = 'active'
         and valid_from <= clock_timestamp()
         and valid_to > clock_timestamp()
-      order by duty_code
+      order by duty_code, basis
     `
     console.log(`Operator ${operator}`)
-    console.log(granted.length ? `Granted now: ${granted.join(', ')}` : 'Nothing new to grant.')
     for (const duty of effective) {
-      console.log(`  ${duty.duty_code} until ${duty.valid_to.toISOString().slice(0, 10)}`)
+      const until =
+        duty.basis === 'admin_role'
+          ? 'through the role'
+          : `until ${duty.valid_to.toISOString().slice(0, 10)}`
+      console.log(`  ${duty.duty_code} ${until}`)
     }
-    const missing = input.duties.filter(
-      (duty) => !effective.some((held) => held.duty_code === duty),
-    )
+    // The catalogue the role grants from, so this list cannot drift from the database.
+    const missing = await sql<Array<{ duty_code: string }>>`
+      select standing.duty_code from support.standing_platform_duties() as standing
+      where not exists (
+        select 1 from support.platform_duty_assignments as held
+        where held.person_id = ${operator}::uuid
+          and held.duty_code = standing.duty_code
+          and held.status = 'active'
+          and held.valid_from <= clock_timestamp()
+          and held.valid_to > clock_timestamp()
+      )
+      order by standing.duty_code
+    `
     if (missing.length) {
-      console.log(`Still not in force: ${missing.join(', ')}`)
+      console.log(`Still not in force: ${missing.map((row) => row.duty_code).join(', ')}`)
       process.exitCode = 1
     }
     if (approvers >= 2) {
@@ -132,6 +117,7 @@ async function ensureOperator(sql: postgres.Sql, input: Options): Promise<string
              ('workos', ${input.issuer}, ${witnessSubject})
       on conflict (provider, issuer, subject) do nothing
     `
+    // The window argument no longer bounds anything (ADR-046); the ceremony keeps its call.
     await transaction`
       select support.bootstrap_backoffice_administrators(
         ${person.id}::uuid, ${input.subject},
@@ -145,90 +131,14 @@ async function ensureOperator(sql: postgres.Sql, input: Options): Promise<string
 }
 
 /**
- * The witness grants, because nobody grants a duty to themselves. Its session lives
- * only for this transaction: opened with the assurance the command demands, revoked
- * before commit, so it can never be used for anything else.
- */
-async function grantDuties(
-  sql: postgres.Sql,
-  operator: string,
-  duties: string[],
-): Promise<string[]> {
-  return sql.begin(async (transaction) => {
-    const pending = await transaction<Array<{ duty_code: string }>>`
-      select wanted.duty_code
-      from unnest(${duties}::text[]) as wanted(duty_code)
-      where not exists (
-        select 1 from support.platform_duty_assignments as held
-        where held.person_id = ${operator}::uuid
-          and held.duty_code = wanted.duty_code
-          and held.status = 'active'
-          and held.valid_from <= clock_timestamp()
-          and held.valid_to > clock_timestamp()
-      )
-      order by wanted.duty_code
-    `
-    if (!pending.length) return []
-
-    const [witness] = await transaction<Array<{ person_id: string; account_id: string }>>`
-      select account.person_id, account.id as account_id
-      from identity.access_accounts as account
-      join support.platform_role_assignments as role
-        on role.person_id = account.person_id
-       and role.platform_role = 'allfit_admin'
-       and role.status = 'active'
-      where account.subject like 'local_witness_%'
-        and account.person_id is not null
-        and account.person_id <> ${operator}::uuid
-      order by account.created_at desc
-      limit 1
-    `
-    if (!witness) {
-      throw new Error('no local witness holds allfit_admin; run `bun run db:reset` and start over')
-    }
-
-    const sessionId = randomUUID()
-    await transaction`
-      insert into identity.access_sessions (
-        id, access_account_id, provider_session_id, surface, token_hash, token_ciphertext,
-        access_token_expires_at, assurance_level, authentication_method,
-        assurance_verified_at, last_activity_at, absolute_expires_at
-      ) values (
-        ${sessionId}::uuid, ${witness.account_id}::uuid, ${`local_witness_${sessionId}`},
-        'backoffice', ${randomBytes(32)}, 'v1.local-witness',
-        clock_timestamp() + interval '5 minutes', 2, 'password_totp',
-        clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '5 minutes'
-      )
-    `
-
-    for (const { duty_code: duty } of pending) {
-      await transaction`
-        select result from support.assign_platform_duty(
-          ${witness.person_id}::uuid, ${sessionId}::uuid, ${operator}::uuid, ${duty},
-          clock_timestamp(), clock_timestamp() + ${`${DUTY_DAYS} days`}::interval,
-          ${`LOCAL-BOOTSTRAP-${new Date().toISOString().slice(0, 10)}`},
-          ${randomUUID()}::uuid, ${uuidV7()}::uuid, ${randomBytes(32)}
-        )
-      `
-    }
-
-    await transaction`
-      update identity.access_sessions set revoked_at = clock_timestamp()
-      where id = ${sessionId}::uuid
-    `
-    return pending.map((row) => row.duty_code)
-  })
-}
-
-/**
  * A break-glass window needs somebody who is not the requester, and a restricted one —
  * body measurements, health notes, meals — needs two of them. Locally there is one
  * witness, so without this the operator can ask for a window and nothing can ever open
  * it: `HU-BO-008` and `HU-BO-009` cannot be looked at at all.
  *
- * Two local approvers are ensured here. The operator grants, which is the honest
- * direction: they hold `manage_platform_access` and a duty is never self-assigned. Their
- * session lives only for this transaction. Nobody signs in as either approver.
+ * Two local approvers are ensured here. The operator grants a second witness the role,
+ * the way the Team screen does, and the role brings `approve_break_glass` with it. The
+ * operator's session lives only for this transaction. Nobody signs in as either witness.
  */
 async function armWitnessToApprove(
   sql: postgres.Sql,
@@ -286,44 +196,14 @@ async function armWitnessToApprove(
       `
     }
 
-    const approvers = await transaction<Array<{ person_id: string }>>`
-      select account.person_id
-      from identity.access_accounts as account
-      join support.platform_role_assignments as role
-        on role.person_id = account.person_id
-       and role.platform_role = 'allfit_admin'
-       and role.status = 'active'
-      where account.subject like 'local_witness_%'
-        and account.person_id is not null
-        and account.person_id <> ${operator}::uuid
-        and not exists (
-          select 1 from support.platform_duty_assignments as duty
-          where duty.person_id = account.person_id
-            and duty.duty_code = 'approve_break_glass'
-            and duty.status = 'active'
-            and duty.valid_from <= clock_timestamp()
-            and duty.valid_to > clock_timestamp()
-        )
-    `
-    for (const approver of approvers) {
-      await transaction`
-        select result from support.assign_platform_duty(
-          ${operator}::uuid, ${sessionId}::uuid, ${approver.person_id}::uuid,
-          'approve_break_glass',
-          clock_timestamp(), clock_timestamp() + ${`${DUTY_DAYS} days`}::interval,
-          ${`LOCAL-BOOTSTRAP-${new Date().toISOString().slice(0, 10)}`},
-          ${randomUUID()}::uuid, ${uuidV7()}::uuid, ${randomBytes(32)}
-        )
-      `
-    }
-
     await transaction`
       update identity.access_sessions set revoked_at = clock_timestamp()
       where id = ${sessionId}::uuid
     `
 
+    // People, not rows: a witness may hold the duty both through the role and granted.
     const [held] = await transaction<Array<{ count: number }>>`
-      select count(*)::integer as count
+      select count(distinct account.person_id)::integer as count
       from identity.access_accounts as account
       join support.platform_duty_assignments as duty
         on duty.person_id = account.person_id
@@ -358,25 +238,12 @@ function readOptions(argv: string[]): Options {
     throw new Error(`refusing to bootstrap ${host}: this ceremony is audited outside local`)
   }
 
-  const requested = values.get('duties')
-  const duties = requested
-    ? requested
-        .split(',')
-        .map((duty) => duty.trim())
-        .filter(Boolean)
-    : [...DUTIES]
-  const unknown = duties.filter((duty) => !(DUTIES as readonly string[]).includes(duty))
-  if (unknown.length) {
-    throw new Error(`unknown or ceremony-only duties: ${unknown.join(', ')}`)
-  }
-
   return {
     subject: subject.trim(),
     givenName: values.get('given-name') ?? 'Local',
     familyName: values.get('family-name') ?? 'Operator',
     issuer,
     databaseUrl,
-    duties,
   }
 }
 

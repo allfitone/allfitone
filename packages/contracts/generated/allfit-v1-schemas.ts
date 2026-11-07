@@ -9755,6 +9755,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'duty_code',
       'actor_mode',
       'status',
+      'basis',
       'valid_from',
       'valid_to',
       'required_aal',
@@ -9783,6 +9784,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       status: {
         type: 'string',
         enum: ['scheduled', 'active', 'suspended', 'expired', 'revoked'],
+      },
+      basis: {
+        type: 'string',
+        enum: ['granted', 'admin_role'],
+        description:
+          '`granted`: granted by another administrator for at most ninety days. `admin_role`: brought by the `allfit_admin` role (ADR-046); it has no end of its own, is never suspended, revoked or recertified alone, and ends when the role is withdrawn.',
       },
       valid_from: {
         type: 'string',
