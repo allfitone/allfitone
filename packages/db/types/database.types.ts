@@ -60,6 +60,14 @@ export type Database = {
         Returns: string
       }
       counts_platform_metrics: { Args: never; Returns: boolean }
+      frozen_case_covers_person: {
+        Args: { p_person_id: string }
+        Returns: boolean
+      }
+      frozen_case_covers_relationship: {
+        Args: { p_relationship_id: string }
+        Returns: boolean
+      }
       grant_of: {
         Args: { p_relationship_id: string; p_scope_code: string }
         Returns: {
@@ -109,6 +117,16 @@ export type Database = {
       org: { Args: never; Returns: string }
       owns_membership: { Args: { p_membership_id: string }; Returns: boolean }
       person: { Args: never; Returns: string }
+      reads_frozen_session: {
+        Args: {
+          p_context_relationship_id: string
+          p_ended_at: string
+          p_is_autonomous: boolean
+          p_person_id: string
+          p_session_id: string
+        }
+        Returns: boolean
+      }
       reads_under_break_glass: {
         Args: { p_category: string; p_subject_person_id: string }
         Returns: boolean
