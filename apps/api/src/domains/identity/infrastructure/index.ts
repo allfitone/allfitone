@@ -142,6 +142,7 @@ type SessionRow = {
   access_token_expires_at: Date
   token_version: number
   person_status: 'active' | 'closed' | null
+  recent_authentication_expires_at: Date | null
 }
 
 type BackofficeAttemptRow = {
@@ -685,7 +686,8 @@ export function createIdentitySessionDatabase(): IdentitySessionDatabase {
           'studio'::identity.access_session_surface,
           ${input.tokenHash},
           ${input.tokenCiphertext},
-          ${input.accessTokenExpiresAt}
+          ${input.accessTokenExpiresAt},
+          ${input.authenticatedAt}::timestamptz
         ) as session_id
       `
       if (!row) throw new Error('PostgreSQL did not create the access session')
@@ -1236,6 +1238,9 @@ function storedSession(row: SessionRow): StoredAccessSession {
     accessTokenExpiresAt: new Date(row.access_token_expires_at),
     tokenVersion: row.token_version,
     ...(row.person_status ? { personStatus: row.person_status } : {}),
+    recentAuthenticationExpiresAt: row.recent_authentication_expires_at
+      ? new Date(row.recent_authentication_expires_at)
+      : null,
   }
 }
 
