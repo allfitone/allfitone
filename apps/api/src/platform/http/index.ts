@@ -35,6 +35,8 @@ export type ApiErrorCode =
   | 'consent-required'
   /** The person does not share the data scope this operation needs, at the level it needs. */
   | 'scope-required'
+  /** The operation needs a verified professional credential in force, and the actor has none. */
+  | 'credential-required'
   /** The chosen password was refused: too short, or known to be breached. */
   | 'weak-password'
   /** The command conflicts with durable state or a prior idempotent request. */
@@ -76,6 +78,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'reauthentication-required': 403,
   'consent-required': 403,
   'scope-required': 403,
+  'credential-required': 403,
   'weak-password': 422,
   conflict: 409,
   'stale-draft': 409,
@@ -105,6 +108,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'reauthentication-required': 'A recent sign-in is required',
   'consent-required': 'Consent is required first',
   'scope-required': 'Required consent is not effective',
+  'credential-required': 'A verified professional credential is required',
   'weak-password': 'The password does not satisfy the security policy',
   conflict: 'The request conflicts with current state',
   'stale-draft': 'The local draft is stale',

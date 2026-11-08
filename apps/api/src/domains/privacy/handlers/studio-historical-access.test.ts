@@ -8,6 +8,9 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { allfitV1ContractSchemas } from '@allfitone/contracts'
+import Ajv2020 from 'ajv/dist/2020'
+import addFormats from 'ajv-formats'
 import { Hono } from 'hono'
 
 import type { StudioSessionService } from '../../identity/index.js'
@@ -15,11 +18,27 @@ import type { HistoricalAccessService } from '../application/historical-access.j
 import type {
   FrozenExecution,
   FrozenExecutionSummary,
+  FrozenNutritionGoalVersion,
   HistoricalAccessActor,
   HistoricalAccessCase,
   HistoricalRelationship,
 } from '../domain/historical-access.js'
 import { studioHistoricalAccessRoutes } from './studio-historical-access.js'
+
+// The published schema proves what the wire carries, not the DTO the handler compiles against.
+const validator = new Ajv2020({ strict: false, allErrors: true })
+addFormats(validator)
+validator.addSchema({ $id: 'allfit-v1', components: { schemas: allfitV1ContractSchemas } })
+
+function assertMatchesContract(schemaName: string, projection: unknown): void {
+  const validate = validator.getSchema(`allfit-v1#/components/schemas/${schemaName}`)
+  if (!validate) throw new Error(`The contract declares no schema named ${schemaName}`)
+  if (validate(projection)) return
+  const failures = (validate.errors ?? [])
+    .map((error) => `${error.instancePath || '/'} ${error.message ?? 'is invalid'}`)
+    .join('; ')
+  throw new Error(`${schemaName} violates the contract: ${failures}`)
+}
 
 const ORGANIZATION = '0199e000-0000-7000-8000-000000000101'
 const RELATIONSHIP = '0199e000-0000-7000-8000-000000000701'
@@ -140,6 +159,14 @@ function service(overrides: Partial<HistoricalAccessService> = {}): HistoricalAc
     listBodyProgress: async () => ({
       outcome: 'found',
       value: { appliedScope: { code: 'body_progress', version: 2 }, items: [], hasMore: false },
+    }),
+    listGoalVersions: async () => ({
+      outcome: 'found',
+      value: {
+        appliedScope: { code: 'nutrition_guidance', version: 3 },
+        items: [],
+        hasMore: false,
+      },
     }),
     ...overrides,
   }
@@ -527,5 +554,106 @@ describe('reading through a case (OP-PRV-020)', () => {
     const response = await app(cases).fetch(request(`${HISTORY}/body-progress`))
     expect(response.status).toBe(403)
     expect(await problemType(response)).toBe('scope-required')
+  })
+})
+
+describe('the goals an ended relationship proposed (OP-NUT-011, through a case)', () => {
+  const GOAL = '0199e000-0000-7000-8000-000000000a01'
+  const FROZEN_GOAL: FrozenNutritionGoalVersion = {
+    id: GOAL,
+    status_at_cut: 'accepted',
+    rationale: null,
+    author: { kind: 'professional', person_id: PERSON },
+    targets: [
+      {
+        nutrient_code: 'protein',
+        mode: 'minimum',
+        minimum: 140,
+        maximum: null,
+        exact: null,
+        unit: 'g',
+      },
+    ],
+    created_at: '2026-10-01T10:00:00.123456+00:00',
+    activated_at: '2026-10-02T09:00:00+00:00',
+    decision: { decision: 'accepted', decided_at: '2026-10-02T09:00:00+00:00' },
+  }
+
+  test('carries the version that kept them readable, and pages on the exact instant', async () => {
+    const seen: unknown[] = []
+    const cases = service({
+      listGoalVersions: async (actor, target, page) => {
+        seen.push({ actor, target, page })
+        return {
+          outcome: 'found',
+          value: {
+            appliedScope: { code: 'nutrition_guidance', version: 3 },
+            items: [FROZEN_GOAL],
+            hasMore: true,
+            nextCursor: { createdAt: FROZEN_GOAL.created_at, id: GOAL },
+          },
+        }
+      },
+    })
+    const first = await app(cases).fetch(request(`${HISTORY}/nutrition/goal-versions?limit=1`))
+    expect(first.status).toBe(200)
+    expect(first.headers.get('cache-control')).toBe('private, no-store')
+    const page = (await first.json()) as { page: { next_cursor: string } }
+    assertMatchesContract('FrozenNutritionGoalVersionPage', page)
+    expect(page).toMatchObject({
+      applied_scope: { code: 'nutrition_guidance', version: 3 },
+      data: [FROZEN_GOAL],
+      page: { has_more: true },
+    })
+    await app(cases).fetch(
+      request(`${HISTORY}/nutrition/goal-versions?cursor=${page.page.next_cursor}`),
+    )
+    expect(seen[0]).toMatchObject({
+      actor: { personId: PERSON, sessionId: SESSION },
+      target: { organizationId: ORGANIZATION, relationshipId: RELATIONSHIP, caseId: CASE },
+      page: { limit: 1 },
+    })
+    expect(seen[1]).toMatchObject({
+      page: { limit: 25, cursor: { createdAt: FROZEN_GOAL.created_at, id: GOAL } },
+    })
+  })
+
+  test('403 names the guidance when it was not frozen readable; a case not usable is 404', async () => {
+    const unshared = await app(
+      service({
+        listGoalVersions: async () => ({
+          outcome: 'scope_required',
+          requiredScope: { code: 'nutrition_guidance', level: 'read' },
+        }),
+      }),
+    ).fetch(request(`${HISTORY}/nutrition/goal-versions`))
+    expect(unshared.status).toBe(403)
+    expect(await unshared.json()).toMatchObject({
+      required_scope: { code: 'nutrition_guidance', level: 'read' },
+    })
+
+    const absent = await app(
+      service({ listGoalVersions: async () => ({ outcome: 'not_found' }) }),
+    ).fetch(request(`${HISTORY}/nutrition/goal-versions`))
+    expect(absent.status).toBe(404)
+
+    const stale = await app(
+      service({
+        listGoalVersions: async () => {
+          throw postgresError('AF401')
+        },
+      }),
+    ).fetch(request(`${HISTORY}/nutrition/goal-versions`))
+    expect(stale.status).toBe(403)
+    expect(await problemType(stale)).toBe('reauthentication-required')
+
+    const caseless = await app().fetch(
+      request(`${HISTORY}/nutrition/goal-versions`, { headers: BASE_HEADERS }),
+    )
+    expect(caseless.status).toBe(400)
+    const forged = await app().fetch(
+      request(`${HISTORY}/nutrition/goal-versions?cursor=bm90LWEtY3Vyc29y`),
+    )
+    expect(forged.status).toBe(400)
   })
 })

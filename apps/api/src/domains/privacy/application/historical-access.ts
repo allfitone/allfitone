@@ -23,5 +23,6 @@ export function createHistoricalAccessService(
     readExecution: (actor, target, executionId) =>
       database.readExecution(actor, target, executionId),
     listBodyProgress: (actor, target, page) => database.listBodyProgress(actor, target, page),
+    listGoalVersions: (actor, target, page) => database.listGoalVersions(actor, target, page),
   }
 }

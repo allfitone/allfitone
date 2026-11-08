@@ -10,8 +10,9 @@
  * published definition is immutable**, so in production they are published by hand from
  * `/permissions`, from those same rules. This script is for the local chain.
  *
- * It refuses any database that is not on this machine, and it is idempotent: a scope that
- * already has a version is left alone rather than given a second one.
+ * It refuses any database that is not on this machine, and it is idempotent: a scope whose
+ * newest version already has these rules is left alone; one whose rules changed here gets
+ * a new version, as a curator would publish it, and the grants on the old one keep it.
  *
  *   bun --env-file=.env.local packages/db/scripts/publish-local-scopes.ts
  */
@@ -60,11 +61,8 @@ async function publish(): Promise<void> {
   }
 
   for (const { code, rules } of SCOPES) {
-    const [existing] = await sql<Array<{ count: number }>>`
-      select count(*)::integer as count from privacy.scope_definitions
-      where scope_code = ${code}
-    `
-    if ((existing?.count ?? 0) > 0) {
+    const published = await latestRules(code)
+    if (published !== null && published === fingerprint(rules)) {
       console.log(`${code.padEnd(24)} already published, left alone`)
       continue
     }
@@ -128,6 +126,39 @@ async function publishOne(
       where id = ${sessionId}::uuid
     `
   })
+}
+
+/** The rules of the newest published version of a scope, as `fingerprint` writes them. */
+async function latestRules(code: string): Promise<string | null> {
+  const rows = await sql<Rule[]>`
+    select rule.resource, rule.field, rule.data_classification_code, rule.max_action,
+           rule.is_excluded, rule.historical_readable
+    from privacy.scope_resource_rules as rule
+    where rule.scope_definition_id = (
+      select definition.id from privacy.scope_definitions as definition
+      where definition.scope_code = ${code} and definition.status = 'published'
+      order by definition.version_number desc
+      limit 1
+    )
+  `
+  return rows.length === 0 ? null : fingerprint(rows)
+}
+
+/** Order and defaults do not make two sets of rules different. */
+function fingerprint(rules: Rule[]): string {
+  return rules
+    .map((rule) =>
+      [
+        rule.resource,
+        rule.field,
+        rule.data_classification_code,
+        rule.max_action,
+        rule.is_excluded === true,
+        rule.historical_readable === true,
+      ].join('|'),
+    )
+    .sort()
+    .join('\n')
 }
 
 function value(flag: string): string | undefined {

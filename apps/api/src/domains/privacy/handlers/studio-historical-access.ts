@@ -1,7 +1,8 @@
 /**
  * `/studio/v1/organizations/{organizationId}/historical-access-cases` and
  * `/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/…`:
- * the historical access case (HU-STUDIO-061..063).
+ * the historical access case (HU-STUDIO-061..063), and the nutrition goals an ended
+ * relationship proposed, read through one (HU-STUDIO-070).
  *
  * A manager opens a time-boxed case over a relationship the organization ended, lists
  * and closes cases, and the member it authorizes reads what the person left readable
@@ -243,6 +244,32 @@ export function studioHistoricalAccessRoutes(
     },
   )
 
+  // `OP-NUT-011`: the goals the relationship proposed, as they stood at the cut.
+  routes.get(
+    '/organizations/:organizationId/historical-relationships/:relationshipId/nutrition/goal-versions',
+    async (c) => {
+      const target = frozenTarget(c, studioOrigin)
+      if (target instanceof Response) return target
+      const pagination = parsePagination(c, decodeGoalCursor)
+      if (!pagination) return problem(c, 'invalid-request')
+      try {
+        const actor = await studioActor(c, sessions)
+        if (actor instanceof Response) return actor
+        const read = await cases().listGoalVersions(actor, target, pagination)
+        return answer(c, read, (page) => ({
+          applied_scope: page.appliedScope,
+          data: page.items,
+          page: {
+            has_more: page.hasMore,
+            next_cursor: page.nextCursor ? encodeCursor(page.nextCursor) : null,
+          },
+        }))
+      } catch (error) {
+        return failure(c, error)
+      }
+    },
+  )
+
   return routes
 }
 
@@ -346,6 +373,13 @@ function decodeBodyCursor(raw: string) {
   const cursor = readCursor(raw)
   return cursor && typeof cursor.measuredOn === 'string' && DAY.test(cursor.measuredOn)
     ? { measuredOn: cursor.measuredOn, id: String(cursor.id) }
+    : undefined
+}
+
+function decodeGoalCursor(raw: string) {
+  const cursor = readCursor(raw)
+  return cursor && instant(cursor.createdAt)
+    ? { createdAt: cursor.createdAt, id: String(cursor.id) }
     : undefined
 }
 

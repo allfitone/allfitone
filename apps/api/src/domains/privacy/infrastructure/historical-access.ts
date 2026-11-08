@@ -21,6 +21,7 @@ import type {
   FrozenBodyProgressRecord,
   FrozenExecution,
   FrozenExecutionSummary,
+  FrozenNutritionGoalVersion,
   FrozenRead,
   HistoricalAccessCase,
   HistoricalAccessDatabase,
@@ -179,6 +180,33 @@ export function createHistoricalAccessDatabase(
             ...(hasMore && last
               ? { nextCursor: { measuredOn: last.measured_on, id: last.id } }
               : {}),
+          }
+        })
+      }),
+
+    // The instant comes inside jsonb at full precision, so the cursor keeps it untouched.
+    listGoalVersions: (actor, target, page) =>
+      transact(sql, actor.personId, target.requestId, async (transaction) => {
+        const [row] = await transaction<
+          {
+            document: Answer<{ scope_version: number; items: FrozenNutritionGoalVersion[] }> | null
+          }[]
+        >`
+          select nutrition.list_frozen_goal_versions(
+            ${actor.personId}::uuid, ${actor.sessionId}::uuid, ${target.organizationId}::uuid,
+            ${target.relationshipId}::uuid, ${target.caseId}::uuid, ${page.limit + 1}::integer,
+            ${page.cursor?.createdAt ?? null}::timestamptz, ${page.cursor?.id ?? null}::uuid
+          ) as document
+        `
+        return frozen(row?.document, ({ scope_version, items }) => {
+          const hasMore = items.length > page.limit
+          const visible = items.slice(0, page.limit)
+          const last = visible.at(-1)
+          return {
+            appliedScope: { code: 'nutrition_guidance', version: scope_version },
+            items: visible,
+            hasMore,
+            ...(hasMore && last ? { nextCursor: { createdAt: last.created_at, id: last.id } } : {}),
           }
         })
       }),

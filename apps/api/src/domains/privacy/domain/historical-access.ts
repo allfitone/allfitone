@@ -16,6 +16,7 @@ export type HistoricalRelationship = AllfitV1Schemas['HistoricalRelationship']
 export type FrozenExecutionSummary = AllfitV1Schemas['FrozenExecutionSummary']
 export type FrozenExecution = AllfitV1Schemas['FrozenExecution']
 export type FrozenBodyProgressRecord = AllfitV1Schemas['ClientBodyProgressRecord']
+export type FrozenNutritionGoalVersion = AllfitV1Schemas['FrozenNutritionGoalVersion']
 export type AppliedScope = AllfitV1Schemas['AppliedScope']
 
 export const HISTORICAL_ACCESS_PURPOSES: readonly HistoricalAccessPurpose[] = [
@@ -120,6 +121,16 @@ export interface FrozenBodyPage extends FrozenPage<FrozenBodyProgressRecord, Fro
   appliedScope: AppliedScope
 }
 
+/** A proposal's creation, exactly as PostgreSQL wrote it, and its id. */
+export interface FrozenGoalCursor {
+  createdAt: string
+  id: string
+}
+
+export interface FrozenGoalPage extends FrozenPage<FrozenNutritionGoalVersion, FrozenGoalCursor> {
+  appliedScope: AppliedScope
+}
+
 export interface HistoricalAccessDatabase {
   open(actor: HistoricalAccessActor, input: OpenCaseInput): Promise<CaseCommandResult>
   close(actor: HistoricalAccessActor, input: CloseCaseInput): Promise<CaseCommandResult>
@@ -143,4 +154,10 @@ export interface HistoricalAccessDatabase {
     target: FrozenTarget,
     page: FrozenPageQuery<FrozenBodyCursor>,
   ): Promise<FrozenRead<FrozenBodyPage>>
+  /** OP-NUT-011 through a case: what the relationship proposed by the cut. */
+  listGoalVersions(
+    actor: HistoricalAccessActor,
+    target: FrozenTarget,
+    page: FrozenPageQuery<FrozenGoalCursor>,
+  ): Promise<FrozenRead<FrozenGoalPage>>
 }

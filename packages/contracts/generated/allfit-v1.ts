@@ -2123,6 +2123,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/nutrition/goal-versions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the goals an ended relationship proposed, through a case
+     * @description HU-STUDIO-070. What this relationship proposed by the cut, newest first, each with how it stood at the cut and what she had decided by then, in the fields the frozen version of `nutrition_guidance` keeps readable; a field it does not keep comes back null. Her own goals, another organization's and anything after the cut do not exist for the case. Needs a sign-in at most ten minutes old, as every read through a case. 403 `scope-required` when `nutrition_guidance` was not frozen readable.
+     */
+    get: operations['listFrozenNutritionGoalVersions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles': {
     parameters: {
       query?: never
@@ -4586,7 +4606,12 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** List live authorized client meals with field-level media redaction */
+    /**
+     * List the meals a client shares with the coach who attends her
+     * @description HU-STUDIO-068. Her meals between `from` and `to`, her local days, at most thirty-one of them, newest first, under `nutrition_intake`: only the fields its version shares, the rest null. `has_photo` says whether a meal has a photo only when she also shares `nutrition_media`; otherwise it is null, and the photo is fetched from its own route. The storage key never leaves the API. Her Space plan's window does not apply here.
+     *
+     *     The holder of her relationship or a cover she accepted reads it; anyone else, the owner and admins included, gets 404. With nothing shared, 403 `scope-required`. Every read is recorded before it answers.
+     */
     get: operations['listAuthorizedClientNutritionMeals']
     put?: never
     post?: never
@@ -4604,8 +4629,8 @@ export interface paths {
       cookie?: never
     }
     /**
-     * Stream one sanitized meal photo after rechecking live authorization
-     * @description Revalidates the complete professional context plus nutrition_intake/read and nutrition_media/read on every request, records ACCESS_EVENT, and streams the sanitized object without exposing media_ref or a signed storage URL.
+     * Stream one meal photo after rechecking what she shares
+     * @description HU-STUDIO-072. Rechecks the coach's assignment and both `nutrition_intake` and `nutrition_media` on every request, records the access, and streams the image through the API (`x-allfit-media-url-policy.studio_professional`): no redirect, no signed address. Every photo was sanitised to JPEG when she kept it. Anything short of a photo she shares, a missing permission included, is 404.
      */
     get: operations['getAuthorizedClientNutritionMealPhoto']
     put?: never
@@ -4623,7 +4648,10 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Aggregate nutrition only after applying live authorization */
+    /**
+     * Add up each day of a client's meals from what she shares
+     * @description HU-STUDIO-069. Every day between `from` and `to`, at most thirty-one, with how many meals she recorded and the total of each nutrient, added up only from what `nutrition_intake` shares. A day with nothing has no totals, not zeros; a version that shares no nutrients gives `nutrient_totals: null`, so a total never reveals what it hides. No streak and no hidden days: those are hers, in Space.
+     */
     get: operations['listAuthorizedClientNutritionDailySummaries']
     put?: never
     post?: never
@@ -4640,10 +4668,20 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** List authorized live or explicitly selected frozen guidance */
+    /**
+     * List the goals this relationship proposed, and her active goal
+     * @description HU-STUDIO-070. Under `nutrition_guidance`: what this relationship proposed, newest first, in any state and with what she decided; never her own goals nor another organization's. `active` is the goal she follows now, with its targets; it names its version and says `from_this_relationship` only when this relationship proposed it, and otherwise says nothing of who set it or why.
+     *
+     *     What an ended relationship proposed is read through a historical access case, under `/historical-relationships/{relationshipId}/nutrition/goal-versions`.
+     */
     get: operations['listAuthorizedClientNutritionGoalVersions']
     put?: never
-    /** Propose a nutrition goal version without activating it */
+    /**
+     * Propose a version of a client's nutrition goals for her to decide
+     * @description HU-STUDIO-071. The coach who attends her proposes daily targets, one to six nutrients the catalogue publishes, with a justification. Nothing changes until she accepts it in Space; her active goal stays as it is. A new proposal replaces the one this relationship still has waiting, which then reads `superseded`; ending the relationship cancels it.
+     *
+     *     It needs three things at once: `guide_nutrition` (403 `forbidden`), a verified nutrition credential in force (403 `credential-required`), and her guidance shared at `contribute` (403 `scope-required`). A target is a nutrient, never a food, a menu or a clinical indication. While her service is paused, 409 `service-paused`. The Command-Id is the proposal's id.
+     */
     post: operations['proposeClientNutritionGoalVersion']
     delete?: never
     options?: never
@@ -10396,20 +10434,23 @@ export interface components {
       page: components['schemas']['Page']
     }
     /**
+     * @description A meal as the coach who attends her sees it: the fields her `nutrition_intake` version shares, the rest null. Never its storage key nor its revision.
      * @example {
      *       "id": "0190f2d6-68d0-7b4a-8d7f-d152223eed28",
      *       "occurred_at": "2026-07-28T12:30:00-05:00",
      *       "local_date": "2026-07-28",
      *       "timezone": "America/Bogota",
      *       "meal_type": "lunch",
-     *       "note": "Registro manual",
-     *       "revision_number": 0,
+     *       "note": "Con prisa",
+     *       "has_photo": true,
      *       "items": [
      *         {
      *           "position": 1,
      *           "name": "Pollo con arroz",
      *           "quantity": 320,
      *           "quantity_unit": "g",
+     *           "serving": null,
+     *           "origin": "typed",
      *           "nutrients": [
      *             {
      *               "nutrient_code": "protein",
@@ -10418,39 +10459,38 @@ export interface components {
      *             }
      *           ]
      *         }
-     *       ],
-     *       "photo": {
-     *         "href": "/studio/v1/organizations/018f6f8d-2b00-7a00-8000-000000000101/clients/018f6f8d-2b00-7a00-8000-000000000102/nutrition/meals/0190f2d6-68d0-7b4a-8d7f-d152223eed28/photo",
-     *         "method": "GET"
-     *       },
-     *       "applied_scopes": [
-     *         {
-     *           "code": "nutrition_intake",
-     *           "version": 1
-     *         },
-     *         {
-     *           "code": "nutrition_media",
-     *           "version": 1
-     *         }
      *       ]
      *     }
      */
-    AuthorizedNutritionMeal: {
+    ClientNutritionMeal: {
       id: components['schemas']['Uuid']
       /** Format: date-time */
       occurred_at: string
       /** Format: date */
       local_date: string
-      timezone: components['schemas']['IanaTimeZone']
-      meal_type: components['schemas']['MealType']
+      timezone: components['schemas']['IanaTimeZone'] | null
+      meal_type: components['schemas']['MealType'] | null
       note: string | null
-      revision_number: number
-      items: components['schemas']['NutritionMealItem'][]
-      photo: components['schemas']['AuthenticatedMediaLink'] | null
-      applied_scopes: components['schemas']['AppliedScope'][]
+      /** @description Whether the meal has a photo, said only when she also shares `nutrition_media`; null otherwise. The photo has its own route. */
+      has_photo: boolean | null
+      items: components['schemas']['ClientNutritionMealItem'][]
     }
-    AuthorizedNutritionMealPage: {
-      data: components['schemas']['AuthorizedNutritionMeal'][]
+    ClientNutritionMealItem: {
+      position: number
+      name: string | null
+      quantity: number | null
+      quantity_unit: string | null
+      serving: string | null
+      /** @enum {string|null} */
+      origin: 'typed' | 'catalog' | 'photo' | null
+      /** @description Null when her version shares no nutrient values. */
+      nutrients: components['schemas']['NutrientValue'][] | null
+    }
+    ClientNutritionMealPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      /** @description The `nutrition_media` version that said which meals have a photo, or null. */
+      photo_scope: components['schemas']['AppliedScope'] | null
+      data: components['schemas']['ClientNutritionMeal'][]
       page: components['schemas']['Page']
     }
     /**
@@ -10707,11 +10747,129 @@ export interface components {
       active: components['schemas']['NutritionGoalVersion'] | null
       proposals: components['schemas']['NutritionGoalVersion'][]
     }
-    NutritionGoalVersionPage: {
-      data: components['schemas']['NutritionGoalVersion'][]
-      page: components['schemas']['Page']
+    /**
+     * @example {
+     *       "local_date": "2026-07-28",
+     *       "meal_count": 3,
+     *       "nutrient_totals": [
+     *         {
+     *           "nutrient_code": "energy",
+     *           "value": 1840,
+     *           "unit": "kcal"
+     *         }
+     *       ]
+     *     }
+     */
+    ClientNutritionDailySummary: {
+      /** Format: date */
+      local_date: string
+      /** @description Null when her version does not share the day of a meal. */
+      meal_count: number | null
+      /** @description What she recorded and the coach may see, added up; empty on a day with nothing, null when her version shares no nutrient values. */
+      nutrient_totals: components['schemas']['NutrientValue'][] | null
+    }
+    ClientNutritionDailySummaryPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientNutritionDailySummary'][]
+    }
+    /** @description A target as her version shares it; a field it does not share is null. */
+    ClientNutritionGoalTarget: {
+      nutrient_code: components['schemas']['NutrientCode'] | null
+      /** @enum {string|null} */
+      mode: 'minimum' | 'maximum' | 'range' | 'exact' | null
+      minimum: number | null
+      maximum: number | null
+      exact: number | null
+      /** @enum {string|null} */
+      unit: 'kcal' | 'g' | 'ml' | null
+    }
+    ClientNutritionGoalDecision: {
+      /** @enum {string} */
+      decision: 'accepted' | 'rejected'
       /** Format: date-time */
-      frozen_at: string | null
+      decided_at: string
+    }
+    /**
+     * @description A version this relationship proposed. The author is named by id only, and the version number is never shown: it would count her own goals.
+     * @example {
+     *       "id": "0190f2d6-68d2-71cf-8247-527651199d86",
+     *       "status": "proposed",
+     *       "rationale": "Para tu fase de definición",
+     *       "author": {
+     *         "kind": "professional",
+     *         "person_id": "018f6f8d-2b00-7a00-8000-000000000103"
+     *       },
+     *       "targets": [
+     *         {
+     *           "nutrient_code": "protein",
+     *           "mode": "minimum",
+     *           "minimum": 140,
+     *           "maximum": null,
+     *           "exact": null,
+     *           "unit": "g"
+     *         }
+     *       ],
+     *       "created_at": "2026-07-28T17:30:00Z",
+     *       "activated_at": null,
+     *       "cancelled_at": null,
+     *       "decision": null
+     *     }
+     */
+    ClientNutritionGoalVersion: {
+      id: components['schemas']['Uuid']
+      status: components['schemas']['NutritionGoalStatus']
+      rationale: string | null
+      author: components['schemas']['ClientNutritionGoalAuthor']
+      targets: components['schemas']['ClientNutritionGoalTarget'][]
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      activated_at: string | null
+      /** Format: date-time */
+      cancelled_at: string | null
+      decision: components['schemas']['ClientNutritionGoalDecision'] | null
+    }
+    ClientNutritionGoalAuthor: {
+      /** @constant */
+      kind: 'professional'
+      person_id: components['schemas']['Uuid'] | null
+    }
+    /** @description The goal she follows now. Its version is named, and `from_this_relationship` is true, only when this relationship proposed it; otherwise nothing says who set it, why or which number it is. */
+    ClientActiveNutritionGoal: {
+      /** Format: uuid */
+      goal_version_id: string | null
+      from_this_relationship: boolean
+      /** Format: date-time */
+      activated_at: string | null
+      targets: components['schemas']['ClientNutritionGoalTarget'][]
+    }
+    ClientNutritionGoalHistory: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientNutritionGoalVersion'][]
+      page: components['schemas']['Page']
+      active: components['schemas']['ClientActiveNutritionGoal'] | null
+    }
+    /** @description A proposal of an ended relationship as it stood at the cut, in the fields the frozen version keeps readable; the rest null. */
+    FrozenNutritionGoalVersion: {
+      id: components['schemas']['Uuid']
+      /**
+       * @description Null when the frozen version does not keep her decisions readable.
+       * @enum {string|null}
+       */
+      status_at_cut: 'proposed' | 'accepted' | 'rejected' | 'superseded' | 'cancelled' | null
+      rationale: string | null
+      author: components['schemas']['ClientNutritionGoalAuthor']
+      targets: components['schemas']['ClientNutritionGoalTarget'][]
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      activated_at: string | null
+      decision: components['schemas']['ClientNutritionGoalDecision'] | null
+    }
+    FrozenNutritionGoalVersionPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['FrozenNutritionGoalVersion'][]
+      page: components['schemas']['Page']
     }
     /**
      * @example {
@@ -10728,21 +10886,6 @@ export interface components {
        * @description At most five minutes after issuance.
        */
       expires_at: string
-      /** @constant */
-      method: 'GET'
-    }
-    /**
-     * @example {
-     *       "href": "/studio/v1/organizations/018f6f8d-2b00-7a00-8000-000000000101/clients/018f6f8d-2b00-7a00-8000-000000000102/nutrition/meals/0190f2d6-68d0-7b4a-8d7f-d152223eed28/photo",
-     *       "method": "GET"
-     *     }
-     */
-    AuthenticatedMediaLink: {
-      /**
-       * Format: uri-reference
-       * @description Authenticated API URL; the bearer token and live authorization are required on every GET.
-       */
-      href: string
       /** @constant */
       method: 'GET'
     }
@@ -12366,6 +12509,35 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The coach lacks `guide_nutrition` (`forbidden`), a verified nutrition credential in force (`credential-required`), or her guidance shared at `contribute` (`scope-required`) */
+    NutritionProposalForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
+    /** @description Her service with this organization is paused (`service-paused`), or the idempotency identity was reused or is still in progress (`conflict`, `idempotency-in-progress`) */
+    NutritionProposalConflict: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        'Retry-After': components['headers']['RetryAfter']
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "type": "https://errors.allfit.invalid/service-paused",
+         *       "title": "The person's service with this organization is paused",
+         *       "status": 409,
+         *       "request_id": "01JEXAMPLE0000000000000000"
+         *     }
+         */
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description If-Match refers to a stale execution revision */
     StaleDraft: {
       headers: {
@@ -12554,8 +12726,6 @@ export interface components {
     OrganizationSiteIfMatch: string
     /** @description Strong ETag for the nutrition meal revision used as the command base. */
     NutritionMealIfMatch: string
-    /** @description Opaque case UUID. When present the endpoint uses only the frozen guidance projection. */
-    HistoricalAccessCase: components['schemas']['Uuid']
     IfNoneMatch: string
     FromDate: string
     /** @description Inclusive date; range from..to must not exceed 31 days. */
@@ -16309,6 +16479,41 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['FrozenBodyProgressPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalReadForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listFrozenNutritionGoalVersions: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen proposals, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenNutritionGoalVersionPage']
         }
       }
       400: components['responses']['BadRequest']
@@ -20953,20 +21158,22 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized meal page */
+      /** @description Her meals, newest first */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['AuthorizedNutritionMealPage']
+          'application/json': components['schemas']['ClientNutritionMealPage']
         }
       }
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   getAuthorizedClientNutritionMealPhoto: {
@@ -20982,7 +21189,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Sanitized image bytes streamed through the authenticated API */
+      /** @description The photo, streamed through the API */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
@@ -20990,12 +21197,12 @@ export interface operations {
         }
         content: {
           'image/jpeg': string
-          'image/png': string
-          'image/webp': string
         }
       }
+      400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listAuthorizedClientNutritionDailySummaries: {
@@ -21014,20 +21221,22 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized daily summaries */
+      /** @description Each day of the range, in order */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['NutritionDailySummaryPage']
+          'application/json': components['schemas']['ClientNutritionDailySummaryPage']
         }
       }
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listAuthorizedClientNutritionGoalVersions: {
@@ -21036,10 +21245,7 @@ export interface operations {
         limit?: components['parameters']['Limit']
         cursor?: components['parameters']['Cursor']
       }
-      header?: {
-        /** @description Opaque case UUID. When present the endpoint uses only the frozen guidance projection. */
-        'X-Historical-Access-Case'?: components['parameters']['HistoricalAccessCase']
-      }
+      header?: never
       path: {
         organizationId: components['parameters']['OrganizationId']
         personId: components['parameters']['PersonId']
@@ -21048,19 +21254,22 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized guidance versions */
+      /** @description This relationship's proposals and her active goal */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['NutritionGoalVersionPage']
+          'application/json': components['schemas']['ClientNutritionGoalHistory']
         }
       }
+      400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   proposeClientNutritionGoalVersion: {
@@ -21084,24 +21293,25 @@ export interface operations {
       }
     }
     responses: {
-      /** @description Professional goal version proposed */
+      /** @description The proposal, waiting on her */
       201: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
-          Location: components['headers']['Location']
           'Idempotent-Replay': components['headers']['IdempotentReplay']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['NutritionGoalVersion']
+          'application/json': components['schemas']['ClientNutritionGoalVersion']
         }
       }
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
-      403: components['responses']['ScopeRequired']
+      403: components['responses']['NutritionProposalForbidden']
       404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
+      409: components['responses']['NutritionProposalConflict']
+      415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   readBackofficeGlobalCatalogue: {

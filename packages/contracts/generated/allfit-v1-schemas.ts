@@ -706,28 +706,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
-  AuthenticatedMediaLink: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['href', 'method'],
-    example: {
-      href: '/studio/v1/organizations/018f6f8d-2b00-7a00-8000-000000000101/clients/018f6f8d-2b00-7a00-8000-000000000102/nutrition/meals/0190f2d6-68d0-7b4a-8d7f-d152223eed28/photo',
-      method: 'GET',
-    },
-    properties: {
-      href: {
-        type: 'string',
-        format: 'uri-reference',
-        pattern: '^/studio/v1/organizations/[^/?#]+/clients/[^/?#]+/nutrition/meals/[^/?#]+/photo$',
-        description:
-          'Authenticated API URL; the bearer token and live authorization are required on every GET.',
-      },
-      method: {
-        type: 'string',
-        const: 'GET',
-      },
-    },
-  },
   AuthorizedExecution: {
     description:
       'One session as the list shows it, with what was recorded in it. A load and a distance come back as the person typed them. No heart rate, pain, body weight or capture device.',
@@ -961,126 +939,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       applied_scope: {
         $ref: '#/components/schemas/AppliedScope',
-      },
-    },
-  },
-  AuthorizedNutritionMeal: {
-    type: 'object',
-    additionalProperties: false,
-    required: [
-      'id',
-      'occurred_at',
-      'local_date',
-      'timezone',
-      'meal_type',
-      'note',
-      'revision_number',
-      'items',
-      'photo',
-      'applied_scopes',
-    ],
-    example: {
-      id: '0190f2d6-68d0-7b4a-8d7f-d152223eed28',
-      occurred_at: '2026-07-28T12:30:00-05:00',
-      local_date: '2026-07-28',
-      timezone: 'America/Bogota',
-      meal_type: 'lunch',
-      note: 'Registro manual',
-      revision_number: 0,
-      items: [
-        {
-          position: 1,
-          name: 'Pollo con arroz',
-          quantity: 320,
-          quantity_unit: 'g',
-          nutrients: [
-            {
-              nutrient_code: 'protein',
-              value: 42,
-              unit: 'g',
-            },
-          ],
-        },
-      ],
-      photo: {
-        href: '/studio/v1/organizations/018f6f8d-2b00-7a00-8000-000000000101/clients/018f6f8d-2b00-7a00-8000-000000000102/nutrition/meals/0190f2d6-68d0-7b4a-8d7f-d152223eed28/photo',
-        method: 'GET',
-      },
-      applied_scopes: [
-        {
-          code: 'nutrition_intake',
-          version: 1,
-        },
-        {
-          code: 'nutrition_media',
-          version: 1,
-        },
-      ],
-    },
-    properties: {
-      id: {
-        $ref: '#/components/schemas/Uuid',
-      },
-      occurred_at: {
-        type: 'string',
-        format: 'date-time',
-      },
-      local_date: {
-        type: 'string',
-        format: 'date',
-      },
-      timezone: {
-        $ref: '#/components/schemas/IanaTimeZone',
-      },
-      meal_type: {
-        $ref: '#/components/schemas/MealType',
-      },
-      note: {
-        type: ['string', 'null'],
-        maxLength: 1000,
-      },
-      revision_number: {
-        type: 'integer',
-        minimum: 0,
-      },
-      items: {
-        type: 'array',
-        items: {
-          $ref: '#/components/schemas/NutritionMealItem',
-        },
-      },
-      photo: {
-        oneOf: [
-          {
-            $ref: '#/components/schemas/AuthenticatedMediaLink',
-          },
-          {
-            type: 'null',
-          },
-        ],
-      },
-      applied_scopes: {
-        type: 'array',
-        maxItems: 2,
-        items: {
-          $ref: '#/components/schemas/AppliedScope',
-        },
-      },
-    },
-  },
-  AuthorizedNutritionMealPage: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['data', 'page'],
-    properties: {
-      data: {
-        type: 'array',
-        items: {
-          $ref: '#/components/schemas/AuthorizedNutritionMeal',
-        },
-      },
-      page: {
-        $ref: '#/components/schemas/Page',
       },
     },
   },
@@ -3002,6 +2860,33 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  ClientActiveNutritionGoal: {
+    description:
+      'The goal she follows now. Its version is named, and `from_this_relationship` is true, only when this relationship proposed it; otherwise nothing says who set it, why or which number it is.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['goal_version_id', 'from_this_relationship', 'activated_at', 'targets'],
+    properties: {
+      goal_version_id: {
+        type: ['string', 'null'],
+        format: 'uuid',
+      },
+      from_this_relationship: {
+        type: 'boolean',
+      },
+      activated_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      targets: {
+        type: 'array',
+        maxItems: 6,
+        items: {
+          $ref: '#/components/schemas/ClientNutritionGoalTarget',
+        },
+      },
+    },
+  },
   ClientBiologicalSex: {
     type: 'object',
     additionalProperties: false,
@@ -3855,6 +3740,407 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         maxLength: 43,
         pattern: '^[A-Za-z0-9_-]{43}$',
         description: 'Opaque token transported in JSON, never in the URL.',
+      },
+    },
+  },
+  ClientNutritionDailySummary: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['local_date', 'meal_count', 'nutrient_totals'],
+    example: {
+      local_date: '2026-07-28',
+      meal_count: 3,
+      nutrient_totals: [
+        {
+          nutrient_code: 'energy',
+          value: 1840,
+          unit: 'kcal',
+        },
+      ],
+    },
+    properties: {
+      local_date: {
+        type: 'string',
+        format: 'date',
+      },
+      meal_count: {
+        type: ['integer', 'null'],
+        minimum: 0,
+        description: 'Null when her version does not share the day of a meal.',
+      },
+      nutrient_totals: {
+        description:
+          'What she recorded and the coach may see, added up; empty on a day with nothing, null when her version shares no nutrient values.',
+        type: ['array', 'null'],
+        maxItems: 32,
+        items: {
+          $ref: '#/components/schemas/NutrientValue',
+        },
+      },
+    },
+  },
+  ClientNutritionDailySummaryPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        maxItems: 31,
+        items: {
+          $ref: '#/components/schemas/ClientNutritionDailySummary',
+        },
+      },
+    },
+  },
+  ClientNutritionGoalAuthor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['kind', 'person_id'],
+    properties: {
+      kind: {
+        type: 'string',
+        const: 'professional',
+      },
+      person_id: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  ClientNutritionGoalDecision: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['decision', 'decided_at'],
+    properties: {
+      decision: {
+        type: 'string',
+        enum: ['accepted', 'rejected'],
+      },
+      decided_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  ClientNutritionGoalHistory: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data', 'page', 'active'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientNutritionGoalVersion',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+      active: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientActiveNutritionGoal',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  ClientNutritionGoalTarget: {
+    description: 'A target as her version shares it; a field it does not share is null.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['nutrient_code', 'mode', 'minimum', 'maximum', 'exact', 'unit'],
+    properties: {
+      nutrient_code: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/NutrientCode',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      mode: {
+        type: ['string', 'null'],
+        enum: ['minimum', 'maximum', 'range', 'exact', null],
+      },
+      minimum: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      maximum: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      exact: {
+        type: ['number', 'null'],
+        minimum: 0,
+      },
+      unit: {
+        type: ['string', 'null'],
+        enum: ['kcal', 'g', 'ml', null],
+      },
+    },
+  },
+  ClientNutritionGoalVersion: {
+    description:
+      'A version this relationship proposed. The author is named by id only, and the version number is never shown: it would count her own goals.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'status',
+      'rationale',
+      'author',
+      'targets',
+      'created_at',
+      'activated_at',
+      'cancelled_at',
+      'decision',
+    ],
+    example: {
+      id: '0190f2d6-68d2-71cf-8247-527651199d86',
+      status: 'proposed',
+      rationale: 'Para tu fase de definición',
+      author: {
+        kind: 'professional',
+        person_id: '018f6f8d-2b00-7a00-8000-000000000103',
+      },
+      targets: [
+        {
+          nutrient_code: 'protein',
+          mode: 'minimum',
+          minimum: 140,
+          maximum: null,
+          exact: null,
+          unit: 'g',
+        },
+      ],
+      created_at: '2026-07-28T17:30:00Z',
+      activated_at: null,
+      cancelled_at: null,
+      decision: null,
+    },
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      status: {
+        $ref: '#/components/schemas/NutritionGoalStatus',
+      },
+      rationale: {
+        type: ['string', 'null'],
+        maxLength: 2000,
+      },
+      author: {
+        $ref: '#/components/schemas/ClientNutritionGoalAuthor',
+      },
+      targets: {
+        type: 'array',
+        maxItems: 6,
+        items: {
+          $ref: '#/components/schemas/ClientNutritionGoalTarget',
+        },
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      activated_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      cancelled_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      decision: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientNutritionGoalDecision',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  ClientNutritionMeal: {
+    description:
+      'A meal as the coach who attends her sees it: the fields her `nutrition_intake` version shares, the rest null. Never its storage key nor its revision.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'occurred_at',
+      'local_date',
+      'timezone',
+      'meal_type',
+      'note',
+      'has_photo',
+      'items',
+    ],
+    example: {
+      id: '0190f2d6-68d0-7b4a-8d7f-d152223eed28',
+      occurred_at: '2026-07-28T12:30:00-05:00',
+      local_date: '2026-07-28',
+      timezone: 'America/Bogota',
+      meal_type: 'lunch',
+      note: 'Con prisa',
+      has_photo: true,
+      items: [
+        {
+          position: 1,
+          name: 'Pollo con arroz',
+          quantity: 320,
+          quantity_unit: 'g',
+          serving: null,
+          origin: 'typed',
+          nutrients: [
+            {
+              nutrient_code: 'protein',
+              value: 42,
+              unit: 'g',
+            },
+          ],
+        },
+      ],
+    },
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      occurred_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      local_date: {
+        type: 'string',
+        format: 'date',
+      },
+      timezone: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/IanaTimeZone',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      meal_type: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/MealType',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      note: {
+        type: ['string', 'null'],
+        maxLength: 1000,
+      },
+      has_photo: {
+        type: ['boolean', 'null'],
+        description:
+          'Whether the meal has a photo, said only when she also shares `nutrition_media`; null otherwise. The photo has its own route.',
+      },
+      items: {
+        type: 'array',
+        maxItems: 100,
+        items: {
+          $ref: '#/components/schemas/ClientNutritionMealItem',
+        },
+      },
+    },
+  },
+  ClientNutritionMealItem: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['position', 'name', 'quantity', 'quantity_unit', 'serving', 'origin', 'nutrients'],
+    properties: {
+      position: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 100,
+      },
+      name: {
+        type: ['string', 'null'],
+        maxLength: 160,
+      },
+      quantity: {
+        type: ['number', 'null'],
+        exclusiveMinimum: 0,
+      },
+      quantity_unit: {
+        type: ['string', 'null'],
+        maxLength: 16,
+      },
+      serving: {
+        type: ['string', 'null'],
+        maxLength: 40,
+      },
+      origin: {
+        type: ['string', 'null'],
+        enum: ['typed', 'catalog', 'photo', null],
+      },
+      nutrients: {
+        description: 'Null when her version shares no nutrient values.',
+        type: ['array', 'null'],
+        maxItems: 32,
+        items: {
+          $ref: '#/components/schemas/NutrientValue',
+        },
+      },
+    },
+  },
+  ClientNutritionMealPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'photo_scope', 'data', 'page'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      photo_scope: {
+        description: 'The `nutrition_media` version that said which meals have a photo, or null.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/AppliedScope',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientNutritionMeal',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
       },
     },
   },
@@ -5957,6 +6243,83 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  FrozenNutritionGoalVersion: {
+    description:
+      'A proposal of an ended relationship as it stood at the cut, in the fields the frozen version keeps readable; the rest null.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'status_at_cut',
+      'rationale',
+      'author',
+      'targets',
+      'created_at',
+      'activated_at',
+      'decision',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      status_at_cut: {
+        description: 'Null when the frozen version does not keep her decisions readable.',
+        type: ['string', 'null'],
+        enum: ['proposed', 'accepted', 'rejected', 'superseded', 'cancelled', null],
+      },
+      rationale: {
+        type: ['string', 'null'],
+        maxLength: 2000,
+      },
+      author: {
+        $ref: '#/components/schemas/ClientNutritionGoalAuthor',
+      },
+      targets: {
+        type: 'array',
+        maxItems: 6,
+        items: {
+          $ref: '#/components/schemas/ClientNutritionGoalTarget',
+        },
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      activated_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      decision: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ClientNutritionGoalDecision',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  FrozenNutritionGoalVersionPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data', 'page'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/FrozenNutritionGoalVersion',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
   GatewayProvider: {
     description:
       "The provider the organization collects through. The money goes to the organization's own account; Allfit never holds it.",
@@ -7937,26 +8300,6 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             type: 'null',
           },
         ],
-      },
-    },
-  },
-  NutritionGoalVersionPage: {
-    type: 'object',
-    additionalProperties: false,
-    required: ['data', 'page', 'frozen_at'],
-    properties: {
-      data: {
-        type: 'array',
-        items: {
-          $ref: '#/components/schemas/NutritionGoalVersion',
-        },
-      },
-      page: {
-        $ref: '#/components/schemas/Page',
-      },
-      frozen_at: {
-        type: ['string', 'null'],
-        format: 'date-time',
       },
     },
   },

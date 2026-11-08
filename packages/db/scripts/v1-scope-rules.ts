@@ -46,6 +46,31 @@ const TRAINING_EXECUTION = [
   'execution.mobility_results',
 ]
 
+/**
+ * A proposal as it stood when the relationship ended, for a historical access case: who
+ * proposed what, why and when, and how it ended. Her own goals never carry these.
+ */
+const GOAL_VERSION_HISTORY = [
+  'version_number',
+  'origin',
+  'status',
+  'rationale',
+  'author_person_id',
+  'origin_relationship_id',
+  'created_at',
+  'activated_at',
+  'cancelled_at',
+]
+
+const GOAL_TARGET_HISTORY = [
+  'nutrient_definition_id',
+  'mode',
+  'minimum_value',
+  'maximum_value',
+  'exact_value',
+  'unit_code',
+]
+
 const LAP_FIELDS = [
   'lap_number',
   'distance_value',
@@ -219,18 +244,37 @@ export const V1_SCOPES: ScopeRules[] = [
   {
     code: 'nutrition_guidance',
     rules: [
-      // Her goals: each version with its targets, its rationale and author, and what she
-      // decided. `read`: nothing lets a professional propose one yet.
-      ...[
-        'nutrition.goal_sets',
-        'nutrition.goal_versions',
-        'nutrition.goal_targets',
-        'nutrition.goal_decisions',
-      ].map((resource): Rule => ({
-        resource,
+      // Her goals. `contribute`: the professional who attends her, with a verified nutrition
+      // credential, proposes a version; she decides it, so her decisions stay `read`.
+      ...['nutrition.goal_sets', 'nutrition.goal_versions', 'nutrition.goal_targets'].map(
+        (resource): Rule => ({
+          resource,
+          field: '*',
+          data_classification_code: 'nutrition',
+          max_action: 'contribute',
+        }),
+      ),
+      {
+        resource: 'nutrition.goal_decisions',
         field: '*',
         data_classification_code: 'nutrition',
         max_action: 'read',
+        historical_readable: true,
+      },
+      // What a historical access case may read afterwards: what was proposed and decided.
+      ...GOAL_VERSION_HISTORY.map((field): Rule => ({
+        resource: 'nutrition.goal_versions',
+        field,
+        data_classification_code: 'nutrition',
+        max_action: 'read',
+        historical_readable: true,
+      })),
+      ...GOAL_TARGET_HISTORY.map((field): Rule => ({
+        resource: 'nutrition.goal_targets',
+        field,
+        data_classification_code: 'nutrition',
+        max_action: 'read',
+        historical_readable: true,
       })),
       denied('nutrition.meals', 'nutrition'),
       denied('nutrition.meal_items', 'nutrition'),
