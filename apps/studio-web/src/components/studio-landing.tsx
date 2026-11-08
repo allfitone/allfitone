@@ -323,7 +323,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
 
   return (
     <div data-studio-site ref={site}>
-      <SiteHeader>
+      <SiteHeader data-studio-header>
         {/* Not a link: this page is home. */}
         <SiteHeaderHome render={<div />}>
           <ProductLockup product="studio" surface="light" title="Allfit Studio" />
@@ -381,6 +381,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                 <a
                   data-slot="button"
                   data-variant="default"
+                  data-studio-action
                   className={buttonVariants({ size: 'lg' })}
                   href={WORKSPACE_ENTRY}
                   onClick={enterStudio}
@@ -569,6 +570,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
               <a
                 data-slot="button"
                 data-variant="default"
+                data-studio-action
                 className={buttonVariants({ size: 'lg' })}
                 href={WORKSPACE_ENTRY}
                 onClick={enterStudio}
@@ -602,6 +604,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                 key={href}
                 data-slot="button"
                 data-variant={variant}
+                data-studio-action
                 className={buttonVariants({ variant })}
                 href={href}
                 target="_blank"

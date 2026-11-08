@@ -122,7 +122,7 @@ export function AnalyticsControls({
             <p data-analytics-signal>{copy.privacySignal}</p>
           ) : (
             <div data-analytics-actions>
-              <Button type="button" size="sm" onClick={() => decide('granted')}>
+              <Button type="button" size="sm" data-studio-action onClick={() => decide('granted')}>
                 {copy.allow}
               </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => decide('denied')}>

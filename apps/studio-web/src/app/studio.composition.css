@@ -1686,14 +1686,16 @@
 }
 
 /* The Design System fills its default button with the accent gradient. The
-   landing keeps it a flat cyan, as the Space landing's buttons are. */
+   landing keeps it a flat cyan, as the Space landing's buttons are. The
+   landing marks its own actions with data-studio-action, since composition CSS
+   may not select the Design System's data-slot. */
 :is([data-studio-site], :root:has([data-studio-site]) [data-analytics-controls])
-  [data-slot='button'][data-variant='default'] {
+  [data-studio-action][data-variant='default'] {
   background: var(--afo-color-action-primary);
 }
 
 :is([data-studio-site], :root:has([data-studio-site]) [data-analytics-controls])
-  [data-slot='button'][data-variant='default']:hover {
+  [data-studio-action][data-variant='default']:hover {
   background: var(--afo-color-action-primary-hover);
 }
 
@@ -1770,7 +1772,7 @@
 
 /* Scrolled, the shared header is 86% white; over the dark privacy band that
    reads as a grey slab, so the landing's header stays solid white. */
-[data-studio-site] [data-slot='site-header'][data-scrolled='true'] {
+[data-studio-header][data-scrolled='true'] {
   background-color: var(--afo-site-surface);
 }
 
