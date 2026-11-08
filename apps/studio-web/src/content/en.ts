@@ -4,11 +4,11 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Allfit Studio · Software for personal trainers and gyms',
+    title: 'Allfit Studio | Software for personal trainers and gyms',
     description:
       'Bring your clients, their training programs and every session they log into one panel. For personal trainers, studios and gyms.',
     shareImageAlt:
-      'Allfit Studio’s front page: “Your plan. Their session. One panel.”, beside a client’s sheet comparing what was planned with what was logged.',
+      'Allfit Studio’s front page: “Your clients train. You see every session.”, beside a client’s sheet comparing what was planned with what was logged.',
   },
   nav: {
     label: 'Main',
@@ -33,10 +33,10 @@ export const en: Dictionary = {
     action: 'Sign in again',
   },
   hero: {
-    title: ['Your plan.', 'Their session.', 'One panel.'],
+    title: ['Your clients', 'train.', 'You see every', 'session.'],
     lead: 'Allfit Studio brings together your clients, their programs and what they log in every session. Compare the plan with what happened and adjust without losing the thread.',
-    cta: 'Create my space',
-    note: 'Already have an account? The same button takes you to your space.',
+    cta: 'Start with Studio',
+    note: 'Already have an account? The same button signs you in.',
   },
   people: {
     title: 'People',
@@ -73,7 +73,7 @@ export const en: Dictionary = {
     steps: {
       invite: {
         title: 'Invite your clients',
-        text: 'The relationship starts when the person accepts your invitation with their Fitness ID. They choose what to share with you.',
+        text: 'The relationship starts when the person accepts your invitation in Allfit Space. They choose what to share with you.',
       },
       versions: {
         title: 'Assign their program',
@@ -95,7 +95,7 @@ export const en: Dictionary = {
     },
     week: {
       title: 'This week',
-      count: '12 of 16 blocks',
+      count: '3 of 4 sessions',
       days: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat' },
       note: 'Saturday not logged · review next week’s load',
     },
@@ -141,10 +141,6 @@ export const en: Dictionary = {
           'Plans you sell and active subscriptions. Every payment goes through your own payment gateway.',
       },
     },
-    upcoming: {
-      label: 'Coming later',
-      text: 'Scheduling and bookings, classes and capacity, a public page and a marketplace.',
-    },
     space: {
       title: 'Your clients train in Allfit Space',
       text: 'There they follow the program you assign, log every set and decide what to share with you.',
@@ -153,12 +149,14 @@ export const en: Dictionary = {
   },
   closing: {
     title: ['Your next client', 'starts with an invitation.'],
-    cta: 'Create my space',
+    cta: 'Start with Studio',
     note: 'Your Allfit One account works in both Studio and Space.',
   },
   footer: {
     nvidia: 'Allfit One is a member of NVIDIA Inception.',
+    terms: 'Terms',
     privacy: 'Privacy',
+    analytics: 'Analytics',
     rights: '© 2026 Allfit One',
   },
 }

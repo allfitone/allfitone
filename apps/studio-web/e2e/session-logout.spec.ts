@@ -40,10 +40,10 @@ test('clears the browser session and browser history cannot reveal the workspace
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
 
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await expect(page.getByText(activeMembership.display_name)).not.toBeVisible()
   await expect(page.locator('[data-session-lock]')).toHaveCount(0)
   await expect
@@ -110,7 +110,7 @@ test('returning from a manual logout verifies the session once', async ({ page }
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
 
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   // The landing paints before the guard answers, so wait for the answer itself:
   // the record only turns confirmed once the API has said 401.
   await expect
@@ -193,7 +193,7 @@ test('a manual logout covers another Studio tab immediately', async ({ context, 
   releaseLogout?.()
   await logoutNavigation
   await expect(other).toHaveURL('/es')
-  await expect(other.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(other.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await expect(other.locator('[data-session-closing]')).toHaveCount(0)
 })
 
@@ -294,7 +294,7 @@ test('shows a recoverable notice when only the browser logout can be confirmed',
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
 
   await expect(page.getByText('La sesión se cerró en este equipo')).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await expect(page).toHaveURL('/es')
 })
 
@@ -311,12 +311,12 @@ test('offers reauthentication when a restored page retains the secure logout loc
   })
 
   await page.goto('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow')))
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await expect(page.locator('[data-session-lock]')).toHaveCount(0)
   await page
-    .getByRole('link', { name: 'Crear mi espacio' })
+    .getByRole('link', { name: 'Empezar con Studio' })
     .first()
     .evaluate((link) => {
       link.addEventListener('click', (event) => event.preventDefault(), { once: true })
@@ -352,7 +352,7 @@ test('requires explicit recovery when a locally ended session is still authentic
   await page.getByRole('button', { name: 'Completar cierre' }).click()
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   const recovery = fixture.requests.find(
     (request) => request.method === 'POST' && request.path === '/studio/v1/auth/logout',
   )
@@ -396,7 +396,7 @@ test('keeps recovery visible on verification failure and retries without mountin
   await page.getByRole('button', { name: 'Reintentar' }).click()
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
 })
 
 test('keeps recovery locked when session verification has no network', async ({ page }) => {
@@ -433,7 +433,7 @@ test('keeps recovery locked when session verification has no network', async ({ 
   await page.getByRole('button', { name: 'Reintentar' }).click()
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
 })
 
 test('preserves a pending team invitation while session recovery completes', async ({ page }) => {

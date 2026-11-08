@@ -24,10 +24,10 @@ test.describe('server-rendered first paint', () => {
   // reaches the browser before any effect has run.
   test.use({ javaScriptEnabled: false })
 
-  test('offers the privacy control without opening the consent panel', async ({ page }) => {
+  test('does not open the consent panel before the decision is known', async ({ page }) => {
     await page.goto('/es')
 
-    await expect(page.getByRole('button', { name: 'Privacidad' })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
     await expect(page.getByText('Analítica opcional')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Permitir analítica' })).toHaveCount(0)
   })
@@ -43,8 +43,8 @@ test.describe('server-rendered first paint', () => {
   test('paints the landing itself rather than an empty frame', async ({ page }) => {
     await page.goto('/es')
 
-    await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toHaveAttribute(
+    await expect(page.getByRole('heading', { level: 1, name: /Tus clientes/ })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toHaveAttribute(
       'href',
       '/app',
     )
@@ -66,9 +66,11 @@ test('an undecided visitor still gets the consent panel once it is known', async
 test('a decided visitor never sees the consent panel', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
   await page.goto('/es')
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  // The decision is read after hydration; idle is when its absence means something.
+  await page.waitForLoadState('networkidle')
 
-  await expect(page.getByRole('button', { name: 'Privacidad' })).toBeVisible()
-  await expect(page.getByText('Analítica opcional')).toHaveCount(0)
+  await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
 })
 
 test('the setup progress appears once the step is actually known', async ({ page }) => {

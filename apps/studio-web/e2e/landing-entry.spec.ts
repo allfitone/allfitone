@@ -27,7 +27,7 @@ test('an anonymous visit reads nothing from the API', async ({ page }) => {
   await installStudioApiMock(page, fixture)
 
   await page.goto('/es')
-  await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /Tus clientes/ })).toBeVisible()
   // A late bootstrap would show up here; idle is when its absence means something.
   await page.waitForLoadState('networkidle')
 
@@ -45,7 +45,7 @@ test('a browser without a Studio session goes straight to the provider', async (
   await installStudioApiMock(page, fixture)
   await page.goto('/es')
 
-  await page.getByRole('link', { name: 'Crear mi espacio' }).first().click()
+  await page.getByRole('link', { name: 'Empezar con Studio' }).first().click()
 
   await expect(page).toHaveURL(AUTH_START)
   expect(fixture.requests.map((request) => request.path)).toEqual(['/studio/v1/auth/start'])
@@ -63,10 +63,10 @@ test('a signed-in browser enters its workspace without the provider', async ({ p
 
   await page.goto('/es')
   // Holding a session does not move anybody off the landing on its own.
-  await expect(page.getByRole('heading', { level: 1, name: /Tu plan/ })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: /Tus clientes/ })).toBeVisible()
   await expect(page).toHaveURL('/es')
 
-  await page.getByRole('link', { name: 'Crear mi espacio' }).first().click()
+  await page.getByRole('link', { name: 'Empezar con Studio' }).first().click()
 
   await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}`)
   expect(fixture.requests.some((request) => request.path === '/studio/v1/auth/start')).toBe(false)
@@ -88,7 +88,7 @@ test('a session ended here but still open is closed before anyone can enter', as
 
   await expect(page.getByRole('heading', { name: 'Tu sesión está protegida' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Completar cierre' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toHaveCount(0)
 })
 
 test('the workspace entry without a session returns to the landing', async ({ page }) => {
@@ -98,7 +98,7 @@ test('the workspace entry without a session returns to the landing', async ({ pa
   await page.goto('/app')
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
 })
 
 test('a tab holding an invitation is taken back to it from the landing', async ({ page }) => {
@@ -114,36 +114,78 @@ test('a tab holding an invitation is taken back to it from the landing', async (
 })
 
 /**
- * The landing has a footer, so its privacy entry lives there, as on the Space
- * landing, and nothing floats over the page once a visitor has decided.
+ * The landing keeps nothing over the page: the consent bar asks once, and once
+ * the visitor has answered it leaves and no control floats in its place.
  */
 test.describe('privacy', () => {
-  test('is a footer entry that opens the analytics preferences', async ({ page }) => {
+  test('the consent bar leaves once the visitor answers', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }), {
+      consent: 'undecided',
+    })
+    await page.goto('/es')
+
+    const panel = page.locator('[data-analytics-panel]')
+    await expect(panel.getByText('Analítica opcional')).toBeVisible()
+    await panel.getByRole('button', { name: 'No permitir' }).click()
+
+    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
+  })
+
+  test('a decided visitor finds nothing floating over the landing', async ({ page }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+    await page.goto('/en')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await page.waitForLoadState('networkidle')
+
+    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
+  })
+})
+
+/**
+ * Like the Space landing's footer: the company and the sibling product side by
+ * side, then the three legal documents on www.allfit.one, every one of them in
+ * a new tab because each leaves the landing.
+ */
+test.describe('footer', () => {
+  test('opens Allfit One and Allfit Space side by side, in new tabs', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
     await page.goto('/es')
 
-    const entry = page.getByRole('contentinfo').getByRole('button', { name: 'Privacidad' })
-    await expect(entry).toBeVisible()
-    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
-
-    // The panel opens far from the footer, so focus travels to it and back.
-    await entry.focus()
-    await page.keyboard.press('Enter')
-    const panel = page.locator('[data-analytics-panel]')
-    await expect(panel.getByText('Analítica opcional')).toBeVisible()
-    await expect(panel).toBeFocused()
-
-    await panel.getByRole('button', { name: 'No permitir' }).click()
-    await expect(page.locator('[data-analytics-controls]')).toHaveCount(0)
-    await expect(entry).toBeFocused()
+    const family = page
+      .getByRole('contentinfo')
+      .getByRole('link', { name: /^Allfit (One|Space)\b/ })
+    await expect(family).toHaveCount(2)
+    await expect(family.nth(0)).toHaveAttribute('href', 'https://www.allfit.one/es')
+    await expect(family.nth(1)).toHaveAttribute('href', 'https://space.allfit.one/es')
+    for (const link of await family.all()) {
+      await expect(link).toHaveAttribute('target', '_blank')
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+    const [one, space] = await Promise.all([
+      family.nth(0).boundingBox(),
+      family.nth(1).boundingBox(),
+    ])
+    expect(Math.abs((one?.y ?? 0) - (space?.y ?? -100))).toBeLessThan(4)
   })
 
-  test('speaks English on the English landing', async ({ page }) => {
+  test('opens the three legal documents in the page’s language, in new tabs', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
-    await page.goto('/en')
-
-    await page.getByRole('contentinfo').getByRole('button', { name: 'Privacy' }).click()
-    await expect(page.getByText('Optional analytics')).toBeVisible()
+    for (const [locale, names, newTab] of [
+      ['es', ['Términos', 'Privacidad', 'Analítica'], '(se abre en una pestaña nueva)'],
+      ['en', ['Terms', 'Privacy', 'Analytics'], '(opens in a new tab)'],
+    ] as const) {
+      await page.goto(`/${locale}`)
+      const footer = page.getByRole('contentinfo')
+      for (const [index, document] of (['terms', 'privacy', 'analytics'] as const).entries()) {
+        const link = footer.getByRole('link', { name: `${names[index]} ${newTab}`, exact: true })
+        await expect(link).toHaveAttribute(
+          'href',
+          `https://www.allfit.one/${locale}/legal/${document}`,
+        )
+        await expect(link).toHaveAttribute('target', '_blank')
+        await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+      }
+    }
   })
 })
 
@@ -177,8 +219,8 @@ test.describe('languages', () => {
       await page.goto('/en')
 
       await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-      await expect(page.getByRole('heading', { level: 1, name: /Your plan/ })).toBeVisible()
-      await expect(page.getByRole('link', { name: 'Create my space' }).first()).toHaveAttribute(
+      await expect(page.getByRole('heading', { level: 1, name: /Your clients/ })).toBeVisible()
+      await expect(page.getByRole('link', { name: 'Start with Studio' }).first()).toHaveAttribute(
         'href',
         '/app',
       )
@@ -199,7 +241,7 @@ test.describe('languages', () => {
 
     await expect(page).toHaveURL('/en')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
-    await expect(page.getByRole('heading', { level: 1, name: /Your plan/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Your clients/ })).toBeVisible()
   })
 
   // The API knows no language: it returns every close to `/`.

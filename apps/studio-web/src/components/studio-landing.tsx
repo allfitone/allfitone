@@ -2,7 +2,7 @@
 
 import { ProductLockup } from '@allfitone/react/brand'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
+import { buttonVariants } from '@allfitone/react/components/button'
 import {
   SiteContainer,
   SiteFooter,
@@ -10,7 +10,6 @@ import {
   SiteFooterLink,
   SiteFooterLinks,
   SiteFooterMeta,
-  SiteFooterParent,
   SiteFooterPartner,
   SiteFooterPartnerLegal,
   SiteFooterPartnerText,
@@ -30,8 +29,8 @@ import { Suspense, useEffect, useRef, useState, type MouseEvent } from 'react'
 
 import type { Dictionary } from '@/content'
 import { useLandingMotion } from './landing-motion'
-import { openAnalyticsPreferences } from '@/lib/analytics-preferences'
 import { readPendingInvitationToken } from '@/lib/invitation-token'
+import { legalUrl, type LegalDocument } from '@/lib/legal'
 import { LOCALES, type Locale } from '@/lib/locale'
 import { prepareStudioAuthentication, readStudioSessionActivity } from '@/lib/session-activity'
 import { studioApi } from '@/lib/studio-api'
@@ -55,6 +54,11 @@ import { studioApi } from '@/lib/studio-api'
  *
  * It speaks Spanish and English, at `/es` and `/en`. Its words come from
  * `@/content`; what stays the same in both languages is declared below.
+ *
+ * The footer matches the Space landing's: Allfit One and Allfit Space as two
+ * buttons, the company's filled and the sibling product's outlined, then the
+ * three legal documents on www.allfit.one. Every one of those leaves the
+ * landing, so each opens in a new tab and says so in its accessible name.
  */
 
 const AUTH_START_URL = `${studioApi.apiUrl}/studio/v1/auth/start`
@@ -66,7 +70,8 @@ const NVIDIA_TRADEMARK =
 type Tone = 'solid' | 'ghost' | 'accent'
 
 /** A display title whose lines rise one after another, as on the Space landing:
- *  the hero's on load, every other one the first time it scrolls into view. */
+ *  the hero's on load, every other one the first time it scrolls into view. Only
+ *  the hero's lines change tone; every section title is one colour. */
 function Title({
   as: Tag = 'h2',
   id,
@@ -114,6 +119,8 @@ const ROSTER = [
 
 const STEPS = ['invite', 'versions', 'week'] as const
 
+const LEGAL: readonly LegalDocument[] = ['terms', 'privacy', 'analytics']
+
 const VERSIONS = [
   { label: 'v3', current: true },
   { label: 'v2', current: false },
@@ -136,10 +143,10 @@ const SHARING = [
   { category: 'health', shared: false },
 ] as const
 
-const PILLARS: readonly { key: keyof Dictionary['privacy']['pillars']; icon: IconName }[] = [
-  { key: 'consent', icon: 'permissions' },
-  { key: 'purpose', icon: 'locked' },
-  { key: 'history', icon: 'history' },
+const PILLARS: readonly (keyof Dictionary['privacy']['pillars'])[] = [
+  'consent',
+  'purpose',
+  'history',
 ]
 
 const MODULES: readonly { key: keyof Dictionary['modules']['items']; icon: IconName }[] = [
@@ -303,6 +310,10 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
   useLandingMotion(site)
   const parentSiteUrl = `https://www.allfit.one/${locale}`
   const spaceSiteUrl = `https://space.allfit.one/${locale}`
+  const family = [
+    { name: 'Allfit One', href: parentSiteUrl, variant: 'default' },
+    { name: 'Allfit Space', href: spaceSiteUrl, variant: 'outline' },
+  ] as const
 
   // A tab that opened an invitation belongs on it, including after a close the
   // recovery lock forced on the way: that close always returns here.
@@ -312,8 +323,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
 
   return (
     <div data-studio-site ref={site}>
-      <div data-studio-scroll-progress aria-hidden="true" />
-      <SiteHeader>
+      <SiteHeader data-studio-header>
         {/* Not a link: this page is home. */}
         <SiteHeaderHome render={<div />}>
           <ProductLockup product="studio" surface="light" title="Allfit Studio" />
@@ -364,13 +374,14 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
                 as="h1"
                 id="studio-landing-title"
                 lines={copy.hero.title}
-                tones={['solid', 'ghost', 'accent']}
+                tones={['solid', 'solid', 'accent', 'accent']}
               />
               <p data-studio-lead>{copy.hero.lead}</p>
               <div data-studio-actions>
                 <a
                   data-slot="button"
                   data-variant="default"
+                  data-studio-action
                   className={buttonVariants({ size: 'lg' })}
                   href={WORKSPACE_ENTRY}
                   onClick={enterStudio}
@@ -430,14 +441,11 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
         <section id="como-funciona" data-studio-section aria-labelledby="studio-landing-how">
           <SiteContainer>
             <div data-studio-section-head>
-              <Title id="studio-landing-how" lines={copy.how.title} tones={['solid', 'ghost']} />
+              <Title id="studio-landing-how" lines={copy.how.title} />
             </div>
-            <ul data-studio-steps>
-              {STEPS.map((step, index) => (
-                <li key={step} data-studio-step data-reveal="card" data-i={index} data-spotlight>
-                  <span data-studio-step-index aria-hidden="true">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
+            <ul data-studio-steps data-reveal="card">
+              {STEPS.map((step) => (
+                <li key={step} data-studio-step>
                   <h3>{copy.how.steps[step].title}</h3>
                   <p>{copy.how.steps[step].text}</p>
                   <div data-studio-step-stage aria-hidden="true">
@@ -459,14 +467,8 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           <SiteContainer>
             <div data-studio-privacy>
               <div data-studio-privacy-copy>
-                <Title
-                  id="studio-landing-privacy"
-                  lines={copy.privacy.title}
-                  tones={['solid', 'accent']}
-                />
-                <p data-studio-lead data-reveal>
-                  {copy.privacy.lead}
-                </p>
+                <Title id="studio-landing-privacy" lines={copy.privacy.title} />
+                <p data-studio-lead>{copy.privacy.lead}</p>
               </div>
               <div data-studio-privacy-stage aria-hidden="true" data-reveal>
                 <div data-studio-object="invite">
@@ -482,13 +484,10 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
               </div>
             </div>
             <ul data-studio-pillars>
-              {PILLARS.map((pillar, index) => (
-                <li key={pillar.key} data-studio-pillar data-reveal data-i={index}>
-                  <span data-studio-pillar-icon>
-                    <FoundationIcon name={pillar.icon} decorative />
-                  </span>
-                  <h3>{copy.privacy.pillars[pillar.key].title}</h3>
-                  <p>{copy.privacy.pillars[pillar.key].text}</p>
+              {PILLARS.map((pillar) => (
+                <li key={pillar} data-studio-pillar>
+                  <h3>{copy.privacy.pillars[pillar].title}</h3>
+                  <p>{copy.privacy.pillars[pillar].text}</p>
                 </li>
               ))}
             </ul>
@@ -498,33 +497,17 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
         <section id="modulos" data-studio-section aria-labelledby="studio-landing-modules">
           <SiteContainer>
             <div data-studio-section-head data-split="true">
-              <Title
-                id="studio-landing-modules"
-                lines={copy.modules.title}
-                tones={['solid', 'ghost']}
-              />
-              <p data-studio-lead data-reveal>
-                {copy.modules.lead}
-              </p>
+              <Title id="studio-landing-modules" lines={copy.modules.title} />
+              <p data-studio-lead>{copy.modules.lead}</p>
             </div>
             <div data-studio-modules-grid>
               <ol data-studio-modules>
-                {MODULES.map((module, index) => (
-                  <li key={module.key} data-studio-module data-reveal data-i={index}>
+                {MODULES.map((module) => (
+                  <li key={module.key} data-studio-module>
                     <h3>{copy.modules.items[module.key].name}</h3>
                     <p>{copy.modules.items[module.key].description}</p>
-                    <span data-studio-module-icon>
-                      <FoundationIcon name={module.icon} decorative />
-                    </span>
                   </li>
                 ))}
-                <li data-studio-module data-studio-module-upcoming data-reveal data-i={5}>
-                  <h3>{copy.modules.upcoming.label}</h3>
-                  <p>{copy.modules.upcoming.text}</p>
-                  <span data-studio-module-icon>
-                    <FoundationIcon name="calendar" decorative />
-                  </span>
-                </li>
               </ol>
 
               {/* The workspace itself: the sidebar these five become, open on Personas. */}
@@ -558,7 +541,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
             </div>
 
             {/* Space's night, because this is the one thing here that is Space. */}
-            <div data-studio-space data-afo-theme="dark" data-reveal>
+            <div data-studio-space data-afo-theme="dark">
               <ProductLockup product="space" surface="dark" aria-hidden="true" />
               <div>
                 <h3>{copy.modules.space.title}</h3>
@@ -582,15 +565,12 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
 
         <section data-studio-closing aria-labelledby="studio-landing-closing">
           <SiteContainer data-studio-closing-inner>
-            <Title
-              id="studio-landing-closing"
-              lines={copy.closing.title}
-              tones={['solid', 'accent']}
-            />
-            <div data-studio-closing-actions data-reveal>
+            <Title id="studio-landing-closing" lines={copy.closing.title} />
+            <div data-studio-closing-actions>
               <a
                 data-slot="button"
                 data-variant="default"
+                data-studio-action
                 className={buttonVariants({ size: 'lg' })}
                 href={WORKSPACE_ENTRY}
                 onClick={enterStudio}
@@ -618,30 +598,36 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           </div>
         </SiteFooterPartner>
         <SiteFooterBar>
-          <SiteFooterParent href={parentSiteUrl}>
-            Allfit One
-            <ExternalIcon size="sm" decorative />
-          </SiteFooterParent>
+          <div data-studio-footer-family>
+            {family.map(({ name, href, variant }) => (
+              <a
+                key={href}
+                data-slot="button"
+                data-variant={variant}
+                data-studio-action
+                className={buttonVariants({ variant })}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${name} ${copy.links.newTab}`}
+              >
+                {name}
+                <ExternalIcon data-icon="inline-end" decorative />
+              </a>
+            ))}
+          </div>
           <SiteFooterLinks>
-            <SiteFooterLink
-              render={
-                <Button
-                  variant="link"
-                  data-studio-footer-action
-                  onClick={openAnalyticsPreferences}
-                />
-              }
-            >
-              {copy.footer.privacy}
-            </SiteFooterLink>
-            <SiteFooterLink
-              href={spaceSiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Allfit Space ${copy.links.newTab}`}
-            >
-              Allfit Space
-            </SiteFooterLink>
+            {LEGAL.map((document) => (
+              <SiteFooterLink
+                key={document}
+                href={legalUrl(locale, document)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${copy.footer[document]} ${copy.links.newTab}`}
+              >
+                {copy.footer[document]}
+              </SiteFooterLink>
+            ))}
           </SiteFooterLinks>
         </SiteFooterBar>
         <SiteFooterMeta>{copy.footer.rights}</SiteFooterMeta>

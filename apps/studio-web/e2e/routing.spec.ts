@@ -328,7 +328,7 @@ test('returns an expired waiting session to the access landing', async ({ page }
   await page.getByRole('button', { name: 'Comprobar de nuevo' }).click()
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
 })
 
 test('recovers when checking memberships fails temporarily', async ({ page }) => {
@@ -613,7 +613,7 @@ test('returns an expired organization session to the access landing', async ({ p
   await page.goto(`/organizations/${activeMembership.organization_id}`)
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
   await expect(page.getByText(activeMembership.display_name)).toHaveCount(0)
 })
 
@@ -681,7 +681,7 @@ test('returns unauthenticated sessions to the access landing', async ({ page }) 
   await page.goto('/app')
 
   await expect(page).toHaveURL('/es')
-  await expect(page.getByRole('link', { name: 'Crear mi espacio' }).first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Empezar con Studio' }).first()).toBeVisible()
 })
 
 test.describe('invitation wait on mobile', () => {

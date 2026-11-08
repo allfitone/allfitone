@@ -11,11 +11,11 @@
  */
 export const es = {
   meta: {
-    title: 'Allfit Studio · Software para entrenadores y gimnasios',
+    title: 'Allfit Studio | Software para entrenadores y gimnasios',
     description:
       'Reúne a tus clientes, sus programas de entrenamiento y cada sesión que registran en un solo panel. Para entrenadores personales, estudios y gimnasios.',
     shareImageAlt:
-      'Portada de Allfit Studio: «Tu plan. Su sesión. Un solo panel.», junto a la ficha de una persona que compara lo planeado con lo que registró.',
+      'Portada de Allfit Studio: «Tus clientes entrenan. Tú ves cada sesión.», junto a la ficha de una persona que compara lo planeado con lo que registró.',
   },
   nav: {
     label: 'Principal',
@@ -40,10 +40,10 @@ export const es = {
     action: 'Entrar de nuevo',
   },
   hero: {
-    title: ['Tu plan.', 'Su sesión.', 'Un solo panel.'],
+    title: ['Tus clientes', 'entrenan.', 'Tú ves cada', 'sesión.'],
     lead: 'Allfit Studio reúne a tus clientes, sus programas y lo que registran en cada sesión. Comparas el plan con lo que pasó y ajustas sin perder el hilo.',
-    cta: 'Crear mi espacio',
-    note: '¿Ya tienes cuenta? El mismo botón te lleva a tu espacio.',
+    cta: 'Empezar con Studio',
+    note: '¿Ya tienes cuenta? Con el mismo botón entras.',
   },
   people: {
     title: 'Personas',
@@ -80,7 +80,7 @@ export const es = {
     steps: {
       invite: {
         title: 'Invita a tus clientes',
-        text: 'La relación empieza cuando la persona acepta tu invitación con su Fitness ID. Ella elige qué te comparte.',
+        text: 'La relación empieza cuando la persona acepta tu invitación en Allfit Space. Ella elige qué te comparte.',
       },
       versions: {
         title: 'Asigna su programa',
@@ -102,7 +102,7 @@ export const es = {
     },
     week: {
       title: 'Esta semana',
-      count: '12 de 16 bloques',
+      count: '3 de 4 sesiones',
       days: { mon: 'Lun', tue: 'Mar', wed: 'Mié', thu: 'Jue', fri: 'Vie', sat: 'Sáb' },
       note: 'Sábado sin registrar · revisa la carga de la próxima semana',
     },
@@ -148,10 +148,6 @@ export const es = {
           'Planes que vendes y suscripciones activas. Cada pago pasa por tu propia pasarela.',
       },
     },
-    upcoming: {
-      label: 'Más adelante',
-      text: 'Agenda y reservas, clases y cupos, página pública y marketplace.',
-    },
     space: {
       title: 'Tus clientes entrenan en Allfit Space',
       text: 'Ahí siguen el programa que les asignas, registran cada serie y deciden qué te comparten.',
@@ -160,12 +156,14 @@ export const es = {
   },
   closing: {
     title: ['Tu próximo cliente', 'empieza con una invitación.'],
-    cta: 'Crear mi espacio',
+    cta: 'Empezar con Studio',
     note: 'Tu cuenta de Allfit One sirve para Studio y para Space.',
   },
   footer: {
     nvidia: 'Allfit One es miembro de NVIDIA Inception.',
+    terms: 'Términos',
     privacy: 'Privacidad',
+    analytics: 'Analítica',
     rights: '© 2026 Allfit One',
   },
 }
