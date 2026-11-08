@@ -18,8 +18,8 @@ select is(
 );
 select is(
   (select count(*) from catalog.professional_credential_types where status = 'published'),
-  3::bigint,
-  'the three approved credential types are published'
+  4::bigint,
+  'the four approved credential types are published, nutrition_professional among them'
 );
 
 insert into identity.people (id, given_name, family_name)
