@@ -1997,6 +1997,132 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/historical-access-cases': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the historical access cases the caller may see
+     * @description Members with `manage_historical_access` see every case of the organization; anyone else sees only the cases that authorize them. Newest first. A case whose time ran out reads as `expired` even before anyone closes it, and can no longer be used.
+     */
+    get: operations['listHistoricalAccessCases']
+    put?: never
+    /**
+     * Open a time-boxed case to read a relationship the organization ended
+     * @description HU-STUDIO-061. An owner or administrator with `manage_historical_access` opens a case over one ended relationship of the organization, for a stated purpose, with a case reference and a justification, for one to twenty-four hours. It authorizes either the opener or the coach who held the relationship when it ended, while that member keeps an active owner, administrator or coach role. Never staff.
+     *
+     *     It needs a sign-in at most ten minutes old; otherwise 403 `reauthentication-required`, and the client signs in again through `/studio/v1/auth/start?reauthenticate=true`. A relationship that kept no frozen permission cannot be opened (409), and neither can a second open case for the same relationship, member and purpose; one whose time ran out is closed as expired first. The justification stays in the case: the events carry identifiers only.
+     */
+    post: operations['openHistoricalAccessCase']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-access-cases/{caseId}/closure': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close a historical access case before its time runs out
+     * @description HU-STUDIO-063. A member with `manage_historical_access` closes the case; from then on it reads nothing. Closing a case that is already closed answers it as it stands, and one whose time ran out closes as expired. It needs no recent sign-in: ending access is never harder than granting it.
+     */
+    post: operations['closeHistoricalAccessCase']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read an ended relationship through a historical access case
+     * @description HU-STUDIO-062. Whose relationship it was, when it ended, the case, and the frozen categories that stayed readable after the end. Only the member the case authorizes, while it is open and that member still qualifies, with a sign-in at most ten minutes old. Any other case, relationship or caller reads as 404, and the attempt is recorded against the person. Every read is recorded before it answers, with the case it went through.
+     */
+    get: operations['getHistoricalRelationship']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/executions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the sessions an ended relationship froze, through a case
+     * @description HU-STUDIO-062. Her completed, valid sessions that ended by the cut, newest first: those of this relationship under `relationship_training`, and those she trained on her own under `prior_training_history`, while the frozen version keeps them readable. A session corrected after the cut is left out, and so is one she had hidden then or has hidden since. With no training category frozen the page is empty, and the attempt is recorded as refused.
+     */
+    get: operations['listFrozenExecutions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/executions/{executionId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read one session an ended relationship froze, through a case
+     * @description HU-STUDIO-062. The session as the list shows it, with its results. Never the coach's observations or the plan it fulfilled: neither stayed readable. 403 `scope-required` only when no training category was frozen; any session the list would not show reads as 404.
+     */
+    get: operations['getFrozenExecution']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/body-progress': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the body measurements an ended relationship froze, through a case
+     * @description HU-STUDIO-062. Her measurements recorded by the cut, newest first, with the fields the frozen version of `body_progress` keeps readable; a field it does not keep comes back null. A measurement recorded after the cut never shows, whatever day it claims. 403 `scope-required` when `body_progress` was not frozen readable.
+     */
+    get: operations['listFrozenBodyProgress']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/memberships/{membershipId}/roles': {
     parameters: {
       query?: never
@@ -6682,6 +6808,11 @@ export interface components {
       authenticated: true
       registration_status: components['schemas']['StudioRegistrationStatus']
       identity: components['schemas']['StudioAccountIdentity']
+      /**
+       * Format: date-time
+       * @description Until when this session's sign-in counts as recent, for operations that ask for one. Null when the identity provider did not say when the person authenticated.
+       */
+      recent_authentication_expires_at: string | null
       analytics: components['schemas']['AnalyticsIdentity']
     }
     StudioEntryContext: {
@@ -10780,6 +10911,126 @@ export interface components {
     BodyPhotoPage: {
       data: components['schemas']['BodyPhoto'][]
     }
+    /** @enum {string} */
+    HistoricalAccessPurpose:
+      | 'service_dispute'
+      | 'legal_or_regulatory_obligation'
+      | 'customer_support_request'
+      | 'security_investigation'
+      | 'authorized_quality_review'
+    HistoricalAccessCaseCreate: {
+      relationship_id: components['schemas']['Uuid']
+      /** @description The opener's own membership, or the membership of the coach who held the relationship when it ended. */
+      authorized_membership_id: components['schemas']['Uuid']
+      purpose: components['schemas']['HistoricalAccessPurpose']
+      /** @description The ticket, claim or file this case answers to. */
+      case_reference: string
+      justification: string
+      duration_hours: number
+    }
+    HistoricalCaseMember: {
+      membership_id: components['schemas']['Uuid']
+      given_name: string
+      family_name: string
+    }
+    HistoricalCasePerson: {
+      id: components['schemas']['Uuid']
+      given_name: string
+      family_name: string
+    }
+    /** @description One case and where it stands. `expired` is an open case whose time ran out: it reads nothing, whether or not anyone has closed it yet. */
+    HistoricalAccessCase: {
+      id: components['schemas']['Uuid']
+      organization_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      person: components['schemas']['HistoricalCasePerson']
+      /**
+       * Format: date-time
+       * @description When the relationship ended. Nothing after it is ever read.
+       */
+      cut_at: string
+      authorized: components['schemas']['HistoricalCaseMember']
+      opened_by: components['schemas']['HistoricalCaseMember']
+      purpose: components['schemas']['HistoricalAccessPurpose']
+      case_reference: string
+      justification: string
+      /** @enum {string} */
+      status: 'open' | 'closed' | 'expired'
+      /** Format: date-time */
+      opened_at: string
+      /** Format: date-time */
+      expires_at: string
+      /** Format: date-time */
+      closed_at: string | null
+      /** @enum {string|null} */
+      closed_reason:
+        'closed_by_manager' | 'expired' | 'grant_revoked' | 'membership_ineligible' | null
+      closed_by: components['schemas']['HistoricalCaseMember'] | null
+    }
+    HistoricalAccessCasePage: {
+      data: components['schemas']['HistoricalAccessCase'][]
+      page: components['schemas']['Page']
+    }
+    HistoricalRelationship: {
+      relationship: {
+        id: components['schemas']['Uuid']
+        person: components['schemas']['HistoricalCasePerson']
+        /** Format: date-time */
+        ended_at: string
+      }
+      case: components['schemas']['HistoricalAccessCase']
+      /** @description The frozen categories that stayed readable after the end. */
+      scopes: {
+        code: components['schemas']['ScopeCode']
+        version: number
+        /** Format: date-time */
+        frozen_at: string
+      }[]
+    }
+    FrozenExecutionSummary: {
+      id: components['schemas']['Uuid']
+      /** Format: date-time */
+      started_at: string
+      /** Format: date-time */
+      ended_at: string | null
+      timezone: components['schemas']['IanaTimeZone']
+      activity_type_code: string
+      activity_type_name: string
+      discipline_code: string
+      achieved_level: components['schemas']['CompletenessLevel'] | null
+      origin: components['schemas']['AuthorizedExecutionOrigin']
+      applied_scope: components['schemas']['AppliedScope']
+    }
+    FrozenExecutionPage: {
+      data: components['schemas']['FrozenExecutionSummary'][]
+      page: components['schemas']['Page']
+    }
+    /** @description One frozen session as the list shows it, with what was recorded in it. No observations and no planned session: neither stayed readable after the end. */
+    FrozenExecution: {
+      id: components['schemas']['Uuid']
+      /** Format: date-time */
+      started_at: string
+      /** Format: date-time */
+      ended_at: string | null
+      timezone: components['schemas']['IanaTimeZone']
+      activity_type_code: string
+      activity_type_name: string
+      discipline_code: string
+      achieved_level: components['schemas']['CompletenessLevel'] | null
+      origin: components['schemas']['AuthorizedExecutionOrigin']
+      applied_scope: components['schemas']['AppliedScope']
+      segments: components['schemas']['ExecutionDetailSegment'][]
+      strength_sets: components['schemas']['ExecutionDetailStrengthSet'][]
+      endurance_laps: components['schemas']['ExecutionDetailEnduranceLap'][]
+      interval_results: components['schemas']['ExecutionDetailIntervalResult'][]
+      round_results: components['schemas']['ExecutionDetailRoundResult'][]
+      mobility_results: components['schemas']['ExecutionDetailMobilityResult'][]
+    }
+    FrozenBodyProgressPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientBodyProgressRecord'][]
+      page: components['schemas']['Page']
+    }
     Problem: {
       /** Format: uri */
       type: string
@@ -11968,6 +12219,26 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The actor cannot execute the operation, or their sign-in is more than ten minutes old and must be repeated */
+    HistoricalAccessForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
+    /** @description The actor cannot read through the case, their sign-in is more than ten minutes old, or no frozen category keeps this resource readable */
+    HistoricalReadForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['PrivateNoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description Required live grant is not effective */
     ScopeRequired: {
       headers: {
@@ -12239,6 +12510,9 @@ export interface components {
     InvitationId: components['schemas']['UuidV7']
     BodyPhotoId: components['schemas']['Uuid']
     RelationshipId: components['schemas']['Uuid']
+    HistoricalAccessCaseId: components['schemas']['Uuid']
+    /** @description The open case this read goes through; the access record names it. */
+    HistoricalAccessCaseHeader: components['schemas']['Uuid']
     SubstitutionId: components['schemas']['Uuid']
     TerminationRequestId: components['schemas']['Uuid']
     PlannedSessionId: components['schemas']['Uuid']
@@ -14949,7 +15223,10 @@ export interface operations {
   }
   startStudioAuthentication: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description `true` makes WorkOS ask for the credentials again, whatever session it already holds. The step-up screens use it when an operation answers `reauthentication-required`; the new sign-in counts as recent for ten minutes. */
+        reauthenticate?: boolean
+      }
       header?: never
       path?: never
       cookie?: never
@@ -15794,6 +16071,250 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listHistoricalAccessCases: {
+    parameters: {
+      query?: {
+        /** @description Only the cases over this relationship. */
+        relationship_id?: components['schemas']['Uuid']
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The cases the caller may see, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalAccessCasePage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  openHistoricalAccessCase: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HistoricalAccessCaseCreate']
+      }
+    }
+    responses: {
+      /** @description The case is open, or this command already opened it */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalAccessCase']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalAccessForbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  closeHistoricalAccessCase: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        caseId: components['parameters']['HistoricalAccessCaseId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The case as it stands once closed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalAccessCase']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getHistoricalRelationship: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The relationship as the case froze it */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalRelationship']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalAccessForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listFrozenExecutions: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen sessions, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenExecutionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalAccessForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getFrozenExecution: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+        executionId: components['parameters']['ExecutionId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen session and what was recorded in it */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenExecution']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalReadForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listFrozenBodyProgress: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen measurements, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenBodyProgressPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalReadForbidden']
+      404: components['responses']['NotFound']
       503: components['responses']['UpstreamUnavailable']
     }
   }
