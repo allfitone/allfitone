@@ -2832,6 +2832,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: Json
       }
+      credential_verification_is_effective: {
+        Args: { p_person_id: string; p_type: string; p_verification_id: string }
+        Returns: boolean
+      }
       credential_verification_method_for: {
         Args: { p_credential_type_code: string }
         Returns: string
@@ -3076,6 +3080,10 @@ export type Database = {
           p_photo_id: string
           p_request_hash: string
         }
+        Returns: string
+      }
+      effective_credential_verification: {
+        Args: { p_person_id: string; p_type: string }
         Returns: string
       }
       expire_backoffice_authentication_attempts: {
