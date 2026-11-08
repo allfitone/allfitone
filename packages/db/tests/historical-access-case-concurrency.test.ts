@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import postgres from 'postgres'
 
-// HU-STUDIO-061 against HU-SP-071. A case opening while the person takes back the last
+// HU-STUDIO-061 against HU-SP-031. A case opening while the person takes back the last
 // permission that froze never outlives it: either the revocation waits and closes the
 // case it finds, or the case waits and finds nothing left to open. Fixtures are committed
 // so independent sessions see them; every command commits too.
