@@ -300,6 +300,48 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/catalog/disciplines': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the published disciplines a gym can author content for
+     * @description The same global catalogue Backoffice publishes, read on the Studio surface because the Studio session cookie travels nowhere else. A session template names one of these codes, so a member picks it from this list rather than typing it. Any active person may read it, as on every surface: the catalogue is global published content, not a gym's data, and it carries no organisation to check a capability against.
+     *
+     *     An empty list is a real answer, not a fault: no discipline exists until Backoffice publishes one, and until then no template can be created. Refuses a caller that is not an active person rather than answering an empty list.
+     */
+    get: operations['listStudioCatalogDisciplines']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/catalog/activity-types': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the published global activity types a gym can author content for
+     * @description The global activity types, each under its discipline, read on the Studio surface for the same reason as the disciplines. A template draft and each of its steps may name one by id. Only global published content: a gym's own activity types are not listed here. Any active person may read it, and an empty list means Backoffice has published none yet.
+     */
+    get: operations['listStudioCatalogActivityTypes']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/catalog/disciplines': {
     parameters: {
       query?: never
@@ -12915,6 +12957,54 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['CatalogInformationCategoryList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listStudioCatalogDisciplines: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Published disciplines ordered by their stable code */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CatalogDisciplineList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listStudioCatalogActivityTypes: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Published global activity types ordered by discipline and code */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CatalogActivityTypeList']
         }
       }
       401: components['responses']['Unauthenticated']

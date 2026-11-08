@@ -1527,6 +1527,22 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/studio/v1/catalog/activity-types',
+      operationId: 'listStudioCatalogActivityTypes',
+      allfitOperation: 'OP-CAT-008',
+      responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'GET',
+      path: '/studio/v1/catalog/disciplines',
+      operationId: 'listStudioCatalogDisciplines',
+      allfitOperation: 'OP-CAT-007',
+      responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'GET',
       path: '/studio/v1/catalog/information-categories',
       operationId: 'listStudioCatalogInformationCategories',
       allfitOperation: 'OP-PRV-022',

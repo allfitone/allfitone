@@ -967,6 +967,75 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
+  /studio/v1/catalog/disciplines:
+    get:
+      tags: [Global Catalogue]
+      operationId: listStudioCatalogDisciplines
+      x-allfit-operation: OP-CAT-007
+      x-allfit-cache: private-no-store
+      summary: List the published disciplines a gym can author content for
+      description: >-
+        The same global catalogue Backoffice publishes, read on the Studio
+        surface because the Studio session cookie travels nowhere else. A
+        session template names one of these codes, so a member picks it from
+        this list rather than typing it. Any active person may read it, as on
+        every surface: the catalogue is global published content, not a gym's
+        data, and it carries no organisation to check a capability against.
+
+
+        An empty list is a real answer, not a fault: no discipline exists until
+        Backoffice publishes one, and until then no template can be created.
+        Refuses a caller that is not an active person rather than answering an
+        empty list.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Published disciplines ordered by their stable code
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogDisciplineList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+  /studio/v1/catalog/activity-types:
+    get:
+      tags: [Global Catalogue]
+      operationId: listStudioCatalogActivityTypes
+      x-allfit-operation: OP-CAT-008
+      x-allfit-cache: private-no-store
+      summary: List the published global activity types a gym can author content for
+      description: >-
+        The global activity types, each under its discipline, read on the Studio
+        surface for the same reason as the disciplines. A template draft and
+        each of its steps may name one by id. Only global published content: a
+        gym's own activity types are not listed here. Any active person may read
+        it, and an empty list means Backoffice has published none yet.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Published global activity types ordered by discipline and code
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogActivityTypeList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
   /backoffice/v1/catalog/disciplines:
     get:
       tags: [Global Catalogue]
