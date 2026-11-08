@@ -4,7 +4,7 @@ import type { Dictionary } from './es'
 
 export const en: Dictionary = {
   meta: {
-    title: 'Allfit Space · The app to train with a plan, not with luck',
+    title: 'Allfit Space | Training and nutrition app',
     description:
       'Training and nutrition app: your programme, every set and what you eat in one place. Your history goes with you, and your data is yours.',
     shareImageAlt: 'An athlete sets up a deadlift with a loaded barbell in a dimly lit gym.',
@@ -26,13 +26,11 @@ export const en: Dictionary = {
     download: 'Get it on',
   },
   hero: {
-    lines: ['TRAIN', 'WITH A PLAN.', 'NOT WITH LUCK.'],
-    lead: 'Your programme, every set and what you eat, in one app. If you change gyms, your history comes with you.',
+    lines: ['YOUR HISTORY', 'GOES', 'WITH YOU.'],
+    lead: "Your programme, every set and what you eat, in one app. If you change gyms, you don't start from scratch.",
     todayAlt: "Allfit Space Today screen: the day's Pull session and the week at a glance.",
     programAlt: 'Upper and lower programme detail: 10 weeks, 4 days a week and its sessions.',
-    scroll: 'Scroll',
   },
-  ticker: ['Strength', 'Hypertrophy', 'Running', 'Nutrition', 'Records', 'Consistency'],
   features: {
     title: ['FROM THE FIRST SET', 'TO THE LAST BITE.'],
     cards: [
@@ -71,15 +69,15 @@ export const en: Dictionary = {
     pillars: [
       {
         title: 'Nothing is shared on its own',
-        text: 'Accepting a gym shares no data. You choose what it sees, category by category.',
+        text: 'Accepting a gym shows it nothing. You decide whether it sees your training with them, your measurements and photos, or your meals.',
       },
       {
         title: 'Cut it off whenever you want',
-        text: 'Remove a permission and they stop seeing it instantly. Your data stays with you.',
+        text: 'Tap “Remove” and they stop seeing it at once. If you end things with a gym, it keeps only what you shared up to that day, and you can take that back too.',
       },
       {
         title: 'You leave with everything',
-        text: 'If you leave a gym, your history stays with you and you keep training without losing anything.',
+        text: 'If you leave a gym, your programmes, your sets and your records stay in your account, and you pick up where you left off.',
       },
     ],
   },
@@ -103,11 +101,10 @@ export const en: Dictionary = {
       friends: 'Friends',
       published: 'Shared to your story',
     },
-    background: 'Athlete checking her phone at the gym after training.',
   },
   pro: {
-    title: ['ALLFIT PRO,', 'INCLUDED WITH', 'YOUR GYM.'],
-    text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym uses Allfit Studio, Pro is included for as long as you stay with them.',
+    title: ['DOES YOUR GYM', 'USE ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
+    text: "The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail, and you don't pay for it while you stay with that gym.",
     alt: 'Athlete with headphones focusing before training at the gym.',
   },
   studio: {
@@ -116,7 +113,7 @@ export const en: Dictionary = {
     cta: 'Discover Allfit Studio',
   },
   closing: {
-    title: ['YOUR NEXT RECORD', 'HAS A PLAN.'],
+    title: ['CHANGE GYMS,', 'NOT APPS.'],
   },
   nvidia: {
     member: 'Allfit One is a member of NVIDIA Inception.',
@@ -127,6 +124,7 @@ export const en: Dictionary = {
   footer: {
     terms: 'Terms',
     privacy: 'Privacy',
+    analytics: 'Analytics',
     studio: 'Allfit Studio',
     rights: '© 2026 Allfit One',
     newWindow: 'Opens in a new tab.',
