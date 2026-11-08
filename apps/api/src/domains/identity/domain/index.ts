@@ -43,6 +43,8 @@ export interface StoredAccessSession {
   accessTokenExpiresAt: Date
   tokenVersion: number
   personStatus?: 'pending_activation' | 'active' | 'closed'
+  /** Until when its sign-in counts as recent; PostgreSQL owns the window. */
+  recentAuthenticationExpiresAt: Date | null
 }
 
 export interface ActorRegistration {
@@ -54,11 +56,15 @@ export interface ActorRegistration {
 export interface AccountActor {
   accountId: string
   personId?: string
+  /** The Studio access session the actor came through, for step-up checks. */
+  sessionId?: string
 }
 
 export interface StudioAccountIdentity {
   actor: AccountActor
   identity: AuthenticatedIdentity
+  /** Optional only for injected test seams; production session resolution always sets it. */
+  recentAuthenticationExpiresAt?: Date | null
   /** Optional only for injected test seams; production session resolution always sets it. */
   analytics?: AnalyticsIdentity
 }
@@ -382,6 +388,8 @@ export interface IdentitySessionDatabase {
     tokenHash: Uint8Array
     tokenCiphertext: string
     accessTokenExpiresAt: Date
+    /** When the person last actively authenticated, per the verified token. */
+    authenticatedAt: Date | null
   }): Promise<string>
   loadSession(tokenHash: Uint8Array): Promise<StoredAccessSession | undefined>
   rotateSession(input: {

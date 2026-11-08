@@ -110,7 +110,12 @@ function appWith(overrides: Partial<SpaceOnboardingService> = {}): Hono {
   return app
 }
 
-const VERIFIED = { subject: 'user_01', sessionId: 'sid_01', surface: 'space' as const }
+const VERIFIED = {
+  subject: 'user_01',
+  sessionId: 'sid_01',
+  surface: 'space' as const,
+  authenticatedAt: null,
+}
 
 function post(app: Hono, path: string, init: { headers?: Record<string, string>; body?: unknown }) {
   return app.request(path, {

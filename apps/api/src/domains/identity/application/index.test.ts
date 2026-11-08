@@ -34,6 +34,7 @@ function provider(overrides: Partial<AuthProvider> = {}): AuthProvider {
       subject: 'user_1',
       sessionId: 'provider_session_1',
       surface: 'studio',
+      authenticatedAt: null,
     }),
     verifyWebhookEvent: async () => null,
     register: async () => {
@@ -69,6 +70,7 @@ class MemoryDatabase implements IdentitySessionDatabase {
   accountResolutions = 0
   failLoad = false
   failRevoke = false
+  authenticatedAt: Date | null | undefined
 
   async resolveOrCreateAccount() {
     this.accountResolutions += 1
@@ -81,7 +83,9 @@ class MemoryDatabase implements IdentitySessionDatabase {
     tokenHash: Uint8Array
     tokenCiphertext: string
     accessTokenExpiresAt: Date
+    authenticatedAt: Date | null
   }) {
+    this.authenticatedAt = input.authenticatedAt
     this.session = {
       sessionId: 'session_1',
       accountId: input.accountId,
@@ -90,6 +94,7 @@ class MemoryDatabase implements IdentitySessionDatabase {
       tokenCiphertext: input.tokenCiphertext,
       accessTokenExpiresAt: input.accessTokenExpiresAt,
       tokenVersion: 1,
+      recentAuthenticationExpiresAt: null,
     }
     return 'session_1'
   }
@@ -176,6 +181,27 @@ describe('completeCode', () => {
     expect(database.session?.accessTokenExpiresAt.toISOString()).toBe('2026-08-06T12:05:00.000Z')
   })
 
+  test('stores when WorkOS says the person last authenticated', async () => {
+    const database = new MemoryDatabase()
+    const authenticatedAt = new Date('2026-08-06T11:59:30.000Z')
+    const authProvider = provider({
+      verifyAccessToken: async () => ({
+        subject: 'user_1',
+        sessionId: 'provider_session_1',
+        surface: 'studio',
+        authenticatedAt,
+      }),
+    })
+    await service(database, authProvider).completeCode('code')
+    expect(database.authenticatedAt).toEqual(authenticatedAt)
+  })
+
+  test('stores no instant when the token does not say', async () => {
+    const database = new MemoryDatabase()
+    await service(database).completeCode('code')
+    expect(database.authenticatedAt).toBeNull()
+  })
+
   test('rejects a subject mismatch before touching PostgreSQL', async () => {
     const database = new MemoryDatabase()
     const authProvider = provider({
@@ -183,6 +209,7 @@ describe('completeCode', () => {
         subject: 'different',
         sessionId: 'provider_session_1',
         surface: 'studio',
+        authenticatedAt: null,
       }),
     })
     await expect(service(database, authProvider).completeCode('code')).rejects.toEqual(
@@ -200,7 +227,18 @@ describe('readSession', () => {
       authenticated: true,
       registration_status: 'registration_incomplete',
       identity: { given_name: 'Ada', family_name: 'Lovelace' },
+      recent_authentication_expires_at: null,
       analytics: { distinct_id: null },
+    })
+  })
+
+  test('says until when the sign-in counts as recent, as PostgreSQL computed it', async () => {
+    const database = new MemoryDatabase()
+    await service(database).completeCode('code')
+    if (!database.session) throw new Error('no session')
+    database.session.recentAuthenticationExpiresAt = new Date('2026-08-06T12:09:30.000Z')
+    await expect(service(database).readSession('opaque')).resolves.toMatchObject({
+      recent_authentication_expires_at: '2026-08-06T12:09:30.000Z',
     })
   })
 
@@ -363,5 +401,18 @@ describe('logout', () => {
     expect(result.outcome).toBe('partial')
     expect(result.redirectUrl).toContain('sid=provider_session_1')
     expect(result.redirectUrl).toContain(encodeURIComponent('https://studio.test/?logout=partial'))
+  })
+})
+
+describe('resolveActor', () => {
+  test('names the access session it resolved, so a step-up can ask about that one', async () => {
+    const database = new MemoryDatabase()
+    database.registration = { personId: 'person_1', personStatus: 'active' }
+    await service(database).completeCode('code')
+    await expect(service(database).resolveActor('opaque')).resolves.toEqual({
+      accountId: 'account_1',
+      personId: 'person_1',
+      sessionId: 'session_1',
+    })
   })
 })

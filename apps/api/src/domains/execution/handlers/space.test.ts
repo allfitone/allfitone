@@ -275,7 +275,12 @@ function harness(overrides?: Partial<SpaceExecutionService>, actorFails = false)
     '/space/v1',
     spaceExecutionRoutes(
       service,
-      async () => ({ subject: 'sub', sessionId: 'sid', surface: 'space' as const }),
+      async () => ({
+        subject: 'sub',
+        sessionId: 'sid',
+        surface: 'space' as const,
+        authenticatedAt: null,
+      }),
       actors,
     ),
   )

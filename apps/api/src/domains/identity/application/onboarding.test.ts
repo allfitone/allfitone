@@ -50,7 +50,12 @@ function emptyAnswers() {
 }
 
 const ISSUER = 'https://api.workos.test/user_management/client_space'
-const TOKEN: VerifiedToken = { subject: 'user_01', sessionId: 'sid_01', surface: 'space' }
+const TOKEN: VerifiedToken = {
+  subject: 'user_01',
+  sessionId: 'sid_01',
+  surface: 'space',
+  authenticatedAt: null,
+}
 const COMMAND = {
   idempotencyKey: '52222222-2222-4222-8222-222222222221',
   commandId: '0198e200-0000-7000-8000-000000000002',

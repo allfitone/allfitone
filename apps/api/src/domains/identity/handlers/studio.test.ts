@@ -24,6 +24,7 @@ function fakeProvider(overrides: Partial<AuthProvider> = {}): AuthProvider {
       subject: 'user_01ABC',
       sessionId: 'session_01XYZ',
       surface: 'studio',
+      authenticatedAt: null,
     }),
     verifyWebhookEvent: async () => null,
     authenticateWithPassword: async () => {
@@ -112,6 +113,31 @@ describe('GET /auth/start', () => {
     expect(response.headers.get('location')).toBe(AUTHORIZE_URL)
     expect(Buffer.from(cookie.state, 'base64url')).toHaveLength(32)
     expect(cookie.value).toBe(cookie.state)
+  })
+
+  test('asks for no particular freshness on an ordinary sign-in', async () => {
+    const requests: Parameters<AuthProvider['getAuthorizationUrl']>[0][] = []
+    const provider = fakeProvider({
+      getAuthorizationUrl: (request) => {
+        requests.push(request)
+        return AUTHORIZE_URL
+      },
+    })
+    await app(provider).request('/studio/v1/auth/start')
+    expect(requests[0]?.maxAgeSeconds).toBeUndefined()
+  })
+
+  test('forces WorkOS to authenticate again when the step-up asks for it', async () => {
+    const requests: Parameters<AuthProvider['getAuthorizationUrl']>[0][] = []
+    const provider = fakeProvider({
+      getAuthorizationUrl: (request) => {
+        requests.push(request)
+        return AUTHORIZE_URL
+      },
+    })
+    const response = await app(provider).request('/studio/v1/auth/start?reauthenticate=true')
+    expect(response.status).toBe(302)
+    expect(requests[0]?.maxAgeSeconds).toBe(0)
   })
 
   test('protects and scopes the state cookie', async () => {
@@ -267,7 +293,27 @@ describe('GET /session', () => {
       authenticated: true,
       registration_status: 'complete',
       identity: { given_name: 'Ada', family_name: 'Lovelace' },
+      recent_authentication_expires_at: null,
       analytics: { distinct_id: null },
+    })
+  })
+
+  test('says until when the sign-in counts as recent, for the step-up screen', async () => {
+    const response = await app(
+      fakeProvider(),
+      fakeSessions({
+        readSession: async () => ({
+          authenticated: true,
+          registration_status: 'complete',
+          identity: { given_name: 'Ada', family_name: 'Lovelace' },
+          recent_authentication_expires_at: '2026-11-08T15:10:00.000Z',
+        }),
+      }),
+    ).request('/studio/v1/session', {
+      headers: { cookie: 'allfit_studio_session=opaque-session' },
+    })
+    await expect(response.json()).resolves.toMatchObject({
+      recent_authentication_expires_at: '2026-11-08T15:10:00.000Z',
     })
   })
 

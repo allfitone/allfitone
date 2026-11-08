@@ -63,8 +63,15 @@ export function studioIdentityRoutes(injectedService?: StudioSessionService): Ho
       path: STATE_COOKIE_PATH,
       maxAge: STATE_TTL_SECONDS,
     })
+    // A step-up asks WorkOS to authenticate again; the token's auth_time is what counts.
+    const reauthenticate = c.req.query('reauthenticate') === 'true'
     return c.redirect(
-      authProvider().getAuthorizationUrl({ surface: 'studio', redirectUri: callback, state }),
+      authProvider().getAuthorizationUrl({
+        surface: 'studio',
+        redirectUri: callback,
+        state,
+        ...(reauthenticate ? { maxAgeSeconds: 0 } : {}),
+      }),
     )
   })
 
@@ -128,7 +135,11 @@ export function studioIdentityRoutes(injectedService?: StudioSessionService): Ho
       if (session.registration_status === 'registration_incomplete') {
         recordStudioRegistrationIncomplete()
       }
-      return c.json({ ...session, analytics: session.analytics ?? { distinct_id: null } })
+      return c.json({
+        ...session,
+        recent_authentication_expires_at: session.recent_authentication_expires_at ?? null,
+        analytics: session.analytics ?? { distinct_id: null },
+      })
     } catch (error) {
       if (error instanceof StudioSessionError && error.code !== 'upstream-unavailable') {
         deleteCookie(c, STUDIO_SESSION_COOKIE, { path: STUDIO_SESSION_COOKIE_PATH })

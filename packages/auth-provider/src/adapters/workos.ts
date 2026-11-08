@@ -242,7 +242,12 @@ export function createWorkOSAuthProvider(config: WorkOSConfig): AuthProvider {
       // Deliberately narrow. org_id, role and permissions are present in the
       // token and are NOT returned: authorization is resolved in PostgreSQL,
       // inside the transaction. Widening this creates a second source of truth.
-      return { subject, sessionId, surface }
+      return {
+        subject,
+        sessionId,
+        surface,
+        authenticatedAt: authenticationInstant(claims.auth_time),
+      }
     },
 
     async verifyWebhookEvent(
@@ -733,4 +738,11 @@ function assertConfig(config: WorkOSConfig): void {
       throw new Error(`Missing API key for surface "${surface}".`)
     }
   }
+}
+
+// Seconds since the epoch, as AuthKit writes it. Anything else says nothing.
+function authenticationInstant(value: unknown): Date | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+    ? new Date(value * 1000)
+    : null
 }

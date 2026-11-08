@@ -5750,6 +5750,25 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  FrozenBodyProgressPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['applied_scope', 'data', 'page'],
+    properties: {
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ClientBodyProgressRecord',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
   FrozenContractRef: {
     type: 'object',
     additionalProperties: false,
@@ -5761,6 +5780,180 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       version: {
         type: 'integer',
         minimum: 1,
+      },
+    },
+  },
+  FrozenExecution: {
+    description:
+      'One frozen session as the list shows it, with what was recorded in it. No observations and no planned session: neither stayed readable after the end.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'started_at',
+      'ended_at',
+      'timezone',
+      'activity_type_code',
+      'activity_type_name',
+      'discipline_code',
+      'achieved_level',
+      'origin',
+      'applied_scope',
+      'segments',
+      'strength_sets',
+      'endurance_laps',
+      'interval_results',
+      'round_results',
+      'mobility_results',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      ended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      activity_type_code: {
+        type: 'string',
+      },
+      activity_type_name: {
+        type: 'string',
+      },
+      discipline_code: {
+        type: 'string',
+      },
+      achieved_level: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/CompletenessLevel',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      origin: {
+        $ref: '#/components/schemas/AuthorizedExecutionOrigin',
+      },
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
+      },
+      segments: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailSegment',
+        },
+      },
+      strength_sets: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailStrengthSet',
+        },
+      },
+      endurance_laps: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailEnduranceLap',
+        },
+      },
+      interval_results: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailIntervalResult',
+        },
+      },
+      round_results: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailRoundResult',
+        },
+      },
+      mobility_results: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/ExecutionDetailMobilityResult',
+        },
+      },
+    },
+  },
+  FrozenExecutionPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/FrozenExecutionSummary',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  FrozenExecutionSummary: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'started_at',
+      'ended_at',
+      'timezone',
+      'activity_type_code',
+      'activity_type_name',
+      'discipline_code',
+      'achieved_level',
+      'origin',
+      'applied_scope',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      ended_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      activity_type_code: {
+        type: 'string',
+      },
+      activity_type_name: {
+        type: 'string',
+      },
+      discipline_code: {
+        type: 'string',
+      },
+      achieved_level: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/CompletenessLevel',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      origin: {
+        $ref: '#/components/schemas/AuthorizedExecutionOrigin',
+      },
+      applied_scope: {
+        $ref: '#/components/schemas/AppliedScope',
       },
     },
   },
@@ -6017,6 +6210,250 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   HealthContextType: {
     type: 'string',
     enum: ['pain', 'limitation', 'recovery'],
+  },
+  HistoricalAccessCase: {
+    description:
+      'One case and where it stands. `expired` is an open case whose time ran out: it reads nothing, whether or not anyone has closed it yet.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'organization_id',
+      'relationship_id',
+      'person',
+      'cut_at',
+      'authorized',
+      'opened_by',
+      'purpose',
+      'case_reference',
+      'justification',
+      'status',
+      'opened_at',
+      'expires_at',
+      'closed_at',
+      'closed_reason',
+      'closed_by',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      person: {
+        $ref: '#/components/schemas/HistoricalCasePerson',
+      },
+      cut_at: {
+        description: 'When the relationship ended. Nothing after it is ever read.',
+        type: 'string',
+        format: 'date-time',
+      },
+      authorized: {
+        $ref: '#/components/schemas/HistoricalCaseMember',
+      },
+      opened_by: {
+        $ref: '#/components/schemas/HistoricalCaseMember',
+      },
+      purpose: {
+        $ref: '#/components/schemas/HistoricalAccessPurpose',
+      },
+      case_reference: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      justification: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+      status: {
+        type: 'string',
+        enum: ['open', 'closed', 'expired'],
+      },
+      opened_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      expires_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      closed_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      closed_reason: {
+        type: ['string', 'null'],
+        enum: ['closed_by_manager', 'expired', 'grant_revoked', 'membership_ineligible', null],
+      },
+      closed_by: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/HistoricalCaseMember',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  HistoricalAccessCaseCreate: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'relationship_id',
+      'authorized_membership_id',
+      'purpose',
+      'case_reference',
+      'justification',
+      'duration_hours',
+    ],
+    properties: {
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      authorized_membership_id: {
+        description:
+          "The opener's own membership, or the membership of the coach who held the relationship when it ended.",
+        allOf: [
+          {
+            $ref: '#/components/schemas/Uuid',
+          },
+        ],
+      },
+      purpose: {
+        $ref: '#/components/schemas/HistoricalAccessPurpose',
+      },
+      case_reference: {
+        description: 'The ticket, claim or file this case answers to.',
+        type: 'string',
+        minLength: 1,
+        maxLength: 120,
+      },
+      justification: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 2000,
+      },
+      duration_hours: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 24,
+      },
+    },
+  },
+  HistoricalAccessCasePage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/HistoricalAccessCase',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  HistoricalAccessPurpose: {
+    type: 'string',
+    enum: [
+      'service_dispute',
+      'legal_or_regulatory_obligation',
+      'customer_support_request',
+      'security_investigation',
+      'authorized_quality_review',
+    ],
+  },
+  HistoricalCaseMember: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['membership_id', 'given_name', 'family_name'],
+    properties: {
+      membership_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      given_name: {
+        type: 'string',
+      },
+      family_name: {
+        type: 'string',
+      },
+    },
+  },
+  HistoricalCasePerson: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['id', 'given_name', 'family_name'],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      given_name: {
+        type: 'string',
+      },
+      family_name: {
+        type: 'string',
+      },
+    },
+  },
+  HistoricalRelationship: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['relationship', 'case', 'scopes'],
+    properties: {
+      relationship: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'person', 'ended_at'],
+        properties: {
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          person: {
+            $ref: '#/components/schemas/HistoricalCasePerson',
+          },
+          ended_at: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      case: {
+        $ref: '#/components/schemas/HistoricalAccessCase',
+      },
+      scopes: {
+        description: 'The frozen categories that stayed readable after the end.',
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['code', 'version', 'frozen_at'],
+          properties: {
+            code: {
+              $ref: '#/components/schemas/ScopeCode',
+            },
+            version: {
+              type: 'integer',
+              minimum: 1,
+            },
+            frozen_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
+      },
+    },
   },
   IanaTimeZone: {
     type: 'string',
@@ -17192,7 +17629,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   StudioSession: {
     type: 'object',
     additionalProperties: false,
-    required: ['authenticated', 'registration_status', 'identity', 'analytics'],
+    required: [
+      'authenticated',
+      'registration_status',
+      'identity',
+      'recent_authentication_expires_at',
+      'analytics',
+    ],
     properties: {
       authenticated: {
         type: 'boolean',
@@ -17203,6 +17646,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       identity: {
         $ref: '#/components/schemas/StudioAccountIdentity',
+      },
+      recent_authentication_expires_at: {
+        description:
+          "Until when this session's sign-in counts as recent, for operations that ask for one. Null when the identity provider did not say when the person authenticated.",
+        type: ['string', 'null'],
+        format: 'date-time',
       },
       analytics: {
         $ref: '#/components/schemas/AnalyticsIdentity',

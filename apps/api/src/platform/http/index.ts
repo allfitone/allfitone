@@ -29,6 +29,8 @@ export type ApiErrorCode =
   | 'account-closed'
   /** Authenticated request is not allowed to perform this action. */
   | 'forbidden'
+  /** The operation needs a sign-in at most ten minutes old; sign in again (STUDIO-54..56). */
+  | 'reauthentication-required'
   /** The person has not accepted the consent this operation needs (ADR-041). */
   | 'consent-required'
   /** The person does not share the data scope this operation needs, at the level it needs. */
@@ -71,6 +73,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'registration-incomplete': 403,
   'account-closed': 403,
   forbidden: 403,
+  'reauthentication-required': 403,
   'consent-required': 403,
   'scope-required': 403,
   'weak-password': 422,
@@ -99,6 +102,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'registration-incomplete': 'Registration must be completed first',
   'account-closed': 'The account is closed',
   forbidden: 'The actor cannot execute this operation',
+  'reauthentication-required': 'A recent sign-in is required',
   'consent-required': 'Consent is required first',
   'scope-required': 'Required consent is not effective',
   'weak-password': 'The password does not satisfy the security policy',

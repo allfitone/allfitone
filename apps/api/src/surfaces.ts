@@ -59,6 +59,7 @@ import { spacePlanningRoutes, studioPlanningRoutes } from './domains/planning/in
 import {
   backofficePrivacyRoutes,
   spacePrivacyRoutes,
+  studioHistoricalAccessRoutes,
   studioPrivacyRoutes,
 } from './domains/privacy/index.js'
 import { spaceRelationshipRoutes, studioRelationshipRoutes } from './domains/relationships/index.js'
@@ -96,7 +97,14 @@ export function mountSurfaces(app: Hono): void {
       origin: new URL(trustedStudioWebUrl()).origin,
       credentials: true,
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id', 'If-Match', 'If-None-Match'],
+      allowHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'Command-Id',
+        'If-Match',
+        'If-None-Match',
+        'X-Historical-Access-Case',
+      ],
       exposeHeaders: ['ETag', 'Server-Timing', 'Retry-After', 'Idempotent-Replay'],
       maxAge: 600,
     }),
@@ -114,6 +122,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/studio/v1', studioOwnershipInvitationRoutes())
   app.route('/studio/v1', studioClientInvitationRoutes())
   app.route('/studio/v1', studioPrivacyRoutes())
+  app.route('/studio/v1', studioHistoricalAccessRoutes())
   app.route('/studio/v1', studioOrganizationRoutes())
   app.route('/studio/v1', studioRelationshipRoutes())
   app.route('/studio/v1', studioCatalogRoutes())

@@ -45,6 +45,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_read_frozen: {
+        Args: { p_case_id: string; p_resource: string; p_scope_code: string }
+        Returns: boolean
+      }
       can_read_membership_event: {
         Args: { p_membership_id: string }
         Returns: boolean
@@ -56,6 +60,14 @@ export type Database = {
         Returns: string
       }
       counts_platform_metrics: { Args: never; Returns: boolean }
+      frozen_case_covers_person: {
+        Args: { p_person_id: string }
+        Returns: boolean
+      }
+      frozen_case_covers_relationship: {
+        Args: { p_relationship_id: string }
+        Returns: boolean
+      }
       grant_of: {
         Args: { p_relationship_id: string; p_scope_code: string }
         Returns: {
@@ -92,6 +104,10 @@ export type Database = {
         Args: { p_relationship_id: string }
         Returns: boolean
       }
+      historical_case_exercisable: {
+        Args: { p_case_id: string }
+        Returns: boolean
+      }
       holds_backoffice_duty: { Args: { p_duty_code: string }; Returns: boolean }
       is_self: { Args: { target_person_id: string }; Returns: boolean }
       open_contract_scope: {
@@ -101,6 +117,16 @@ export type Database = {
       org: { Args: never; Returns: string }
       owns_membership: { Args: { p_membership_id: string }; Returns: boolean }
       person: { Args: never; Returns: string }
+      reads_frozen_session: {
+        Args: {
+          p_context_relationship_id: string
+          p_ended_at: string
+          p_is_autonomous: boolean
+          p_person_id: string
+          p_session_id: string
+        }
+        Returns: boolean
+      }
       reads_under_break_glass: {
         Args: { p_category: string; p_subject_person_id: string }
         Returns: boolean
@@ -1256,6 +1282,7 @@ export type Database = {
           access_token_expires_at: string
           assurance_level: number
           assurance_verified_at: string | null
+          authenticated_at: string | null
           authentication_method: string | null
           created_at: string
           id: string
@@ -1274,6 +1301,7 @@ export type Database = {
           access_token_expires_at: string
           assurance_level?: number
           assurance_verified_at?: string | null
+          authenticated_at?: string | null
           authentication_method?: string | null
           created_at?: string
           id?: string
@@ -1292,6 +1320,7 @@ export type Database = {
           access_token_expires_at?: string
           assurance_level?: number
           assurance_verified_at?: string | null
+          authenticated_at?: string | null
           authentication_method?: string | null
           created_at?: string
           id?: string
@@ -2787,6 +2816,7 @@ export type Database = {
         Args: {
           p_access_account_id: string
           p_access_token_expires_at: string
+          p_authenticated_at?: string
           p_provider_session_id: string
           p_surface: Database['identity']['Enums']['access_session_surface']
           p_token_ciphertext: string
@@ -3223,6 +3253,19 @@ export type Database = {
           last_valid_to: string
         }[]
       }
+      list_frozen_body_progress: {
+        Args: {
+          p_case_id: string
+          p_cursor_id: string
+          p_cursor_measured_on: string
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_relationship_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       list_health_context: {
         Args: {
           p_before_id?: string
@@ -3280,6 +3323,7 @@ export type Database = {
           person_id: string
           person_status: string
           provider_session_id: string
+          recent_authentication_expires_at: string
           session_id: string
           token_ciphertext: string
           token_version: number
@@ -3515,6 +3559,7 @@ export type Database = {
           training_experience: string
         }[]
       }
+      recent_authentication_window: { Args: never; Returns: string }
       record_account_recovery_access: {
         Args: { p_actor_person_id: string; p_person_id: string }
         Returns: undefined
@@ -3618,6 +3663,10 @@ export type Database = {
       }
       require_professional_actor: {
         Args: { p_person_id: string }
+        Returns: undefined
+      }
+      require_recent_studio_authentication: {
+        Args: { p_session_id: string }
         Returns: undefined
       }
       require_space_person: {

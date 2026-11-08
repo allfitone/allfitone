@@ -70,6 +70,10 @@ tags:
     description: Workout execution commands performed from Allfit Space.
   - name: Studio Execution
     description: Authorized workout execution queries exposed to Allfit Studio.
+  - name: Studio Historical Access
+    description: >-
+      The exceptional, audited window onto a relationship the organization ended:
+      a time-boxed case, read-only, over what the person left readable at the cut.
   - name: Studio Client Profile
     description: >-
       What a client shares about herself with the coach who attends her: her training
@@ -3816,6 +3820,17 @@ paths:
       x-allfit-cache: no-store
       summary: Start the hosted Studio authentication flow
       security: []
+      parameters:
+        - name: reauthenticate
+          in: query
+          required: false
+          description: >-
+            `true` makes WorkOS ask for the credentials again, whatever session it
+            already holds. The step-up screens use it when an operation answers
+            `reauthentication-required`; the new sign-in counts as recent for ten
+            minutes.
+          schema:
+            type: boolean
       responses:
         '302':
           description: Redirect to the WorkOS hosted authentication flow
@@ -4842,6 +4857,321 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/historical-access-cases:
+    post:
+      tags: [Studio Historical Access]
+      operationId: openHistoricalAccessCase
+      x-allfit-operation: OP-PRV-018
+      x-allfit-cache: no-store
+      summary: Open a time-boxed case to read a relationship the organization ended
+      description: >-
+        HU-STUDIO-061. An owner or administrator with `manage_historical_access` opens
+        a case over one ended relationship of the organization, for a stated purpose,
+        with a case reference and a justification, for one to twenty-four hours. It
+        authorizes either the opener or the coach who held the relationship when it
+        ended, while that member keeps an active owner, administrator or coach role.
+        Never staff.
+
+
+        It needs a sign-in at most ten minutes old; otherwise 403
+        `reauthentication-required`, and the client signs in again through
+        `/studio/v1/auth/start?reauthenticate=true`. A relationship that kept no
+        frozen permission cannot be opened (409), and neither can a second open case
+        for the same relationship, member and purpose; one whose time ran out is
+        closed as expired first. The justification stays in the case: the events
+        carry identifiers only.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoricalAccessCaseCreate'
+      responses:
+        '201':
+          description: The case is open, or this command already opened it
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalAccessCase'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/HistoricalAccessForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    get:
+      tags: [Studio Historical Access]
+      operationId: listHistoricalAccessCases
+      x-allfit-operation: OP-PRV-025
+      x-allfit-cache: private-no-store
+      summary: List the historical access cases the caller may see
+      description: >-
+        Members with `manage_historical_access` see every case of the organization;
+        anyone else sees only the cases that authorize them. Newest first. A case
+        whose time ran out reads as `expired` even before anyone closes it, and can no
+        longer be used.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: relationship_id
+          in: query
+          required: false
+          description: Only the cases over this relationship.
+          schema:
+            $ref: '#/components/schemas/Uuid'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: The cases the caller may see, newest first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalAccessCasePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/historical-access-cases/{caseId}/closure:
+    post:
+      tags: [Studio Historical Access]
+      operationId: closeHistoricalAccessCase
+      x-allfit-operation: OP-PRV-019
+      x-allfit-cache: no-store
+      summary: Close a historical access case before its time runs out
+      description: >-
+        HU-STUDIO-063. A member with `manage_historical_access` closes the case; from
+        then on it reads nothing. Closing a case that is already closed answers it as
+        it stands, and one whose time ran out closes as expired. It needs no recent
+        sign-in: ending access is never harder than granting it.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/HistoricalAccessCaseId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The case as it stands once closed
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalAccessCase'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}:
+    get:
+      tags: [Studio Historical Access]
+      operationId: getHistoricalRelationship
+      x-allfit-operation: OP-PRV-020
+      x-allfit-cache: private-no-store
+      summary: Read an ended relationship through a historical access case
+      description: >-
+        HU-STUDIO-062. Whose relationship it was, when it ended, the case, and the
+        frozen categories that stayed readable after the end. Only the member the case
+        authorizes, while it is open and that member still qualifies, with a sign-in at
+        most ten minutes old. Any other case, relationship or caller reads as 404, and
+        the attempt is recorded against the person. Every read is recorded before it
+        answers, with the case it went through.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/HistoricalAccessCaseHeader'
+      responses:
+        '200':
+          description: The relationship as the case froze it
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalRelationship'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/HistoricalAccessForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/executions:
+    get:
+      tags: [Studio Historical Access]
+      operationId: listFrozenExecutions
+      x-allfit-operation: OP-PRV-020
+      x-allfit-cache: private-no-store
+      summary: List the sessions an ended relationship froze, through a case
+      description: >-
+        HU-STUDIO-062. Her completed, valid sessions that ended by the cut, newest
+        first: those of this relationship under `relationship_training`, and those she
+        trained on her own under `prior_training_history`, while the frozen version
+        keeps them readable. A session corrected after the cut is left out, and so is
+        one she had hidden then or has hidden since. With no training category frozen
+        the page is empty, and the attempt is recorded as refused.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/HistoricalAccessCaseHeader'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: The frozen sessions, newest first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrozenExecutionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/HistoricalAccessForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/executions/{executionId}:
+    get:
+      tags: [Studio Historical Access]
+      operationId: getFrozenExecution
+      x-allfit-operation: OP-PRV-020
+      x-allfit-cache: private-no-store
+      summary: Read one session an ended relationship froze, through a case
+      description: >-
+        HU-STUDIO-062. The session as the list shows it, with its results. Never the
+        coach's observations or the plan it fulfilled: neither stayed readable. 403
+        `scope-required` only when no training category was frozen; any session the
+        list would not show reads as 404.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/ExecutionId'
+        - $ref: '#/components/parameters/HistoricalAccessCaseHeader'
+      responses:
+        '200':
+          description: The frozen session and what was recorded in it
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrozenExecution'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/HistoricalReadForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/body-progress:
+    get:
+      tags: [Studio Historical Access]
+      operationId: listFrozenBodyProgress
+      x-allfit-operation: OP-PRV-020
+      x-allfit-cache: private-no-store
+      summary: List the body measurements an ended relationship froze, through a case
+      description: >-
+        HU-STUDIO-062. Her measurements recorded by the cut, newest first, with the
+        fields the frozen version of `body_progress` keeps readable; a field it does
+        not keep comes back null. A measurement recorded after the cut never shows,
+        whatever day it claims. 403 `scope-required` when `body_progress` was not
+        frozen readable.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/RelationshipId'
+        - $ref: '#/components/parameters/HistoricalAccessCaseHeader'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: The frozen measurements, newest first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FrozenBodyProgressPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/HistoricalReadForbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
@@ -13975,6 +14305,19 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/Uuid'
+    HistoricalAccessCaseId:
+      name: caseId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
+    HistoricalAccessCaseHeader:
+      name: X-Historical-Access-Case
+      in: header
+      required: true
+      description: The open case this read goes through; the access record names it.
+      schema:
+        $ref: '#/components/schemas/Uuid'
     SubstitutionId:
       name: substitutionId
       in: path
@@ -14458,6 +14801,61 @@ components:
             title: Too many invitation attempts
             status: 429
             request_id: 01JEXAMPLE0000000000000000
+    HistoricalAccessForbidden:
+      description: >-
+        The actor cannot execute the operation, or their sign-in is more than ten
+        minutes old and must be repeated
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            forbidden:
+              summary: The member lacks what this operation needs
+              value:
+                type: https://errors.allfit.invalid/forbidden
+                title: The actor cannot execute this operation
+                status: 403
+                request_id: 01JEXAMPLE0000000000000000
+            reauthentication-required:
+              summary: Sign in again through /studio/v1/auth/start?reauthenticate=true
+              value:
+                type: https://errors.allfit.invalid/reauthentication-required
+                title: A recent sign-in is required
+                status: 403
+                request_id: 01JEXAMPLE0000000000000000
+    HistoricalReadForbidden:
+      description: >-
+        The actor cannot read through the case, their sign-in is more than ten minutes
+        old, or no frozen category keeps this resource readable
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/PrivateNoStore'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            reauthentication-required:
+              summary: Sign in again through /studio/v1/auth/start?reauthenticate=true
+              value:
+                type: https://errors.allfit.invalid/reauthentication-required
+                title: A recent sign-in is required
+                status: 403
+                request_id: 01JEXAMPLE0000000000000000
+            scope-required:
+              summary: No frozen category keeps this resource readable
+              value:
+                type: https://errors.allfit.invalid/scope-required
+                title: Required consent is not effective
+                status: 403
+                request_id: 01JEXAMPLE0000000000000000
+                required_scope:
+                  code: body_progress
+                  level: read
     ScopeRequired:
       description: Required live grant is not effective
       headers:
@@ -17550,7 +17948,9 @@ components:
     StudioSession:
       type: object
       additionalProperties: false
-      required: [authenticated, registration_status, identity, analytics]
+      required:
+        [authenticated, registration_status, identity, recent_authentication_expires_at,
+         analytics]
       properties:
         authenticated:
           type: boolean
@@ -17559,6 +17959,13 @@ components:
           $ref: '#/components/schemas/StudioRegistrationStatus'
         identity:
           $ref: '#/components/schemas/StudioAccountIdentity'
+        recent_authentication_expires_at:
+          description: >-
+            Until when this session's sign-in counts as recent, for operations that
+            ask for one. Null when the identity provider did not say when the person
+            authenticated.
+          type: [string, 'null']
+          format: date-time
         analytics:
           $ref: '#/components/schemas/AnalyticsIdentity'
     StudioEntryContext:
@@ -25926,6 +26333,280 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BodyPhoto'
+    HistoricalAccessPurpose:
+      type: string
+      enum:
+        [service_dispute, legal_or_regulatory_obligation, customer_support_request,
+         security_investigation, authorized_quality_review]
+    HistoricalAccessCaseCreate:
+      type: object
+      additionalProperties: false
+      required:
+        [relationship_id, authorized_membership_id, purpose, case_reference,
+         justification, duration_hours]
+      properties:
+        relationship_id:
+          $ref: '#/components/schemas/Uuid'
+        authorized_membership_id:
+          description: >-
+            The opener's own membership, or the membership of the coach who held the
+            relationship when it ended.
+          allOf:
+            - $ref: '#/components/schemas/Uuid'
+        purpose:
+          $ref: '#/components/schemas/HistoricalAccessPurpose'
+        case_reference:
+          description: The ticket, claim or file this case answers to.
+          type: string
+          minLength: 1
+          maxLength: 120
+        justification:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        duration_hours:
+          type: integer
+          minimum: 1
+          maximum: 24
+    HistoricalCaseMember:
+      type: object
+      additionalProperties: false
+      required: [membership_id, given_name, family_name]
+      properties:
+        membership_id:
+          $ref: '#/components/schemas/Uuid'
+        given_name:
+          type: string
+        family_name:
+          type: string
+    HistoricalCasePerson:
+      type: object
+      additionalProperties: false
+      required: [id, given_name, family_name]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        given_name:
+          type: string
+        family_name:
+          type: string
+    HistoricalAccessCase:
+      description: >-
+        One case and where it stands. `expired` is an open case whose time ran out:
+        it reads nothing, whether or not anyone has closed it yet.
+      type: object
+      additionalProperties: false
+      required:
+        [id, organization_id, relationship_id, person, cut_at, authorized, opened_by,
+         purpose, case_reference, justification, status, opened_at, expires_at,
+         closed_at, closed_reason, closed_by]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        organization_id:
+          $ref: '#/components/schemas/Uuid'
+        relationship_id:
+          $ref: '#/components/schemas/Uuid'
+        person:
+          $ref: '#/components/schemas/HistoricalCasePerson'
+        cut_at:
+          description: When the relationship ended. Nothing after it is ever read.
+          type: string
+          format: date-time
+        authorized:
+          $ref: '#/components/schemas/HistoricalCaseMember'
+        opened_by:
+          $ref: '#/components/schemas/HistoricalCaseMember'
+        purpose:
+          $ref: '#/components/schemas/HistoricalAccessPurpose'
+        case_reference:
+          type: string
+          minLength: 1
+          maxLength: 120
+        justification:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        status:
+          type: string
+          enum: [open, closed, expired]
+        opened_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: [string, 'null']
+          format: date-time
+        closed_reason:
+          type: [string, 'null']
+          enum: [closed_by_manager, expired, grant_revoked, membership_ineligible, null]
+        closed_by:
+          oneOf:
+            - $ref: '#/components/schemas/HistoricalCaseMember'
+            - type: 'null'
+    HistoricalAccessCasePage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoricalAccessCase'
+        page:
+          $ref: '#/components/schemas/Page'
+    HistoricalRelationship:
+      type: object
+      additionalProperties: false
+      required: [relationship, case, scopes]
+      properties:
+        relationship:
+          type: object
+          additionalProperties: false
+          required: [id, person, ended_at]
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            person:
+              $ref: '#/components/schemas/HistoricalCasePerson'
+            ended_at:
+              type: string
+              format: date-time
+        case:
+          $ref: '#/components/schemas/HistoricalAccessCase'
+        scopes:
+          description: The frozen categories that stayed readable after the end.
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [code, version, frozen_at]
+            properties:
+              code:
+                $ref: '#/components/schemas/ScopeCode'
+              version:
+                type: integer
+                minimum: 1
+              frozen_at:
+                type: string
+                format: date-time
+    FrozenExecutionSummary:
+      type: object
+      additionalProperties: false
+      required:
+        [id, started_at, ended_at, timezone, activity_type_code, activity_type_name,
+         discipline_code, achieved_level, origin, applied_scope]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: [string, 'null']
+          format: date-time
+        timezone:
+          $ref: '#/components/schemas/IanaTimeZone'
+        activity_type_code:
+          type: string
+        activity_type_name:
+          type: string
+        discipline_code:
+          type: string
+        achieved_level:
+          oneOf:
+            - $ref: '#/components/schemas/CompletenessLevel'
+            - type: 'null'
+        origin:
+          $ref: '#/components/schemas/AuthorizedExecutionOrigin'
+        applied_scope:
+          $ref: '#/components/schemas/AppliedScope'
+    FrozenExecutionPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FrozenExecutionSummary'
+        page:
+          $ref: '#/components/schemas/Page'
+    FrozenExecution:
+      description: >-
+        One frozen session as the list shows it, with what was recorded in it. No
+        observations and no planned session: neither stayed readable after the end.
+      type: object
+      additionalProperties: false
+      required:
+        [id, started_at, ended_at, timezone, activity_type_code, activity_type_name,
+         discipline_code, achieved_level, origin, applied_scope, segments,
+         strength_sets, endurance_laps, interval_results, round_results,
+         mobility_results]
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: [string, 'null']
+          format: date-time
+        timezone:
+          $ref: '#/components/schemas/IanaTimeZone'
+        activity_type_code:
+          type: string
+        activity_type_name:
+          type: string
+        discipline_code:
+          type: string
+        achieved_level:
+          oneOf:
+            - $ref: '#/components/schemas/CompletenessLevel'
+            - type: 'null'
+        origin:
+          $ref: '#/components/schemas/AuthorizedExecutionOrigin'
+        applied_scope:
+          $ref: '#/components/schemas/AppliedScope'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailSegment'
+        strength_sets:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailStrengthSet'
+        endurance_laps:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailEnduranceLap'
+        interval_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailIntervalResult'
+        round_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailRoundResult'
+        mobility_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecutionDetailMobilityResult'
+    FrozenBodyProgressPage:
+      type: object
+      additionalProperties: false
+      required: [applied_scope, data, page]
+      properties:
+        applied_scope:
+          $ref: '#/components/schemas/AppliedScope'
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClientBodyProgressRecord'
+        page:
+          $ref: '#/components/schemas/Page'
     Problem:
       type: object
       additionalProperties: false
