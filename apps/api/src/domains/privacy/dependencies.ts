@@ -26,6 +26,11 @@ import {
   createScopeDefinitionDatabase,
   createSessionVisibilityDatabase,
 } from './infrastructure/index.js'
+import {
+  createHistoricalAccessService,
+  type HistoricalAccessService,
+} from './application/historical-access.js'
+import { createHistoricalAccessDatabase } from './infrastructure/historical-access.js'
 
 let cachedScopes: ScopeDefinitionService | undefined
 let cachedLog: AccessLogService | undefined
@@ -35,6 +40,7 @@ let cachedOfferable: OfferableScopeService | undefined
 let cachedConsents: MyConsentService | undefined
 let cachedAuthorized: AuthorizedScopeService | undefined
 let cachedVisibility: SessionVisibilityService | undefined
+let cachedHistorical: HistoricalAccessService | undefined
 
 export function scopeDefinitionService(): ScopeDefinitionService {
   cachedScopes ??= createScopeDefinitionService(createScopeDefinitionDatabase())
@@ -74,4 +80,9 @@ export function authorizedScopeService(): AuthorizedScopeService {
 export function sessionVisibilityService(): SessionVisibilityService {
   cachedVisibility ??= createSessionVisibilityService(createSessionVisibilityDatabase())
   return cachedVisibility
+}
+
+export function historicalAccessService(): HistoricalAccessService {
+  cachedHistorical ??= createHistoricalAccessService(createHistoricalAccessDatabase())
+  return cachedHistorical
 }
