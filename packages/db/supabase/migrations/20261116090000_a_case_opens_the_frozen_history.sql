@@ -1075,38 +1075,103 @@ $function$;
 alter function privacy.scope_reads_frozen(uuid, text, text) owner to allfit_owner;
 revoke all on function privacy.scope_reads_frozen(uuid, text, text) from public, allfit_api;
 
+-- Functions, not inline subqueries: a SQL function with `set` is never inlined, so cases,
+-- revisions and denials stay out of every plan that reads sessions, catalogue reads included.
+
 -- What existed at the cut, under the case the frozen-history scope names: ended by then,
 -- never corrected since, and never hidden from that relationship, then or since.
+create function access_control.reads_frozen_session(
+  p_session_id uuid,
+  p_person_id uuid,
+  p_ended_at timestamptz,
+  p_context_relationship_id uuid,
+  p_is_autonomous boolean
+)
+returns boolean
+language sql
+stable
+set search_path = pg_catalog
+as $function$
+  select exists (
+    select 1
+    from privacy.historical_access_cases as hcase
+    where hcase.id = access_control.contract_scope('frozen_history')::uuid
+      and hcase.person_id = p_person_id
+      and p_ended_at <= hcase.cut_at
+      and not exists (
+        select 1
+        from execution.execution_revisions as revision
+        where revision.executed_session_id = p_session_id
+          and revision.created_at > hcase.cut_at
+      )
+      and (
+        (p_context_relationship_id = hcase.relationship_id
+         and access_control.can_read_frozen(hcase.id, 'relationship_training', 'execution.executed_sessions'))
+        or (
+          p_is_autonomous
+          and access_control.can_read_frozen(hcase.id, 'prior_training_history', 'execution.executed_sessions')
+          and not exists (
+            select 1
+            from privacy.session_visibility_denials as denial
+            where denial.executed_session_id = p_session_id
+              and denial.relationship_id = hcase.relationship_id
+              and (denial.status = 'active' or denial.frozen_denied_at is not null)
+          )
+        )
+      )
+  )
+$function$;
+
+alter function access_control.reads_frozen_session(uuid, uuid, timestamptz, uuid, boolean)
+  owner to allfit_owner;
+revoke all on function access_control.reads_frozen_session(uuid, uuid, timestamptz, uuid, boolean)
+  from public, allfit_api;
+
+-- Whether the open frozen-history case covers this person, or this relationship.
+create function access_control.frozen_case_covers_person(p_person_id uuid)
+returns boolean
+language sql
+stable
+set search_path = pg_catalog
+as $function$
+  select exists (
+    select 1
+    from privacy.historical_access_cases as hcase
+    where hcase.id = access_control.contract_scope('frozen_history')::uuid
+      and hcase.person_id = p_person_id
+      and access_control.historical_case_exercisable(hcase.id)
+  )
+$function$;
+
+alter function access_control.frozen_case_covers_person(uuid) owner to allfit_owner;
+revoke all on function access_control.frozen_case_covers_person(uuid) from public, allfit_api;
+
+create function access_control.frozen_case_covers_relationship(p_relationship_id uuid)
+returns boolean
+language sql
+stable
+set search_path = pg_catalog
+as $function$
+  select exists (
+    select 1
+    from privacy.historical_access_cases as hcase
+    where hcase.id = access_control.contract_scope('frozen_history')::uuid
+      and hcase.relationship_id = p_relationship_id
+      and access_control.historical_case_exercisable(hcase.id)
+  )
+$function$;
+
+alter function access_control.frozen_case_covers_relationship(uuid) owner to allfit_owner;
+revoke all on function access_control.frozen_case_covers_relationship(uuid)
+  from public, allfit_api;
+
+-- With no frozen-history scope open, which is nearly always, no row reaches the function.
 create policy executed_sessions_select_frozen on execution.executed_sessions
   for select to allfit_owner
   using (
-    exists (
-      select 1
-      from privacy.historical_access_cases as hcase
-      where hcase.id = (select access_control.contract_scope('frozen_history'))::uuid
-        and hcase.person_id = executed_sessions.person_id
-        and executed_sessions.ended_at <= hcase.cut_at
-        and not exists (
-          select 1
-          from execution.execution_revisions as revision
-          where revision.executed_session_id = executed_sessions.id
-            and revision.created_at > hcase.cut_at
-        )
-        and (
-          (executed_sessions.context_relationship_id = hcase.relationship_id
-           and access_control.can_read_frozen(hcase.id, 'relationship_training', 'execution.executed_sessions'))
-          or (
-            executed_sessions.is_autonomous
-            and access_control.can_read_frozen(hcase.id, 'prior_training_history', 'execution.executed_sessions')
-            and not exists (
-              select 1
-              from privacy.session_visibility_denials as denial
-              where denial.executed_session_id = executed_sessions.id
-                and denial.relationship_id = hcase.relationship_id
-                and (denial.status = 'active' or denial.frozen_denied_at is not null)
-            )
-          )
-        )
+    (select access_control.contract_scope('frozen_history')) is not null
+    and access_control.reads_frozen_session(
+      id, person_id, ended_at, context_relationship_id, is_autonomous
     )
   );
 
@@ -1114,24 +1179,14 @@ create policy executed_sessions_select_frozen on execution.executed_sessions
 create policy session_visibility_denials_select_frozen on privacy.session_visibility_denials
   for select to allfit_owner
   using (
-    exists (
-      select 1
-      from privacy.historical_access_cases as hcase
-      where hcase.id = (select access_control.contract_scope('frozen_history'))::uuid
-        and hcase.relationship_id = session_visibility_denials.relationship_id
-        and access_control.historical_case_exercisable(hcase.id)
-    )
+    (select access_control.contract_scope('frozen_history')) is not null
+    and access_control.frozen_case_covers_relationship(relationship_id)
   );
 create policy execution_revisions_select_frozen on execution.execution_revisions
   for select to allfit_owner
   using (
-    exists (
-      select 1
-      from privacy.historical_access_cases as hcase
-      where hcase.id = (select access_control.contract_scope('frozen_history'))::uuid
-        and hcase.person_id = execution_revisions.person_id
-        and access_control.historical_case_exercisable(hcase.id)
-    )
+    (select access_control.contract_scope('frozen_history')) is not null
+    and access_control.frozen_case_covers_person(person_id)
   );
 
 /*
