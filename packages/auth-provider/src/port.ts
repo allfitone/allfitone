@@ -51,6 +51,11 @@ export interface VerifiedToken {
   sessionId: string
   /** Surface derived from the token's `client_id`. */
   surface: Surface
+  /**
+   * `auth_time`: when the person last actively authenticated; a refresh never advances it.
+   * Authentication only, never authorization. Null when the token does not say.
+   */
+  authenticatedAt: Date | null
 }
 
 /** Provider event projected into the only identity fact Allfit consumes. */

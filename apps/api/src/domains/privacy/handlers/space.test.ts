@@ -41,6 +41,7 @@ const verifier = async (): Promise<VerifiedToken> => ({
   subject: 'auth0|ana',
   sessionId: 'session',
   surface: 'space',
+  authenticatedAt: null,
 })
 
 const actors: SpaceActorResolver = {

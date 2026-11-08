@@ -50,6 +50,7 @@ const verifier: TokenVerifier = async () => ({
   subject: 'user_123',
   sessionId: 'session_123',
   surface: 'space',
+  authenticatedAt: null,
 })
 
 const identity: SpaceIdentityResolver = async () => ({

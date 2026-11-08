@@ -68,7 +68,12 @@ function harness(overrides: Partial<ProService> = {}, actorFails = false): Hono 
     '/space/v1',
     spaceProRoutes(
       service(overrides),
-      async () => ({ subject: 'sub', sessionId: 'sid', surface: 'space' as const }),
+      async () => ({
+        subject: 'sub',
+        sessionId: 'sid',
+        surface: 'space' as const,
+        authenticatedAt: null,
+      }),
       actors,
     ),
   )

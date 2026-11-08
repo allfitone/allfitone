@@ -56,6 +56,7 @@ function provider(overrides: Partial<AuthProvider> = {}): AuthProvider {
       subject: 'workos-user',
       sessionId: 'provider-session',
       surface: 'backoffice',
+      authenticatedAt: null,
     }),
     verifyWebhookEvent: async () => null,
     updateEmail: async () => undefined,

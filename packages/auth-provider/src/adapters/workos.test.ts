@@ -121,7 +121,34 @@ describe('verifyAccessToken', () => {
       subject: 'user_01ABC',
       sessionId: 'session_01XYZ',
       surface: 'studio',
+      authenticatedAt: null,
     })
+  })
+
+  test('says when the person last actively authenticated, from auth_time', async () => {
+    const token = await mintToken({
+      sub: 'user_01ABC',
+      sid: 'session_01XYZ',
+      extraClaims: { auth_time: 1_735_680_000 },
+    })
+
+    const verified = await provider.verifyAccessToken(token, 'studio')
+
+    expect(verified.authenticatedAt).toEqual(new Date(1_735_680_000_000))
+  })
+
+  test('reads a malformed auth_time as no authentication instant at all', async () => {
+    for (const authTime of ['1735680000', -5, 1.5, null]) {
+      const token = await mintToken({
+        sub: 'user_01ABC',
+        sid: 'session_01XYZ',
+        extraClaims: { auth_time: authTime },
+      })
+
+      const verified = await provider.verifyAccessToken(token, 'studio')
+
+      expect(verified.authenticatedAt).toBeNull()
+    }
   })
 
   test('never exposes authorization claims, even when the token carries them', async () => {
@@ -139,7 +166,12 @@ describe('verifyAccessToken', () => {
 
     const verified = await provider.verifyAccessToken(token, 'studio')
 
-    expect(Object.keys(verified).sort()).toEqual(['sessionId', 'subject', 'surface'])
+    expect(Object.keys(verified).sort()).toEqual([
+      'authenticatedAt',
+      'sessionId',
+      'subject',
+      'surface',
+    ])
     expect(JSON.stringify(verified)).not.toContain('admin')
     expect(JSON.stringify(verified)).not.toContain('org_01DEF')
   })

@@ -344,7 +344,12 @@ function harness(overrides?: {
     '/space/v1',
     spacePlanningRoutes(
       service,
-      async () => ({ subject: 'sub', sessionId: 'sid', surface: 'space' as const }),
+      async () => ({
+        subject: 'sub',
+        sessionId: 'sid',
+        surface: 'space' as const,
+        authenticatedAt: null,
+      }),
       actors,
       executions,
     ),
