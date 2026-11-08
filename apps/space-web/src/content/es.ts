@@ -8,7 +8,7 @@
 
 export const es = {
   meta: {
-    title: 'Allfit Space · La app para entrenar con plan, no con suerte',
+    title: 'Allfit Space | App de entrenamiento y nutrición',
     description:
       'App de entrenamiento y nutrición: tu programa, cada serie y lo que comes en un solo lugar. Tu historial viaja contigo y tus datos son tuyos.',
     shareImageAlt:
@@ -31,16 +31,14 @@ export const es = {
     download: 'Descárgala en',
   },
   hero: {
-    lines: ['ENTRENA', 'CON PLAN.', 'NO CON SUERTE.'],
-    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Si cambias de gimnasio, tu historial se va contigo.',
+    lines: ['TU HISTORIAL', 'SE VA', 'CONTIGO.'],
+    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Si cambias de gimnasio, no empiezas de cero.',
     todayAlt: 'Pantalla Hoy de Allfit Space: la sesión de Tirón del día y el resumen de la semana.',
     programAlt:
       'Detalle del programa Torso y pierna: 10 semanas, 4 días por semana y sus sesiones.',
-    scroll: 'Desliza',
   },
-  ticker: ['Fuerza', 'Hipertrofia', 'Carrera', 'Nutrición', 'Récords', 'Constancia'],
   features: {
-    title: ['DEL PRIMER SET', 'AL ÚLTIMO BOCADO.'],
+    title: ['DE LA PRIMERA SERIE', 'AL ÚLTIMO BOCADO.'],
     cards: [
       {
         title: 'TU SEMANA, A LA VISTA',
@@ -77,15 +75,15 @@ export const es = {
     pillars: [
       {
         title: 'Nada se comparte solo',
-        text: 'Aceptar a un gimnasio no comparte ningún dato. Eliges qué ve, categoría por categoría.',
+        text: 'Aceptar a un gimnasio no le muestra nada. Tú decides si ve tu entrenamiento con ellos, tus medidas y fotos o tus comidas.',
       },
       {
         title: 'Lo cortas cuando quieras',
-        text: 'Quitas un permiso y dejan de verlo al instante. Tus datos se quedan contigo.',
+        text: 'Tocas «Quitar» y dejan de verlo al instante. Si terminas con un gimnasio, conserva solo lo que le compartiste hasta ese día, y también se lo puedes quitar.',
       },
       {
         title: 'Te vas con todo',
-        text: 'Si dejas un gimnasio, tu historial se queda contigo y sigues entrenando sin perder nada.',
+        text: 'Si dejas un gimnasio, tus programas, tus series y tus récords siguen en tu cuenta, y sigues desde donde ibas.',
       },
     ],
   },
@@ -109,11 +107,10 @@ export const es = {
       friends: 'Amigos',
       published: 'Compartida en tu historia',
     },
-    background: 'Atleta revisando su celular en el gimnasio después de entrenar.',
   },
   pro: {
-    title: ['ALLFIT PRO,', 'INCLUIDO CON', 'TU GIMNASIO.'],
-    text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle. Si tu gimnasio usa Allfit Studio, Pro te sale incluido mientras sigas con ellos.',
+    title: ['¿TU GIMNASIO USA', 'ALLFIT STUDIO?', 'PRO VA INCLUIDO.'],
+    text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle, y no lo pagas mientras sigas con ese gimnasio.',
     alt: 'Atleta con audífonos concentrado antes de entrenar en el gimnasio.',
   },
   studio: {
@@ -122,7 +119,7 @@ export const es = {
     cta: 'Conocer Allfit Studio',
   },
   closing: {
-    title: ['TU PRÓXIMO RÉCORD', 'YA TIENE PLAN.'],
+    title: ['CAMBIA DE GIMNASIO,', 'NO DE APP.'],
   },
   nvidia: {
     member: 'Allfit One es miembro de NVIDIA Inception.',
@@ -133,6 +130,7 @@ export const es = {
   footer: {
     terms: 'Términos',
     privacy: 'Privacidad',
+    analytics: 'Analítica',
     studio: 'Allfit Studio',
     rights: '© 2026 Allfit One',
     newWindow: 'Se abre en una pestaña nueva.',

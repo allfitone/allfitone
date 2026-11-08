@@ -14,8 +14,8 @@ const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844 },
 ]
 const PAGES = [
-  { path: '/es', heading: /ENTRENA/ },
-  { path: '/en', heading: /TRAIN/ },
+  { path: '/es', heading: /TU HISTORIAL/ },
+  { path: '/en', heading: /YOUR HISTORY/ },
 ]
 
 test.describe('language', () => {
@@ -55,18 +55,58 @@ test('the stores read as coming soon while there is no link', async ({ page }) =
   await expect(page.getByRole('link', { name: /App Store|Google Play/ })).toHaveCount(0)
 })
 
+test('the share story moves only when the visitor picks a step', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/es')
+  const story = page.locator('#records-story')
+  await story.scrollIntoViewIfNeeded()
+  // It used to advance on its own every 2.8 s, with no way to pause it (WCAG 2.2.2).
+  await page.waitForTimeout(3500)
+  await expect(story).toHaveAttribute('data-step', '0')
+
+  const choose = page.getByRole('button', { name: /ELIGES/ })
+  await choose.click()
+  await expect(story).toHaveAttribute('data-step', '1')
+  await expect(choose).toHaveAttribute('aria-current', 'step')
+})
+
+test('the footer opens Allfit One and Allfit Studio side by side, in new tabs', async ({
+  page,
+}) => {
+  await page.goto('/es')
+  const footer = page.getByRole('contentinfo')
+  const family = footer.getByRole('link', { name: /^Allfit (One|Studio)\b/ })
+  await expect(family).toHaveCount(2)
+  await expect(family.nth(0)).toHaveAttribute('href', 'https://www.allfit.one/es')
+  await expect(family.nth(1)).toHaveAttribute('href', 'https://studio.allfit.one/es')
+  for (const link of await family.all()) {
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  }
+  // Side by side: the two share a row, apart from the legal links.
+  const [one, studio] = await Promise.all([
+    family.nth(0).boundingBox(),
+    family.nth(1).boundingBox(),
+  ])
+  expect(Math.abs((one?.y ?? 0) - (studio?.y ?? -100))).toBeLessThan(4)
+})
+
 test.describe('legal documents', () => {
-  test('the footer links the terms and the privacy policy on www.allfit.one', async ({ page }) => {
+  test('the footer opens the three legal documents on www.allfit.one, in new tabs', async ({
+    page,
+  }) => {
     await page.goto('/en')
     const footer = page.getByRole('contentinfo')
-    await expect(footer.getByRole('link', { name: 'Terms', exact: true })).toHaveAttribute(
-      'href',
-      'https://www.allfit.one/en/legal/terms',
-    )
-    await expect(footer.getByRole('link', { name: 'Privacy', exact: true })).toHaveAttribute(
-      'href',
-      'https://www.allfit.one/en/legal/privacy',
-    )
+    for (const [name, document] of [
+      ['Terms', 'terms'],
+      ['Privacy', 'privacy'],
+      ['Analytics', 'analytics'],
+    ] as const) {
+      const link = footer.getByRole('link', { name: `${name} Opens in a new tab.`, exact: true })
+      await expect(link).toHaveAttribute('href', `https://www.allfit.one/en/legal/${document}`)
+      await expect(link).toHaveAttribute('target', '_blank')
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
   })
 
   test('the former legal pages redirect there for good', async ({ request }) => {
