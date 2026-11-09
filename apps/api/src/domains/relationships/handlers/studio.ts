@@ -1,6 +1,6 @@
 /** Client directory routes for Studio. */
 
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Hono, type Context } from 'hono'
 import { getCookie } from 'hono/cookie'
 import { cors } from 'hono/cors'
@@ -13,10 +13,13 @@ import {
   trustedStudioWebUrl,
 } from '../../identity/index.js'
 import { fail } from '../../../platform/http/index.js'
+import { presentCard, presentToday } from './client-card.js'
 import { presentHistory } from './history-page.js'
 import { parseSubstitutionCursor, presentSubstitutionPage } from './substitution-page.js'
 import {
+  clientCardService,
   clientDirectoryService,
+  studioTodayService,
   holderAssignmentService,
   holderReassignmentService,
   relationshipHistoryService,
@@ -29,7 +32,9 @@ import {
 } from '../dependencies.js'
 import {
   RelationshipsError,
+  type ClientCardService,
   type ClientDirectoryService,
+  type StudioTodayService,
   type HolderAssignmentService,
   type HolderReassignmentService,
   type RelationshipHistoryService,
@@ -73,6 +78,8 @@ export interface StudioRelationshipDependencies {
   readonly substitutionPages?: SubstitutionListService
   readonly relationshipTerminations?: RelationshipTerminationService
   readonly terminationRequests?: TerminationRequestService
+  readonly cards?: ClientCardService
+  readonly today?: StudioTodayService
 }
 
 export function studioRelationshipRoutes(injected: StudioRelationshipDependencies = {}): Hono {
@@ -88,6 +95,8 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
   const relationshipEndings = () =>
     injected.relationshipTerminations ?? relationshipTerminationService()
   const terminationRequests = () => injected.terminationRequests ?? terminationRequestService()
+  const cards = () => injected.cards ?? clientCardService()
+  const today = () => injected.today ?? studioTodayService()
   const sessions = () => injected.sessions ?? studioSessionService()
   const routes = new Hono()
 
@@ -123,9 +132,14 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
         : undefined
     if (statusValue && !status) return fail(c, 'validation-failed')
 
+    const search = parseSearch(c.req.query('q'))
+    if (search === null) return fail(c, 'validation-failed')
+    // An invitation has only a masked contact: a search over them could only mislead.
+    if (search !== undefined && status === 'invited') return fail(c, 'validation-failed')
+
     const limit = parseLimit(c.req.query('limit'))
     if (!limit) return fail(c, 'validation-failed')
-    const cursor = parseClientCursor(c.req.query('cursor'), status)
+    const cursor = parseClientCursor(c.req.query('cursor'), status, search)
     if (cursor === null) return fail(c, 'validation-failed')
 
     try {
@@ -136,6 +150,7 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
         ...(status ? { status } : {}),
         limit,
         ...(cursor ?? {}),
+        ...(search !== undefined ? { query: search } : {}),
       })
       const last = page.items.at(-1)
       return c.json({
@@ -144,7 +159,7 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
           has_more: page.hasMore,
           next_cursor:
             page.hasMore && last
-              ? encodeClientCursor(last.sortGroup, last.sortName, last.sortId, status)
+              ? encodeClientCursor(last.sortGroup, last.sortName, last.sortId, status, search)
               : null,
         },
         guest_quota: {
@@ -154,6 +169,51 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
           over_quota: page.guestQuota.overQuota,
         },
       })
+    } catch (error) {
+      return failure(c, error)
+    }
+  })
+
+  /*
+   * OP-REL-019. The card of a client the caller attends, or why a coach no longer does.
+   * Who that is, and the single not-found for everybody else, are the function's answer;
+   * opening it reads none of her data, so no request id travels and nothing is logged.
+   */
+  routes.get('/organizations/:organizationId/clients/:personId', async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    if (c.req.header('origin') !== studioOrigin) {
+      return fail(c, 'forbidden', 'origin is not allowed')
+    }
+    const organizationId = c.req.param('organizationId')
+    const personId = c.req.param('personId')
+    if (!UUID.test(organizationId) || !UUID.test(personId)) return fail(c, 'invalid-request')
+
+    try {
+      const actor = await studioActor(c, sessions())
+      if (actor instanceof Response) return actor
+      return c.json(presentCard(await cards().read(actor, { organizationId, personId })))
+    } catch (error) {
+      return failure(c, error)
+    }
+  })
+
+  /*
+   * OP-REL-020. What waits on the caller, by what her roles resolve. Looking at her
+   * clients' training is an audited read, one record per client, under this request.
+   */
+  routes.get('/organizations/:organizationId/today', async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    if (c.req.header('origin') !== studioOrigin) {
+      return fail(c, 'forbidden', 'origin is not allowed')
+    }
+    const organizationId = c.req.param('organizationId')
+    if (!UUID.test(organizationId)) return fail(c, 'invalid-request')
+
+    try {
+      const actor = await studioActor(c, sessions())
+      if (actor instanceof Response) return actor
+      const summary = await today().read(actor, { organizationId, requestId: randomUUID() })
+      return c.json(presentToday(summary))
     } catch (error) {
       return failure(c, error)
     }
@@ -888,13 +948,25 @@ function presentTerminationRequest(request: TerminationRequest): Record<string, 
 }
 
 /**
- * The cursor carries the filter it was issued under. Changing `status` between
- * pages would otherwise resume a different query from an offset that means
- * nothing in it, which reads as rows skipped rather than as a bad request.
+ * The name to find, spaces collapsed: `undefined` when none was asked for and
+ * `null` when what was sent is not a search (blank, one character, or over 80).
+ */
+function parseSearch(value: string | undefined): string | undefined | null {
+  if (value === undefined) return undefined
+  if (value.length > 200) return null
+  const search = value.trim().replace(/\s+/g, ' ')
+  return search.length >= 2 && search.length <= 80 ? search : null
+}
+
+/*
+ * A cursor is bound to the filter and to the search it was issued under, so it
+ * never resumes a different query. The search travels as a short digest, not
+ * as the name typed. Version 2, from before searches, resumes unsearched pages.
  */
 function parseClientCursor(
   value: string | undefined,
   filterStatus: DirectoryGroup | undefined,
+  search: string | undefined,
 ):
   | {
       cursorGroup: DirectoryGroup
@@ -909,7 +981,10 @@ function parseClientCursor(
     const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as unknown
     if (
       !isObject(parsed) ||
-      parsed.v !== 2 ||
+      !(
+        (parsed.v === 3 && parsed.search === searchDigest(search)) ||
+        (parsed.v === 2 && search === undefined)
+      ) ||
       parsed.filter_status !== (filterStatus ?? null) ||
       typeof parsed.group !== 'string' ||
       !DIRECTORY_GROUPS.has(parsed.group as DirectoryGroup) ||
@@ -937,17 +1012,24 @@ function encodeClientCursor(
   name: string,
   id: string,
   filterStatus: DirectoryGroup | undefined,
+  search: string | undefined,
 ): string {
   return Buffer.from(
     JSON.stringify({
-      v: 2,
+      v: 3,
       filter_status: filterStatus ?? null,
+      search: searchDigest(search),
       group,
       name,
       id,
     }),
     'utf8',
   ).toString('base64url')
+}
+
+function searchDigest(search: string | undefined): string | null {
+  if (search === undefined) return null
+  return createHash('sha256').update(search.toLowerCase()).digest('base64url').slice(0, 16)
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
