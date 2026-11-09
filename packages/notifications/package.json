@@ -11,6 +11,11 @@
       "types": "./src/index.ts",
       "bun": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./ses": {
+      "types": "./src/ses.ts",
+      "bun": "./src/ses.ts",
+      "import": "./dist/ses.js"
     }
   },
   "scripts": {
@@ -18,5 +23,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "bun test src"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sesv2": "3.1145.0"
   }
 }
