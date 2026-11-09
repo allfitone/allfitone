@@ -62,14 +62,14 @@ select is(
    ) as runnable),
   'actor_is_assigned, assign_relationship_holder, decide_substitution, '
     || 'end_my_relationship, end_substitution, '
-    || 'list_my_relationships, list_organization_clients, '
-    || 'list_relationship_substitutions, propose_substitution, '
-    || 'read_relationship_history, read_relationship_state, '
+    || 'list_my_relationships, list_organization_clients, list_organization_clients, '
+    || 'list_relationship_substitutions, propose_substitution, read_client_card, '
+    || 'read_relationship_history, read_relationship_state, read_studio_today, '
     || 'reassign_relationship_holder, reject_termination_request, '
     || 'relationship_assignment_is_visible, request_relationship_termination, '
     || 'terminate_relationship, withdraw_termination_request',
-  'the runtime reaches seventeen relationship functions, and only the gym and the '
-    || 'person end a relationship through them'
+  'the runtime reaches twenty relationship functions (the directory under two '
+    || 'signatures), and only the gym and the person end a relationship through them'
 );
 
 -- ---------------------------------------------------------------------------
