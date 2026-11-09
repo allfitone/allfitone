@@ -173,15 +173,12 @@ select is(
 );
 
 select is(
-  (select array_agg(sort_id order by sort_group, sort_name, sort_id)
-     from relationships.list_organization_clients(
-       '019ae100-0000-7000-8000-000000000011', '019ae100-0000-7000-8000-000000000101',
-       null, 50, null, null, null)),
-  (select array_agg(sort_id order by sort_group, sort_name, sort_id)
-     from relationships.list_organization_clients(
-       '019ae100-0000-7000-8000-000000000011', '019ae100-0000-7000-8000-000000000101',
-       null, 50, null, null, null, null)),
-  'the directory without a search is the same through either signature'
+  (select string_agg(routine.oid::regprocedure::text, '; ')
+     from pg_proc as routine
+     join pg_namespace as space on space.oid = routine.pronamespace
+    where space.nspname = 'relationships' and routine.proname = 'list_organization_clients'),
+  'relationships.list_organization_clients(uuid,uuid,text,integer,text,text,uuid,text)',
+  'the directory has one signature: the seven-argument wrapper the deploy needed is gone'
 );
 
 -- Camilo is a coach: the search narrows his directory, it does not widen it.
@@ -254,11 +251,8 @@ select is(
 select ok(
   has_function_privilege('allfit_api',
     'relationships.list_organization_clients(uuid, uuid, text, integer, text, text, uuid, text)',
-    'execute')
-  and has_function_privilege('allfit_api',
-    'relationships.list_organization_clients(uuid, uuid, text, integer, text, text, uuid)',
     'execute'),
-  'the API may call both signatures while it moves from one to the other'
+  'the API calls that one signature, searched or not'
 );
 
 select ok(
