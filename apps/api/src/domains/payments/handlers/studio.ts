@@ -1,5 +1,7 @@
 /**
- * `/studio/v1`: who pays the organization, and the three things it can do about it.
+ * `/studio/v1`: who pays the organization, and the three things it can do about it. The
+ * plans it sells live in `studio-plans.ts`, under this CORS but with their own rule: the
+ * whole team reads them.
  *
  * **`manage_billing` or nothing.** A coach does not reach any of this even for a client
  * assigned to them, and the refusal is a 404 rather than a 403: a 403 would confirm that
@@ -20,9 +22,11 @@ import {
   trustedStudioWebUrl,
 } from '../../identity/index.js'
 import { fail } from '../../../platform/http/index.js'
-import { subscriptionService } from '../dependencies.js'
+import { organizationPlanService, subscriptionService } from '../dependencies.js'
+import type { OrganizationPlanService } from '../application/organization-plans.js'
 import type { SubscriptionService } from '../application/subscriptions.js'
 import { SUBSCRIPTION_STATUSES, type SubscriptionStatus } from '../domain/subscriptions.js'
+import { registerStudioPlanRoutes } from './studio-plans.js'
 import {
   UUID,
   actingPerson,
@@ -36,6 +40,7 @@ const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d
 
 export interface StudioPaymentDependencies {
   readonly subscriptions?: SubscriptionService
+  readonly plans?: OrganizationPlanService
   readonly sessions?: StudioSessionService
 }
 
@@ -51,11 +56,17 @@ export function studioPaymentRoutes(injected: StudioPaymentDependencies = {}): H
     cors({
       origin: studioOrigin,
       credentials: true,
-      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
       allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id'],
       maxAge: 600,
     }),
   )
+
+  registerStudioPlanRoutes(routes, {
+    studioOrigin,
+    plans: () => injected.plans ?? organizationPlanService(),
+    sessions,
+  })
 
   /* OP-PAY-007. Identity and payment state, and no fitness data of any kind. */
   routes.get('/organizations/:organizationId/subscriptions', async (c) => {

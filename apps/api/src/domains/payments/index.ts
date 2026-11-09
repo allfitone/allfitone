@@ -13,11 +13,22 @@ export { spaceProRoutes } from './handlers/space.js'
 export { spacePaymentRoutes } from './handlers/space-subscriptions.js'
 export { studioPaymentRoutes } from './handlers/studio.js'
 export { storeWebhookRoutes } from './handlers/webhooks.js'
-export { platformPlanService, proService, subscriptionService } from './dependencies.js'
+export {
+  organizationPlanService,
+  platformPlanService,
+  proService,
+  subscriptionService,
+} from './dependencies.js'
 export type { PlatformPlanService } from './application/index.js'
+export type { OrganizationPlanService } from './application/organization-plans.js'
 export type { ProService } from './application/pro.js'
 export type { SubscriptionService } from './application/subscriptions.js'
 export type { PlatformPlan, PlatformPlanCatalogue } from './domain/index.js'
+export type {
+  PlanDeliveryMode,
+  StudioOrganizationPlan,
+  StudioPlanVersion,
+} from './domain/organization-plans.js'
 export type {
   OrganizationPlanOffer,
   OrganizationSubscription,
