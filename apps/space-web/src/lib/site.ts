@@ -21,6 +21,9 @@ export const SITE_NAME = 'Allfit Space'
 export const PARENT_SITE_URL = 'https://www.allfit.one'
 export const ORGANIZATION_ID = `${PARENT_SITE_URL}/#organization`
 
+/** Allfit One's one public address, the same the legal documents give. */
+export const CONTACT_EMAIL = 'hello@allfit.one'
+
 const OG_LOCALES = { es: 'es_CO', en: 'en_US' } as const satisfies Record<Locale, string>
 
 /**

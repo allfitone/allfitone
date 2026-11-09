@@ -1,7 +1,8 @@
 /**
  * Sends a visitor who arrives without a language to Spanish, whatever their
  * browser prefers: `/` becomes `/es`, and any other path keeps itself under `/es`.
- * Paths that already carry a locale, and every static asset, pass untouched.
+ * Paths that already carry a locale, every static asset and the waitlist's
+ * endpoint (`/api/waitlist`) pass untouched.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'
@@ -19,6 +20,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next|images|brand|partners|favicon\\.ico|robots\\.txt|sitemap\\.xml|opengraph-image).*)',
+    '/((?!_next|api/|images|brand|partners|favicon\\.ico|robots\\.txt|sitemap\\.xml|opengraph-image).*)',
   ],
 }
