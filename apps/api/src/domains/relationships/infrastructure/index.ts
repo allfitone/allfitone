@@ -67,33 +67,18 @@ export function createClientDirectoryDatabase(
           await setPersonActor(transaction, personId)
           // One row over the page, so "is there more" is answered by the read
           // itself rather than by a second count that could disagree with it.
-          // Without a search the older signature is called, so the directory keeps
-          // working while the API is ahead of the migration that adds the search.
-          const rows =
-            query.query === undefined
-              ? await transaction<DirectoryRow[]>`
-                  select * from relationships.list_organization_clients(
-                    ${personId}::uuid,
-                    ${query.organizationId}::uuid,
-                    ${query.status ?? null}::text,
-                    ${query.limit + 1}::integer,
-                    ${query.cursorGroup ?? null}::text,
-                    ${query.cursorName ?? null}::text,
-                    ${query.cursorId ?? null}::uuid
-                  )
-                `
-              : await transaction<DirectoryRow[]>`
-                  select * from relationships.list_organization_clients(
-                    ${personId}::uuid,
-                    ${query.organizationId}::uuid,
-                    ${query.status ?? null}::text,
-                    ${query.limit + 1}::integer,
-                    ${query.cursorGroup ?? null}::text,
-                    ${query.cursorName ?? null}::text,
-                    ${query.cursorId ?? null}::uuid,
-                    ${query.query}::text
-                  )
-                `
+          const rows = await transaction<DirectoryRow[]>`
+            select * from relationships.list_organization_clients(
+              ${personId}::uuid,
+              ${query.organizationId}::uuid,
+              ${query.status ?? null}::text,
+              ${query.limit + 1}::integer,
+              ${query.cursorGroup ?? null}::text,
+              ${query.cursorName ?? null}::text,
+              ${query.cursorId ?? null}::uuid,
+              ${query.query ?? null}::text
+            )
+          `
           // Same transaction, so the figure and the page describe one instant.
           const [quota] = await transaction<GuestQuotaRow[]>`
             select * from organizations.studio_guest_quota(${query.organizationId}::uuid)

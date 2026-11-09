@@ -3,7 +3,7 @@
  *
  * The handler tests mock the service and the pgTAP tests call the function directly, so
  * neither would notice the search bound in the wrong position, or an unsearched page sent
- * to the new signature that does not exist until the migration is applied.
+ * with seven arguments to a function that takes eight.
  */
 import { describe, expect, test } from 'bun:test'
 import type postgres from 'postgres'
@@ -40,14 +40,14 @@ function directoryCall(captured: CapturedQuery[]): CapturedQuery {
 }
 
 describe('the directory binding', () => {
-  test('an unsearched page calls the signature that exists before the migration', async () => {
+  test('an unsearched page binds no search, in the same last position', async () => {
     const captured: CapturedQuery[] = []
     await createClientDirectoryDatabase(recordingDatabase(captured)).listClients(COACH, {
       organizationId: ORGANIZATION,
       limit: 50,
     })
     const call = directoryCall(captured)
-    expect(call.values).toEqual([COACH, ORGANIZATION, null, 51, null, null, null])
+    expect(call.values).toEqual([COACH, ORGANIZATION, null, 51, null, null, null, null])
   })
 
   test('a search is bound last, after the cursor', async () => {
