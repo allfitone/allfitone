@@ -31,6 +31,16 @@ output "certificate_validation_records" {
   value       = module.certificate.validation_records
 }
 
+output "email_dns_records" {
+  description = "DKIM and MAIL FROM records to keep in GoDaddy for SES."
+  value       = module.email.dns_records
+}
+
+output "email_identity_arn" {
+  description = "The SES identity the worker's task role may send from."
+  value       = module.email.identity_arn
+}
+
 output "load_balancer_dns_name" {
   value = module.edge.load_balancer_dns_name
 }
