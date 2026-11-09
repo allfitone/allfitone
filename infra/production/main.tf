@@ -173,6 +173,28 @@ resource "aws_acm_certificate_validation" "this" {
   certificate_arn = module.certificate.arn
 }
 
+# Every email Allfit One sends leaves through SES (ADR-049).
+module "email" {
+  source = "../modules/email"
+
+  name   = "allfitone"
+  domain = "allfit.one"
+  # The people who watch the bill also hear when email reputation slips.
+  alert_emails = var.budget_alert_emails
+}
+
+# Created by hand in the SES console on 9 November 2026. Importing keeps its
+# DKIM tokens, which are already published in GoDaddy.
+import {
+  to = module.email.aws_sesv2_email_identity.domain
+  id = "allfit.one"
+}
+
+import {
+  to = module.email.aws_sesv2_email_identity_mail_from_attributes.domain
+  id = "allfit.one"
+}
+
 module "edge" {
   source = "../modules/edge"
 
