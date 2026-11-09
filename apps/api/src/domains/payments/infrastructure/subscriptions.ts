@@ -11,14 +11,10 @@
  * guess. The extra row is dropped before it leaves this file.
  */
 
-import type postgres from 'postgres'
-
 import { database } from '../../../platform/db/index.js'
-import { measureRequestPhase } from '../../../platform/observability/index.js'
 import type {
   OrganizationPlanOffer,
   OrganizationSubscription,
-  Page,
   Subscription,
   SubscriptionCheckout,
   SubscriptionCheckoutResult,
@@ -26,6 +22,7 @@ import type {
   SubscriptionTransition,
   SubscriptionTransitionResult,
 } from '../domain/subscriptions.js'
+import { asPerson, page } from './transaction.js'
 
 type PlanOfferRow = {
   plan_id: string
@@ -185,11 +182,6 @@ export function createSubscriptionDatabase(): SubscriptionDatabase {
   }
 }
 
-function page<Row, Item>(rows: Row[], limit: number, present: (row: Row) => Item): Page<Item> {
-  const hasMore = rows.length > limit
-  return { items: rows.slice(0, limit).map(present), hasMore }
-}
-
 /**
  * `amount_minor` is `bigint`, which the driver hands over as a string so a value past
  * 2^53 does not quietly lose its last digits. Prices are well inside that, but reading it
@@ -273,23 +265,4 @@ function transition(rows: TransitionRow[], operation: string): SubscriptionTrans
     // command either moved the state or found it already there, and both answer 200.
     replayed: false,
   }
-}
-
-function asPerson<T>(
-  sql: ReturnType<typeof database>,
-  personId: string,
-  requestId: string,
-  operation: (transaction: postgres.TransactionSql) => Promise<T>,
-): Promise<T> {
-  return measureRequestPhase('business-db', async () => {
-    const outcome = await sql.begin(async (transaction) => {
-      await transaction`
-        select set_config('app.actor_kind', 'person', true),
-               set_config('app.actor_person_id', ${personId}, true),
-               set_config('app.request_id', ${requestId}, true)
-      `
-      return { value: await operation(transaction) }
-    })
-    return outcome.value
-  })
 }

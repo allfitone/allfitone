@@ -10472,6 +10472,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  PlanDeliveryMode: {
+    description:
+      'How the plan is followed. `in_person` is offered and paid in Space; `remote` is paid only through the link the organization sends, because the app may not sell a service followed at a distance (`ADR-048`).',
+    type: 'string',
+    enum: ['in_person', 'remote'],
+  },
   PlannedSessionReschedule: {
     type: 'object',
     additionalProperties: false,
@@ -18244,6 +18250,158 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   StudioOnboardingStatus: {
     type: 'string',
     enum: ['open', 'activated', 'ineligible', 'expired'],
+  },
+  StudioOrganizationPlan: {
+    description:
+      'A plan as the team sees it. `status` is `draft` until a first version is published; `on_sale` says whether a version is on sale now, which is `current_version`. `versions` holds every price, newest first.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['plan_id', 'name', 'status', 'on_sale', 'created_at', 'current_version', 'versions'],
+    properties: {
+      plan_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+      status: {
+        type: 'string',
+        enum: ['draft', 'published'],
+      },
+      on_sale: {
+        type: 'boolean',
+      },
+      created_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      current_version: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/StudioPlanVersion',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      versions: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/StudioPlanVersion',
+        },
+      },
+    },
+  },
+  StudioOrganizationPlanPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        maxItems: 100,
+        items: {
+          $ref: '#/components/schemas/StudioOrganizationPlan',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  StudioPlanName: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name'],
+    properties: {
+      name: {
+        description: 'Unique in the organization without regard to case; kept trimmed.',
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+    },
+  },
+  StudioPlanVersion: {
+    description: 'One price of a plan. Never edited once published.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'plan_version_id',
+      'version_number',
+      'amount_minor',
+      'currency_code',
+      'billing_period',
+      'delivery_mode',
+      'status',
+      'published_at',
+      'deprecated_at',
+    ],
+    properties: {
+      plan_version_id: {
+        $ref: '#/components/schemas/UuidV7',
+      },
+      version_number: {
+        type: 'integer',
+        minimum: 1,
+      },
+      amount_minor: {
+        description: "In the currency's minor unit, so 120000 COP is 12000000.",
+        type: 'integer',
+        minimum: 1,
+      },
+      currency_code: {
+        type: 'string',
+        pattern: '^[A-Z]{3}$',
+      },
+      billing_period: {
+        $ref: '#/components/schemas/BillingPeriod',
+      },
+      delivery_mode: {
+        $ref: '#/components/schemas/PlanDeliveryMode',
+      },
+      status: {
+        description: '`published` is on sale; `deprecated` is kept for whoever pays it.',
+        type: 'string',
+        enum: ['published', 'deprecated'],
+      },
+      published_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      deprecated_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+    },
+  },
+  StudioPlanVersionPublish: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['amount_minor', 'currency_code', 'billing_period', 'delivery_mode'],
+    properties: {
+      amount_minor: {
+        description: 'Whole pesos in the minor unit, so a multiple of 100.',
+        type: 'integer',
+        minimum: 100,
+        maximum: 100000000000,
+        multipleOf: 100,
+      },
+      currency_code: {
+        description: 'Mercado Pago Colombia charges in pesos, so COP is the only value.',
+        type: 'string',
+        enum: ['COP'],
+      },
+      billing_period: {
+        $ref: '#/components/schemas/BillingPeriod',
+      },
+      delivery_mode: {
+        $ref: '#/components/schemas/PlanDeliveryMode',
+      },
+    },
   },
   StudioRegistrationStatus: {
     type: 'string',
