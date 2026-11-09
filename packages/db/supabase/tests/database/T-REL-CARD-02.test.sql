@@ -11,7 +11,7 @@
 --   · a cover she refused, or never answered, was never attendance.
 begin;
 
-select plan(19);
+select plan(22);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -297,6 +297,51 @@ select throws_ok(
   'P0002', 'client not found',
   'nor is the owner'
 );
+
+-- The policy itself, as the definers' role reads it: the link he lost is out of reach until
+-- the scope names it, and naming it opens that one link and no other.
+reset role;
+set local role allfit_owner;
+select pg_temp.act('019ae300-0000-7000-8000-000000000012');
+do $$
+begin
+  perform set_config('app.actor_org_id', '019ae300-0000-7000-8000-000000000101', true);
+  perform set_config('app.actor_membership_id', '019ae300-0000-7000-8000-000000000212', true);
+end
+$$;
+
+select is(
+  (select count(*) from relationships.service_relationships
+    where id = '019ae300-0000-7000-8000-000000000701'),
+  0::bigint,
+  'without the scope, not even the definers read a link he no longer attends'
+);
+
+do $$
+begin
+  perform access_control.open_contract_scope('former_attendance', '019ae300-0000-7000-8000-000000000701');
+end
+$$;
+
+select is(
+  (select count(*) from relationships.service_relationships
+    where id = '019ae300-0000-7000-8000-000000000701'),
+  1::bigint,
+  'with the scope naming it, that link is read'
+);
+
+select is(
+  (select count(*) from relationships.service_relationships
+    where id = '019ae300-0000-7000-8000-000000000703'),
+  0::bigint,
+  'and only that one: another link he lost stays out of reach'
+);
+
+do $$
+begin
+  perform access_control.close_contract_scope();
+end
+$$;
 
 reset role;
 
