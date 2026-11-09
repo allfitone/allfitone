@@ -14054,6 +14054,290 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/organizations/{organizationId}/plans:
+    get:
+      tags: [Studio Payments]
+      operationId: listStudioOrganizationPlans
+      x-allfit-operation: OP-PAY-006
+      x-allfit-cache: private-no-store
+      summary: The plans this organization sells
+      description: >-
+        Every plan of the organization, drafts included, each with the price on
+        sale and every price it ever had. What is on sale comes first, then by
+        name.
+
+
+        **The whole team reads it.** A price is nobody's personal data, so a coach
+        and staff read the plans too; only `manage_billing` changes them. A person
+        with no membership is forbidden. A client sees what is offered in Space
+        (`OP-PAY-011`), never the drafts.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: A page of the organization's plans
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioOrganizationPlanPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    post:
+      tags: [Studio Payments]
+      operationId: createStudioOrganizationPlan
+      x-allfit-operation: OP-PAY-002
+      x-allfit-cache: no-store
+      summary: Create a plan, with a name and no price
+      description: >-
+        A plan is a draft until its first version is published: the price lives
+        on the version, and a draft cannot be sold to anybody. Two plans of one
+        organization cannot share a name, compared without case: `409`.
+
+
+        Needs `manage_billing`, which the owner and the admin hold.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioPlanName'
+      responses:
+        '201':
+          description: The new draft
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioOrganizationPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/plans/{planId}:
+    patch:
+      tags: [Studio Payments]
+      operationId: renameStudioOrganizationPlan
+      x-allfit-operation: OP-PAY-003
+      x-allfit-cache: no-store
+      summary: Rename a plan, on sale or not
+      description: >-
+        A draft and a plan on sale are renamed alike, and the people subscribed to
+        it read the new name. Renaming to the name it already has changes nothing.
+        A name another plan of the organization has: `409`.
+
+
+        There is no `If-Match`: the name is the only field, so the last write wins
+        and nothing else can be lost.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/OrganizationPlanId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioPlanName'
+      responses:
+        '200':
+          description: The plan with its name
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioOrganizationPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/plans/{planId}/versions:
+    post:
+      tags: [Studio Payments]
+      operationId: publishStudioPlanVersion
+      x-allfit-operation: OP-PAY-004
+      x-allfit-cache: no-store
+      summary: Put a price on sale
+      description: >-
+        Publishes a version with its amount, period and delivery, and **retires
+        the version on sale in the same command**: a plan has one price on sale.
+        Whoever subscribed to an earlier version keeps it — a published version
+        never changes, and no subscription moves to another one.
+
+
+        Amounts are whole Colombian pesos in the minor unit (`120000 COP` is
+        `12000000`), because Mercado Pago Colombia charges in COP. `in_person`
+        plans are offered in Space; `remote` ones are paid through the link the
+        organization sends, never in the app (`ADR-048`).
+
+
+        Publishing exactly the price already on sale changes nothing and answers
+        `200`; a new version answers `201`. A replay answers what the first call
+        answered.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/OrganizationPlanId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioPlanVersionPublish'
+      responses:
+        '200':
+          description: That price was already on sale; nothing changed
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioOrganizationPlan'
+        '201':
+          description: The plan with its new price on sale
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioOrganizationPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/plans/{planId}/versions/{planVersionId}/deprecation:
+    post:
+      tags: [Studio Payments]
+      operationId: deprecateStudioPlanVersion
+      x-allfit-operation: OP-PAY-005
+      x-allfit-cache: no-store
+      summary: Take a price off sale
+      description: >-
+        Stops new subscriptions to this version. It **does not cancel, suspend or
+        move** anybody already subscribed to it. Retiring the price on sale takes
+        the plan off sale until another version is published.
+
+
+        Names a version rather than the plan: if somebody published a new price a
+        moment earlier, retiring the old one changes nothing and the new one stays
+        on sale. Retiring a version already retired converges. No body.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/OrganizationPlanId'
+        - $ref: '#/components/parameters/OrganizationPlanVersionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '200':
+          description: The plan with that version retired
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioOrganizationPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/subscriptions:
     get:
       tags: [Studio Payments]
@@ -14707,6 +14991,20 @@ components:
       name: subscriptionId
       in: path
       required: true
+      schema:
+        $ref: '#/components/schemas/UuidV7'
+    OrganizationPlanId:
+      name: planId
+      in: path
+      required: true
+      description: One of the plans an organization sells to its clients.
+      schema:
+        $ref: '#/components/schemas/UuidV7'
+    OrganizationPlanVersionId:
+      name: planVersionId
+      in: path
+      required: true
+      description: One version, which is one price, of that plan.
       schema:
         $ref: '#/components/schemas/UuidV7'
     IdempotencyKey:
@@ -29868,6 +30166,120 @@ components:
             $ref: '#/components/schemas/OrganizationSubscription'
         page:
           $ref: '#/components/schemas/Page'
+
+    PlanDeliveryMode:
+      description: >-
+        How the plan is followed. `in_person` is offered and paid in Space;
+        `remote` is paid only through the link the organization sends, because
+        the app may not sell a service followed at a distance (`ADR-048`).
+      type: string
+      enum: [in_person, remote]
+    StudioPlanVersion:
+      description: One price of a plan. Never edited once published.
+      type: object
+      additionalProperties: false
+      required:
+        [plan_version_id, version_number, amount_minor, currency_code, billing_period,
+         delivery_mode, status, published_at, deprecated_at]
+      properties:
+        plan_version_id:
+          $ref: '#/components/schemas/UuidV7'
+        version_number:
+          type: integer
+          minimum: 1
+        amount_minor:
+          description: In the currency's minor unit, so 120000 COP is 12000000.
+          type: integer
+          minimum: 1
+        currency_code:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        billing_period:
+          $ref: '#/components/schemas/BillingPeriod'
+        delivery_mode:
+          $ref: '#/components/schemas/PlanDeliveryMode'
+        status:
+          description: '`published` is on sale; `deprecated` is kept for whoever pays it.'
+          type: string
+          enum: [published, deprecated]
+        published_at:
+          type: string
+          format: date-time
+        deprecated_at:
+          type: [string, 'null']
+          format: date-time
+    StudioOrganizationPlan:
+      description: >-
+        A plan as the team sees it. `status` is `draft` until a first version is
+        published; `on_sale` says whether a version is on sale now, which is
+        `current_version`. `versions` holds every price, newest first.
+      type: object
+      additionalProperties: false
+      required: [plan_id, name, status, on_sale, created_at, current_version, versions]
+      properties:
+        plan_id:
+          $ref: '#/components/schemas/UuidV7'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        status:
+          type: string
+          enum: [draft, published]
+        on_sale:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        current_version:
+          oneOf:
+            - $ref: '#/components/schemas/StudioPlanVersion'
+            - type: 'null'
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudioPlanVersion'
+    StudioOrganizationPlanPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/StudioOrganizationPlan'
+        page:
+          $ref: '#/components/schemas/Page'
+    StudioPlanName:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          description: Unique in the organization without regard to case; kept trimmed.
+          type: string
+          minLength: 1
+          maxLength: 80
+    StudioPlanVersionPublish:
+      type: object
+      additionalProperties: false
+      required: [amount_minor, currency_code, billing_period, delivery_mode]
+      properties:
+        amount_minor:
+          description: Whole pesos in the minor unit, so a multiple of 100.
+          type: integer
+          minimum: 100
+          maximum: 100000000000
+          multipleOf: 100
+        currency_code:
+          description: Mercado Pago Colombia charges in pesos, so COP is the only value.
+          type: string
+          enum: [COP]
+        billing_period:
+          $ref: '#/components/schemas/BillingPeriod'
+        delivery_mode:
+          $ref: '#/components/schemas/PlanDeliveryMode'
 
     SpaceRelationship:
       description: >-
