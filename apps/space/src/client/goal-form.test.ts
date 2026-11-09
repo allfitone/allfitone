@@ -4,7 +4,12 @@ import {
   bodyVariant,
   canSubmitGoal,
   CARD_GAP,
-  pairHeight,
+  copyInset,
+  COPY_FLOOR,
+  PAIR_OVERLAP,
+  PAIR_OVERLAP_MIN,
+  pairLayout,
+  singleHeight,
   stageHeight,
   STAGE_CHROME,
   STAGE_MAX,
@@ -96,31 +101,79 @@ describe('canSubmitGoal', () => {
   })
 })
 
-describe('pairHeight', () => {
+describe('pairLayout', () => {
   const STANDING = { before: 0.579, after: 0.626 }
   const RUNNING = { before: 0.84, after: 0.9 }
+  const stripWidth = (h: number, overlap: number, aspects: typeof STANDING) =>
+    10 + h * (aspects.after * overlap + aspects.before)
 
-  test('lets a standing pair use the full card height', () => {
-    const height = pairHeight(342, 147, STANDING.before, STANDING.after, 0.55, 10)
+  test('lets a standing pair reach the top of the stage, so the chin crop reads as the card', () => {
+    // The artwork is cut at the chin on purpose. Sized by the width alone, the pair
+    // stopped short of the top and the cut floated in the card like a head sliced off.
+    const { height, overlap } = pairLayout(362, 246, STANDING.before, STANDING.after, 10)
 
-    expect(height).toBe(147)
+    expect(height).toBe(246)
+    expect(stripWidth(height, overlap, STANDING)).toBeLessThanOrEqual(362 * STRIP_SHARE + 1e-9)
   })
 
-  test('shrinks a wide running pair instead of letting it overflow', () => {
-    // The defect this exists to prevent: at the card height the running profile
-    // spilled past the card and over the copy.
-    const height = pairHeight(342, 147, RUNNING.before, RUNNING.after, 0.55, 10)
+  test('pulls the figures closer instead of shrinking them when the strip is short', () => {
+    const { overlap } = pairLayout(362, 246, STANDING.before, STANDING.after, 10)
 
-    expect(height).toBeLessThan(147)
-    const width = 10 + height * (RUNNING.after * 0.55 + RUNNING.before)
-    expect(width).toBeCloseTo(342 * STRIP_SHARE, 5)
+    expect(overlap).toBeLessThan(PAIR_OVERLAP)
+    expect(overlap).toBeGreaterThanOrEqual(PAIR_OVERLAP_MIN)
+  })
+
+  test('keeps the designed spacing when the card has room for it', () => {
+    expect(pairLayout(600, 246, STANDING.before, STANDING.after, 10)).toEqual({
+      height: 246,
+      overlap: PAIR_OVERLAP,
+    })
+  })
+
+  test('shrinks a wide running pair once the figures cannot get any closer', () => {
+    const { height, overlap } = pairLayout(342, 246, RUNNING.before, RUNNING.after, 10)
+
+    expect(overlap).toBe(PAIR_OVERLAP_MIN)
+    expect(height).toBeLessThan(246)
+    expect(stripWidth(height, overlap, RUNNING)).toBeCloseTo(342 * STRIP_SHARE, 5)
   })
 
   test('never returns a negative height on a card too small to hold anything', () => {
-    expect(pairHeight(10, 147, RUNNING.before, RUNNING.after, 0.55, 10)).toBe(0)
+    expect(pairLayout(10, 246, RUNNING.before, RUNNING.after, 10).height).toBe(0)
   })
 
   test('answers zero rather than dividing by zero when an aspect is missing', () => {
-    expect(pairHeight(342, 147, 0, 0, 0.55, 10)).toBe(0)
+    expect(pairLayout(362, 246, 0, 0, 10).height).toBe(0)
+  })
+})
+
+describe('copyInset', () => {
+  test('stops the copy where the front figure starts, so no word sits on skin', () => {
+    expect(copyInset(362, 154, 10, 10)).toBe(174)
+  })
+
+  test('never squeezes the copy below its floor when the figure is narrow', () => {
+    expect(copyInset(362, 40, 10, 10)).toBe(362 * COPY_FLOOR)
+  })
+})
+
+describe('singleHeight', () => {
+  const STANDING = 0.564
+
+  test('lets the lone standing figure reach the top of the stage, so the crop reads as the card', () => {
+    // The artwork is cut at the chin on purpose. Short of the top, the cut floats
+    // in the card and reads as a head sliced off.
+    expect(singleHeight(342, 240, STANDING, 10)).toBe(240)
+  })
+
+  test('shrinks a figure too wide for the strip instead of covering the copy', () => {
+    const height = singleHeight(342, 240, 2, 10)
+
+    expect(height).toBeLessThan(240)
+    expect(10 + height * 2).toBeCloseTo(342 * STRIP_SHARE, 5)
+  })
+
+  test('answers zero rather than dividing by zero when the aspect is missing', () => {
+    expect(singleHeight(342, 240, 0, 10)).toBe(0)
   })
 })

@@ -94,26 +94,71 @@ export function canSubmitGoal({ goal, submitting, sessionExpired }: GoalSubmissi
   return goal !== undefined
 }
 
-/** Share of the card width the pair may occupy, leaving the rest for the copy. */
+/** Share of the card width the figures may occupy, leaving the rest for the copy. */
 export const STRIP_SHARE = 0.56
 
+/** How far the front figure of a pair sits from the one behind, as a share of its
+ *  width: the designed spacing, and the closest the two may get before they shrink. */
+export const PAIR_OVERLAP = 0.55
+export const PAIR_OVERLAP_MIN = 0.25
+
 /**
- * How tall the figures may be. Fixing the height for every goal was wrong: the
- * running pair is a side profile and far wider per unit of height than the
- * standing ones, so at the same height it overflowed the card and pushed into the
- * copy. The width is what is scarce here, so the width decides, and the card
- * height is only a ceiling.
+ * How tall the pair is and how close its figures stand.
+ *
+ * The artwork is cut at the chin, and the cut only reads as intended on the card's top
+ * edge, so the pair takes the card height first. Sized by the width alone it stopped
+ * short and the heads looked sliced off. When the strip is short the figures move
+ * closer; only past `PAIR_OVERLAP_MIN` do they shrink, which keeps the wide running
+ * profile out of the copy.
  */
-export function pairHeight(
+export function pairLayout(
   cardWidth: number,
   cardHeight: number,
   beforeAspect: number,
   afterAspect: number,
-  overlap: number,
+  edge: number,
+): { height: number; overlap: number } {
+  const strip = cardWidth * STRIP_SHARE - edge
+  if (afterAspect <= 0 || beforeAspect <= 0 || strip <= 0) return { height: 0, overlap: 0 }
+  const needed = (strip / cardHeight - beforeAspect) / afterAspect
+  if (needed >= PAIR_OVERLAP_MIN) {
+    return { height: cardHeight, overlap: Math.min(PAIR_OVERLAP, needed) }
+  }
+  const height = strip / (afterAspect * PAIR_OVERLAP_MIN + beforeAspect)
+  return { height: Math.min(cardHeight, height), overlap: PAIR_OVERLAP_MIN }
+}
+
+/** The narrowest the copy column gets, as the share of the card kept free on its right. */
+export const COPY_FLOOR = 0.42
+
+/**
+ * How much of the card's right side the copy leaves free: up to where the front figure
+ * starts. The figure behind may sit under the copy, because the veil fades it.
+ */
+export function copyInset(
+  cardWidth: number,
+  frontWidth: number,
+  frontRight: number,
+  gap: number,
+): number {
+  return Math.max(cardWidth * COPY_FLOOR, frontRight + frontWidth + gap)
+}
+
+/**
+ * How tall the lone figure may be: `maintain`, and the stage before a goal is chosen.
+ *
+ * The artwork is cut at the chin on purpose, and the cut only reads as intended when it
+ * sits on the top edge of the card. It used to be sized to a third of the width, which
+ * left it short of the top with the cut floating in the card like a head sliced off. Same
+ * rule as the pair: the card height when the strip allows it, smaller only when it does not.
+ */
+export function singleHeight(
+  cardWidth: number,
+  cardHeight: number,
+  aspect: number,
   edge: number,
 ): number {
-  const perUnitOfHeight = afterAspect * overlap + beforeAspect
-  if (perUnitOfHeight <= 0) return 0
-  const affordable = (cardWidth * STRIP_SHARE - edge) / perUnitOfHeight
+  if (aspect <= 0) return 0
+  const affordable = (cardWidth * STRIP_SHARE - edge) / aspect
   return Math.max(0, Math.min(cardHeight, affordable))
 }
