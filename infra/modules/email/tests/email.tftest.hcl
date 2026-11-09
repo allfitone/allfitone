@@ -7,9 +7,10 @@ mock_provider "aws" {
 }
 
 variables {
-  name         = "allfitone"
-  domain       = "allfit.one"
-  alert_emails = ["admin@example.com", "ops@example.com"]
+  name           = "allfitone"
+  domain         = "allfit.one"
+  sender_address = "invites@allfit.one"
+  alert_emails   = ["admin@example.com", "ops@example.com"]
 }
 
 run "the_domain_sends_through_its_own_set" {
@@ -114,4 +115,65 @@ run "the_records_for_godaddy_include_mail_from" {
     condition     = contains([for r in output.dns_records : "${r.type} ${r.name} ${r.value}"], "TXT mail.allfit.one v=spf1 include:amazonses.com ~all")
     error_message = "The SPF of mail.allfit.one must allow SES."
   }
+}
+
+# ADR-049, scenario 4: the role that sends can send from one address, on one identity.
+run "the_app_sends_only_from_its_sender_through_its_identity" {
+  command = plan
+
+  override_resource {
+    target = aws_sesv2_email_identity.domain
+    # The ARNs are computed; without this they stay unknown in a plan.
+    override_during = plan
+    values          = { arn = "arn:aws:ses:us-east-1:000000000000:identity/allfit.one" }
+  }
+
+  override_resource {
+    target          = aws_sesv2_configuration_set.this
+    override_during = plan
+    values          = { arn = "arn:aws:ses:us-east-1:000000000000:configuration-set/allfitone" }
+  }
+
+  assert {
+    condition     = length(jsondecode(output.send_policy).Statement) == 1
+    error_message = "The send policy must hold one statement and nothing more."
+  }
+
+  assert {
+    condition     = jsondecode(output.send_policy).Statement[0].Effect == "Allow" && jsondecode(output.send_policy).Statement[0].Action == "ses:SendEmail"
+    error_message = "The role may send email and do nothing else in SES."
+  }
+
+  assert {
+    condition = toset(jsondecode(output.send_policy).Statement[0].Resource) == toset([
+      "arn:aws:ses:us-east-1:000000000000:identity/allfit.one",
+      "arn:aws:ses:us-east-1:000000000000:configuration-set/allfitone",
+    ])
+    error_message = "The role may send only through the allfit.one identity and its set, never another domain."
+  }
+
+  assert {
+    condition     = jsondecode(output.send_policy).Statement[0].Condition == { StringEquals = { "ses:FromAddress" = "invites@allfit.one" } }
+    error_message = "The role may send only from the sender address."
+  }
+}
+
+run "a_sender_outside_the_domain_is_refused" {
+  command = plan
+
+  variables {
+    sender_address = "invites@allfit.one.example.com"
+  }
+
+  expect_failures = [var.sender_address]
+}
+
+run "a_sender_with_two_addresses_is_refused" {
+  command = plan
+
+  variables {
+    sender_address = "someone@example.com@allfit.one"
+  }
+
+  expect_failures = [var.sender_address]
 }

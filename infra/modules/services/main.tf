@@ -9,8 +9,11 @@
  * Every credential arrives as an environment variable read from one key of the
  * environment's single secret, at the moment the container starts. A key that
  * is missing stops the task from starting, which is louder and earlier than an
- * app failing on its first request. Containers get no IAM role: none of the
- * apps calls AWS.
+ * app failing on its first request.
+ *
+ * A container gets an IAM role of its own only when its service names what it
+ * may call in AWS; today that is the worker, which sends email through SES
+ * (ADR-049). Every other container has none.
  */
 
 terraform {
@@ -23,6 +26,8 @@ terraform {
 }
 
 locals {
+  account_id = split(":", var.cluster_arn)[4]
+
   workloads = merge(
     { for key, s in var.services : key => {
       memory_reservation = s.memory_reservation
@@ -106,6 +111,34 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+# What the app itself may call, separate from the agent's role above.
+resource "aws_iam_role" "task" {
+  for_each = { for key, s in var.services : key => s if s.task_role_policy != null }
+
+  name = "${var.name}-${each.key}-task"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+      # Only ECS acting for this account's tasks, never on another account's behalf.
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = local.account_id }
+        ArnLike      = { "aws:SourceArn" = "arn:aws:ecs:${var.region}:${local.account_id}:*" }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "task" {
+  for_each = aws_iam_role.task
+
+  name   = "${each.key}-app"
+  role   = each.value.id
+  policy = var.services[each.key].task_role_policy
+}
+
 resource "aws_iam_role_policy" "read_secret" {
   name = "read-environment-secret"
   role = aws_iam_role.execution.id
@@ -126,6 +159,7 @@ resource "aws_ecs_task_definition" "service" {
   network_mode             = "bridge"
   requires_compatibilities = ["EC2"]
   execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = try(aws_iam_role.task[each.key].arn, null)
   container_definitions    = jsonencode(local.containers[each.key])
 
   runtime_platform {
