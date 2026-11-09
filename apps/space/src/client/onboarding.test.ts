@@ -47,7 +47,6 @@ function flowWith(transport: Partial<OnboardingTransport> = {}) {
   const sexes: Array<{ idempotencyKey: string; value: string | null }> = []
   const goals: Array<{ idempotencyKey: string; value: string }> = []
   const focuses: Array<{ idempotencyKey: string; value: string[] }> = []
-  const disciplines: Array<{ idempotencyKey: string; value: string }> = []
   const levels: Array<{ idempotencyKey: string; value: string }> = []
   const measures: Array<{ idempotencyKey: string; metric: string; value: number }> = []
   const skips: string[] = []
@@ -80,14 +79,6 @@ function flowWith(transport: Partial<OnboardingTransport> = {}) {
       declareFocusAreas: async (command, areas) => {
         focuses.push({ idempotencyKey: command.idempotencyKey, value: [...areas] })
         return areas
-      },
-      declareTrainingDiscipline: async (command, discipline) => {
-        disciplines.push({ idempotencyKey: command.idempotencyKey, value: discipline })
-        return {
-          attribute_code: 'training_discipline' as const,
-          value_text: discipline,
-          superseded_claim_id: null,
-        }
       },
       declareTrainingExperience: async (command, level) => {
         levels.push({ idempotencyKey: command.idempotencyKey, value: level })
@@ -146,7 +137,6 @@ function flowWith(transport: Partial<OnboardingTransport> = {}) {
     sexes,
     goals,
     focuses,
-    disciplines,
     levels,
     measures,
     skips,
@@ -606,42 +596,6 @@ describe('declareFocusAreas', () => {
     await flow.declareFocusAreas(['whole_body'])
 
     expect(keys[0]).not.toBe(keys[1])
-  })
-})
-
-describe('declareTrainingDiscipline', () => {
-  test('reuses the key when a failed submission is retried', async () => {
-    // The key belongs to the submission, not the call: the server may already have
-    // recorded the first attempt, and a second key would be a second claim.
-    let attempts = 0
-    const { flow, disciplines } = flowWith({
-      declareTrainingDiscipline: async (command, discipline) => {
-        attempts += 1
-        disciplines.push({ idempotencyKey: command.idempotencyKey, value: discipline })
-        if (attempts === 1) throw new Error('network')
-        return {
-          attribute_code: 'training_discipline' as const,
-          value_text: discipline,
-          superseded_claim_id: null,
-        }
-      },
-    })
-
-    await expect(flow.declareTrainingDiscipline('strength')).rejects.toThrow('network')
-    await flow.declareTrainingDiscipline('strength')
-
-    expect(disciplines).toHaveLength(2)
-    expect(disciplines[0]?.idempotencyKey).toBe(disciplines[1]?.idempotencyKey)
-  })
-
-  test('answers the claim and what it displaced', async () => {
-    const { flow } = flowWith()
-
-    expect(await flow.declareTrainingDiscipline('strength')).toEqual({
-      attribute_code: 'training_discipline',
-      value_text: 'strength',
-      superseded_claim_id: null,
-    })
   })
 })
 
