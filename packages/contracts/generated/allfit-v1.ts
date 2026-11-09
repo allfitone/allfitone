@@ -1961,6 +1961,8 @@ export interface paths {
      *     What comes back depends on the caller. A role holding `view_directory` reads the whole directory and every unanswered invitation. A coach reads only the relationships they hold or stand in for, and only the invitations they themselves sent.
      *
      *     HU-STUDIO-087. `guest_quota` is how full the gym is, counted over the whole organization whatever the caller may list: a coach is held to the same quota as everyone else and has to be told how much of it is left before inviting. Allfit fixes the number; Studio never changes it, and who set it is not part of the answer.
+     *
+     *     HU-STUDIO-082. `q` finds people by name inside the same directory: it narrows what the caller already reads and never widens it, so a coach finds only the people assigned to them. It ignores accents and case, and `%` and `_` are characters, never wildcards. It matches names only, so a search never returns an unanswered invitation, and `q` with `status=invited` is refused with `422`. No match is an empty `data` with `has_more: false`. A cursor resumes only the search it was issued under.
      */
     get: operations['listStudioOrganizationClients']
     put?: never
@@ -4056,6 +4058,54 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Open the card of a client the caller attends
+     * @description HU-STUDIO-083. An index, not a copy of her data: who she is, since when the link exists, whether the caller holds her or covers for her, each category she shares with this relationship and the operations that read it, and the categories she withdrew. A category she never shared, or refused, appears nowhere: not as empty and not as locked. It carries no counts, so it never says whether there is anything behind a category. Opening it reads none of her data and writes no access event; each operation it points to records its own.
+     *
+     *     HU-STUDIO-084. A coach who attended her through his current membership and no longer does gets `kind: former` instead, for thirty days after he lost her: whether she left the organization (`relationship_ended`), his attendance ended while the link went on (`assignment_ended`), or his cover ran out (`substitution_ended`), and when. It never says who ended it or why, carries no name, and does not change if she later comes back with another coach.
+     *
+     *     Everybody else, including an owner or administrator who does not attend her, gets the same `404` as for somebody who does not exist.
+     */
+    get: operations['getStudioClientCard']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/today': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * What needs the caller's attention today
+     * @description HU-STUDIO-081. One notice per thing the caller's roles let her resolve, and none for what they do not: a notice she cannot act on is absent, not empty. Each counts everything it covers, lists at most five, and says which operation resolves it.
+     *
+     *     `client_invitations` needs `invite_clients` and, without `view_directory`, covers only the invitations she sent. `unassigned_relationships` needs `assign_professionals`, `termination_requests` needs `terminate_relationships`, `team_invitations` needs `invite`, `team` needs `manage_memberships`, `new_relationships` (the last seven days) needs `view_directory`, and `training` needs `observe_training`. Failed charges join when organization billing exists.
+     *
+     *     `training` lists the clients she attends who share `relationship_training` with this relationship and have sessions of their last closed week (Monday to Sunday in their program's timezone) left unlogged, or results finished in the last forty-eight hours. Each client evaluated is recorded in her access log, shown or not; a client who withdrew her training is neither evaluated nor mentioned. `empty` is true when nothing waits; `team` is a state and never makes it false.
+     */
+    get: operations['getStudioToday']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/clients/{personId}/executions': {
     parameters: {
       query?: never
@@ -4391,6 +4441,26 @@ export interface paths {
      * @description HU-SP-033. From now on only: nothing the gym could not see is shown to it as if it had been. Once the relationship has ended, a session hidden at the end stays out of the frozen history. Restoring what is already shared answers the same.
      */
     delete: operations['restoreMyExecution']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/access-events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Who read her data, and when
+     * @description HU-STUDIO-083 c3. Every read of her data by somebody else in the last twenty-four months, newest first: the person who read and the organization they read for, whether a coach read as holder or as cover, the category and the version she accepted, and whether the read was allowed or refused. The Allfit One team's break-glass and support accesses are listed too, by name. Her own reads are not listed. Only her own log; nobody else's is ever listed, and reading it is not itself recorded.
+     */
+    get: operations['listMyAccessEvents']
+    put?: never
+    post?: never
+    delete?: never
     options?: never
     head?: never
     patch?: never
@@ -8803,6 +8873,217 @@ export interface components {
       | 'nutrition_media'
     /** @enum {string} */
     AccessLevel: 'read' | 'contribute'
+    /** @description The card of a client the caller attends (`attending`), or, for thirty days, why a coach who attended her no longer does (`former`). */
+    StudioClientCard:
+      | components['schemas']['StudioAttendedClientCard']
+      | components['schemas']['StudioFormerClientCard']
+    StudioAttendedClientCard: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: 'attending'
+      person_id: components['schemas']['Uuid']
+      display_name: string
+      relationship: {
+        id: components['schemas']['Uuid']
+        /** Format: date-time */
+        started_at: string
+      }
+      /** @description How the caller attends her. A cover ends on a day of the organization's calendar; a holder has no end. */
+      attendance: {
+        /** @enum {string} */
+        role: 'holder' | 'substitute'
+        /** Format: date */
+        ends_on: string | null
+      }
+      /** @description Each category she shares now, in the order of `ScopeCode`. Meal photos only appear while she also shares her meals. */
+      sections: components['schemas']['StudioClientCardSection'][]
+      /** @description Categories she withdrew and has not shared again. */
+      withdrawn: components['schemas']['StudioClientCardWithdrawal'][]
+    }
+    StudioClientCardSection: {
+      scope_code: components['schemas']['ScopeCode']
+      scope_version: number
+      access_level: components['schemas']['AccessLevel']
+      /** Format: date-time */
+      granted_at: string
+      /** @description The operations that read this category, each audited on its own. */
+      reads: components['schemas']['StudioClientCardRead'][]
+    }
+    /** @enum {string} */
+    StudioClientCardRead:
+      | 'getAuthorizedClientTrainingProfile'
+      | 'listAuthorizedClientExecutions'
+      | 'getAuthorizedClientProgress'
+      | 'listRelationshipAssignments'
+      | 'listAuthorizedClientBodyProgress'
+      | 'listAuthorizedClientBodyPhotos'
+      | 'listAuthorizedClientHealthContext'
+      | 'listAuthorizedClientNutritionMeals'
+      | 'listAuthorizedClientNutritionDailySummaries'
+      | 'listAuthorizedClientNutritionGoalVersions'
+      | 'getAuthorizedClientNutritionMealPhoto'
+    StudioClientCardWithdrawal: {
+      scope_code: components['schemas']['ScopeCode']
+      /** Format: date-time */
+      withdrawn_at: string
+    }
+    /** @description Why the caller stopped attending her. Nothing of hers but the id he asked for. */
+    StudioFormerClientCard: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: 'former'
+      person_id: components['schemas']['Uuid']
+      reason: components['schemas']['StudioClientLossReason']
+      /** Format: date-time */
+      lost_at: string
+    }
+    /**
+     * @description She left the organization (`relationship_ended`), the caller's attendance ended while the link went on (`assignment_ended`), or his cover ran out (`substitution_ended`).
+     * @enum {string}
+     */
+    StudioClientLossReason: 'relationship_ended' | 'assignment_ended' | 'substitution_ended'
+    StudioToday: {
+      organization_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      generated_at: string
+      /** @description Nothing waits. `team` is a state and never makes it false. */
+      empty: boolean
+      /** @description Only the notices the caller's roles let her resolve. */
+      notices: {
+        client_invitations?: components['schemas']['StudioTodayInvitations']
+        unassigned_relationships?: components['schemas']['StudioTodayRelationships']
+        termination_requests?: components['schemas']['StudioTodayTerminationRequests']
+        team_invitations?: components['schemas']['StudioTodayInvitations']
+        team?: components['schemas']['StudioTodayTeam']
+        new_relationships?: components['schemas']['StudioTodayRelationships']
+        training?: components['schemas']['StudioTodayTraining']
+      }
+    }
+    /** @description The operation that resolves a notice, with the query it opens with. */
+    StudioTodayLink: {
+      /** @enum {string} */
+      operation_id:
+        | 'listStudioOrganizationClients'
+        | 'assignRelationshipHolder'
+        | 'terminateRelationship'
+        | 'listStudioTeamInvitations'
+        | 'listStudioOrganizationMemberships'
+        | 'getStudioClientCard'
+      query: {
+        [key: string]: string
+      }
+    }
+    /** @description Invitations still unanswered (`awaiting`) or lapsed in the last seven days (`lapsed`), newest first, with the contact masked. */
+    StudioTodayInvitations: {
+      count: number
+      awaiting: number
+      lapsed: number
+      items: {
+        invitation_id: components['schemas']['Uuid']
+        contact: string
+        /** @enum {string} */
+        state: 'awaiting' | 'lapsed'
+        /** Format: date-time */
+        created_at: string
+        /** Format: date-time */
+        expires_at: string
+        /** @description Team invitations only. */
+        proposed_role_code?: string
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    StudioTodayRelationships: {
+      count: number
+      items: {
+        relationship_id: components['schemas']['Uuid']
+        person_id: components['schemas']['Uuid']
+        display_name: string
+        /** Format: date-time */
+        started_at: string
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    StudioTodayTerminationRequests: {
+      count: number
+      items: {
+        request_id: components['schemas']['Uuid']
+        relationship_id: components['schemas']['Uuid']
+        person_id: components['schemas']['Uuid']
+        display_name: string
+        /** Format: date-time */
+        requested_at: string
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    /** @description Members with a role in force, by role. */
+    StudioTodayTeam: {
+      count: number
+      by_role: {
+        role_code: string
+        count: number
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    StudioTodayTraining: {
+      count: number
+      /** @description The most unlogged first. */
+      items: {
+        person_id: components['schemas']['Uuid']
+        display_name: string
+        relationship_id: components['schemas']['Uuid']
+        /** @description Her last closed week, when anything was due in it. */
+        closed_week: {
+          /** Format: date */
+          week_starts_on: string
+          planned: number
+          not_logged: number
+        } | null
+        /** @description What she finished inside the relationship in the last forty-eight hours. */
+        recent_results: {
+          count: number
+          /** Format: date-time */
+          last_ended_at: string | null
+        }
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    /** @description One read of her data by somebody else. */
+    MyAccessEvent: {
+      /** Format: date-time */
+      occurred_at: string
+      actor: {
+        /**
+         * @description A professional of an organization, or the Allfit One team.
+         * @enum {string}
+         */
+        kind: 'professional' | 'allfit_team'
+        display_name: string
+      }
+      organization: {
+        id: components['schemas']['Uuid']
+        display_name: string
+      } | null
+      /**
+       * @description Whether the professional read as her holder or as a cover.
+       * @enum {string|null}
+       */
+      attendance: 'holder' | 'substitute' | null
+      /** @enum {string} */
+      access_mode: 'live' | 'frozen' | 'break_glass' | 'support_metadata'
+      scope_code: components['schemas']['ScopeCode'] | null
+      scope_version: number | null
+      resource: string
+      /** @enum {string} */
+      result: 'allowed' | 'denied'
+    }
+    MyAccessEventPage: {
+      data: components['schemas']['MyAccessEvent'][]
+      page: components['schemas']['Page']
+    }
     SessionTemplateCreate: {
       discipline_code: string
       title: string
@@ -9908,6 +10189,12 @@ export interface components {
      */
     CorrectionProposalStatus: 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
     /**
+     * @description Why a proposal stopped waiting, as its proposer reads it: she corrected the session herself (`target_changed`), the session is no longer there for him (`session_unavailable`, whether she annulled it or hid it from the organization, which he is never told apart), or the relationship ended.
+     * @enum {string|null}
+     */
+    ProposedCorrectionCancelReason:
+      'target_changed' | 'session_unavailable' | 'relationship_terminated' | null
+    /**
      * @description Why a proposal stopped waiting: she corrected the session herself (`target_changed`), annulled it, hid it from the organization, or the relationship ended.
      * @enum {string|null}
      */
@@ -9955,7 +10242,7 @@ export interface components {
       proposed: components['schemas']['CorrectionValue']
       reason: string
       status: components['schemas']['CorrectionProposalStatus']
-      cancel_reason: components['schemas']['CorrectionCancelReason']
+      cancel_reason: components['schemas']['ProposedCorrectionCancelReason']
       /** Format: date-time */
       created_at: string
       /** Format: date-time */
@@ -16185,6 +16472,8 @@ export interface operations {
       query?: {
         /** @description Narrows to one group of entries. `invited` selects the unanswered ones. */
         status?: components['schemas']['ClientDirectoryGroup']
+        /** @description A name to find. Surrounding and repeated spaces are ignored; what remains must be 2 to 80 characters. */
+        q?: string
         limit?: number
         cursor?: components['parameters']['Cursor']
       }
@@ -20127,6 +20416,62 @@ export interface operations {
       428: components['responses']['PreconditionRequired']
     }
   }
+  getStudioClientCard: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her card, or why the caller stopped attending her */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioClientCard']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getStudioToday: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description What waits on the caller */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioToday']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listAuthorizedClientExecutions: {
     parameters: {
       query?: {
@@ -20674,6 +21019,36 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       410: components['responses']['CommandEffectDisposed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listMyAccessEvents: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+        /** @description Only the reads made under this category. */
+        scope_code?: components['schemas']['ScopeCode']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Reads of her data, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyAccessEventPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
       503: components['responses']['UpstreamUnavailable']
     }
   }

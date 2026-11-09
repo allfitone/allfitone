@@ -4763,6 +4763,15 @@ paths:
         as everyone else and has to be told how much of it is left before inviting.
         Allfit fixes the number; Studio never changes it, and who set it is not part
         of the answer.
+
+
+        HU-STUDIO-082. `q` finds people by name inside the same directory: it
+        narrows what the caller already reads and never widens it, so a coach
+        finds only the people assigned to them. It ignores accents and case, and
+        `%` and `_` are characters, never wildcards. It matches names only, so a
+        search never returns an unanswered invitation, and `q` with
+        `status=invited` is refused with `422`. No match is an empty `data` with
+        `has_more: false`. A cursor resumes only the search it was issued under.
       security:
         - cookieAuth: []
       parameters:
@@ -4773,6 +4782,16 @@ paths:
           description: Narrows to one group of entries. `invited` selects the unanswered ones.
           schema:
             $ref: '#/components/schemas/ClientDirectoryGroup'
+        - name: q
+          in: query
+          required: false
+          description: >-
+            A name to find. Surrounding and repeated spaces are ignored; what remains
+            must be 2 to 80 characters.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 200
         - name: limit
           in: query
           required: false
@@ -10300,6 +10319,112 @@ paths:
         '428':
           $ref: '#/components/responses/PreconditionRequired'
 
+  /studio/v1/organizations/{organizationId}/clients/{personId}:
+    get:
+      tags: [Studio Relationships]
+      operationId: getStudioClientCard
+      x-allfit-operation: OP-REL-019
+      x-allfit-cache: private-no-store
+      summary: Open the card of a client the caller attends
+      description: >-
+        HU-STUDIO-083. An index, not a copy of her data: who she is, since when the
+        link exists, whether the caller holds her or covers for her, each category she
+        shares with this relationship and the operations that read it, and the
+        categories she withdrew. A category she never shared, or refused, appears
+        nowhere: not as empty and not as locked. It carries no counts, so it never
+        says whether there is anything behind a category. Opening it reads none of her
+        data and writes no access event; each operation it points to records its own.
+
+
+        HU-STUDIO-084. A coach who attended her through his current membership and no
+        longer does gets `kind: former` instead, for thirty days after he lost her:
+        whether she left the organization (`relationship_ended`), his attendance ended
+        while the link went on (`assignment_ended`), or his cover ran out
+        (`substitution_ended`), and when. It never says who ended it or why, carries
+        no name, and does not change if she later comes back with another coach.
+
+
+        Everybody else, including an owner or administrator who does not attend her,
+        gets the same `404` as for somebody who does not exist.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/PersonId'
+      responses:
+        '200':
+          description: Her card, or why the caller stopped attending her
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioClientCard'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /studio/v1/organizations/{organizationId}/today:
+    get:
+      tags: [Studio Relationships]
+      operationId: getStudioToday
+      x-allfit-operation: OP-REL-020
+      x-allfit-cache: private-no-store
+      summary: What needs the caller's attention today
+      description: >-
+        HU-STUDIO-081. One notice per thing the caller's roles let her resolve, and
+        none for what they do not: a notice she cannot act on is absent, not empty.
+        Each counts everything it covers, lists at most five, and says which
+        operation resolves it.
+
+
+        `client_invitations` needs `invite_clients` and, without `view_directory`,
+        covers only the invitations she sent. `unassigned_relationships` needs
+        `assign_professionals`, `termination_requests` needs
+        `terminate_relationships`, `team_invitations` needs `invite`, `team` needs
+        `manage_memberships`, `new_relationships` (the last seven days) needs
+        `view_directory`, and `training` needs `observe_training`. Failed charges join
+        when organization billing exists.
+
+
+        `training` lists the clients she attends who share `relationship_training`
+        with this relationship and have sessions of their last closed week (Monday to
+        Sunday in their program's timezone) left unlogged, or results finished in the
+        last forty-eight hours. Each client evaluated is recorded in her access log,
+        shown or not; a client who withdrew her training is neither evaluated nor
+        mentioned. `empty` is true when nothing waits; `team` is a state and never
+        makes it false.
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: What waits on the caller
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioToday'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/organizations/{organizationId}/clients/{personId}/executions:
     get:
       tags: [Studio Execution]
@@ -11088,6 +11213,51 @@ paths:
           $ref: '#/components/responses/Conflict'
         '410':
           $ref: '#/components/responses/CommandEffectDisposed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/access-events:
+    get:
+      tags: [Space Privacy]
+      operationId: listMyAccessEvents
+      x-allfit-operation: OP-PRV-015
+      x-allfit-cache: private-no-store
+      summary: Who read her data, and when
+      description: >-
+        HU-STUDIO-083 c3. Every read of her data by somebody else in the last
+        twenty-four months, newest first: the person who read and the organization
+        they read for, whether a coach read as holder or as cover, the category and
+        the version she accepted, and whether the read was allowed or refused. The
+        Allfit One team's break-glass and support accesses are listed too, by name.
+        Her own reads are not listed. Only her own log; nobody else's is ever
+        listed, and reading it is not itself recorded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - name: scope_code
+          in: query
+          required: false
+          description: Only the reads made under this category.
+          schema:
+            $ref: '#/components/schemas/ScopeCode'
+      responses:
+        '200':
+          description: Reads of her data, newest first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyAccessEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
@@ -22618,6 +22788,414 @@ components:
       type: string
       enum: [read, contribute]
 
+    StudioClientCard:
+      description: >-
+        The card of a client the caller attends (`attending`), or, for thirty days,
+        why a coach who attended her no longer does (`former`).
+      oneOf:
+        - $ref: '#/components/schemas/StudioAttendedClientCard'
+        - $ref: '#/components/schemas/StudioFormerClientCard'
+      discriminator:
+        propertyName: kind
+        mapping:
+          attending: '#/components/schemas/StudioAttendedClientCard'
+          former: '#/components/schemas/StudioFormerClientCard'
+    StudioAttendedClientCard:
+      type: object
+      additionalProperties: false
+      required: [kind, person_id, display_name, relationship, attendance, sections, withdrawn]
+      properties:
+        kind:
+          type: string
+          const: attending
+        person_id:
+          $ref: '#/components/schemas/Uuid'
+        display_name:
+          type: string
+        relationship:
+          type: object
+          additionalProperties: false
+          required: [id, started_at]
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            started_at:
+              type: string
+              format: date-time
+        attendance:
+          description: >-
+            How the caller attends her. A cover ends on a day of the organization's
+            calendar; a holder has no end.
+          type: object
+          additionalProperties: false
+          required: [role, ends_on]
+          properties:
+            role:
+              type: string
+              enum: [holder, substitute]
+            ends_on:
+              type: [string, 'null']
+              format: date
+        sections:
+          description: >-
+            Each category she shares now, in the order of `ScopeCode`. Meal photos
+            only appear while she also shares her meals.
+          type: array
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/StudioClientCardSection'
+        withdrawn:
+          description: Categories she withdrew and has not shared again.
+          type: array
+          maxItems: 7
+          items:
+            $ref: '#/components/schemas/StudioClientCardWithdrawal'
+    StudioClientCardSection:
+      type: object
+      additionalProperties: false
+      required: [scope_code, scope_version, access_level, granted_at, reads]
+      properties:
+        scope_code:
+          $ref: '#/components/schemas/ScopeCode'
+        scope_version:
+          type: integer
+          minimum: 1
+        access_level:
+          $ref: '#/components/schemas/AccessLevel'
+        granted_at:
+          type: string
+          format: date-time
+        reads:
+          description: The operations that read this category, each audited on its own.
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/StudioClientCardRead'
+    StudioClientCardRead:
+      type: string
+      enum:
+        [getAuthorizedClientTrainingProfile, listAuthorizedClientExecutions,
+         getAuthorizedClientProgress, listRelationshipAssignments,
+         listAuthorizedClientBodyProgress, listAuthorizedClientBodyPhotos,
+         listAuthorizedClientHealthContext, listAuthorizedClientNutritionMeals,
+         listAuthorizedClientNutritionDailySummaries, listAuthorizedClientNutritionGoalVersions,
+         getAuthorizedClientNutritionMealPhoto]
+    StudioClientCardWithdrawal:
+      type: object
+      additionalProperties: false
+      required: [scope_code, withdrawn_at]
+      properties:
+        scope_code:
+          $ref: '#/components/schemas/ScopeCode'
+        withdrawn_at:
+          type: string
+          format: date-time
+    StudioFormerClientCard:
+      description: Why the caller stopped attending her. Nothing of hers but the id he asked for.
+      type: object
+      additionalProperties: false
+      required: [kind, person_id, reason, lost_at]
+      properties:
+        kind:
+          type: string
+          const: former
+        person_id:
+          $ref: '#/components/schemas/Uuid'
+        reason:
+          $ref: '#/components/schemas/StudioClientLossReason'
+        lost_at:
+          type: string
+          format: date-time
+    StudioClientLossReason:
+      description: >-
+        She left the organization (`relationship_ended`), the caller's attendance
+        ended while the link went on (`assignment_ended`), or his cover ran out
+        (`substitution_ended`).
+      type: string
+      enum: [relationship_ended, assignment_ended, substitution_ended]
+
+    StudioToday:
+      type: object
+      additionalProperties: false
+      required: [organization_id, generated_at, empty, notices]
+      properties:
+        organization_id:
+          $ref: '#/components/schemas/Uuid'
+        generated_at:
+          type: string
+          format: date-time
+        empty:
+          description: Nothing waits. `team` is a state and never makes it false.
+          type: boolean
+        notices:
+          description: Only the notices the caller's roles let her resolve.
+          type: object
+          additionalProperties: false
+          properties:
+            client_invitations:
+              $ref: '#/components/schemas/StudioTodayInvitations'
+            unassigned_relationships:
+              $ref: '#/components/schemas/StudioTodayRelationships'
+            termination_requests:
+              $ref: '#/components/schemas/StudioTodayTerminationRequests'
+            team_invitations:
+              $ref: '#/components/schemas/StudioTodayInvitations'
+            team:
+              $ref: '#/components/schemas/StudioTodayTeam'
+            new_relationships:
+              $ref: '#/components/schemas/StudioTodayRelationships'
+            training:
+              $ref: '#/components/schemas/StudioTodayTraining'
+    StudioTodayLink:
+      description: The operation that resolves a notice, with the query it opens with.
+      type: object
+      additionalProperties: false
+      required: [operation_id, query]
+      properties:
+        operation_id:
+          type: string
+          enum:
+            [listStudioOrganizationClients, assignRelationshipHolder, terminateRelationship,
+             listStudioTeamInvitations, listStudioOrganizationMemberships, getStudioClientCard]
+        query:
+          type: object
+          additionalProperties:
+            type: string
+    StudioTodayInvitations:
+      description: >-
+        Invitations still unanswered (`awaiting`) or lapsed in the last seven days
+        (`lapsed`), newest first, with the contact masked.
+      type: object
+      additionalProperties: false
+      required: [count, awaiting, lapsed, items, link]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        awaiting:
+          type: integer
+          minimum: 0
+        lapsed:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            additionalProperties: false
+            required: [invitation_id, contact, state, created_at, expires_at]
+            properties:
+              invitation_id:
+                $ref: '#/components/schemas/Uuid'
+              contact:
+                type: string
+              state:
+                type: string
+                enum: [awaiting, lapsed]
+              created_at:
+                type: string
+                format: date-time
+              expires_at:
+                type: string
+                format: date-time
+              proposed_role_code:
+                description: Team invitations only.
+                type: string
+        link:
+          $ref: '#/components/schemas/StudioTodayLink'
+    StudioTodayRelationships:
+      type: object
+      additionalProperties: false
+      required: [count, items, link]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            additionalProperties: false
+            required: [relationship_id, person_id, display_name, started_at]
+            properties:
+              relationship_id:
+                $ref: '#/components/schemas/Uuid'
+              person_id:
+                $ref: '#/components/schemas/Uuid'
+              display_name:
+                type: string
+              started_at:
+                type: string
+                format: date-time
+        link:
+          $ref: '#/components/schemas/StudioTodayLink'
+    StudioTodayTerminationRequests:
+      type: object
+      additionalProperties: false
+      required: [count, items, link]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            additionalProperties: false
+            required: [request_id, relationship_id, person_id, display_name, requested_at]
+            properties:
+              request_id:
+                $ref: '#/components/schemas/Uuid'
+              relationship_id:
+                $ref: '#/components/schemas/Uuid'
+              person_id:
+                $ref: '#/components/schemas/Uuid'
+              display_name:
+                type: string
+              requested_at:
+                type: string
+                format: date-time
+        link:
+          $ref: '#/components/schemas/StudioTodayLink'
+    StudioTodayTeam:
+      description: Members with a role in force, by role.
+      type: object
+      additionalProperties: false
+      required: [count, by_role, link]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        by_role:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [role_code, count]
+            properties:
+              role_code:
+                type: string
+              count:
+                type: integer
+                minimum: 1
+        link:
+          $ref: '#/components/schemas/StudioTodayLink'
+    StudioTodayTraining:
+      type: object
+      additionalProperties: false
+      required: [count, items, link]
+      properties:
+        count:
+          type: integer
+          minimum: 0
+        items:
+          description: The most unlogged first.
+          type: array
+          maxItems: 5
+          items:
+            type: object
+            additionalProperties: false
+            required: [person_id, display_name, relationship_id, closed_week, recent_results]
+            properties:
+              person_id:
+                $ref: '#/components/schemas/Uuid'
+              display_name:
+                type: string
+              relationship_id:
+                $ref: '#/components/schemas/Uuid'
+              closed_week:
+                description: Her last closed week, when anything was due in it.
+                type: [object, 'null']
+                additionalProperties: false
+                required: [week_starts_on, planned, not_logged]
+                properties:
+                  week_starts_on:
+                    type: string
+                    format: date
+                  planned:
+                    type: integer
+                    minimum: 1
+                  not_logged:
+                    type: integer
+                    minimum: 0
+              recent_results:
+                description: What she finished inside the relationship in the last forty-eight hours.
+                type: object
+                additionalProperties: false
+                required: [count, last_ended_at]
+                properties:
+                  count:
+                    type: integer
+                    minimum: 0
+                  last_ended_at:
+                    type: [string, 'null']
+                    format: date-time
+        link:
+          $ref: '#/components/schemas/StudioTodayLink'
+
+    MyAccessEvent:
+      description: One read of her data by somebody else.
+      type: object
+      additionalProperties: false
+      required: [occurred_at, actor, organization, attendance, access_mode, scope_code,
+        scope_version, resource, result]
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          type: object
+          additionalProperties: false
+          required: [kind, display_name]
+          properties:
+            kind:
+              description: A professional of an organization, or the Allfit One team.
+              type: string
+              enum: [professional, allfit_team]
+            display_name:
+              type: string
+        organization:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [id, display_name]
+          properties:
+            id:
+              $ref: '#/components/schemas/Uuid'
+            display_name:
+              type: string
+        attendance:
+          description: Whether the professional read as her holder or as a cover.
+          type: [string, 'null']
+          enum: [holder, substitute, null]
+        access_mode:
+          type: string
+          enum: [live, frozen, break_glass, support_metadata]
+        scope_code:
+          oneOf:
+            - $ref: '#/components/schemas/ScopeCode'
+            - type: 'null'
+        scope_version:
+          type: [integer, 'null']
+        resource:
+          type: string
+        result:
+          type: string
+          enum: [allowed, denied]
+    MyAccessEventPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyAccessEvent'
+        page:
+          $ref: '#/components/schemas/Page'
+
     SessionTemplateCreate:
       type: object
       additionalProperties: false
@@ -24706,6 +25284,14 @@ components:
         `expired` includes one past its thirty days that no sweep has marked yet.
       type: string
       enum: [pending, accepted, rejected, expired, cancelled]
+    ProposedCorrectionCancelReason:
+      description: >-
+        Why a proposal stopped waiting, as its proposer reads it: she corrected the
+        session herself (`target_changed`), the session is no longer there for him
+        (`session_unavailable`, whether she annulled it or hid it from the
+        organization, which he is never told apart), or the relationship ended.
+      type: [string, 'null']
+      enum: [target_changed, session_unavailable, relationship_terminated, null]
     CorrectionCancelReason:
       description: >-
         Why a proposal stopped waiting: she corrected the session herself
@@ -24798,7 +25384,7 @@ components:
         status:
           $ref: '#/components/schemas/CorrectionProposalStatus'
         cancel_reason:
-          $ref: '#/components/schemas/CorrectionCancelReason'
+          $ref: '#/components/schemas/ProposedCorrectionCancelReason'
         created_at:
           type: string
           format: date-time

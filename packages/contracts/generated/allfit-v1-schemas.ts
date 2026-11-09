@@ -7497,6 +7497,101 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  MyAccessEvent: {
+    description: 'One read of her data by somebody else.',
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'occurred_at',
+      'actor',
+      'organization',
+      'attendance',
+      'access_mode',
+      'scope_code',
+      'scope_version',
+      'resource',
+      'result',
+    ],
+    properties: {
+      occurred_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      actor: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['kind', 'display_name'],
+        properties: {
+          kind: {
+            description: 'A professional of an organization, or the Allfit One team.',
+            type: 'string',
+            enum: ['professional', 'allfit_team'],
+          },
+          display_name: {
+            type: 'string',
+          },
+        },
+      },
+      organization: {
+        type: ['object', 'null'],
+        additionalProperties: false,
+        required: ['id', 'display_name'],
+        properties: {
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          display_name: {
+            type: 'string',
+          },
+        },
+      },
+      attendance: {
+        description: 'Whether the professional read as her holder or as a cover.',
+        type: ['string', 'null'],
+        enum: ['holder', 'substitute', null],
+      },
+      access_mode: {
+        type: 'string',
+        enum: ['live', 'frozen', 'break_glass', 'support_metadata'],
+      },
+      scope_code: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ScopeCode',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      scope_version: {
+        type: ['integer', 'null'],
+      },
+      resource: {
+        type: 'string',
+      },
+      result: {
+        type: 'string',
+        enum: ['allowed', 'denied'],
+      },
+    },
+  },
+  MyAccessEventPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/MyAccessEvent',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
   MyRelationshipTermination: {
     description:
       'Her relationship after she ended it. `ended_at` is the instant everything it shared was frozen.',
@@ -12155,7 +12250,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         $ref: '#/components/schemas/CorrectionProposalStatus',
       },
       cancel_reason: {
-        $ref: '#/components/schemas/CorrectionCancelReason',
+        $ref: '#/components/schemas/ProposedCorrectionCancelReason',
       },
       created_at: {
         type: 'string',
@@ -12170,6 +12265,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         format: 'date-time',
       },
     },
+  },
+  ProposedCorrectionCancelReason: {
+    description:
+      'Why a proposal stopped waiting, as its proposer reads it: she corrected the session herself (`target_changed`), the session is no longer there for him (`session_unavailable`, whether she annulled it or hid it from the organization, which he is never told apart), or the relationship ended.',
+    type: ['string', 'null'],
+    enum: ['target_changed', 'session_unavailable', 'relationship_terminated', null],
   },
   ProposedCorrectionPage: {
     type: 'object',
@@ -17643,6 +17744,163 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  StudioAttendedClientCard: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'kind',
+      'person_id',
+      'display_name',
+      'relationship',
+      'attendance',
+      'sections',
+      'withdrawn',
+    ],
+    properties: {
+      kind: {
+        type: 'string',
+        const: 'attending',
+      },
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      display_name: {
+        type: 'string',
+      },
+      relationship: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['id', 'started_at'],
+        properties: {
+          id: {
+            $ref: '#/components/schemas/Uuid',
+          },
+          started_at: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      attendance: {
+        description:
+          "How the caller attends her. A cover ends on a day of the organization's calendar; a holder has no end.",
+        type: 'object',
+        additionalProperties: false,
+        required: ['role', 'ends_on'],
+        properties: {
+          role: {
+            type: 'string',
+            enum: ['holder', 'substitute'],
+          },
+          ends_on: {
+            type: ['string', 'null'],
+            format: 'date',
+          },
+        },
+      },
+      sections: {
+        description:
+          'Each category she shares now, in the order of `ScopeCode`. Meal photos only appear while she also shares her meals.',
+        type: 'array',
+        maxItems: 7,
+        items: {
+          $ref: '#/components/schemas/StudioClientCardSection',
+        },
+      },
+      withdrawn: {
+        description: 'Categories she withdrew and has not shared again.',
+        type: 'array',
+        maxItems: 7,
+        items: {
+          $ref: '#/components/schemas/StudioClientCardWithdrawal',
+        },
+      },
+    },
+  },
+  StudioClientCard: {
+    description:
+      'The card of a client the caller attends (`attending`), or, for thirty days, why a coach who attended her no longer does (`former`).',
+    oneOf: [
+      {
+        $ref: '#/components/schemas/StudioAttendedClientCard',
+      },
+      {
+        $ref: '#/components/schemas/StudioFormerClientCard',
+      },
+    ],
+    discriminator: {
+      propertyName: 'kind',
+      mapping: {
+        attending: '#/components/schemas/StudioAttendedClientCard',
+        former: '#/components/schemas/StudioFormerClientCard',
+      },
+    },
+  },
+  StudioClientCardRead: {
+    type: 'string',
+    enum: [
+      'getAuthorizedClientTrainingProfile',
+      'listAuthorizedClientExecutions',
+      'getAuthorizedClientProgress',
+      'listRelationshipAssignments',
+      'listAuthorizedClientBodyProgress',
+      'listAuthorizedClientBodyPhotos',
+      'listAuthorizedClientHealthContext',
+      'listAuthorizedClientNutritionMeals',
+      'listAuthorizedClientNutritionDailySummaries',
+      'listAuthorizedClientNutritionGoalVersions',
+      'getAuthorizedClientNutritionMealPhoto',
+    ],
+  },
+  StudioClientCardSection: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['scope_code', 'scope_version', 'access_level', 'granted_at', 'reads'],
+    properties: {
+      scope_code: {
+        $ref: '#/components/schemas/ScopeCode',
+      },
+      scope_version: {
+        type: 'integer',
+        minimum: 1,
+      },
+      access_level: {
+        $ref: '#/components/schemas/AccessLevel',
+      },
+      granted_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      reads: {
+        description: 'The operations that read this category, each audited on its own.',
+        type: 'array',
+        minItems: 1,
+        items: {
+          $ref: '#/components/schemas/StudioClientCardRead',
+        },
+      },
+    },
+  },
+  StudioClientCardWithdrawal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['scope_code', 'withdrawn_at'],
+    properties: {
+      scope_code: {
+        $ref: '#/components/schemas/ScopeCode',
+      },
+      withdrawn_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  StudioClientLossReason: {
+    description:
+      "She left the organization (`relationship_ended`), the caller's attendance ended while the link went on (`assignment_ended`), or his cover ran out (`substitution_ended`).",
+    type: 'string',
+    enum: ['relationship_ended', 'assignment_ended', 'substitution_ended'],
+  },
   StudioEligibilityStatus: {
     type: 'string',
     enum: ['pending', 'pass', 'fail'],
@@ -17685,6 +17943,28 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       analytics: {
         $ref: '#/components/schemas/AnalyticsIdentity',
+      },
+    },
+  },
+  StudioFormerClientCard: {
+    description: 'Why the caller stopped attending her. Nothing of hers but the id he asked for.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['kind', 'person_id', 'reason', 'lost_at'],
+    properties: {
+      kind: {
+        type: 'string',
+        const: 'former',
+      },
+      person_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      reason: {
+        $ref: '#/components/schemas/StudioClientLossReason',
+      },
+      lost_at: {
+        type: 'string',
+        format: 'date-time',
       },
     },
   },
@@ -17998,6 +18278,323 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       analytics: {
         $ref: '#/components/schemas/AnalyticsIdentity',
+      },
+    },
+  },
+  StudioToday: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['organization_id', 'generated_at', 'empty', 'notices'],
+    properties: {
+      organization_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      generated_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      empty: {
+        description: 'Nothing waits. `team` is a state and never makes it false.',
+        type: 'boolean',
+      },
+      notices: {
+        description: "Only the notices the caller's roles let her resolve.",
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          client_invitations: {
+            $ref: '#/components/schemas/StudioTodayInvitations',
+          },
+          unassigned_relationships: {
+            $ref: '#/components/schemas/StudioTodayRelationships',
+          },
+          termination_requests: {
+            $ref: '#/components/schemas/StudioTodayTerminationRequests',
+          },
+          team_invitations: {
+            $ref: '#/components/schemas/StudioTodayInvitations',
+          },
+          team: {
+            $ref: '#/components/schemas/StudioTodayTeam',
+          },
+          new_relationships: {
+            $ref: '#/components/schemas/StudioTodayRelationships',
+          },
+          training: {
+            $ref: '#/components/schemas/StudioTodayTraining',
+          },
+        },
+      },
+    },
+  },
+  StudioTodayInvitations: {
+    description:
+      'Invitations still unanswered (`awaiting`) or lapsed in the last seven days (`lapsed`), newest first, with the contact masked.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['count', 'awaiting', 'lapsed', 'items', 'link'],
+    properties: {
+      count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      awaiting: {
+        type: 'integer',
+        minimum: 0,
+      },
+      lapsed: {
+        type: 'integer',
+        minimum: 0,
+      },
+      items: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['invitation_id', 'contact', 'state', 'created_at', 'expires_at'],
+          properties: {
+            invitation_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            contact: {
+              type: 'string',
+            },
+            state: {
+              type: 'string',
+              enum: ['awaiting', 'lapsed'],
+            },
+            created_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+            expires_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+            proposed_role_code: {
+              description: 'Team invitations only.',
+              type: 'string',
+            },
+          },
+        },
+      },
+      link: {
+        $ref: '#/components/schemas/StudioTodayLink',
+      },
+    },
+  },
+  StudioTodayLink: {
+    description: 'The operation that resolves a notice, with the query it opens with.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['operation_id', 'query'],
+    properties: {
+      operation_id: {
+        type: 'string',
+        enum: [
+          'listStudioOrganizationClients',
+          'assignRelationshipHolder',
+          'terminateRelationship',
+          'listStudioTeamInvitations',
+          'listStudioOrganizationMemberships',
+          'getStudioClientCard',
+        ],
+      },
+      query: {
+        type: 'object',
+        additionalProperties: {
+          type: 'string',
+        },
+      },
+    },
+  },
+  StudioTodayRelationships: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['count', 'items', 'link'],
+    properties: {
+      count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      items: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['relationship_id', 'person_id', 'display_name', 'started_at'],
+          properties: {
+            relationship_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            person_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            display_name: {
+              type: 'string',
+            },
+            started_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
+      },
+      link: {
+        $ref: '#/components/schemas/StudioTodayLink',
+      },
+    },
+  },
+  StudioTodayTeam: {
+    description: 'Members with a role in force, by role.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['count', 'by_role', 'link'],
+    properties: {
+      count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      by_role: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['role_code', 'count'],
+          properties: {
+            role_code: {
+              type: 'string',
+            },
+            count: {
+              type: 'integer',
+              minimum: 1,
+            },
+          },
+        },
+      },
+      link: {
+        $ref: '#/components/schemas/StudioTodayLink',
+      },
+    },
+  },
+  StudioTodayTerminationRequests: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['count', 'items', 'link'],
+    properties: {
+      count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      items: {
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['request_id', 'relationship_id', 'person_id', 'display_name', 'requested_at'],
+          properties: {
+            request_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            relationship_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            person_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            display_name: {
+              type: 'string',
+            },
+            requested_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
+      },
+      link: {
+        $ref: '#/components/schemas/StudioTodayLink',
+      },
+    },
+  },
+  StudioTodayTraining: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['count', 'items', 'link'],
+    properties: {
+      count: {
+        type: 'integer',
+        minimum: 0,
+      },
+      items: {
+        description: 'The most unlogged first.',
+        type: 'array',
+        maxItems: 5,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: [
+            'person_id',
+            'display_name',
+            'relationship_id',
+            'closed_week',
+            'recent_results',
+          ],
+          properties: {
+            person_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            display_name: {
+              type: 'string',
+            },
+            relationship_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            closed_week: {
+              description: 'Her last closed week, when anything was due in it.',
+              type: ['object', 'null'],
+              additionalProperties: false,
+              required: ['week_starts_on', 'planned', 'not_logged'],
+              properties: {
+                week_starts_on: {
+                  type: 'string',
+                  format: 'date',
+                },
+                planned: {
+                  type: 'integer',
+                  minimum: 1,
+                },
+                not_logged: {
+                  type: 'integer',
+                  minimum: 0,
+                },
+              },
+            },
+            recent_results: {
+              description:
+                'What she finished inside the relationship in the last forty-eight hours.',
+              type: 'object',
+              additionalProperties: false,
+              required: ['count', 'last_ended_at'],
+              properties: {
+                count: {
+                  type: 'integer',
+                  minimum: 0,
+                },
+                last_ended_at: {
+                  type: ['string', 'null'],
+                  format: 'date-time',
+                },
+              },
+            },
+          },
+        },
+      },
+      link: {
+        $ref: '#/components/schemas/StudioTodayLink',
       },
     },
   },
