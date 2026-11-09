@@ -9,7 +9,6 @@ const answers = (
   ...steps: Array<
     | 'identity'
     | 'biological_sex'
-    | 'training_discipline'
     | 'primary_training_goal'
     | 'focus_areas'
     | 'training_experience'
@@ -19,7 +18,6 @@ const answers = (
 ) => ({
   identity: { answered: steps.includes('identity') },
   biological_sex: { answered: steps.includes('biological_sex') },
-  training_discipline: { answered: steps.includes('training_discipline') },
   primary_training_goal: { answered: steps.includes('primary_training_goal') },
   focus_areas: { answered: steps.includes('focus_areas') },
   training_experience: { answered: steps.includes('training_experience') },
@@ -54,7 +52,6 @@ describe('routeAfterAuthentication', () => {
         answers: answers(
           'identity',
           'biological_sex',
-          'training_discipline',
           'primary_training_goal',
           'focus_areas',
           'training_experience',

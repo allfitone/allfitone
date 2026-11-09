@@ -50,7 +50,6 @@ import { ApiError } from '../../src/client'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import { goalsFor } from '../../src/client/discipline-form'
-import type { TrainingDiscipline } from '../../src/client/onboarding'
 import {
   bodyVariant,
   canSubmitGoal,
@@ -144,7 +143,6 @@ export default function OnboardingTrainingGoal() {
 
   const [rowWidth, setRowWidth] = useState(0)
   const [goal, setGoal] = useState<TrainingGoal | undefined>(undefined)
-  const [discipline, setDiscipline] = useState<TrainingDiscipline | null>(null)
   const [declaredSex, setDeclaredSex] = useState<'male' | 'female' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -152,9 +150,8 @@ export default function OnboardingTrainingGoal() {
   const reduceMotion = useReducedMotion()
   const [entering, setEntering] = useState(false)
 
-  // The discipline decides which goals exist here — with strength there is no point
-  // offering a race — and that is why it is asked one step earlier.
-  const offered = useMemo(() => goalsFor(discipline, TRAINING_GOALS), [discipline])
+  // Strength's goals: nobody is asked for a discipline, and strength does not chase a race.
+  const offered = useMemo(() => goalsFor(TRAINING_GOALS), [])
 
   /**
    * Las figuras de todos los objetivos que se ofrecen, para que el escenario las tenga
@@ -199,7 +196,6 @@ export default function OnboardingTrainingGoal() {
           return
         }
         setDeclaredSex(current.answers.biological_sex.value ?? null)
-        setDiscipline(current.answers.training_discipline.value ?? null)
         const declared = current.answers.primary_training_goal.value
         if (declared) setGoal(declared)
 
