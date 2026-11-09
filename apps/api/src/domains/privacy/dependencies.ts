@@ -3,6 +3,7 @@ import {
   createErasureRequestService,
   createLegalHoldService,
   createAuthorizedScopeService,
+  createMyAccessLogService,
   createMyConsentService,
   createOfferableScopeService,
   createScopeDefinitionService,
@@ -11,6 +12,7 @@ import {
   type ErasureRequestService,
   type LegalHoldService,
   type AuthorizedScopeService,
+  type MyAccessLogService,
   type MyConsentService,
   type OfferableScopeService,
   type ScopeDefinitionService,
@@ -21,6 +23,7 @@ import {
   createErasureRequestDatabase,
   createLegalHoldDatabase,
   createAuthorizedScopeDatabase,
+  createMyAccessLogDatabase,
   createMyConsentDatabase,
   createOfferableScopeDatabase,
   createScopeDefinitionDatabase,
@@ -85,4 +88,11 @@ export function sessionVisibilityService(): SessionVisibilityService {
 export function historicalAccessService(): HistoricalAccessService {
   cachedHistorical ??= createHistoricalAccessService(createHistoricalAccessDatabase())
   return cachedHistorical
+}
+
+let cachedMyLog: MyAccessLogService | undefined
+
+export function myAccessLogService(): MyAccessLogService {
+  cachedMyLog ??= createMyAccessLogService(createMyAccessLogDatabase())
+  return cachedMyLog
 }
