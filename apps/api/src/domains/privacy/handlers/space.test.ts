@@ -19,8 +19,13 @@ import { allfitV1ContractSchemas } from '@allfitone/contracts'
 import Ajv2020 from 'ajv/dist/2020'
 import addFormats from 'ajv-formats'
 
-import type { MyConsentService, SessionVisibilityService } from '../application/index.js'
 import type {
+  MyAccessLogService,
+  MyConsentService,
+  SessionVisibilityService,
+} from '../application/index.js'
+import type {
+  MyAccessEvent,
   MyConsent,
   MyConsentCommand,
   SessionVisibilityCommand,
@@ -444,17 +449,111 @@ describe('what she hides', () => {
   })
 })
 
+const READ: MyAccessEvent = {
+  occurred_at: '2026-11-08T14:00:00.123456+00:00',
+  actor: { kind: 'professional', display_name: 'Camilo Coach' },
+  organization: { id: '019c8000-0000-7000-8000-000000000101', display_name: 'Bodytech Chicó' },
+  attendance: 'substitute',
+  access_mode: 'live',
+  scope_code: 'body_progress',
+  scope_version: 2,
+  resource: 'identity.body_progress_records',
+  result: 'allowed',
+}
+const LAST = { at: '2026-11-08T14:00:00.123456Z', id: '019c8000-0000-7000-8000-000000000e01' }
+
+function accessLog(seen: Parameters<MyAccessLogService['listMine']>[0][] = []): MyAccessLogService {
+  return {
+    listMine: async (input) => {
+      seen.push(input)
+      return { items: [READ], hasMore: true, last: LAST }
+    },
+  }
+}
+
+function accessLogApp(service: MyAccessLogService): Hono {
+  const routes = new Hono()
+  routes.route('/space/v1', spacePrivacyRoutes(consents(), verifier, actors, visibility(), service))
+  return routes
+}
+
+describe('who read her data (OP-PRV-015)', () => {
+  test('T-PRV-API-SPACE-19 her own reads, newest first, a page at a time, never stored', async () => {
+    const seen: Parameters<MyAccessLogService['listMine']>[0][] = []
+    const first = await accessLogApp(accessLog(seen)).request(
+      '/space/v1/access-events?limit=1&scope_code=body_progress',
+      { headers: AUTH },
+    )
+    expect(first.status).toBe(200)
+    expect(first.headers.get('Cache-Control')).toBe('private, no-store')
+    const body = (await first.json()) as { data: unknown[]; page: { next_cursor: string } }
+    assertMatchesContract('MyAccessEventPage', body)
+    expect(body.data).toEqual([READ])
+
+    await accessLogApp(accessLog(seen)).request(
+      `/space/v1/access-events?limit=1&scope_code=body_progress&cursor=${body.page.next_cursor}`,
+      { headers: AUTH },
+    )
+    expect(seen).toEqual([
+      { personId: PERSON, limit: 1, scopeCode: 'body_progress' },
+      { personId: PERSON, limit: 1, scopeCode: 'body_progress', cursor: LAST },
+    ])
+  })
+
+  test('T-PRV-API-SPACE-20 a cursor resumes only the category it was issued under', async () => {
+    const seen: Parameters<MyAccessLogService['listMine']>[0][] = []
+    const first = await accessLogApp(accessLog(seen)).request(
+      '/space/v1/access-events?scope_code=body_progress',
+      { headers: AUTH },
+    )
+    const cursor = ((await first.json()) as { page: { next_cursor: string } }).page.next_cursor
+    for (const query of [`cursor=${cursor}`, `cursor=${cursor}&scope_code=health_context`]) {
+      const response = await accessLogApp(accessLog(seen)).request(
+        `/space/v1/access-events?${query}`,
+        { headers: AUTH },
+      )
+      expect(response.status).toBe(400)
+    }
+    expect(seen).toHaveLength(1)
+  })
+
+  test('T-PRV-API-SPACE-21 without a session, or with a page outside the contract, nothing is read', async () => {
+    const seen: Parameters<MyAccessLogService['listMine']>[0][] = []
+    const app = accessLogApp(accessLog(seen))
+    expect((await app.request('/space/v1/access-events')).status).toBe(401)
+    for (const query of ['limit=0', 'limit=101', 'scope_code=gossip', 'cursor=not-a-cursor']) {
+      const response = await app.request(`/space/v1/access-events?${query}`, { headers: AUTH })
+      expect(response.status).toBe(400)
+    }
+    expect(seen).toEqual([])
+  })
+
+  test('T-PRV-API-SPACE-22 a refusal from the database is not an outage', async () => {
+    const refusing: MyAccessLogService = {
+      listMine: async () => {
+        throw Object.assign(new Error('mismatch'), { code: '42501' })
+      },
+    }
+    const response = await accessLogApp(refusing).request('/space/v1/access-events', {
+      headers: AUTH,
+    })
+    expect(response.status).toBe(403)
+  })
+})
+
 describe('where the application serves it', () => {
-  test('T-PRV-API-SPACE-18 OP-PRV-006, OP-PRV-007 and OP-PRV-017 are served as declared', () => {
+  test('T-PRV-API-SPACE-18 OP-PRV-006, OP-PRV-007, OP-PRV-015 and OP-PRV-017 are served as declared', () => {
     process.env.API_PUBLIC_URL = 'https://api.example.test'
     process.env.STUDIO_WEB_URL = 'https://studio.example.test'
     process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
     const declared = allfitV1ContractManifest.operations
       .filter((operation) =>
-        ['OP-PRV-006', 'OP-PRV-007', 'OP-PRV-017'].includes(operation.allfitOperation),
+        ['OP-PRV-006', 'OP-PRV-007', 'OP-PRV-015', 'OP-PRV-017'].includes(
+          operation.allfitOperation,
+        ),
       )
       .map((operation) => `${operation.method} ${operation.path.replaceAll(/\{([^}]+)\}/g, ':$1')}`)
-    expect(declared).toHaveLength(3)
+    expect(declared).toHaveLength(4)
     const application = createApp().routes.map((route) => `${route.method} ${route.path}`)
     expect(declared.filter((route) => !application.includes(route))).toEqual([])
   })

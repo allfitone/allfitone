@@ -926,6 +926,21 @@ describe('OP-EXE-020: the corrections a coach proposed', () => {
     })
   })
 
+  test('T-EXE-PROPOSAL-API-09 Studio says a session is unavailable, never that she hid it (HU-STUDIO-084)', () => {
+    const cancelled = { ...PROPOSED, status: 'cancelled', settled_at: PROPOSED.created_at }
+    assertMatchesContract('ProposedCorrection', {
+      ...cancelled,
+      cancel_reason: 'session_unavailable',
+    })
+    for (const leaked of ['session_hidden', 'session_annulled']) {
+      expect(() =>
+        assertMatchesContract('ProposedCorrection', { ...cancelled, cancel_reason: leaked }),
+      ).toThrow('cancel_reason')
+    }
+    // She, who did it, still reads which.
+    assertMatchesContract('CorrectionCancelReason', 'session_hidden')
+  })
+
   test('T-EXE-PROPOSAL-API-06 a filter, page size or cursor outside the contract never reaches the database', async () => {
     const calls = fresh()
     const routes = app(review(calls))

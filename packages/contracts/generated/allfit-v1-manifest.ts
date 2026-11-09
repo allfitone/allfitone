@@ -663,6 +663,14 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/space/v1/access-events',
+      operationId: 'listMyAccessEvents',
+      allfitOperation: 'OP-PRV-015',
+      responses: ['200', '400', '401', '403', '503'],
+      security: ['bearerAuth'],
+    },
+    {
+      method: 'GET',
       path: '/space/v1/agenda',
       operationId: 'listMyAgenda',
       allfitOperation: 'OP-PLN-016',
@@ -1727,6 +1735,14 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/studio/v1/organizations/{organizationId}/clients/{personId}',
+      operationId: 'getStudioClientCard',
+      allfitOperation: 'OP-REL-019',
+      responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'GET',
       path: '/studio/v1/organizations/{organizationId}/clients/{personId}/body-photos',
       operationId: 'listAuthorizedClientBodyPhotos',
       allfitOperation: 'OP-IDN-059',
@@ -2323,6 +2339,14 @@ export const allfitV1ContractManifest = {
       operationId: 'endStudioSubscription',
       allfitOperation: 'OP-PAY-010',
       responses: ['200', '400', '401', '403', '404', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'GET',
+      path: '/studio/v1/organizations/{organizationId}/today',
+      operationId: 'getStudioToday',
+      allfitOperation: 'OP-REL-020',
+      responses: ['200', '400', '401', '403', '503'],
       security: ['cookieAuth'],
     },
     {

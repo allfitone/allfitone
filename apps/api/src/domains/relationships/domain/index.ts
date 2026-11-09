@@ -76,6 +76,8 @@ export interface DirectoryQuery {
   readonly cursorGroup?: string
   readonly cursorName?: string
   readonly cursorId?: string
+  /** A name to find, spaces collapsed. It matches people only: an invitation has no name. */
+  readonly query?: string
 }
 
 export interface ClientDirectoryDatabase {
@@ -534,4 +536,50 @@ export interface MyRelationshipQuery {
 
 export interface MyRelationshipDatabase {
   listMine(personId: string, query: MyRelationshipQuery): Promise<MyRelationshipPage>
+}
+
+type Schemas = AllfitV1Schemas
+
+/** A category she shares now. Which operations read it is the projection's to say. */
+export type ClientCardSection = Omit<Schemas['StudioClientCardSection'], 'reads'>
+
+/**
+ * OP-REL-019. The card of a client the caller attends, or, for thirty days, why a coach
+ * who attended her no longer does. Shaped as PostgreSQL returns it.
+ */
+export type ClientCard =
+  | (Omit<Schemas['StudioAttendedClientCard'], 'sections'> & {
+      readonly sections: readonly ClientCardSection[]
+    })
+  | Schemas['StudioFormerClientCard']
+
+export interface ClientCardDatabase {
+  readCard(
+    actorPersonId: string,
+    query: { organizationId: string; personId: string },
+  ): Promise<ClientCard>
+}
+
+type Unlinked<T> = Omit<T, 'link'>
+
+/** OP-REL-020. Only the notices the caller's roles resolve; where each resolves is added later. */
+export interface StudioTodayNotices {
+  readonly client_invitations?: Unlinked<Schemas['StudioTodayInvitations']>
+  readonly unassigned_relationships?: Unlinked<Schemas['StudioTodayRelationships']>
+  readonly termination_requests?: Unlinked<Schemas['StudioTodayTerminationRequests']>
+  readonly team_invitations?: Unlinked<Schemas['StudioTodayInvitations']>
+  readonly team?: Unlinked<Schemas['StudioTodayTeam']>
+  readonly new_relationships?: Unlinked<Schemas['StudioTodayRelationships']>
+  readonly training?: Unlinked<Schemas['StudioTodayTraining']>
+}
+
+export type StudioToday = Omit<Schemas['StudioToday'], 'notices'> & {
+  readonly notices: StudioTodayNotices
+}
+
+export interface StudioTodayDatabase {
+  readToday(
+    actorPersonId: string,
+    query: { organizationId: string; requestId: string },
+  ): Promise<StudioToday>
 }
