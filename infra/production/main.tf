@@ -110,7 +110,8 @@ locals {
   ])
 
   # The one address the app sends from; the worker's role can use no other.
-  email_sender = "invites@allfit.one"
+  # It has a mailbox in Google Workspace, so a reply reaches someone.
+  email_sender = "hello@allfit.one"
 
   # RESEND_API_KEY stays until SES has carried production email for two weeks (ADR-049).
   worker_secret_keys = concat(local.shared_secret_keys, [
