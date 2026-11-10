@@ -1,6 +1,6 @@
 /**
  * A person's own profile and identity on /space/v1: `OP-IDN-012`, `OP-IDN-013`,
- * `OP-IDN-063`, `OP-IDN-064`, `OP-IDN-065`.
+ * `OP-IDN-021` (the phone only, ADR-050), `OP-IDN-063`, `OP-IDN-064`, `OP-IDN-065`.
  *
  * `HU-SP-009`, `HU-SP-013`, `HU-SP-023`, `HU-SP-096` criterion 4 and `HU-SP-098`
  * criterion 6. Everything here is about the person the token resolves to, so no route
@@ -21,7 +21,9 @@ import {
   AVAILABLE_EQUIPMENT,
   BIOLOGICAL_SEXES,
   MAX_NAME_LENGTH,
+  MAX_PHONE_LENGTH,
   USERNAME,
+  e164Phone,
   type AvailableEquipmentPiece,
   type SpaceOwnBiologicalSex,
   type SpaceOwnName,
@@ -84,6 +86,12 @@ export function spaceOwnProfileRoutes(
     ),
   )
 
+  routes.patch('/me/contact', (c) =>
+    runCommand(c, verify, ownPhone, (token, command, { phone }) =>
+      own().correctPhone(token, { ...command, phone }),
+    ),
+  )
+
   routes.post('/profile/biological-sex', (c) =>
     runCommand(c, verify, ownBiologicalSex, (token, command, sex) =>
       own().correctBiologicalSex(token, { ...command, sex }),
@@ -136,6 +144,15 @@ function ownName(body: unknown): SpaceOwnName | undefined {
 
 function isName(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '' && value.trim().length <= MAX_NAME_LENGTH
+}
+
+function ownPhone(body: unknown): { phone: string | null } | undefined {
+  const fields = exactObject(body, ['phone'])
+  if (!fields) return undefined
+  if (fields.phone === null) return { phone: null }
+  if (typeof fields.phone !== 'string' || fields.phone.length > MAX_PHONE_LENGTH) return undefined
+  const phone = e164Phone(fields.phone)
+  return phone === undefined ? undefined : { phone }
 }
 
 function ownBiologicalSex(body: unknown): SpaceOwnBiologicalSex | undefined {

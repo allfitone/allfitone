@@ -28,6 +28,11 @@
 -- since `require_space_person`, and never touch the contact email: changing it is
 -- `OP-IDN-021`, with its own verification.
 --
+-- **The phone is a contact value (ADR-050).** V1 sends no SMS, so nothing can verify a
+-- number: she writes it and it is in force at once, unverified. A unique index over every
+-- number would then let anybody write somebody else's and lock its owner out of it, so
+-- only a verified number stays unique.
+--
 -- **What a gym sees grows with the attributes, and the scope says so.** The training
 -- category serves the live claims of every attribute classified `training`, so the three
 -- answers and the equipment reach a coach she already shares her training profile with,
@@ -458,4 +463,73 @@ alter function identity.declare_available_equipment(text, text, text, text[], uu
 revoke all on function identity.declare_available_equipment(text, text, text, text[], uuid, uuid, bytea)
   from public;
 grant execute on function identity.declare_available_equipment(text, text, text, text[], uuid, uuid, bytea)
+  to allfit_api;
+
+-- ---------------------------------------------------------------- my phone (OP-IDN-021, ADR-050)
+
+drop index identity.uidx_people_contact_phone;
+create unique index uidx_people_contact_phone
+  on identity.people (contact_phone)
+  where contact_phone_verified_at is not null;
+
+create function identity.correct_own_phone(
+  p_provider text,
+  p_issuer text,
+  p_subject text,
+  p_phone text,
+  p_idempotency_key uuid,
+  p_command_id uuid,
+  p_request_hash bytea
+)
+returns table (result jsonb, replayed boolean)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  person uuid;
+  receipt record;
+  number text := nullif(regexp_replace(coalesce(p_phone, ''), '[[:space:]().-]', '', 'g'), '');
+begin
+  person := identity.require_space_person(p_provider, p_issuer, p_subject);
+
+  if number is not null and number !~ '^\+[1-9][0-9]{7,14}$' then
+    raise exception 'a phone is E.164: a plus, the country code and the number' using errcode = '22023';
+  end if;
+
+  select * into receipt
+  from system.begin_idempotency(
+    person, 'space'::system.command_surface, 'space',
+    'OP-IDN-021', p_idempotency_key, p_command_id, p_request_hash
+  );
+
+  if receipt.claimed then
+    -- A new number keeps no verification of the old one.
+    update identity.people as owner
+    set contact_phone = number,
+        contact_phone_verified_at = case when owner.contact_phone is not distinct from number
+                                         then owner.contact_phone_verified_at end
+    where owner.id = person;
+
+    perform system.finish_idempotency(
+      receipt.receipt_id, 200::smallint, 'own-phone-corrected', 'person', person
+    );
+  end if;
+
+  return query
+  select jsonb_build_object(
+           'number', owner.contact_phone,
+           'verified', owner.contact_phone_verified_at is not null
+         ),
+         not receipt.claimed
+  from identity.people as owner
+  where owner.id = person;
+end
+$function$;
+
+alter function identity.correct_own_phone(text, text, text, text, uuid, uuid, bytea)
+  owner to allfit_owner;
+revoke all on function identity.correct_own_phone(text, text, text, text, uuid, uuid, bytea)
+  from public;
+grant execute on function identity.correct_own_phone(text, text, text, text, uuid, uuid, bytea)
   to allfit_api;

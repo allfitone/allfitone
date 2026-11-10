@@ -16,6 +16,7 @@ import type {
   SpaceAvailableEquipment,
   SpaceFitnessProfile,
   SpaceIdentity,
+  SpaceContactPhone,
   SpaceOwnBiologicalSex,
   SpaceOwnName,
 } from '../domain/own-profile.js'
@@ -33,6 +34,10 @@ export interface OwnProfileService {
     token: VerifiedToken,
     input: Command & { sex: SpaceOwnBiologicalSex },
   ): Promise<OwnProfileResult<SpaceOwnBiologicalSex>>
+  correctPhone(
+    token: VerifiedToken,
+    input: Command & { phone: string | null },
+  ): Promise<OwnProfileResult<SpaceContactPhone>>
   declareEquipment(
     token: VerifiedToken,
     input: Command & { equipment: AvailableEquipmentPiece[] },
@@ -57,6 +62,8 @@ export function createOwnProfileService(dependencies: {
       dependencies.database.correctName({ ...holder(token), ...input }),
     correctBiologicalSex: (token, input) =>
       dependencies.database.correctBiologicalSex({ ...holder(token), ...input }),
+    correctPhone: (token, input) =>
+      dependencies.database.correctPhone({ ...holder(token), ...input }),
     declareEquipment: (token, input) =>
       dependencies.database.declareEquipment({ ...holder(token), ...input }),
   }

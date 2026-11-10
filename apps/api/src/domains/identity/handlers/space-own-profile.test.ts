@@ -9,7 +9,14 @@ import { spaceOwnProfileRoutes } from './space-own-profile.js'
 
 const COMMAND_ID = '019f4000-0000-7000-8000-000000000501'
 const IDEMPOTENCY_KEY = 'a1000000-0000-4000-8000-000000000001'
-const OPERATIONS = ['OP-IDN-012', 'OP-IDN-013', 'OP-IDN-063', 'OP-IDN-064', 'OP-IDN-065']
+const OPERATIONS = [
+  'OP-IDN-012',
+  'OP-IDN-013',
+  'OP-IDN-021',
+  'OP-IDN-063',
+  'OP-IDN-064',
+  'OP-IDN-065',
+]
 
 const identity: AllfitV1Schemas['SpaceIdentity'] = {
   given_name: 'Camila',
@@ -66,6 +73,13 @@ function ownProfileService(overrides: Partial<OwnProfileService> = {}): OwnProfi
       captured.push({ operation: 'correctBiologicalSex', token: verifiedToken, input })
       return Promise.resolve({ resource: input.sex, replayed: false })
     },
+    correctPhone: (verifiedToken, input) => {
+      captured.push({ operation: 'correctPhone', token: verifiedToken, input })
+      return Promise.resolve({
+        resource: { number: input.phone, verified: false },
+        replayed: false,
+      })
+    },
     declareEquipment: (verifiedToken, input) => {
       captured.push({ operation: 'declareEquipment', token: verifiedToken, input })
       return Promise.resolve({
@@ -105,9 +119,14 @@ function request(
   })
 }
 
-function command(path: string, body: unknown, headers: Record<string, string> = {}): Request {
+function command(
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+  method = 'POST',
+): Request {
   return request(path, {
-    method: 'POST',
+    method,
     headers: {
       'idempotency-key': IDEMPOTENCY_KEY,
       'command-id': COMMAND_ID,
@@ -130,7 +149,7 @@ beforeEach(() => {
 })
 
 describe('Space own profile API contract', () => {
-  test('T-IDN-OWNPROFILE-API-01 mounts the two reads and three commands of the contract', () => {
+  test('T-IDN-OWNPROFILE-API-01 mounts the two reads and four commands of the contract', () => {
     const contract = allfitV1ContractManifest.operations
       .filter((operation) => OPERATIONS.includes(operation.allfitOperation))
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
@@ -140,7 +159,7 @@ describe('Space own profile API contract', () => {
       .map((route) => `${route.method} /space/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(5)
+    expect(contract).toHaveLength(6)
     expect(mounted).toEqual(contract)
   })
 
@@ -153,6 +172,7 @@ describe('Space own profile API contract', () => {
 
     expect(mounted).toContain('GET /space/v1/me')
     expect(mounted).toContain('POST /space/v1/me/name')
+    expect(mounted).toContain('PATCH /space/v1/me/contact')
     expect(mounted).toContain('GET /space/v1/profile')
     expect(mounted).toContain('POST /space/v1/profile/biological-sex')
     expect(mounted).toContain('POST /space/v1/profile/equipment')
@@ -340,6 +360,38 @@ describe('Space own profile API contract', () => {
     ])
 
     expect(answers.map((response) => response.status)).toEqual([401, 401, 401])
+    expect(captured).toEqual([])
+  })
+
+  test('T-IDN-OWNPROFILE-API-13 saves the phone as typed in E.164, and null removes it', async () => {
+    const saved = await routes().fetch(
+      command('/me/contact', { phone: '+57 300 111-2233' }, {}, 'PATCH'),
+    )
+    const removed = await routes().fetch(command('/me/contact', { phone: null }, {}, 'PATCH'))
+
+    expect([saved.status, removed.status]).toEqual([200, 200])
+    await expect(saved.json()).resolves.toEqual({ number: '+573001112233', verified: false })
+    await expect(removed.json()).resolves.toEqual({ number: null, verified: false })
+    expect(captured.map(({ input }) => input)).toMatchObject([
+      { idempotencyKey: IDEMPOTENCY_KEY, commandId: COMMAND_ID, phone: '+573001112233' },
+      { phone: null },
+    ])
+  })
+
+  test('T-IDN-OWNPROFILE-API-14 refuses a phone the database would refuse anyway', async () => {
+    const bodies: unknown[] = [
+      { phone: '3001112233' },
+      { phone: '+0123' },
+      { phone: 573001112233 },
+      { phone: '+57'.padEnd(40, '1') },
+      { phone: '+573001112233', email: 'camila@example.test' },
+      {},
+    ]
+    const answers = await Promise.all(
+      bodies.map((body) => routes().fetch(command('/me/contact', body, {}, 'PATCH'))),
+    )
+
+    expect(answers.map((response) => response.status)).toEqual(bodies.map(() => 422))
     expect(captured).toEqual([])
   })
 })

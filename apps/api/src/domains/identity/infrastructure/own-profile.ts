@@ -16,6 +16,7 @@ import type {
   SpaceAvailableEquipment,
   SpaceFitnessProfile,
   SpaceIdentity,
+  SpaceContactPhone,
   SpaceOwnBiologicalSex,
   SpaceOwnName,
 } from '../domain/own-profile.js'
@@ -56,6 +57,17 @@ export function createOwnProfileDatabase(): OwnProfileDatabase {
           )
         `
         return result(rows, 'correct the name')
+      }),
+
+    correctPhone: (input) =>
+      withinRequest(sql, input.requestId, async (transaction) => {
+        const rows = await transaction<CommandRow<SpaceContactPhone>[]>`
+          select * from identity.correct_own_phone(
+            ${PROVIDER}, ${input.issuer}, ${input.subject}, ${input.phone}::text,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return result(rows, 'correct the phone')
       }),
 
     correctBiologicalSex: (input) =>

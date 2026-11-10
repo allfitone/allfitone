@@ -11,7 +11,7 @@
 
 begin;
 
-select plan(46);
+select plan(57);
 
 insert into identity.people (
   id, given_name, family_name, username, contact_email, contact_email_verified_at, contact_phone,
@@ -476,6 +476,93 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- Correcting my phone (ADR-050: a contact value, never verified in V1)
+-- ---------------------------------------------------------------------------
+
+create function pg_temp.phone(
+  p_subject text, p_phone text,
+  p_key uuid default gen_random_uuid(),
+  p_command uuid default extensions.uuid_generate_v7(),
+  p_hash bytea default extensions.gen_random_bytes(32)
+) returns table (result jsonb, replayed boolean)
+language sql as $fn$
+  select * from identity.correct_own_phone(
+    'workos', 'https://issuer.test', p_subject, p_phone, p_key, p_command, p_hash
+  )
+$fn$;
+
+select results_eq(
+  $$ select result, replayed from pg_temp.phone('own_profile', ' +57 300 111-2233 ',
+       'a6000000-0000-4000-8000-000000000001', '019f4000-0000-7000-8000-000000000601',
+       decode(repeat('b1', 32), 'hex')) $$,
+  $$ values (jsonb_build_object('number', '+573001112233', 'verified', false), false) $$,
+  'she saves her phone in E.164, without spaces or dashes, and it is unverified'
+);
+
+select results_eq(
+  $$ select contact_phone, contact_phone_verified_at from identity.people
+     where id = '019f4000-0000-7000-8000-000000000001' $$,
+  $$ values ('+573001112233'::text, null::timestamptz) $$,
+  'it is in force at once, with no challenge'
+);
+
+select results_eq(
+  $$ select result->>'number', replayed from pg_temp.phone('own_profile', '+573001112233',
+       'a6000000-0000-4000-8000-000000000001', '019f4000-0000-7000-8000-000000000601',
+       decode(repeat('b1', 32), 'hex')) $$,
+  $$ values ('+573001112233'::text, true) $$,
+  'a retried save replays instead of writing twice'
+);
+
+select throws_ok(
+  $$ select * from pg_temp.phone('own_profile', '3001112233') $$,
+  '22023', null,
+  'a number without its country code is refused'
+);
+
+select throws_ok(
+  $$ select * from pg_temp.phone('own_profile', '+0123') $$,
+  '22023', null,
+  'and so is one that is not E.164'
+);
+
+select lives_ok(
+  $$ select * from pg_temp.phone('other_profile', '+573001112233') $$,
+  'two people can hold the same unverified number: it proves nothing'
+);
+
+select lives_ok(
+  $$ update identity.people set contact_phone_verified_at = now()
+     where id = '019f4000-0000-7000-8000-000000000001' $$,
+  'one of them can hold it verified'
+);
+
+select throws_ok(
+  $$ update identity.people set contact_phone_verified_at = now()
+     where id = '019f4000-0000-7000-8000-000000000002' $$,
+  '23505', null,
+  'but a verified number stays unique'
+);
+
+select is(
+  (select result from pg_temp.phone('own_profile', '+573109998877')),
+  jsonb_build_object('number', '+573109998877', 'verified', false),
+  'a new number drops the verification of the old one'
+);
+
+select is(
+  (select result from pg_temp.phone('own_profile', null)),
+  jsonb_build_object('number', null, 'verified', false),
+  'an empty phone removes it'
+);
+
+select throws_ok(
+  $$ select * from pg_temp.phone('pending_profile', '+573001112233') $$,
+  '42501', null,
+  'a Fitness ID still in onboarding has no phone to correct here'
+);
+
+-- ---------------------------------------------------------------------------
 -- The runtime role
 -- ---------------------------------------------------------------------------
 
@@ -489,8 +576,10 @@ select ok(
   and has_function_privilege('allfit_api',
     'identity.correct_own_biological_sex(text, text, text, text, uuid, uuid, bytea)', 'execute')
   and has_function_privilege('allfit_api',
-    'identity.declare_available_equipment(text, text, text, text[], uuid, uuid, bytea)', 'execute'),
-  'the API runs the five functions'
+    'identity.declare_available_equipment(text, text, text, text[], uuid, uuid, bytea)', 'execute')
+  and has_function_privilege('allfit_api',
+    'identity.correct_own_phone(text, text, text, text, uuid, uuid, bytea)', 'execute'),
+  'the API runs the six functions'
 );
 
 select ok(
