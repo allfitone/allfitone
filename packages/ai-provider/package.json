@@ -1,0 +1,28 @@
+{
+  "name": "@allfitone/ai-provider",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Port and adapters that ask a model for an answer of a known shape",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1145.0",
+    "@smithy/node-http-handler": "4.12.1",
+    "ai": "7.0.127",
+    "zod": "4.6.5"
+  }
+}

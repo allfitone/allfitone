@@ -11,6 +11,6 @@ export {
   type Recognition,
   type RecognitionFailure,
 } from './port.js'
-export { createGatewayRecognizer, type GatewaySettings } from './adapters/gateway.js'
+export { createFoodRecognizer, type RecognizerSettings } from './recognizer.js'
 export { createMemoryRecognizer, type MemoryRecognizer } from './adapters/memory.js'
 export { createFoodRecognizerFromEnv, DEFAULT_MODEL } from './factory.js'
