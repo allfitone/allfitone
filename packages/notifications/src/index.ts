@@ -3,6 +3,7 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { escapeHtml, invitationEmailHtml } from './email-shell.js'
 
 export type { EmailLanguage } from './email-shell.js'
+export { EMAIL_FILES, emailBrandAssetUrl } from './email-shell.js'
 export {
   renderWaitlistConfirmationEmail,
   renderWaitlistLinkEmail,
