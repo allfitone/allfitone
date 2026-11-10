@@ -205,8 +205,9 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
           <ProfileRow
             icon="person"
             title="Perfil fitness"
-            caption="Objetivo, experiencia y medidas"
-            end="soon"
+            caption="Objetivo, cómo entrenas y con qué"
+            end="open"
+            onPress={() => router.push('/me/fitness')}
           />
           <ProfileRow
             icon="heart"
@@ -298,16 +299,10 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
           <ProfileRow
             icon="person"
             title="Identidad y acceso"
-            caption="Tu Fitness ID y cómo entras"
-            end="soon"
+            caption="Fitness ID, correo, teléfono y contraseña"
+            end="open"
+            onPress={() => router.push('/me/identity')}
           />
-          <ProfileRow
-            icon="info"
-            title="Correo y teléfono"
-            caption="Cómo te contactamos"
-            end="soon"
-          />
-          <ProfileRow icon="locked" title="Contraseña" end="soon" />
           <ProfileRow
             icon="notification"
             title="Avisos"
