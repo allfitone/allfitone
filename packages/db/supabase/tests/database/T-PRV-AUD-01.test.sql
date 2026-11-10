@@ -24,7 +24,7 @@
 
 begin;
 
-select plan(21);
+select plan(20);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -107,9 +107,9 @@ select support.assign_platform_role(
 
 -- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
-  $$ select * from privacy.list_access_events(
+  $$ select * from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000008', '019a9000-0000-7000-8000-000000000028',
-    null, null, null, null, 50
+    null, null, null, null, 50, null, null
   ) $$,
   '42501',
   null,
@@ -179,9 +179,9 @@ insert into privacy.access_events (
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, null, null, 50
+    null, null, null, null, 50, null, null
   )),
   2,
   'the auditor reads the log'
@@ -193,9 +193,9 @@ select ok(
      and row.resource = 'support.person_operational_state'
      and row.result = 'allowed'
      and row.occurred_at is not null
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     '019a9000-0000-7000-8000-000000000004', null, null, null, 50
+     '019a9000-0000-7000-8000-000000000004', null, null, null, 50, null, null
    ) as row),
   'each row says who accessed, what resource, about whom and when'
 );
@@ -210,11 +210,19 @@ select is(
   (select pg_get_function_result(p.oid)
    from pg_proc as p
    join pg_namespace as n on n.oid = p.pronamespace
-   where n.nspname = 'privacy' and p.proname = 'list_access_events'),
-  'TABLE(actor_person_id uuid, subject_person_id uuid, resource text, resource_id uuid,'
+   where n.nspname = 'privacy' and p.proname = 'page_access_events'),
+  'TABLE(access_event_id uuid, actor_person_id uuid, subject_person_id uuid, resource text,'
+    || ' resource_id uuid,'
     || ' purpose text, result text, scope_code text, scope_version integer,'
     || ' access_mode privacy.access_mode, occurred_at timestamp with time zone)',
   'the projection carries the record of the access and nothing that was read'
+);
+
+-- The unpaged read the API stopped calling in `20261104100400` is gone, so no second
+-- door to the log stays open beside the one that is maintained.
+select hasnt_function(
+  'privacy', 'list_access_events',
+  'the old unpaged read of the log no longer exists'
 );
 
 -- ---------------------------------------------------------------------------
@@ -222,46 +230,46 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    '019a9000-0000-7000-8000-000000000005', null, null, null, 50
+    '019a9000-0000-7000-8000-000000000005', null, null, null, 50, null, null
   )),
   1,
   'filtering by team member narrows the log'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, '019a9000-0000-7000-8000-000000000006', null, null, 50
+    null, '019a9000-0000-7000-8000-000000000006', null, null, 50, null, null
   )),
   1,
   'filtering by affected person narrows the log'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, clock_timestamp() - interval '2 hours', null, 50
+    null, null, clock_timestamp() - interval '2 hours', null, 50, null, null
   )),
   1,
   'filtering by date narrows the log'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
     '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000007',
-    null, null, 50
+    null, null, 50, null, null
   )),
   0,
   'the filters combine rather than widening each other'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, null, null, 1
+    null, null, null, null, 1, null, null
   )),
   1,
   'the page size is the caller-supplied limit, applied in the database'
@@ -337,9 +345,9 @@ select support.exercise_break_glass(
 
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
    where row.access_mode = 'break_glass'),
   1,
@@ -348,9 +356,9 @@ select is(
 
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
    where row.actor_person_id = '019a9000-0000-7000-8000-000000000003'),
   0,
@@ -369,9 +377,9 @@ select is(
 -- The case that matters most: filtered down to only their own window, the list is
 -- empty. Without the count they would read that as "nobody touched this person".
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     '019a9000-0000-7000-8000-000000000003', null, null, null, 50
+     '019a9000-0000-7000-8000-000000000003', null, null, null, 50, null, null
    ))
     + privacy.count_withheld_access_events(
       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
@@ -384,9 +392,9 @@ select is(
 -- The approver is disqualified from the case they approved, and only that one.
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
    where row.access_mode = 'break_glass'
      and row.actor_person_id = '019a9000-0000-7000-8000-000000000004'),
@@ -396,9 +404,9 @@ select is(
 
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
    where row.access_mode = 'break_glass'
      and row.actor_person_id = '019a9000-0000-7000-8000-000000000003'),
@@ -406,35 +414,6 @@ select is(
   'and stays an auditor of the window nobody approved'
 );
 
--- The paged read (HU-BO-030) is the read the API serves now. It must withhold exactly
--- what the list withholds, so it is compared row for row for both disqualified auditors.
-select results_eq(
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.page_access_events(
-       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-       null, null, null, null, 200, null, null
-     ) $$,
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.list_access_events(
-       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-       null, null, null, null, 200
-     ) $$,
-  'the paged log withholds the requester''s own window exactly as the list does'
-);
-
-select results_eq(
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.page_access_events(
-       '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-       null, null, null, null, 200, null, null
-     ) $$,
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.list_access_events(
-       '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-       null, null, null, null, 200
-     ) $$,
-  'and the approver''s, row for row'
-);
 
 -- ---------------------------------------------------------------------------
 -- Criterion 4 — the log cannot be edited or deleted, by anyone
@@ -463,7 +442,7 @@ select throws_ok(
 select ok(
   has_function_privilege(
     'allfit_api',
-    'privacy.list_access_events(uuid,uuid,uuid,uuid,timestamptz,timestamptz,integer)',
+    'privacy.page_access_events(uuid,uuid,uuid,uuid,timestamptz,timestamptz,integer,timestamptz,uuid)',
     'EXECUTE'
   )
     and has_function_privilege(
