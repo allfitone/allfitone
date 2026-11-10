@@ -376,7 +376,20 @@ export function BreakGlassWindows() {
                 <TableCell data-break-glass-moment>{meal.when}</TableCell>
                 <TableCell>{meal.type}</TableCell>
                 <TableCell data-break-glass-meal>{meal.eaten}</TableCell>
-                <TableCell data-break-glass-meal>{meal.totals}</TableCell>
+                <TableCell data-break-glass-meal>
+                  {meal.totals}
+                  {/* HU-BO-009: every nutrient it recorded, not only the summary. */}
+                  {meal.nutrients.length > 0 ? (
+                    <details data-break-glass-meal-nutrients>
+                      <summary>Ver los {meal.nutrients.length} nutrientes</summary>
+                      <ul>
+                        {meal.nutrients.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </TableCell>
                 <TableCell data-break-glass-meal>{meal.note}</TableCell>
                 <TableCell data-break-glass-origin>{meal.photo}</TableCell>
               </TableRow>

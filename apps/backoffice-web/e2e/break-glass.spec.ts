@@ -459,6 +459,7 @@ test('an authorised read of nutrition intake shows what the person ate and what 
               nutrients: [
                 { nutrient_code: 'energy', value: 195, unit: 'kcal' },
                 { nutrient_code: 'carbohydrates', value: 42, unit: 'g' },
+                { nutrient_code: 'sodium', value: 410, unit: 'mg' },
               ],
             },
           ],
@@ -484,6 +485,9 @@ test('an authorised read of nutrition intake shows what the person ate and what 
   await expect(dinner).toContainText('Con poca sal')
   await expect(dinner).toContainText('Tiene foto; no se muestra aquí')
   await expect(meals.getByRole('img')).toHaveCount(0)
+  // HU-BO-009: beyond the summary, every nutrient it recorded, sodium included.
+  await dinner.getByText('Ver los 4 nutrientes').click()
+  await expect(dinner.locator('[data-break-glass-meal-nutrients]')).toContainText('Sodio: 410 mg')
   const region = page.getByRole('region', { name: 'Comidas de la persona' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
 

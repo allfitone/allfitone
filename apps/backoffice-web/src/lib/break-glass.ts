@@ -19,6 +19,7 @@
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+import { nutrientValue } from '@allfitone/contracts/nutrients'
 
 export type BreakGlassRequest = AllfitV1Schemas['BreakGlassRequest']
 export type BreakGlassCategory = AllfitV1Schemas['BreakGlassCategory']
@@ -446,12 +447,55 @@ const NUTRIENT_TOTALS: readonly [NutrientCode, string][] = [
   ['water', 'ml de agua'],
 ]
 
+/**
+ * HU-BO-009: every nutrient a meal can carry, by name, in the catalogue's order. A copy
+ * of Space's names on purpose: an app never imports another, and Space speaks to her
+ * while this speaks about her, so the two may diverge. Exhaustive by type.
+ */
+const NUTRIENT_NAMES: Readonly<Record<NutrientCode, string>> = {
+  energy: 'Energía',
+  protein: 'Proteína',
+  carbohydrates: 'Carbohidratos',
+  fat: 'Grasa',
+  fiber: 'Fibra',
+  water: 'Agua',
+  saturated_fat: 'Grasas saturadas',
+  trans_fat: 'Grasas trans',
+  cholesterol: 'Colesterol',
+  sodium: 'Sodio',
+  sugars: 'Azúcares',
+  vitamin_a: 'Vitamina A',
+  vitamin_c: 'Vitamina C',
+  vitamin_d: 'Vitamina D',
+  vitamin_e: 'Vitamina E',
+  vitamin_k: 'Vitamina K',
+  thiamin: 'Vitamina B1',
+  riboflavin: 'Vitamina B2',
+  niacin: 'Vitamina B3',
+  pantothenic_acid: 'Vitamina B5',
+  vitamin_b6: 'Vitamina B6',
+  vitamin_b12: 'Vitamina B12',
+  folate: 'Folato',
+  calcium: 'Calcio',
+  iron: 'Hierro',
+  magnesium: 'Magnesio',
+  phosphorus: 'Fósforo',
+  potassium: 'Potasio',
+  zinc: 'Zinc',
+  selenium: 'Selenio',
+  copper: 'Cobre',
+}
+
+const NUTRIENT_ORDER = Object.keys(NUTRIENT_NAMES) as NutrientCode[]
+
 export interface MealRow {
   id: string
   when: string
   type: string
   eaten: string
   totals: string
+  /** HU-BO-009: every nutrient the meal recorded, summed, by name and in its unit. */
+  nutrients: string[]
   note: string
   photo: string
 }
@@ -484,6 +528,10 @@ export function mealRows(outcome: BreakGlassExerciseOutcome): MealRow[] {
         )
         .join(' · '),
       totals: totals.length > 0 ? totals.join(' · ') : 'Sin valores registrados',
+      nutrients: NUTRIENT_ORDER.filter((code) => sums.has(code)).map(
+        (code) =>
+          `${NUTRIENT_NAMES[code]}: ${amount(sums.get(code) ?? 0)} ${nutrientValue(code, 0).unit}`,
+      ),
       note: meal.note ?? 'Sin nota',
       photo: meal.has_media ? 'Tiene foto; no se muestra aquí' : 'Sin foto',
     }

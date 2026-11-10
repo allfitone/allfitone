@@ -464,6 +464,63 @@ describe('break-glass presentation rules', () => {
     expect(healthContextRows(allowed)).toEqual([])
   })
 
+  test('a meal lists every nutrient it recorded, not only the six of its summary (HU-BO-009)', () => {
+    const outcome: BreakGlassExerciseOutcome = {
+      outcome: 'allowed',
+      reason_code: 'authorized_exercise',
+      break_glass_event_id: '019a8000-0000-7000-8000-000000000606',
+      occurred_at: '2026-09-10T18:09:00.000Z',
+      category: 'nutrition_intake',
+      content: {
+        nutrition_intake: [
+          {
+            id: '019a8000-0000-7000-8000-000000000903',
+            occurred_at: '2026-09-15T23:30:00+00:00',
+            local_date: '2026-09-15',
+            timezone: 'America/Bogota',
+            meal_type: 'lunch',
+            note: null,
+            revision_number: 0,
+            has_media: false,
+            items: [
+              {
+                position: 1,
+                name: 'Lentejas',
+                quantity: 200,
+                quantity_unit: 'g',
+                nutrients: [
+                  { nutrient_code: 'iron', value: 3.3, unit: 'mg' },
+                  { nutrient_code: 'energy', value: 230, unit: 'kcal' },
+                  { nutrient_code: 'folate', value: 181, unit: 'mcg' },
+                ],
+              },
+              {
+                position: 2,
+                name: 'Naranja',
+                quantity: 1,
+                quantity_unit: 'unit',
+                nutrients: [
+                  { nutrient_code: 'vitamin_c', value: 70, unit: 'mg' },
+                  { nutrient_code: 'energy', value: 62, unit: 'kcal' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    const [lunch] = mealRows(outcome)
+    // In the catalogue's order, each summed across the items and in its own unit.
+    expect(lunch?.nutrients).toEqual([
+      'Energía: 292 kcal',
+      'Vitamina C: 70 mg',
+      'Folato: 181 mcg',
+      'Hierro: 3,3 mg',
+    ])
+    expect(lunch?.totals).toBe('292 kcal')
+  })
+
   test('shows a session as when it was trained, how long it lasted and what it held', () => {
     const allowed: BreakGlassExerciseOutcome = {
       outcome: 'allowed',
