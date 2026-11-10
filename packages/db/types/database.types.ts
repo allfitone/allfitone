@@ -2847,6 +2847,21 @@ export type Database = {
           result: Json
         }[]
       }
+      correct_own_phone: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_phone: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       create_access_session: {
         Args: {
           p_access_account_id: string
