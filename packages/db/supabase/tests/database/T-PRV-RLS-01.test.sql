@@ -5,8 +5,8 @@
 -- is not a check at publish time — it is the consequence of a grant pointing at
 -- one specific, frozen version. What this test can prove is the half that makes
 -- it possible: versions are independently addressable and a published one can
--- never be rewritten. `privacy.data_grants` does not exist yet, so the other
--- half — an existing grant keeping its old version — waits for that slice.
+-- never be rewritten. The other half — an existing grant keeping its old version,
+-- with a real consent — is `T-PRV-SCOPE-WIDER-01`.
 
 begin;
 
