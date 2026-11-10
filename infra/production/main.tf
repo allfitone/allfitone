@@ -114,10 +114,13 @@ locals {
   email_sender = "hello@allfit.one"
 
   # RESEND_API_KEY stays until SES has carried production email for two weeks (ADR-049).
+  # The store keys are the API's: the worker removes the photos the API could not (HU-BO-033).
   worker_secret_keys = concat(local.shared_secret_keys, [
     "CRON_SECRET", "RESEND_API_KEY",
     "STAFF_INVITATION_DELIVERY_ENABLED", "STAFF_INVITATION_PUBLIC_BASE_URL",
     "CLIENT_INVITATION_DELIVERY_ENABLED", "ACCOUNT_RECOVERY_DELIVERY_ENABLED",
+    "OBJECT_STORE_BUCKET", "OBJECT_STORE_REGION", "OBJECT_STORE_ENDPOINT",
+    "OBJECT_STORE_ACCESS_KEY_ID", "OBJECT_STORE_SECRET_ACCESS_KEY", "OBJECT_STORE_KMS_KEY_ID",
   ])
 
   # Above the load balancer's 60 s idle timeout, so the app never closes a
