@@ -1266,10 +1266,28 @@ function defaultResponse(
     request.method === 'GET' &&
     /^\/studio\/v1\/organizations\/[^/]+\/clients$/.test(request.path)
   ) {
-    const status = new URLSearchParams(request.search).get('status')
+    const params = new URLSearchParams(request.search)
+    const status = params.get('status')
+    /*
+     * The search mirrors the route rather than being convenient: up to 200
+     * characters raw, 2 to 80 once surrounding and repeated spaces are gone,
+     * and refused together with `invited` because an unanswered invitation has
+     * no name to match. `%` and `_` are characters here as they are there.
+     */
+    const rawSearch = params.get('q')
+    let search: string | undefined
+    if (rawSearch !== null) {
+      if (rawSearch.length > 200) return { status: 422, body: error('validation-failed') }
+      const normalized = rawSearch.trim().replace(/\s+/gu, ' ')
+      if (normalized.length < 2 || normalized.length > 80) {
+        return { status: 422, body: error('validation-failed') }
+      }
+      if (status === 'invited') return { status: 422, body: error('validation-failed') }
+      search = normalized
+    }
     // The filter is one value over two kinds of row: `invited` selects the
     // invitations, the other two select relationships by their own state.
-    const data = status
+    const filtered = status
       ? fixture.organizationClients.filter((entry) => {
           if (typeof entry !== 'object' || entry === null || !('kind' in entry)) return false
           if (status === 'invited') return entry.kind === 'invitation'
@@ -1280,6 +1298,18 @@ function defaultResponse(
           )
         })
       : fixture.organizationClients
+    // Names only, accents and case ignored — so a search never reaches an
+    // invitation, which is what makes the `invited` refusal above consistent.
+    const data = search
+      ? filtered.filter(
+          (entry) =>
+            typeof entry === 'object' &&
+            entry !== null &&
+            'display_name' in entry &&
+            typeof entry.display_name === 'string' &&
+            foldForSearch(entry.display_name).includes(foldForSearch(search)),
+        )
+      : filtered
     return {
       status: 200,
       body: {
@@ -2178,6 +2208,18 @@ function objectValue(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+}
+
+/**
+ * What the directory search compares: lower case with the accents stripped, so
+ * «Belén» is found by «belen» and by «BELEN». The route folds in PostgreSQL;
+ * this is the same rule written where the simulator can apply it.
+ */
+function foldForSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('es-CO')
 }
 
 export function error(code: string, detail?: string): { error: { code: string; detail?: string } } {

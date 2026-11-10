@@ -336,11 +336,18 @@ export const studioApi = {
 
   organizationClients: (
     organizationId: string,
-    options: { status?: ClientDirectoryGroup; limit?: number; cursor?: string } = {},
+    options: {
+      status?: ClientDirectoryGroup
+      limit?: number
+      cursor?: string
+      search?: string
+    } = {},
     signal?: AbortSignal,
   ) => {
     const query = new URLSearchParams()
     if (options.status) query.set('status', options.status)
+    // `q` on the wire, because that is what the route reads.
+    if (options.search) query.set('q', options.search)
     if (options.limit) query.set('limit', String(options.limit))
     if (options.cursor) query.set('cursor', options.cursor)
     const suffix = query.size ? `?${query.toString()}` : ''
