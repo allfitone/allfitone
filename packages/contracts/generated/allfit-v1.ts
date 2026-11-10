@@ -603,7 +603,7 @@ export interface paths {
     /**
      * Read a gym's file
      * @description `HU-BO-013`: its data, its owner, its sites and its team. Ordinary support reads identifiers, states, dates and counters, so the owner and the team are person identifiers with their roles, never names or contacts, and the responsible party of an independent professional is never named.
-     *     Every active member the file returns is recorded in the access log before the file is returned. A natural person's site address is withheld, because it can be their home. People served, plans, the payment method and Premium have no tables yet and say `not_modelled` instead of an answer.
+     *     Every active member the file returns is recorded in the access log before the file is returned. A natural person's site address is withheld, because it can be their home. People served, its plans and their subscribers, whether its payment method is connected (never a credential), its guest quota and whether it gives Pro to the people it serves are answered from relationships, payments and the quota, each as the platform holds it today.
      */
     get: operations['readBackofficeOrganizationFile']
     put?: never
@@ -889,7 +889,7 @@ export interface paths {
     /**
      * Exercise an approved break-glass window
      * @description Only the exact requester exercises. Every attempt, allowed or denied, writes evidence before anything is returned — a denial is an answer with a recorded reason, not an error, because the record of a refused attempt is the point.
-     *     The content projection is not available in this version: `execution` and `nutrition` do not exist yet, so an authorised exercise answers `content_unavailable` rather than inventing data.
+     *     An authorised exercise answers the content of its category: measurements and the days with body photos (never a photo), health context, meals, or training with its agenda and the sessions she hid from a gym. A category whose data the platform does not store answers `content_unavailable` rather than inventing data.
      */
     post: operations['exerciseBackofficeBreakGlass']
     delete?: never
@@ -5168,7 +5168,7 @@ export interface paths {
     }
     /**
      * Read how the business is going
-     * @description Counts of people, gyms and money, each one carrying the period it was measured over. A figure the platform cannot compute is `not_modelled` with no value and a reason, never zero: payments have no tables yet, and Space keeps no session, so "people active this week" has no signal at all.
+     * @description Counts of people, gyms and money, each one carrying the period it was measured over. A figure the platform cannot compute is `not_modelled` with no value and a reason, never zero. Every figure is computed today: people active this week are the people who trained this week, and the money is what the stores reported as collected.
      *     A count of people below `minimum_aggregate` is `below_threshold` with no value, so no figure narrows the platform down to somebody. A true zero is published, because it singles nobody out. Nothing here names a person, so reading it records no access, and no figure leads to one.
      *     Requires `view_platform_metrics`.
      */
