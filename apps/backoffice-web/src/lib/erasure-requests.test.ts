@@ -77,6 +77,35 @@ describe('erasure request presentation rules', () => {
     expect(urgencyOf(closed, NOW)).toBe('resolved')
   })
 
+  test('a request whose only remainder is held by a legal obligation is waiting, not late', () => {
+    // HU-BO-033: the hold keeps it on purpose, so the thirty days are not the team's to miss.
+    const held = request({
+      due_at: '2026-09-01T12:00:00.000Z',
+      pending_items: 0,
+      suspended_items: 1,
+    })
+    expect(urgencyOf(held, NOW)).toBe('held')
+
+    const [row] = requestRows({ items: [held], has_more: false }, NOW)
+    expect(row?.urgencyLabel).toBe('En espera legal')
+    expect(row?.missing).toBe('1 categoría en espera por una obligación legal')
+
+    // Something still owed beside the held part keeps the clock running.
+    expect(urgencyOf({ ...held, pending_items: 1 }, NOW)).toBe('overdue')
+  })
+
+  test('the summary counts a held request as waiting, never as past the thirty days', () => {
+    const held = request({
+      id: 'held',
+      due_at: '2026-09-01T12:00:00.000Z',
+      pending_items: 0,
+      suspended_items: 1,
+    })
+    expect(panelSummary({ items: [held], has_more: false }, 'open', NOW)).toBe(
+      '1 solicitud abierta, 1 en espera por una obligación legal.',
+    )
+  })
+
   test('each row says who asked, since when, and what is still owed', () => {
     const [row] = requestRows({ items: [request()], has_more: false }, NOW)
 
