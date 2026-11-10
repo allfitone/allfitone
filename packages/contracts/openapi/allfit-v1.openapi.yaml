@@ -3323,6 +3323,57 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /space/v1/me/contact:
+    patch:
+      tags: [Space Identity]
+      operationId: correctSpaceContact
+      x-allfit-operation: OP-IDN-021
+      x-allfit-cache: no-store
+      summary: Correct my contact phone
+      description: >-
+        HU-SP-076, the phone half (ADR-050). V1 sends no SMS, so the phone is a contact
+        value: it is saved in E.164 at once and unverified, and `null` removes it.
+        Spaces, dashes and parentheses are dropped before checking. Only a verified
+        number is unique, so a number somebody else holds unverified is accepted. The
+        email half, with its verification, is not part of this contract yet.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceContactCorrection'
+      responses:
+        '200':
+          description: The phone in force after the command
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceContactPhone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /space/v1/profile:
     get:
       tags: [Space Identity]
@@ -21025,15 +21076,7 @@ components:
             verified:
               type: boolean
         phone:
-          type: object
-          additionalProperties: false
-          required: [number, verified]
-          description: The contact phone, as she gave it; only she reads it unmasked.
-          properties:
-            number:
-              type: [string, 'null']
-            verified:
-              type: boolean
+          $ref: '#/components/schemas/SpaceContactPhone'
         accounts:
           type: array
           items:
@@ -21047,6 +21090,27 @@ components:
                 type: string
                 format: date-time
           description: How the person signs in, by provider and link date; never the provider's subject.
+    SpaceContactPhone:
+      type: object
+      additionalProperties: false
+      required: [number, verified]
+      description: >-
+        The contact phone, as she gave it; only she reads it unmasked. In V1 it is
+        never verified (ADR-050).
+      properties:
+        number:
+          type: [string, 'null']
+        verified:
+          type: boolean
+    SpaceContactCorrection:
+      type: object
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone:
+          type: [string, 'null']
+          maxLength: 32
+          description: E.164 once spaces, dashes and parentheses are dropped; null removes it.
     SpaceOwnName:
       type: object
       additionalProperties: false

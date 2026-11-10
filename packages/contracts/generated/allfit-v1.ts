@@ -1321,6 +1321,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/me/contact': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Correct my contact phone
+     * @description HU-SP-076, the phone half (ADR-050). V1 sends no SMS, so the phone is a contact value: it is saved in E.164 at once and unverified, and `null` removes it. Spaces, dashes and parentheses are dropped before checking. Only a verified number is unique, so a number somebody else holds unverified is accepted. The email half, with its verification, is not part of this contract yet.
+     */
+    patch: operations['correctSpaceContact']
+    trace?: never
+  }
   '/space/v1/profile': {
     parameters: {
       query?: never
@@ -8122,17 +8142,22 @@ export interface components {
         address: string | null
         verified: boolean
       }
-      /** @description The contact phone, as she gave it; only she reads it unmasked. */
-      phone: {
-        number: string | null
-        verified: boolean
-      }
+      phone: components['schemas']['SpaceContactPhone']
       /** @description How the person signs in, by provider and link date; never the provider's subject. */
       accounts: {
         provider: string
         /** Format: date-time */
         linked_at: string
       }[]
+    }
+    /** @description The contact phone, as she gave it; only she reads it unmasked. In V1 it is never verified (ADR-050). */
+    SpaceContactPhone: {
+      number: string | null
+      verified: boolean
+    }
+    SpaceContactCorrection: {
+      /** @description E.164 once spaces, dashes and parentheses are dropped; null removes it. */
+      phone: string | null
     }
     SpaceOwnName: {
       given_name: string
@@ -15601,6 +15626,44 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['SpaceOwnName']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceContact: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceContactCorrection']
+      }
+    }
+    responses: {
+      /** @description The phone in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceContactPhone']
         }
       }
       400: components['responses']['BadRequest']

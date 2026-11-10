@@ -14383,6 +14383,33 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceContactCorrection: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['phone'],
+    properties: {
+      phone: {
+        type: ['string', 'null'],
+        maxLength: 32,
+        description: 'E.164 once spaces, dashes and parentheses are dropped; null removes it.',
+      },
+    },
+  },
+  SpaceContactPhone: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['number', 'verified'],
+    description:
+      'The contact phone, as she gave it; only she reads it unmasked. In V1 it is never verified (ADR-050).',
+    properties: {
+      number: {
+        type: ['string', 'null'],
+      },
+      verified: {
+        type: 'boolean',
+      },
+    },
+  },
   SpaceCurrentOnboardingAttempt: {
     type: 'object',
     additionalProperties: false,
@@ -15185,18 +15212,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         },
       },
       phone: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['number', 'verified'],
-        description: 'The contact phone, as she gave it; only she reads it unmasked.',
-        properties: {
-          number: {
-            type: ['string', 'null'],
-          },
-          verified: {
-            type: 'boolean',
-          },
-        },
+        $ref: '#/components/schemas/SpaceContactPhone',
       },
       accounts: {
         type: 'array',

@@ -1014,6 +1014,14 @@ export const allfitV1ContractManifest = {
       security: ['bearerAuth'],
     },
     {
+      method: 'PATCH',
+      path: '/space/v1/me/contact',
+      operationId: 'correctSpaceContact',
+      allfitOperation: 'OP-IDN-021',
+      responses: ['200', '400', '401', '403', '409', '415', '422', '503'],
+      security: ['bearerAuth'],
+    },
+    {
       method: 'POST',
       path: '/space/v1/me/name',
       operationId: 'correctSpaceName',
