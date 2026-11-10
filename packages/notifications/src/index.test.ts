@@ -124,9 +124,11 @@ describe('team invitation email', () => {
     })
 
     expect(html).toContain(
-      "url('https://studio.allfit.one/email/fonts/barlow-condensed-600-latin.woff2')",
+      "url('https://studio.allfit.one/email/fonts/barlow-condensed-600-latin.215a93c6.woff2')",
     )
-    expect(html).toContain("url('https://studio.allfit.one/email/fonts/manrope-latin.woff2')")
+    expect(html).toContain(
+      "url('https://studio.allfit.one/email/fonts/manrope-latin.8c2def02.woff2')",
+    )
     // Opening the email must not tell a third party it was opened.
     const origins = new Set(
       [...html.matchAll(/(?:src="|url\(')(https?:\/\/[^/"']+)/g)].map((match) => match[1]),

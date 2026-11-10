@@ -52,7 +52,9 @@ test('delivers a ready invitation and acknowledges the event', async () => {
   expect(acknowledged).toEqual(['event-1'])
   expect(sent[0]?.idempotencyKey).toBe('staff-invitation/event-1')
   expect(sent[0]?.html).toContain('http://localhost:3000/invitations#token=')
-  expect(sent[0]?.html).toContain('http://localhost:3000/email/allfit-one-lockup-on-light.png')
+  expect(sent[0]?.html).toContain(
+    'http://localhost:3000/email/allfit-one-lockup-on-light.ce0bcfe6.png',
+  )
 })
 
 // ADR-049: SES has no idempotency key. If the worker stops between sending and

@@ -1,4 +1,4 @@
-import { constantTimeBearerMatches } from '@allfitone/notifications'
+import { constantTimeBearerMatches, emailBrandAssetUrl } from '@allfitone/notifications'
 import {
   createAccountRecoveryDeliveryFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
@@ -317,7 +317,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
    * trusted base, not a new setting: a second place to configure the same image
    * is a second place for it to be wrong.
    */
-  const brandAssetUrl = new URL('email/allfit-one-lockup-on-light.png', publicBaseUrl).toString()
+  const brandAssetUrl = emailBrandAssetUrl(publicBaseUrl)
   const reassignments = createReassignmentBatchProcessor({
     queue,
     email,

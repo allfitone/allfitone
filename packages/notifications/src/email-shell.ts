@@ -33,6 +33,22 @@ export const EMAIL_COLOR = {
 export const DISPLAY_FONT = "'Barlow Condensed','Arial Narrow',Arial,sans-serif"
 export const BODY_FONT = "'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
 
+/**
+ * The files an email loads from the public site, each named by the first eight hex digits
+ * of its SHA-256. Gmail and Outlook fetch an image once through their own proxies and keep
+ * it by URL whatever our cache headers say, so a file that changes must change its name.
+ */
+export const EMAIL_FILES = {
+  logo: 'allfit-one-lockup-on-light.ce0bcfe6.png',
+  displayFont: 'fonts/barlow-condensed-600-latin.215a93c6.woff2',
+  bodyFont: 'fonts/manrope-latin.8c2def02.woff2',
+} as const
+
+/** The logo on the public site that serves `email/`; the fonts are resolved beside it. */
+export function emailBrandAssetUrl(publicBaseUrl: string | URL): string {
+  return new URL(`email/${EMAIL_FILES.logo}`, publicBaseUrl).toString()
+}
+
 /** The languages an email can be written in. Everything but the waitlist is Spanish today. */
 export type EmailLanguage = 'es' | 'en'
 
@@ -65,8 +81,7 @@ const SHELL_WORDS = {
 export function invitationEmailHtml(parts: InvitationEmailParts): string {
   const c = EMAIL_COLOR
   const logoUrl = escapeHtml(parts.brandAssetUrl)
-  const fontUrl = (file: string) =>
-    escapeHtml(new URL(`fonts/${file}`, parts.brandAssetUrl).toString())
+  const fontUrl = (file: string) => escapeHtml(new URL(file, parts.brandAssetUrl).toString())
   const label = `margin:0 0 8px;font-family:${BODY_FONT};font-size:12px;font-weight:700;line-height:1.25;letter-spacing:2px;color:${c.textOnInverseMuted};`
   const twoFacts = parts.expires !== undefined
   const language = parts.language ?? 'es'
@@ -117,8 +132,8 @@ export function invitationEmailHtml(parts: InvitationEmailParts): string {
     <title>${parts.title}</title>
     <!--[if !mso]><!-->
     <style>
-      @font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 600; font-display: swap; src: url('${fontUrl('barlow-condensed-600-latin.woff2')}') format('woff2'); }
-      @font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('${fontUrl('manrope-latin.woff2')}') format('woff2'); }
+      @font-face { font-family: 'Barlow Condensed'; font-style: normal; font-weight: 600; font-display: swap; src: url('${fontUrl(EMAIL_FILES.displayFont)}') format('woff2'); }
+      @font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('${fontUrl(EMAIL_FILES.bodyFont)}') format('woff2'); }
     </style>
     <!--<![endif]-->
     <!--[if mso]><style>h1, p, td, a, strong { font-family: Arial, sans-serif !important; }</style><![endif]-->
