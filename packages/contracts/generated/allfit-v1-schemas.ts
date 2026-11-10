@@ -4821,7 +4821,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       kind: {
         type: 'string',
-        enum: ['initial', 'renewal'],
+        enum: ['initial', 'renewal', 'name_change'],
       },
       status: {
         type: 'string',
@@ -4909,7 +4909,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       kind: {
         type: 'string',
-        enum: ['initial', 'renewal'],
+        enum: ['initial', 'renewal', 'name_change'],
+        description:
+          '`name_change` (HU-BO-021 criterion 7): the holder changed her name while the credential had a verification in force. That verification stays intact and in force; the reviewer decides whether the credential still matches her.',
       },
       requested_at: {
         type: 'string',

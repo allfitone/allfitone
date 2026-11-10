@@ -7,6 +7,7 @@ import {
   decisionIssueMessage,
   decisionSuccess,
   draftFor,
+  kindHint,
   kindLabel,
   methodLabel,
   previousSentence,
@@ -149,6 +150,14 @@ describe('credential verification presentation rules', () => {
     expect(conflictSentence()).toContain('compartes un gimnasio activo')
     expect(conflictSentence()).toContain('su profesional asignado o esa persona es el tuyo')
     expect(kindLabel('renewal')).toBe('Renovación')
+    expect(kindLabel('initial')).toBe('Primera verificación')
+    // HU-BO-021 c7: she changed her name while the credential was verified.
+    expect(kindLabel('name_change')).toBe('Cambio de nombre')
+    expect(kindHint('name_change')).toBe(
+      'Cambió su nombre después de verificado. Confirma que el título sigue siendo suyo; la verificación anterior sigue vigente mientras decides.',
+    )
+    expect(kindHint('initial')).toBeNull()
+    expect(kindHint('renewal')).toBeNull()
     expect(methodLabel('issuer_confirmation')).toBe('Confirmación con quien lo emitió')
     expect(
       previousSentence(

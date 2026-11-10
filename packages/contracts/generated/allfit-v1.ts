@@ -6229,8 +6229,11 @@ export interface components {
     CredentialVerificationResult: 'verified' | 'rejected' | 'unverifiable'
     CredentialVerificationRequest: {
       request_id: components['schemas']['Uuid']
-      /** @enum {string} */
-      kind: 'initial' | 'renewal'
+      /**
+       * @description `name_change` (HU-BO-021 criterion 7): the holder changed her name while the credential had a verification in force. That verification stays intact and in force; the reviewer decides whether the credential still matches her.
+       * @enum {string}
+       */
+      kind: 'initial' | 'renewal' | 'name_change'
       /** Format: date-time */
       requested_at: string
       credential_id: components['schemas']['Uuid']
@@ -6290,7 +6293,7 @@ export interface components {
     CredentialVerificationOutcome: {
       request_id: components['schemas']['Uuid']
       /** @enum {string} */
-      kind: 'initial' | 'renewal'
+      kind: 'initial' | 'renewal' | 'name_change'
       /** @enum {string} */
       status: 'pending' | 'resolved' | 'cancelled'
       credential_id: components['schemas']['Uuid']

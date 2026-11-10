@@ -857,7 +857,7 @@ export interface VerificationFixture {
 
 export interface VerificationRequestFixture {
   request_id: string
-  kind: 'initial' | 'renewal'
+  kind: 'initial' | 'renewal' | 'name_change'
   requested_at: string
   credential_id: string
   credential_type_code: string
