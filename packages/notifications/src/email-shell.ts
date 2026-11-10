@@ -25,12 +25,30 @@ export const EMAIL_COLOR = {
   textOnInverse: '#F2FBFC', // light text.inverse
   textOnInverseMuted: '#9DB4BC', // dark text.secondary
   action: '#55EFFB', // action.primary
+  trackOnInverse: '#5A707A', // dark border.default, the empty marks of a progress row
   onAction: '#06282B', // action.onPrimary
 } as const
 
 // The DS stacks, with the fallbacks most inboxes end up using: Gmail and Outlook load no fonts.
 export const DISPLAY_FONT = "'Barlow Condensed','Arial Narrow',Arial,sans-serif"
 export const BODY_FONT = "'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+
+/** The languages an email can be written in. Everything but the waitlist is Spanish today. */
+export type EmailLanguage = 'es' | 'en'
+
+// The words the shell writes itself, when a message does not bring its own.
+const SHELL_WORDS = {
+  es: {
+    expires: 'VÁLIDA HASTA',
+    action: 'Revisar invitación',
+    footerQuestion: '¿No esperabas esta invitación?',
+  },
+  en: {
+    expires: 'VALID UNTIL',
+    action: 'Review invitation',
+    footerQuestion: "Didn't expect this invitation?",
+  },
+} as const
 
 /**
  * The one layout every email shares.
@@ -51,12 +69,45 @@ export function invitationEmailHtml(parts: InvitationEmailParts): string {
     escapeHtml(new URL(`fonts/${file}`, parts.brandAssetUrl).toString())
   const label = `margin:0 0 8px;font-family:${BODY_FONT};font-size:12px;font-weight:700;line-height:1.25;letter-spacing:2px;color:${c.textOnInverseMuted};`
   const twoFacts = parts.expires !== undefined
-  // The brand name never breaks across lines.
-  const keepBrand = (html: string) => html.replaceAll('Allfit One', 'Allfit&nbsp;One')
+  const language = parts.language ?? 'es'
+  const words = SHELL_WORDS[language]
+  // The brand and product names never break across lines.
+  const keepBrand = (html: string) =>
+    html.replace(/Allfit (One|Space|Studio|Pro)\b/g, 'Allfit&nbsp;$1')
+  const action = parts.actionUrl
+    ? `
+                <table class="afo-action" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:${parts.actionFirst ? 0 : 32}px;border-collapse:separate;">
+                  <tr>
+                    <td align="center" bgcolor="${c.action}" style="background-color:${c.action};border-radius:999px;">
+                      <a href="${parts.actionUrl}" target="_blank" style="display:inline-block;padding:16px 28px;font-family:${BODY_FONT};font-size:16px;font-weight:800;line-height:1;text-decoration:none;color:${c.onAction};border:1px solid ${c.action};border-radius:999px;">${parts.actionLabel ?? words.action}</a>
+                    </td>
+                  </tr>
+                </table>${
+                  parts.actionNote
+                    ? `
+                <p style="margin:12px 0 0;font-family:${BODY_FONT};font-size:14px;font-weight:400;line-height:1.5;color:${c.textMuted};">${keepBrand(parts.actionNote)}</p>`
+                    : ''
+                }`
+    : ''
+  const panelRows = (parts.panelRows ?? [])
+    .map(
+      (row) => `
+                  <tr>
+                    <td class="afo-panel-row"${twoFacts ? ' colspan="2"' : ''} style="padding:24px;border-top:1px solid ${c.hairlineOnInverse};">${
+                      row.label
+                        ? `
+                      <p style="${label}">${row.label}</p>`
+                        : ''
+                    }
+                      ${keepBrand(row.html)}
+                    </td>
+                  </tr>`,
+    )
+    .join('')
   // Fills the inbox preview after the preheader, so clients do not append the body to it.
   const previewPadding = '&#847;&zwnj;&nbsp;'.repeat(40)
   return `<!doctype html>
-<html lang="es">
+<html lang="${language}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -86,6 +137,7 @@ export function invitationEmailHtml(parts: InvitationEmailParts): string {
         .afo-detail { display: block !important; width: 100% !important; box-sizing: border-box; }
         .afo-detail-expiry { border-left: 0 !important; border-top: 1px solid ${c.hairlineOnInverse} !important; }
         .afo-footer { padding: 20px 24px 0 !important; }
+        .afo-panel-row { padding: 20px 24px !important; }
       }
     </style>
   </head>
@@ -129,7 +181,7 @@ export function invitationEmailHtml(parts: InvitationEmailParts): string {
                 <p style="margin:0 0 32px;font-family:${BODY_FONT};font-size:16px;font-weight:400;line-height:1.5;color:${c.textSecondary};">
                   ${keepBrand(parts.lead)}
                 </p>
-
+${parts.actionFirst ? `${action}\n                <div style="height:32px;line-height:32px;font-size:0;">&nbsp;</div>\n` : ''}
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${c.inverse}" style="width:100%;background-color:${c.inverse};border-radius:16px;border-collapse:separate;">
                   <tr>
                     <td class="afo-detail" width="${twoFacts ? '50%' : '100%'}" valign="top" style="width:${twoFacts ? '50%' : '100%'};padding:24px;">
@@ -139,25 +191,14 @@ export function invitationEmailHtml(parts: InvitationEmailParts): string {
                       twoFacts
                         ? `
                     <td class="afo-detail afo-detail-expiry" width="50%" valign="top" style="width:50%;padding:24px;border-left:1px solid ${c.hairlineOnInverse};">
-                      <p style="${label}">${parts.expiryLabel ?? 'VÁLIDA HASTA'}</p>
+                      <p style="${label}">${parts.expiryLabel ?? words.expires}</p>
                       <p style="margin:0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${c.textOnInverse};">${parts.expires}</p>
                     </td>`
                         : ''
                     }
-                  </tr>
+                  </tr>${panelRows}
                 </table>
-${
-  parts.actionUrl
-    ? `
-                <table class="afo-action" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:32px;border-collapse:separate;">
-                  <tr>
-                    <td align="center" bgcolor="${c.action}" style="background-color:${c.action};border-radius:999px;">
-                      <a href="${parts.actionUrl}" target="_blank" style="display:inline-block;padding:16px 28px;font-family:${BODY_FONT};font-size:16px;font-weight:800;line-height:1;text-decoration:none;color:${c.onAction};border:1px solid ${c.action};border-radius:999px;">${parts.actionLabel ?? 'Revisar invitación'}</a>
-                    </td>
-                  </tr>
-                </table>`
-    : ''
-}
+${parts.actionFirst ? '' : action}
 
                 <p style="margin:24px 0 0;font-family:${BODY_FONT};font-size:14px;font-weight:400;line-height:1.5;color:${c.textMuted};">
                   ${keepBrand(parts.note)}
@@ -170,7 +211,7 @@ ${
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;border-collapse:collapse;">
             <tr>
               <td class="afo-footer" style="padding:24px 40px 0;font-family:${BODY_FONT};font-size:12px;font-weight:400;line-height:1.6;color:${c.textMuted};">
-                <strong style="font-weight:700;color:${c.textSecondary};">¿No esperabas esta invitación?</strong> ${keepBrand(parts.footer)}
+                <strong style="font-weight:700;color:${c.textSecondary};">${parts.footerQuestion ?? words.footerQuestion}</strong> ${keepBrand(parts.footer)}
               </td>
             </tr>
           </table>`
@@ -196,6 +237,8 @@ ${
  * can arrive unexpected and be ignored.
  */
 export interface InvitationEmailParts {
+  /** Spanish unless the message says otherwise. It sets `lang` and the shell's own words. */
+  language?: EmailLanguage
   title: string
   preheader: string
   /** The product the message is about: Studio for teams, Space for the person who trains. */
@@ -208,9 +251,17 @@ export interface InvitationEmailParts {
   expires?: string
   actionLabel?: string
   actionUrl?: string
+  /** Puts the action right under the lead, for an email whose whole point is that one click. */
+  actionFirst?: boolean
+  /** A short line under the action, such as when its link expires. */
+  actionNote?: string
+  /** Full-width rows under the facts, each above a hairline: a link to share, a count. */
+  panelRows?: readonly { label?: string; html: string }[]
   brandAssetUrl: string
   note: string
   footer?: string
+  /** The bold question that opens the footer; invitations ask whether it was expected. */
+  footerQuestion?: string
 }
 
 export function escapeHtml(value: string): string {
