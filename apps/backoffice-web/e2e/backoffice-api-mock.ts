@@ -177,6 +177,8 @@ export interface BreakGlassFixture {
   /** Sessions and plan under a gym; a relationship_training read returns them. */
   gymSessions?: BreakGlassSessionFixture[]
   gymAgenda?: BreakGlassAgendaFixture[]
+  /** HU-BO-008: the sessions older than the first page, answered to a read sent `before`. */
+  olderSessions?: BreakGlassSessionFixture[]
   /** HU-BO-008 c4: what she hid from a gym, beside the sessions of either training read. */
   hiddenSessions?: {
     executed_session_id: string
@@ -2524,14 +2526,17 @@ async function routeBreakGlass(
         content: { nutrition_intake: glass.meals ?? [] },
       })
     } else if (category === 'prior_training_history') {
+      // HU-BO-008: a read sent `before` answers the older page, and nothing remains past it.
+      const paging = (request.body as { before?: unknown } | undefined)?.before !== undefined
       await fulfill(route, 200, {
         outcome: 'allowed',
         reason_code: 'authorized_exercise',
         ...event,
         content: {
-          prior_training_history: glass.sessions ?? [],
+          prior_training_history: paging ? (glass.olderSessions ?? []) : (glass.sessions ?? []),
+          has_older_sessions: !paging && (glass.olderSessions?.length ?? 0) > 0,
           agenda: glass.ownAgenda ?? [],
-          hidden_sessions: glass.hiddenSessions ?? [],
+          hidden_sessions: paging ? [] : (glass.hiddenSessions ?? []),
         },
       })
     } else if (category === 'relationship_training') {

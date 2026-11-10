@@ -628,6 +628,58 @@ export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] 
   })
 }
 
+/**
+ * HU-BO-008: where the next training read starts — the last session shown — when the read
+ * said older ones remain. None otherwise, so the screen offers nothing it cannot reach.
+ */
+export function olderSessionsCursor(
+  outcome: BreakGlassExerciseOutcome,
+): { started_at: string; id: string } | null {
+  if (outcome.outcome !== 'allowed' || outcome.content?.has_older_sessions !== true) return null
+  const sessions =
+    outcome.content.prior_training_history ?? outcome.content.relationship_training ?? []
+  const last = sessions[sessions.length - 1]
+  return last ? { started_at: last.started_at, id: last.id } : null
+}
+
+/**
+ * The older page added below what is shown: its sessions, what she hid among them, and
+ * its word on whether more remain. A page that was not allowed replaces the read, so a
+ * window that closed meanwhile is shown as what it is.
+ */
+export function appendSessionPage(
+  current: BreakGlassExerciseOutcome,
+  next: BreakGlassExerciseOutcome,
+): BreakGlassExerciseOutcome {
+  if (next.outcome !== 'allowed' || current.outcome !== 'allowed') return next
+  const shown = current.content ?? {}
+  const page = next.content ?? {}
+  return {
+    ...current,
+    content: {
+      ...shown,
+      ...(shown.prior_training_history || page.prior_training_history
+        ? {
+            prior_training_history: [
+              ...(shown.prior_training_history ?? []),
+              ...(page.prior_training_history ?? []),
+            ],
+          }
+        : {}),
+      ...(shown.relationship_training || page.relationship_training
+        ? {
+            relationship_training: [
+              ...(shown.relationship_training ?? []),
+              ...(page.relationship_training ?? []),
+            ],
+          }
+        : {}),
+      hidden_sessions: [...(shown.hidden_sessions ?? []), ...(page.hidden_sessions ?? [])],
+      has_older_sessions: page.has_older_sessions ?? false,
+    },
+  }
+}
+
 type SessionResults = Partial<
   Pick<
     ExecutionDetail,

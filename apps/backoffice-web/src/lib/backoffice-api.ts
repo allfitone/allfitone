@@ -648,7 +648,12 @@ export const backofficeApi = {
   // converge, so there is nothing to replay.
   exerciseBreakGlass: (
     requestId: string,
-    exercise: { category: string; resource_type: string; resource_id?: string },
+    exercise: {
+      category: string
+      resource_type: string
+      resource_id?: string
+      before?: { started_at: string; id: string }
+    },
   ) =>
     requestJson<BreakGlassExerciseOutcome>(
       `/backoffice/v1/break-glass/requests/${requestId}/reads`,

@@ -92,6 +92,8 @@ import {
   photoDayRows,
   trainingRows,
   agendaRows,
+  appendSessionPage,
+  olderSessionsCursor,
   outcomeMessage,
   purposeLabel,
   requestIssue,
@@ -228,6 +230,30 @@ export function BreakGlassWindows() {
         resource_type: resourceTypeFor(category),
       })
       setOutcome({ fileId: file.id, answer })
+      await load()
+    } catch (caught) {
+      setNotice({ tone: 'danger', message: failureMessage(caught) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // HU-BO-008: the next hundred older sessions, a read of its own, added below the shown ones.
+  async function readOlderSessions() {
+    if (!outcome || !shown || shown.category === undefined) return
+    const before = olderSessionsCursor(shown)
+    if (!before) return
+    const { fileId, answer: current } = outcome
+    const category = shown.category
+    setBusy(true)
+    setNotice(null)
+    try {
+      const answer = await backofficeApi.exerciseBreakGlass(fileId, {
+        category,
+        resource_type: resourceTypeFor(category),
+        before,
+      })
+      setOutcome({ fileId, answer: appendSessionPage(current, answer) })
       await load()
     } catch (caught) {
       setNotice({ tone: 'danger', message: failureMessage(caught) })
@@ -446,6 +472,18 @@ export function BreakGlassWindows() {
             ))}
           </TableBody>
         </Table>
+      ) : null}
+      {shown && olderSessionsCursor(shown) ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          data-break-glass-older-sessions
+          onClick={() => void readOlderSessions()}
+        >
+          {busy ? 'Leyendo…' : 'Ver sesiones anteriores'}
+        </Button>
       ) : null}
 
       {/* HU-BO-008 c3: what is planned and from which programme, by its name only. */}

@@ -17302,9 +17302,25 @@ components:
         resource_type:
           type: string
           pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
+        before:
+          $ref: '#/components/schemas/BreakGlassSessionCursor'
         resource_id:
           type: [string, 'null']
           format: uuid
+    BreakGlassSessionCursor:
+      type: object
+      additionalProperties: false
+      required: [started_at, id]
+      description: >-
+        HU-BO-008: the last session a training read already showed. The read answers the
+        hundred sessions older than it. Only a training category pages; both halves or
+        neither.
+      properties:
+        started_at:
+          type: string
+          format: date-time
+        id:
+          $ref: '#/components/schemas/Uuid'
     BreakGlassExerciseOutcome:
       type: object
       additionalProperties: false
@@ -29240,6 +29256,12 @@ components:
             Sessions trained under a gym, returned by a `relationship_training` read.
           items:
             $ref: '#/components/schemas/ExecutionDetail'
+        has_older_sessions:
+          type: boolean
+          description: >-
+            HU-BO-008, returned with either training category: sessions older than this
+            page remain. The next read sends the last session shown as `before`, and is a
+            read of its own, logged before it answers.
         agenda:
           type: array
           maxItems: 100

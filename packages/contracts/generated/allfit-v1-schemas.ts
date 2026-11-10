@@ -2209,6 +2209,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/ExecutionDetail',
         },
       },
+      has_older_sessions: {
+        type: 'boolean',
+        description:
+          'HU-BO-008, returned with either training category: sessions older than this page remain. The next read sends the last session shown as `before`, and is a read of its own, logged before it answers.',
+      },
       agenda: {
         type: 'array',
         maxItems: 100,
@@ -2239,6 +2244,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       resource_type: {
         type: 'string',
         pattern: '^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$',
+      },
+      before: {
+        $ref: '#/components/schemas/BreakGlassSessionCursor',
       },
       resource_id: {
         type: ['string', 'null'],
@@ -2657,6 +2665,22 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     description:
       '`incident_opened` is not a worse `unjustified`: it says somebody has to act, and it publishes a different domain event for that reason.',
     enum: ['justified', 'unjustified', 'incident_opened'],
+  },
+  BreakGlassSessionCursor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['started_at', 'id'],
+    description:
+      'HU-BO-008: the last session a training read already showed. The read answers the hundred sessions older than it. Only a training category pages; both halves or neither.',
+    properties: {
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+    },
   },
   BreakGlassStatus: {
     type: 'string',

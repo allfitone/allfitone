@@ -14,6 +14,8 @@ import {
   mealRows,
   trainingRows,
   agendaRows,
+  appendSessionPage,
+  olderSessionsCursor,
   measurementRows,
   outcomeMessage,
   photoDayRows,
@@ -846,6 +848,67 @@ describe('training under a window, opened (HU-BO-008)', () => {
     )
 
     expect(rows.map((row) => row.hiddenFrom)).toEqual([['Gimnasio Uno', 'Gimnasio Dos'], []])
+  })
+
+  test('offers the older sessions only when the read says some remain, from the last one shown', () => {
+    const older = { ...session, id: '019a8000-0000-7000-8000-000000000a11' }
+    const page = read('prior_training_history', {
+      prior_training_history: [session, older],
+      has_older_sessions: true,
+    })
+    expect(olderSessionsCursor(page)).toEqual({ started_at: older.started_at, id: older.id })
+    expect(
+      olderSessionsCursor(
+        read('prior_training_history', {
+          prior_training_history: [session],
+          has_older_sessions: false,
+        }),
+      ),
+    ).toBeNull()
+    // A server older than the screen says nothing about older sessions: nothing to offer.
+    expect(
+      olderSessionsCursor(read('prior_training_history', { prior_training_history: [session] })),
+    ).toBeNull()
+    expect(olderSessionsCursor({ ...page, outcome: 'denied' })).toBeNull()
+  })
+
+  test('appends the older page to what is shown, hidings included, and takes its word on more', () => {
+    const older = { ...session, id: '019a8000-0000-7000-8000-000000000a12' }
+    const hiding = {
+      executed_session_id: older.id,
+      relationship_id: '019a8000-0000-7000-8000-000000000b01',
+      organization_id: '019a8000-0000-7000-8000-000000000c01',
+      organization_name: 'Gimnasio Uno',
+      hidden_at: '2026-09-16T12:00:00+00:00',
+    }
+    const first = read('prior_training_history', {
+      prior_training_history: [session],
+      has_older_sessions: true,
+      hidden_sessions: [],
+      agenda: [],
+    })
+    const next = read('prior_training_history', {
+      prior_training_history: [older],
+      has_older_sessions: false,
+      hidden_sessions: [hiding],
+      agenda: [],
+    })
+
+    const merged = appendSessionPage(first, next)
+    expect(trainingRows(merged).map((row) => [row.id, row.hiddenFrom])).toEqual([
+      [session.id, []],
+      [older.id, ['Gimnasio Uno']],
+    ])
+    expect(olderSessionsCursor(merged)).toBeNull()
+
+    // A page that was refused, because the window closed, is shown as what it is.
+    const refused: BreakGlassExerciseOutcome = {
+      outcome: 'denied',
+      reason_code: 'window_not_open',
+      break_glass_event_id: next.break_glass_event_id,
+      occurred_at: next.occurred_at,
+    }
+    expect(appendSessionPage(first, refused)).toBe(refused)
   })
 
   test('a server older than the screen answers without hidings, and nothing reads as hidden', () => {

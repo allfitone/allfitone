@@ -6446,8 +6446,15 @@ export interface components {
     BreakGlassExercise: {
       category: components['schemas']['BreakGlassCategory']
       resource_type: string
+      before?: components['schemas']['BreakGlassSessionCursor']
       /** Format: uuid */
       resource_id?: string | null
+    }
+    /** @description HU-BO-008: the last session a training read already showed. The read answers the hundred sessions older than it. Only a training category pages; both halves or neither. */
+    BreakGlassSessionCursor: {
+      /** Format: date-time */
+      started_at: string
+      id: components['schemas']['Uuid']
     }
     /** @description Every attempt is recorded before this answers, so `break_glass_event_id` is the evidence of this exact attempt. Only `allowed` carries content, and only for a category whose data the platform stores; the others answer `content_unavailable`. A category that returns content reads only its own kind of data, so pointing it at another is `denied` with `resource_out_of_scope`. */
     BreakGlassExerciseOutcome: {
@@ -12219,6 +12226,8 @@ export interface components {
       prior_training_history?: components['schemas']['ExecutionDetail'][]
       /** @description Sessions trained under a gym, returned by a `relationship_training` read. */
       relationship_training?: components['schemas']['ExecutionDetail'][]
+      /** @description HU-BO-008, returned with either training category: sessions older than this page remain. The next read sends the last session shown as `before`, and is a read of its own, logged before it answers. */
+      has_older_sessions?: boolean
       /** @description HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym. */
       agenda?: components['schemas']['BreakGlassAgendaEntry'][]
       /** @description HU-BO-008 criterion 4, returned with either training category: of the sessions the read returns, each one she hid from a gym and which gym, newest session first. A hiding she took back is not listed. It travels beside the sessions, never inside them, because the session shape is the one Studio reads too. */
