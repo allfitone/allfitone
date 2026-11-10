@@ -1,116 +1,73 @@
 /**
- * `PF-2d` · Identidad y acceso (`HU-SP-009`, TECH-43): the Fitness ID, how the person
+ * `PF-2e` · Identidad y acceso (`HU-SP-009`, TECH-43): the Fitness ID, how the person
  * is called, how Allfit reaches them and how they sign in.
  *
  * **Each thing in its own place** (criterion 2): no permissions and no gyms here, and
  * the email, the phone and the password live here rather than in rows of their own in
  * Perfil. The name and the username are corrected from this screen (`HU-SP-098`
- * criterion 6, `OP-IDN-063`), each in its own sheet: changing one never asks for the
- * other. Changing a contact (`HU-SP-076`) or the password (`HU-SP-005`) is not built
- * yet, so those rows show their state and say «Pronto».
- *
- * A username somebody else holds comes back as a conflict and lands on the field, with
- * the onboarding's own words, without saying who has it.
+ * criterion 6, `OP-IDN-063`), each on its own screen: changing one never asks for the
+ * other, and the keyboard never pushes a sheet over what it edits. The phone is a contact value (ADR-050): V1 sends no SMS, so it is written and
+ * saved at once, with no verification state to show. Changing the email (`HU-SP-076`) or
+ * the password (`HU-SP-005`) is not built yet, so those rows say «Pronto».
  */
 
-import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
-import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
-import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
 import type { IconName } from '@allfitone/icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useRouter } from 'expo-router'
-import { Children, useEffect, useState, type ReactNode } from 'react'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { Children, useCallback, useState, type ReactNode } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
-import { ApiError } from '../../src/client'
 import {
   activeSince,
-  cleanUsername,
   contactState,
   identityInitials,
-  nameProblem,
   type ContactState,
-  type OwnName,
   type SpaceIdentity,
 } from '../../src/client/fitness-profile'
-import { correctName, readIdentity } from '../../src/client/profile-transport'
-import { EditSheetHeader, FormNote } from '../../src/components/fitness-profile-ui'
+import { phoneLine } from '../../src/client/phone-countries'
+import { FormNote } from '../../src/components/fitness-profile-ui'
+import { LIVE_IDENTITY, type IdentitySources } from '../../src/components/identity-edit'
 import { SectionLabel } from '../../src/components/pro-ui'
 
 const UNREADABLE = 'No pudimos leer tu identidad. Revisa tu conexión e inténtalo otra vez.'
-const SAVE_FAILED = 'No pudimos guardarlo. Inténtalo otra vez.'
-const TAKEN = 'Ese usuario ya está en uso. Prueba con otro.'
-const FIELD_PROBLEM: Record<keyof OwnName, string> = {
-  given_name: 'Escribe tu nombre.',
-  family_name: 'Escribe tu apellido.',
-  username: 'Entre 3 y 30 letras, números o guion bajo, y empieza con una letra.',
-}
 const CARD = ['#0E3B45', '#08141C'] as const
 
-type Editing = 'name' | 'username'
-
-const SHEETS: Record<
-  Editing,
-  { readonly title: string; readonly subtitle: string; readonly fields: (keyof OwnName)[] }
-> = {
-  name: {
-    title: 'Cómo te llamas',
-    subtitle: 'Así te nombra la app y así te ven tus gimnasios.',
-    fields: ['given_name', 'family_name'],
-  },
-  username: {
-    title: 'Tu usuario',
-    subtitle: 'Es único y te identifica: nadie más puede tenerlo.',
-    fields: ['username'],
-  },
-}
-
-export interface IdentitySources {
-  readonly readIdentity: () => Promise<SpaceIdentity>
-  readonly correctName: (name: OwnName) => Promise<OwnName>
-}
-
-const LIVE: IdentitySources = { readIdentity, correctName }
-
 export default function IdentityRoute() {
-  return <IdentityScreen sources={LIVE} />
+  return <IdentityScreen sources={LIVE_IDENTITY} />
 }
 
 /** The screen given where its data comes from; the route passes the real sources. */
-export function IdentityScreen({
-  sources,
-  initiallyEditing,
-}: {
-  readonly sources: IdentitySources
-  readonly initiallyEditing?: Editing
-}) {
+export function IdentityScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
   const theme = useTheme()
   const [identity, setIdentity] = useState<SpaceIdentity | undefined>(undefined)
   const [unreadable, setUnreadable] = useState(false)
-  const [editing, setEditing] = useState<Editing | undefined>(initiallyEditing)
 
-  useEffect(() => {
-    let active = true
-    sources
-      .readIdentity()
-      .then((read) => active && setIdentity(read))
-      .catch(() => active && setUnreadable(true))
-    return () => {
-      active = false
-    }
-  }, [sources])
+  // Read again each time it shows: the edit screens go back here once they save.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      sources
+        .readIdentity()
+        .then((read) => {
+          if (!active) return
+          setIdentity(read)
+          setUnreadable(false)
+        })
+        .catch(() => active && setUnreadable(true))
+      return () => {
+        active = false
+      }
+    }, [sources]),
+  )
 
   const fullName = identity ? `${identity.given_name} ${identity.family_name}` : ''
-  const phone = identity
-    ? contactState({ value: identity.phone.number, verified: identity.phone.verified })
-    : 'missing'
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -190,14 +147,14 @@ export function IdentityScreen({
                   icon="person"
                   label="Nombre y apellido"
                   value={fullName}
-                  onEdit={() => setEditing('name')}
+                  onEdit={() => router.push('/me/name')}
                 />
                 <IdentityRow
                   icon="people"
                   label="Usuario"
                   value={identity.username ?? 'Sin usuario'}
                   caption="Único: nadie más puede tenerlo."
-                  onEdit={() => setEditing('username')}
+                  onEdit={() => router.push('/me/username')}
                 />
               </Panel>
             </View>
@@ -219,10 +176,9 @@ export function IdentityScreen({
                 <IdentityRow
                   icon="notification"
                   label="Teléfono"
-                  value={identity.phone.number ?? 'Sin teléfono'}
-                  {...phoneCaption(phone)}
-                  state={phone}
-                  soon
+                  value={identity.phone.number ? phoneLine(identity.phone.number) : 'Sin teléfono'}
+                  caption="Solo para contactarte: no te enviamos SMS."
+                  onEdit={() => router.push('/me/phone')}
                 />
               </Panel>
             </View>
@@ -244,29 +200,8 @@ export function IdentityScreen({
           </>
         ) : null}
       </ScrollView>
-
-      {identity
-        ? (['name', 'username'] as const).map((sheet) => (
-            <NameSheet
-              key={sheet}
-              sheet={sheet}
-              visible={editing === sheet}
-              identity={identity}
-              correct={sources.correctName}
-              onDismiss={() => setEditing(undefined)}
-              onSaved={(name) => {
-                setIdentity({ ...identity, ...name })
-                setEditing(undefined)
-              }}
-            />
-          ))
-        : null}
     </Screen>
   )
-}
-
-function phoneCaption(state: ContactState): { caption?: string } {
-  return state === 'unverified' ? { caption: 'Sin verificar no te llegan avisos por SMS.' } : {}
 }
 
 function Panel({ children }: { readonly children: ReactNode }) {
@@ -398,118 +333,6 @@ const STATE_LABEL: Record<ContactState, string> = {
   missing: '',
 }
 
-function NameSheet({
-  sheet,
-  visible,
-  identity,
-  correct,
-  onDismiss,
-  onSaved,
-}: {
-  readonly sheet: Editing
-  readonly visible: boolean
-  readonly identity: SpaceIdentity
-  readonly correct: (name: OwnName) => Promise<OwnName>
-  readonly onDismiss: () => void
-  readonly onSaved: (name: OwnName) => void
-}) {
-  const [given, setGiven] = useState(identity.given_name)
-  const [family, setFamily] = useState(identity.family_name)
-  const [username, setUsername] = useState(identity.username ?? '')
-  const [open, setOpen] = useState(visible)
-  const [taken, setTaken] = useState<string | undefined>(undefined)
-  const [tried, setTried] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
-
-  // Every opening starts from the name in force, never from an abandoned edit.
-  if (open !== visible) {
-    setOpen(visible)
-    if (visible) {
-      setGiven(identity.given_name)
-      setFamily(identity.family_name)
-      setUsername(identity.username ?? '')
-      setTaken(undefined)
-      setTried(false)
-      setFailure(undefined)
-    }
-  }
-
-  const name: OwnName = {
-    given_name: given,
-    family_name: family,
-    username: cleanUsername(username),
-  }
-  const { title, subtitle, fields } = SHEETS[sheet]
-  const problem = nameProblem(name, fields)
-  const shown = (field: keyof OwnName) =>
-    field === 'username' && taken !== undefined && taken === name.username
-      ? TAKEN
-      : tried && problem === field
-        ? FIELD_PROBLEM[field]
-        : undefined
-
-  const errorOf = (field: keyof OwnName): { error?: string } => {
-    const message = shown(field)
-    return message === undefined ? {} : { error: message }
-  }
-
-  const save = async () => {
-    setTried(true)
-    if (problem) return
-    setSaving(true)
-    setFailure(undefined)
-    try {
-      onSaved(await correct(name))
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.failure === 'conflict') setTaken(name.username)
-      else setFailure(SAVE_FAILED)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Sheet visible={visible} onDismiss={onDismiss} title={title} hideTitle>
-      <View style={styles.sheet}>
-        <EditSheetHeader title={title} subtitle={subtitle} onClose={onDismiss} />
-        {sheet === 'name' ? (
-          <>
-            <TextField
-              label="Nombre"
-              value={given}
-              onChangeText={setGiven}
-              autoComplete="given-name"
-              textContentType="givenName"
-              {...errorOf('given_name')}
-            />
-            <TextField
-              label="Apellido"
-              value={family}
-              onChangeText={setFamily}
-              autoComplete="family-name"
-              textContentType="familyName"
-              {...errorOf('family_name')}
-            />
-          </>
-        ) : (
-          <TextField
-            label="Usuario"
-            value={username === '' ? '' : `@${cleanUsername(username)}`}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="username"
-            {...errorOf('username')}
-          />
-        )}
-        {failure ? <InlineAlert message={failure} /> : null}
-        <Button label="Guardar" loading={saving} onPress={() => void save()} />
-      </View>
-    </Sheet>
-  )
-}
-
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 6, paddingBottom: 12 },
   content: { gap: 20, paddingTop: 4, paddingBottom: 40 },
@@ -557,5 +380,4 @@ const styles = StyleSheet.create({
   },
   start: { alignSelf: 'flex-start', marginTop: 4 },
   pressed: { opacity: 0.7 },
-  sheet: { gap: 14, paddingBottom: 8 },
 })

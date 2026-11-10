@@ -12,8 +12,14 @@
 import { newCommand } from '@allfitone/contracts/commands'
 import * as Crypto from 'expo-crypto'
 
-import type { EquipmentPiece, FitnessProfile, OwnName, SpaceIdentity } from './fitness-profile'
-import { authorizedGet, authorizedPost } from './index'
+import type {
+  ContactPhone,
+  EquipmentPiece,
+  FitnessProfile,
+  OwnName,
+  SpaceIdentity,
+} from './fitness-profile'
+import { authorizedGet, authorizedPost, authorizedSend } from './index'
 import type { BiologicalSex, FocusArea } from './onboarding'
 import { authenticated } from './session'
 
@@ -75,5 +81,13 @@ export function correctName(name: OwnName): Promise<OwnName> {
   const headers = command()
   return authenticated((token) =>
     authorizedPost<OwnName>('/space/v1/me/name', headers, name, token),
+  )
+}
+
+/** The phone is a contact value (ADR-050): saved at once, never verified, null removes it. */
+export function correctPhone(phone: string | null): Promise<ContactPhone> {
+  const headers = command()
+  return authenticated((token) =>
+    authorizedSend<ContactPhone>('PATCH', '/space/v1/me/contact', headers, { phone }, token),
   )
 }

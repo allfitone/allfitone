@@ -10,6 +10,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   activeSince,
   contactState,
+  typedPhone,
   daysLine,
   fewEquipmentAtHome,
   fitnessSections,
@@ -199,5 +200,13 @@ describe('«Identidad y acceso»', () => {
     expect(contactState({ value: 'camila@example.test', verified: true })).toBe('verified')
     expect(contactState({ value: '+573105550142', verified: false })).toBe('unverified')
     expect(contactState({ value: null, verified: false })).toBe('missing')
+  })
+
+  test('T-SPC-UNIT-FP-15 a phone is E.164 once spaces and dashes are dropped; empty removes it', () => {
+    expect(typedPhone(' +57 300 111-2233 ')).toBe('+573001112233')
+    expect(typedPhone('+1 (415) 555-0100')).toBe('+14155550100')
+    expect(typedPhone('   ')).toBeNull()
+    expect(typedPhone('3001112233')).toBeUndefined()
+    expect(typedPhone('+0123')).toBeUndefined()
   })
 })

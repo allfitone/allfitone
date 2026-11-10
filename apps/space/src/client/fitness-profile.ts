@@ -24,6 +24,7 @@ export type ProfileEntry = AllfitV1Schemas['SpaceProfileAttribute']
 export type Provenance = AllfitV1Schemas['Provenance']
 export type SpaceIdentity = AllfitV1Schemas['SpaceIdentity']
 export type OwnName = AllfitV1Schemas['SpaceOwnName']
+export type ContactPhone = AllfitV1Schemas['SpaceContactPhone']
 export type SessionDuration = AllfitV1Schemas['SessionDuration']
 export type TrainingPlace = AllfitV1Schemas['TrainingPlace']
 export type EquipmentPiece = AllfitV1Schemas['AvailableEquipmentPiece']
@@ -278,6 +279,15 @@ export function nameProblem(
   fields: readonly (keyof OwnName)[] = NAME_FIELDS,
 ): keyof OwnName | undefined {
   return NAME_FIELDS.find((field) => fields.includes(field) && fieldRefused(name, field))
+}
+
+const E164 = /^\+[1-9][0-9]{7,14}$/
+
+/** The phone as the server keeps it; null for an empty field, undefined if it is not E.164. */
+export function typedPhone(typed: string): string | null | undefined {
+  const phone = typed.replace(/[\s().-]/g, '')
+  if (phone === '') return null
+  return E164.test(phone) ? phone : undefined
 }
 
 export type ContactState = 'verified' | 'unverified' | 'missing'
