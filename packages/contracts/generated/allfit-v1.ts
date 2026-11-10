@@ -5881,10 +5881,110 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/waitlist/signups': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Join the Allfit Space waitlist
+     * @description Called by space-web from its server, never by a browser. A new address answers 201 with its code. An address already on the list answers 202 with nothing about the sign-up behind it: its code and counter go to its inbox.
+     */
+    post: operations['joinSpaceWaitlist']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/confirmations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Confirm the email of a waitlist sign-up
+     * @description The page behind the confirmation link posts its token when the person presses the button. Opening the link changes nothing. A token that is unknown, voided or expired answers 404.
+     */
+    post: operations['confirmSpaceWaitlistEmail']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/email-requests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ask for the waitlist email again
+     * @description Sends the confirmation email again to an unconfirmed address, or its link to a confirmed one. The answer is the same whether the address is on the list or not.
+     */
+    post: operations['requestSpaceWaitlistEmail']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    WaitlistSignupRequest: {
+      name: string
+      /** Format: email */
+      email: string
+      /** @enum {string} */
+      language: 'es' | 'en'
+      /**
+       * @description The person's authorization to process their data. Without it nothing is stored.
+       * @constant
+       */
+      consent: true
+      /** @description The version of the privacy policy the person authorized. */
+      policy_version: string
+      /** @description The code of whoever invited them. An unknown code is ignored. */
+      referral_code?: string
+      utm_source?: string
+      utm_medium?: string
+      utm_campaign?: string
+    }
+    WaitlistSignupJoined: {
+      /** @constant */
+      status: 'joined'
+      referral_code: string
+      referrals: number
+    }
+    WaitlistSignupAlreadyListed: {
+      /** @constant */
+      status: 'already_listed'
+    }
+    WaitlistConfirmationRequest: {
+      token: string
+    }
+    WaitlistConfirmation: {
+      /** @enum {string} */
+      status: 'confirmed' | 'already_confirmed'
+    }
+    WaitlistEmailRequest: {
+      /** Format: email */
+      email: string
+    }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
     ScopeResourceRule: {
       resource: string
@@ -13390,6 +13490,12 @@ export interface components {
     }
   }
   parameters: {
+    /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+    WaitlistSecret: string
+    /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+    WaitlistVisitorAddress: string
+    /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+    WaitlistVisitorDevice: string
     BreakGlassRequestId: components['schemas']['UuidV7']
     /** @description Only your own requests. Absent means the whole tray. */
     BreakGlassMine: boolean
@@ -24235,6 +24341,120 @@ export interface operations {
       403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  joinSpaceWaitlist: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistSignupRequest']
+      }
+    }
+    responses: {
+      /** @description The address joined the waitlist and its confirmation email is on its way */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistSignupJoined']
+        }
+      }
+      /** @description The address was already on the waitlist; its link goes to its inbox */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistSignupAlreadyListed']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  confirmSpaceWaitlistEmail: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistConfirmationRequest']
+      }
+    }
+    responses: {
+      /** @description The email is confirmed, now or by an earlier use of the same link */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistConfirmation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  requestSpaceWaitlistEmail: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistEmailRequest']
+      }
+    }
+    responses: {
+      /** @description Accepted, whether or not the address is on the waitlist */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
     }
   }
 }
