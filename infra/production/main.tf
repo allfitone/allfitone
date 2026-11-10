@@ -213,6 +213,7 @@ module "edge" {
   instance_security_group_id = module.compute.instance_security_group_id
   certificate_arn            = aws_acm_certificate_validation.this.certificate_arn
   origin_verify_secret       = var.origin_verify_secret
+  backoffice_origin          = "https://${local.routes["backoffice-web"].hosts[0]}"
   apps                       = local.routes
 }
 

@@ -12,6 +12,12 @@
  * CloudFront forwards the visitor's Host, so the load balancer's certificate and
  * host rules match, and adds a secret header that the web rules require: a
  * request sent straight to the load balancer for a web host gets a 404.
+ *
+ * A web ACL on the load balancer limits sign-ins per address (HU-BO-001). The
+ * lockout after five failures lives in PostgreSQL and stops guessing one
+ * account; this stops one address from trying many. Space matters most: its
+ * sign-in goes through the API, so the identity provider only ever sees the
+ * API's own address.
  */
 
 terraform {
@@ -143,6 +149,137 @@ resource "aws_lb_listener_rule" "app" {
       }
     }
   }
+}
+
+locals {
+  # A login is two requests (password, then the code), so twenty is ten sign-ins.
+  # Space is looser because a phone carrier puts many people behind one address.
+  sign_in_limits = {
+    backoffice-sign-in = {
+      priority = 10
+      limit    = 20
+      path     = "^/backoffice/v1/auth/(password|totp/verification|password-resets)$"
+    }
+    space-sign-in = {
+      priority = 20
+      limit    = 100
+      path     = "^/space/v1/auth/(sessions|registrations|registrations/verification|password-resets)$"
+    }
+  }
+  sign_in_window_seconds = 300
+}
+
+resource "aws_wafv2_web_acl" "sign_in" {
+  name        = "${var.name}-sign-in"
+  description = "Per-address limits on the API sign-in routes"
+  scope       = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  # The API's own refusal, so the apps treat the two alike.
+  custom_response_body {
+    key          = "rate-limited"
+    content      = jsonencode({ error = { code = "rate-limited" } })
+    content_type = "APPLICATION_JSON"
+  }
+
+  dynamic "rule" {
+    for_each = local.sign_in_limits
+    content {
+      name     = rule.key
+      priority = rule.value.priority
+
+      action {
+        block {
+          custom_response {
+            response_code            = 429
+            custom_response_body_key = "rate-limited"
+
+            response_header {
+              name  = "Retry-After"
+              value = tostring(local.sign_in_window_seconds)
+            }
+            response_header {
+              name  = "Cache-Control"
+              value = "no-store"
+            }
+            # The Backoffice calls from its own origin; without these it reads a network error.
+            response_header {
+              name  = "Access-Control-Allow-Origin"
+              value = var.backoffice_origin
+            }
+            response_header {
+              name  = "Access-Control-Allow-Credentials"
+              value = "true"
+            }
+            response_header {
+              name  = "Vary"
+              value = "Origin"
+            }
+          }
+        }
+      }
+
+      statement {
+        rate_based_statement {
+          limit                 = rule.value.limit
+          evaluation_window_sec = local.sign_in_window_seconds
+          aggregate_key_type    = "IP"
+
+          # POST only: a browser's CORS preflight is not an attempt.
+          scope_down_statement {
+            and_statement {
+              statement {
+                byte_match_statement {
+                  search_string         = "POST"
+                  positional_constraint = "EXACTLY"
+                  field_to_match {
+                    method {}
+                  }
+                  text_transformation {
+                    priority = 0
+                    type     = "NONE"
+                  }
+                }
+              }
+              # Decoded first: the API routes a percent-encoded path to the same handler.
+              statement {
+                regex_match_statement {
+                  regex_string = rule.value.path
+                  field_to_match {
+                    uri_path {}
+                  }
+                  text_transformation {
+                    priority = 0
+                    type     = "URL_DECODE"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = rule.key
+        sampled_requests_enabled   = true
+      }
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.name}-sign-in"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_web_acl_association" "load_balancer" {
+  resource_arn = aws_lb.this.arn
+  web_acl_arn  = aws_wafv2_web_acl.sign_in.arn
 }
 
 data "aws_cloudfront_cache_policy" "disabled" {
