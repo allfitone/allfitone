@@ -1026,6 +1026,31 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  AvailableEquipmentPiece: {
+    type: 'string',
+    enum: [
+      'bodyweight',
+      'dumbbell',
+      'kettlebell',
+      'barbell',
+      'bench',
+      'pull_up_bar',
+      'cable',
+      'machine',
+      'cardio_machine',
+    ],
+    description:
+      'HU-SP-013 criterion 2. The codes of the equipment catalogue, listed here because the question cannot wait for that catalogue to be published.',
+  },
+  AvailableEquipmentSet: {
+    type: 'array',
+    uniqueItems: true,
+    maxItems: 9,
+    items: {
+      $ref: '#/components/schemas/AvailableEquipmentPiece',
+    },
+    description: 'Always ordered by code.',
+  },
   BackofficeAccountRecovery: {
     type: 'object',
     additionalProperties: false,
@@ -13531,6 +13556,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SessionDuration: {
+    type: 'string',
+    enum: ['up_to_30_min', '30_to_45_min', '45_to_60_min', 'over_60_min'],
+    description:
+      'HU-SP-012 criterion 3, as ranges: what someone knows is how much fits, not an exact number. Nobody who programs training has validated the cuts yet.',
+  },
   SessionExerciseReplace: {
     type: 'object',
     additionalProperties: false,
@@ -13909,6 +13940,36 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
     description: 'The Fitness ID, the same one on every retry.',
+  },
+  SpaceAvailableEquipment: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['equipment'],
+    properties: {
+      equipment: {
+        $ref: '#/components/schemas/AvailableEquipmentSet',
+      },
+    },
+    description:
+      'The equipment in force after the command, which on a replay is simply the set in force.',
+  },
+  SpaceAvailableEquipmentDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['equipment'],
+    properties: {
+      equipment: {
+        allOf: [
+          {
+            $ref: '#/components/schemas/AvailableEquipmentSet',
+          },
+          {
+            minItems: 1,
+          },
+        ],
+        description: 'The whole set; what is absent here is withdrawn. At least one piece.',
+      },
+    },
   },
   SpaceBestSet: {
     type: 'object',
@@ -14325,6 +14386,33 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         items: {
           $ref: '#/components/schemas/SpaceConsent',
         },
+      },
+    },
+  },
+  SpaceContactCorrection: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['phone'],
+    properties: {
+      phone: {
+        type: ['string', 'null'],
+        maxLength: 32,
+        description: 'E.164 once spaces, dashes and parentheses are dropped; null removes it.',
+      },
+    },
+  },
+  SpaceContactPhone: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['number', 'verified'],
+    description:
+      'The contact phone, as she gave it; only she reads it unmasked. In V1 it is never verified (ADR-050).',
+    properties: {
+      number: {
+        type: ['string', 'null'],
+      },
+      verified: {
+        type: 'boolean',
       },
     },
   },
@@ -14773,6 +14861,31 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceFitnessProfile: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['biological_sex', 'attributes'],
+    properties: {
+      biological_sex: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/BiologicalSex',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+      attributes: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/SpaceProfileAttribute',
+        },
+        description:
+          'One entry per attribute with a live claim, ordered by code. An unanswered attribute is absent.',
+      },
+    },
+  },
   SpaceFocusAreas: {
     type: 'object',
     additionalProperties: false,
@@ -15062,6 +15175,69 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       has_hidden: {
         type: 'boolean',
+      },
+    },
+  },
+  SpaceIdentity: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'given_name',
+      'family_name',
+      'username',
+      'active_since',
+      'email',
+      'phone',
+      'accounts',
+    ],
+    properties: {
+      given_name: {
+        type: 'string',
+      },
+      family_name: {
+        type: 'string',
+      },
+      username: {
+        type: ['string', 'null'],
+      },
+      active_since: {
+        type: 'string',
+        format: 'date-time',
+      },
+      email: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['address', 'verified'],
+        properties: {
+          address: {
+            type: ['string', 'null'],
+          },
+          verified: {
+            type: 'boolean',
+          },
+        },
+      },
+      phone: {
+        $ref: '#/components/schemas/SpaceContactPhone',
+      },
+      accounts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['provider', 'linked_at'],
+          properties: {
+            provider: {
+              type: 'string',
+            },
+            linked_at: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+        },
+        description:
+          "How the person signs in, by provider and link date; never the provider's subject.",
       },
     },
   },
@@ -15547,6 +15723,48 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceOwnBiologicalSex: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['biological_sex'],
+    properties: {
+      biological_sex: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/BiologicalSex',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description: 'Null is declining, a valid answer that clears the value.',
+      },
+    },
+  },
+  SpaceOwnName: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['given_name', 'family_name', 'username'],
+    properties: {
+      given_name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+      family_name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+      username: {
+        type: 'string',
+        minLength: 3,
+        maxLength: 30,
+        description:
+          'Lower-cased by the server; a letter first, then letters, digits or underscores.',
+      },
+    },
+  },
   SpacePasswordResetCreate: {
     type: 'object',
     additionalProperties: false,
@@ -15827,6 +16045,51 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceProfileAttribute: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'attribute_code',
+      'values',
+      'provenance',
+      'selected_because',
+      'valid_from',
+      'alternatives',
+    ],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        description:
+          'A code of the attribute catalogue, as a string so a new member does not break an older client, which should leave a code it does not know out.',
+      },
+      values: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
+      },
+      provenance: {
+        $ref: '#/components/schemas/Provenance',
+      },
+      selected_because: {
+        type: 'string',
+        enum: ['declared_by_you', 'most_recent'],
+        description:
+          'Selection rule v1. What the person declared wins; without it, the most recent version of any provenance.',
+      },
+      valid_from: {
+        type: 'string',
+        format: 'date-time',
+      },
+      alternatives: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/SpaceProfileVersion',
+        },
+        description: 'Every other live version, newest first. Never hidden, never deleted.',
+      },
+    },
+  },
   SpaceProfileClaim: {
     oneOf: [
       {
@@ -15838,6 +16101,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       {
         $ref: '#/components/schemas/SpaceTrainingDisciplineClaim',
       },
+      {
+        $ref: '#/components/schemas/SpaceTrainingDaysClaim',
+      },
+      {
+        $ref: '#/components/schemas/SpaceSessionDurationClaim',
+      },
+      {
+        $ref: '#/components/schemas/SpaceTrainingPlaceClaim',
+      },
     ],
     discriminator: {
       propertyName: 'attribute_code',
@@ -15845,6 +16117,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         primary_training_goal: '#/components/schemas/SpaceTrainingGoalClaim',
         training_experience: '#/components/schemas/SpaceTrainingExperienceClaim',
         training_discipline: '#/components/schemas/SpaceTrainingDisciplineClaim',
+        training_days_per_week: '#/components/schemas/SpaceTrainingDaysClaim',
+        session_duration: '#/components/schemas/SpaceSessionDurationClaim',
+        training_place: '#/components/schemas/SpaceTrainingPlaceClaim',
       },
     },
     description: 'The claim as recorded, in the variant matching what was declared.',
@@ -15860,6 +16135,15 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       {
         $ref: '#/components/schemas/SpaceTrainingDisciplineDeclaration',
       },
+      {
+        $ref: '#/components/schemas/SpaceTrainingDaysDeclaration',
+      },
+      {
+        $ref: '#/components/schemas/SpaceSessionDurationDeclaration',
+      },
+      {
+        $ref: '#/components/schemas/SpaceTrainingPlaceDeclaration',
+      },
     ],
     discriminator: {
       propertyName: 'attribute_code',
@@ -15867,10 +16151,34 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         primary_training_goal: '#/components/schemas/SpaceTrainingGoalDeclaration',
         training_experience: '#/components/schemas/SpaceTrainingExperienceDeclaration',
         training_discipline: '#/components/schemas/SpaceTrainingDisciplineDeclaration',
+        training_days_per_week: '#/components/schemas/SpaceTrainingDaysDeclaration',
+        session_duration: '#/components/schemas/SpaceSessionDurationDeclaration',
+        training_place: '#/components/schemas/SpaceTrainingPlaceDeclaration',
       },
     },
     description:
       'One member of the attribute catalogue per variant. This was a single object while only the goal existed; the second member is what earns the union, and it is what keeps a goal code from being sent with an experience value.',
+  },
+  SpaceProfileVersion: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['values', 'provenance', 'valid_from'],
+    properties: {
+      values: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
+        description: 'One member for a single-valued attribute; the whole set for a set.',
+      },
+      provenance: {
+        $ref: '#/components/schemas/Provenance',
+      },
+      valid_from: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
   },
   SpaceProgramAssignment: {
     type: 'object',
@@ -16906,6 +17214,37 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceSessionDurationClaim: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['attribute_code', 'value_text', 'superseded_claim_id'],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        const: 'session_duration',
+      },
+      value_text: {
+        $ref: '#/components/schemas/SessionDuration',
+      },
+      superseded_claim_id: {
+        $ref: '#/components/schemas/SupersededClaimId',
+      },
+    },
+  },
+  SpaceSessionDurationDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['attribute_code', 'value_text'],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        const: 'session_duration',
+      },
+      value_text: {
+        $ref: '#/components/schemas/SessionDuration',
+      },
+    },
+  },
   SpaceSessionExercise: {
     type: 'object',
     additionalProperties: false,
@@ -17273,6 +17612,37 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpaceTrainingDaysClaim: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['attribute_code', 'value_text', 'superseded_claim_id'],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        const: 'training_days_per_week',
+      },
+      value_text: {
+        $ref: '#/components/schemas/TrainingDaysPerWeek',
+      },
+      superseded_claim_id: {
+        $ref: '#/components/schemas/SupersededClaimId',
+      },
+    },
+  },
+  SpaceTrainingDaysDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['attribute_code', 'value_text'],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        const: 'training_days_per_week',
+      },
+      value_text: {
+        $ref: '#/components/schemas/TrainingDaysPerWeek',
+      },
+    },
+  },
   SpaceTrainingDisciplineClaim: {
     type: 'object',
     additionalProperties: false,
@@ -17371,6 +17741,37 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     },
     description:
       'Only one goal is principal, so declaring a second time replaces which one that is rather than adding to a set.',
+  },
+  SpaceTrainingPlaceClaim: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['attribute_code', 'value_text', 'superseded_claim_id'],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        const: 'training_place',
+      },
+      value_text: {
+        $ref: '#/components/schemas/TrainingPlace',
+      },
+      superseded_claim_id: {
+        $ref: '#/components/schemas/SupersededClaimId',
+      },
+    },
+  },
+  SpaceTrainingPlaceDeclaration: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['attribute_code', 'value_text'],
+    properties: {
+      attribute_code: {
+        type: 'string',
+        const: 'training_place',
+      },
+      value_text: {
+        $ref: '#/components/schemas/TrainingPlace',
+      },
+    },
   },
   SpaceTrainingProfile: {
     type: 'object',
@@ -20310,6 +20711,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  TrainingDaysPerWeek: {
+    type: 'string',
+    enum: ['1', '2', '3', '4', '5', '6', '7'],
+    description:
+      'HU-SP-012 criterion 3. A string and not a number because the attribute is an enum in the catalogue: a numeric attribute has no range there, and nine days must be refused by the database, not only by a client.',
+  },
   TrainingDiscipline: {
     type: 'string',
     enum: ['strength'],
@@ -20321,6 +20728,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     enum: ['starting', 'some_practice', 'experienced'],
     description:
       'The three simple terms of HU-SP-012 criterion 2, least to most.\n\nDeliberately not `beginner`, `intermediate`, `advanced`. The story asks for simple terms and the reason is behavioural rather than stylistic: "advanced" makes people underrate themselves and pick below their real level, and then the plan bores them. Rank is communicated by the screen, which draws one, two or three bars; the vocabulary carries none.\n\nOne global level, not one per discipline. Criterion 2 read "in each one" and was amended on 24 August 2026: the discipline catalogue is not readable by the runtime role and holds no production rows, so there is nothing to hang a per-discipline level on. Were that to change, a per-discipline level would be a new attribute — a member carrying its own value — not a widening of this one.',
+  },
+  TrainingPlace: {
+    type: 'string',
+    enum: ['gym', 'home', 'outdoors', 'multiple'],
+    description:
+      'HU-SP-013 criterion 1. `multiple` is "several places", an answer and not the absence of one.',
   },
   Username: {
     type: 'string',

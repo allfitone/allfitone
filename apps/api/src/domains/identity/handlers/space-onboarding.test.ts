@@ -824,6 +824,47 @@ describe('POST /space/v1/profile/claims — the training discipline variant', ()
   })
 })
 
+describe('POST /space/v1/profile/claims — availability and place (TECH-43)', () => {
+  const claims = () => '/space/v1/profile/claims'
+
+  test('records days a week, time per session and place, each in its own vocabulary', async () => {
+    const app = appWith({ declareProfileClaim: async (_token, input) => echoClaim(input) })
+    const bodies = [
+      { attribute_code: 'training_days_per_week', value_text: '4' },
+      { attribute_code: 'session_duration', value_text: '45_to_60_min' },
+      { attribute_code: 'training_place', value_text: 'home' },
+    ]
+
+    for (const body of bodies) {
+      const response = await post(app, claims(), { body })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ ...body, superseded_claim_id: null })
+    }
+  })
+
+  test('refuses a value outside each vocabulary before the database sees it', async () => {
+    let called = false
+    const app = appWith({
+      declareProfileClaim: async (_token, input) => {
+        called = true
+        return echoClaim(input)
+      },
+    })
+
+    for (const body of [
+      { attribute_code: 'training_days_per_week', value_text: '0' },
+      { attribute_code: 'training_days_per_week', value_text: '8' },
+      { attribute_code: 'session_duration', value_text: '90_min' },
+      { attribute_code: 'training_place', value_text: 'office' },
+      { attribute_code: 'training_place', value_text: '4' },
+    ]) {
+      const response = await post(app, claims(), { body })
+      expect(response.status).toBe(400)
+    }
+    expect(called).toBe(false)
+  })
+})
+
 describe('POST /space/v1/profile/claims — the training experience variant', () => {
   const claims = () => '/space/v1/profile/claims'
 

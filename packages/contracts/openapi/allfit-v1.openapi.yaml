@@ -3240,6 +3240,273 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /space/v1/me:
+    get:
+      tags: [Space Identity]
+      operationId: readSpaceIdentity
+      x-allfit-operation: OP-IDN-012
+      x-allfit-cache: no-store
+      summary: Read my identity and how I sign in
+      description: >-
+        HU-SP-009. The name, the username, since when the Fitness ID is active, the
+        contact email with whether it is verified, and each linked access account by
+        provider and link date. Never the provider's subject, and never the grants or
+        the relationships: those have their own place. Only a token that resolves to
+        an active person reads it (403).
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: My identity
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceIdentity'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/me/name:
+    post:
+      tags: [Space Identity]
+      operationId: correctSpaceName
+      x-allfit-operation: OP-IDN-063
+      x-allfit-cache: no-store
+      summary: Correct my name and username
+      description: >-
+        HU-SP-098 criterion 6, from the profile. `OP-IDN-043` belongs to an open
+        onboarding attempt and refuses an activated one; this belongs to an active
+        person. Names are trimmed and the username is lower-cased. A username
+        somebody else holds answers 409 without saying who. The contact email is
+        not touched: changing it is `OP-IDN-021`, with its own verification.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceOwnName'
+      responses:
+        '200':
+          description: The name in force after the command
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceOwnName'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/me/contact:
+    patch:
+      tags: [Space Identity]
+      operationId: correctSpaceContact
+      x-allfit-operation: OP-IDN-021
+      x-allfit-cache: no-store
+      summary: Correct my contact phone
+      description: >-
+        HU-SP-076, the phone half (ADR-050). V1 sends no SMS, so the phone is a contact
+        value: it is saved in E.164 at once and unverified, and `null` removes it.
+        Spaces, dashes and parentheses are dropped before checking. Only a verified
+        number is unique, so a number somebody else holds unverified is accepted. The
+        email half, with its verification, is not part of this contract yet.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceContactCorrection'
+      responses:
+        '200':
+          description: The phone in force after the command
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceContactPhone'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/profile:
+    get:
+      tags: [Space Identity]
+      operationId: readSpaceFitnessProfile
+      x-allfit-operation: OP-IDN-013
+      x-allfit-cache: no-store
+      summary: Read my fitness profile
+      description: >-
+        HU-SP-023. Every live claim of every attribute, whatever its classification,
+        one entry per attribute, with the version shown and why. Selection rule v1:
+        the most recent version the person declared wins (`declared_by_you`);
+        without one, the most recent of any provenance (`most_recent`). Every other
+        live version is an alternative, never hidden. An attribute nobody answered is
+        absent. Weight and height are a series, not claims, and stay in
+        `GET /space/v1/body-progress`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: My fitness profile
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceFitnessProfile'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/profile/biological-sex:
+    post:
+      tags: [Space Identity]
+      operationId: correctSpaceBiologicalSex
+      x-allfit-operation: OP-IDN-064
+      x-allfit-cache: no-store
+      summary: Correct my biological sex
+      description: >-
+        HU-SP-096 criteria 3 and 4, from the profile. `null` is declining and it is
+        valid: it clears the value. Changing it rewrites nothing already recorded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceOwnBiologicalSex'
+      responses:
+        '200':
+          description: The biological sex in force after the command
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceOwnBiologicalSex'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/profile/equipment:
+    post:
+      tags: [Space Identity]
+      operationId: declareSpaceAvailableEquipment
+      x-allfit-operation: OP-IDN-065
+      x-allfit-cache: no-store
+      summary: Declare the equipment I have
+      description: >-
+        HU-SP-013 criterion 2. The whole set, like `OP-IDN-046`: pieces that left
+        are sealed, pieces that arrived are inserted, pieces that stayed keep the
+        moment they were first declared. At least one piece and none exclusive. It
+        is what the person has, not what exists: the codes are those of the
+        equipment catalogue, but the list does not depend on it being published.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceAvailableEquipmentDeclaration'
+      responses:
+        '200':
+          description: The equipment in force after the command
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceAvailableEquipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /space/v1/onboarding-attempts/{attemptId}/completion:
     post:
       tags: [Space Identity]
@@ -20856,12 +21123,18 @@ components:
         - $ref: '#/components/schemas/SpaceTrainingGoalDeclaration'
         - $ref: '#/components/schemas/SpaceTrainingExperienceDeclaration'
         - $ref: '#/components/schemas/SpaceTrainingDisciplineDeclaration'
+        - $ref: '#/components/schemas/SpaceTrainingDaysDeclaration'
+        - $ref: '#/components/schemas/SpaceSessionDurationDeclaration'
+        - $ref: '#/components/schemas/SpaceTrainingPlaceDeclaration'
       discriminator:
         propertyName: attribute_code
         mapping:
           primary_training_goal: '#/components/schemas/SpaceTrainingGoalDeclaration'
           training_experience: '#/components/schemas/SpaceTrainingExperienceDeclaration'
           training_discipline: '#/components/schemas/SpaceTrainingDisciplineDeclaration'
+          training_days_per_week: '#/components/schemas/SpaceTrainingDaysDeclaration'
+          session_duration: '#/components/schemas/SpaceSessionDurationDeclaration'
+          training_place: '#/components/schemas/SpaceTrainingPlaceDeclaration'
       description: >-
         One member of the attribute catalogue per variant. This was a single object
         while only the goal existed; the second member is what earns the union, and it
@@ -20911,12 +21184,18 @@ components:
         - $ref: '#/components/schemas/SpaceTrainingGoalClaim'
         - $ref: '#/components/schemas/SpaceTrainingExperienceClaim'
         - $ref: '#/components/schemas/SpaceTrainingDisciplineClaim'
+        - $ref: '#/components/schemas/SpaceTrainingDaysClaim'
+        - $ref: '#/components/schemas/SpaceSessionDurationClaim'
+        - $ref: '#/components/schemas/SpaceTrainingPlaceClaim'
       discriminator:
         propertyName: attribute_code
         mapping:
           primary_training_goal: '#/components/schemas/SpaceTrainingGoalClaim'
           training_experience: '#/components/schemas/SpaceTrainingExperienceClaim'
           training_discipline: '#/components/schemas/SpaceTrainingDisciplineClaim'
+          training_days_per_week: '#/components/schemas/SpaceTrainingDaysClaim'
+          session_duration: '#/components/schemas/SpaceSessionDurationClaim'
+          training_place: '#/components/schemas/SpaceTrainingPlaceClaim'
       description: >-
         The claim as recorded, in the variant matching what was declared.
     SpaceTrainingGoalClaim:
@@ -20955,6 +21234,270 @@ components:
           $ref: '#/components/schemas/TrainingDiscipline'
         superseded_claim_id:
           $ref: '#/components/schemas/SupersededClaimId'
+    TrainingDaysPerWeek:
+      type: string
+      enum: ['1', '2', '3', '4', '5', '6', '7']
+      description: >-
+        HU-SP-012 criterion 3. A string and not a number because the attribute is an
+        enum in the catalogue: a numeric attribute has no range there, and nine days
+        must be refused by the database, not only by a client.
+    SessionDuration:
+      type: string
+      enum: [up_to_30_min, 30_to_45_min, 45_to_60_min, over_60_min]
+      description: >-
+        HU-SP-012 criterion 3, as ranges: what someone knows is how much fits, not
+        an exact number. Nobody who programs training has validated the cuts yet.
+    TrainingPlace:
+      type: string
+      enum: [gym, home, outdoors, multiple]
+      description: >-
+        HU-SP-013 criterion 1. `multiple` is "several places", an answer and not
+        the absence of one.
+    AvailableEquipmentPiece:
+      type: string
+      enum: [bodyweight, dumbbell, kettlebell, barbell, bench, pull_up_bar, cable, machine, cardio_machine]
+      description: >-
+        HU-SP-013 criterion 2. The codes of the equipment catalogue, listed here
+        because the question cannot wait for that catalogue to be published.
+    AvailableEquipmentSet:
+      type: array
+      uniqueItems: true
+      maxItems: 9
+      items:
+        $ref: '#/components/schemas/AvailableEquipmentPiece'
+      description: Always ordered by code.
+    SpaceAvailableEquipmentDeclaration:
+      type: object
+      additionalProperties: false
+      required: [equipment]
+      properties:
+        equipment:
+          allOf:
+            - $ref: '#/components/schemas/AvailableEquipmentSet'
+            - minItems: 1
+          description: The whole set; what is absent here is withdrawn. At least one piece.
+    SpaceAvailableEquipment:
+      type: object
+      additionalProperties: false
+      required: [equipment]
+      properties:
+        equipment:
+          $ref: '#/components/schemas/AvailableEquipmentSet'
+      description: The equipment in force after the command, which on a replay is simply the set in force.
+    SpaceTrainingDaysDeclaration:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, value_text]
+      properties:
+        attribute_code:
+          type: string
+          const: training_days_per_week
+        value_text:
+          $ref: '#/components/schemas/TrainingDaysPerWeek'
+    SpaceSessionDurationDeclaration:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, value_text]
+      properties:
+        attribute_code:
+          type: string
+          const: session_duration
+        value_text:
+          $ref: '#/components/schemas/SessionDuration'
+    SpaceTrainingPlaceDeclaration:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, value_text]
+      properties:
+        attribute_code:
+          type: string
+          const: training_place
+        value_text:
+          $ref: '#/components/schemas/TrainingPlace'
+    SpaceTrainingDaysClaim:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, value_text, superseded_claim_id]
+      properties:
+        attribute_code:
+          type: string
+          const: training_days_per_week
+        value_text:
+          $ref: '#/components/schemas/TrainingDaysPerWeek'
+        superseded_claim_id:
+          $ref: '#/components/schemas/SupersededClaimId'
+    SpaceSessionDurationClaim:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, value_text, superseded_claim_id]
+      properties:
+        attribute_code:
+          type: string
+          const: session_duration
+        value_text:
+          $ref: '#/components/schemas/SessionDuration'
+        superseded_claim_id:
+          $ref: '#/components/schemas/SupersededClaimId'
+    SpaceTrainingPlaceClaim:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, value_text, superseded_claim_id]
+      properties:
+        attribute_code:
+          type: string
+          const: training_place
+        value_text:
+          $ref: '#/components/schemas/TrainingPlace'
+        superseded_claim_id:
+          $ref: '#/components/schemas/SupersededClaimId'
+    SpaceIdentity:
+      type: object
+      additionalProperties: false
+      required: [given_name, family_name, username, active_since, email, phone, accounts]
+      properties:
+        given_name:
+          type: string
+        family_name:
+          type: string
+        username:
+          type: [string, 'null']
+        active_since:
+          type: string
+          format: date-time
+        email:
+          type: object
+          additionalProperties: false
+          required: [address, verified]
+          properties:
+            address:
+              type: [string, 'null']
+            verified:
+              type: boolean
+        phone:
+          $ref: '#/components/schemas/SpaceContactPhone'
+        accounts:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [provider, linked_at]
+            properties:
+              provider:
+                type: string
+              linked_at:
+                type: string
+                format: date-time
+          description: How the person signs in, by provider and link date; never the provider's subject.
+    SpaceContactPhone:
+      type: object
+      additionalProperties: false
+      required: [number, verified]
+      description: >-
+        The contact phone, as she gave it; only she reads it unmasked. In V1 it is
+        never verified (ADR-050).
+      properties:
+        number:
+          type: [string, 'null']
+        verified:
+          type: boolean
+    SpaceContactCorrection:
+      type: object
+      additionalProperties: false
+      required: [phone]
+      properties:
+        phone:
+          type: [string, 'null']
+          maxLength: 32
+          description: E.164 once spaces, dashes and parentheses are dropped; null removes it.
+    SpaceOwnName:
+      type: object
+      additionalProperties: false
+      required: [given_name, family_name, username]
+      properties:
+        given_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        family_name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          description: >-
+            Lower-cased by the server; a letter first, then letters, digits or
+            underscores.
+    SpaceOwnBiologicalSex:
+      type: object
+      additionalProperties: false
+      required: [biological_sex]
+      properties:
+        biological_sex:
+          oneOf:
+            - $ref: '#/components/schemas/BiologicalSex'
+            - type: 'null'
+          description: Null is declining, a valid answer that clears the value.
+    SpaceProfileVersion:
+      type: object
+      additionalProperties: false
+      required: [values, provenance, valid_from]
+      properties:
+        values:
+          type: array
+          items:
+            type: string
+          description: One member for a single-valued attribute; the whole set for a set.
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+        valid_from:
+          type: string
+          format: date-time
+    SpaceProfileAttribute:
+      type: object
+      additionalProperties: false
+      required: [attribute_code, values, provenance, selected_because, valid_from, alternatives]
+      properties:
+        attribute_code:
+          type: string
+          description: >-
+            A code of the attribute catalogue, as a string so a new member does not
+            break an older client, which should leave a code it does not know out.
+        values:
+          type: array
+          items:
+            type: string
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+        selected_because:
+          type: string
+          enum: [declared_by_you, most_recent]
+          description: >-
+            Selection rule v1. What the person declared wins; without it, the most
+            recent version of any provenance.
+        valid_from:
+          type: string
+          format: date-time
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpaceProfileVersion'
+          description: Every other live version, newest first. Never hidden, never deleted.
+    SpaceFitnessProfile:
+      type: object
+      additionalProperties: false
+      required: [biological_sex, attributes]
+      properties:
+        biological_sex:
+          oneOf:
+            - $ref: '#/components/schemas/BiologicalSex'
+            - type: 'null'
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpaceProfileAttribute'
+          description: One entry per attribute with a live claim, ordered by code. An unanswered attribute is absent.
     SupersededClaimId:
       oneOf:
         - $ref: '#/components/schemas/UuidV7'

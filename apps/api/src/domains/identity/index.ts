@@ -21,6 +21,7 @@ export { spaceOnboardingRoutes } from './handlers/space-onboarding.js'
 export { spaceBodyProgressRoutes } from './handlers/space-body-progress.js'
 export { spaceBodyPhotoRoutes } from './handlers/space-body-photos.js'
 export { spaceHealthContextRoutes } from './handlers/space-health-context.js'
+export { spaceOwnProfileRoutes } from './handlers/space-own-profile.js'
 export { workosWebhookRoutes } from './handlers/webhooks.js'
 export {
   backofficeIdentityRoutes,

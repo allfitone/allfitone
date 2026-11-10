@@ -122,6 +122,15 @@ export type TrainingExperience = 'starting' | 'some_practice' | 'experienced'
  */
 export type TrainingDiscipline = 'strength'
 
+/** HU-SP-012 criterion 3. An enum of the catalogue, so nine days is refused by the database. */
+export type TrainingDaysPerWeek = '1' | '2' | '3' | '4' | '5' | '6' | '7'
+
+/** HU-SP-012 criterion 3, as ranges: what someone knows is how much fits, not a number. */
+export type SessionDuration = 'up_to_30_min' | '30_to_45_min' | '45_to_60_min' | 'over_60_min'
+
+/** HU-SP-013 criterion 1. `multiple` is "several places", an answer in its own right. */
+export type TrainingPlace = 'gym' | 'home' | 'outdoors' | 'multiple'
+
 /**
  * The body metrics a person records. The `body_` prefix is not decoration: `metric_code`
  * also names execution results, where `weight` is the load on the bar. Weight and
@@ -213,6 +222,9 @@ export type ProfileClaimDeclaration =
   | { attributeCode: 'primary_training_goal'; valueText: PrimaryTrainingGoal }
   | { attributeCode: 'training_experience'; valueText: TrainingExperience }
   | { attributeCode: 'training_discipline'; valueText: TrainingDiscipline }
+  | { attributeCode: 'training_days_per_week'; valueText: TrainingDaysPerWeek }
+  | { attributeCode: 'session_duration'; valueText: SessionDuration }
+  | { attributeCode: 'training_place'; valueText: TrainingPlace }
 
 /** What the database records for a claim, including what it displaced. */
 export type ProfileClaim = ProfileClaimDeclaration & {

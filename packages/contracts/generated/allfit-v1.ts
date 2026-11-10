@@ -1281,6 +1281,126 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/me': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read my identity and how I sign in
+     * @description HU-SP-009. The name, the username, since when the Fitness ID is active, the contact email with whether it is verified, and each linked access account by provider and link date. Never the provider's subject, and never the grants or the relationships: those have their own place. Only a token that resolves to an active person reads it (403).
+     */
+    get: operations['readSpaceIdentity']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/name': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Correct my name and username
+     * @description HU-SP-098 criterion 6, from the profile. `OP-IDN-043` belongs to an open onboarding attempt and refuses an activated one; this belongs to an active person. Names are trimmed and the username is lower-cased. A username somebody else holds answers 409 without saying who. The contact email is not touched: changing it is `OP-IDN-021`, with its own verification.
+     */
+    post: operations['correctSpaceName']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/contact': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Correct my contact phone
+     * @description HU-SP-076, the phone half (ADR-050). V1 sends no SMS, so the phone is a contact value: it is saved in E.164 at once and unverified, and `null` removes it. Spaces, dashes and parentheses are dropped before checking. Only a verified number is unique, so a number somebody else holds unverified is accepted. The email half, with its verification, is not part of this contract yet.
+     */
+    patch: operations['correctSpaceContact']
+    trace?: never
+  }
+  '/space/v1/profile': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read my fitness profile
+     * @description HU-SP-023. Every live claim of every attribute, whatever its classification, one entry per attribute, with the version shown and why. Selection rule v1: the most recent version the person declared wins (`declared_by_you`); without one, the most recent of any provenance (`most_recent`). Every other live version is an alternative, never hidden. An attribute nobody answered is absent. Weight and height are a series, not claims, and stay in `GET /space/v1/body-progress`.
+     */
+    get: operations['readSpaceFitnessProfile']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/profile/biological-sex': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Correct my biological sex
+     * @description HU-SP-096 criteria 3 and 4, from the profile. `null` is declining and it is valid: it clears the value. Changing it rewrites nothing already recorded.
+     */
+    post: operations['correctSpaceBiologicalSex']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/profile/equipment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Declare the equipment I have
+     * @description HU-SP-013 criterion 2. The whole set, like `OP-IDN-046`: pieces that left are sealed, pieces that arrived are inserted, pieces that stayed keep the moment they were first declared. At least one piece and none exclusive. It is what the person has, not what exists: the codes are those of the equipment catalogue, but the list does not depend on it being published.
+     */
+    post: operations['declareSpaceAvailableEquipment']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/onboarding-attempts/{attemptId}/completion': {
     parameters: {
       query?: never
@@ -7953,6 +8073,9 @@ export interface components {
       | components['schemas']['SpaceTrainingGoalDeclaration']
       | components['schemas']['SpaceTrainingExperienceDeclaration']
       | components['schemas']['SpaceTrainingDisciplineDeclaration']
+      | components['schemas']['SpaceTrainingDaysDeclaration']
+      | components['schemas']['SpaceSessionDurationDeclaration']
+      | components['schemas']['SpaceTrainingPlaceDeclaration']
     /** @description Only one goal is principal, so declaring a second time replaces which one that is rather than adding to a set. */
     SpaceTrainingGoalDeclaration: {
       /**
@@ -7985,6 +8108,9 @@ export interface components {
       | components['schemas']['SpaceTrainingGoalClaim']
       | components['schemas']['SpaceTrainingExperienceClaim']
       | components['schemas']['SpaceTrainingDisciplineClaim']
+      | components['schemas']['SpaceTrainingDaysClaim']
+      | components['schemas']['SpaceSessionDurationClaim']
+      | components['schemas']['SpaceTrainingPlaceClaim']
     SpaceTrainingGoalClaim: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -8011,6 +8137,160 @@ export interface components {
       attribute_code: 'training_discipline'
       value_text: components['schemas']['TrainingDiscipline']
       superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    /**
+     * @description HU-SP-012 criterion 3. A string and not a number because the attribute is an enum in the catalogue: a numeric attribute has no range there, and nine days must be refused by the database, not only by a client.
+     * @enum {string}
+     */
+    TrainingDaysPerWeek: '1' | '2' | '3' | '4' | '5' | '6' | '7'
+    /**
+     * @description HU-SP-012 criterion 3, as ranges: what someone knows is how much fits, not an exact number. Nobody who programs training has validated the cuts yet.
+     * @enum {string}
+     */
+    SessionDuration: 'up_to_30_min' | '30_to_45_min' | '45_to_60_min' | 'over_60_min'
+    /**
+     * @description HU-SP-013 criterion 1. `multiple` is "several places", an answer and not the absence of one.
+     * @enum {string}
+     */
+    TrainingPlace: 'gym' | 'home' | 'outdoors' | 'multiple'
+    /**
+     * @description HU-SP-013 criterion 2. The codes of the equipment catalogue, listed here because the question cannot wait for that catalogue to be published.
+     * @enum {string}
+     */
+    AvailableEquipmentPiece:
+      | 'bodyweight'
+      | 'dumbbell'
+      | 'kettlebell'
+      | 'barbell'
+      | 'bench'
+      | 'pull_up_bar'
+      | 'cable'
+      | 'machine'
+      | 'cardio_machine'
+    /** @description Always ordered by code. */
+    AvailableEquipmentSet: components['schemas']['AvailableEquipmentPiece'][]
+    SpaceAvailableEquipmentDeclaration: {
+      /** @description The whole set; what is absent here is withdrawn. At least one piece. */
+      equipment: components['schemas']['AvailableEquipmentSet'] & unknown
+    }
+    /** @description The equipment in force after the command, which on a replay is simply the set in force. */
+    SpaceAvailableEquipment: {
+      equipment: components['schemas']['AvailableEquipmentSet']
+    }
+    SpaceTrainingDaysDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_days_per_week'
+      value_text: components['schemas']['TrainingDaysPerWeek']
+    }
+    SpaceSessionDurationDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'session_duration'
+      value_text: components['schemas']['SessionDuration']
+    }
+    SpaceTrainingPlaceDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_place'
+      value_text: components['schemas']['TrainingPlace']
+    }
+    SpaceTrainingDaysClaim: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_days_per_week'
+      value_text: components['schemas']['TrainingDaysPerWeek']
+      superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    SpaceSessionDurationClaim: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'session_duration'
+      value_text: components['schemas']['SessionDuration']
+      superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    SpaceTrainingPlaceClaim: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_place'
+      value_text: components['schemas']['TrainingPlace']
+      superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    SpaceIdentity: {
+      given_name: string
+      family_name: string
+      username: string | null
+      /** Format: date-time */
+      active_since: string
+      email: {
+        address: string | null
+        verified: boolean
+      }
+      phone: components['schemas']['SpaceContactPhone']
+      /** @description How the person signs in, by provider and link date; never the provider's subject. */
+      accounts: {
+        provider: string
+        /** Format: date-time */
+        linked_at: string
+      }[]
+    }
+    /** @description The contact phone, as she gave it; only she reads it unmasked. In V1 it is never verified (ADR-050). */
+    SpaceContactPhone: {
+      number: string | null
+      verified: boolean
+    }
+    SpaceContactCorrection: {
+      /** @description E.164 once spaces, dashes and parentheses are dropped; null removes it. */
+      phone: string | null
+    }
+    SpaceOwnName: {
+      given_name: string
+      family_name: string
+      /** @description Lower-cased by the server; a letter first, then letters, digits or underscores. */
+      username: string
+    }
+    SpaceOwnBiologicalSex: {
+      /** @description Null is declining, a valid answer that clears the value. */
+      biological_sex: components['schemas']['BiologicalSex'] | null
+    }
+    SpaceProfileVersion: {
+      /** @description One member for a single-valued attribute; the whole set for a set. */
+      values: string[]
+      provenance: components['schemas']['Provenance']
+      /** Format: date-time */
+      valid_from: string
+    }
+    SpaceProfileAttribute: {
+      /** @description A code of the attribute catalogue, as a string so a new member does not break an older client, which should leave a code it does not know out. */
+      attribute_code: string
+      values: string[]
+      provenance: components['schemas']['Provenance']
+      /**
+       * @description Selection rule v1. What the person declared wins; without it, the most recent version of any provenance.
+       * @enum {string}
+       */
+      selected_because: 'declared_by_you' | 'most_recent'
+      /** Format: date-time */
+      valid_from: string
+      /** @description Every other live version, newest first. Never hidden, never deleted. */
+      alternatives: components['schemas']['SpaceProfileVersion'][]
+    }
+    SpaceFitnessProfile: {
+      biological_sex: components['schemas']['BiologicalSex'] | null
+      /** @description One entry per attribute with a live claim, ordered by code. An unanswered attribute is absent. */
+      attributes: components['schemas']['SpaceProfileAttribute'][]
     }
     /** @description The claim this one replaced, or null on a first declaration. Returned because it is the app's proof that a correction was recorded as a correction and not as an edit. */
     SupersededClaimId: components['schemas']['UuidV7'] | null
@@ -15447,6 +15727,206 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readSpaceIdentity: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description My identity */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceIdentity']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceName: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceOwnName']
+      }
+    }
+    responses: {
+      /** @description The name in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceOwnName']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceContact: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceContactCorrection']
+      }
+    }
+    responses: {
+      /** @description The phone in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceContactPhone']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readSpaceFitnessProfile: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description My fitness profile */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceFitnessProfile']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceBiologicalSex: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceOwnBiologicalSex']
+      }
+    }
+    responses: {
+      /** @description The biological sex in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceOwnBiologicalSex']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  declareSpaceAvailableEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceAvailableEquipmentDeclaration']
+      }
+    }
+    responses: {
+      /** @description The equipment in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceAvailableEquipment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
     }
   }
