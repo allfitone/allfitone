@@ -188,7 +188,7 @@ export const es = {
       30: '3 meses de Allfit Pro',
       100: '1 año de Allfit Pro y merch de Allfit One',
     },
-    note: 'Recibes el premio del nivel más alto que alcances.',
+    note: 'Cada nivel que alcanzas suma su premio: con 30 personas recibes 6 meses de Allfit Pro.',
   },
   waitlistPage: {
     meta: {
@@ -226,7 +226,7 @@ export const es = {
         'El precio de lanzamiento de Allfit Pro se mantiene mientras tu suscripción siga activa, aunque el precio suba.',
         'El estatus es personal y no se transfiere. Solo se pierde si borras tu cuenta o por fraude comprobado.',
         'Una persona que invitas suma a tu contador cuando se une con tu link o tu código y confirma su correo. Para los premios en Allfit Pro, además debe crear su cuenta en Allfit Space cuando abra.',
-        'Los niveles no se suman: recibes el premio del nivel más alto que alcances. Ser Founding Member no impide ganarlos.',
+        'Los niveles se suman: recibes el premio de cada nivel que alcances. Con 30 personas son 1 + 2 + 3 = 6 meses de Allfit Pro. Ser Founding Member no impide ganarlos.',
         'Los meses de Allfit Pro llegan como un código de oferta de App Store o Google Play. Al terminar, la suscripción se renueva sola, salvo que la canceles antes en la tienda.',
         'No cuentan los correos desechables, los registros repetidos desde un mismo dispositivo o conexión, ni las invitaciones a ti mismo.',
         'Nada se sortea: los lugares se asignan por orden y los premios por el número de personas que invitas.',

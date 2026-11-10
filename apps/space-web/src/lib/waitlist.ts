@@ -5,8 +5,8 @@
  * - The first 100 people who join and confirm their email are its Founding
  *   Members, numbered #001 to #100 in the order they confirm.
  * - Everyone gets a link and a code of their own. People who join through them
- *   count toward the referral levels below; the person gets the reward of the
- *   highest level they reach, so levels do not add up.
+ *   count toward the referral levels below. Levels add up: the person gets the
+ *   reward of every level they reach (owner's decision of 10 November 2026, ADR-050).
  *
  * The rules that need a database (the confirmation email, the numbering, which
  * referrals count) belong to the API. This module only holds what the page

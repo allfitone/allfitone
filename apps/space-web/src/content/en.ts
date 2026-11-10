@@ -177,7 +177,7 @@ export const en: Dictionary = {
       30: '3 months of Allfit Pro',
       100: '1 year of Allfit Pro and Allfit One merch',
     },
-    note: 'You get the reward for the highest level you reach.',
+    note: 'Every level you reach adds its reward: with 30 people you get 6 months of Allfit Pro.',
   },
   waitlistPage: {
     meta: {
@@ -215,7 +215,7 @@ export const en: Dictionary = {
         'The Allfit Pro launch price stays yours while your subscription is active, even if the price goes up.',
         "The status is personal and can't be transferred. You only lose it if you delete your account or for proven fraud.",
         'Someone you invite counts toward your total when they join with your link or code and confirm their email. For the Allfit Pro rewards, they must also create their Allfit Space account when it opens.',
-        "Levels don't add up: you get the reward for the highest level you reach. Being a Founding Member doesn't stop you from earning them.",
+        "Levels add up: you get the reward for every level you reach. Thirty people are 1 + 2 + 3 = 6 months of Allfit Pro. Being a Founding Member doesn't stop you from earning them.",
         'Months of Allfit Pro arrive as an App Store or Google Play offer code. When they end, the subscription renews automatically unless you cancel it in the store first.',
         "Disposable emails, repeated sign-ups from the same device or connection, and inviting yourself don't count.",
         'Nothing is drawn by lot: places go by order and rewards by the number of people you invite.',
