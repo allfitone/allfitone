@@ -2656,6 +2656,7 @@ export type Database = {
           created_at: string
           data_classification_code: string
           id: string
+          multivalued: boolean
           name: string
           unit_dimension: string | null
           value_kind: string
@@ -2666,6 +2667,7 @@ export type Database = {
           created_at?: string
           data_classification_code: string
           id?: string
+          multivalued?: boolean
           name: string
           unit_dimension?: string | null
           value_kind: string
@@ -2676,6 +2678,7 @@ export type Database = {
           created_at?: string
           data_classification_code?: string
           id?: string
+          multivalued?: boolean
           name?: string
           unit_dimension?: string | null
           value_kind?: string
@@ -2812,6 +2815,38 @@ export type Database = {
         }
         Returns: undefined
       }
+      correct_own_biological_sex: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+          p_value: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      correct_own_name: {
+        Args: {
+          p_command_id: string
+          p_family_name: string
+          p_given_name: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+          p_username: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       create_access_session: {
         Args: {
           p_access_account_id: string
@@ -2839,6 +2874,10 @@ export type Database = {
       credential_verification_method_for: {
         Args: { p_credential_type_code: string }
         Returns: string
+      }
+      current_available_equipment: {
+        Args: { p_person_id: string }
+        Returns: Json
       }
       current_focus_areas: { Args: { p_person_id: string }; Returns: string[] }
       decide_client_invitation: {
@@ -2952,6 +2991,21 @@ export type Database = {
           organization_id: string
           proposed_role_code: string
           replayed: boolean
+        }[]
+      }
+      declare_available_equipment: {
+        Args: {
+          p_command_id: string
+          p_equipment: string[]
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
         }[]
       }
       declare_biological_sex: {
@@ -3427,6 +3481,7 @@ export type Database = {
           result: Json
         }[]
       }
+      own_name_document: { Args: { p_person_id: string }; Returns: Json }
       prepare_account_recovery_delivery: {
         Args: { p_event_id: string }
         Returns: {
@@ -3556,6 +3611,14 @@ export type Database = {
           scope_options: Json
           status: string
         }[]
+      }
+      read_own_identity: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: Json
+      }
+      read_own_profile: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: Json
       }
       read_training_profile: {
         Args: { p_person_id: string }

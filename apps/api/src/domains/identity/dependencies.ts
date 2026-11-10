@@ -87,6 +87,8 @@ import {
   type HealthContextService,
 } from './application/health-context.js'
 import { createHealthContextDatabase } from './infrastructure/health-context.js'
+import { createOwnProfileService, type OwnProfileService } from './application/own-profile.js'
+import { createOwnProfileDatabase } from './infrastructure/own-profile.js'
 
 let cachedHealthContext: HealthContextService | undefined
 
@@ -100,6 +102,20 @@ export function spaceHealthContextService(): HealthContextService {
     requestId: () => randomUUID(),
   })
   return cachedHealthContext
+}
+
+let cachedOwnProfile: OwnProfileService | undefined
+
+export function spaceOwnProfileService(): OwnProfileService {
+  if (cachedOwnProfile) return cachedOwnProfile
+  const issuer = process.env.WORKOS_ISSUER
+  if (!issuer) throw new Error('WORKOS_ISSUER is not set')
+  cachedOwnProfile = createOwnProfileService({
+    database: createOwnProfileDatabase(),
+    issuer,
+    requestId: () => randomUUID(),
+  })
+  return cachedOwnProfile
 }
 
 let cachedBodyProgress: BodyProgressService | undefined
