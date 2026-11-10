@@ -13,6 +13,11 @@
  *
  * ADR-046: the admin role brings every duty and they last as long as it does, so
  * there is no duty form. A duty held through the role offers no action of its own.
+ *
+ * HU-BO-029 c1: every assignment says who holds it and who granted it, by name, with
+ * the short identifier beside it for a case. The person who receives the role is found
+ * with the same search as /people, so nobody types an identifier; that search is
+ * recorded on everyone it answers, as it is there.
  */
 
 import {
@@ -66,6 +71,7 @@ import {
   type PlatformDutyCode,
   type PlatformDutyFilters,
   type PlatformRoleAssignment,
+  type SupportPeopleSearch,
 } from '@/lib/backoffice-api'
 import {
   actorModeLabel,
@@ -80,11 +86,16 @@ import {
   isDutyClosed,
   isHeldThroughRole,
   isValidPersonId,
+  personName,
   platformAccessMessage,
   roleStatusLabel,
   roleStatusTone,
+  shortIdentifier,
   type PlatformDutyStatus,
 } from '@/lib/platform-access'
+import { isSearchable, supportMetadataMessage } from '@/lib/support-metadata'
+
+type PersonMatch = SupportPeopleSearch['items'][number]
 
 type LoadState = 'loading' | 'ready' | 'forbidden' | 'error'
 
@@ -310,18 +321,43 @@ function BaseRoleSection({
   onGrant: (personId: string) => void
   onRevoke: (assignmentId: string) => Promise<void>
 }) {
-  const [personId, setPersonId] = useState('')
+  const [term, setTerm] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [found, setFound] = useState<SupportPeopleSearch | null>(null)
+  const [chosen, setChosen] = useState<PersonMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<string | null>(null)
 
-  function submit(event: FormEvent) {
+  async function search(event: FormEvent) {
     event.preventDefault()
-    if (!isValidPersonId(personId)) {
-      setError('Escribe el identificador de la persona.')
+    const wanted = term.trim()
+    if (!isSearchable(wanted)) {
+      setError('Escribe al menos dos caracteres del nombre, el correo o el teléfono.')
       return
     }
     setError(null)
-    setPersonId('')
+    setChosen(null)
+    setSearching(true)
+    try {
+      setFound(await backofficeApi.searchSupportPeople({ query: wanted, caseReference: '' }))
+    } catch (failure) {
+      setFound(null)
+      setError(searchFailureMessage(failure))
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function grant() {
+    if (!chosen || !isValidPersonId(chosen.person_id)) {
+      setError('Elige a la persona que recibe el rol.')
+      return
+    }
+    const personId = chosen.person_id
+    setError(null)
+    setChosen(null)
+    setFound(null)
+    setTerm('')
     onGrant(personId)
   }
 
@@ -337,27 +373,75 @@ function BaseRoleSection({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} data-backoffice-form data-platform-form noValidate>
+        <form
+          onSubmit={(event) => void search(event)}
+          data-backoffice-form
+          data-platform-form
+          noValidate
+        >
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="platform-role-person">Persona que recibe el rol</FieldLabel>
+              <FieldLabel htmlFor="platform-role-person">Buscar a quien recibe el rol</FieldLabel>
               <Input
                 id="platform-role-person"
-                value={personId}
-                onChange={(event) => setPersonId(event.target.value)}
-                placeholder="019a3000-0000-7000-8000-000000000001"
+                value={term}
+                onChange={(event) => setTerm(event.target.value)}
+                placeholder="Nombre, correo o teléfono"
                 autoComplete="off"
-                disabled={busy}
+                disabled={busy || searching}
               />
             </Field>
             {error ? <FieldError>{error}</FieldError> : null}
             <div data-form-actions>
-              <Button type="submit" disabled={busy}>
-                Otorgar rol base
+              <Button type="submit" variant="outline" disabled={busy || searching}>
+                {searching ? 'Buscando…' : 'Buscar'}
               </Button>
             </div>
           </FieldGroup>
         </form>
+        <p data-role-search-note>
+          La búsqueda queda registrada, y cada persona que aparece la ve en su historial.
+        </p>
+
+        {found ? (
+          found.items.length === 0 ? (
+            <p data-role-candidates-empty>Nadie coincide con esa búsqueda.</p>
+          ) : (
+            <ul data-role-candidates aria-label="Personas que coinciden">
+              {found.items.map((person) => (
+                <li key={person.person_id} data-role-candidate={person.person_id}>
+                  <strong>{person.display_name}</strong>{' '}
+                  <span>{person.contact_email ?? 'Sin correo'}</span>{' '}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={chosen?.person_id === person.person_id ? 'default' : 'outline'}
+                    aria-pressed={chosen?.person_id === person.person_id}
+                    disabled={busy}
+                    onClick={() => setChosen(person)}
+                  >
+                    Elegir
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+        {found?.has_more ? (
+          <p data-role-candidates-more>Coinciden más personas: escribe algo más preciso.</p>
+        ) : null}
+
+        {chosen ? (
+          <div data-role-chosen>
+            <p>
+              Recibirá el rol base: <strong>{chosen.display_name}</strong>
+              {chosen.contact_email ? ` (${chosen.contact_email})` : ''}
+            </p>
+            <Button type="button" disabled={busy} onClick={grant}>
+              Otorgar rol base
+            </Button>
+          </div>
+        ) : null}
 
         <Table scrollAreaLabel="Asignaciones de rol base">
           <TableHeader>
@@ -382,7 +466,7 @@ function BaseRoleSection({
               assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
                   <TableCell>
-                    <code>{assignment.person_id}</code>
+                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
                   </TableCell>
                   <TableCell>
                     <Badge variant={roleStatusTone(assignment.status)}>
@@ -390,7 +474,10 @@ function BaseRoleSection({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <code>{assignment.granted_by_person_id}</code>
+                    <PersonCell
+                      name={assignment.granted_by_name}
+                      personId={assignment.granted_by_person_id}
+                    />
                   </TableCell>
                   <TableCell>{formatInstant(assignment.granted_at)}</TableCell>
                   <TableCell>{formatInstant(assignment.revoked_at)}</TableCell>
@@ -417,9 +504,10 @@ function BaseRoleSection({
                           <AlertDialogHeader>
                             <AlertDialogTitle>¿Retirar el rol base?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              <code>{assignment.person_id}</code> deja de poder entrar al Backoffice
-                              ahora mismo: se cierran sus deberes vigentes y su sesión. No se puede
-                              deshacer; volver a darle acceso exige otorgar el rol de nuevo.
+                              {personName(assignment.person_name)} deja de poder entrar al
+                              Backoffice ahora mismo: se cierran sus deberes vigentes y su sesión.
+                              No se puede deshacer; volver a darle acceso exige otorgar el rol de
+                              nuevo.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -573,7 +661,7 @@ function DutySection({
               assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
                   <TableCell>
-                    <code>{assignment.person_id}</code>
+                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
                   </TableCell>
                   <TableCell>{dutyLabel(assignment.duty_code)}</TableCell>
                   <TableCell>
@@ -587,7 +675,10 @@ function DutySection({
                   <TableCell numeric>{assignment.required_aal}</TableCell>
                   <TableCell>{dutyWindowLabel(assignment)}</TableCell>
                   <TableCell>
-                    <code>{assignment.granted_by_person_id}</code>
+                    <PersonCell
+                      name={assignment.granted_by_name}
+                      personId={assignment.granted_by_person_id}
+                    />
                   </TableCell>
                   <TableCell>{formatInstant(assignment.recertified_at)}</TableCell>
                   <TableCell align="end">
@@ -639,7 +730,7 @@ function DutySection({
                             <AlertDialogHeader>
                               <AlertDialogTitle>¿Revocar este deber?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                <code>{assignment.person_id}</code> deja de poder{' '}
+                                {personName(assignment.person_name)} deja de poder{' '}
                                 {dutyLabel(assignment.duty_code).toLowerCase()} desde la siguiente
                                 transacción. A diferencia de suspender, no se puede deshacer: para
                                 devolvérselo hay que otorgar un deber nuevo.
@@ -701,6 +792,21 @@ function LoadMore({
       {appending ? 'Cargando…' : label}
     </Button>
   )
+}
+
+/** The name reads first; the short identifier stays beside it for a case, whole on hover. */
+function PersonCell({ name, personId }: { name: string | null; personId: string }) {
+  return (
+    <span data-person-cell>
+      {personName(name)} <code title={personId}>{shortIdentifier(personId)}</code>
+    </span>
+  )
+}
+
+function searchFailureMessage(error: unknown): string {
+  if (error instanceof BackofficeNetworkError) return platformAccessMessage('network-unavailable')
+  if (error instanceof BackofficeApiError) return supportMetadataMessage(error.code)
+  return platformAccessMessage('upstream-unavailable')
 }
 
 function failureMessage(error: unknown): string {

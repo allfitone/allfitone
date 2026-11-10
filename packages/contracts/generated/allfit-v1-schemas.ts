@@ -10625,6 +10625,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  PlatformAccessPersonName: {
+    type: ['string', 'null'],
+    description:
+      "HU-BO-029: the person's name as `identity.people` holds it, so the Team screen says who holds access and who granted it. Null only when the person has no name on file. Reading the inventory leaves an access event on every person it names (ADR-046).",
+  },
   PlatformAccessReasonCode: {
     type: 'string',
     minLength: 1,
@@ -10643,6 +10648,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     required: [
       'id',
       'person_id',
+      'person_name',
       'duty_code',
       'actor_mode',
       'status',
@@ -10651,6 +10657,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'valid_to',
       'required_aal',
       'granted_by_person_id',
+      'granted_by_name',
       'recertified_by_person_id',
       'recertified_at',
       'suspended_by_person_id',
@@ -10665,6 +10672,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      person_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
       },
       duty_code: {
         $ref: '#/components/schemas/PlatformDutyCode',
@@ -10696,6 +10706,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       granted_by_person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      granted_by_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
       },
       recertified_by_person_id: {
         oneOf: [
@@ -11203,9 +11216,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     required: [
       'id',
       'person_id',
+      'person_name',
       'platform_role',
       'status',
       'granted_by_person_id',
+      'granted_by_name',
       'granted_at',
       'revoked_by_person_id',
       'revoked_at',
@@ -11217,6 +11232,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       person_id: {
         $ref: '#/components/schemas/Uuid',
       },
+      person_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
+      },
       platform_role: {
         type: 'string',
         enum: ['allfit_admin'],
@@ -11227,6 +11245,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       granted_by_person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      granted_by_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
       },
       granted_at: {
         type: 'string',

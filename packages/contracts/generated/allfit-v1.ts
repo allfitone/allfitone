@@ -6973,17 +6973,21 @@ export interface components {
     PlatformRoleAssignment: {
       id: components['schemas']['UuidV7']
       person_id: components['schemas']['Uuid']
+      person_name: components['schemas']['PlatformAccessPersonName']
       /** @enum {string} */
       platform_role: 'allfit_admin'
       /** @enum {string} */
       status: 'active' | 'revoked'
       granted_by_person_id: components['schemas']['Uuid']
+      granted_by_name: components['schemas']['PlatformAccessPersonName']
       /** Format: date-time */
       granted_at: string
       revoked_by_person_id: components['schemas']['Uuid'] | null
       /** Format: date-time */
       revoked_at: string | null
     }
+    /** @description HU-BO-029: the person's name as `identity.people` holds it, so the Team screen says who holds access and who granted it. Null only when the person has no name on file. Reading the inventory leaves an access event on every person it names (ADR-046). */
+    PlatformAccessPersonName: string | null
     PlatformDutyGrant: {
       person_id: components['schemas']['Uuid']
       duty_code: components['schemas']['PlatformDutyCode']
@@ -7002,6 +7006,7 @@ export interface components {
     PlatformDutyAssignment: {
       id: components['schemas']['UuidV7']
       person_id: components['schemas']['Uuid']
+      person_name: components['schemas']['PlatformAccessPersonName']
       duty_code: components['schemas']['PlatformDutyCode']
       actor_mode: components['schemas']['PlatformActorMode']
       /** @enum {string} */
@@ -7018,6 +7023,7 @@ export interface components {
       /** @constant */
       required_aal: 2
       granted_by_person_id: components['schemas']['Uuid']
+      granted_by_name: components['schemas']['PlatformAccessPersonName']
       recertified_by_person_id: components['schemas']['Uuid'] | null
       /** Format: date-time */
       recertified_at: string | null
