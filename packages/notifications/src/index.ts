@@ -2,6 +2,13 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
 import { escapeHtml, invitationEmailHtml } from './email-shell.js'
 
+export type { EmailLanguage } from './email-shell.js'
+export {
+  renderWaitlistConfirmationEmail,
+  renderWaitlistLinkEmail,
+  type WaitlistReferralStatus,
+} from './waitlist-emails.js'
+
 export interface EmailMessage {
   to: string
   subject: string
