@@ -544,6 +544,8 @@ export interface TrainingRow {
   level: string
   /** HU-BO-008 c2: each thing the session recorded, one line each. */
   detail: string[]
+  /** HU-BO-008 c4: the gyms she hid this session from, by name; empty when none. */
+  hiddenFrom: string[]
 }
 
 /**
@@ -554,6 +556,8 @@ export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] 
   if (outcome.outcome !== 'allowed') return []
   const sessions =
     outcome.content?.prior_training_history ?? outcome.content?.relationship_training ?? []
+  // Beside the sessions, never inside them; a server older than the screen sends none.
+  const hidings = outcome.content?.hidden_sessions ?? []
   return sessions.map((session) => {
     const zone = String(session.timezone)
     return {
@@ -569,6 +573,9 @@ export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] 
           ? 'Sin nivel certificado'
           : LEVEL_LABELS[session.achieved_level],
       detail: detailLines(session),
+      hiddenFrom: hidings
+        .filter((hiding) => hiding.executed_session_id === session.id)
+        .map((hiding) => hiding.organization_name),
     }
   })
 }

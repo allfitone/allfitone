@@ -402,7 +402,16 @@ export function BreakGlassWindows() {
             {trained.map((session) => (
               <TableRow key={session.id}>
                 <TableCell data-break-glass-moment>{session.when}</TableCell>
-                <TableCell>{session.activity}</TableCell>
+                <TableCell>
+                  {session.activity}
+                  {/* HU-BO-008 c4: the gyms she hid it from; that gym's coach never sees it. */}
+                  {session.hiddenFrom.length > 0 ? (
+                    <span data-break-glass-hidden-from>
+                      <br />
+                      Oculta a {session.hiddenFrom.join(', ')}
+                    </span>
+                  ) : null}
+                </TableCell>
                 <TableCell>{session.duration}</TableCell>
                 <TableCell data-break-glass-done>
                   {session.done}

@@ -2218,6 +2218,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/BreakGlassAgendaEntry',
         },
       },
+      hidden_sessions: {
+        type: 'array',
+        description:
+          'HU-BO-008 criterion 4, returned with either training category: of the sessions the read returns, each one she hid from a gym and which gym, newest session first. A hiding she took back is not listed. It travels beside the sessions, never inside them, because the session shape is the one Studio reads too.',
+        items: {
+          $ref: '#/components/schemas/BreakGlassHiddenSession',
+        },
+      },
     },
   },
   BreakGlassExercise: {
@@ -2265,6 +2273,35 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       category: {
         $ref: '#/components/schemas/BreakGlassCategory',
+      },
+    },
+  },
+  BreakGlassHiddenSession: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'executed_session_id',
+      'relationship_id',
+      'organization_id',
+      'organization_name',
+      'hidden_at',
+    ],
+    properties: {
+      executed_session_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization_name: {
+        type: 'string',
+      },
+      hidden_at: {
+        type: 'string',
+        format: 'date-time',
       },
     },
   },

@@ -772,6 +772,32 @@ describe('training under a window, opened (HU-BO-008)', () => {
     expect(rows.map((row) => row.activity)).toEqual(['Circuito'])
   })
 
+  test('says which gyms each session is hidden from, and none when she hid it from none (c4)', () => {
+    const other = { ...session, id: '019a8000-0000-7000-8000-000000000a10' }
+    const hiding = (organizationName: string) => ({
+      executed_session_id: session.id,
+      relationship_id: '019a8000-0000-7000-8000-000000000b01',
+      organization_id: '019a8000-0000-7000-8000-000000000c01',
+      organization_name: organizationName,
+      hidden_at: '2026-09-16T12:00:00+00:00',
+    })
+    const rows = trainingRows(
+      read('prior_training_history', {
+        prior_training_history: [session, other],
+        hidden_sessions: [hiding('Gimnasio Uno'), hiding('Gimnasio Dos')],
+      }),
+    )
+
+    expect(rows.map((row) => row.hiddenFrom)).toEqual([['Gimnasio Uno', 'Gimnasio Dos'], []])
+  })
+
+  test('a server older than the screen answers without hidings, and nothing reads as hidden', () => {
+    const [row] = trainingRows(
+      read('prior_training_history', { prior_training_history: [session] }),
+    )
+    expect(row?.hiddenFrom).toEqual([])
+  })
+
   test('the agenda names each programme and nothing of its content (c3)', () => {
     const rows = agendaRows(
       read('relationship_training', {

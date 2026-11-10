@@ -598,6 +598,16 @@ test('an authorised read of prior training shows each session and what it held',
           ],
         },
       ],
+      // HU-BO-008 c4: she hid the strength session from one gym.
+      hiddenSessions: [
+        {
+          executed_session_id: '019a8000-0000-7000-8000-000000000a01',
+          relationship_id: '019a8000-0000-7000-8000-000000000b01',
+          organization_id: '019a8000-0000-7000-8000-000000000c01',
+          organization_name: 'Gimnasio Uno',
+          hidden_at: '2026-09-16T12:00:00+00:00',
+        },
+      ],
     },
   })
   await mockBackofficeApi(context, fixture)
@@ -617,8 +627,12 @@ test('an authorised read of prior training shows each session and what it held',
   await expect(strength).toContainText('2 series · 14 repeticiones · hasta 85 kg')
   await expect(strength).toContainText('Completada · sin validar')
   await expect(strength).toContainText('Sin nivel certificado')
+  await expect(strength.locator('[data-break-glass-hidden-from]')).toHaveText(
+    'Oculta a Gimnasio Uno',
+  )
   const run = sessions.getByRole('row', { name: /Sesión de resistencia/ })
   await expect(run).toContainText('2 tramos · 2 km · 10:45')
+  await expect(run.locator('[data-break-glass-hidden-from]')).toHaveCount(0)
   const region = page.getByRole('region', { name: 'Sesiones de entrenamiento de la persona' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
 

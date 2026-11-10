@@ -12218,6 +12218,16 @@ export interface components {
       relationship_training?: components['schemas']['ExecutionDetail'][]
       /** @description HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym. */
       agenda?: components['schemas']['BreakGlassAgendaEntry'][]
+      /** @description HU-BO-008 criterion 4, returned with either training category: of the sessions the read returns, each one she hid from a gym and which gym, newest session first. A hiding she took back is not listed. It travels beside the sessions, never inside them, because the session shape is the one Studio reads too. */
+      hidden_sessions?: components['schemas']['BreakGlassHiddenSession'][]
+    }
+    BreakGlassHiddenSession: {
+      executed_session_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      organization_id: components['schemas']['Uuid']
+      organization_name: string
+      /** Format: date-time */
+      hidden_at: string
     }
     BreakGlassAgendaEntry: {
       /** Format: date-time */

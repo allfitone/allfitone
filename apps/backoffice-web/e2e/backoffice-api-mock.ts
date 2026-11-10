@@ -177,6 +177,14 @@ export interface BreakGlassFixture {
   /** Sessions and plan under a gym; a relationship_training read returns them. */
   gymSessions?: BreakGlassSessionFixture[]
   gymAgenda?: BreakGlassAgendaFixture[]
+  /** HU-BO-008 c4: what she hid from a gym, beside the sessions of either training read. */
+  hiddenSessions?: {
+    executed_session_id: string
+    relationship_id: string
+    organization_id: string
+    organization_name: string
+    hidden_at: string
+  }[]
   files: BreakGlassFileFixture[]
 }
 
@@ -2523,6 +2531,7 @@ async function routeBreakGlass(
         content: {
           prior_training_history: glass.sessions ?? [],
           agenda: glass.ownAgenda ?? [],
+          hidden_sessions: glass.hiddenSessions ?? [],
         },
       })
     } else if (category === 'relationship_training') {
@@ -2533,6 +2542,7 @@ async function routeBreakGlass(
         content: {
           relationship_training: glass.gymSessions ?? [],
           agenda: glass.gymAgenda ?? [],
+          hidden_sessions: glass.hiddenSessions ?? [],
         },
       })
     } else {
