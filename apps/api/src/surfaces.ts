@@ -69,6 +69,7 @@ import {
   backofficePlatformAccessRoutes,
   backofficeSupportMetadataRoutes,
 } from './domains/support/index.js'
+import { spaceWaitlistRoutes } from './domains/waitlist/index.js'
 import { clientTelemetryConfigRoutes } from './platform/telemetry/client-config.js'
 
 export function mountSurfaces(app: Hono): void {
@@ -148,6 +149,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/space/v1', spacePaymentRoutes())
   app.route('/space/v1', spaceRelationshipRoutes())
   app.route('/space/v1', spacePrivacyRoutes())
+  app.route('/space/v1', spaceWaitlistRoutes())
   app.route('/backoffice/v1', backofficeIdentityRoutes())
   app.route('/backoffice/v1', backofficeCredentialVerificationRoutes())
   app.route('/backoffice/v1', backofficeTeamInvitationRoutes())
