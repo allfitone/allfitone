@@ -14,6 +14,16 @@ variable "mail_from_subdomain" {
   default     = "mail"
 }
 
+variable "sender_address" {
+  description = "The one address the app may send from, without display name: the task role allows no other."
+  type        = string
+
+  validation {
+    condition     = endswith(var.sender_address, "@${var.domain}") && length(split("@", var.sender_address)) == 2
+    error_message = "The sender must be a single address on the module's domain."
+  }
+}
+
 variable "alert_emails" {
   description = "Who hears when the bounce or complaint rate climbs. Each address confirms its subscription once."
   type        = list(string)

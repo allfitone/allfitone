@@ -46,6 +46,8 @@ variable "services" {
     secret_keys        = list(string)
     environment        = map(string)
     health_command     = string
+    # IAM policy JSON for what the app itself may call in AWS; null means no role at all.
+    task_role_policy = optional(string)
   }))
 }
 

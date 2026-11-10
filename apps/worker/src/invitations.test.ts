@@ -55,6 +55,60 @@ test('delivers a ready invitation and acknowledges the event', async () => {
   expect(sent[0]?.html).toContain('http://localhost:3000/email/allfit-one-lockup-on-light.png')
 })
 
+// ADR-049: SES has no idempotency key. If the worker stops between sending and
+// acknowledging, the event comes back; it is sent again rather than lost.
+test('sends and acknowledges again an event that comes back after its email went out', async () => {
+  const acknowledged: string[] = []
+  const sent: EmailMessage[] = []
+  const queue: Queue = {
+    claim: async () => [
+      { id: 'event-1', topic: 'organization.staff_invited.v1', payload: {}, attempt: 2 },
+    ],
+    ack: async (id) => {
+      acknowledged.push(id)
+    },
+    nack: async () => {
+      throw new Error('a redelivered event must not fail')
+    },
+  }
+  const process = createInvitationBatchProcessor({
+    queue,
+    database: {
+      expire: async () => 0,
+      prepare: async () => ({
+        state: 'ready',
+        invitationId: '0199b000-0000-7000-8000-000000000031',
+        contact: 'person@example.test',
+        organizationName: 'Studio Norte',
+        proposedRoleCode: 'staff',
+        tokenKeyVersion: 1,
+        expiresAt: new Date('2026-08-18T12:00:00.000Z'),
+      }),
+    },
+    email: {
+      send: async (message) => {
+        sent.push(message)
+      },
+    },
+    publicBaseUrl: 'http://localhost:3000/',
+    environment: {
+      NODE_ENV: 'development',
+      INVITATION_TOKEN_KEY_V1: Buffer.alloc(32, 5).toString('base64'),
+    },
+  })
+
+  const first = await process()
+  const second = await process()
+
+  expect([first.delivered, second.delivered]).toEqual([1, 1])
+  expect([first.deadOrDelayed, second.deadOrDelayed]).toEqual([0, 0])
+  expect(acknowledged).toEqual(['event-1', 'event-1'])
+  expect(sent.map((message) => message.idempotencyKey)).toEqual([
+    'staff-invitation/event-1',
+    'staff-invitation/event-1',
+  ])
+})
+
 test('refuses an HTTP invitation URL in production, including localhost', () => {
   expect(() =>
     createInvitationBatchProcessor({

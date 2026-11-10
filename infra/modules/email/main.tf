@@ -146,6 +146,28 @@ output "configuration_set_name" {
   value = aws_sesv2_configuration_set.this.configuration_set_name
 }
 
+output "configuration_set_arn" {
+  value = aws_sesv2_configuration_set.this.arn
+}
+
+# SES checks SendEmail against the identity and against the set the message goes
+# through, so the role names both and nothing else.
+output "send_policy" {
+  description = "IAM policy JSON for the one role that sends: SendEmail from the sender address only."
+  value = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid      = "SendFromTheSenderOnly"
+      Effect   = "Allow"
+      Action   = "ses:SendEmail"
+      Resource = [aws_sesv2_email_identity.domain.arn, aws_sesv2_configuration_set.this.arn]
+      Condition = {
+        StringEquals = { "ses:FromAddress" = var.sender_address }
+      }
+    }]
+  })
+}
+
 output "dns_records" {
   description = "Records to keep in GoDaddy: three DKIM CNAMEs, then the MAIL FROM MX and SPF."
   value = concat(
