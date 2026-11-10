@@ -1595,8 +1595,10 @@ paths:
 
         Every active member the file returns is recorded in the access log before the
         file is returned. A natural person's site address is withheld, because it can
-        be their home. People served, plans, the payment method and Premium have no
-        tables yet and say `not_modelled` instead of an answer.
+        be their home. People served, its plans and their subscribers, whether its
+        payment method is connected (never a credential), its guest quota and whether it
+        gives Pro to the people it serves are answered from relationships, payments and
+        the quota, each as the platform holds it today.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -2357,9 +2359,11 @@ paths:
         recorded reason, not an error, because the record of a refused attempt is
         the point.
 
-        The content projection is not available in this version: `execution` and
-        `nutrition` do not exist yet, so an authorised exercise answers
-        `content_unavailable` rather than inventing data.
+        An authorised exercise answers the content of its category: measurements and
+        the days with body photos (never a photo), health context, meals, or training
+        with its agenda and the sessions she hid from a gym. A category whose data the
+        platform does not store answers `content_unavailable` rather than inventing
+        data.
       security:
         - backofficeCookieAuth: []
       parameters:
@@ -13004,8 +13008,9 @@ paths:
       description: >-
         Counts of people, gyms and money, each one carrying the period it was
         measured over. A figure the platform cannot compute is `not_modelled` with
-        no value and a reason, never zero: payments have no tables yet, and Space
-        keeps no session, so "people active this week" has no signal at all.
+        no value and a reason, never zero. Every figure is computed today: people
+        active this week are the people who trained this week, and the money is what
+        the stores reported as collected.
 
         A count of people below `minimum_aggregate` is `below_threshold` with no
         value, so no figure narrows the platform down to somebody. A true zero is
@@ -16780,7 +16785,11 @@ components:
           $ref: '#/components/schemas/Uuid'
         kind:
           type: string
-          enum: [initial, renewal]
+          enum: [initial, renewal, name_change]
+          description: >-
+            `name_change` (HU-BO-021 criterion 7): the holder changed her name while the
+            credential had a verification in force. That verification stays intact and in
+            force; the reviewer decides whether the credential still matches her.
         requested_at:
           type: string
           format: date-time
@@ -16910,7 +16919,7 @@ components:
           $ref: '#/components/schemas/Uuid'
         kind:
           type: string
-          enum: [initial, renewal]
+          enum: [initial, renewal, name_change]
         status:
           type: string
           enum: [pending, resolved, cancelled]
@@ -17293,9 +17302,25 @@ components:
         resource_type:
           type: string
           pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
+        before:
+          $ref: '#/components/schemas/BreakGlassSessionCursor'
         resource_id:
           type: [string, 'null']
           format: uuid
+    BreakGlassSessionCursor:
+      type: object
+      additionalProperties: false
+      required: [started_at, id]
+      description: >-
+        HU-BO-008: the last session a training read already showed. The read answers the
+        hundred sessions older than it. Only a training category pages; both halves or
+        neither.
+      properties:
+        started_at:
+          type: string
+          format: date-time
+        id:
+          $ref: '#/components/schemas/Uuid'
     BreakGlassExerciseOutcome:
       type: object
       additionalProperties: false
@@ -18497,9 +18522,11 @@ components:
       required:
         - id
         - person_id
+        - person_name
         - platform_role
         - status
         - granted_by_person_id
+        - granted_by_name
         - granted_at
         - revoked_by_person_id
         - revoked_at
@@ -18508,6 +18535,8 @@ components:
           $ref: '#/components/schemas/UuidV7'
         person_id:
           $ref: '#/components/schemas/Uuid'
+        person_name:
+          $ref: '#/components/schemas/PlatformAccessPersonName'
         platform_role:
           type: string
           enum: [allfit_admin]
@@ -18516,6 +18545,8 @@ components:
           enum: [active, revoked]
         granted_by_person_id:
           $ref: '#/components/schemas/Uuid'
+        granted_by_name:
+          $ref: '#/components/schemas/PlatformAccessPersonName'
         granted_at:
           type: string
           format: date-time
@@ -18526,6 +18557,12 @@ components:
         revoked_at:
           type: [string, 'null']
           format: date-time
+    PlatformAccessPersonName:
+      type: [string, 'null']
+      description: >-
+        HU-BO-029: the person's name as `identity.people` holds it, so the Team screen says
+        who holds access and who granted it. Null only when the person has no name on file.
+        Reading the inventory leaves an access event on every person it names (ADR-046).
     PlatformDutyGrant:
       type: object
       additionalProperties: false
@@ -18551,6 +18588,7 @@ components:
       required:
         - id
         - person_id
+        - person_name
         - duty_code
         - actor_mode
         - status
@@ -18559,6 +18597,7 @@ components:
         - valid_to
         - required_aal
         - granted_by_person_id
+        - granted_by_name
         - recertified_by_person_id
         - recertified_at
         - suspended_by_person_id
@@ -18571,6 +18610,8 @@ components:
           $ref: '#/components/schemas/UuidV7'
         person_id:
           $ref: '#/components/schemas/Uuid'
+        person_name:
+          $ref: '#/components/schemas/PlatformAccessPersonName'
         duty_code:
           $ref: '#/components/schemas/PlatformDutyCode'
         actor_mode:
@@ -18597,6 +18638,8 @@ components:
           const: 2
         granted_by_person_id:
           $ref: '#/components/schemas/Uuid'
+        granted_by_name:
+          $ref: '#/components/schemas/PlatformAccessPersonName'
         recertified_by_person_id:
           oneOf:
             - $ref: '#/components/schemas/Uuid'
@@ -29213,6 +29256,12 @@ components:
             Sessions trained under a gym, returned by a `relationship_training` read.
           items:
             $ref: '#/components/schemas/ExecutionDetail'
+        has_older_sessions:
+          type: boolean
+          description: >-
+            HU-BO-008, returned with either training category: sessions older than this
+            page remain. The next read sends the last session shown as `before`, and is a
+            read of its own, logged before it answers.
         agenda:
           type: array
           maxItems: 100
@@ -29223,6 +29272,32 @@ components:
             `relationship_training`. Never the programme's content or the gym.
           items:
             $ref: '#/components/schemas/BreakGlassAgendaEntry'
+        hidden_sessions:
+          type: array
+          description: >-
+            HU-BO-008 criterion 4, returned with either training category: of the sessions
+            the read returns, each one she hid from a gym and which gym, newest session
+            first. A hiding she took back is not listed. It travels beside the sessions,
+            never inside them, because the session shape is the one Studio reads too.
+          items:
+            $ref: '#/components/schemas/BreakGlassHiddenSession'
+    BreakGlassHiddenSession:
+      type: object
+      additionalProperties: false
+      required:
+        [executed_session_id, relationship_id, organization_id, organization_name, hidden_at]
+      properties:
+        executed_session_id:
+          $ref: '#/components/schemas/Uuid'
+        relationship_id:
+          $ref: '#/components/schemas/Uuid'
+        organization_id:
+          $ref: '#/components/schemas/Uuid'
+        organization_name:
+          type: string
+        hidden_at:
+          type: string
+          format: date-time
     BreakGlassAgendaEntry:
       type: object
       additionalProperties: false

@@ -177,6 +177,16 @@ export interface BreakGlassFixture {
   /** Sessions and plan under a gym; a relationship_training read returns them. */
   gymSessions?: BreakGlassSessionFixture[]
   gymAgenda?: BreakGlassAgendaFixture[]
+  /** HU-BO-008: the sessions older than the first page, answered to a read sent `before`. */
+  olderSessions?: BreakGlassSessionFixture[]
+  /** HU-BO-008 c4: what she hid from a gym, beside the sessions of either training read. */
+  hiddenSessions?: {
+    executed_session_id: string
+    relationship_id: string
+    organization_id: string
+    organization_name: string
+    hidden_at: string
+  }[]
   files: BreakGlassFileFixture[]
 }
 
@@ -849,7 +859,7 @@ export interface VerificationFixture {
 
 export interface VerificationRequestFixture {
   request_id: string
-  kind: 'initial' | 'renewal'
+  kind: 'initial' | 'renewal' | 'name_change'
   requested_at: string
   credential_id: string
   credential_type_code: string
@@ -1730,9 +1740,11 @@ export interface PlatformAccessFixture {
 export interface PlatformRoleFixture {
   id: string
   person_id: string
+  person_name: string | null
   platform_role: 'allfit_admin'
   status: 'active' | 'revoked'
   granted_by_person_id: string
+  granted_by_name: string | null
   granted_at: string
   revoked_by_person_id: string | null
   revoked_at: string | null
@@ -1741,6 +1753,7 @@ export interface PlatformRoleFixture {
 export interface PlatformDutyFixture {
   id: string
   person_id: string
+  person_name: string | null
   duty_code: string
   actor_mode: 'A10' | 'A11' | 'A12'
   status: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
@@ -1749,6 +1762,7 @@ export interface PlatformDutyFixture {
   valid_to: string
   required_aal: 2
   granted_by_person_id: string
+  granted_by_name: string | null
   recertified_by_person_id: string | null
   recertified_at: string | null
   suspended_by_person_id: string | null
@@ -2112,11 +2126,23 @@ async function routePlatformAccess(
   }
   if (resource === 'role-assignments') {
     const body = request.body as { person_id?: string } | undefined
-    const created = platformRole({ person_id: body?.person_id ?? SUBJECT_PERSON_ID })
+    const personId = body?.person_id ?? SUBJECT_PERSON_ID
+    // The projection names the holder from `identity.people`, as the database does.
+    const holder = fixture.support?.people.find((person) => person.person_id === personId)
+    const created = platformRole({
+      person_id: personId,
+      person_name: holder?.display_name ?? platformPersonName(personId),
+    })
     access.roles.push(created)
     // The role brings every duty with it, as the database's trigger does.
     for (const dutyCode of STANDING_DUTY_CODES) {
-      access.duties.push(standingDuty({ person_id: created.person_id, duty_code: dutyCode }))
+      access.duties.push(
+        standingDuty({
+          person_id: created.person_id,
+          person_name: created.person_name,
+          duty_code: dutyCode,
+        }),
+      )
     }
     await fulfill(route, 201, created)
     return
@@ -2500,13 +2526,17 @@ async function routeBreakGlass(
         content: { nutrition_intake: glass.meals ?? [] },
       })
     } else if (category === 'prior_training_history') {
+      // HU-BO-008: a read sent `before` answers the older page, and nothing remains past it.
+      const paging = (request.body as { before?: unknown } | undefined)?.before !== undefined
       await fulfill(route, 200, {
         outcome: 'allowed',
         reason_code: 'authorized_exercise',
         ...event,
         content: {
-          prior_training_history: glass.sessions ?? [],
+          prior_training_history: paging ? (glass.olderSessions ?? []) : (glass.sessions ?? []),
+          has_older_sessions: !paging && (glass.olderSessions?.length ?? 0) > 0,
           agenda: glass.ownAgenda ?? [],
+          hidden_sessions: paging ? [] : (glass.hiddenSessions ?? []),
         },
       })
     } else if (category === 'relationship_training') {
@@ -2517,6 +2547,7 @@ async function routeBreakGlass(
         content: {
           relationship_training: glass.gymSessions ?? [],
           agenda: glass.gymAgenda ?? [],
+          hidden_sessions: glass.hiddenSessions ?? [],
         },
       })
     } else {
@@ -4315,17 +4346,32 @@ function nextAssignmentId(): string {
   return `019a3000-0000-7000-8000-${String(identifierSequence).padStart(12, '0')}`
 }
 
+export const ACTOR_PERSON_NAME = 'Ada Lovelace'
+export const SUBJECT_PERSON_NAME = 'Grace Hopper'
+
+/** The two administrators the platform fixtures know, named as `identity.people` would. */
+export function platformPersonName(personId: string): string | null {
+  if (personId === ACTOR_PERSON_ID) return ACTOR_PERSON_NAME
+  if (personId === SUBJECT_PERSON_ID) return SUBJECT_PERSON_NAME
+  return null
+}
+
 export function platformRole(overrides: Partial<PlatformRoleFixture> = {}): PlatformRoleFixture {
-  return {
+  const role = {
     id: nextAssignmentId(),
     person_id: SUBJECT_PERSON_ID,
-    platform_role: 'allfit_admin',
-    status: 'active',
+    platform_role: 'allfit_admin' as const,
+    status: 'active' as const,
     granted_by_person_id: ACTOR_PERSON_ID,
     granted_at: new Date().toISOString(),
     revoked_by_person_id: null,
     revoked_at: null,
     ...overrides,
+  }
+  return {
+    ...role,
+    person_name: overrides.person_name ?? platformPersonName(role.person_id),
+    granted_by_name: overrides.granted_by_name ?? platformPersonName(role.granted_by_person_id),
   }
 }
 
@@ -4384,9 +4430,13 @@ export function standingDuty(overrides: Partial<PlatformDutyFixture> = {}): Plat
 export function platformDuty(overrides: Partial<PlatformDutyFixture> = {}): PlatformDutyFixture {
   const now = Date.now()
   const dutyCode = overrides.duty_code ?? 'diagnose_support_metadata'
+  const personId = overrides.person_id ?? SUBJECT_PERSON_ID
+  const grantorId = overrides.granted_by_person_id ?? ACTOR_PERSON_ID
   return {
     id: nextAssignmentId(),
-    person_id: SUBJECT_PERSON_ID,
+    person_id: personId,
+    person_name: platformPersonName(personId),
+    granted_by_name: platformPersonName(grantorId),
     duty_code: dutyCode,
     actor_mode: actorModeFor(dutyCode),
     status: 'active',

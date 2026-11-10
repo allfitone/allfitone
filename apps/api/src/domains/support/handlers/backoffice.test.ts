@@ -25,9 +25,11 @@ const VALID_TO = '2026-10-06T12:00:00.000Z'
 const roleAssignment: AllfitV1Schemas['PlatformRoleAssignment'] = {
   id: ROLE_ASSIGNMENT_ID,
   person_id: TARGET_PERSON_ID,
+  person_name: 'Carla Nueva',
   platform_role: 'allfit_admin',
   status: 'active',
   granted_by_person_id: ACTOR_PERSON_ID,
+  granted_by_name: 'Ana Primera',
   granted_at: NOW,
   revoked_by_person_id: null,
   revoked_at: null,
@@ -36,6 +38,7 @@ const roleAssignment: AllfitV1Schemas['PlatformRoleAssignment'] = {
 const dutyAssignment: AllfitV1Schemas['PlatformDutyAssignment'] = {
   id: DUTY_ASSIGNMENT_ID,
   person_id: TARGET_PERSON_ID,
+  person_name: 'Carla Nueva',
   duty_code: 'diagnose_support_metadata',
   actor_mode: 'A10',
   status: 'active',
@@ -44,6 +47,7 @@ const dutyAssignment: AllfitV1Schemas['PlatformDutyAssignment'] = {
   valid_to: VALID_TO,
   required_aal: 2,
   granted_by_person_id: ACTOR_PERSON_ID,
+  granted_by_name: 'Ana Primera',
   recertified_by_person_id: null,
   recertified_at: null,
   suspended_by_person_id: null,

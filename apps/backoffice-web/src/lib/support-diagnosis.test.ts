@@ -166,6 +166,7 @@ describe('what failed silently', () => {
 
   test('a job says when it last ran and how it went', () => {
     expect(jobLabel('privacy_disposition')).toBe('Eliminaciones de privacidad')
+    expect(jobLabel('media_disposal')).toBe('Borrado de fotos eliminadas')
     expect(jobLabel('something_new')).toBe('something_new')
     expect(jobHealthLine(job, NOW)).toBe('Corrió hace 1 min y terminó bien.')
     expect(

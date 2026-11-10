@@ -3,6 +3,7 @@ import {
   createAccountRecoveryDeliveryFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
 } from '@allfitone/auth-provider'
+import { createObjectStoreFromEnv, type ObjectStore } from '@allfitone/object-store'
 import { createPostgresQueue } from '@allfitone/queue'
 import type { TelemetryEventFor } from '@allfitone/telemetry'
 import { telemetryEnvironmentFromRuntime } from '@allfitone/telemetry/node'
@@ -51,6 +52,11 @@ import {
   createPrivacyDispositionProcessor,
   type PrivacyDispositionResult,
 } from './privacy-dispositions.js'
+import {
+  createMediaDisposalDatabase,
+  createMediaDisposalProcessor,
+  type MediaDisposalResult,
+} from './media-disposals.js'
 import { createEmailSenderFromEnvironment } from './email.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
@@ -64,6 +70,7 @@ export interface WorkerJobProcessors {
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
   privacyDisposition(): Promise<PrivacyDispositionResult>
   correctionProposalExpiry(): Promise<CorrectionProposalExpiryResult>
+  mediaDisposal(): Promise<MediaDisposalResult>
   /** Leaves the run behind for the Backoffice diagnosis (HU-BO-031 c2). */
   recordJobRun(run: JobRun): Promise<void>
 }
@@ -75,6 +82,7 @@ export interface WorkerBatchResult {
   platformDuties: PlatformDutyLapseResult
   privacyDispositions: PrivacyDispositionResult
   correctionProposals: CorrectionProposalExpiryResult
+  mediaDisposals: MediaDisposalResult
 }
 
 type WorkerJob =
@@ -82,6 +90,7 @@ type WorkerJob =
   | 'backoffice_auth_cleanup'
   | 'correction_proposal_expiry'
   | 'invitation_delivery'
+  | 'media_disposal'
   | 'outbox_batch'
   | 'platform_duty_lapse'
   | 'privacy_disposition'
@@ -148,6 +157,14 @@ export function createWorkerApp(
         'correction_proposal_expiry',
         processors.correctionProposalExpiry,
       )
+      // Last: the only job that needs the store, so a store it cannot reach stops nothing else.
+      const mediaDisposals = await runJob(
+        telemetry,
+        logs,
+        record,
+        'media_disposal',
+        processors.mediaDisposal,
+      )
 
       const result: WorkerBatchResult = {
         invitations,
@@ -156,6 +173,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        mediaDisposals,
       }
       const jobs = [
         invitations,
@@ -164,6 +182,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        mediaDisposals,
       ]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
       captureJob(
@@ -361,6 +380,11 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         },
     deliveryEnabled: recoveryEnabled,
   })
+  let store: ObjectStore | undefined
+  const mediaDisposal = createMediaDisposalProcessor({
+    database: createMediaDisposalDatabase(sql),
+    store: () => (store ??= createObjectStoreFromEnv(process.env)),
+  })
   const subscriptionNotices = createSubscriptionNoticeBatchProcessor({
     queue,
     email,
@@ -412,6 +436,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
     privacyDisposition: createPrivacyDispositionProcessor(sql),
     correctionProposalExpiry: createCorrectionProposalExpiryProcessor(sql),
+    mediaDisposal,
     recordJobRun: createJobRunRecorder(sql),
   }
   return cachedProcessors

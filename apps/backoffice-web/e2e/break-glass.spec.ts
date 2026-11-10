@@ -459,6 +459,7 @@ test('an authorised read of nutrition intake shows what the person ate and what 
               nutrients: [
                 { nutrient_code: 'energy', value: 195, unit: 'kcal' },
                 { nutrient_code: 'carbohydrates', value: 42, unit: 'g' },
+                { nutrient_code: 'sodium', value: 410, unit: 'mg' },
               ],
             },
           ],
@@ -484,6 +485,9 @@ test('an authorised read of nutrition intake shows what the person ate and what 
   await expect(dinner).toContainText('Con poca sal')
   await expect(dinner).toContainText('Tiene foto; no se muestra aquí')
   await expect(meals.getByRole('img')).toHaveCount(0)
+  // HU-BO-009: beyond the summary, every nutrient it recorded, sodium included.
+  await dinner.getByText('Ver los 4 nutrientes').click()
+  await expect(dinner.locator('[data-break-glass-meal-nutrients]')).toContainText('Sodio: 410 mg')
   const region = page.getByRole('region', { name: 'Comidas de la persona' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
 
@@ -598,6 +602,16 @@ test('an authorised read of prior training shows each session and what it held',
           ],
         },
       ],
+      // HU-BO-008 c4: she hid the strength session from one gym.
+      hiddenSessions: [
+        {
+          executed_session_id: '019a8000-0000-7000-8000-000000000a01',
+          relationship_id: '019a8000-0000-7000-8000-000000000b01',
+          organization_id: '019a8000-0000-7000-8000-000000000c01',
+          organization_name: 'Gimnasio Uno',
+          hidden_at: '2026-09-16T12:00:00+00:00',
+        },
+      ],
     },
   })
   await mockBackofficeApi(context, fixture)
@@ -617,8 +631,12 @@ test('an authorised read of prior training shows each session and what it held',
   await expect(strength).toContainText('2 series · 14 repeticiones · hasta 85 kg')
   await expect(strength).toContainText('Completada · sin validar')
   await expect(strength).toContainText('Sin nivel certificado')
+  await expect(strength.locator('[data-break-glass-hidden-from]')).toHaveText(
+    'Oculta a Gimnasio Uno',
+  )
   const run = sessions.getByRole('row', { name: /Sesión de resistencia/ })
   await expect(run).toContainText('2 tramos · 2 km · 10:45')
+  await expect(run.locator('[data-break-glass-hidden-from]')).toHaveCount(0)
   const region = page.getByRole('region', { name: 'Sesiones de entrenamiento de la persona' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
 
@@ -632,6 +650,73 @@ test('an authorised read of prior training shows each session and what it held',
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(sessions).toHaveCount(0)
+})
+
+test('reaches the sessions older than the first page, each page a read of its own', async ({
+  context,
+  page,
+}) => {
+  // HU-BO-008: a read answers a hundred; the rest are a click away, never out of reach.
+  const trained = (id: string, name: string, startedAt: string) => ({
+    id,
+    activity_type_code: 'strength_session',
+    activity_type_name: name,
+    discipline_code: 'strength',
+    started_at: startedAt,
+    ended_at: null,
+    timezone: 'America/Bogota',
+    status: 'completed' as const,
+    validation_status: 'pending' as const,
+    requested_level: 'summary' as const,
+    achieved_level: null,
+    revision_number: 1,
+    capture_source: 'manual' as const,
+    contract: { id: '019c0000-0000-7000-8000-000000000031', version: 1 },
+    segments: [],
+    strength_sets: [],
+    endurance_laps: [],
+  })
+  const newest = trained(
+    '019a8000-0000-7000-8000-000000000a21',
+    'Sesión reciente',
+    '2026-09-15T12:00:00+00:00',
+  )
+  const oldest = trained(
+    '019a8000-0000-7000-8000-000000000a22',
+    'Sesión antigua',
+    '2025-03-01T12:00:00+00:00',
+  )
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    breakGlass: {
+      files: [openBreakGlassWindow(10, { categories: ['prior_training_history'] })],
+      sessions: [newest],
+      olderSessions: [oldest],
+    },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Leer historial previo de entrenamiento' }).click()
+
+  const sessions = page.getByRole('table', { name: 'Sesiones de entrenamiento de la persona' })
+  await expect(sessions.getByRole('row', { name: /Sesión reciente/ })).toBeVisible()
+  await expect(sessions.getByRole('row', { name: /Sesión antigua/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Ver sesiones anteriores' }).click()
+
+  await expect(sessions.getByRole('row', { name: /Sesión antigua/ })).toBeVisible()
+  await expect(sessions.getByRole('row', { name: /Sesión reciente/ })).toBeVisible()
+  // Nothing older remains, so nothing more is offered.
+  await expect(page.getByRole('button', { name: 'Ver sesiones anteriores' })).toHaveCount(0)
+
+  const reads = fixture.requests.filter((request) => request.path.endsWith('/reads'))
+  expect(reads).toHaveLength(2)
+  expect(reads[1]?.body).toEqual({
+    category: 'prior_training_history',
+    resource_type: 'execution.executed_sessions',
+    before: { started_at: newest.started_at, id: newest.id },
+  })
 })
 
 test('a session opens to each thing it recorded, and the agenda names each programme', async ({

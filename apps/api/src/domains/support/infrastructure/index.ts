@@ -404,7 +404,8 @@ export function createBreakGlassDatabase(): BreakGlassDatabase {
           select support.exercise_break_glass(
             ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
             ${input.breakGlassRequestId}::uuid, ${input.category},
-            ${input.resourceType}, ${input.resourceId ?? null}::uuid
+            ${input.resourceType}, ${input.resourceId ?? null}::uuid,
+            ${input.before?.startedAt ?? null}::timestamptz, ${input.before?.id ?? null}::uuid
           )
         `
         if (!row) throw new Error('PostgreSQL did not record the break-glass attempt')

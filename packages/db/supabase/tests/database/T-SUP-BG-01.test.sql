@@ -751,7 +751,7 @@ select ok(
     'EXECUTE'
   )
     and has_function_privilege(
-      'allfit_api', 'support.exercise_break_glass(uuid,uuid,uuid,text,text,uuid)', 'EXECUTE'
+      'allfit_api', 'support.exercise_break_glass(uuid,uuid,uuid,text,text,uuid,timestamptz,uuid)', 'EXECUTE'
     )
     and not has_function_privilege(
       'allfit_api', 'support.require_break_glass_duty(uuid,uuid,text)', 'EXECUTE'

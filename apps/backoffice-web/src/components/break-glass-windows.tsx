@@ -92,6 +92,8 @@ import {
   photoDayRows,
   trainingRows,
   agendaRows,
+  appendSessionPage,
+  olderSessionsCursor,
   outcomeMessage,
   purposeLabel,
   requestIssue,
@@ -228,6 +230,30 @@ export function BreakGlassWindows() {
         resource_type: resourceTypeFor(category),
       })
       setOutcome({ fileId: file.id, answer })
+      await load()
+    } catch (caught) {
+      setNotice({ tone: 'danger', message: failureMessage(caught) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // HU-BO-008: the next hundred older sessions, a read of its own, added below the shown ones.
+  async function readOlderSessions() {
+    if (!outcome || !shown || shown.category === undefined) return
+    const before = olderSessionsCursor(shown)
+    if (!before) return
+    const { fileId, answer: current } = outcome
+    const category = shown.category
+    setBusy(true)
+    setNotice(null)
+    try {
+      const answer = await backofficeApi.exerciseBreakGlass(fileId, {
+        category,
+        resource_type: resourceTypeFor(category),
+        before,
+      })
+      setOutcome({ fileId, answer: appendSessionPage(current, answer) })
       await load()
     } catch (caught) {
       setNotice({ tone: 'danger', message: failureMessage(caught) })
@@ -376,7 +402,20 @@ export function BreakGlassWindows() {
                 <TableCell data-break-glass-moment>{meal.when}</TableCell>
                 <TableCell>{meal.type}</TableCell>
                 <TableCell data-break-glass-meal>{meal.eaten}</TableCell>
-                <TableCell data-break-glass-meal>{meal.totals}</TableCell>
+                <TableCell data-break-glass-meal>
+                  {meal.totals}
+                  {/* HU-BO-009: every nutrient it recorded, not only the summary. */}
+                  {meal.nutrients.length > 0 ? (
+                    <details data-break-glass-meal-nutrients>
+                      <summary>Ver los {meal.nutrients.length} nutrientes</summary>
+                      <ul>
+                        {meal.nutrients.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </TableCell>
                 <TableCell data-break-glass-meal>{meal.note}</TableCell>
                 <TableCell data-break-glass-origin>{meal.photo}</TableCell>
               </TableRow>
@@ -402,7 +441,16 @@ export function BreakGlassWindows() {
             {trained.map((session) => (
               <TableRow key={session.id}>
                 <TableCell data-break-glass-moment>{session.when}</TableCell>
-                <TableCell>{session.activity}</TableCell>
+                <TableCell>
+                  {session.activity}
+                  {/* HU-BO-008 c4: the gyms she hid it from; that gym's coach never sees it. */}
+                  {session.hiddenFrom.length > 0 ? (
+                    <span data-break-glass-hidden-from>
+                      <br />
+                      Oculta a {session.hiddenFrom.join(', ')}
+                    </span>
+                  ) : null}
+                </TableCell>
                 <TableCell>{session.duration}</TableCell>
                 <TableCell data-break-glass-done>
                   {session.done}
@@ -424,6 +472,18 @@ export function BreakGlassWindows() {
             ))}
           </TableBody>
         </Table>
+      ) : null}
+      {shown && olderSessionsCursor(shown) ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          data-break-glass-older-sessions
+          onClick={() => void readOlderSessions()}
+        >
+          {busy ? 'Leyendo…' : 'Ver sesiones anteriores'}
+        </Button>
       ) : null}
 
       {/* HU-BO-008 c3: what is planned and from which programme, by its name only. */}

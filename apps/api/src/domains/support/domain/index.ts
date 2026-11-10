@@ -352,6 +352,7 @@ export interface BreakGlassDatabase {
     category: BreakGlassCategory
     resourceType: string
     resourceId?: string
+    before?: { startedAt: string; id: string }
     requestTraceId: string
   }): Promise<BreakGlassExerciseOutcome>
   close(

@@ -90,8 +90,22 @@ export function methodHint(method: CredentialVerificationMethod): string {
   return METHOD_HINTS[method]
 }
 
+const KIND_LABELS: Record<CredentialVerificationRequest['kind'], string> = {
+  initial: 'Primera verificación',
+  renewal: 'Renovación',
+  // HU-BO-021 c7: her earlier verification stays in force while this one is decided.
+  name_change: 'Cambio de nombre',
+}
+
 export function kindLabel(kind: CredentialVerificationRequest['kind']): string {
-  return kind === 'renewal' ? 'Renovación' : 'Primera verificación'
+  return KIND_LABELS[kind]
+}
+
+/** What the reviewer compares when a review was reopened rather than asked for. */
+export function kindHint(kind: CredentialVerificationRequest['kind']): string | null {
+  return kind === 'name_change'
+    ? 'Cambió su nombre después de verificado. Confirma que el título sigue siendo suyo; la verificación anterior sigue vigente mientras decides.'
+    : null
 }
 
 export interface VerificationDraft {

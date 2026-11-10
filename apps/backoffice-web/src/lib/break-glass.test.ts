@@ -14,6 +14,8 @@ import {
   mealRows,
   trainingRows,
   agendaRows,
+  appendSessionPage,
+  olderSessionsCursor,
   measurementRows,
   outcomeMessage,
   photoDayRows,
@@ -464,6 +466,63 @@ describe('break-glass presentation rules', () => {
     expect(healthContextRows(allowed)).toEqual([])
   })
 
+  test('a meal lists every nutrient it recorded, not only the six of its summary (HU-BO-009)', () => {
+    const outcome: BreakGlassExerciseOutcome = {
+      outcome: 'allowed',
+      reason_code: 'authorized_exercise',
+      break_glass_event_id: '019a8000-0000-7000-8000-000000000606',
+      occurred_at: '2026-09-10T18:09:00.000Z',
+      category: 'nutrition_intake',
+      content: {
+        nutrition_intake: [
+          {
+            id: '019a8000-0000-7000-8000-000000000903',
+            occurred_at: '2026-09-15T23:30:00+00:00',
+            local_date: '2026-09-15',
+            timezone: 'America/Bogota',
+            meal_type: 'lunch',
+            note: null,
+            revision_number: 0,
+            has_media: false,
+            items: [
+              {
+                position: 1,
+                name: 'Lentejas',
+                quantity: 200,
+                quantity_unit: 'g',
+                nutrients: [
+                  { nutrient_code: 'iron', value: 3.3, unit: 'mg' },
+                  { nutrient_code: 'energy', value: 230, unit: 'kcal' },
+                  { nutrient_code: 'folate', value: 181, unit: 'mcg' },
+                ],
+              },
+              {
+                position: 2,
+                name: 'Naranja',
+                quantity: 1,
+                quantity_unit: 'unit',
+                nutrients: [
+                  { nutrient_code: 'vitamin_c', value: 70, unit: 'mg' },
+                  { nutrient_code: 'energy', value: 62, unit: 'kcal' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    const [lunch] = mealRows(outcome)
+    // In the catalogue's order, each summed across the items and in its own unit.
+    expect(lunch?.nutrients).toEqual([
+      'Energía: 292 kcal',
+      'Vitamina C: 70 mg',
+      'Folato: 181 mcg',
+      'Hierro: 3,3 mg',
+    ])
+    expect(lunch?.totals).toBe('292 kcal')
+  })
+
   test('shows a session as when it was trained, how long it lasted and what it held', () => {
     const allowed: BreakGlassExerciseOutcome = {
       outcome: 'allowed',
@@ -770,6 +829,93 @@ describe('training under a window, opened (HU-BO-008)', () => {
   test('reads the training under a gym the same way', () => {
     const rows = trainingRows(read('relationship_training', { relationship_training: [session] }))
     expect(rows.map((row) => row.activity)).toEqual(['Circuito'])
+  })
+
+  test('says which gyms each session is hidden from, and none when she hid it from none (c4)', () => {
+    const other = { ...session, id: '019a8000-0000-7000-8000-000000000a10' }
+    const hiding = (organizationName: string) => ({
+      executed_session_id: session.id,
+      relationship_id: '019a8000-0000-7000-8000-000000000b01',
+      organization_id: '019a8000-0000-7000-8000-000000000c01',
+      organization_name: organizationName,
+      hidden_at: '2026-09-16T12:00:00+00:00',
+    })
+    const rows = trainingRows(
+      read('prior_training_history', {
+        prior_training_history: [session, other],
+        hidden_sessions: [hiding('Gimnasio Uno'), hiding('Gimnasio Dos')],
+      }),
+    )
+
+    expect(rows.map((row) => row.hiddenFrom)).toEqual([['Gimnasio Uno', 'Gimnasio Dos'], []])
+  })
+
+  test('offers the older sessions only when the read says some remain, from the last one shown', () => {
+    const older = { ...session, id: '019a8000-0000-7000-8000-000000000a11' }
+    const page = read('prior_training_history', {
+      prior_training_history: [session, older],
+      has_older_sessions: true,
+    })
+    expect(olderSessionsCursor(page)).toEqual({ started_at: older.started_at, id: older.id })
+    expect(
+      olderSessionsCursor(
+        read('prior_training_history', {
+          prior_training_history: [session],
+          has_older_sessions: false,
+        }),
+      ),
+    ).toBeNull()
+    // A server older than the screen says nothing about older sessions: nothing to offer.
+    expect(
+      olderSessionsCursor(read('prior_training_history', { prior_training_history: [session] })),
+    ).toBeNull()
+    expect(olderSessionsCursor({ ...page, outcome: 'denied' })).toBeNull()
+  })
+
+  test('appends the older page to what is shown, hidings included, and takes its word on more', () => {
+    const older = { ...session, id: '019a8000-0000-7000-8000-000000000a12' }
+    const hiding = {
+      executed_session_id: older.id,
+      relationship_id: '019a8000-0000-7000-8000-000000000b01',
+      organization_id: '019a8000-0000-7000-8000-000000000c01',
+      organization_name: 'Gimnasio Uno',
+      hidden_at: '2026-09-16T12:00:00+00:00',
+    }
+    const first = read('prior_training_history', {
+      prior_training_history: [session],
+      has_older_sessions: true,
+      hidden_sessions: [],
+      agenda: [],
+    })
+    const next = read('prior_training_history', {
+      prior_training_history: [older],
+      has_older_sessions: false,
+      hidden_sessions: [hiding],
+      agenda: [],
+    })
+
+    const merged = appendSessionPage(first, next)
+    expect(trainingRows(merged).map((row) => [row.id, row.hiddenFrom])).toEqual([
+      [session.id, []],
+      [older.id, ['Gimnasio Uno']],
+    ])
+    expect(olderSessionsCursor(merged)).toBeNull()
+
+    // A page that was refused, because the window closed, is shown as what it is.
+    const refused: BreakGlassExerciseOutcome = {
+      outcome: 'denied',
+      reason_code: 'window_not_open',
+      break_glass_event_id: next.break_glass_event_id,
+      occurred_at: next.occurred_at,
+    }
+    expect(appendSessionPage(first, refused)).toBe(refused)
+  })
+
+  test('a server older than the screen answers without hidings, and nothing reads as hidden', () => {
+    const [row] = trainingRows(
+      read('prior_training_history', { prior_training_history: [session] }),
+    )
+    expect(row?.hiddenFrom).toEqual([])
   })
 
   test('the agenda names each programme and nothing of its content (c3)', () => {

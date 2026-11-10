@@ -278,11 +278,16 @@ function breakGlassRequestCreate(body: unknown): BreakGlassRequestCreate | undef
   }
 }
 
-function breakGlassExercise(
-  body: unknown,
-): { category: BreakGlassCategory; resourceType: string; resourceId?: string } | undefined {
+function breakGlassExercise(body: unknown):
+  | {
+      category: BreakGlassCategory
+      resourceType: string
+      resourceId?: string
+      before?: { startedAt: string; id: string }
+    }
+  | undefined {
   if (!isObject(body)) return undefined
-  const allowed = new Set(['category', 'resource_type', 'resource_id'])
+  const allowed = new Set(['category', 'resource_type', 'resource_id', 'before'])
   if (Object.keys(body).some((key) => !allowed.has(key))) return undefined
   if (
     typeof body.category !== 'string' ||
@@ -302,11 +307,30 @@ function breakGlassExercise(
     resourceId = body.resource_id
   }
 
+  // HU-BO-008: the last session already shown, so the read answers the ones older than it.
+  let before: { startedAt: string; id: string } | undefined
+  if (body.before !== undefined) {
+    before = sessionCursor(body.before)
+    if (!before) return undefined
+  }
+
   return {
     category: body.category as BreakGlassCategory,
     resourceType: body.resource_type,
     ...(resourceId === undefined ? {} : { resourceId }),
+    ...(before === undefined ? {} : { before }),
   }
+}
+
+/** A whole session or nothing: both halves, well formed, and no other field. */
+function sessionCursor(value: unknown): { startedAt: string; id: string } | undefined {
+  if (!isObject(value)) return undefined
+  if (Object.keys(value).some((key) => key !== 'started_at' && key !== 'id')) return undefined
+  const startedAt = value.started_at
+  const id = value.id
+  if (typeof startedAt !== 'string' || Number.isNaN(Date.parse(startedAt))) return undefined
+  if (typeof id !== 'string' || !UUID.test(id)) return undefined
+  return { startedAt, id }
 }
 
 async function backofficeActor(c: Context, sessions: BackofficeAuthenticationService) {

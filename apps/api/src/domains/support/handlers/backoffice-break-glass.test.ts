@@ -321,6 +321,57 @@ describe('Backoffice break-glass API contract', () => {
     expect(body).not.toHaveProperty('content')
   })
 
+  test('T-BG-API-31 reads the sessions older than the last one shown, and passes that cursor', async () => {
+    // HU-BO-008: a window reaches every session, a hundred at a time.
+    const response = await routes().fetch(
+      post(`/break-glass/requests/${REQUEST_ID}/reads`, {
+        body: {
+          category: 'prior_training_history',
+          resource_type: 'execution.executed_sessions',
+          before: {
+            started_at: '2026-09-01T10:00:00.000Z',
+            id: '019a8000-0000-7000-8000-000000000a09',
+          },
+        },
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(captured).toEqual([
+      {
+        operation: 'exercise',
+        input: expect.objectContaining({
+          category: 'prior_training_history',
+          before: {
+            startedAt: '2026-09-01T10:00:00.000Z',
+            id: '019a8000-0000-7000-8000-000000000a09',
+          },
+        }),
+      },
+    ])
+  })
+
+  test('T-BG-API-32 refuses a cursor that is not a whole session', async () => {
+    for (const before of [
+      { started_at: '2026-09-01T10:00:00.000Z' },
+      { started_at: 'yesterday', id: '019a8000-0000-7000-8000-000000000a09' },
+      { started_at: '2026-09-01T10:00:00.000Z', id: 'not-an-id' },
+      { started_at: '2026-09-01T10:00:00.000Z', id: '019a8000-0000-7000-8000-000000000a09', x: 1 },
+    ]) {
+      const response = await routes().fetch(
+        post(`/break-glass/requests/${REQUEST_ID}/reads`, {
+          body: {
+            category: 'prior_training_history',
+            resource_type: 'execution.executed_sessions',
+            before,
+          },
+        }),
+      )
+      expect(response.status).toBe(422)
+    }
+    expect(captured).toEqual([])
+  })
+
   test('T-BG-API-11 says the content is unavailable rather than inventing it', async () => {
     const response = await routes().fetch(
       post(`/break-glass/requests/${REQUEST_ID}/reads`, {

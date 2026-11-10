@@ -51,6 +51,41 @@ test('says who asked, what they claim and where to check it', async ({ context, 
   )
 })
 
+test('a name changed after verification comes back to the queue and says why', async ({
+  context,
+  page,
+}) => {
+  // HU-BO-021 c7: she renamed herself in Space while her credential was verified.
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      verification: {
+        requests: [
+          verificationRequest({
+            kind: 'name_change',
+            holder_family_name: 'Ríos Nueva',
+            previous_result: 'verified',
+            previous_valid_to: '2027-03-01T00:00:00.000Z',
+          }),
+        ],
+        renewals: [],
+      },
+    }),
+  )
+
+  await page.goto(PATH)
+
+  const review = page.locator('[data-verification-request]')
+  await expect(review.getByText('Cambio de nombre')).toBeVisible()
+  await expect(review.locator('[data-verification-kind-hint]')).toContainText(
+    'Cambió su nombre después de verificado',
+  )
+  await expect(review).toContainText('Valentina Ríos Nueva')
+  // The earlier decision is shown as it stands; nothing here rewrites it.
+  await expect(review).toContainText('La verificación anterior quedó «Verificado»')
+})
+
 test('there is no default result, so nothing is sent until one is chosen', async ({
   context,
   page,

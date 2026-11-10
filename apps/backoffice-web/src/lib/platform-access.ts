@@ -151,6 +151,12 @@ export function shortIdentifier(id: string): string {
   return id.length <= 13 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`
 }
 
+/** HU-BO-029 c1: who holds access is a person. A missing name is said, never left blank. */
+export function personName(name: string | null | undefined): string {
+  const trimmed = name?.trim()
+  return trimmed ? trimmed : 'Sin nombre registrado'
+}
+
 /** Unknown is shown as absent, never as a zero or a false. */
 export function formatInstant(value: string | null | undefined): string {
   if (!value) return '—'
