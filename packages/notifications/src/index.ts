@@ -1,5 +1,15 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
+import { escapeHtml, invitationEmailHtml } from './email-shell.js'
+
+export type { EmailLanguage } from './email-shell.js'
+export { EMAIL_FILES, emailBrandAssetUrl } from './email-shell.js'
+export {
+  renderWaitlistConfirmationEmail,
+  renderWaitlistLinkEmail,
+  type WaitlistReferralStatus,
+} from './waitlist-emails.js'
+
 export interface EmailMessage {
   to: string
   subject: string
@@ -125,16 +135,16 @@ export function renderTeamInvitationEmail(input: {
       'Si no esperabas esta invitación, puedes ignorar este correo.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Studio',
       title: `${organization} te invitó a su equipo en Allfit One`,
       preheader: `${organization} te invitó como ${role}. Revisa la invitación antes del ${expires}.`,
-      eyebrow: 'INVITACIÓN DE EQUIPO',
       heading: `${organization} quiere sumarte a su equipo`,
       lead: 'Revisa el rol propuesto y la vigencia antes de decidir.',
       detailLabel: 'ROL PROPUESTO',
       detailValue: role.toLocaleUpperCase('es-CO'),
       expires,
       actionUrl: escapeHtml(input.invitationUrl),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: 'Aceptar crea tu membresía. Abrir este correo o revisar la invitación no lo hace.',
       footer: `Puedes ignorar este correo; no se hará ningún cambio. Allfit One lo envió en nombre de ${organization}.`,
     }),
@@ -159,7 +169,7 @@ export function renderOwnershipInvitationEmail(input: {
   return {
     subject: `${input.organizationName} te espera en Allfit One`,
     text: [
-      `Allfit preparó ${input.organizationName} en Allfit One para que la recibas como propietario.`,
+      `Allfit One preparó ${input.organizationName} para que la recibas como propietario.`,
       'Mientras no la aceptes, la organización existe pero no opera.',
       `Válida hasta: ${expires}`,
       `Revisar invitación: ${input.invitationUrl}`,
@@ -167,19 +177,19 @@ export function renderOwnershipInvitationEmail(input: {
       'Si no esperabas esta invitación, puedes ignorar este correo.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Studio',
       title: `${organization} te espera en Allfit One`,
-      preheader: `Allfit preparó ${organization} para ti. Revisa la invitación antes del ${expires}.`,
-      eyebrow: 'ENTREGA DE ORGANIZACIÓN',
+      preheader: `Allfit One preparó ${organization} para ti. Revisa la invitación antes del ${expires}.`,
       heading: `${organization} está lista para que la recibas`,
-      lead: 'Allfit la preparó para ti. Mientras no la aceptes, la organización existe pero no opera.',
+      lead: 'Allfit One la preparó para ti. Mientras no la aceptes, la organización existe pero no opera.',
       detailLabel: 'ORGANIZACIÓN',
       detailValue: organization,
       expires,
       actionUrl: escapeHtml(input.invitationUrl),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: 'Aceptar te hace su propietario. Abrir este correo o revisar la invitación no lo hace.',
       footer:
-        'Puedes ignorar este correo; no se hará ningún cambio. Allfit One lo envió porque el equipo de Allfit preparó esta organización para esta dirección.',
+        'Puedes ignorar este correo; no se hará ningún cambio. Allfit One lo envió porque el equipo de Allfit One preparó esta organización para esta dirección.',
     }),
   }
 }
@@ -224,46 +234,20 @@ export function renderClientInvitationEmail(input: {
       'Si no esperabas esta invitación, puedes ignorar este correo.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `${organization} te invitó como cliente en Allfit One`,
       preheader: `${organization} quiere entrenarte y ${asks}. Revisa la invitación antes del ${expires}.`,
-      eyebrow: 'INVITACIÓN DE CLIENTE',
       heading: `${organization} quiere entrenarte`,
       lead: `Para hacerlo ${asks}. ${separately}`,
       detailLabel: 'GIMNASIO',
       detailValue: organization,
       expires,
       actionUrl: escapeHtml(input.invitationUrl),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: `${note} Abrir este correo tampoco decide nada.`,
       footer: `Puedes ignorar este correo; no se hará ningún cambio. Allfit One lo envió en nombre de ${organization}.`,
     }),
   }
-}
-
-/**
- * Every value arrives already escaped: the caller knows which parts came from a
- * person.
- *
- * `expires` and the action are optional because not every message is an
- * invitation. A notice that something already happened has no deadline and
- * nothing to click, and giving it a fake one of either would be inventing data
- * to fit a template.
- */
-interface InvitationEmailParts {
-  title: string
-  preheader: string
-  eyebrow: string
-  heading: string
-  lead: string
-  detailLabel: string
-  detailValue: string
-  expiryLabel?: string
-  expires?: string
-  actionLabel?: string
-  actionUrl?: string
-  brandAssetUrl: string
-  note: string
-  footer: string
 }
 
 /**
@@ -298,16 +282,15 @@ export function renderProfessionalReassignedEmail(input: {
       'Puedes cambiar o retirar tus permisos cuando quieras desde la app. Si no esperabas este cambio, habla con tu gimnasio.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `${professional} es ahora tu profesional en ${organization}`,
       preheader: `${organization} cambió quién te atiende. Tus permisos no cambiaron.`,
-      eyebrow: 'CAMBIO DE PROFESIONAL',
       heading: `${organization} cambió el profesional que te atiende`,
       lead: `${previous} ya no tiene acceso a tu información. Tus permisos no cambiaron: tu nuevo profesional ve exactamente lo que el anterior veía.`,
       detailLabel: 'AHORA TE ATIENDE',
       detailValue: professional,
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: 'Puedes cambiar o retirar tus permisos cuando quieras desde la app. Si no esperabas este cambio, habla con tu gimnasio.',
-      footer: 'Allfit One',
     }),
   }
 }
@@ -336,7 +319,10 @@ export function renderSubstitutionProposedEmail(input: {
   const organization = escapeHtml(input.organizationName)
   const substitute = escapeHtml(input.substituteName)
   const holder = escapeHtml(input.holderName)
-  const window = `${formatCalendarDay(input.startsOn)} – ${formatCalendarDay(input.endsOn)}`
+  // Each day stays on one line, so a narrow panel breaks the range only at the dash.
+  const windowHtml = [input.startsOn, input.endsOn]
+    .map((day) => escapeHtml(formatCalendarDay(day)).replaceAll(' ', '&nbsp;'))
+    .join(' – ')
   const lastDay = formatCalendarDay(input.endsOn)
   return {
     subject: `¿Aceptas que ${input.substituteName} te atienda mientras ${input.holderName} no está?`,
@@ -348,18 +334,17 @@ export function renderSubstitutionProposedEmail(input: {
       'Si no esperabas esto, habla con tu gimnasio.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `¿Aceptas que ${substitute} te atienda mientras ${holder} no está?`,
       preheader: `${organization} propone una suplencia. No pasa nada hasta que respondas.`,
-      eyebrow: 'SUPLENCIA PROPUESTA',
       heading: `${organization} propone que ${substitute} te atienda mientras ${holder} no está`,
       lead: `No pasa nada hasta que respondas. Mientras no aceptes, ${substitute} no ve nada de tu información. Si aceptas, verá lo mismo que ve ${holder} — lo que tú permitiste, y nada más — y solo hasta el ${escapeHtml(lastDay)}.`,
       detailLabel: 'TE ATENDERÍA',
       detailValue: substitute,
       expiryLabel: 'SOLO ESTOS DÍAS',
-      expires: escapeHtml(window),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      expires: windowHtml,
+      brandAssetUrl: input.brandAssetUrl,
       note: 'Puedes aceptar o rechazar desde la app. Si no respondes, no se hace. Si no esperabas esto, habla con tu gimnasio.',
-      footer: 'Allfit One',
     }),
   }
 }
@@ -401,18 +386,17 @@ export function renderCorrectionProposedEmail(input: {
       'Si no esperabas esto, habla con tu gimnasio.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `${proposer} propone corregir un dato de tu entrenamiento`,
       preheader: 'Nada cambia a menos que lo aceptes.',
-      eyebrow: 'CORRECCIÓN PROPUESTA',
       heading: `${proposer}, de ${organization}, propone corregir un dato de tu entrenamiento`,
       lead: escapeHtml(unchanged),
       detailLabel: 'LA PROPONE',
       detailValue: proposer,
       expiryLabel: 'PUEDES RESPONDER HASTA',
       expires: escapeHtml(deadline),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: `${escapeHtml(answer)} Si no esperabas esto, habla con tu gimnasio.`,
-      footer: 'Allfit One',
     }),
   }
 }
@@ -443,142 +427,17 @@ export function renderMembershipResignedEmail(input: {
       'Si no esperabas esto, revisa tu equipo en Allfit Studio.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Studio',
       title: `${member} dejó ${organization}`,
       preheader: `${member} renunció. Revisa a quién atendía.`,
-      eyebrow: 'RENUNCIA EN TU EQUIPO',
       heading: `${member} renunció a ${organization}`,
       lead: `${followUp} ${preserved}`,
       detailLabel: 'RENUNCIÓ',
       detailValue: member,
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: 'Si no esperabas esto, revisa tu equipo en Allfit Studio.',
-      footer: 'Allfit One',
     }),
   }
-}
-
-function invitationEmailHtml(parts: InvitationEmailParts): string {
-  return `<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light only">
-    <meta name="supported-color-schemes" content="light">
-    <title>${parts.title}</title>
-    <style>
-      :root { color-scheme: light only; supported-color-schemes: light; }
-      body { margin: 0; padding: 0; width: 100% !important; background: #EDF6F6; }
-      table { border-spacing: 0; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
-      a { color: inherit; }
-      a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
-      @media only screen and (max-width: 620px) {
-        .afo-shell { padding: 16px 8px !important; }
-        .afo-content { padding: 28px 22px 30px !important; }
-        .afo-brand { padding: 20px 22px !important; }
-        .afo-footer { padding: 22px !important; }
-        .afo-detail { display: block !important; width: 100% !important; box-sizing: border-box; }
-        .afo-detail-expiry { border-left: 0 !important; border-top: 1px solid #456069 !important; padding-left: 22px !important; padding-top: 18px !important; }
-      }
-    </style>
-  </head>
-  <body style="margin:0;padding:0;width:100%;background-color:#EDF6F6;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">
-      ${parts.preheader}
-    </div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EDF6F6" style="width:100%;background-color:#EDF6F6;border-collapse:collapse;">
-      <tr>
-        <td class="afo-shell" align="center" style="padding:32px 16px;">
-          <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:100%;max-width:600px;background-color:#FFFFFF;border:1px solid #E0EDED;border-radius:20px;border-collapse:separate;overflow:hidden;">
-            <tr>
-              <td height="6" bgcolor="#55EFFB" style="height:6px;background-color:#55EFFB;font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-            <tr>
-              <td class="afo-brand" style="padding:22px 40px;border-bottom:1px solid #E0EDED;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;">
-                  <tr>
-                    <td>
-                      <img src="${parts.brandAssetUrl}" width="168" alt="Allfit One" style="display:block;width:168px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
-                    </td>
-                    <td align="right" style="font-family:'Manrope',Arial,sans-serif;font-size:11px;font-weight:700;line-height:1.25;letter-spacing:1.5px;color:#536A73;">
-                      STUDIO
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td class="afo-content" style="padding:38px 40px 40px;">
-                <p style="margin:0 0 10px;font-family:'Manrope',Arial,sans-serif;font-size:12px;font-weight:700;line-height:1.25;letter-spacing:2px;color:#176D72;">
-                  ${parts.eyebrow}
-                </p>
-                <h1 style="margin:0 0 16px;font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:38px;font-weight:600;line-height:1.05;letter-spacing:-1px;color:#0A1B22;">
-                  ${parts.heading}
-                </h1>
-                <p style="margin:0 0 28px;font-family:'Manrope',Arial,sans-serif;font-size:16px;font-weight:400;line-height:1.6;color:#456069;">
-                  ${parts.lead}
-                </p>
-
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#030713" style="width:100%;background-color:#030713;border-left:6px solid #55EFFB;border-radius:12px;border-collapse:separate;">
-                  <tr>
-                    <td colspan="2" style="padding:20px 22px 16px;font-family:'Manrope',Arial,sans-serif;font-size:11px;font-weight:700;line-height:1.25;letter-spacing:2px;color:#9DB4BC;">
-                      INVITACIÓN
-                    </td>
-                  </tr>
-                  <tr>
-                    <td colspan="2" height="1" bgcolor="#16242F" style="height:1px;background-color:#16242F;font-size:0;line-height:0;">&nbsp;</td>
-                  </tr>
-                  <tr>
-                    <td class="afo-detail" width="${parts.expires ? '50%' : '100%'}" valign="top" style="width:${parts.expires ? '50%' : '100%'};padding:20px 22px 22px;"${parts.expires ? '' : ' colspan="2"'}>
-                      <p style="margin:0 0 7px;font-family:'Manrope',Arial,sans-serif;font-size:11px;font-weight:700;line-height:1.25;letter-spacing:1.4px;color:#9DB4BC;">${parts.detailLabel}</p>
-                      <p style="margin:0;font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:26px;font-weight:600;line-height:1;color:#EAFFFF;">${parts.detailValue}</p>
-                    </td>${
-                      parts.expires
-                        ? `
-                    <td class="afo-detail afo-detail-expiry" width="50%" valign="top" style="width:50%;padding:20px 22px 22px;border-left:1px solid #456069;">
-                      <p style="margin:0 0 7px;font-family:'Manrope',Arial,sans-serif;font-size:11px;font-weight:700;line-height:1.25;letter-spacing:1.4px;color:#9DB4BC;">${parts.expiryLabel ?? 'VÁLIDA HASTA'}</p>
-                      <p style="margin:0;font-family:'Manrope',Arial,sans-serif;font-size:15px;font-weight:600;line-height:1.35;color:#EAFFFF;">${parts.expires}</p>
-                    </td>`
-                        : ''
-                    }
-                  </tr>
-                </table>
-${
-  parts.actionUrl
-    ? `
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:28px;border-collapse:separate;">
-                  <tr>
-                    <td align="center" bgcolor="#55EFFB" style="background-color:#55EFFB;border-radius:999px;">
-                      <a href="${parts.actionUrl}" target="_blank" style="display:inline-block;padding:15px 26px;font-family:'Manrope',Arial,sans-serif;font-size:15px;font-weight:700;line-height:1;text-decoration:none;color:#06282B;border:1px solid #55EFFB;border-radius:999px;">${parts.actionLabel ?? 'Revisar invitación'}</a>
-                    </td>
-                  </tr>
-                </table>`
-    : ''
-}
-
-                <p style="margin:22px 0 0;font-family:'Manrope',Arial,sans-serif;font-size:13px;font-weight:400;line-height:1.55;color:#536A73;">
-                  ${parts.note}
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <td class="afo-footer" bgcolor="#F2FAFA" style="padding:24px 40px;background-color:#F2FAFA;border-top:1px solid #E0EDED;">
-                <p style="margin:0 0 8px;font-family:'Manrope',Arial,sans-serif;font-size:13px;font-weight:600;line-height:1.5;color:#456069;">
-                  ¿No esperabas esta invitación?
-                </p>
-                <p style="margin:0;font-family:'Manrope',Arial,sans-serif;font-size:12px;font-weight:400;line-height:1.6;color:#536A73;">
-                  ${parts.footer}
-                </p>
-              </td>
-            </tr>
-          </table>
-          <!--[if mso]></td></tr></table><![endif]-->
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`
 }
 
 /**
@@ -613,15 +472,6 @@ function roleLabel(role: 'admin' | 'coach' | 'staff'): string {
   return role === 'admin' ? 'administrador' : role === 'coach' ? 'coach' : 'staff'
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
-}
-
 /**
  * Telling somebody their gym paused their access for a payment.
  *
@@ -650,21 +500,20 @@ export function renderSubscriptionSuspendedEmail(input: {
       `${input.organizationName} pausó tu plan ${input.planName} (${price}) por un pago pendiente.`,
       'Mientras esté pausado, tus sesiones futuras con ese gimnasio quedan en pausa y tu profesional no puede registrar cambios.',
       'Lo que compartiste con el gimnasio sigue igual: no se borró nada, tu historial está completo y los permisos que diste siguen en pie. Cuando el pago se resuelva, todo vuelve a funcionar sin que tengas que aceptar nada de nuevo.',
-      'El cobro lo administra el gimnasio, no Allfit. Para resolverlo, habla directamente con ellos.',
+      'El cobro lo administra el gimnasio, no Allfit One. Para resolverlo, habla directamente con ellos.',
       'Nunca te vamos a pedir los datos de tu tarjeta por correo.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `${organization} pausó tu plan por un pago pendiente`,
       preheader:
         'Tus datos y tus permisos siguen igual. El plan se reactiva cuando el pago se resuelva.',
-      eyebrow: 'PLAN EN PAUSA',
       heading: `${organization} pausó tu plan por un pago pendiente`,
       lead: 'Mientras esté pausado, tus sesiones futuras con ese gimnasio quedan en pausa y tu profesional no puede registrar cambios. Lo que compartiste sigue igual: no se borró nada, tu historial está completo y los permisos que diste siguen en pie.',
       detailLabel: 'PLAN',
       detailValue: `${escapeHtml(input.planName)} · ${escapeHtml(price)}`,
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
-      note: 'El cobro lo administra el gimnasio, no Allfit; para resolverlo habla directamente con ellos. Nunca te vamos a pedir los datos de tu tarjeta por correo.',
-      footer: 'Allfit One',
+      brandAssetUrl: input.brandAssetUrl,
+      note: 'El cobro lo administra el gimnasio, no Allfit One; para resolverlo habla directamente con ellos. Nunca te vamos a pedir los datos de tu tarjeta por correo.',
     }),
   }
 }
@@ -684,16 +533,15 @@ export function renderSubscriptionReactivatedEmail(input: {
       'No tuviste que volver a aceptar nada porque nunca se te quitó nada: el plan estaba en pausa, no cancelado.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `${organization} reactivó tu plan`,
       preheader: 'Tus sesiones vuelven a verse como siempre.',
-      eyebrow: 'PLAN ACTIVO',
       heading: `${organization} reactivó tu plan`,
       lead: 'Tus sesiones vuelven a verse como siempre y tu profesional puede registrar cambios otra vez. No tuviste que volver a aceptar nada porque nunca se te quitó nada: el plan estaba en pausa, no cancelado.',
       detailLabel: 'PLAN',
       detailValue: escapeHtml(input.planName),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
-      note: 'El cobro lo administra el gimnasio, no Allfit. Nunca te vamos a pedir los datos de tu tarjeta por correo.',
-      footer: 'Allfit One',
+      brandAssetUrl: input.brandAssetUrl,
+      note: 'El cobro lo administra el gimnasio, no Allfit One. Nunca te vamos a pedir los datos de tu tarjeta por correo.',
     }),
   }
 }
@@ -718,16 +566,15 @@ export function renderSubscriptionEndedEmail(input: {
       'Terminar el plan no retira los permisos que diste ni cierra tu relación con el gimnasio. Si además quieres que dejen de ver tu información, eso se decide aparte desde la app.',
     ].join('\n\n'),
     html: invitationEmailHtml({
+      product: 'Space',
       title: `Tu plan con ${organization} terminó`,
       preheader: 'No se va a volver a cobrar. Tu historial y tus permisos siguen como estaban.',
-      eyebrow: 'PLAN TERMINADO',
       heading: `Tu plan con ${organization} terminó`,
       lead: 'No se va a volver a cobrar. Tu Fitness ID, tu historial de entrenamiento y lo que registraste siguen siendo tuyos y siguen ahí.',
       detailLabel: 'PLAN',
       detailValue: escapeHtml(input.planName),
-      brandAssetUrl: escapeHtml(input.brandAssetUrl),
+      brandAssetUrl: input.brandAssetUrl,
       note: 'Terminar el plan no retira los permisos que diste ni cierra tu relación con el gimnasio. Si además quieres que dejen de ver tu información, eso se decide aparte desde la app.',
-      footer: 'Allfit One',
     }),
   }
 }

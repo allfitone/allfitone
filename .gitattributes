@@ -1,0 +1,40 @@
+# Line endings for this repository.
+#
+# Git already stores every text file here with LF — `git ls-files --eol` finds
+# no CRLF in the index. What it did NOT say was how to check one out, so a
+# clone on Windows with `core.autocrlf=true` writes CRLF into the working tree,
+# and `bun run format:check` then fails on 1 211 files: Prettier expects LF.
+#
+# That is the worst shape a gate can have — red for whoever is working, green
+# for whoever is reviewing — because it is indistinguishable from a real
+# formatting error and there is nothing a person can fix in their own change.
+#
+# `eol=lf` beats `core.autocrlf`, so it fixes this for everyone who clones
+# rather than asking each person to configure their machine. The same file
+# exists in allfitone-design-system, for the same reason and in the same shape.
+#
+# NOTE: adding this file does not rewrite a working tree that is already CRLF.
+# To convert an existing clone once: `git add --renormalize .`
+* text=auto eol=lf
+
+# Binary, so git never looks at the bytes. Images are the reason this list
+# exists: a PNG can contain a CR+LF pair by coincidence, and `text=auto`
+# classifies it by its NUL bytes rather than by that pair. Saying it here does
+# not change today's behaviour — it makes the next image or font format
+# somebody commits safe without anybody having to know the heuristic.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.avif binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+
+# SVG is text, and deliberately not in the list above: it is diffed and read as
+# text, and it must be LF.

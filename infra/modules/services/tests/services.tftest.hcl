@@ -159,3 +159,60 @@ run "containers_know_their_region_and_release" {
     error_message = "Measurements are tagged with the region and the release the container runs."
   }
 }
+
+run "only_a_service_that_names_a_policy_gets_a_role_of_its_own" {
+  command = plan
+
+  variables {
+    services = {
+      api = {
+        port               = 8080
+        memory_reservation = 512
+        memory             = 768
+        desired_count      = 1
+        single_instance    = false
+        secret_keys        = ["DATABASE_URL"]
+        environment        = { PORT = "8080" }
+        health_command     = null
+      }
+      worker = {
+        port               = null
+        memory_reservation = 256
+        memory             = 384
+        desired_count      = 1
+        single_instance    = true
+        secret_keys        = ["DATABASE_URL"]
+        environment        = { WORKER_PORT = "8090" }
+        health_command     = null
+        task_role_policy = jsonencode({
+          Version   = "2012-10-17"
+          Statement = [{ Effect = "Allow", Action = "ses:SendEmail", Resource = "*" }]
+        })
+      }
+    }
+  }
+
+  assert {
+    condition     = keys(aws_iam_role.task) == ["worker"]
+    error_message = "Only the service that names a policy may get a task role."
+  }
+
+  assert {
+    condition     = aws_ecs_task_definition.service["api"].task_role_arn == null
+    error_message = "A service without a policy must run with no role at all."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.task["worker"].policy).Statement[0].Action == "ses:SendEmail"
+    error_message = "The role must carry exactly the policy the service named."
+  }
+
+  assert {
+    condition = alltrue([
+      for s in jsondecode(aws_iam_role.task["worker"].assume_role_policy).Statement :
+      s.Principal.Service == "ecs-tasks.amazonaws.com"
+      && s.Condition.StringEquals["aws:SourceAccount"] == "000000000000"
+    ])
+    error_message = "Only ECS acting for this account's tasks may assume the role."
+  }
+}

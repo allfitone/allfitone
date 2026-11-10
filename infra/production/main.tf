@@ -109,8 +109,13 @@ locals {
     "GOOGLE_PUBSUB_AUDIENCE", "GOOGLE_PUBSUB_SERVICE_ACCOUNT",
   ])
 
+  # The one address the app sends from; the worker's role can use no other.
+  # It has a mailbox in Google Workspace, so a reply reaches someone.
+  email_sender = "hello@allfit.one"
+
+  # RESEND_API_KEY stays until SES has carried production email for two weeks (ADR-049).
   worker_secret_keys = concat(local.shared_secret_keys, [
-    "CRON_SECRET", "RESEND_API_KEY", "RESEND_FROM_EMAIL",
+    "CRON_SECRET", "RESEND_API_KEY",
     "STAFF_INVITATION_DELIVERY_ENABLED", "STAFF_INVITATION_PUBLIC_BASE_URL",
     "CLIENT_INVITATION_DELIVERY_ENABLED", "ACCOUNT_RECOVERY_DELIVERY_ENABLED",
   ])
@@ -173,6 +178,29 @@ resource "aws_acm_certificate_validation" "this" {
   certificate_arn = module.certificate.arn
 }
 
+# Every email Allfit One sends leaves through SES (ADR-049).
+module "email" {
+  source = "../modules/email"
+
+  name           = "allfitone"
+  domain         = "allfit.one"
+  sender_address = local.email_sender
+  # The people who watch the bill also hear when email reputation slips.
+  alert_emails = var.budget_alert_emails
+}
+
+# Created by hand in the SES console on 9 November 2026. Importing keeps its
+# DKIM tokens, which are already published in GoDaddy.
+import {
+  to = module.email.aws_sesv2_email_identity.domain
+  id = "allfit.one"
+}
+
+import {
+  to = module.email.aws_sesv2_email_identity_mail_from_attributes.domain
+  id = "allfit.one"
+}
+
 module "edge" {
   source = "../modules/edge"
 
@@ -228,9 +256,15 @@ module "services" {
       desired_count      = 1
       single_instance    = true
       secret_keys        = local.worker_secret_keys
-      environment        = { WORKER_PORT = "8090" }
+      environment = {
+        WORKER_PORT    = "8090"
+        EMAIL_PROVIDER = "ses"
+        EMAIL_FROM     = "Allfit One <${local.email_sender}>"
+      }
       # The image has Node and no curl.
       health_command = "node -e \"fetch('http://127.0.0.1:8090/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))\""
+      # SES with no key (ADR-049): the role sends from the sender address and nothing else.
+      task_role_policy = module.email.send_policy
     }
     studio-web     = local.web_service
     backoffice-web = local.web_service
@@ -259,7 +293,7 @@ module "deploy_role" {
   account_id          = var.account_id
   cluster_name        = module.compute.cluster_name
   migrator_family     = module.services.task_definition_families["migrator"]
-  pass_role_arns      = [module.services.execution_role_arn]
+  pass_role_arns      = concat([module.services.execution_role_arn], values(module.services.task_role_arns))
   ecr_repository_arns = values(module.registry.repository_arns)
   image_tag_parameter = aws_ssm_parameter.image_tag.name
   migrator_log_group  = module.services.log_group_names["migrator"]

@@ -1,4 +1,4 @@
-import { createResendEmailSender, constantTimeBearerMatches } from '@allfitone/notifications'
+import { constantTimeBearerMatches, emailBrandAssetUrl } from '@allfitone/notifications'
 import {
   createAccountRecoveryDeliveryFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
@@ -51,6 +51,7 @@ import {
   createPrivacyDispositionProcessor,
   type PrivacyDispositionResult,
 } from './privacy-dispositions.js'
+import { createEmailSenderFromEnvironment } from './email.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
@@ -276,10 +277,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
   const queue = createPostgresQueue(sql, { visibilityTimeoutMs: 120_000, maxAttempts: 5 })
   const deliveryEnabled = process.env.STAFF_INVITATION_DELIVERY_ENABLED === 'true'
   const email = deliveryEnabled
-    ? createResendEmailSender({
-        apiKey: required('RESEND_API_KEY'),
-        from: required('RESEND_FROM_EMAIL'),
-      })
+    ? createEmailSenderFromEnvironment(process.env)
     : {
         send: async () => {
           throw new Error('Invitation delivery is disabled')
@@ -319,7 +317,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
    * trusted base, not a new setting: a second place to configure the same image
    * is a second place for it to be wrong.
    */
-  const brandAssetUrl = new URL('email/allfit-one-lockup-on-light.png', publicBaseUrl).toString()
+  const brandAssetUrl = emailBrandAssetUrl(publicBaseUrl)
   const reassignments = createReassignmentBatchProcessor({
     queue,
     email,

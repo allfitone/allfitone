@@ -243,13 +243,14 @@ select throws_ok(
 );
 
 -- IX-38, half of it: a version cannot claim an organization that is not its plan's, so
--- the carrying key a subscription follows cannot lie further down.
+-- the carrying key a subscription follows cannot lie further down. Written retired, so the
+-- one-on-sale index (`20261120090000`) does not answer before the key does.
 select throws_ok(
   $$ insert into payments.plan_versions
        (plan_id, organization_id, version_number, amount_minor, currency_code,
-        billing_period, status, published_at)
+        billing_period, status, published_at, deprecated_at)
      values ('019c1000-0000-7000-8000-000000000401', '019c1000-0000-7000-8000-000000000102',
-             9, 100, 'COP', 'month', 'published', clock_timestamp()) $$,
+             9, 100, 'COP', 'month', 'deprecated', clock_timestamp(), clock_timestamp()) $$,
   '23503',
   null,
   'a version belongs to the organization its plan belongs to'
@@ -291,7 +292,12 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 
 -- A second published version of the same plan: the price went up. Nobody already
--- subscribed is supposed to feel it, and the assertion below is what proves it.
+-- subscribed is supposed to feel it, and the assertion below is what proves it. One price
+-- is on sale per plan, so the old one is retired first, as publishing does.
+update payments.plan_versions
+set status = 'deprecated', deprecated_at = clock_timestamp()
+where id = '019c1000-0000-7000-8000-000000000501';
+
 insert into payments.plan_versions
   (id, plan_id, organization_id, version_number, amount_minor, currency_code,
    billing_period, status, published_at)

@@ -5655,6 +5655,102 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/plans': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The plans this organization sells
+     * @description Every plan of the organization, drafts included, each with the price on sale and every price it ever had. What is on sale comes first, then by name.
+     *
+     *     **The whole team reads it.** A price is nobody's personal data, so a coach and staff read the plans too; only `manage_billing` changes them. A person with no membership is forbidden. A client sees what is offered in Space (`OP-PAY-011`), never the drafts.
+     */
+    get: operations['listStudioOrganizationPlans']
+    put?: never
+    /**
+     * Create a plan, with a name and no price
+     * @description A plan is a draft until its first version is published: the price lives on the version, and a draft cannot be sold to anybody. Two plans of one organization cannot share a name, compared without case: `409`.
+     *
+     *     Needs `manage_billing`, which the owner and the admin hold.
+     */
+    post: operations['createStudioOrganizationPlan']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans/{planId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Rename a plan, on sale or not
+     * @description A draft and a plan on sale are renamed alike, and the people subscribed to it read the new name. Renaming to the name it already has changes nothing. A name another plan of the organization has: `409`.
+     *
+     *     There is no `If-Match`: the name is the only field, so the last write wins and nothing else can be lost.
+     */
+    patch: operations['renameStudioOrganizationPlan']
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans/{planId}/versions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Put a price on sale
+     * @description Publishes a version with its amount, period and delivery, and **retires the version on sale in the same command**: a plan has one price on sale. Whoever subscribed to an earlier version keeps it — a published version never changes, and no subscription moves to another one.
+     *
+     *     Amounts are whole Colombian pesos in the minor unit (`120000 COP` is `12000000`), because Mercado Pago Colombia charges in COP. `in_person` plans are offered in Space; `remote` ones are paid through the link the organization sends, never in the app (`ADR-048`).
+     *
+     *     Publishing exactly the price already on sale changes nothing and answers `200`; a new version answers `201`. A replay answers what the first call answered.
+     */
+    post: operations['publishStudioPlanVersion']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans/{planId}/versions/{planVersionId}/deprecation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take a price off sale
+     * @description Stops new subscriptions to this version. It **does not cancel, suspend or move** anybody already subscribed to it. Retiring the price on sale takes the plan off sale until another version is published.
+     *
+     *     Names a version rather than the plan: if somebody published a new price a moment earlier, retiring the old one changes nothing and the new one stays on sale. Retiring a version already retired converges. No body.
+     */
+    post: operations['deprecateStudioPlanVersion']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/subscriptions': {
     parameters: {
       query?: never
@@ -12732,6 +12828,61 @@ export interface components {
       data: components['schemas']['OrganizationSubscription'][]
       page: components['schemas']['Page']
     }
+    /**
+     * @description How the plan is followed. `in_person` is offered and paid in Space; `remote` is paid only through the link the organization sends, because the app may not sell a service followed at a distance (`ADR-048`).
+     * @enum {string}
+     */
+    PlanDeliveryMode: 'in_person' | 'remote'
+    /** @description One price of a plan. Never edited once published. */
+    StudioPlanVersion: {
+      plan_version_id: components['schemas']['UuidV7']
+      version_number: number
+      /** @description In the currency's minor unit, so 120000 COP is 12000000. */
+      amount_minor: number
+      currency_code: string
+      billing_period: components['schemas']['BillingPeriod']
+      delivery_mode: components['schemas']['PlanDeliveryMode']
+      /**
+       * @description `published` is on sale; `deprecated` is kept for whoever pays it.
+       * @enum {string}
+       */
+      status: 'published' | 'deprecated'
+      /** Format: date-time */
+      published_at: string
+      /** Format: date-time */
+      deprecated_at: string | null
+    }
+    /** @description A plan as the team sees it. `status` is `draft` until a first version is published; `on_sale` says whether a version is on sale now, which is `current_version`. `versions` holds every price, newest first. */
+    StudioOrganizationPlan: {
+      plan_id: components['schemas']['UuidV7']
+      name: string
+      /** @enum {string} */
+      status: 'draft' | 'published'
+      on_sale: boolean
+      /** Format: date-time */
+      created_at: string
+      current_version: components['schemas']['StudioPlanVersion'] | null
+      versions: components['schemas']['StudioPlanVersion'][]
+    }
+    StudioOrganizationPlanPage: {
+      data: components['schemas']['StudioOrganizationPlan'][]
+      page: components['schemas']['Page']
+    }
+    StudioPlanName: {
+      /** @description Unique in the organization without regard to case; kept trimmed. */
+      name: string
+    }
+    StudioPlanVersionPublish: {
+      /** @description Whole pesos in the minor unit, so a multiple of 100. */
+      amount_minor: number
+      /**
+       * @description Mercado Pago Colombia charges in pesos, so COP is the only value.
+       * @enum {string}
+       */
+      currency_code: 'COP'
+      billing_period: components['schemas']['BillingPeriod']
+      delivery_mode: components['schemas']['PlanDeliveryMode']
+    }
     /** @description One bond between the caller and an organization. `previous_relationship_id` is set when she had another with the same organization before this one. */
     SpaceRelationship: {
       relationship_id: components['schemas']['UuidV7']
@@ -13273,6 +13424,10 @@ export interface components {
     PlatformDutyStatusFilter: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
     PlatformAssignmentId: components['schemas']['UuidV7']
     SubscriptionId: components['schemas']['UuidV7']
+    /** @description One of the plans an organization sells to its clients. */
+    OrganizationPlanId: components['schemas']['UuidV7']
+    /** @description One version, which is one price, of that plan. */
+    OrganizationPlanVersionId: components['schemas']['UuidV7']
     /** @description UUIDv4 reused only for HTTP retries of this operation. */
     IdempotencyKey: components['schemas']['UuidV4']
     /** @description UUIDv7 durable identity generated when the user intention is created. */
@@ -23674,6 +23829,213 @@ export interface operations {
       403: components['responses']['Forbidden']
       404: components['responses']['NotFound']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listStudioOrganizationPlans: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of the organization's plans */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlanPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  createStudioOrganizationPlan: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPlanName']
+      }
+    }
+    responses: {
+      /** @description The new draft */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  renameStudioOrganizationPlan: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        /** @description One of the plans an organization sells to its clients. */
+        planId: components['parameters']['OrganizationPlanId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPlanName']
+      }
+    }
+    responses: {
+      /** @description The plan with its name */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  publishStudioPlanVersion: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        /** @description One of the plans an organization sells to its clients. */
+        planId: components['parameters']['OrganizationPlanId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPlanVersionPublish']
+      }
+    }
+    responses: {
+      /** @description That price was already on sale; nothing changed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      /** @description The plan with its new price on sale */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  deprecateStudioPlanVersion: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        /** @description One of the plans an organization sells to its clients. */
+        planId: components['parameters']['OrganizationPlanId']
+        /** @description One version, which is one price, of that plan. */
+        planVersionId: components['parameters']['OrganizationPlanVersionId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The plan with that version retired */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
       503: components['responses']['UpstreamUnavailable']
     }
   }

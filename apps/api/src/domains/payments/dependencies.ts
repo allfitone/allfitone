@@ -1,9 +1,14 @@
 import { createStoreBillingFromEnv, type StoreBilling } from '@allfitone/store-billing'
 
 import { createPlatformPlanService, type PlatformPlanService } from './application/index.js'
+import {
+  createOrganizationPlanService,
+  type OrganizationPlanService,
+} from './application/organization-plans.js'
 import { createProService, type ProService } from './application/pro.js'
 import { createSubscriptionService, type SubscriptionService } from './application/subscriptions.js'
 import { createPlatformPlanDatabase } from './infrastructure/index.js'
+import { createOrganizationPlanDatabase } from './infrastructure/organization-plans.js'
 import { createProDatabase } from './infrastructure/pro.js'
 import { createSubscriptionDatabase } from './infrastructure/subscriptions.js'
 
@@ -11,6 +16,7 @@ let cachedPlans: PlatformPlanService | undefined
 let cachedPro: ProService | undefined
 let cachedBilling: StoreBilling | undefined
 let cachedSubscriptions: SubscriptionService | undefined
+let cachedOrganizationPlans: OrganizationPlanService | undefined
 
 export function platformPlanService(): PlatformPlanService {
   cachedPlans ??= createPlatformPlanService(createPlatformPlanDatabase())
@@ -32,4 +38,10 @@ export function proService(): ProService {
 export function subscriptionService(): SubscriptionService {
   cachedSubscriptions ??= createSubscriptionService(createSubscriptionDatabase())
   return cachedSubscriptions
+}
+
+// A gym's plans need nothing from the environment either: the prices live in PostgreSQL.
+export function organizationPlanService(): OrganizationPlanService {
+  cachedOrganizationPlans ??= createOrganizationPlanService(createOrganizationPlanDatabase())
+  return cachedOrganizationPlans
 }

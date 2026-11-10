@@ -36,6 +36,12 @@ const NO_OBJECT_STORE_SDK = {
   message: 'The storage SDK belongs in packages/object-store. Use its port.',
 }
 
+// Only packages/notifications sends email (ADR-049).
+const NO_EMAIL_SDK = {
+  group: ['@aws-sdk/client-sesv2', '@aws-sdk/client-ses'],
+  message: 'The email SDK belongs in packages/notifications. Use its port.',
+}
+
 // Only packages/food-recognition talks to a model (ADR-041).
 const NO_AI_SDK = {
   group: ['ai', 'ai/*', '@ai-sdk/*'],
@@ -342,6 +348,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
@@ -354,6 +361,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
@@ -367,6 +375,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_QUEUE_SDK,
+        NO_EMAIL_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
         NO_AI_SDK,
@@ -379,6 +388,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
         NO_AI_SDK,
@@ -391,6 +401,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_AI_SDK,
         NO_STORE_BILLING_SDK,
@@ -403,8 +414,22 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
+        NO_AI_SDK,
+        NO_HOSTING,
+      ),
+    },
+  },
+  {
+    files: ['packages/notifications/**/*.ts'],
+    rules: {
+      'no-restricted-imports': restrict(
+        NO_PROVIDER_SDK,
+        NO_QUEUE_SDK,
+        NO_OBJECT_STORE_SDK,
+        NO_STORE_BILLING_SDK,
         NO_AI_SDK,
         NO_HOSTING,
       ),
@@ -415,6 +440,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
@@ -427,6 +453,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
@@ -477,6 +504,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,
@@ -491,6 +519,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-imports': restrict(
         NO_PROVIDER_SDK,
+        NO_EMAIL_SDK,
         NO_QUEUE_SDK,
         NO_OBJECT_STORE_SDK,
         NO_STORE_BILLING_SDK,

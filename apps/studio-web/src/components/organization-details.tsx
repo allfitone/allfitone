@@ -32,11 +32,13 @@ import {
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { StatStrip, StatStripItem } from '@allfitone/react/components/stat-strip'
 import { FoundationIcon } from '@allfitone/react/icons'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 
 import { organizationTypeLabel } from './membership-selector'
+import { OrganizationClosure } from './organization-closure'
 import { useOrganizationContext } from './organization-context'
+import { canCloseOrganization, closureBlockedReason } from '@/lib/organization-closure'
 import { partitionSites, siteStatusLabel } from '@/lib/organization-details'
 import { canManageOrganization } from '@/lib/organization-profile'
 import { canManageSites } from '@/lib/organization-sites'
@@ -46,14 +48,31 @@ import {
   isStudioNotFound,
   organizationQueryOptions,
   organizationRolesQueryOptions,
+  organizationSubscriptionsQueryOptions,
 } from '@/lib/studio-query'
 
 const LEGAL_NAME_ABSENT = 'Sin razón social registrada'
+const SUBSCRIPTION_PAGE_SIZE = 50
 
 export function OrganizationDetails() {
   const { current } = useOrganizationContext()
   const query = useQuery(organizationQueryOptions(current.organization_id))
   const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
+  /*
+   * Only the owner can close, so only the owner pays for this read.
+   * `payments.check_organization_closure` refuses the closure while any
+   * subscription is not `ended` — a suspended one included — so the screen
+   * needs them all, not the active ones.
+   */
+  const mayClose = canCloseOrganization(current.roles, rolesQuery.data?.items)
+  const subscriptionsQuery = useInfiniteQuery({
+    ...organizationSubscriptionsQueryOptions(
+      current.organization_id,
+      'all',
+      SUBSCRIPTION_PAGE_SIZE,
+    ),
+    enabled: mayClose,
+  })
   const organization = query.data
 
   if (query.isPending) return <LoadingState />
@@ -126,6 +145,19 @@ export function OrganizationDetails() {
             : null
         }
       />
+
+      {/* Last, and only for the owner: a destructive action belongs at the end
+          of what it destroys, never beside the link that edits it. An already
+          closed organization is not offered it again. */}
+      {mayClose && organization.status === 'active' ? (
+        <OrganizationClosure
+          organizationId={current.organization_id}
+          organizationName={organization.display_name}
+          blockedReason={closureBlockedReason(
+            subscriptionsQuery.data?.pages.flatMap((page) => page.data) ?? [],
+          )}
+        />
+      ) : null}
     </div>
   )
 }

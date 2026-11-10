@@ -6,6 +6,7 @@ import {
   createInvitationToken,
   createResendEmailSender,
   hashInvitationToken,
+  renderProfessionalReassignedEmail,
   renderTeamInvitationEmail,
 } from './index.js'
 
@@ -107,10 +108,59 @@ describe('team invitation email', () => {
 
     expect(html).toContain('#EDF6F6')
     expect(html).toContain('#FFFFFF')
-    expect(html).toContain('#030713')
+    expect(html).toContain('#0A1B22')
     expect(html).toContain('#55EFFB')
     expect(html).toContain("'Barlow Condensed','Arial Narrow',Arial,sans-serif")
-    expect(html).toContain("'Manrope',Arial,sans-serif")
+    expect(html).toContain("'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif")
+  })
+
+  test('loads the DS fonts from beside the logo, and nothing else from anywhere', () => {
+    const { html } = renderTeamInvitationEmail({
+      organizationName: 'Studio Norte',
+      proposedRoleCode: 'coach',
+      invitationUrl: 'https://studio.allfit.one/invitations#token=coach-token',
+      brandAssetUrl: 'https://studio.allfit.one/email/allfit-one-lockup-on-light.png',
+      expiresAt: new Date('2026-08-19T12:00:00.000Z'),
+    })
+
+    expect(html).toContain(
+      "url('https://studio.allfit.one/email/fonts/barlow-condensed-600-latin.215a93c6.woff2')",
+    )
+    expect(html).toContain(
+      "url('https://studio.allfit.one/email/fonts/manrope-latin.8c2def02.woff2')",
+    )
+    // Opening the email must not tell a third party it was opened.
+    const origins = new Set(
+      [...html.matchAll(/(?:src="|url\(')(https?:\/\/[^/"']+)/g)].map((match) => match[1]),
+    )
+    expect([...origins]).toEqual(['https://studio.allfit.one'])
+  })
+
+  test('names the product the message is about, with no label above the heading', () => {
+    const team = renderTeamInvitationEmail({
+      organizationName: 'Studio Norte',
+      proposedRoleCode: 'coach',
+      invitationUrl: 'https://studio.allfit.one/invitations#token=coach-token',
+      brandAssetUrl: 'https://studio.allfit.one/email/allfit-one-lockup-on-light.png',
+      expiresAt: new Date('2026-08-19T12:00:00.000Z'),
+    }).html
+
+    expect(team).toContain('STUDIO')
+    expect(team).not.toContain('INVITACIÓN DE EQUIPO')
+    expect(team).toContain('¿No esperabas esta invitación?')
+
+    // A notice to the person who trains is about Space, and it is not an invitation.
+    const notice = renderProfessionalReassignedEmail({
+      organizationName: 'Studio Norte',
+      professionalName: 'Laura Méndez',
+      previousProfessionalName: 'Carlos Ruiz',
+      brandAssetUrl: 'https://studio.allfit.one/email/allfit-one-lockup-on-light.png',
+    }).html
+
+    expect(notice).toContain('SPACE')
+    expect(notice).not.toContain('STUDIO')
+    expect(notice).not.toContain('INVITACIÓN')
+    expect(notice).not.toContain('¿No esperabas esta invitación?')
   })
 
   test('escapes organization and URL content in every HTML context', () => {
