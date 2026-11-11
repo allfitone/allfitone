@@ -33,3 +33,12 @@ security state machines rather than reusable presentation data.
 
 Catalog responses retain their existing ETag-backed `sessionStorage` cache.
 Organization and profile data are never persisted by TanStack Query.
+
+A read whose operation answers `private-no-store` is not cached at all — not
+even in memory for the length of a visit. Those query options set both
+`staleTime: 0` and `gcTime: 0`, so leaving the screen drops the answer and
+coming back asks again instead of painting the old one while the new one
+travels. The client card (`OP-REL-019`) is the first of these: it decides which
+categories of a person's data appear at all, so a remembered copy would put
+back a category she revoked seconds ago. The cost is a loading state on every
+arrival, which for an index of what somebody authorized is the right way round.

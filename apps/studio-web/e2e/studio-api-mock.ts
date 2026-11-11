@@ -37,6 +37,12 @@ export interface StudioApiFixture {
    */
   guestQuota: StudioGuestQuotaBody | null
   authorizedScopes: unknown[]
+  /**
+   * The card of the person `activeClient` names. `null` is the `404`
+   * `OP-REL-019` answers for a person who does not exist and for one the
+   * caller does not attend — the same answer for both, on purpose.
+   */
+  clientCard: unknown
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -532,6 +538,77 @@ export const activeClient = {
   invitation_status: 'accepted',
   started_at: '2025-03-04T15:12:44.118Z',
   ended_at: null,
+}
+
+/**
+ * `OP-REL-019`: an index of what she lets this caller read, and nothing of
+ * hers. The fullest useful case — two categories at two different levels, and
+ * one she took back — so the screen has to say three different things.
+ *
+ * `reads` carries what the real projection carries: the operations that read
+ * each category. The screen shows none of them, and that is the point of having
+ * them here — a fixture that dropped them would let a prefetch be added without
+ * anything noticing.
+ */
+export const clientCard = {
+  kind: 'attending',
+  person_id: '01991600-7000-7000-8000-000000000201',
+  display_name: 'Ana Álvarez',
+  relationship: {
+    id: '01991600-7000-7000-8000-000000000101',
+    started_at: '2025-03-04T15:12:44.118Z',
+  },
+  attendance: { role: 'holder', ends_on: null },
+  sections: [
+    {
+      scope_code: 'relationship_training',
+      scope_version: 2,
+      access_level: 'contribute',
+      granted_at: '2025-03-05T10:00:00.000Z',
+      reads: [
+        'getAuthorizedClientTrainingProfile',
+        'listAuthorizedClientExecutions',
+        'getAuthorizedClientProgress',
+        'listRelationshipAssignments',
+      ],
+    },
+    {
+      scope_code: 'health_context',
+      scope_version: 1,
+      access_level: 'read',
+      granted_at: '2025-06-11T18:30:00.000Z',
+      reads: ['listAuthorizedClientHealthContext'],
+    },
+  ],
+  withdrawn: [{ scope_code: 'body_progress', withdrawn_at: '2026-01-20T14:05:00.000Z' }],
+}
+
+/**
+ * The same person, read by somebody covering for her coach. The cover ends on a
+ * day of the gym's calendar and not an instant, which is the half that renders
+ * one day early anywhere west of Greenwich if it is read as one.
+ */
+export const coveredClientCard = {
+  ...clientCard,
+  attendance: { role: 'substitute', ends_on: '2026-03-12' },
+}
+
+/**
+ * `HU-STUDIO-084`. A coach who lost her: why, when, and nothing else — no name,
+ * no categories, and never who decided it.
+ */
+export const formerClientCard = {
+  kind: 'former',
+  person_id: '01991600-7000-7000-8000-000000000201',
+  reason: 'assignment_ended',
+  lost_at: '2026-02-02T11:00:00.000Z',
+}
+
+/** Attended, and she has shared nothing: being assigned asks her for nothing. */
+export const clientCardWithoutSections = {
+  ...clientCard,
+  sections: [],
+  withdrawn: [],
 }
 
 /**
@@ -1037,6 +1114,7 @@ export function createStudioApiFixture(
     organizationClients: [activeClient, pendingClientInvitation, terminatedClient],
     guestQuota: null,
     authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
+    clientCard: structuredClone(clientCard),
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -1604,6 +1682,17 @@ function defaultResponse(
       },
     }
     return { status: 201, body: fixture.relationshipState }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+$/.test(request.path)
+  ) {
+    // Absent and not-attended answer the same 404 here as in PostgreSQL. A
+    // fixture that told them apart would let a screen be built on a difference
+    // production never reports — and the difference it would leak is whether
+    // the gym has that person as a client.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    return { status: 200, body: fixture.clientCard }
   }
   if (
     request.method === 'GET' &&

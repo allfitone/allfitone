@@ -13,7 +13,12 @@
  * directory, so both open the screen — the narrowing happens in the database,
  * never here.
  */
-import type { ClientDirectoryItem, OrganizationRole } from './studio-api'
+import { clientCardPath } from './client-card'
+import type {
+  ClientDirectoryItem,
+  ClientDirectoryRelationship,
+  OrganizationRole,
+} from './studio-api'
 import type { ClientFilter } from './studio-query'
 
 const VIEW_DIRECTORY = 'view_directory'
@@ -136,3 +141,27 @@ export const SEARCH_UNAVAILABLE_REASON =
   'Una invitación sin responder todavía no tiene nombre, así que no se puede buscar entre ellas.'
 
 export const SEARCH_TOO_LONG_REASON = `Escribe un nombre más corto, de máximo ${SEARCH_MAX_LENGTH} caracteres.`
+
+/**
+ * Where a person's name in the list leads.
+ *
+ * A coach lands on her card. His directory holds only the people he was
+ * assigned, so `OP-REL-019` will answer him for every row he can see. Somebody
+ * who reads the whole organization lands on the relationship instead: that
+ * operation answers them the same `404` as for a person who does not exist, and
+ * the relationship — the link, who attends her, what she granted — is the screen
+ * that is theirs.
+ *
+ * This leaves out a reader who both administers the gym and coaches in it: he
+ * reads every client, so he is sent to the relationship and has no way through
+ * to the card of somebody he does attend. A way in from the relationship screen
+ * is where that closes, and it is named as a gap rather than guessed at here.
+ */
+export function clientEntryPath(
+  entry: ClientDirectoryRelationship,
+  reader: { organizationId: string; everyClient: boolean },
+): string {
+  return reader.everyClient
+    ? `/organizations/${reader.organizationId}/clients/${entry.relationship_id}`
+    : clientCardPath(reader.organizationId, entry.person_id)
+}

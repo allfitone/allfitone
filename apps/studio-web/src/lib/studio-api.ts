@@ -54,6 +54,14 @@ export type ClientDirectoryItem = AllfitV1Schemas['ClientDirectoryItem']
 export type ClientDirectoryRelationship = AllfitV1Schemas['ClientDirectoryRelationship']
 export type ClientDirectoryInvitation = AllfitV1Schemas['ClientDirectoryInvitation']
 export type ClientDirectoryGroup = AllfitV1Schemas['ClientDirectoryGroup']
+export type AccessLevel = AllfitV1Schemas['AccessLevel']
+export type ClientCard = AllfitV1Schemas['StudioClientCard']
+export type AttendedClientCard = AllfitV1Schemas['StudioAttendedClientCard']
+export type FormerClientCard = AllfitV1Schemas['StudioFormerClientCard']
+export type ClientCardSection = AllfitV1Schemas['StudioClientCardSection']
+export type ClientCardWithdrawal = AllfitV1Schemas['StudioClientCardWithdrawal']
+export type ClientLossReason = AllfitV1Schemas['StudioClientLossReason']
+export type ScopeCode = AllfitV1Schemas['ScopeCode']
 export type RelationshipState = AllfitV1Schemas['RelationshipState']
 export type RelationshipHistoryPage = AllfitV1Schemas['RelationshipHistoryPage']
 export type RelationshipHistoryEvent = AllfitV1Schemas['RelationshipHistoryEvent']
@@ -433,6 +441,20 @@ export const studioApi = {
         ...(signal ? { signal } : {}),
       },
     ),
+
+  /**
+   * `OP-REL-019`. An index of what this caller may read about her, never the
+   * data itself: opening it reads nothing of hers and records no access, and
+   * each operation it names records its own.
+   *
+   * Keyed by the person and not by the relationship, which is why it does not
+   * sit beside `relationshipState` above.
+   */
+  clientCard: (organizationId: string, personId: string, signal?: AbortSignal) =>
+    request<ClientCard>(`/studio/v1/organizations/${organizationId}/clients/${personId}`, {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
 
   relationshipHistory: (
     organizationId: string,
