@@ -47,7 +47,7 @@ const WORKER_SOURCE = import.meta.dir
  * notice, but no worker delivers them yet. Each joins the list with its consumer.
  */
 const DELIVERY_EVENT =
-  /^(organization\.(\w*invited|membership_resigned)|relationship\.(client_invited|professional_reassigned|substitution_proposed)|identity\.account_recovery_requested|execution\.correction_proposed|payments\.subscription_(suspended|reactivated|ended))\.v1$/
+  /^(organization\.(\w*invited|membership_resigned)|relationship\.(client_invited|professional_reassigned|substitution_proposed)|identity\.(account_recovery_requested|contact_changed|contact_verified)|execution\.correction_proposed|payments\.subscription_(suspended|reactivated|ended))\.v1$/
 
 function enqueuedDeliveryEvents(): string[] {
   const found = new Set<string>()
