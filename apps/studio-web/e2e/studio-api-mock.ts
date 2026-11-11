@@ -128,6 +128,8 @@ export interface StudioApiFixture {
    * does. `stale` makes the next save meet a teammate's, once.
    */
   programDraftSaveOutcome: 'saved' | 'stale'
+  /** The content each program's newest version was published with, as for templates. */
+  publishedProgramContents: Record<string, string>
   /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
@@ -1360,6 +1362,7 @@ export function createStudioApiFixture(
     draftSaveOutcome: 'saved',
     publishedContents: {},
     programDraftSaveOutcome: 'saved',
+    publishedProgramContents: {},
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1799,6 +1802,71 @@ function defaultResponse(
     }
     const saved = replaceProgramDraft(fixture, programId, content)
     return { status: 200, body: saved, headers: { ETag: String(saved.etag) } }
+  }
+  const programVersionsPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions$/.exec(request.path)
+  if (request.method === 'POST' && programVersionsPath) {
+    /*
+     * What `planning.publish_program_version` does: 428 without the condition,
+     * the current draft with a stale one, `sessions` for an empty draft, and —
+     * against the newest version only — that version again when nothing changed.
+     * A retired version the draft kept is published as it is.
+     */
+    const programId = programVersionsPath[1] ?? ''
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programId)
+    if (!program) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const draft = objectValue(program.draft)
+    if (expected !== draft.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: draft }) }
+    }
+    const content = objectValue(draft.content)
+    const sessions = (Array.isArray(content.sessions) ? content.sessions : []).map(objectValue)
+    if (sessions.length === 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'sessions', path: '/sessions', message: 'sessions' }],
+        }),
+      }
+    }
+    const versions = (Array.isArray(program.versions) ? program.versions : []).map(objectValue)
+    const latest = Math.max(0, ...versions.map((version) => Number(version.version_number)))
+    const unchanged = fixture.publishedProgramContents[programId] === JSON.stringify(content)
+    if (unchanged && latest > 0) {
+      const newest = versions.find((version) => Number(version.version_number) === latest)
+      return { status: 201, body: newest }
+    }
+    const number = latest + 1
+    const version = {
+      id: `01991600-9000-7000-8000-0000000003${String(number).padStart(2, '0')}`,
+      program_id: programId,
+      version_number: number,
+      status: 'published',
+      title: String(content.title),
+      notes: content.notes ?? null,
+      repeats_forever: content.repeats_forever === true,
+      sessions: sessions.toSorted((left, right) => Number(left.position) - Number(right.position)),
+      published_at: '2026-11-10T17:00:00.000Z',
+      session_count: sessions.length,
+      deprecated_template_version_ids: [
+        ...new Set(
+          Array.isArray(draft.deprecated_template_version_ids)
+            ? draft.deprecated_template_version_ids
+            : [],
+        ),
+      ],
+    }
+    fixture.publishedProgramContents[programId] = JSON.stringify(content)
+    fixture.organizationPrograms = fixture.organizationPrograms.map((candidate) =>
+      objectValue(candidate).id === programId
+        ? { ...objectValue(candidate), status: 'published', versions: [version, ...versions] }
+        : candidate,
+    )
+    return { status: 201, body: version }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/offerable-scopes') {
     return { status: 200, body: { items: fixture.offerableScopes } }

@@ -514,6 +514,27 @@ export const studioApi = {
       },
     ),
 
+  /**
+   * OP-PLN-008. Publishes the program draft as the server has it saved, under
+   * its ETag and with no body (415 with one). An empty draft answers 422; the
+   * same content as the newest version answers that version again.
+   */
+  publishOrganizationProgramVersion: (
+    organizationId: string,
+    programId: string,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramVersion>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/versions`,
+      {
+        method: 'POST',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
   /*
    * OP-PLN-001. The template belongs to the organization; the server records the
    * caller as its author and opens its first draft in the same transaction.

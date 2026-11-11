@@ -70,6 +70,8 @@ import {
   type ProgramDraftProblems,
   type ProgramEditorDraft,
 } from '@/lib/program-editor'
+import { programPublishOutcome, retiredVersionsInDraft } from '@/lib/program-publish'
+import { latestVersionNumber, publishBlockedReason } from '@/lib/session-template-publish'
 import {
   StudioApiError,
   newCommand,
@@ -130,6 +132,11 @@ export function ProgramEditor() {
   const [conflict, setConflict] = useState<ProgramDraft | null>(null)
   const [savedAt, setSavedAt] = useState<string>()
   const [intents] = useState(() => createCommandIntentManager(newCommand))
+  // Its own manager, so a save between two clicks of «Publicar» keeps the command.
+  const [publishIntents] = useState(() => createCommandIntentManager(newCommand))
+  const [publishIssues, setPublishIssues] = useState<string[]>([])
+  const [publishResult, setPublishResult] = useState<ReturnType<typeof programPublishOutcome>>()
+  const [publishFailure, setPublishFailure] = useState<string>()
 
   // The first answer becomes the base an edit starts from; later reads never replace it.
   if (program && !base) {
@@ -153,6 +160,27 @@ export function ProgramEditor() {
       ),
     onSuccess: () => {
       // The library shows the draft's name, which this save may have changed.
+      void queryClient.invalidateQueries({
+        queryKey: studioQueryKeys.organizationProgramsRoot(organizationId),
+      })
+    },
+  })
+
+  const publish = useStudioSessionMutation({
+    mutationFn: ({ etag }: { etag: string }, signal) =>
+      studioApi.publishOrganizationProgramVersion(
+        organizationId,
+        programId,
+        etag,
+        publishIntents.commandFor({
+          operation: 'publish-program-version',
+          resourceId: programId,
+          payload: { etag },
+        }),
+        signal,
+      ),
+    onSuccess: () => {
+      // The library lists the versions, and the invitation form offers them.
       void queryClient.invalidateQueries({
         queryKey: studioQueryKeys.organizationProgramsRoot(organizationId),
       })
@@ -237,6 +265,9 @@ export function ProgramEditor() {
     templates.filter((template) => template.status !== 'archived').length - composable.length
   const weeks = weekOptions(editor.sessions)
   const retired = retiredSessions(editor.sessions, index)
+  const latest = latestVersionNumber(program?.versions ?? [])
+  const publishBlocked = publishBlockedReason({ dirty, conflict: conflict !== null })
+  const retiredInSaved = retiredVersionsInDraft(base.deprecated_template_version_ids ?? [], index)
 
   function edit(next: ProgramEditorDraft) {
     setEditor(next)
@@ -245,6 +276,43 @@ export function ProgramEditor() {
     setServerIssues([])
     setFailure(undefined)
     setSavedAt(undefined)
+    setPublishIssues([])
+    setPublishResult(undefined)
+    setPublishFailure(undefined)
+  }
+
+  async function publishDraft() {
+    if (!base || publish.isPending || publishBlocked) return
+    setPublishIssues([])
+    setPublishResult(undefined)
+    setPublishFailure(undefined)
+    try {
+      const version = await publish.mutateAsync({ etag: base.etag })
+      setPublishResult(programPublishOutcome(latest, version))
+      publishIntents.reset()
+    } catch (caught) {
+      if (isStudioQuerySessionCancelled(caught)) return
+      if (caught instanceof StudioApiError && caught.code === 'stale-draft') {
+        const theirs = programDraftFrom(caught.currentState)
+        if (theirs) {
+          setConflict(theirs)
+          return
+        }
+      }
+      // What the draft still lacks, as the server listed it.
+      if (caught instanceof StudioApiError && caught.status === 422 && caught.issues.length > 0) {
+        setPublishIssues(
+          programIssueMessages(
+            caught.issues.map((issue) => issue.code),
+            'publish',
+          ),
+        )
+        return
+      }
+      setPublishFailure(
+        caught instanceof StudioApiError ? publishFailureMessage(caught) : PUBLISH_UNKNOWN_FAILURE,
+      )
+    }
   }
 
   async function submit() {
@@ -469,6 +537,78 @@ export function ProgramEditor() {
               : 'Sin cambios desde que lo abriste.'}
         </p>
       </div>
+
+      {/* HU-STUDIO-042. Criteria 2 and 3 are the server's, said here before the click. */}
+      <Card data-program-publish>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            Publicar una versión
+          </CardTitle>
+          <CardDescription>
+            {latest === undefined
+              ? 'Todavía no se ha publicado ninguna versión.'
+              : `La versión más reciente es la ${latest}.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div data-program-save-bar>
+            <p>
+              Una versión publicada no se edita nunca. Cada sesión queda fijada a la versión de
+              plantilla que nombra: si esa plantilla publica otra, este programa sigue en la suya
+              hasta que publiques otra versión del programa.
+            </p>
+
+            {/* HU-041 criterion 3, from what the server says the saved draft holds. */}
+            {retiredInSaved.length > 0 ? (
+              <Alert variant="warning" data-program-publish-retired>
+                <AlertTitle>Vas a publicar versiones retiradas</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    El borrador guardado usa estas versiones, que ya no se pueden sumar a contenido
+                    nuevo. Se publicarán tal como están; si prefieres evitarlo, cámbialas antes por
+                    una versión vigente.
+                  </p>
+                  <ul>
+                    {retiredInSaved.map((label) => (
+                      <li key={label}>{label}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            {publishIssues.length > 0 ? (
+              <Alert variant="warning" live="polite" data-program-publish-issues>
+                <AlertTitle>Al borrador le falta esto para publicarse</AlertTitle>
+                <AlertDescription>
+                  <ul>
+                    {publishIssues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {publishFailure ? (
+              <FieldError data-program-publish-error>{publishFailure}</FieldError>
+            ) : null}
+            {publishBlocked ? <FieldDescription>{publishBlocked}</FieldDescription> : null}
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(publishBlocked) || publish.isPending}
+              onClick={() => void publishDraft()}
+            >
+              {publish.isPending ? <Spinner label="Publicando la versión" /> : null}
+              {publish.isPending ? 'Publicando…' : 'Publicar versión'}
+            </Button>
+            <p data-program-publish-status role="status" aria-live="polite">
+              {publishResult?.message ?? ''}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </section>
   )
 }
@@ -508,6 +648,20 @@ function programDraftFrom(value: unknown): ProgramDraft | null {
   const content = candidate.content
   if (!content || typeof content.title !== 'string' || !Array.isArray(content.sessions)) return null
   return value as ProgramDraft
+}
+
+const PUBLISH_UNKNOWN_FAILURE =
+  'No pudimos publicar la versión. El borrador sigue guardado; reintenta en un momento.'
+
+function publishFailureMessage(error: StudioApiError): string {
+  if (error.status === 403 || error.status === 404) {
+    return 'Ya no puedes publicar este programa: tu rol cambió o la organización no está activa.'
+  }
+  if (error.status === 409 || error.status === 429) {
+    return 'Esa publicación ya está en curso. Espera un momento y reintenta.'
+  }
+  if (error.status === 503) return 'La publicación está pausada temporalmente. Reintenta más tarde.'
+  return PUBLISH_UNKNOWN_FAILURE
 }
 
 const SAVE_UNKNOWN_FAILURE =

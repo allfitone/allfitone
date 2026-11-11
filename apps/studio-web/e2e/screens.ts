@@ -1960,7 +1960,11 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // Criterion 1: the version chosen by number, the retired one disabled.
+    /*
+     * Criterion 1: the version named by number once a template is chosen. The
+     * list is closed again before the audit: an open Select carries the Design
+     * System's focus guards, which axe reports as `aria-hidden-focus`.
+     */
     stories: 'HU-041 · choosing the exact version a session uses',
     path: `${workspace}/content/programs/${draftedProgram.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
@@ -1968,8 +1972,7 @@ export const SCREENS: Screen[] = [
       const card = page.locator('[data-program-add-session]')
       await card.getByLabel('Plantilla', { exact: true }).click()
       await page.getByRole('option', { name: 'Fuerza tren superior' }).click()
-      await card.getByLabel('Versión', { exact: true }).click()
-      await expect(page.getByRole('option', { name: /^Versión 1 / })).toBeVisible()
+      await expect(card.getByLabel('Versión', { exact: true })).toContainText('Versión 2')
     },
   },
   {
@@ -2027,6 +2030,48 @@ export const SCREENS: Screen[] = [
       await page.getByLabel('Nombre').fill('Otro nombre')
       await page.getByRole('button', { name: 'Guardar borrador' }).click()
       await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/[programId]`, publishing · HU-042 ---
+  {
+    // The retired version is warned about in the card that just published it.
+    stories: 'HU-042 · a program version just published',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText(/Publicada la versión 1/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-042 · an empty program that cannot be published yet',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        {
+          ...draftedProgram,
+          draft: {
+            ...draftedProgram.draft,
+            content: { ...draftedProgram.draft.content, sessions: [] },
+            deprecated_template_version_ids: [],
+          },
+        },
+      ]
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-042 · unsaved work waits to be saved before publishing',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Hipertrofia · bloque 2')
+      await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
     },
   },
   {
