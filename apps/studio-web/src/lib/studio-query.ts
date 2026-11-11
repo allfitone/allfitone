@@ -112,6 +112,8 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions'] as const,
   organizationSubscriptions: (organizationId: string, status: SubscriptionFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions', { status, limit }] as const,
+  clientCard: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
   relationshipHistory: (organizationId: string, relationshipId: string, limit: number) =>
@@ -255,6 +257,29 @@ export function organizationQueryOptions(organizationId: string) {
     queryKey: studioQueryKeys.organization(organizationId),
     queryFn: ({ signal }) => studioApi.organization(organizationId, signal),
     staleTime: STUDIO_ORGANIZATION_STALE_TIME_MS,
+  })
+}
+
+/**
+ * Never cached, which for this one read is the contract and not a preference:
+ * `OP-REL-019` answers `private-no-store`.
+ *
+ * It is also what the screen needs. This answer decides which categories appear
+ * at all, so showing a remembered copy would put back a section the person
+ * revoked seconds ago — and a section on screen is an invitation to go read what
+ * is behind it. `gcTime: 0` drops it the moment nobody is looking, so coming
+ * back to the card always asks again rather than painting the old answer while
+ * the new one travels.
+ *
+ * The cost is a loading state on every arrival instead of a flash of stale
+ * content. For an index of what somebody allowed, that is the right way round.
+ */
+export function clientCardQueryOptions(organizationId: string, personId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientCard(organizationId, personId),
+    queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 

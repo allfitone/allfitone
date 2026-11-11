@@ -116,10 +116,23 @@ describe('organization workspace navigation', () => {
     expect(resolveWorkspaceRoute(`${basePath}/clients/${relationshipId}`, organizationId)).toEqual({
       title: 'Vínculo',
     })
-    for (const segment of ['invitations', 'information-categories']) {
+    for (const segment of ['invitations', 'information-categories', 'people']) {
       expect(resolveWorkspaceRoute(`${basePath}/clients/${segment}`, organizationId)).not.toEqual({
         title: 'Vínculo',
       })
     }
+  })
+
+  /*
+   * The card and the relationship are two screens about the same person, and
+   * the shell's `h1` is the only thing that says which one is open. A new route
+   * that nobody registers here is titled "Studio", which fails silently: the
+   * screen renders and only the heading is wrong.
+   */
+  test('a person card is titled Ficha, not Vínculo and not Studio', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(resolveWorkspaceRoute(`${basePath}/clients/people/${personId}`, organizationId)).toEqual(
+      { title: 'Ficha' },
+    )
   })
 })

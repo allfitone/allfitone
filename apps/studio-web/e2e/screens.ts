@@ -32,6 +32,10 @@ import {
   professionalProfile,
   holderMembership,
   relationshipState,
+  clientCard,
+  clientCardWithoutSections,
+  coveredClientCard,
+  formerClientCard,
   secondActiveMembership,
   terminatedMembership,
   terminatedTeamMember,
@@ -126,6 +130,7 @@ async function settleAnimations(page: Page): Promise<void> {
 
 const workspace = `/organizations/${activeMembership.organization_id}`
 const relationshipId = relationshipState.relationship_id
+const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1341,6 +1346,72 @@ export const SCREENS: Screen[] = [
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Terminar el vínculo' }).click()
       await expect(page.getByText(/Pasa ahora mismo, sin preaviso/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]` · HU-083 ---
+  {
+    /*
+     * The card as a coach normally meets it: two categories at two different
+     * levels and one she took back. Every panel on the screen at once, which is
+     * where they crowd each other if they are going to.
+     */
+    stories: 'HU-083 · a client card, with what she shares and what she took back',
+    path: clientCardPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Entrenamiento con nosotros' })).toBeVisible()
+      await expect(page.getByText('Lo que retiró')).toBeVisible()
+    },
+  },
+  {
+    // Read by somebody covering: the only state that carries an end date, and
+    // the one place a calendar day is rendered on this screen.
+    stories: 'HU-083 · a card read by somebody covering, with the day the cover ends',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: coveredClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Cubres hasta')).toBeVisible()
+    },
+  },
+  {
+    // Assigned to her and allowed nothing. A legitimate state, and it has to
+    // read as one rather than as a screen that failed to load.
+    stories: 'HU-083 · a client who has authorized nothing yet',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: clientCardWithoutSections,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no te autorizó ninguna categoría')).toBeVisible()
+    },
+  },
+  {
+    // Absent, or not the caller's to read — the operation answers the same for
+    // both, so the screen says the same for both.
+    stories: 'HU-083 · a card the caller does not attend',
+    path: clientCardPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta ficha')).toBeVisible()
+    },
+  },
+  {
+    // HU-084, as far as this operation answers it: thirty days of why, with no
+    // name and no reason beyond the three the contract lists.
+    stories: 'HU-084 · why the caller no longer attends her',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: formerClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Ya no la atiendes')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---

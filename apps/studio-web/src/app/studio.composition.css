@@ -242,7 +242,8 @@
 [data-profile-presentation],
 [data-account-map],
 [data-relationship-state],
-[data-relationship-history] {
+[data-relationship-history],
+[data-client-card-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -580,7 +581,8 @@
 [data-client-facts],
 [data-billing-facts],
 [data-authorized-scope-facts],
-[data-relationship-facts] {
+[data-relationship-facts],
+[data-client-card-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -638,7 +640,8 @@
 [data-relationship-history-list],
 [data-content-version-list],
 [data-movement-picker-results],
-[data-role-capability-list] {
+[data-role-capability-list],
+[data-client-card-section-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1406,13 +1409,15 @@
 }
 
 [data-organization-details-placeholder],
-[data-relationship-header-placeholder] {
+[data-relationship-header-placeholder],
+[data-client-card-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
 
 [data-organization-card-placeholder],
-[data-relationship-card-placeholder] {
+[data-relationship-card-placeholder],
+[data-client-card-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1515,13 +1520,26 @@
 
 /* The person, then the facts about her. CardContent pads sideways only, so
    without this the name sat flush on the first label. */
-[data-relationship-subject] {
+[data-relationship-subject],
+[data-client-card-subject] {
   margin-block-end: var(--afo-space-4);
 }
 
 [data-relationship-holder] {
   display: grid;
   gap: 0;
+}
+
+/* A sentence, the date it happened, and the way back — stacked, and each as
+   wide as it needs rather than as wide as the card. */
+[data-client-card-loss] {
+  display: grid;
+  justify-items: start;
+  gap: var(--afo-space-4);
+}
+
+[data-client-card-loss-reason] {
+  margin: 0;
 }
 
 [data-relationship-subheading],
