@@ -480,6 +480,8 @@
 [data-content-disclosure],
 [data-template-step-actions],
 [data-program-session-actions],
+[data-movement-variant-actions],
+[data-movement-library-actions],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -649,6 +651,7 @@
 [data-content-version-list],
 [data-movement-picker-results],
 [data-program-session],
+[data-movement-variant-fields],
 [data-role-capability-list],
 [data-client-card-section-list] {
   display: grid;

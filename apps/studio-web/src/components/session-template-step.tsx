@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * One step of a template draft, and the dialog that picks its movement.
+ * One step of a template draft.
  *
  * The fields a step shows are its target family's and no other: the family
  * comes from the activity type, so a strength step never offers a distance and
@@ -21,18 +21,8 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@allfitone/react/components/dialog'
-import {
   Field,
   FieldDescription,
-  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -47,18 +37,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
-import { Spinner } from '@allfitone/react/components/spinner'
 import { Textarea } from '@allfitone/react/components/textarea'
-import { useInfiniteQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import {
-  MOVEMENT_SEARCH_LIMIT,
-  flattenMovementPages,
-  movementEmptyMessage,
-  movementScopeLabel,
-  movementSearchTerm,
-} from '@/lib/movement-search'
+import { MovementPicker } from './movement-picker'
 import {
   FAMILY_LABEL,
   SET_KIND_LABEL,
@@ -71,8 +53,6 @@ import {
   type Side,
 } from '@/lib/session-template-editor'
 import type { StudioMovement } from '@/lib/studio-api'
-import { organizationMovementsQueryOptions } from '@/lib/studio-query'
-import { useDebouncedValue } from '@/lib/use-debounced-value'
 
 const SET_KINDS: SetKind[] = ['normal', 'warmup', 'to_failure', 'drop']
 const SIDES: Side[] = ['not_applicable', 'bilateral', 'left', 'right']
@@ -216,6 +196,7 @@ export function TemplateStepCard({
         onOpenChange={setPicking}
         organizationId={organizationId}
         disciplineCode={disciplineCode}
+        description="Del catálogo de Allfit y de los propios de tu organización, en la disciplina de esta plantilla."
         onPick={(movement) => {
           setPicking(false)
           onMovementPicked(movement)
@@ -493,115 +474,5 @@ function ChoiceField<T extends string>({
         </SelectContent>
       </Select>
     </Field>
-  )
-}
-
-const PICKER_PAGE_SIZE = 25
-const PICKER_SETTLE_MS = 300
-
-/**
- * The movement search of `HU-STUDIO-067`, held to the template's discipline:
- * the server refuses a step whose movement is of another one, so offering it
- * would only produce a refusal. Archived movements are left out, because
- * archiving is precisely «not for new content».
- */
-function MovementPicker({
-  open,
-  onOpenChange,
-  organizationId,
-  disciplineCode,
-  onPick,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  organizationId: string
-  disciplineCode: string
-  onPick: (movement: StudioMovement) => void
-}) {
-  const [searchBox, setSearchBox] = useState('')
-  const settledBox = useDebouncedValue(searchBox, PICKER_SETTLE_MS)
-  const filters = {
-    term: movementSearchTerm(settledBox),
-    disciplineCode,
-    includeArchived: false,
-  }
-  const query = useInfiniteQuery({
-    ...organizationMovementsQueryOptions(organizationId, filters, PICKER_PAGE_SIZE),
-    enabled: open,
-  })
-  const movements = flattenMovementPages(query.data)
-  const empty = movementEmptyMessage(filters)
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-movement-picker>
-        <DialogHeader>
-          <DialogTitle>Elegir un movimiento</DialogTitle>
-          <DialogDescription>
-            Del catálogo de Allfit y de los propios de tu organización, en la disciplina de esta
-            plantilla.
-          </DialogDescription>
-        </DialogHeader>
-
-        <Field>
-          <FieldLabel htmlFor="movement-picker-search">Buscar</FieldLabel>
-          <Input
-            id="movement-picker-search"
-            type="search"
-            autoComplete="off"
-            maxLength={MOVEMENT_SEARCH_LIMIT}
-            placeholder="Nombre u otro nombre"
-            value={searchBox}
-            onChange={(event) => setSearchBox(event.target.value)}
-          />
-        </Field>
-
-        {query.isPending ? (
-          <div data-content-catalog-state>
-            <Spinner label="Buscando movimientos" />
-            <p>Buscando movimientos…</p>
-          </div>
-        ) : null}
-
-        {query.isError ? (
-          <FieldError>No pudimos buscar los movimientos. Cierra y vuelve a intentarlo.</FieldError>
-        ) : null}
-
-        {query.isSuccess && movements.length === 0 ? (
-          <p data-movement-picker-empty>
-            <b>{empty.title}.</b> {empty.description}
-          </p>
-        ) : null}
-
-        {movements.length > 0 ? (
-          <ul data-movement-picker-results aria-label="Movimientos para elegir">
-            {movements.map((movement) => (
-              <li key={movement.id}>
-                <Button type="button" variant="outline" onClick={() => onPick(movement)}>
-                  {movement.name}
-                </Button>
-                <Badge variant={movement.scope === 'global' ? 'secondary' : 'outline'}>
-                  {movementScopeLabel(movement.scope)}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        <DialogFooter>
-          {query.hasNextPage ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={query.isFetchingNextPage}
-              onClick={() => void query.fetchNextPage()}
-            >
-              {query.isFetchingNextPage ? 'Cargando…' : 'Ver más'}
-            </Button>
-          ) : null}
-          <DialogClose render={<Button type="button" variant="ghost" />}>Cancelar</DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }

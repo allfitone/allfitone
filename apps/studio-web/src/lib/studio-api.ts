@@ -61,6 +61,9 @@ export type SessionTemplateDraftContent = AllfitV1Schemas['SessionTemplateDraftC
 export type PlannedStepContent = AllfitV1Schemas['PlannedStepContent']
 export type PlannedSetContent = AllfitV1Schemas['PlannedSetContent']
 export type OrganizationMovement = AllfitV1Schemas['OrganizationMovement']
+export type OrganizationMovementCreate = AllfitV1Schemas['OrganizationMovementCreate']
+export type OrganizationMovementUpdate = AllfitV1Schemas['OrganizationMovementUpdate']
+export type MovementRelation = AllfitV1Schemas['MovementRelation']
 export type StudioMovement = AllfitV1Schemas['StudioMovement']
 export type StudioMovementPage = AllfitV1Schemas['StudioMovementPage']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
@@ -459,6 +462,24 @@ export const studioApi = {
       `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
       { cache: 'no-store', ...(signal ? { signal } : {}) },
     ),
+
+  /**
+   * OP-CAT-001. A movement of the organization's own, published at once and
+   * seen by nobody else. The server takes the command id as the movement's id.
+   * A repeated name is a `409` whose first issue is `name-taken`.
+   */
+  createOrganizationMovement: (
+    organizationId: string,
+    body: OrganizationMovementCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(`/studio/v1/organizations/${organizationId}/movements`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
 
   organizationPrograms: (
     organizationId: string,

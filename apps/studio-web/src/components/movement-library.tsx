@@ -15,10 +15,11 @@
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button } from '@allfitone/react/components/button'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Card,
   CardAction,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -43,6 +44,7 @@ import {
 import { Spinner } from '@allfitone/react/components/spinner'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
@@ -91,6 +93,18 @@ export function MovementLibrary() {
 
   return (
     <div data-content-panel>
+      {/* HU-STUDIO-064, where the gym's own movements are listed. */}
+      <div data-movement-library-actions>
+        <Link
+          href={`/organizations/${current.organization_id}/content/movements/new`}
+          data-slot="button"
+          data-variant="outline"
+          className={buttonVariants({ variant: 'outline' })}
+        >
+          Nuevo movimiento
+        </Link>
+      </div>
+
       <FieldGroup data-movement-search>
         <Field>
           <FieldLabel htmlFor="movement-search">Buscar un movimiento</FieldLabel>
@@ -201,6 +215,19 @@ export function MovementLibrary() {
                     </span>
                   </CardAction>
                 </CardHeader>
+                <CardContent data-content-card-body>
+                  <div data-content-disclosure>
+                    <Link
+                      href={`/organizations/${current.organization_id}/content/movements/${movement.id}`}
+                      data-slot="button"
+                      data-variant="outline"
+                      className={buttonVariants({ variant: 'outline' })}
+                      aria-label={`Abrir ${movement.name}`}
+                    >
+                      Abrir
+                    </Link>
+                  </div>
+                </CardContent>
               </Card>
             </li>
           ))}

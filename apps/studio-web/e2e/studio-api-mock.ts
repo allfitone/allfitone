@@ -101,7 +101,15 @@ export interface StudioApiFixture {
    * matched but never answered — `StudioMovement` does not carry them — so they
    * sit beside the movement here and the mock strips them, as the route does.
    */
-  movements: Array<{ movement: Record<string, unknown>; aliases: string[] }>
+  movements: Array<{
+    movement: Record<string, unknown>
+    aliases: string[]
+    /** What an edit names in `expected_revision`; 1 when absent. */
+    revision?: number
+    variantOf?: Record<string, unknown> | null
+    /** True once a published version uses one of the organization's own. */
+    nameLocked?: boolean
+  }>
   /** What `GET /catalog/activity-types` answers, each with the family of its targets. */
   activityTypes: Array<{
     id: string
@@ -1801,17 +1809,60 @@ function defaultResponse(
   if (request.method === 'GET' && movementPath) {
     const entry = fixture.movements.find(({ movement }) => movement.id === movementPath[1])
     if (!entry) return { status: 404, body: problem('not-found', 404) }
-    // `OrganizationMovement`: the search's shape plus what an edit needs.
-    return {
-      status: 200,
-      body: {
-        ...entry.movement,
-        revision: 1,
-        aliases: entry.aliases,
-        variant_of: null,
-        name_locked: false,
-      },
+    return { status: 200, body: movementDocument(entry) }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/movements$/.test(request.path)
+  ) {
+    /*
+     * What `catalog.create_organization_movement` does: every field checked
+     * first and refused together, then a name already used in the organization
+     * refused by its unique index, and the command id kept as the movement's id.
+     */
+    const body = objectValue(request.body)
+    const name = String(body.name ?? '')
+    const aliases = Array.isArray(body.aliases) ? body.aliases.map(String) : []
+    const problems = movementProblems(fixture, {
+      disciplineCode: String(body.discipline_code ?? ''),
+      name,
+      aliases,
+      variant: body.variant,
+    })
+    if (problems.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: problems.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
     }
+    if (movementNameTaken(fixture, name)) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'name-taken', path: '/name', message: 'name-taken' }],
+        }),
+      }
+    }
+    const entry = {
+      movement: {
+        id: request.headers['command-id'] ?? '01991600-c000-7000-8000-000000000099',
+        discipline_code: String(body.discipline_code),
+        name: tidyMovementName(name),
+        scope: 'organization',
+        archived: false,
+        muscles: [],
+        equipment: [],
+        demo_url: null,
+      },
+      aliases: aliases.map(tidyMovementName),
+      revision: 1,
+      variantOf: variantOfDocument(fixture, body.variant),
+      nameLocked: false,
+    }
+    fixture.movements = [...fixture.movements, entry]
+    return { status: 201, body: movementDocument(entry) }
   }
   if (
     request.method === 'GET' &&
@@ -2916,6 +2967,103 @@ function replaceDraft(
     objectValue(candidate).id === templateId ? { ...objectValue(candidate), draft } : candidate,
   )
   return draft
+}
+
+type MovementEntry = StudioApiFixture['movements'][number]
+
+/** `catalog.normalize_movement_name`: case and spacing, never accents. */
+function normalizeMovementName(name: string): string {
+  return tidyMovementName(name).toLocaleLowerCase('es-CO')
+}
+
+function tidyMovementName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
+}
+
+/**
+ * `OrganizationMovement` as `catalog.organization_movement_document` builds it:
+ * the search's shape, plus what an edit needs. A global movement's name is
+ * always locked; an own one's once a published version uses it.
+ */
+function movementDocument(entry: MovementEntry): Record<string, unknown> {
+  return {
+    ...entry.movement,
+    revision: entry.revision ?? 1,
+    aliases: entry.aliases,
+    variant_of: entry.variantOf ?? null,
+    name_locked: entry.movement.scope === 'global' || entry.nameLocked === true,
+  }
+}
+
+/** The variant as the document names it, from a published global movement. */
+function variantOfDocument(
+  fixture: StudioApiFixture,
+  variant: unknown,
+): Record<string, unknown> | null {
+  const input = objectValue(variant)
+  const base = fixture.movements.find(({ movement }) => movement.id === input.movement_id)
+  if (!base) return null
+  const note = typeof input.note === 'string' ? input.note.trim() : ''
+  return {
+    id: base.movement.id,
+    name: base.movement.name,
+    relation: input.relation,
+    note: note || null,
+  }
+}
+
+/**
+ * The field checks `create_organization_movement` and its edit share: a
+ * published discipline, a name, ten distinct other names that do not repeat
+ * it, and a variant only of a published global movement.
+ */
+function movementProblems(
+  fixture: StudioApiFixture,
+  fields: { disciplineCode?: string; name?: string; aliases?: string[]; variant?: unknown },
+): string[] {
+  const problems: string[] = []
+  if (
+    fields.disciplineCode !== undefined &&
+    !fixture.disciplines.some((discipline) => discipline.code === fields.disciplineCode)
+  ) {
+    problems.push('discipline_code')
+  }
+  const name = fields.name === undefined ? undefined : normalizeMovementName(fields.name)
+  if (name !== undefined && (name === '' || name.length > 120)) problems.push('name')
+  if (fields.aliases !== undefined) {
+    const aliases = fields.aliases.map(normalizeMovementName)
+    if (
+      aliases.length > 10 ||
+      aliases.some((alias) => alias === '' || alias === name) ||
+      new Set(aliases).size !== aliases.length
+    ) {
+      problems.push('aliases')
+    }
+  }
+  if (fields.variant !== undefined && fields.variant !== null) {
+    const input = objectValue(fields.variant)
+    const base = fixture.movements.find(({ movement }) => movement.id === input.movement_id)
+    if (
+      !base ||
+      base.movement.scope !== 'global' ||
+      base.movement.archived === true ||
+      !['variant', 'regression', 'progression'].includes(String(input.relation))
+    ) {
+      problems.push('variant')
+    }
+  }
+  return problems
+}
+
+/** The unique index on a name within the organization, leaving one movement out. */
+function movementNameTaken(fixture: StudioApiFixture, name: string, exceptId?: string): boolean {
+  const normalized = normalizeMovementName(name)
+  return fixture.movements.some(
+    ({ movement }) =>
+      movement.scope === 'organization' &&
+      movement.id !== exceptId &&
+      normalizeMovementName(String(movement.name)) === normalized,
+  )
 }
 
 /** Every published template version the fixture holds, with its status, by id. */

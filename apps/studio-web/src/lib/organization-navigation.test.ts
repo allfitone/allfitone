@@ -66,6 +66,18 @@ describe('organization workspace navigation', () => {
     ).toEqual({ title: 'Versión de programa' })
   })
 
+  test('resolves the new movement title, and a movement’s, without taking `new` for an id', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/movements/new`, organizationId)).toEqual({
+      title: 'Nuevo movimiento',
+    })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/movements/01991600-c000-7000-8000-000000000003`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Movimiento' })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

@@ -21,6 +21,8 @@ import {
   createStudioApiFixture,
   draftedProgram,
   programVersionOne,
+  STRENGTH_GLOBAL_MOVEMENT_ID,
+  STRENGTH_OWN_MOVEMENT_ID,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
@@ -2160,6 +2162,90 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No encontramos este programa')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/new` · HU-064 ---
+  {
+    stories: 'HU-064 · a new movement, and what it still needs',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear movimiento' }).click()
+      await expect(page.getByText('Escribe el nombre del movimiento.')).toBeVisible()
+    },
+  },
+  {
+    // The variant's three fields open under the field that chose it.
+    stories: 'HU-064 · a new movement that is a variant of a global one',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await page
+        .getByRole('dialog', { name: 'Elegir un movimiento' })
+        .getByRole('button', { name: 'Press de banca' })
+        .click()
+      await expect(page.getByLabel('Nota de la variante')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · choosing the global movement a variant is of',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await expect(
+        page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
+      ).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: the repeated name refused on the field, not duplicated.
+    stories: 'HU-064 · a name the organization already uses',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByLabel('Nombre', { exact: true }).fill('Remo con mancuerna a una mano')
+      await page.getByRole('button', { name: 'Crear movimiento' }).click()
+      await expect(
+        page.getByText('Ya hay un movimiento de tu organización con ese nombre.'),
+      ).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]` · HU-064 ---
+  {
+    stories: 'HU-064 · a movement of our own',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Solo lo ve tu organización/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · a movement of the global catalogue',
+    path: `${workspace}/content/movements/${STRENGTH_GLOBAL_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Un movimiento del catálogo de Allfit/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · a movement that is not this organization’s',
+    path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este movimiento')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---
