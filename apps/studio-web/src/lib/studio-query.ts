@@ -25,7 +25,9 @@ import {
   type OrganizationSubscriptionPage,
   type SubscriptionStatus,
   type ProgramPage,
+  type ProgramVersion,
   type SessionTemplatePage,
+  type SessionTemplateVersion,
   type ProfessionalCredential,
   type ProfessionalProfile,
   type StudioMe,
@@ -78,6 +80,26 @@ export const studioQueryKeys = {
   catalogActivityTypes: () => [...ROOT_KEY, 'catalog', 'activity-types'] as const,
   organizationSessionTemplatePages: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'session-templates', 'pages', { limit }] as const,
+  sessionTemplateVersion: (organizationId: string, templateId: string, versionNumber: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'session-templates',
+      'version',
+      templateId,
+      versionNumber,
+    ] as const,
+  programVersion: (organizationId: string, programId: string, versionNumber: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'programs',
+      'version',
+      programId,
+      versionNumber,
+    ] as const,
   sessionTemplateDraft: (organizationId: string, templateId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'session-template-draft', templateId] as const,
   organizationMovement: (organizationId: string, movementId: string) =>
@@ -578,6 +600,41 @@ export function organizationSessionTemplatePagesQueryOptions(
       studioApi.organizationSessionTemplates(organizationId, limit, signal, pageParam ?? undefined),
     initialPageParam: null as string | null,
     getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * A published version's content never changes, but its status does when it is
+ * retired, so it is revalidated like the listing rather than cached for good.
+ */
+export function sessionTemplateVersionQueryOptions(
+  organizationId: string,
+  templateId: string,
+  versionNumber: number,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.sessionTemplateVersion(organizationId, templateId, versionNumber),
+    queryFn: ({ signal }): Promise<SessionTemplateVersion> =>
+      studioApi.organizationSessionTemplateVersion(
+        organizationId,
+        templateId,
+        versionNumber,
+        signal,
+      ),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function programVersionQueryOptions(
+  organizationId: string,
+  programId: string,
+  versionNumber: number,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.programVersion(organizationId, programId, versionNumber),
+    queryFn: ({ signal }): Promise<ProgramVersion> =>
+      studioApi.organizationProgramVersion(organizationId, programId, versionNumber, signal),
     staleTime: STUDIO_TEAM_STALE_TIME_MS,
   })
 }

@@ -515,6 +515,33 @@ export const studioApi = {
     ),
 
   /**
+   * OP-PLN-021. One published template version, whole. Another organization's
+   * version and one that never existed answer the same 404.
+   */
+  organizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    versionNumber: number,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateVersion>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}`,
+      signal ? { signal } : {},
+    ),
+
+  /** OP-PLN-021. One published program version, whole; the read is audited. */
+  organizationProgramVersion: (
+    organizationId: string,
+    programId: string,
+    versionNumber: number,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramVersion>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/versions/${versionNumber}`,
+      signal ? { signal } : {},
+    ),
+
+  /**
    * OP-PLN-008. Publishes the program draft as the server has it saved, under
    * its ETag and with no body (415 with one). An empty draft answers 422; the
    * same content as the newest version answers that version again.

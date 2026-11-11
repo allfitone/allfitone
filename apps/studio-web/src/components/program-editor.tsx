@@ -459,6 +459,7 @@ export function ProgramEditor() {
                         session={session}
                         version={index.get(session.templateVersionId)}
                         weeks={weeks}
+                        contentPath={contentPath}
                         onMove={(to) => edit(moveSession(editor, session.key, to))}
                         onRemove={() => edit(removeSession(editor, session.key))}
                       />

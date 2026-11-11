@@ -20,6 +20,7 @@ import {
   coachedTeam,
   createStudioApiFixture,
   draftedProgram,
+  programVersionOne,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
@@ -2072,6 +2073,84 @@ export const SCREENS: Screen[] = [
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Hipertrofia · bloque 2')
       await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/{templates,programs}/[id]/versions/[n]` · HU-045 ---
+  {
+    // The retired first version: the note, the details and a step's sets.
+    stories: 'HU-045 · a retired template version, read whole',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/1`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Serie 1: 10 repeticiones · 35 kg')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a template version on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Serie 1: 8 repeticiones · 40 kg')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a program version by week',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    // Each session's name, badge and link wrap inside a 390px card.
+    stories: 'HU-045 · a program version on a phone',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a version that is not this organization’s',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/9`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta versión')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a version that could not be read',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/versions/2')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos abrir la versión')).toBeVisible()
     },
   },
   {

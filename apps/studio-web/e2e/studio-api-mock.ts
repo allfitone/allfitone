@@ -130,6 +130,8 @@ export interface StudioApiFixture {
   programDraftSaveOutcome: 'saved' | 'stale'
   /** The content each program's newest version was published with, as for templates. */
   publishedProgramContents: Record<string, string>
+  /** Every template version's content, by version id: what reading one answers. */
+  templateVersionContents: Record<string, Record<string, unknown>>
   /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
@@ -571,6 +573,55 @@ export const draftedProgram = {
     deprecated_template_version_ids: [STRENGTH_TEMPLATE_V1_ID],
   },
   versions: [],
+}
+
+/**
+ * What `publishedTemplate`'s two versions were published with. The listing
+ * carries only summaries, so the read of one version needs its content: the
+ * second is the draft as it stands, the first an older prescription.
+ */
+export const templateVersionContentCatalog: Record<string, Record<string, unknown>> = {
+  [STRENGTH_TEMPLATE_V2_ID]: structuredClone(publishedTemplate.draft.content),
+  [STRENGTH_TEMPLATE_V1_ID]: {
+    title: 'Fuerza tren superior',
+    activity_type_id: STRENGTH_ACTIVITY_TYPE_ID,
+    steps: [
+      {
+        position: 1,
+        movement_id: STRENGTH_GLOBAL_MOVEMENT_ID,
+        activity_type_id: null,
+        notes: 'Bajar la barra controlando.',
+        superset_group: null,
+        target: {
+          family: 'strength',
+          sets: [1, 2, 3].map((order) => ({
+            set_order: order,
+            kind: 'normal',
+            target_reps: 10,
+            target_load_value: 35,
+            target_load_unit_code: 'kg',
+            target_rpe: null,
+          })),
+          target_rest_seconds: 120,
+        },
+      },
+    ],
+  },
+}
+
+/** `draftedProgram` as it was first published, to read one program version whole. */
+export const programVersionOne = {
+  id: '01991600-9000-7000-8000-000000000301',
+  program_id: draftedProgram.id,
+  version_number: 1,
+  status: 'published',
+  title: 'Hipertrofia de cuatro semanas',
+  notes: 'Subir la carga cuando las ocho repeticiones salgan limpias.',
+  repeats_forever: false,
+  sessions: draftedProgram.draft.content.sessions,
+  published_at: '2026-10-07T14:00:00.000Z',
+  session_count: 3,
+  deprecated_template_version_ids: [STRENGTH_TEMPLATE_V1_ID],
 }
 
 /*
@@ -1363,6 +1414,7 @@ export function createStudioApiFixture(
     publishedContents: {},
     programDraftSaveOutcome: 'saved',
     publishedProgramContents: {},
+    templateVersionContents: structuredClone(templateVersionContentCatalog),
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1678,6 +1730,7 @@ function defaultResponse(
     }
     if (!unchanged || latest === 0) {
       fixture.publishedContents[templateId] = JSON.stringify(content)
+      fixture.templateVersionContents[version.id] = structuredClone(content)
       const summary = {
         id: version.id,
         template_id: templateId,
@@ -1693,6 +1746,53 @@ function defaultResponse(
       )
     }
     return { status: 201, body: version }
+  }
+  /*
+   * `OP-PLN-021`, both reads: the organization in the path or a 404, and the
+   * version whole with its current status. Nothing here can change a version.
+   */
+  const templateVersionPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions\/(\d+)$/.exec(
+      request.path,
+    )
+  if (request.method === 'GET' && templateVersionPath) {
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateVersionPath[1])
+    const summary = (Array.isArray(template?.versions) ? template.versions : [])
+      .map(objectValue)
+      .find((version) => version.version_number === Number(templateVersionPath[2]))
+    const content = summary ? fixture.templateVersionContents[String(summary.id)] : undefined
+    if (!template || !summary || !content) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    return {
+      status: 200,
+      body: {
+        id: summary.id,
+        template_id: template.id,
+        version_number: summary.version_number,
+        discipline_code: template.discipline_code,
+        activity_type_id: content.activity_type_id,
+        derived_from_version_id: null,
+        title: content.title,
+        status: summary.status,
+        published_at: summary.published_at,
+        steps: content.steps,
+      },
+    }
+  }
+  const programVersionPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions\/(\d+)$/.exec(request.path)
+  if (request.method === 'GET' && programVersionPath) {
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programVersionPath[1])
+    const version = (Array.isArray(program?.versions) ? program.versions : [])
+      .map(objectValue)
+      .find((candidate) => candidate.version_number === Number(programVersionPath[2]))
+    if (!version) return { status: 404, body: problem('not-found', 404) }
+    return { status: 200, body: version }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/catalog/activity-types') {
     return { status: 200, body: { items: fixture.activityTypes } }

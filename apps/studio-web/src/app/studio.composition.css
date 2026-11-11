@@ -532,6 +532,7 @@
    date. `auto-fit` gives the pair the row and still splits it when a second
    arrives, and the `min()` keeps the track from outgrowing a narrow card. */
 [data-credential-details],
+[data-version-details],
 [data-template-target-fields],
 [data-program-session-fields] {
   display: grid;
@@ -542,7 +543,8 @@
 [data-team-invitation-summary] > div,
 [data-client-invitation-summary] > div,
 [data-ownership-invitation-summary] > div,
-[data-credential-details] > div {
+[data-credential-details] > div,
+[data-version-details] > div {
   min-width: 0;
 }
 
@@ -562,7 +564,8 @@
 [data-billing-facts] dt,
 [data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
-[data-credential-details] dt {
+[data-credential-details] dt,
+[data-version-details] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -1069,6 +1072,7 @@
   [data-team-invitation-summary],
   [data-client-invitation-summary],
   [data-credential-details],
+  [data-version-details],
   [data-template-target-fields],
   [data-program-session-fields] {
     grid-template-columns: minmax(0, 1fr);
@@ -1370,7 +1374,8 @@
 [data-template-create-refusal],
 [data-template-save-bar],
 [data-program-create-refusal],
-[data-program-save-bar] {
+[data-program-save-bar],
+[data-version-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);

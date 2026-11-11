@@ -11,7 +11,7 @@
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button } from '@allfitone/react/components/button'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Card,
   CardContent,
@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import {
@@ -50,12 +51,14 @@ export function ProgramSessionRow({
   session,
   version,
   weeks,
+  contentPath,
   onMove,
   onRemove,
 }: {
   session: ProgramEditorSession
   version: TemplateVersionChoice | undefined
   weeks: readonly number[]
+  contentPath: string
   onMove: (to: { week?: number; day?: number }) => void
   onRemove: () => void
 }) {
@@ -119,6 +122,17 @@ export function ProgramSessionRow({
         >
           Quitar
         </Button>
+        {/* HU-STUDIO-045: the exact version this session is fixed to, read whole. */}
+        {version ? (
+          <Link
+            href={`${contentPath}/templates/${version.templateId}/versions/${version.versionNumber}`}
+            data-slot="button"
+            data-variant="link"
+            className={buttonVariants({ variant: 'link' })}
+          >
+            Ver la versión {version.versionNumber}
+          </Link>
+        ) : null}
       </div>
     </li>
   )

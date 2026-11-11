@@ -51,6 +51,21 @@ describe('organization workspace navigation', () => {
     ).toEqual({ title: 'Programa' })
   })
 
+  test('resolves a published version’s title, for a template and for a program', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de plantilla' })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de programa' })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

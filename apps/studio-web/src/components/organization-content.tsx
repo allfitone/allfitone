@@ -190,6 +190,7 @@ export function OrganizationContent() {
             <ContentRegister
               items={templates}
               kind="templates"
+              basePath={`/organizations/${current.organization_id}/content/templates`}
               draftHref={(item) =>
                 item.draft && !item.archived
                   ? `/organizations/${current.organization_id}/content/templates/${item.id}`
@@ -203,6 +204,7 @@ export function OrganizationContent() {
             <ContentRegister
               items={programs}
               kind="programs"
+              basePath={`/organizations/${current.organization_id}/content/programs`}
               draftHref={(item) =>
                 item.draft && !item.archived
                   ? `/organizations/${current.organization_id}/content/programs/${item.id}`
@@ -226,12 +228,15 @@ export function OrganizationContent() {
 function ContentRegister({
   items,
   kind,
+  basePath,
   emptyTitle,
   emptyDescription,
   draftHref,
 }: {
   items: ContentItem[]
   kind: 'templates' | 'programs'
+  /** Where this kind's items live; a version is read under it. */
+  basePath: string
   emptyTitle: string
   emptyDescription: string
   /** Where an item's draft is edited, for the kinds that have an editor. */
@@ -268,6 +273,7 @@ function ContentRegister({
             key={item.id}
             item={item}
             kind={kind}
+            basePath={basePath}
             draftHref={draftHref?.(item)}
           />
         ))}
@@ -284,6 +290,7 @@ function ContentRegister({
                   key={item.id}
                   item={item}
                   kind={kind}
+                  basePath={basePath}
                   draftHref={draftHref?.(item)}
                 />
               ))}
@@ -298,10 +305,12 @@ function ContentRegister({
 function ContentRegisterItem({
   item,
   kind,
+  basePath,
   draftHref,
 }: {
   item: ContentItem
   kind: string
+  basePath: string
   draftHref: string | undefined
 }) {
   const [open, setOpen] = useState(false)
@@ -358,6 +367,16 @@ function ContentRegisterItem({
                   {version.title ? <span>{version.title}</span> : null}
                   <span data-content-version-date>{formatDate(version.published_at)}</span>
                   {version.retired ? <Badge variant="outline">Retirada</Badge> : null}
+                  {/* HU-STUDIO-045: every version, retired or not, reads whole. */}
+                  <Link
+                    href={`${basePath}/${item.id}/versions/${version.version_number}`}
+                    data-slot="button"
+                    data-variant="link"
+                    className={buttonVariants({ variant: 'link' })}
+                    aria-label={`Leer la versión ${version.version_number} de ${item.title}`}
+                  >
+                    Leer
+                  </Link>
                 </li>
               ))}
             </ul>
