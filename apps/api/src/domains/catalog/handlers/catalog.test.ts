@@ -29,6 +29,7 @@ const activityType: AllfitV1Schemas['CatalogActivityType'] = {
   discipline_code: 'strength',
   code: 'barbell_squat',
   name: 'Sentadilla con barra',
+  activity_family: 'strength',
 }
 
 const binding: AllfitV1Schemas['ActivityTypeResultContract'] = {

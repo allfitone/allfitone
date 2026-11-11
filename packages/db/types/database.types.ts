@@ -929,6 +929,7 @@ export type Database = {
       list_activity_types: {
         Args: never
         Returns: {
+          activity_family: Database['catalog']['Enums']['activity_family']
           code: string
           discipline_code: string
           id: string

@@ -2694,7 +2694,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   CatalogActivityType: {
     type: 'object',
     additionalProperties: false,
-    required: ['id', 'discipline_code', 'code', 'name'],
+    required: ['id', 'discipline_code', 'code', 'name', 'activity_family'],
     properties: {
       id: {
         $ref: '#/components/schemas/Uuid',
@@ -2711,6 +2711,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         minLength: 1,
         maxLength: 120,
+      },
+      activity_family: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ActivityFamily',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'The family of target a step of this type takes, read from its effective default result contract, the same one the template validator reads. Null when no default contract is in force, and then every target is refused, so an editor offers none rather than guessing.',
       },
     },
   },
