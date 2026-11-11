@@ -140,6 +140,7 @@ const workspace = `/organizations/${activeMembership.organization_id}`
 const relationshipId = relationshipState.relationship_id
 const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
 const trainingProfilePath = `${clientCardPath}/profile`
+const executionsPath = `${clientCardPath}/executions`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1496,6 +1497,57 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No encontramos este perfil')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/executions` · HU-054 ---
+  {
+    /*
+     * A full page of sessions, mixing what she trained with us and what she
+     * trained alone, with a pager under it. Every shape a row can take is in the
+     * first five: ours with a plan, hers without one, one nobody closed, one
+     * with no completeness level, and one trained in another time zone.
+     */
+    stories: 'HU-054 · a page of her sessions, from two categories at once',
+    path: executionsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-execution]')).toHaveCount(25)
+      await expect(page.getByRole('button', { name: 'Ver más' })).toBeVisible()
+    },
+  },
+  {
+    // Nothing to show, which is the same answer for a person who trained nothing
+    // and for one who shares neither category. It has to read as a state.
+    stories: 'HU-054 · no sessions to show, for either of two reasons',
+    path: executionsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientExecutions: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay sesiones que podamos mostrarte')).toBeVisible()
+    },
+  },
+  {
+    // The list moved under the reader, so the cursor is no longer good. Starting
+    // over is the only honest recovery, and the pager is withdrawn meanwhile.
+    stories: 'HU-054 · the cursor the server will not read again',
+    path: executionsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], executionsCursor: 'stale' }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver más' }).click()
+      await expect(page.getByText('La lista cambió mientras la leías')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-054 · sessions of a person the caller does not attend',
+    path: executionsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos estas sesiones')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---

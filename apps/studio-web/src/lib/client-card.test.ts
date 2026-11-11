@@ -5,9 +5,10 @@ import {
   categoryName,
   categorySummary,
   clientCardPath,
+  clientExecutionsPath,
   clientTrainingProfilePath,
+  doorsBySection,
   lossReasonSentence,
-  sectionOpensTrainingProfile,
   sectionsState,
   withdrawalsNewestFirst,
 } from './client-card'
@@ -164,14 +165,16 @@ describe('what the panel of categories is showing', () => {
 })
 
 /*
- * The door is driven by the card's own `reads`, so a category that gains or
- * loses that operation in the contract changes the screen without anybody
- * editing it.
+ * The doors are driven by the card's own `reads`, so a category that gains or
+ * loses an operation in the contract changes the screen without anybody editing
+ * it.
  */
-describe('which section opens the training profile', () => {
-  function sectionFor(reads: string[]): ClientCardSection {
+describe('the doors on each category', () => {
+  const reader = { organizationId: '019a0000-org', personId: '019a0000-person' }
+
+  function sectionFor(scope: string, reads: string[]): ClientCardSection {
     return {
-      scope_code: 'relationship_training',
+      scope_code: scope,
       scope_version: 1,
       access_level: 'read',
       granted_at: '2026-01-01T00:00:00.000Z',
@@ -179,23 +182,60 @@ describe('which section opens the training profile', () => {
     } as ClientCardSection
   }
 
-  test('the one whose reads name that operation', () => {
-    expect(
-      sectionOpensTrainingProfile(
-        sectionFor(['getAuthorizedClientTrainingProfile', 'listAuthorizedClientExecutions']),
-      ),
-    ).toBe(true)
-  })
-
-  test('and no other, however close it reads', () => {
-    expect(sectionOpensTrainingProfile(sectionFor(['listAuthorizedClientHealthContext']))).toBe(
-      false,
+  test('a category gets one door per read this app can serve', () => {
+    const doors = doorsBySection(
+      [
+        sectionFor('relationship_training', [
+          'getAuthorizedClientTrainingProfile',
+          'listAuthorizedClientExecutions',
+          'getAuthorizedClientProgress',
+        ]),
+      ],
+      reader,
     )
+    expect(doors.get('relationship_training')?.map((door) => door.label)).toEqual([
+      'Ver el perfil',
+      'Ver las sesiones',
+    ])
   })
 
-  test('the profile hangs off the card, as its path does off the card path', () => {
+  test('a read with no screen yet is no door, rather than one that leads nowhere', () => {
+    const doors = doorsBySection(
+      [sectionFor('health_context', ['listAuthorizedClientHealthContext'])],
+      reader,
+    )
+    expect(doors.has('health_context')).toBe(false)
+  })
+
+  /*
+   * The sessions screen mixes what she trained with us and what she trained
+   * alone, so both categories name its operation. Two buttons to one screen
+   * would make a reader look for the difference between them.
+   */
+  test('a destination two categories share is offered once, on the first of them', () => {
+    const doors = doorsBySection(
+      [
+        sectionFor('relationship_training', [
+          'getAuthorizedClientTrainingProfile',
+          'listAuthorizedClientExecutions',
+        ]),
+        sectionFor('prior_training_history', ['listAuthorizedClientExecutions']),
+      ],
+      reader,
+    )
+    expect(doors.get('relationship_training')?.map((door) => door.label)).toEqual([
+      'Ver el perfil',
+      'Ver las sesiones',
+    ])
+    expect(doors.has('prior_training_history')).toBe(false)
+  })
+
+  test('each door points at a child of the card path', () => {
     expect(clientTrainingProfilePath('019a0000-org', '019a0000-person')).toBe(
       '/organizations/019a0000-org/clients/people/019a0000-person/profile',
+    )
+    expect(clientExecutionsPath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/executions',
     )
   })
 })

@@ -114,19 +114,63 @@ export function sectionsState(
   return catalogPending ? { kind: 'naming' } : { kind: 'unnamed' }
 }
 
-/**
- * Which section opens the training profile, decided by the operations the card
- * itself names rather than by the scope code. The projection says which reads
- * belong to each category; reading that is one source of truth, hardcoding
- * `relationship_training` here would be a second.
+/** The operations a card's section can name, as the contract types them. */
+type CardRead = ClientCardSection['reads'][number]
+
+export interface SectionDoor {
+  readonly read: CardRead
+  readonly label: string
+  readonly href: string
+}
+
+/*
+ * The reads this app can serve, and the screen each one lives in. A category's
+ * doors come from the operations the card itself names, not from its scope code:
+ * the projection says which reads belong to which category, and hardcoding that
+ * here would be a second source of truth for it.
  */
-export function sectionOpensTrainingProfile(section: ClientCardSection): boolean {
-  return section.reads.includes('getAuthorizedClientTrainingProfile')
+const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
+  { read: 'getAuthorizedClientTrainingProfile', label: 'Ver el perfil', segment: 'profile' },
+  { read: 'listAuthorizedClientExecutions', label: 'Ver las sesiones', segment: 'executions' },
+]
+
+/**
+ * The doors to draw on each category she shares, keyed by scope code.
+ *
+ * **Deduplicated by destination, not offered per category.** One operation can
+ * belong to two categories — `listAuthorizedClientExecutions` is named by both
+ * `relationship_training` and `prior_training_history`, because the sessions
+ * screen mixes what she trained with us and what she trained alone. Two buttons
+ * to one screen would make a reader look for the difference between them, so
+ * the first category that names a read keeps it, in the order the card answers.
+ */
+export function doorsBySection(
+  sections: readonly ClientCardSection[],
+  reader: { organizationId: string; personId: string },
+): ReadonlyMap<string, readonly SectionDoor[]> {
+  const base = clientCardPath(reader.organizationId, reader.personId)
+  const taken = new Set<CardRead>()
+  const doors = new Map<string, readonly SectionDoor[]>()
+  for (const section of sections) {
+    const mine: SectionDoor[] = []
+    for (const door of DOORS) {
+      if (taken.has(door.read) || !section.reads.includes(door.read)) continue
+      taken.add(door.read)
+      mine.push({ read: door.read, label: door.label, href: `${base}/${door.segment}` })
+    }
+    if (mine.length > 0) doors.set(section.scope_code, mine)
+  }
+  return doors
 }
 
 /** Where that profile lives: a child of the card, as it is a child of its path. */
 export function clientTrainingProfilePath(organizationId: string, personId: string): string {
   return `${clientCardPath(organizationId, personId)}/profile`
+}
+
+/** And her sessions, beside it. */
+export function clientExecutionsPath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/executions`
 }
 
 /** Where a person's card lives. One string, so the directory and the card agree. */

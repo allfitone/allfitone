@@ -95,6 +95,13 @@ export function resolveWorkspaceRoute(
     return { title: 'Perfil de entrenamiento' }
   }
   /*
+   * "Ejecutadas" because the product also has planned sessions: a heading that
+   * said only "Sesiones" would not say which of the two is open.
+   */
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/executions$/.test(pathname)) {
+    return { title: 'Sesiones ejecutadas' }
+  }
+  /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
    * `invitations`, `information-categories`, `authorizations` or `people`,

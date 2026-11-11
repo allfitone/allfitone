@@ -76,6 +76,9 @@ export type ClientDirectoryInvitation = AllfitV1Schemas['ClientDirectoryInvitati
 export type ClientDirectoryGroup = AllfitV1Schemas['ClientDirectoryGroup']
 export type AccessLevel = AllfitV1Schemas['AccessLevel']
 export type ClientTrainingProfile = AllfitV1Schemas['ClientTrainingProfile']
+export type AuthorizedExecutionPage = AllfitV1Schemas['AuthorizedExecutionPage']
+export type AuthorizedExecutionSummary = AllfitV1Schemas['AuthorizedExecutionSummary']
+export type CompletenessLevel = AllfitV1Schemas['CompletenessLevel']
 export type ClientProfileClaim = AllfitV1Schemas['ClientProfileClaim']
 export type ClientBiologicalSex = AllfitV1Schemas['ClientBiologicalSex']
 export type Provenance = AllfitV1Schemas['Provenance']
@@ -959,6 +962,29 @@ export const studioApi = {
         ...(signal ? { signal } : {}),
       },
     ),
+
+  /**
+   * `OP-EXE-017`. Her completed, valid sessions newest first, a page at a time,
+   * mixing what she trained with this gym and what she trained alone. 404 for
+   * anybody who does not attend her; an empty page when she shares neither
+   * category, and that refusal is recorded like a read.
+   */
+  clientExecutions: (
+    organizationId: string,
+    personId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) => {
+    const search = new URLSearchParams({ limit: String(query.limit) })
+    if (query.cursor) search.set('cursor', query.cursor)
+    return request<AuthorizedExecutionPage>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/executions?${search}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    )
+  },
 
   relationshipHistory: (
     organizationId: string,
