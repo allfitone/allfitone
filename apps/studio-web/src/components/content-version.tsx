@@ -36,9 +36,15 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, type ReactNode } from 'react'
 
+import {
+  DeriveFromVersion,
+  RetireProgramVersion,
+  RetireTemplateVersion,
+} from './content-version-actions'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
+  canRetireContent,
   describeTarget,
   parseVersionNumber,
   programVersionWeeks,
@@ -153,6 +159,16 @@ export function SessionTemplateVersionView() {
       </Card>
 
       {version.status === 'deprecated' ? <RetiredNote kind="template" /> : null}
+      {version.status === 'published' ? (
+        <DeriveFromVersion version={version} organizationId={organizationId} />
+      ) : null}
+      {version.status === 'published' ? (
+        canRetireContent(current.roles) ? (
+          <RetireTemplateVersion version={version} organizationId={organizationId} />
+        ) : (
+          <p>{RETIRE_IS_THEIRS}</p>
+        )
+      ) : null}
 
       <ol data-template-steps aria-label="Pasos">
         {version.steps
@@ -276,6 +292,13 @@ export function ProgramVersionView() {
       </Card>
 
       {version.status === 'deprecated' ? <RetiredNote kind="program" /> : null}
+      {version.status === 'published' ? (
+        canRetireContent(current.roles) ? (
+          <RetireProgramVersion version={version} organizationId={organizationId} />
+        ) : (
+          <p>{RETIRE_IS_THEIRS}</p>
+        )
+      ) : null}
 
       <ol data-program-weeks aria-label="Semanas">
         {weeks.map(({ week, sessions }) => (
@@ -328,6 +351,9 @@ export function ProgramVersionView() {
   )
 }
 
+// HU-040 and HU-043 are the owner's and the admin's; a coach is told who can.
+const RETIRE_IS_THEIRS = 'Retirar una versión corresponde a propietario y administración.'
+
 const IMMUTABLE = 'Una versión publicada no cambia: lo que lees hoy es lo que se entrenó con ella.'
 
 function RetiredNote({ kind }: { kind: 'template' | 'program' }) {
@@ -336,7 +362,7 @@ function RetiredNote({ kind }: { kind: 'template' | 'program' }) {
       <AlertTitle>Esta versión está retirada</AlertTitle>
       <AlertDescription>
         {kind === 'template'
-          ? 'Ya no se puede sumar a programas nuevos. Los programas que ya la usan la conservan.'
+          ? 'Ya no se puede sumar a programas nuevos ni servir de punto de partida. Los programas que ya la usan la conservan.'
           : 'Ya no se puede asignar a nadie más. Quien ya la tiene asignada la conserva.'}
       </AlertDescription>
     </Alert>

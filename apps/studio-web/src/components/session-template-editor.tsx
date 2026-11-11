@@ -62,6 +62,7 @@ import { TemplateStepCard } from './session-template-step'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { createCommandIntentManager } from '@/lib/command-intent'
+import { derivedFromLabel } from '@/lib/content-version'
 import { disciplineName } from '@/lib/movement-search'
 import { canManageContent } from '@/lib/organization-content'
 import {
@@ -315,6 +316,7 @@ export function SessionTemplateEditor() {
   const family = familyOf(editor.activityTypeId, activityTypes)
   const choices = activityTypeChoices(activityTypes, template.discipline_code, editor.steps)
   const titleProblem = problems?.draft[0]
+  const derivedFrom = derivedFromLabel(base.derived_from_version_id, template.versions)
 
   function edit(next: EditorDraft) {
     setEditor(next)
@@ -434,6 +436,8 @@ export function SessionTemplateEditor() {
           <CardDescription>
             Disciplina: {disciplineName(template.discipline_code, disciplinesQuery.data?.items)}. No
             se cambia.
+            {/* HU-039 criterion 1: the draft keeps where it came from. */}
+            {derivedFrom ? ` ${derivedFrom}` : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>

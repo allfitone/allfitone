@@ -579,6 +579,45 @@ export const studioApi = {
     ),
 
   /**
+   * OP-PLN-004. Replaces the template's draft with one of its published
+   * versions and records which. Conditioned on the draft's ETag like a save,
+   * with no body. A retired version, or another organization's, answers 404.
+   */
+  deriveOrganizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    versionNumber: number,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateDraft>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}/derivation`,
+      {
+        method: 'POST',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-PLN-005. Owners and admins only, by role; a coach is `403`. No body. It
+   * converges, and there is no way back. Nothing that already uses the version
+   * changes: only new content can no longer take it.
+   */
+  deprecateOrganizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    versionNumber: number,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateVersion>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}/deprecation`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
+    ),
+
+  /**
    * OP-PLN-021. One published template version, whole. Another organization's
    * version and one that never existed answer the same 404.
    */
@@ -591,6 +630,22 @@ export const studioApi = {
     request<SessionTemplateVersion>(
       `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}`,
       signal ? { signal } : {},
+    ),
+
+  /**
+   * OP-PLN-009. Owners and admins only, by role. No body. It converges, has no
+   * way back, and cancels nothing: only new assignments stop.
+   */
+  deprecateOrganizationProgramVersion: (
+    organizationId: string,
+    programId: string,
+    versionNumber: number,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramVersion>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/versions/${versionNumber}/deprecation`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
     ),
 
   /** OP-PLN-021. One published program version, whole; the read is audited. */

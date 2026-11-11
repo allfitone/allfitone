@@ -1,10 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  canRetireContent,
+  deriveFailure,
+  derivedFromLabel,
   describeTarget,
   formatSeconds,
   parseVersionNumber,
   programVersionWeeks,
+  retireFailure,
   versionStatusLabel,
 } from './content-version'
 
@@ -146,5 +150,54 @@ describe('a program version, by week', () => {
       [1, [1, 2]],
       [2, [3]],
     ])
+  })
+})
+
+describe('who retires a version', () => {
+  // `planning.assert_deprecate_content` asks for the role, not a capability.
+  test('is an owner or an admin, never a coach alone', () => {
+    expect(canRetireContent(['owner'])).toBe(true)
+    expect(canRetireContent(['coach', 'admin'])).toBe(true)
+    expect(canRetireContent(['coach'])).toBe(false)
+    expect(canRetireContent([])).toBe(false)
+  })
+})
+
+describe('where a draft comes from', () => {
+  const versions = [
+    { id: 'v2', version_number: 2 },
+    { id: 'v1', version_number: 1 },
+  ]
+
+  test('names the version a draft was started from', () => {
+    expect(derivedFromLabel('v1', versions)).toBe('Parte de la versión 1.')
+  })
+
+  test('says nothing when it was not started from one', () => {
+    expect(derivedFromLabel(null, versions)).toBeUndefined()
+    expect(derivedFromLabel(undefined, versions)).toBeUndefined()
+  })
+
+  test('still says it is an adaptation when the version is not at hand', () => {
+    expect(derivedFromLabel('other', versions)).toBe('Parte de una versión publicada.')
+  })
+})
+
+describe('refusals', () => {
+  test('a retirement refused says who may retire', () => {
+    expect(retireFailure(403)).toBe(
+      'Retirar versiones corresponde a propietario y administración, y tu rol ya no lo permite.',
+    )
+    expect(retireFailure(404)).toBe('Esta versión ya no está disponible para tu organización.')
+  })
+
+  // Only a published version can be started from; a retired one answers 404.
+  test('a start refused because the version is gone or retired says so', () => {
+    expect(deriveFailure(404)).toBe(
+      'Esa versión ya no se puede usar como punto de partida: no está publicada o no es de tu organización.',
+    )
+    expect(deriveFailure(403)).toBe(
+      'Ya no puedes editar esta plantilla: tu rol cambió o la organización no está activa.',
+    )
   })
 })

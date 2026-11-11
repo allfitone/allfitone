@@ -16,6 +16,7 @@ import {
   TEST_ANALYTICS_ID,
   activeCoach,
   activeMembership,
+  adaptedTemplate,
   activeTeamMember,
   coachedTeam,
   createStudioApiFixture,
@@ -2231,6 +2232,145 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No pudimos abrir la versión')).toBeVisible()
+    },
+  },
+  // --- template version page and editor, starting from a version · HU-039 ---
+  {
+    stories: 'HU-039 · starting a draft from a version, said before the click',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Partir de esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('se pierde')
+    },
+  },
+  {
+    stories: 'HU-039 · a start from a version refused',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/derivation')
+          ? { status: 404, body: problem('not-found', 404) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Partir de esta versión' }).click()
+      await page.getByRole('button', { name: 'Reemplazar el borrador' }).click()
+      await expect(page.getByText('No se reemplazó el borrador')).toBeVisible()
+    },
+  },
+  // --- program version page, retiring · HU-043 ---
+  {
+    stories: 'HU-043 · retiring a program version, said before the click',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-043 · a program version just retired',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('Ya no se puede asignar a nadie más.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-043 · a coach, told who retires a program version',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Retirar una versión corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
+  // --- template version page, retiring · HU-040 ---
+  {
+    stories: 'HU-040 · retiring a template version, said before the click',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-040 · a template version just retired',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('Esta versión está retirada')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-040 · a template version retirement refused',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/deprecation')
+          ? { status: 403, body: problem('forbidden', 403) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('No se retiró')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-040 · a coach, told who retires a template version',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Retirar una versión corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1, where the draft is edited: it says what it was started from.
+    stories: 'HU-039 · a draft that says the version it came from',
+    path: `${workspace}/content/templates/${adaptedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Parte de una versión publicada\./)).toBeVisible()
     },
   },
   {
