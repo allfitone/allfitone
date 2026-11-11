@@ -933,6 +933,34 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    /*
+     * HU-082. A search that matched nobody: the box carries a term and the
+     * register answers «nobody by that name», which has to read differently
+     * from an empty gym — the state right below this one.
+     */
+    stories: 'HU-082 · a search that found nobody',
+    path: `${workspace}/clients`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.locator('#client-directory-search').fill('zzz')
+      await expect(page.getByText('No encontramos a nadie con ese nombre')).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-082. Among invitations the route refuses a search, so the box is
+     * disabled with its reason beside it rather than removed. Disabled inputs
+     * are where contrast fails, which is why this state is swept.
+     */
+    stories: 'HU-082 · the search turned off among invitations',
+    path: `${workspace}/clients`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Invitados', exact: true }).click()
+      await expect(page.locator('#client-directory-search')).toBeDisabled()
+    },
+  },
+  {
     stories: 'HU-024 · a directory with nobody in it yet',
     path: `${workspace}/clients`,
     fixture: () =>

@@ -64,8 +64,26 @@ export const studioQueryKeys = {
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
-  organizationClients: (organizationId: string, status: ClientFilter, limit: number) =>
-    [...ROOT_KEY, 'organization', organizationId, 'clients', { status, limit }] as const,
+  /*
+   * The search belongs in the key, so a new term is a different query with its
+   * own pages — which is also what drops the cursor, since a cursor the server
+   * issued only resumes the search it was issued under. Without a term the key
+   * keeps its old shape, so the unsearched directory and the invitation form
+   * go on sharing one cache entry.
+   */
+  organizationClients: (
+    organizationId: string,
+    status: ClientFilter,
+    limit: number,
+    search?: string,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'clients',
+      { status, limit, ...(search ? { search } : {}) },
+    ] as const,
   authorizedScopesRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'authorized-scopes'] as const,
   authorizedScopes: (organizationId: string, limit: number) =>
@@ -352,9 +370,10 @@ export function organizationClientsQueryOptions(
   organizationId: string,
   status: ClientFilter,
   limit: number,
+  search?: string,
 ) {
   return infiniteQueryOptions({
-    queryKey: studioQueryKeys.organizationClients(organizationId, status, limit),
+    queryKey: studioQueryKeys.organizationClients(organizationId, status, limit, search),
     queryFn: ({ pageParam, signal }) =>
       studioApi.organizationClients(
         organizationId,
@@ -362,6 +381,7 @@ export function organizationClientsQueryOptions(
           ...(status === 'all' ? {} : { status }),
           limit,
           ...(pageParam ? { cursor: pageParam } : {}),
+          ...(search ? { search } : {}),
         },
         signal,
       ),

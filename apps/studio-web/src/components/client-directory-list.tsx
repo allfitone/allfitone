@@ -5,6 +5,8 @@ import { Avatar, AvatarFallback } from '@allfitone/react/components/avatar'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
+import { Field, FieldDescription, FieldLabel } from '@allfitone/react/components/field'
+import { Input } from '@allfitone/react/components/input'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { RegisterCardState } from '@/components/register-card-state'
 import {
@@ -26,13 +28,20 @@ import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { canInviteClients } from '@/lib/client-invitations'
 import {
+  SEARCH_RAW_LIMIT,
+  SEARCH_TOO_LONG_REASON,
+  SEARCH_UNAVAILABLE_REASON,
+  canSearchWithin,
   canViewClientDirectory,
   clientInitials,
   directoryEntryId,
+  searchTermState,
+  searchTermToSend,
   seesEveryClient,
 } from '@/lib/client-directory'
 import { guestQuotaOf, quotaSummary } from '@/lib/guest-quota'
 import { useCompactTable } from '@/lib/use-compact-table'
+import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { StudioApiError, type ClientDirectoryItem } from '@/lib/studio-api'
 import {
   flattenClientPages,
@@ -45,6 +54,9 @@ import {
 type LoadError = 'forbidden' | 'stale-cursor' | 'unavailable'
 
 const PAGE_SIZE = 50
+/* Long enough that a name is typed before it is asked for, short enough that
+   the list does not feel stuck behind the keyboard. */
+const SEARCH_SETTLE_MS = 300
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' })
 
 const FILTERS: ReadonlyArray<{ value: ClientFilter; label: string }> = [
@@ -63,8 +75,25 @@ export function ClientDirectoryList() {
   const everyClient = seesEveryClient(current.roles, rolesQuery.data?.items)
   const canInvite = canInviteClients(current.roles, rolesQuery.data?.items)
   const [filter, setFilter] = useState<ClientFilter>('all')
+  const [searchBox, setSearchBox] = useState('')
+  /*
+   * The box keeps what was typed while the invitations filter is on, so
+   * switching back restores the search instead of silently losing it. What
+   * does not survive is the request: nothing is sent while searching is
+   * unavailable.
+   */
+  const searchAllowed = canSearchWithin(filter)
+  const termState = searchTermState(searchBox)
+  const settledBox = useDebouncedValue(searchBox, SEARCH_SETTLE_MS)
+  const search = searchAllowed ? searchTermToSend(settledBox) : undefined
+  const searching = search !== undefined
   const relationshipPath = `/organizations/${current.organization_id}/clients`
-  const options = organizationClientsQueryOptions(current.organization_id, filter, PAGE_SIZE)
+  const options = organizationClientsQueryOptions(
+    current.organization_id,
+    filter,
+    PAGE_SIZE,
+    search,
+  )
   const query = useInfiniteQuery({ ...options, enabled: canView })
   const forbidden = isStudioForbidden(query.error)
   const items = forbidden ? [] : flattenClientPages(query.data)
@@ -139,8 +168,8 @@ export function ClientDirectoryList() {
         : items.length === 0
           ? {
               state: 'empty' as const,
-              title: emptyTitle(filter, everyClient),
-              description: emptyDescription(filter),
+              title: emptyTitle(filter, everyClient, searching),
+              description: emptyDescription(filter, everyClient, searching),
             }
           : undefined
 
@@ -180,6 +209,33 @@ export function ClientDirectoryList() {
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
+
+      {/* Disabled rather than hidden while the invitations filter is on: a
+          control that disappears leaves the reader hunting for why. */}
+      <Field data-client-directory-search>
+        <FieldLabel htmlFor="client-directory-search">Buscar por nombre</FieldLabel>
+        <Input
+          id="client-directory-search"
+          name="q"
+          type="search"
+          autoComplete="off"
+          maxLength={SEARCH_RAW_LIMIT}
+          placeholder="Nombre de la persona"
+          value={searchBox}
+          disabled={!searchAllowed}
+          onChange={(event) => setSearchBox(event.target.value)}
+          aria-describedby="client-directory-search-note"
+        />
+        <FieldDescription id="client-directory-search-note">
+          {!searchAllowed
+            ? SEARCH_UNAVAILABLE_REASON
+            : termState === 'too-long'
+              ? SEARCH_TOO_LONG_REASON
+              : everyClient
+                ? 'Busca entre las personas vinculadas con la organización.'
+                : 'Busca solo entre las personas que atiendes.'}
+        </FieldDescription>
+      </Field>
 
       {query.isFetching && !loading && !loadingMore ? (
         <p data-query-refreshing role="status" aria-live="polite">
@@ -446,14 +502,25 @@ function EntryStatusBadge({ entry }: { entry: ClientDirectoryItem }) {
   )
 }
 
-function emptyTitle(filter: ClientFilter, everyClient: boolean): string {
+/*
+ * A search that found nobody is not an empty directory, and saying «todavía no
+ * atiendes a nadie» to someone who just mistyped a name would be false. So the
+ * search answers first, whatever the filter.
+ */
+function emptyTitle(filter: ClientFilter, everyClient: boolean, searching: boolean): string {
+  if (searching) return 'No encontramos a nadie con ese nombre'
   if (filter === 'invited') return 'No hay invitaciones sin responder'
   if (filter === 'active') return 'No hay clientes activos'
   if (filter === 'terminated') return 'No hay vínculos finalizados'
   return everyClient ? 'Todavía no hay personas vinculadas' : 'Todavía no atiendes a nadie'
 }
 
-function emptyDescription(filter: ClientFilter): string {
+function emptyDescription(filter: ClientFilter, everyClient: boolean, searching: boolean): string {
+  if (searching) {
+    return everyClient
+      ? 'Revisa cómo está escrito, o borra la búsqueda para ver todo el directorio.'
+      : 'La búsqueda solo alcanza a las personas que atiendes. Revisa cómo está escrito, o borra la búsqueda.'
+  }
   return filter === 'all'
     ? 'Cuando invites a alguien y acepte, aparecerá aquí.'
     : 'Cambia el filtro para consultar otro estado.'
