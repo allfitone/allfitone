@@ -11,7 +11,7 @@
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button } from '@allfitone/react/components/button'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Card,
   CardContent,
@@ -34,6 +34,7 @@ import {
 import { Spinner } from '@allfitone/react/components/spinner'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
 import { planStateLine, planVersionLine, versionStatusLabel } from '@/lib/plan-catalog'
@@ -98,13 +99,13 @@ export function PlanRegister({ organizationId }: { organizationId: string }) {
   return (
     <div data-content-register>
       {plans.map((plan) => (
-        <PlanCard key={plan.plan_id} plan={plan} />
+        <PlanCard key={plan.plan_id} plan={plan} organizationId={organizationId} />
       ))}
     </div>
   )
 }
 
-function PlanCard({ plan }: { plan: OrganizationPlan }) {
+function PlanCard({ plan, organizationId }: { plan: OrganizationPlan; organizationId: string }) {
   const [open, setOpen] = useState(false)
   const versions = plan.versions.length
   return (
@@ -118,13 +119,22 @@ function PlanCard({ plan }: { plan: OrganizationPlan }) {
           <CardDescription data-content-state>{planStateLine(plan)}</CardDescription>
         </CardHeader>
         <CardContent data-content-card-body>
-          {versions > 0 ? (
-            <div data-content-disclosure>
+          <div data-content-disclosure>
+            {versions > 0 ? (
               <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
                 {open ? 'Ocultar precios' : `Ver precios · ${versions}`}
               </CollapsibleTrigger>
-            </div>
-          ) : null}
+            ) : null}
+            <Link
+              href={`/organizations/${organizationId}/billing/plans/${plan.plan_id}`}
+              className={buttonVariants({ variant: 'outline' })}
+              data-slot="button"
+              data-variant="outline"
+              aria-label={`Abrir ${plan.name}`}
+            >
+              Abrir
+            </Link>
+          </div>
           <CollapsibleContent>
             <ul data-content-version-list>
               {plan.versions.map((version) => (

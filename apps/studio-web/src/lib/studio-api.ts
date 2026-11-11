@@ -825,6 +825,35 @@ export const studioApi = {
     )
   },
 
+  /** OP-PAY-002. A plan with a name and no price; owner and admin only. */
+  createOrganizationPlan: (
+    organizationId: string,
+    body: { name: string },
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(`/studio/v1/organizations/${organizationId}/plans`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** OP-PAY-003. A draft and a plan on sale are renamed alike; the last write wins. */
+  renameOrganizationPlan: (
+    organizationId: string,
+    planId: string,
+    body: { name: string },
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(`/studio/v1/organizations/${organizationId}/plans/${planId}`, {
+      method: 'PATCH',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
   /*
    * The three transitions carry no body: the subscription is in the path and there is
    * nothing to choose. They are separate methods rather than one with a verb argument so

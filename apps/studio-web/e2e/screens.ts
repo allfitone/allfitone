@@ -24,6 +24,7 @@ import {
   programVersionOne,
   STRENGTH_GLOBAL_MOVEMENT_ID,
   STRENGTH_OWN_MOVEMENT_ID,
+  MONTHLY_PLAN_ID,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
@@ -2628,6 +2629,64 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No pudimos cargar los planes')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/...`, create and rename · HU-074 ---
+  {
+    stories: 'HU-074 · a new plan, the name asked for',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear plan' }).click()
+      await expect(page.getByText('Escribe el nombre del plan.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a name the organization already uses',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('mensual ilimitado')
+      await page.getByRole('button', { name: 'Crear plan' }).click()
+      await expect(page.getByText(/Ya hay un plan con ese nombre/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a role that does not create plans',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Tu rol no crea planes')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, for an owner',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Guardar el nombre' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, on a phone',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-plan-summary]')).toContainText('Versión 2')
+    },
+  },
+  {
+    stories: 'HU-074 · a plan that is not this organization’s',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este plan')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---

@@ -13,9 +13,11 @@
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
+import { buttonVariants } from '@allfitone/react/components/button'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 
 import { useOrganizationContext } from './organization-context'
 import { OrganizationSubscriptions } from './organization-subscriptions'
@@ -64,6 +66,16 @@ export function OrganizationBilling() {
     <section data-billing-page aria-label="Cobros de la organización">
       <WorkspacePageHeader
         description={`Quién paga ${current.display_name}, en qué plan está cada persona, y los planes que vende.`}
+        actions={
+          <Link
+            href={`/organizations/${organizationId}/billing/plans/new`}
+            data-slot="button"
+            data-variant="default"
+            className={buttonVariants()}
+          >
+            Nuevo plan
+          </Link>
+        }
       />
       <Tabs defaultValue="subscriptions" data-content-tabs>
         <TabsList variant="line" aria-label="Secciones de los cobros">

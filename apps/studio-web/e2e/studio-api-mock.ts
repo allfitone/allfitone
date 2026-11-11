@@ -2598,10 +2598,56 @@ function defaultResponse(
     /^\/studio\/v1\/organizations\/[^/]+\/plans$/.test(request.path)
   ) {
     // `OP-PAY-006`: every member reads it, coach and staff included.
+    fixture.organizationPlans = sortPlans(fixture.organizationPlans)
     return {
       status: 200,
       body: { data: fixture.organizationPlans, page: { has_more: false, next_cursor: null } },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/plans$/.test(request.path)
+  ) {
+    /*
+     * `payments.create_organization_plan`: a trimmed name of one to eighty characters, then
+     * the unique index on the name without regard to case, which the API answers as `409`.
+     * The legacy `{ error }` envelope, because the payments routes still answer it.
+     */
+    const name = String(objectValue(request.body).name ?? '').trim()
+    if (!name || name.length > 80) return { status: 422, body: error('validation-failed') }
+    if (planNameTaken(fixture, name)) return { status: 409, body: error('conflict') }
+    const sequence = String(fixture.organizationPlans.length + 1).padStart(3, '0')
+    const plan = {
+      plan_id: `01991600-e000-7000-8000-000000000${sequence}`,
+      name,
+      status: 'draft',
+      on_sale: false,
+      created_at: '2026-11-11T15:00:00.000Z',
+      current_version: null,
+      versions: [],
+    }
+    fixture.organizationPlans = sortPlans([...fixture.organizationPlans, plan])
+    return { status: 201, body: plan }
+  }
+  const planPath = /^\/studio\/v1\/organizations\/[^/]+\/plans\/([^/]+)$/.exec(request.path)
+  if (request.method === 'PATCH' && planPath) {
+    // `payments.rename_organization_plan`: the same rules, a draft and a plan on sale alike.
+    const name = String(objectValue(request.body).name ?? '').trim()
+    if (!name || name.length > 80) return { status: 422, body: error('validation-failed') }
+    const plan = fixture.organizationPlans
+      .map(objectValue)
+      .find((candidate) => candidate.plan_id === planPath[1])
+    if (!plan) return { status: 404, body: error('not-found') }
+    if (planNameTaken(fixture, name, String(plan.plan_id))) {
+      return { status: 409, body: error('conflict') }
+    }
+    const renamed = { ...plan, name }
+    fixture.organizationPlans = sortPlans(
+      fixture.organizationPlans.map((candidate) =>
+        objectValue(candidate).plan_id === plan.plan_id ? renamed : candidate,
+      ),
+    )
+    return { status: 200, body: renamed }
   }
   /*
    * The three transitions answer the same shape and differ only in the state they leave
@@ -3523,6 +3569,28 @@ function movementProblems(
     }
   }
   return problems
+}
+
+/** `OP-PAY-006`'s order: published plans first, then drafts, each by name. */
+function sortPlans(plans: unknown[]): unknown[] {
+  return plans
+    .map(objectValue)
+    .toSorted(
+      (left, right) =>
+        Number(left.status === 'draft') - Number(right.status === 'draft') ||
+        String(left.name).localeCompare(String(right.name), 'es'),
+    )
+}
+
+/** The unique index on a plan's name, without regard to case, leaving one plan out. */
+function planNameTaken(fixture: StudioApiFixture, name: string, exceptId?: string): boolean {
+  const wanted = name.toLocaleLowerCase('es-CO')
+  return fixture.organizationPlans
+    .map(objectValue)
+    .some(
+      (plan) =>
+        plan.plan_id !== exceptId && String(plan.name).toLocaleLowerCase('es-CO') === wanted,
+    )
 }
 
 /** Replaces one movement in the library, rather than mutating it, and returns it. */
