@@ -4,6 +4,7 @@ import { escapeHtml, invitationEmailHtml } from './email-shell.js'
 
 export type { EmailLanguage } from './email-shell.js'
 export { EMAIL_FILES, emailBrandAssetUrl } from './email-shell.js'
+export { renderEmailChangeCodeEmail, renderEmailChangedNoticeEmail } from './email-change-emails.js'
 export {
   renderWaitlistConfirmationEmail,
   renderWaitlistLinkEmail,
