@@ -2239,6 +2239,55 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Un movimiento del catálogo de Allfit/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/content/movements/[movementId]`, editing · HU-065 ---
+  {
+    // The summary, then the edit form under it: the longest the page gets.
+    stories: 'HU-065 · a movement of ours to correct, on a phone',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: the discipline disabled and the rename refused on the field.
+    stories: 'HU-065 · a movement a published version uses',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.movements = fixture.movements.map((entry) =>
+        entry.movement.id === STRENGTH_OWN_MOVEMENT_ID ? { ...entry, nameLocked: true } : entry,
+      )
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre', { exact: true }).fill('Remo con kettlebell')
+      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await expect(page.getByText(/el nombre solo admite cambios de mayúsculas/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-065 · somebody else changed the movement first',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], movementEditOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Otros nombres').fill('Remo unilateral')
+      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await expect(page.getByText(/Alguien cambió este movimiento/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-065 · an archived movement of ours, read and not edited',
+    path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000004`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
+    },
+  },
   {
     stories: 'HU-064 · a movement that is not this organization’s',
     path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000999`,

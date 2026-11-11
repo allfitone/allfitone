@@ -33,11 +33,13 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
+import { MovementEditor } from './movement-editor'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { RELATION_LABEL } from '@/lib/movement-form'
 import { disciplineName, movementScopeLabel } from '@/lib/movement-search'
 import { canManageContent } from '@/lib/organization-content'
+import { disciplineOptions } from '@/lib/session-template-create'
 import type { CatalogDiscipline, OrganizationMovement } from '@/lib/studio-api'
 import {
   catalogDisciplinesQueryOptions,
@@ -134,6 +136,28 @@ export function MovementDetail() {
         actions={<BackToContent href={contentPath} />}
       />
       <MovementSummary movement={movement} disciplines={disciplinesQuery.data?.items} />
+
+      {/* HU-065 criterion 2: a global movement is read here, never edited. */}
+      {movement.scope === 'global' ? (
+        <p>
+          Los movimientos del catálogo de Allfit no se editan desde aquí. Si necesitas otro nombre o
+          una variante, crea un movimiento propio.
+        </p>
+      ) : null}
+      {movement.scope === 'organization' && movement.archived ? (
+        <p>
+          Está archivado: ya no se edita ni se puede sumar a contenido nuevo. Las versiones y las
+          sesiones que lo usan siguen mostrando su nombre.
+        </p>
+      ) : null}
+      {movement.scope === 'organization' && !movement.archived ? (
+        <MovementEditor
+          key={movement.id}
+          movement={movement}
+          organizationId={organizationId}
+          disciplines={disciplineOptions(disciplinesQuery.data?.items ?? [])}
+        />
+      ) : null}
     </section>
   )
 }

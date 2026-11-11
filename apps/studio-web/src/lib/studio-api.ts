@@ -481,6 +481,28 @@ export const studioApi = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * OP-CAT-002. A partial edit: the fields present replace what was there, and
+   * `expected_revision` names the revision read. A newer one answers `409
+   * stale-draft`; a rename a published version forbids, `409` `movement-in-use`.
+   */
+  updateOrganizationMovement: (
+    organizationId: string,
+    movementId: string,
+    body: OrganizationMovementUpdate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
+      {
+        method: 'PATCH',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
   organizationPrograms: (
     organizationId: string,
     limit: number,

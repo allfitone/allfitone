@@ -110,6 +110,11 @@ export interface StudioApiFixture {
     /** True once a published version uses one of the organization's own. */
     nameLocked?: boolean
   }>
+  /**
+   * `saved` applies an edit the way `catalog.update_organization_movement`
+   * does. `stale` makes the next edit meet a teammate's first, once.
+   */
+  movementEditOutcome: 'saved' | 'stale'
   /** What `GET /catalog/activity-types` answers, each with the family of its targets. */
   activityTypes: Array<{
     id: string
@@ -1417,6 +1422,7 @@ export function createStudioApiFixture(
     ],
     templateCreateOutcome: 'created',
     movements: structuredClone(movementLibrary),
+    movementEditOutcome: 'saved',
     activityTypes: structuredClone(activityTypeCatalog),
     draftSaveOutcome: 'saved',
     publishedContents: {},
@@ -1810,6 +1816,102 @@ function defaultResponse(
     const entry = fixture.movements.find(({ movement }) => movement.id === movementPath[1])
     if (!entry) return { status: 404, body: problem('not-found', 404) }
     return { status: 200, body: movementDocument(entry) }
+  }
+  if (request.method === 'PATCH' && movementPath) {
+    /*
+     * What `catalog.update_organization_movement` and the trigger that keeps a
+     * movement's meaning do, in their order: the fields checked, then only the
+     * organization's own (a global one is 404), archived refused, the revision
+     * compared, a rename or a new discipline refused once a published version
+     * uses it, and a name another of ours has refused by the unique index.
+     */
+    const body = objectValue(request.body)
+    const { expected_revision: expected, ...changes } = body
+    const problems = movementProblems(fixture, {
+      ...(typeof changes.discipline_code === 'string'
+        ? { disciplineCode: changes.discipline_code }
+        : {}),
+      ...(typeof changes.name === 'string' ? { name: changes.name } : {}),
+      ...(Array.isArray(changes.aliases) ? { aliases: changes.aliases.map(String) } : {}),
+      ...('variant' in changes ? { variant: changes.variant } : {}),
+    })
+    if (Object.keys(changes).length === 0) problems.push('changes')
+    if (problems.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: problems.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
+    }
+    let entry = fixture.movements.find(
+      ({ movement }) => movement.id === movementPath[1] && movement.scope === 'organization',
+    )
+    if (!entry) return { status: 404, body: problem('not-found', 404) }
+    if (entry.movement.archived === true) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'movement-archived', path: '', message: 'movement-archived' }],
+        }),
+      }
+    }
+    if (fixture.movementEditOutcome === 'stale') {
+      // A teammate's edit lands first: one more other name, and a new revision.
+      fixture.movementEditOutcome = 'saved'
+      entry = replaceMovement(fixture, {
+        ...entry,
+        aliases: [...entry.aliases, 'Remo a una mano'],
+        revision: (entry.revision ?? 1) + 1,
+      })
+    }
+    if (Number(expected) !== (entry.revision ?? 1)) {
+      return { status: 409, body: problem('stale-draft', 409) }
+    }
+    const renamed =
+      typeof changes.name === 'string' &&
+      normalizeMovementName(changes.name) !== normalizeMovementName(String(entry.movement.name))
+    const moved =
+      typeof changes.discipline_code === 'string' &&
+      changes.discipline_code !== entry.movement.discipline_code
+    if (entry.nameLocked === true && (renamed || moved)) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'movement-in-use', path: '', message: 'movement-in-use' }],
+        }),
+      }
+    }
+    if (
+      typeof changes.name === 'string' &&
+      movementNameTaken(fixture, changes.name, String(entry.movement.id))
+    ) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'name-taken', path: '/name', message: 'name-taken' }],
+        }),
+      }
+    }
+    const updated = replaceMovement(fixture, {
+      ...entry,
+      movement: {
+        ...entry.movement,
+        ...(typeof changes.name === 'string' ? { name: tidyMovementName(changes.name) } : {}),
+        ...(typeof changes.discipline_code === 'string'
+          ? { discipline_code: changes.discipline_code }
+          : {}),
+      },
+      aliases: Array.isArray(changes.aliases)
+        ? changes.aliases.map((alias) => tidyMovementName(String(alias)))
+        : entry.aliases,
+      variantOf:
+        'variant' in changes
+          ? variantOfDocument(fixture, changes.variant)
+          : (entry.variantOf ?? null),
+      revision: (entry.revision ?? 1) + 1,
+    })
+    return { status: 200, body: movementDocument(updated) }
   }
   if (
     request.method === 'POST' &&
@@ -3053,6 +3155,14 @@ function movementProblems(
     }
   }
   return problems
+}
+
+/** Replaces one movement in the library, rather than mutating it, and returns it. */
+function replaceMovement(fixture: StudioApiFixture, entry: MovementEntry): MovementEntry {
+  fixture.movements = fixture.movements.map((candidate) =>
+    candidate.movement.id === entry.movement.id ? entry : candidate,
+  )
+  return entry
 }
 
 /** The unique index on a name within the organization, leaving one movement out. */
