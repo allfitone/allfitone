@@ -77,6 +77,11 @@ import {
   type EditorDraft,
 } from '@/lib/session-template-editor'
 import {
+  latestVersionNumber,
+  publishBlockedReason,
+  publishOutcome,
+} from '@/lib/session-template-publish'
+import {
   StudioApiError,
   newCommand,
   studioApi,
@@ -136,6 +141,12 @@ export function SessionTemplateEditor() {
   const [conflict, setConflict] = useState<SessionTemplateDraft | null>(null)
   const [savedAt, setSavedAt] = useState<string>()
   const [intents] = useState(() => createCommandIntentManager(newCommand))
+  // Its own manager: one holds a single intent, and a save between two clicks of
+  // «Publicar» must not give the second click a new command.
+  const [publishIntents] = useState(() => createCommandIntentManager(newCommand))
+  const [publishIssues, setPublishIssues] = useState<string[]>([])
+  const [publishResult, setPublishResult] = useState<ReturnType<typeof publishOutcome>>()
+  const [publishFailure, setPublishFailure] = useState<string>()
   // Names of movements picked here, so a new step is named before its own read returns.
   const [pickedNames, setPickedNames] = useState<ReadonlyMap<string, string>>(new Map())
 
@@ -184,6 +195,27 @@ export function SessionTemplateEditor() {
         saved,
       )
       // The library shows the draft's name, which this save may have changed.
+      void queryClient.invalidateQueries({
+        queryKey: studioQueryKeys.organizationSessionTemplatesRoot(organizationId),
+      })
+    },
+  })
+
+  const publish = useStudioSessionMutation({
+    mutationFn: ({ etag }: { etag: string }, signal) =>
+      studioApi.publishOrganizationSessionTemplateVersion(
+        organizationId,
+        templateId,
+        etag,
+        publishIntents.commandFor({
+          operation: 'publish-session-template-version',
+          resourceId: templateId,
+          payload: { etag },
+        }),
+        signal,
+      ),
+    onSuccess: () => {
+      // The library lists the versions, and this one may be new.
       void queryClient.invalidateQueries({
         queryKey: studioQueryKeys.organizationSessionTemplatesRoot(organizationId),
       })
@@ -291,6 +323,41 @@ export function SessionTemplateEditor() {
     setServerIssues([])
     setFailure(undefined)
     setSavedAt(undefined)
+    setPublishIssues([])
+    setPublishResult(undefined)
+    setPublishFailure(undefined)
+  }
+
+  const latest = latestVersionNumber(template.versions)
+  const publishBlocked = publishBlockedReason({ dirty, conflict: conflict !== null })
+
+  async function publishDraft() {
+    if (!base || publish.isPending || publishBlocked) return
+    setPublishIssues([])
+    setPublishResult(undefined)
+    setPublishFailure(undefined)
+    try {
+      const version = await publish.mutateAsync({ etag: base.etag })
+      setPublishResult(publishOutcome(latest, version))
+      publishIntents.reset()
+    } catch (caught) {
+      if (isStudioQuerySessionCancelled(caught)) return
+      if (caught instanceof StudioApiError && caught.code === 'stale-draft') {
+        const theirs = draftFrom(caught.currentState)
+        if (theirs) {
+          setConflict(theirs)
+          return
+        }
+      }
+      // Criterion 3: what the draft still lacks, as the server listed it.
+      if (caught instanceof StudioApiError && caught.status === 422 && caught.issues.length > 0) {
+        setPublishIssues(saveIssueMessages(caught.issues.map((issue) => issue.code)))
+        return
+      }
+      setPublishFailure(
+        caught instanceof StudioApiError ? publishFailureMessage(caught) : PUBLISH_UNKNOWN_FAILURE,
+      )
+    }
   }
 
   async function submit() {
@@ -527,8 +594,76 @@ export function SessionTemplateEditor() {
               : 'Sin cambios desde que lo abriste.'}
         </p>
       </div>
+
+      {/* HU-STUDIO-038. Criteria 1 and 2 are the server's, and said here
+          before the click: a version is final and moves nothing already using
+          an older one. */}
+      <Card data-template-publish>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            Publicar una versión
+          </CardTitle>
+          <CardDescription>
+            {latest === undefined
+              ? 'Todavía no se ha publicado ninguna versión.'
+              : `La versión más reciente es la ${latest}.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div data-template-save-bar>
+            <p data-template-publish-note>
+              Una versión publicada no se edita nunca: corregirla es publicar otra. Los programas y
+              las asignaciones que ya usan una versión anterior siguen en ella.
+            </p>
+
+            {publishIssues.length > 0 ? (
+              <Alert variant="warning" live="polite" data-template-publish-issues>
+                <AlertTitle>Al borrador le falta esto para publicarse</AlertTitle>
+                <AlertDescription>
+                  <ul>
+                    {publishIssues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {publishFailure ? (
+              <FieldError data-template-publish-error>{publishFailure}</FieldError>
+            ) : null}
+            {publishBlocked ? <FieldDescription>{publishBlocked}</FieldDescription> : null}
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={Boolean(publishBlocked) || publish.isPending}
+              onClick={() => void publishDraft()}
+            >
+              {publish.isPending ? <Spinner label="Publicando la versión" /> : null}
+              {publish.isPending ? 'Publicando…' : 'Publicar versión'}
+            </Button>
+            <p data-template-publish-status role="status" aria-live="polite">
+              {publishResult?.message ?? ''}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </section>
   )
+}
+
+const PUBLISH_UNKNOWN_FAILURE =
+  'No pudimos publicar la versión. El borrador sigue guardado; reintenta en un momento.'
+
+function publishFailureMessage(error: StudioApiError): string {
+  if (error.status === 403 || error.status === 404) {
+    return 'Ya no puedes publicar esta plantilla: tu rol cambió o la organización no está activa.'
+  }
+  if (error.status === 409 || error.status === 429) {
+    return 'Esa publicación ya está en curso. Espera un momento y reintenta.'
+  }
+  if (error.status === 503) return 'La publicación está pausada temporalmente. Reintenta más tarde.'
+  return PUBLISH_UNKNOWN_FAILURE
 }
 
 function stepsCount(count: number): string {

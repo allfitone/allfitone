@@ -1826,6 +1826,35 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos esta plantilla')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/content/templates/[templateId]`, publishing · HU-038 ---
+  {
+    stories: 'HU-038 · a version just published',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText(/Publicada la versión 3/)).toBeVisible()
+    },
+  },
+  {
+    // Criterion 3: the list of what an incomplete draft still lacks.
+    stories: 'HU-038 · a draft that is not complete yet',
+    path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-038 · unsaved work waits to be saved before publishing',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Fuerza tren superior · bloque 2')
+      await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',

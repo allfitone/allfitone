@@ -112,6 +112,12 @@ export interface StudioApiFixture {
    */
   draftSaveOutcome: 'saved' | 'stale'
   /**
+   * The content each template's newest version was published with, by
+   * template. A version summary does not carry it, and the server compares a
+   * publication against it to decide whether anything changed.
+   */
+  publishedContents: Record<string, string>
+  /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
    * tries to prevent — a subscription that was still live when the transaction
@@ -1233,6 +1239,7 @@ export function createStudioApiFixture(
     movements: structuredClone(movementLibrary),
     activityTypes: structuredClone(activityTypeCatalog),
     draftSaveOutcome: 'saved',
+    publishedContents: {},
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1495,6 +1502,74 @@ function defaultResponse(
     }
     const saved = replaceDraft(fixture, templateId, objectValue(request.body))
     return { status: 200, body: saved, headers: { ETag: String(saved.etag) } }
+  }
+  const versionsPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions$/.exec(request.path)
+  if (request.method === 'POST' && versionsPath) {
+    /*
+     * What `planning.publish_session_template_version` does: 428 without the
+     * condition, the current draft with a stale one, the list of what a complete
+     * draft still lacks, and — against the newest version only — the same
+     * version again when nothing changed.
+     */
+    const templateId = versionsPath[1] ?? ''
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    if (!template) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const draft = objectValue(template.draft)
+    if (expected !== draft.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: draft }) }
+    }
+    const content = objectValue(draft.content)
+    const steps = Array.isArray(content.steps) ? content.steps : []
+    const missing = [
+      ...(content.activity_type_id ? [] : ['activity-type']),
+      ...(steps.length > 0 ? [] : ['steps']),
+    ]
+    if (missing.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: missing.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
+    }
+    const versions = (Array.isArray(template.versions) ? template.versions : []).map(objectValue)
+    const latest = Math.max(0, ...versions.map((version) => Number(version.version_number)))
+    const unchanged = fixture.publishedContents[templateId] === JSON.stringify(content)
+    const number = unchanged && latest > 0 ? latest : latest + 1
+    const version = {
+      id: `01991600-a000-7000-8000-0000000002${String(number).padStart(2, '0')}`,
+      template_id: templateId,
+      version_number: number,
+      discipline_code: template.discipline_code,
+      activity_type_id: content.activity_type_id,
+      derived_from_version_id: null,
+      title: content.title,
+      status: 'published',
+      published_at: '2026-11-10T16:00:00.000Z',
+      steps,
+    }
+    if (!unchanged || latest === 0) {
+      fixture.publishedContents[templateId] = JSON.stringify(content)
+      const summary = {
+        id: version.id,
+        template_id: templateId,
+        version_number: number,
+        status: 'published',
+        published_at: version.published_at,
+      }
+      fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map(
+        (candidate) =>
+          objectValue(candidate).id === templateId
+            ? { ...objectValue(candidate), status: 'published', versions: [summary, ...versions] }
+            : candidate,
+      )
+    }
+    return { status: 201, body: version }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/catalog/activity-types') {
     return { status: 200, body: { items: fixture.activityTypes } }

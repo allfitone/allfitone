@@ -410,6 +410,28 @@ export const studioApi = {
     ),
 
   /**
+   * OP-PLN-003. Publishes the draft as the server has it saved, conditioned on
+   * its ETag. No body: one is refused with 415. An incomplete draft answers 422
+   * listing what is missing; the same content as the newest version answers
+   * that version rather than a new one.
+   */
+  publishOrganizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateVersion>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions`,
+      {
+        method: 'POST',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
    * OP-CAT-008. Every published global activity type with the family of target
    * its steps take, read under `/studio/v1` like the disciplines.
    */

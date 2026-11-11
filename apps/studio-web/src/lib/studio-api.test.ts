@@ -562,3 +562,53 @@ describe('searching movements', () => {
     expect(new URL(calls[1] ?? '').search).toBe('')
   })
 })
+
+describe('the draft commands of a template', () => {
+  function capture() {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    globalThis.fetch = (async (input, init) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return Response.json({ id: 'version', version_number: 1 }, { status: 201 })
+    }) as typeof fetch
+    return calls
+  }
+  const ORGANIZATION = '01991600-1000-7000-8000-000000000002'
+  const TEMPLATE = '01991600-a000-7000-8000-000000000001'
+  const ETAG = `"sha256:${'a'.repeat(43)}"`
+
+  test('a save replaces the draft whole and is conditioned on the ETag it started from', async () => {
+    const calls = capture()
+    const content = { title: 'Fuerza', activity_type_id: null, steps: [] }
+    await studioApi.replaceOrganizationSessionTemplateDraft(
+      ORGANIZATION,
+      TEMPLATE,
+      content,
+      ETAG,
+      newCommand(),
+    )
+
+    expect(new URL(calls[0]?.url ?? '').pathname).toBe(
+      `/studio/v1/organizations/${ORGANIZATION}/session-templates/${TEMPLATE}/draft`,
+    )
+    expect(calls[0]?.init.method).toBe('PUT')
+    expect(new Headers(calls[0]?.init.headers).get('if-match')).toBe(ETAG)
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual(content)
+  })
+
+  test('a publication carries no body, only the condition and the command', async () => {
+    const calls = capture()
+    const command = newCommand()
+    await studioApi.publishOrganizationSessionTemplateVersion(ORGANIZATION, TEMPLATE, ETAG, command)
+
+    expect(new URL(calls[0]?.url ?? '').pathname).toBe(
+      `/studio/v1/organizations/${ORGANIZATION}/session-templates/${TEMPLATE}/versions`,
+    )
+    expect(calls[0]?.init.method).toBe('POST')
+    // A body is refused with 415, and so is the content type that announces one.
+    expect(calls[0]?.init.body).toBeUndefined()
+    const headers = new Headers(calls[0]?.init.headers)
+    expect(headers.has('content-type')).toBe(false)
+    expect(headers.get('if-match')).toBe(ETAG)
+    expect(headers.get('idempotency-key')).toBe(command.idempotencyKey)
+  })
+})
