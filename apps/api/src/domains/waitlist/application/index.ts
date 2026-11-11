@@ -1,6 +1,6 @@
 /**
  * Use cases of the Allfit Space waitlist: join, confirm the email, ask for the email
- * again (`OP-WL-001` to `OP-WL-003`).
+ * again, read «mi link» and leave (`OP-WL-001` to `OP-WL-005`).
  *
  * The rules that decide anything live in PostgreSQL: one sign-up per mailbox, what does
  * not count, the limits per connection, which token is still good. What happens here is
@@ -36,6 +36,8 @@ import {
   type WaitlistFingerprints,
   type WaitlistJoinInput,
   type WaitlistJoinResult,
+  type WaitlistLeaveResult,
+  type WaitlistLinkResult,
   type WaitlistVisitor,
 } from '../domain/index.js'
 
@@ -43,6 +45,8 @@ export interface WaitlistService {
   join(input: WaitlistJoinInput, visitor: WaitlistVisitor): Promise<WaitlistJoinResult>
   confirm(token: string, visitor: WaitlistVisitor): Promise<WaitlistConfirmationResult>
   requestEmail(email: string, visitor: WaitlistVisitor): Promise<WaitlistEmailRequestResult>
+  readLink(token: string, visitor: WaitlistVisitor): Promise<WaitlistLinkResult>
+  leave(token: string, visitor: WaitlistVisitor): Promise<WaitlistLeaveResult>
 }
 
 export function createWaitlistService(
@@ -77,6 +81,20 @@ export function createWaitlistService(
         email,
         fingerprints(visitor, environment).connection,
         emailTokens(),
+      )
+    },
+
+    async readLink(token, visitor) {
+      return database.readLink(
+        hashInvitationToken(token),
+        fingerprints(visitor, environment).connection,
+      )
+    },
+
+    async leave(token, visitor) {
+      return database.leave(
+        hashInvitationToken(token),
+        fingerprints(visitor, environment).connection,
       )
     },
   }

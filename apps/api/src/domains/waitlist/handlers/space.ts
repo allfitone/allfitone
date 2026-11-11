@@ -1,5 +1,5 @@
 /**
- * Waitlist routes on /space/v1 (`OP-WL-001` to `OP-WL-003`).
+ * Waitlist routes on /space/v1 (`OP-WL-001` to `OP-WL-005`).
  *
  * These are the only routes of the API a visitor with no account reaches, and they are
  * not reached directly: space-web calls them from its server, with a secret, and says
@@ -12,6 +12,10 @@
  * Every answer is `no-store`, and none says more than the page shows: a repeated
  * address gets `already_listed` with nothing about the sign-up behind it, and asking
  * for the email again answers the same whether the address is on the list or not.
+ *
+ * «Mi link» and leaving take the private token in the body of a POST, never in a URL:
+ * it is a bearer credential, and a URL ends in logs. A link whose sign-up left answers
+ * `not-found`, exactly like one that never existed.
  */
 
 import { createHash, timingSafeEqual } from 'node:crypto'
@@ -93,6 +97,46 @@ export function spaceWaitlistRoutes(
       const outcome = await waitlist().requestEmail(email, visitor)
       if (outcome === 'rate_limited') return rateLimited(c)
       return c.body(null, 202)
+    } catch (cause) {
+      return failWaitlist(c, cause)
+    }
+  })
+
+  routes.post('/waitlist/link-reads', async (c) => {
+    const visitor = readVisitor(c)
+    const token = (await readJson(c.req.raw)).token
+    if (!visitor || typeof token !== 'string') return problem(c, 'invalid-request')
+    if (!TOKEN.test(token)) return problem(c, 'not-found')
+
+    try {
+      const result = await waitlist().readLink(token, visitor)
+      if (result.outcome === 'rate_limited') return rateLimited(c)
+      if (result.outcome === 'invalid') return problem(c, 'not-found')
+      return c.json(
+        {
+          referral_code: result.referralCode,
+          referrals: result.referrals,
+          language: result.language,
+          confirmed: result.confirmed,
+        },
+        200,
+      )
+    } catch (cause) {
+      return failWaitlist(c, cause)
+    }
+  })
+
+  routes.post('/waitlist/departures', async (c) => {
+    const visitor = readVisitor(c)
+    const token = (await readJson(c.req.raw)).token
+    if (!visitor || typeof token !== 'string') return problem(c, 'invalid-request')
+    if (!TOKEN.test(token)) return problem(c, 'not-found')
+
+    try {
+      const outcome = await waitlist().leave(token, visitor)
+      if (outcome === 'rate_limited') return rateLimited(c)
+      if (outcome === 'invalid') return problem(c, 'not-found')
+      return c.body(null, 204)
     } catch (cause) {
       return failWaitlist(c, cause)
     }
