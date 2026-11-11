@@ -5,7 +5,9 @@ import {
   categoryName,
   categorySummary,
   clientCardPath,
+  clientTrainingProfilePath,
   lossReasonSentence,
+  sectionOpensTrainingProfile,
   sectionsState,
   withdrawalsNewestFirst,
 } from './client-card'
@@ -158,6 +160,43 @@ describe('what the panel of categories is showing', () => {
 
   test('names that failed to arrive is its own state, because it can be retried', () => {
     expect(sectionsState([section], undefined, false)).toEqual({ kind: 'unnamed' })
+  })
+})
+
+/*
+ * The door is driven by the card's own `reads`, so a category that gains or
+ * loses that operation in the contract changes the screen without anybody
+ * editing it.
+ */
+describe('which section opens the training profile', () => {
+  function sectionFor(reads: string[]): ClientCardSection {
+    return {
+      scope_code: 'relationship_training',
+      scope_version: 1,
+      access_level: 'read',
+      granted_at: '2026-01-01T00:00:00.000Z',
+      reads,
+    } as ClientCardSection
+  }
+
+  test('the one whose reads name that operation', () => {
+    expect(
+      sectionOpensTrainingProfile(
+        sectionFor(['getAuthorizedClientTrainingProfile', 'listAuthorizedClientExecutions']),
+      ),
+    ).toBe(true)
+  })
+
+  test('and no other, however close it reads', () => {
+    expect(sectionOpensTrainingProfile(sectionFor(['listAuthorizedClientHealthContext']))).toBe(
+      false,
+    )
+  })
+
+  test('the profile hangs off the card, as its path does off the card path', () => {
+    expect(clientTrainingProfilePath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/profile',
+    )
   })
 })
 

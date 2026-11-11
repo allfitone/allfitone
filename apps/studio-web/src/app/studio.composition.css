@@ -246,7 +246,8 @@
 [data-account-map],
 [data-relationship-state],
 [data-relationship-history],
-[data-client-card-screen] {
+[data-client-card-screen],
+[data-client-profile-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -567,7 +568,8 @@
 [data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
 [data-credential-details] dt,
-[data-version-details] dt {
+[data-version-details] dt,
+[data-client-profile-group-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -653,7 +655,8 @@
 [data-program-session],
 [data-movement-variant-fields],
 [data-role-capability-list],
-[data-client-card-section-list] {
+[data-client-card-section-list],
+[data-client-profile-group-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1427,14 +1430,16 @@
 
 [data-organization-details-placeholder],
 [data-relationship-header-placeholder],
-[data-client-card-header-placeholder] {
+[data-client-card-header-placeholder],
+[data-client-profile-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
 
 [data-organization-card-placeholder],
 [data-relationship-card-placeholder],
-[data-client-card-panel-placeholder] {
+[data-client-card-panel-placeholder],
+[data-client-profile-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1547,6 +1552,66 @@
 [data-relationship-holder] {
   display: grid;
   gap: 0;
+}
+
+/* One attribute: its name, then the claims in force for it. Hairlines rather
+   than boxes — the panel is already a card, and a card per attribute would make
+   eight boxes out of one list. */
+[data-client-profile-group] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-profile-group]:first-child {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+/* Drawn as the same label every other value on the product carries, so the
+   hierarchy here is the claim's value and not its name. Its own rule only
+   places the badge that explains why more than one line follows. */
+[data-client-profile-group-name] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  margin: 0;
+}
+
+[data-client-profile-claims] {
+  display: grid;
+  gap: var(--afo-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The value leads; where it came from and since when step down beside it, and
+   wrap under it when the line runs out. */
+[data-client-profile-claim] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--afo-space-1) var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-profile-claim] > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-profile-origin],
+[data-client-profile-since],
+[data-client-profile-unreadable] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-client-profile-unreadable] {
+  margin: 0;
 }
 
 /* A sentence, the date it happened, and the way back — stacked, and each as

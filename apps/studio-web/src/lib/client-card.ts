@@ -114,6 +114,21 @@ export function sectionsState(
   return catalogPending ? { kind: 'naming' } : { kind: 'unnamed' }
 }
 
+/**
+ * Which section opens the training profile, decided by the operations the card
+ * itself names rather than by the scope code. The projection says which reads
+ * belong to each category; reading that is one source of truth, hardcoding
+ * `relationship_training` here would be a second.
+ */
+export function sectionOpensTrainingProfile(section: ClientCardSection): boolean {
+  return section.reads.includes('getAuthorizedClientTrainingProfile')
+}
+
+/** Where that profile lives: a child of the card, as it is a child of its path. */
+export function clientTrainingProfilePath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/profile`
+}
+
 /** Where a person's card lives. One string, so the directory and the card agree. */
 export function clientCardPath(organizationId: string, personId: string): string {
   return `/organizations/${organizationId}/clients/people/${personId}`
