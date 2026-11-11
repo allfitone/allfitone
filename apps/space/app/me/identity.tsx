@@ -1,14 +1,18 @@
 /**
- * `PF-2e` · Identidad y acceso (`HU-SP-009`, TECH-43): the Fitness ID, how the person
- * is called, how Allfit reaches them and how they sign in.
+ * `PF-2f` · Identidad y acceso (`HU-SP-009`, TECH-43, TECH-44): the Fitness ID, how the
+ * person is called, how Allfit reaches them and how they sign in.
  *
- * **Each thing in its own place** (criterion 2): no permissions and no gyms here, and
- * the email, the phone and the password live here rather than in rows of their own in
- * Perfil. The name and the username are corrected from this screen (`HU-SP-098`
- * criterion 6, `OP-IDN-063`), each on its own screen: changing one never asks for the
- * other, and the keyboard never pushes a sheet over what it edits. The phone is a contact value (ADR-050): V1 sends no SMS, so it is written and
- * saved at once, with no verification state to show. Changing the email (`HU-SP-076`) or
- * the password (`HU-SP-005`) is not built yet, so those rows say «Pronto».
+ * **Each thing in its own place** (criterion 2): no permissions and no gyms here, and the
+ * email, the phone and the password live here rather than in rows of their own in Perfil.
+ * The name and the username are corrected each on its own screen (`HU-SP-098` criterion
+ * 6, `OP-IDN-063`): changing one never asks for the other, and the keyboard never pushes a
+ * sheet over what it edits.
+ *
+ * **The phone is a contact value** (ADR-050): V1 sends no SMS, so it is saved at once,
+ * with no verification state to show. **The email changes with a code** (`HU-SP-076`,
+ * `HU-SP-077`): while one is awaited the row says «Verificación pendiente» and leads to
+ * the code; while WorkOS takes the address it says so and leads nowhere. Changing the
+ * password (`HU-SP-005`) is not built yet, so that row says «Pronto».
  */
 
 import { IconButton } from '@allfitone/react-native/icon-button'
@@ -20,14 +24,15 @@ import { useTheme } from '@allfitone/react-native/theme'
 import type { IconName } from '@allfitone/icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Children, useCallback, useState, type ReactNode } from 'react'
+import { Children, useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   activeSince,
-  contactState,
+  emailRow,
   identityInitials,
   type ContactState,
+  type EmailRowState,
   type SpaceIdentity,
 } from '../../src/client/fitness-profile'
 import { phoneLine } from '../../src/client/phone-countries'
@@ -48,6 +53,9 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
   const theme = useTheme()
   const [identity, setIdentity] = useState<SpaceIdentity | undefined>(undefined)
   const [unreadable, setUnreadable] = useState(false)
+  const email = identity ? emailRow(identity.email) : undefined
+  const emailRoute = email?.route
+  const editEmail = emailRoute ? { onEdit: () => router.push(emailRoute) } : {}
 
   // Read again each time it shows: the edit screens go back here once they save.
   useFocusEffect(
@@ -67,6 +75,23 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
     }, [sources]),
   )
 
+  // While WorkOS takes a new address the row says so; reading again shows when it is done.
+  const applying = identity?.email.pending?.status === 'applying'
+  useEffect(() => {
+    if (!applying) return
+    let active = true
+    const timer = setTimeout(() => {
+      sources
+        .readIdentity()
+        .then((read) => active && setIdentity(read))
+        .catch(() => undefined)
+    }, 3_000)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [applying, identity, sources])
+
   const fullName = identity ? `${identity.given_name} ${identity.family_name}` : ''
 
   return (
@@ -81,7 +106,7 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
 
-        {identity ? (
+        {identity && email ? (
           <>
             <LinearGradient
               colors={CARD}
@@ -166,12 +191,9 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
                   icon="notification"
                   label="Correo"
                   value={identity.email.address ?? 'Sin correo'}
-                  caption="También es con el que entras."
-                  state={contactState({
-                    value: identity.email.address,
-                    verified: identity.email.verified,
-                  })}
-                  soon
+                  caption={email.caption}
+                  state={EMAIL_CHIP[email.state]}
+                  {...editEmail}
                 />
                 <IdentityRow
                   icon="notification"
@@ -239,7 +261,7 @@ function IdentityRow({
   readonly label: string
   readonly value: string
   readonly caption?: string
-  readonly state?: ContactState
+  readonly state?: RowChip
   readonly soon?: boolean
   readonly onEdit?: () => void
 }) {
@@ -268,6 +290,15 @@ function IdentityRow({
             <FoundationIcon name="success" size="xs" color={theme.color.icon.accent} decorative />
             <Text role="control" size="xs" color="accent">
               Verificado
+            </Text>
+          </View>
+        ) : state === 'pending' ? (
+          <View
+            style={[styles.verified, styles.start, { borderColor: theme.color.status.warning }]}
+          >
+            <FoundationIcon name="time" size="xs" color={theme.color.status.warning} decorative />
+            <Text role="control" size="xs" style={{ color: theme.color.status.warning }}>
+              Verificación pendiente
             </Text>
           </View>
         ) : state === 'unverified' ? (
@@ -327,10 +358,21 @@ function IdentityRow({
   )
 }
 
-const STATE_LABEL: Record<ContactState, string> = {
+type RowChip = ContactState | 'pending'
+
+const STATE_LABEL: Record<RowChip, string> = {
   verified: 'Verificado',
   unverified: 'Sin verificar',
+  pending: 'Verificación pendiente',
   missing: '',
+}
+
+// While WorkOS takes the address, the line says so and the row carries no chip.
+const EMAIL_CHIP: Record<EmailRowState, RowChip> = {
+  verified: 'verified',
+  unverified: 'unverified',
+  awaiting_code: 'pending',
+  applying: 'missing',
 }
 
 const styles = StyleSheet.create({

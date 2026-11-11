@@ -14,6 +14,7 @@ import * as Crypto from 'expo-crypto'
 
 import type {
   ContactPhone,
+  EmailChange,
   EquipmentPiece,
   FitnessProfile,
   OwnName,
@@ -89,5 +90,26 @@ export function correctPhone(phone: string | null): Promise<ContactPhone> {
   const headers = command()
   return authenticated((token) =>
     authorizedSend<ContactPhone>('PATCH', '/space/v1/me/contact', headers, { phone }, token),
+  )
+}
+
+/** Asks for the change: a code goes to the new address, and nothing in force moves yet. */
+export function requestEmailChange(email: string): Promise<EmailChange> {
+  const headers = command()
+  return authenticated((token) =>
+    authorizedSend<EmailChange>('PATCH', '/space/v1/me/contact', headers, { email }, token),
+  )
+}
+
+/** The code from the new inbox; the change is then applied in the background. */
+export function verifyEmailChange(code: string): Promise<{ outcome: 'applying' }> {
+  const headers = command()
+  return authenticated((token) =>
+    authorizedPost<{ outcome: 'applying' }>(
+      '/space/v1/me/contact/verification',
+      headers,
+      { code },
+      token,
+    ),
   )
 }

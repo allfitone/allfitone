@@ -25,6 +25,7 @@ export type Provenance = AllfitV1Schemas['Provenance']
 export type SpaceIdentity = AllfitV1Schemas['SpaceIdentity']
 export type OwnName = AllfitV1Schemas['SpaceOwnName']
 export type ContactPhone = AllfitV1Schemas['SpaceContactPhone']
+export type EmailChange = AllfitV1Schemas['SpaceEmailChange']
 export type SessionDuration = AllfitV1Schemas['SessionDuration']
 export type TrainingPlace = AllfitV1Schemas['TrainingPlace']
 export type EquipmentPiece = AllfitV1Schemas['AvailableEquipmentPiece']
@@ -298,4 +299,80 @@ export function contactState(contact: {
 }): ContactState {
   if (contact.value === null) return 'missing'
   return contact.verified ? 'verified' : 'unverified'
+}
+
+export type EmailRowState = 'verified' | 'unverified' | 'awaiting_code' | 'applying'
+
+/** The email row of «Identidad y acceso»: its state, its line, and where a tap leads. */
+export function emailRow(email: SpaceIdentity['email']): {
+  state: EmailRowState
+  caption: string
+  route: '/me/email' | '/me/email-code' | undefined
+} {
+  if (email.pending?.status === 'awaiting_code') {
+    return {
+      state: 'awaiting_code',
+      caption: `Escribe el código que enviamos a ${email.pending.address}`,
+      route: '/me/email-code',
+    }
+  }
+  if (email.pending?.status === 'applying') {
+    return {
+      state: 'applying',
+      caption: `Cambiando tu correo a ${email.pending.address}…`,
+      route: undefined,
+    }
+  }
+  return {
+    state: email.verified ? 'verified' : 'unverified',
+    caption: 'También es con el que entras.',
+    route: '/me/email',
+  }
+}
+
+const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+/** Only what the phone can tell: the server refuses the rest with the same words. */
+export function newEmailProblem(
+  typed: string,
+  current: string | null,
+): 'shape' | 'same' | undefined {
+  const email = typed.trim().toLowerCase()
+  if (!EMAIL_SHAPE.test(email)) return 'shape'
+  if (email === current?.toLowerCase()) return 'same'
+  return undefined
+}
+
+/**
+ * Where a confirmed change stands: done once the new address is the one in force, failed
+ * once nothing is pending and the old one stayed, waiting meanwhile.
+ */
+export function emailChangeProgress(
+  email: SpaceIdentity['email'],
+  target: string,
+): 'waiting' | 'done' | 'failed' {
+  if (email.address?.toLowerCase() === target.toLowerCase()) return 'done'
+  return email.pending ? 'waiting' : 'failed'
+}
+
+/** The line that warns a new request replaces the code still waiting; none otherwise. */
+export function replacedCodeNote(pending: EmailChange | null): string | undefined {
+  if (pending?.status !== 'awaiting_code') return undefined
+  return `Ya pediste un código para ${pending.address}. Si escribes otro correo, ese código deja de servir.`
+}
+
+export type StepState = 'done' | 'now' | 'todo'
+
+/**
+ * The steps of an email change being applied. The app only knows «still applying» or
+ * «done», so the second step stays current until the end and nothing claims more.
+ */
+export function emailChangeSteps(
+  done: boolean,
+): readonly { readonly label: string; readonly state: StepState }[] {
+  return [
+    { label: 'Código confirmado', state: 'done' },
+    { label: 'Actualizando tu inicio de sesión', state: done ? 'done' : 'now' },
+    { label: 'Cerrando tus otras sesiones', state: done ? 'done' : 'todo' },
+  ]
 }
