@@ -118,14 +118,24 @@ export function OrganizationContent() {
         description={`Las plantillas de sesión y los programas de ${current.display_name}. Un borrador es lo que alguien está escribiendo; una versión publicada ya no cambia y es la que puede asignarse.`}
         actions={
           allowed ? (
-            <Link
-              href={`/organizations/${current.organization_id}/content/templates/new`}
-              data-slot="button"
-              data-variant="default"
-              className={buttonVariants()}
-            >
-              Nueva plantilla
-            </Link>
+            <>
+              <Link
+                href={`/organizations/${current.organization_id}/content/programs/new`}
+                data-slot="button"
+                data-variant="outline"
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                Nuevo programa
+              </Link>
+              <Link
+                href={`/organizations/${current.organization_id}/content/templates/new`}
+                data-slot="button"
+                data-variant="default"
+                className={buttonVariants()}
+              >
+                Nueva plantilla
+              </Link>
+            </>
           ) : undefined
         }
       />
@@ -193,6 +203,11 @@ export function OrganizationContent() {
             <ContentRegister
               items={programs}
               kind="programs"
+              draftHref={(item) =>
+                item.draft && !item.archived
+                  ? `/organizations/${current.organization_id}/content/programs/${item.id}`
+                  : undefined
+              }
               emptyTitle="Todavía no hay programas"
               emptyDescription="Un programa ordena en semanas y días las versiones publicadas de vuestras plantillas, y es lo que se le asigna a una persona."
             />
@@ -321,12 +336,13 @@ function ContentRegisterItem({
                 </CollapsibleTrigger>
               ) : null}
               {draftHref ? (
+                /* The size the trigger beside it renders at: as `sm` it was
+                    12px against the trigger's 14px. */
                 <Link
                   href={draftHref}
-                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  className={buttonVariants({ variant: 'outline' })}
                   data-slot="button"
                   data-variant="outline"
-                  data-size="sm"
                 >
                   Abrir el borrador
                 </Link>

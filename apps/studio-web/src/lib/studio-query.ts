@@ -63,8 +63,12 @@ export const studioQueryKeys = {
   organizationMemberships: (organizationId: string, status: MembershipFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'memberships', { status, limit }] as const,
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
+  organizationProgramsRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs'] as const,
   organizationPrograms: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'programs', { limit }] as const,
+  organizationProgramPages: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs', 'pages', { limit }] as const,
   organizationSessionTemplatesRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'session-templates'] as const,
   organizationSessionTemplates: (organizationId: string, limit: number) =>
@@ -572,6 +576,21 @@ export function organizationSessionTemplatePagesQueryOptions(
     queryKey: studioQueryKeys.organizationSessionTemplatePages(organizationId, limit),
     queryFn: ({ pageParam, signal }): Promise<SessionTemplatePage> =>
       studioApi.organizationSessionTemplates(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the programs, for the editor: a program draft has no read of
+ * its own, so the editor finds it in the listing.
+ */
+export function organizationProgramPagesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationProgramPages(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ProgramPage> =>
+      studioApi.organizationPrograms(organizationId, limit, signal, pageParam ?? undefined),
     initialPageParam: null as string | null,
     getNextPageParam: nextPageCursor,
     staleTime: STUDIO_TEAM_STALE_TIME_MS,

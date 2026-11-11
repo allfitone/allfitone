@@ -43,6 +43,10 @@ export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
 export type Program = AllfitV1Schemas['Program']
 export type ProgramPage = AllfitV1Schemas['ProgramPage']
 export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
+export type ProgramCreate = AllfitV1Schemas['ProgramCreate']
+export type ProgramDraft = AllfitV1Schemas['ProgramDraft']
+export type ProgramDraftContent = AllfitV1Schemas['ProgramDraftContent']
+export type ProgramSessionContent = AllfitV1Schemas['ProgramVersionSessionCreate']
 export type SessionTemplate = AllfitV1Schemas['SessionTemplate']
 export type SessionTemplatePage = AllfitV1Schemas['SessionTemplatePage']
 export type SessionTemplateVersion = AllfitV1Schemas['SessionTemplateVersion']
@@ -456,10 +460,58 @@ export const studioApi = {
       { cache: 'no-store', ...(signal ? { signal } : {}) },
     ),
 
-  organizationPrograms: (organizationId: string, limit: number, signal?: AbortSignal) =>
-    request<ProgramPage>(
-      `/studio/v1/organizations/${organizationId}/programs?limit=${limit}`,
+  organizationPrograms: (
+    organizationId: string,
+    limit: number,
+    signal?: AbortSignal,
+    cursor?: string,
+  ) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return request<ProgramPage>(
+      `/studio/v1/organizations/${organizationId}/programs?${query.toString()}`,
       signal ? { signal } : {},
+    )
+  },
+
+  /*
+   * OP-PLN-006. The program belongs to the organization, the caller is its
+   * author, and its first draft opens empty in the same transaction.
+   */
+  createOrganizationProgram: (
+    organizationId: string,
+    body: ProgramCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<Program>(`/studio/v1/organizations/${organizationId}/programs`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * OP-PLN-007. Replaces the whole draft under its ETag, like a template's: 428
+   * without `If-Match`, and a stale one is a `409` carrying the current draft.
+   * There is no read of a program draft on its own; the listing carries it.
+   */
+  replaceOrganizationProgramDraft: (
+    organizationId: string,
+    programId: string,
+    content: ProgramDraftContent,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramDraft>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/draft`,
+      {
+        method: 'PUT',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        body: JSON.stringify(content),
+        ...(signal ? { signal } : {}),
+      },
     ),
 
   /*
