@@ -10,9 +10,9 @@
  * the token rows, never the tokens: this derives each one again with the versioned key,
  * exactly as the API did when it stored its hash.
  *
- * **Three links, on space-web.** The referral link is public and made for sharing. The
- * confirmation link and the «Ver mis referidos» link are bearer credentials, so their
- * token travels in the fragment, which browsers never send to a server and no access
+ * **Four links, on space-web.** The referral link is public and made for sharing. The
+ * confirmation link, the «Ver mis referidos» link and the link to leave are bearer
+ * credentials, so their token travels in the fragment, which browsers never send to a server and no access
  * log records. The page reads it and posts it.
  */
 
@@ -159,6 +159,7 @@ export function createWaitlistEmailBatchProcessor(dependencies: {
       }
 
       const key = invitationTokenKey(tokenKeyVersion, environment)
+      const privateToken = createWaitlistToken(privateTokenId, key)
       const referralUrl = new URL(`${language}/waitlist`, baseUrl)
       referralUrl.searchParams.set('ref', referralCode)
       const recipient = {
@@ -168,11 +169,8 @@ export function createWaitlistEmailBatchProcessor(dependencies: {
         code: referralCode,
         referralUrl: referralUrl.toString(),
         referrals: delivery.referrals,
-        referralsPageUrl: page(
-          language,
-          'waitlist/referrals',
-          createWaitlistToken(privateTokenId, key),
-        ),
+        referralsPageUrl: page(language, 'waitlist/referrals', privateToken),
+        leaveUrl: page(language, 'waitlist/leave', privateToken),
       }
       const rendered =
         kind === 'confirmation' && delivery.confirmationTokenId && delivery.confirmationExpiresAt
