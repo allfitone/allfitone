@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   archivedItems,
-  canReadContent,
+  canManageContent,
   isAdaptation,
   livingItems,
   programItems,
@@ -107,7 +107,7 @@ function program(overrides: Partial<Program> = {}): Program {
 
 describe('who may read the content', () => {
   test('a coach, who makes it', () => {
-    expect(canReadContent(['coach'], [OWNER, COACH, STAFF])).toBe(true)
+    expect(canManageContent(['coach'], [OWNER, COACH, STAFF])).toBe(true)
   })
 
   /*
@@ -116,15 +116,15 @@ describe('who may read the content', () => {
    * in a test and allowed in production.
    */
   test('and an owner, who the story names too', () => {
-    expect(canReadContent(['owner'], [OWNER, COACH, STAFF])).toBe(true)
+    expect(canManageContent(['owner'], [OWNER, COACH, STAFF])).toBe(true)
   })
 
   test('not a role without the capability', () => {
-    expect(canReadContent(['staff'], [OWNER, COACH, STAFF])).toBe(false)
+    expect(canManageContent(['staff'], [OWNER, COACH, STAFF])).toBe(false)
   })
 
   test('nobody while the catalogue is unknown', () => {
-    expect(canReadContent(['owner'], undefined)).toBe(false)
+    expect(canManageContent(['owner'], undefined)).toBe(false)
   })
 })
 

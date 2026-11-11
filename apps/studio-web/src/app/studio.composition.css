@@ -235,6 +235,7 @@
 [data-ready-later],
 [data-role-register],
 [data-content-register],
+[data-template-steps],
 [data-category-register],
 [data-organization-overview],
 [data-organization-details],
@@ -474,6 +475,7 @@
 [data-membership-roles],
 [data-role-disclosure],
 [data-content-disclosure],
+[data-template-step-actions],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -525,7 +527,8 @@
    membership card is the common case: a person who has not left has no end
    date. `auto-fit` gives the pair the row and still splits it when a second
    arrives, and the `min()` keeps the track from outgrowing a narrow card. */
-[data-credential-details] {
+[data-credential-details],
+[data-template-target-fields] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
   gap: var(--afo-space-4);
@@ -636,6 +639,7 @@
 [data-relationship-grant-cards],
 [data-relationship-history-list],
 [data-content-version-list],
+[data-movement-picker-results],
 [data-role-capability-list],
 [data-client-card-section-list] {
   display: grid;
@@ -647,6 +651,7 @@
 [data-organization-site-list] > li,
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
+[data-movement-picker-results] > li,
 [data-role-capability-list] > li {
   display: flex;
   min-width: 0;
@@ -806,6 +811,7 @@
 [data-team-directory-note],
 [data-client-directory-note],
 [data-client-directory-search],
+[data-movement-search],
 [data-guest-quota-summary],
 [data-billing-note],
 [data-authorized-scope-note],
@@ -1056,7 +1062,8 @@
   [data-credential-grid],
   [data-team-invitation-summary],
   [data-client-invitation-summary],
-  [data-credential-details] {
+  [data-credential-details],
+  [data-template-target-fields] {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1352,7 +1359,9 @@
    a section they had no space between them and read as one block. The button
    sizes to its label rather than stretching the width of the alert. */
 [data-site-form-refusal],
-[data-organization-form-refusal] {
+[data-organization-form-refusal],
+[data-template-create-refusal],
+[data-template-save-bar] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);
@@ -1361,7 +1370,8 @@
 /* Status and the way to change it share the card's action slot. They are two
    different kinds of thing, so they get space between them, and they wrap
    rather than push the card's title out of its own box on a narrow screen. */
-[data-organization-identity-action] {
+[data-organization-identity-action],
+[data-movement-badges] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

@@ -1660,7 +1660,13 @@ export interface CatalogueFixture {
   /** Every catalogue read is refused, as it is once the session ends. */
   refusal?: { status: number; code: string }
   disciplines: Array<{ code: string; name: string }>
-  activityTypes: Array<{ id: string; discipline_code: string; code: string; name: string }>
+  activityTypes: Array<{
+    id: string
+    discipline_code: string
+    code: string
+    name: string
+    activity_family: 'strength' | 'endurance' | 'interval' | 'mobility' | null
+  }>
 }
 
 export const CATALOGUE_ACTIVITY_TYPE_ID = '019a5000-0000-7000-8000-000000000301'
@@ -1677,12 +1683,14 @@ export function publishedCatalogue(): CatalogueFixture {
         discipline_code: 'test_strength',
         code: 'test_strength_session',
         name: 'Sesión de fuerza de prueba',
+        activity_family: 'strength',
       },
       {
         id: '019a5000-0000-7000-8000-000000000302',
         discipline_code: 'test_endurance',
         code: 'test_endurance_session',
         name: 'Sesión de resistencia de prueba',
+        activity_family: 'endurance',
       },
     ],
   }

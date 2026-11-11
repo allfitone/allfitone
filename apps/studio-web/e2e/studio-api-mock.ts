@@ -88,6 +88,41 @@ export interface StudioApiFixture {
   organizationPrograms: unknown[]
   /** What `GET /session-templates` answers. */
   organizationSessionTemplates: unknown[]
+  /** What `GET /catalog/disciplines` answers: what Backoffice has published. */
+  disciplines: Array<{ code: string; name: string }>
+  /**
+   * `created` adds the template and its empty first draft to the list, the way
+   * the command does. `not-found` is how `planning.assert_manage_content`
+   * answers a missing capability or an organization that is no longer active.
+   */
+  templateCreateOutcome: 'created' | 'not-found'
+  /**
+   * What `catalog.search_organization_movements` searches. The other names are
+   * matched but never answered — `StudioMovement` does not carry them — so they
+   * sit beside the movement here and the mock strips them, as the route does.
+   */
+  movements: Array<{ movement: Record<string, unknown>; aliases: string[] }>
+  /** What `GET /catalog/activity-types` answers, each with the family of its targets. */
+  activityTypes: Array<{
+    id: string
+    discipline_code: string
+    code: string
+    name: string
+    activity_family: 'strength' | 'endurance' | 'interval' | 'mobility' | null
+  }>
+  /**
+   * `saved` replaces the draft the way `planning.replace_session_template_draft`
+   * does, and answers a stale ETag with `409` and the current draft. `stale`
+   * makes the next save meet somebody else's, once: the draft changes under it
+   * first, as it would if a teammate had saved.
+   */
+  draftSaveOutcome: 'saved' | 'stale'
+  /**
+   * The content each template's newest version was published with, by
+   * template. A version summary does not carry it, and the server compares a
+   * publication against it to decide whether anything changed.
+   */
+  publishedContents: Record<string, string>
   /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
@@ -177,6 +212,122 @@ export const terminatedMembership = {
 }
 
 /*
+ * The movement library a gym searches: the global catalogue and the gym's own
+ * in one list, one of each kind the screen tells apart, plus an archived one
+ * that appears only when asked for.
+ */
+export const STRENGTH_GLOBAL_MOVEMENT_ID = '01991600-c000-7000-8000-000000000001'
+export const STRENGTH_OWN_MOVEMENT_ID = '01991600-c000-7000-8000-000000000003'
+
+function libraryMovement(
+  id: string,
+  name: string,
+  discipline: string,
+  scope: 'global' | 'organization',
+  archived = false,
+): Record<string, unknown> {
+  return {
+    id,
+    discipline_code: discipline,
+    name,
+    scope,
+    archived,
+    // The organization's own carry no muscles: only the catalogue curates them.
+    muscles: scope === 'global' ? ['quadriceps'] : [],
+    equipment: [],
+    demo_url: null,
+  }
+}
+
+export const movementLibrary: StudioApiFixture['movements'] = [
+  {
+    movement: libraryMovement(
+      STRENGTH_GLOBAL_MOVEMENT_ID,
+      'Sentadilla trasera',
+      'strength',
+      'global',
+    ),
+    aliases: ['Back squat'],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000002',
+      'Press de banca',
+      'strength',
+      'global',
+    ),
+    aliases: ['Bench press'],
+  },
+  {
+    movement: libraryMovement(
+      STRENGTH_OWN_MOVEMENT_ID,
+      'Remo con mancuerna a una mano',
+      'strength',
+      'organization',
+    ),
+    aliases: [],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000004',
+      'Zancada lateral con banda',
+      'strength',
+      'organization',
+      true,
+    ),
+    aliases: [],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000005',
+      'Rotación torácica',
+      'mobility',
+      'global',
+    ),
+    aliases: ['Thoracic rotation'],
+  },
+]
+
+/*
+ * The global activity types, each with the family its steps take, as
+ * `catalog.list_activity_types()` answers them. One has no default result
+ * contract in force, so it names no family and can hold no step.
+ */
+export const STRENGTH_ACTIVITY_TYPE_ID = '01991600-b000-7000-8000-000000000001'
+export const INTERVAL_ACTIVITY_TYPE_ID = '01991600-b000-7000-8000-000000000002'
+
+export const activityTypeCatalog: StudioApiFixture['activityTypes'] = [
+  {
+    id: STRENGTH_ACTIVITY_TYPE_ID,
+    discipline_code: 'strength',
+    code: 'gym_strength',
+    name: 'Fuerza en gimnasio',
+    activity_family: 'strength',
+  },
+  {
+    id: INTERVAL_ACTIVITY_TYPE_ID,
+    discipline_code: 'strength',
+    code: 'circuit',
+    name: 'Circuito por intervalos',
+    activity_family: 'interval',
+  },
+  {
+    id: '01991600-b000-7000-8000-000000000003',
+    discipline_code: 'strength',
+    code: 'plyometrics',
+    name: 'Pliometría',
+    activity_family: null,
+  },
+  {
+    id: '01991600-b000-7000-8000-000000000004',
+    discipline_code: 'mobility',
+    code: 'guided_mobility',
+    name: 'Movilidad guiada',
+    activity_family: 'mobility',
+  },
+]
+
+/*
  * The four template states the content screen tells apart, one fixture each.
  *
  * The listing gives a template's versions as `SessionTemplateVersionSummary`,
@@ -198,8 +349,29 @@ export const publishedTemplate = {
     content_schema_version: 1,
     content: {
       title: 'Fuerza tren superior',
-      activity_type_id: '01991600-b000-7000-8000-000000000001',
-      steps: [],
+      activity_type_id: STRENGTH_ACTIVITY_TYPE_ID,
+      // One step, in the shape the current editor writes: sets one by one.
+      steps: [
+        {
+          position: 1,
+          movement_id: STRENGTH_GLOBAL_MOVEMENT_ID,
+          activity_type_id: null,
+          notes: null,
+          superset_group: null,
+          target: {
+            family: 'strength',
+            sets: [1, 2, 3].map((order) => ({
+              set_order: order,
+              kind: 'normal',
+              target_reps: 8,
+              target_load_value: 40,
+              target_load_unit_code: 'kg',
+              target_rpe: null,
+            })),
+            target_rest_seconds: 90,
+          },
+        },
+      ],
     },
     derived_from_version_id: null,
     etag: '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
@@ -236,7 +408,8 @@ export const unpublishedTemplate = {
     content_schema_version: 1,
     content: {
       title: 'Movilidad matutina',
-      activity_type_id: '01991600-b000-7000-8000-000000000001',
+      // A mobility template declares a mobility type; the editor opens it now.
+      activity_type_id: '01991600-b000-7000-8000-000000000004',
       steps: [],
     },
     derived_from_version_id: null,
@@ -1129,12 +1302,22 @@ export function createStudioApiFixture(
     membershipTerminationOutcome: 'terminated',
     membershipResignationOutcome: 'resigned',
     organizationPrograms: [publishedProgram, archivedProgram],
-    organizationSessionTemplates: [
+    // Copies: drafts are editable now, and a save must not reach the next test.
+    organizationSessionTemplates: structuredClone([
       publishedTemplate,
       unpublishedTemplate,
       adaptedTemplate,
       archivedTemplate,
+    ]),
+    disciplines: [
+      { code: 'strength', name: 'Fuerza' },
+      { code: 'mobility', name: 'Movilidad' },
     ],
+    templateCreateOutcome: 'created',
+    movements: structuredClone(movementLibrary),
+    activityTypes: structuredClone(activityTypeCatalog),
+    draftSaveOutcome: 'saved',
+    publishedContents: {},
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1281,6 +1464,207 @@ function defaultResponse(
       body: {
         data: fixture.organizationSessionTemplates,
         page: { has_more: false, next_cursor: null },
+      },
+    }
+  }
+  if (request.method === 'GET' && request.path === '/studio/v1/catalog/disciplines') {
+    return { status: 200, body: { items: fixture.disciplines } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/movements$/.test(request.path)
+  ) {
+    /*
+     * The route's rules, written where the simulator can apply them: names and
+     * other names matched anywhere ignoring case but not accents, the archived
+     * left out unless asked for, name order, and an opaque cursor per page.
+     */
+    const params = new URLSearchParams(request.search)
+    const term = (params.get('q') ?? '').trim().toLocaleLowerCase('es-CO')
+    const discipline = params.get('discipline')
+    const includeArchived = params.get('include_archived') === 'true'
+    const limit = Number(params.get('limit') ?? '25')
+    const offset = Number((params.get('cursor') ?? 'movement-offset-0').split('-').at(-1))
+    const matches = fixture.movements
+      .filter(({ movement, aliases }) => {
+        if (!includeArchived && movement.archived === true) return false
+        if (discipline && movement.discipline_code !== discipline) return false
+        if (!term) return true
+        return [String(movement.name), ...aliases].some((name) =>
+          name.toLocaleLowerCase('es-CO').includes(term),
+        )
+      })
+      .map(({ movement }) => movement)
+      .toSorted((left, right) => String(left.name).localeCompare(String(right.name), 'es'))
+    const data = matches.slice(offset, offset + limit)
+    const hasMore = offset + limit < matches.length
+    return {
+      status: 200,
+      body: {
+        data,
+        page: {
+          has_more: hasMore,
+          next_cursor: hasMore ? `movement-offset-${offset + limit}` : null,
+        },
+      },
+    }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates$/.test(request.path)
+  ) {
+    if (fixture.templateCreateOutcome === 'not-found') {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    // What `planning.create_session_template` writes: an organization-owned
+    // template in `draft`, and a first draft holding the trimmed name and nothing else.
+    const organizationId = request.path.split('/')[4] ?? ''
+    const body = objectValue(request.body)
+    const sequence = String(fixture.organizationSessionTemplates.length + 1).padStart(3, '0')
+    const templateId = `01991600-a000-7000-8000-000000000${sequence}`
+    const etag = `"sha256:${'c'.repeat(40)}${sequence}"`
+    const template = {
+      id: templateId,
+      organization_id: organizationId,
+      discipline_code: String(body.discipline_code),
+      status: 'draft',
+      author_person_id: '01991600-7000-7000-8000-000000000002',
+      draft: {
+        id: `01991600-a000-7000-8000-000000001${sequence}`,
+        template_id: templateId,
+        content_schema_version: 1,
+        content: { title: String(body.title).trim(), activity_type_id: null, steps: [] },
+        derived_from_version_id: null,
+        etag,
+        updated_at: '2026-11-10T15:04:11.000Z',
+      },
+      versions: [],
+    }
+    fixture.organizationSessionTemplates = [template, ...fixture.organizationSessionTemplates]
+    return {
+      status: 201,
+      body: template,
+      headers: {
+        ETag: etag,
+        Location: `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
+      },
+    }
+  }
+  const draftPath = /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/draft$/.exec(
+    request.path,
+  )
+  if (draftPath && (request.method === 'GET' || request.method === 'PUT')) {
+    const templateId = draftPath[1] ?? ''
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    if (!template) return { status: 404, body: problem('not-found', 404) }
+    const draft = objectValue(template.draft)
+    if (request.method === 'GET') {
+      return { status: 200, body: draft, headers: { ETag: String(draft.etag) } }
+    }
+    // The route answers 428 before anything else when the condition is missing.
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    let current = draft
+    if (fixture.draftSaveOutcome === 'stale') {
+      // Somebody else saves first; the next save from this screen is then current.
+      fixture.draftSaveOutcome = 'saved'
+      current = replaceDraft(fixture, templateId, {
+        ...objectValue(draft.content),
+        title: 'Fuerza tren superior (versión del equipo)',
+      })
+    }
+    if (expected !== current.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: current }) }
+    }
+    const saved = replaceDraft(fixture, templateId, objectValue(request.body))
+    return { status: 200, body: saved, headers: { ETag: String(saved.etag) } }
+  }
+  const versionsPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions$/.exec(request.path)
+  if (request.method === 'POST' && versionsPath) {
+    /*
+     * What `planning.publish_session_template_version` does: 428 without the
+     * condition, the current draft with a stale one, the list of what a complete
+     * draft still lacks, and — against the newest version only — the same
+     * version again when nothing changed.
+     */
+    const templateId = versionsPath[1] ?? ''
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    if (!template) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const draft = objectValue(template.draft)
+    if (expected !== draft.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: draft }) }
+    }
+    const content = objectValue(draft.content)
+    const steps = Array.isArray(content.steps) ? content.steps : []
+    const missing = [
+      ...(content.activity_type_id ? [] : ['activity-type']),
+      ...(steps.length > 0 ? [] : ['steps']),
+    ]
+    if (missing.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: missing.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
+    }
+    const versions = (Array.isArray(template.versions) ? template.versions : []).map(objectValue)
+    const latest = Math.max(0, ...versions.map((version) => Number(version.version_number)))
+    const unchanged = fixture.publishedContents[templateId] === JSON.stringify(content)
+    const number = unchanged && latest > 0 ? latest : latest + 1
+    const version = {
+      id: `01991600-a000-7000-8000-0000000002${String(number).padStart(2, '0')}`,
+      template_id: templateId,
+      version_number: number,
+      discipline_code: template.discipline_code,
+      activity_type_id: content.activity_type_id,
+      derived_from_version_id: null,
+      title: content.title,
+      status: 'published',
+      published_at: '2026-11-10T16:00:00.000Z',
+      steps,
+    }
+    if (!unchanged || latest === 0) {
+      fixture.publishedContents[templateId] = JSON.stringify(content)
+      const summary = {
+        id: version.id,
+        template_id: templateId,
+        version_number: number,
+        status: 'published',
+        published_at: version.published_at,
+      }
+      fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map(
+        (candidate) =>
+          objectValue(candidate).id === templateId
+            ? { ...objectValue(candidate), status: 'published', versions: [summary, ...versions] }
+            : candidate,
+      )
+    }
+    return { status: 201, body: version }
+  }
+  if (request.method === 'GET' && request.path === '/studio/v1/catalog/activity-types') {
+    return { status: 200, body: { items: fixture.activityTypes } }
+  }
+  const movementPath = /^\/studio\/v1\/organizations\/[^/]+\/movements\/([^/]+)$/.exec(request.path)
+  if (request.method === 'GET' && movementPath) {
+    const entry = fixture.movements.find(({ movement }) => movement.id === movementPath[1])
+    if (!entry) return { status: 404, body: problem('not-found', 404) }
+    // `OrganizationMovement`: the search's shape plus what an edit needs.
+    return {
+      status: 200,
+      body: {
+        ...entry.movement,
+        revision: 1,
+        aliases: entry.aliases,
+        variant_of: null,
+        name_locked: false,
       },
     }
   }
@@ -2217,6 +2601,35 @@ function credentials(fixture: StudioApiFixture): Array<Record<string, unknown>> 
   return Array.isArray(value) ? (value as Array<Record<string, unknown>>) : []
 }
 
+/**
+ * What `planning.replace_session_template_draft` writes: the content whole, a
+ * new ETag and a new time — or nothing new at all when the content is the same,
+ * because an unchanged replacement keeps its ETag. The template in the list is
+ * replaced rather than mutated, so the library reads the new name.
+ */
+function replaceDraft(
+  fixture: StudioApiFixture,
+  templateId: string,
+  content: Record<string, unknown>,
+): Record<string, unknown> {
+  const template = fixture.organizationSessionTemplates
+    .map(objectValue)
+    .find((candidate) => candidate.id === templateId)
+  const previous = objectValue(template?.draft)
+  if (JSON.stringify(previous.content) === JSON.stringify(content)) return previous
+  const revision = Number(/(\d+)"$/.exec(String(previous.etag))?.[1] ?? '0') + 1
+  const draft = {
+    ...previous,
+    content,
+    etag: `"sha256:${'d'.repeat(43 - String(revision).length)}${revision}"`,
+    updated_at: `2026-11-10T15:${String(10 + revision).padStart(2, '0')}:00.000Z`,
+  }
+  fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((candidate) =>
+    objectValue(candidate).id === templateId ? { ...objectValue(candidate), draft } : candidate,
+  )
+  return draft
+}
+
 function appendCredential(fixture: StudioApiFixture, credential: Record<string, unknown>): void {
   if (fixture.me.profile) fixture.me.profile.credentials = [credential, ...credentials(fixture)]
 }
@@ -2313,4 +2726,23 @@ function foldForSearch(value: string): string {
 
 export function error(code: string, detail?: string): { error: { code: string; detail?: string } } {
   return { error: { code, ...(detail ? { detail } : {}) } }
+}
+
+/**
+ * An RFC 9457 answer, which is what the content block's routes send instead of
+ * the `{ error }` envelope. Extensions such as `errors` and `current_state` ride
+ * alongside, as the API puts them.
+ */
+export function problem(
+  code: string,
+  status: number,
+  extensions: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    type: `https://errors.allfit.invalid/${code}`,
+    title: code,
+    status,
+    request_id: '01991600-ffff-7000-8000-000000000001',
+    ...extensions,
+  }
 }

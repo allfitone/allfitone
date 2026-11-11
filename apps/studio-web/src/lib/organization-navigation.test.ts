@@ -18,6 +18,24 @@ describe('organization workspace navigation', () => {
     })
   })
 
+  test('resolves the new template title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId)).toEqual({
+      title: 'Nueva plantilla',
+    })
+  })
+
+  test('resolves the template draft title, without taking `new` for an id', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Plantilla' })
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId).title).toBe(
+      'Nueva plantilla',
+    )
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

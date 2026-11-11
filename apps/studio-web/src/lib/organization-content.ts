@@ -70,7 +70,12 @@ export interface ContentVersion {
   derived_from_version_id: string | null
 }
 
-export function canReadContent(
+/**
+ * One capability reads the library and writes it: `planning.assert_manage_content`
+ * guards listing, creating, editing and publishing alike. Retiring is the
+ * exception, and asks for the owner or admin role on its own.
+ */
+export function canManageContent(
   roles: readonly string[],
   catalog: readonly OrganizationRole[] | undefined,
 ): boolean {

@@ -6956,6 +6956,8 @@ export interface components {
       discipline_code: string
       code: string
       name: string
+      /** @description The family of target a step of this type takes, read from its effective default result contract, the same one the template validator reads. Null when no default contract is in force, and then every target is refused, so an editor offers none rather than guessing. */
+      activity_family: components['schemas']['ActivityFamily'] | null
     }
     CatalogActivityTypeList: {
       items: components['schemas']['CatalogActivityType'][]
