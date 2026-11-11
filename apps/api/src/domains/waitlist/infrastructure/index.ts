@@ -12,6 +12,9 @@ import type {
   WaitlistDatabase,
   WaitlistEmailRequestResult,
   WaitlistJoinResult,
+  WaitlistLanguage,
+  WaitlistLeaveResult,
+  WaitlistLinkResult,
 } from '../domain/index.js'
 
 type JoinRow = {
@@ -56,6 +59,37 @@ export function createWaitlistDatabase(): WaitlistDatabase {
           ${tokens.keyVersion}::smallint
         )`
       if (!row) throw new Error('PostgreSQL did not answer the waitlist email request')
+      return row.outcome
+    },
+
+    async readLink(tokenHash, connection): Promise<WaitlistLinkResult> {
+      const [row] = await database()<
+        Array<{
+          outcome: 'found' | 'invalid' | 'rate_limited'
+          referral_code: string | null
+          referrals: number | null
+          language: WaitlistLanguage | null
+          confirmed: boolean | null
+        }>
+      >`select * from waitlist.read_my_link(${Buffer.from(tokenHash)}, ${Buffer.from(connection)})`
+      if (!row) throw new Error('PostgreSQL did not answer the waitlist link')
+      if (row.outcome !== 'found') return { outcome: row.outcome }
+      if (!row.referral_code || !row.language) {
+        throw new Error('A waitlist link came back without its sign-up')
+      }
+      return {
+        outcome: 'found',
+        referralCode: row.referral_code,
+        referrals: row.referrals ?? 0,
+        language: row.language,
+        confirmed: row.confirmed === true,
+      }
+    },
+
+    async leave(tokenHash, connection): Promise<WaitlistLeaveResult> {
+      const [row] = await database()<Array<{ outcome: WaitlistLeaveResult }>>`
+        select * from waitlist.leave(${Buffer.from(tokenHash)}, ${Buffer.from(connection)})`
+      if (!row) throw new Error('PostgreSQL did not answer the waitlist departure')
       return row.outcome
     },
   }

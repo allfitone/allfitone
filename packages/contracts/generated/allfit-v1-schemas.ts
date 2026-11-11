@@ -20907,6 +20907,40 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  WaitlistLink: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['referral_code', 'referrals', 'language', 'confirmed'],
+    properties: {
+      referral_code: {
+        type: 'string',
+      },
+      referrals: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Sign-ups that joined with the code, confirmed and count.',
+      },
+      language: {
+        type: 'string',
+        enum: ['es', 'en'],
+      },
+      confirmed: {
+        type: 'boolean',
+        description: 'Whether this sign-up confirmed its own email.',
+      },
+    },
+  },
+  WaitlistPrivateLinkRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['token'],
+    properties: {
+      token: {
+        type: 'string',
+        maxLength: 256,
+      },
+    },
+  },
   WaitlistSignupAlreadyListed: {
     type: 'object',
     additionalProperties: false,

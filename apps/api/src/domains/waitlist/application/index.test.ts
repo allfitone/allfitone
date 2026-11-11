@@ -34,7 +34,8 @@ function setup(environment: NodeJS.ProcessEnv = ENVIRONMENT) {
     fingerprints: WaitlistFingerprints[]
     tokens: WaitlistEmailTokens[]
     confirmed: Array<{ hash: Uint8Array; connection: Uint8Array }>
-  } = { fingerprints: [], tokens: [], confirmed: [] }
+    privateLinks: Array<{ use: 'read' | 'leave'; hash: Uint8Array }>
+  } = { fingerprints: [], tokens: [], confirmed: [], privateLinks: [] }
   const database: WaitlistDatabase = {
     join: async (_input, fingerprints, tokens) => {
       seen.fingerprints.push(fingerprints)
@@ -49,6 +50,14 @@ function setup(environment: NodeJS.ProcessEnv = ENVIRONMENT) {
       seen.fingerprints.push({ connection })
       seen.tokens.push(tokens)
       return 'accepted'
+    },
+    readLink: async (hash) => {
+      seen.privateLinks.push({ use: 'read', hash })
+      return { outcome: 'invalid' }
+    },
+    leave: async (hash) => {
+      seen.privateLinks.push({ use: 'leave', hash })
+      return 'invalid'
     },
   }
   return { seen, service: createWaitlistService(database, environment) }
@@ -165,6 +174,19 @@ describe('T-WL-UNIT-01 tokens', () => {
     await service.confirm(token, { address: '203.0.113.7' })
 
     expect(hex(seen.confirmed[0]?.hash)).toBe(hex(hashInvitationToken(token)))
+  })
+
+  test('reading «mi link» and leaving send the hash of the private token', async () => {
+    const { seen, service } = setup()
+    const token = createWaitlistToken('0199b000-0000-7000-8000-000000000032', TOKEN_KEY)
+
+    await service.readLink(token, { address: '203.0.113.7' })
+    await service.leave(token, { address: '203.0.113.7' })
+
+    expect(seen.privateLinks.map(({ use, hash }) => [use, hex(hash)])).toEqual([
+      ['read', hex(hashInvitationToken(token))],
+      ['leave', hex(hashInvitationToken(token))],
+    ])
   })
 })
 

@@ -1,5 +1,5 @@
 /**
- * `T-WL-API-01` — the waitlist routes against the contract (`OP-WL-001` to `OP-WL-003`).
+ * `T-WL-API-01` — the waitlist routes against the contract (`OP-WL-001` to `OP-WL-005`).
  *
  * The assertions that carry weight:
  *
@@ -44,10 +44,12 @@ interface Calls {
   join: Array<{ input: WaitlistJoinInput; visitor: WaitlistVisitor }>
   confirm: Array<{ token: string; visitor: WaitlistVisitor }>
   requestEmail: Array<{ email: string; visitor: WaitlistVisitor }>
+  readLink: string[]
+  leave: string[]
 }
 
 function setup(overrides: Partial<WaitlistService> = {}, environment = ENVIRONMENT) {
-  const calls: Calls = { join: [], confirm: [], requestEmail: [] }
+  const calls: Calls = { join: [], confirm: [], requestEmail: [], readLink: [], leave: [] }
   const service: WaitlistService = {
     join: async (input, visitor): Promise<WaitlistJoinResult> => {
       calls.join.push({ input, visitor })
@@ -61,6 +63,20 @@ function setup(overrides: Partial<WaitlistService> = {}, environment = ENVIRONME
       calls.requestEmail.push({ email, visitor })
       return 'accepted'
     },
+    readLink: async (token) => {
+      calls.readLink.push(token)
+      return {
+        outcome: 'found',
+        referralCode: 'KEVN7QHX',
+        referrals: 4,
+        language: 'es',
+        confirmed: true,
+      }
+    },
+    leave: async (token) => {
+      calls.leave.push(token)
+      return 'left'
+    },
     ...overrides,
   }
   const app = spaceWaitlistRoutes(service, environment)
@@ -70,7 +86,13 @@ function setup(overrides: Partial<WaitlistService> = {}, environment = ENVIRONME
 }
 
 describe('T-WL-API-01 the routes exist only for space-web', () => {
-  const paths = ['/waitlist/signups', '/waitlist/confirmations', '/waitlist/email-requests']
+  const paths = [
+    '/waitlist/signups',
+    '/waitlist/confirmations',
+    '/waitlist/email-requests',
+    '/waitlist/link-reads',
+    '/waitlist/departures',
+  ]
 
   test.each(paths)('%s answers not-found without the secret', async (path) => {
     const { calls, post } = setup()
@@ -80,7 +102,7 @@ describe('T-WL-API-01 the routes exist only for space-web', () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get('cache-control')).toBe('no-store')
-    expect(calls).toEqual({ join: [], confirm: [], requestEmail: [] })
+    expect(calls).toEqual({ join: [], confirm: [], requestEmail: [], readLink: [], leave: [] })
   })
 
   test('a wrong secret answers the same', async () => {
@@ -277,5 +299,84 @@ describe('T-WL-API-01 asking for the email again (OP-WL-003)', () => {
     const { post } = setup({ requestEmail: async () => 'rate_limited' })
 
     expect((await post('/waitlist/email-requests', { email: 'ana@example.com' })).status).toBe(429)
+  })
+})
+
+describe('T-WL-API-01 reading «mi link» (OP-WL-004)', () => {
+  test('the private token reads the code, the counter and the state, and nothing else', async () => {
+    const { calls, post } = setup()
+
+    const response = await post('/waitlist/link-reads', { token: TOKEN })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(await response.json()).toEqual({
+      referral_code: 'KEVN7QHX',
+      referrals: 4,
+      language: 'es',
+      confirmed: true,
+    })
+    expect(calls.readLink).toEqual([TOKEN])
+  })
+
+  test('a link the database does not know answers not-found', async () => {
+    const { post } = setup({ readLink: async () => ({ outcome: 'invalid' }) })
+
+    expect((await post('/waitlist/link-reads', { token: TOKEN })).status).toBe(404)
+  })
+
+  test('a string that cannot be a token answers the same, without asking', async () => {
+    const { calls, post } = setup()
+
+    expect((await post('/waitlist/link-reads', { token: 'short' })).status).toBe(404)
+    expect(calls.readLink).toEqual([])
+  })
+
+  test('a body without a token is malformed', async () => {
+    const { post } = setup()
+
+    expect((await post('/waitlist/link-reads', {})).status).toBe(400)
+  })
+
+  test('the limit per connection answers 429 with when to come back', async () => {
+    const { post } = setup({ readLink: async () => ({ outcome: 'rate_limited' }) })
+
+    const response = await post('/waitlist/link-reads', { token: TOKEN })
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('retry-after')).toBe('3600')
+  })
+})
+
+describe('T-WL-API-01 leaving (OP-WL-005)', () => {
+  test('the private token leaves the list, and the answer has no body', async () => {
+    const { calls, post } = setup()
+
+    const response = await post('/waitlist/departures', { token: TOKEN })
+
+    expect(response.status).toBe(204)
+    expect(await response.text()).toBe('')
+    expect(calls.leave).toEqual([TOKEN])
+  })
+
+  test('a link whose sign-up already left answers not-found', async () => {
+    const { post } = setup({ leave: async () => 'invalid' })
+
+    expect((await post('/waitlist/departures', { token: TOKEN })).status).toBe(404)
+  })
+
+  test('a string that cannot be a token deletes nothing', async () => {
+    const { calls, post } = setup()
+
+    expect((await post('/waitlist/departures', { token: 'short' })).status).toBe(404)
+    expect(calls.leave).toEqual([])
+  })
+
+  test('a request that does not say who the visitor is is refused', async () => {
+    const { calls, post } = setup()
+    const { 'x-allfit-visitor-address': _address, ...headers } = HEADERS
+
+    expect((await post('/waitlist/departures', { token: TOKEN }, headers)).status).toBe(400)
+    expect(calls.leave).toEqual([])
   })
 })

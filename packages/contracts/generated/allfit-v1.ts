@@ -5941,6 +5941,46 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/waitlist/link-reads': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Read my waitlist link and counter
+     * @description Reads the code and the counter of the sign-up a private link belongs to. The token travels in the body because it is a bearer credential. The answer never names the people who joined with the code.
+     */
+    post: operations['readSpaceWaitlistLink']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/departures': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Leave the waitlist
+     * @description Deletes the sign-up a private link belongs to, with every link it ever received. The people it invited stay on the list. A link whose sign-up already left answers like one that never existed.
+     */
+    post: operations['leaveSpaceWaitlist']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
@@ -5984,6 +6024,18 @@ export interface components {
     WaitlistEmailRequest: {
       /** Format: email */
       email: string
+    }
+    WaitlistPrivateLinkRequest: {
+      token: string
+    }
+    WaitlistLink: {
+      referral_code: string
+      /** @description Sign-ups that joined with the code, confirmed and count. */
+      referrals: number
+      /** @enum {string} */
+      language: 'es' | 'en'
+      /** @description Whether this sign-up confirmed its own email. */
+      confirmed: boolean
     }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
     ScopeResourceRule: {
@@ -24448,6 +24500,74 @@ export interface operations {
     responses: {
       /** @description Accepted, whether or not the address is on the waitlist */
       202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  readSpaceWaitlistLink: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistPrivateLinkRequest']
+      }
+    }
+    responses: {
+      /** @description The sign-up's own code, counter and state */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistLink']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  leaveSpaceWaitlist: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistPrivateLinkRequest']
+      }
+    }
+    responses: {
+      /** @description The sign-up was deleted */
+      204: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
           [name: string]: unknown

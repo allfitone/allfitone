@@ -44,6 +44,20 @@ export type WaitlistConfirmationResult =
 
 export type WaitlistEmailRequestResult = 'accepted' | 'rate_limited'
 
+/** What the private link reads: the person's own code and counter, and nobody else. */
+export type WaitlistLinkResult =
+  | {
+      outcome: 'found'
+      referralCode: string
+      referrals: number
+      language: WaitlistLanguage
+      confirmed: boolean
+    }
+  | { outcome: 'invalid' }
+  | { outcome: 'rate_limited' }
+
+export type WaitlistLeaveResult = 'left' | 'invalid' | 'rate_limited'
+
 /** A token as the database receives it: the identifier it is derived from, and its hash. */
 export interface WaitlistTokenRecord {
   id: string
@@ -73,6 +87,8 @@ export interface WaitlistDatabase {
     connection: Uint8Array,
     tokens: WaitlistEmailTokens,
   ): Promise<WaitlistEmailRequestResult>
+  readLink(tokenHash: Uint8Array, connection: Uint8Array): Promise<WaitlistLinkResult>
+  leave(tokenHash: Uint8Array, connection: Uint8Array): Promise<WaitlistLeaveResult>
 }
 
 export class WaitlistError extends Error {

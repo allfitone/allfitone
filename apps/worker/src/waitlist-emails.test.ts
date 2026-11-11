@@ -71,7 +71,7 @@ function processor(
   })
 }
 
-test('T-WRK-WL-01 the confirmation email carries the three links, each with its own token', async () => {
+test('T-WRK-WL-01 the confirmation email carries its links, each with the right token', async () => {
   const acknowledged: string[] = []
   const sent: EmailMessage[] = []
 
@@ -95,6 +95,9 @@ test('T-WRK-WL-01 the confirmation email carries the three links, each with its 
     `http://localhost:3002/es/waitlist/referrals#token=${privateToken}`,
   )
   expect(sent[0]?.text).toContain('http://localhost:3002/es/waitlist?ref=KEVN7QHX')
+  // Leaving is authorized by the private token, never by the confirmation one.
+  expect(sent[0]?.text).toContain(`http://localhost:3002/es/waitlist/leave#token=${privateToken}`)
+  expect(sent[0]?.text).not.toContain(`waitlist/leave#token=${confirmationToken}`)
   expect(confirmationToken).not.toBe(privateToken)
 })
 
@@ -115,6 +118,7 @@ test('T-WRK-WL-02 a confirmed address gets its link in its own language, and no 
   expect(sent[0]?.subject).toBe('Your Allfit Space waitlist link')
   expect(sent[0]?.text).toContain('http://localhost:3002/en/waitlist?ref=KEVN7QHX')
   expect(sent[0]?.text).toContain('http://localhost:3002/en/waitlist/referrals#token=')
+  expect(sent[0]?.text).toContain('http://localhost:3002/en/waitlist/leave#token=')
   expect(sent[0]?.text).not.toContain('waitlist/confirm')
 })
 
