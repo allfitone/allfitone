@@ -100,13 +100,13 @@ test('coach sees only the governed role catalog and never requests the team dire
     await cards.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-role-card'))),
   ).toEqual(['owner', 'admin', 'coach', 'staff'])
   /*
-   * Sixteen and fourteen since `manage_content` was added to both: the content
-   * block's own migration grants it to owner and admin, and the simulator's
-   * catalogue had kept it on coach alone — so an owner could not have read the
-   * content screen in a test while production let them.
+   * What `organizations.role_capabilities` holds. `manage_content` went to
+   * owner and admin with the content block's migration, and `archive_movements`
+   * is theirs too; the simulator had left both out at one time, so a test could
+   * not do what production let an owner do.
    */
-  await expect(page.locator('[data-role-card="owner"]')).toContainText('16 capacidades')
-  await expect(page.locator('[data-role-card="admin"]')).toContainText('14 capacidades')
+  await expect(page.locator('[data-role-card="owner"]')).toContainText('17 capacidades')
+  await expect(page.locator('[data-role-card="admin"]')).toContainText('15 capacidades')
   await expect(page.locator('[data-role-card="coach"]')).toContainText('8 capacidades')
   await expect(page.locator('[data-role-card="staff"]')).toContainText('3 capacidades')
   await expect(page.locator('[data-role-card="staff"]')).toContainText(

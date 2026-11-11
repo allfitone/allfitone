@@ -503,6 +503,22 @@ export const studioApi = {
       },
     ),
 
+  /**
+   * OP-CAT-003. Owners and admins only (`archive_movements`); a coach is `403`.
+   * No body. It converges: archiving it again answers the archived movement,
+   * and there is no way back.
+   */
+  archiveOrganizationMovement: (
+    organizationId: string,
+    movementId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}/archival`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
+    ),
+
   organizationPrograms: (
     organizationId: string,
     limit: number,

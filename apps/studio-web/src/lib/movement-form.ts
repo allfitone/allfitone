@@ -206,3 +206,19 @@ export function canArchiveMovements(
       ?.capabilities.some((capability) => capability.code === ARCHIVE_MOVEMENTS),
   )
 }
+
+/**
+ * Why an archive was refused. A coach is never offered it, so a `403` means the
+ * role changed after the page was read; a `404`, that the movement is gone.
+ */
+export function movementArchiveFailure(status: number): string {
+  if (status === 403) {
+    return 'Archivar movimientos corresponde a propietario y administración, y tu rol ya no lo permite.'
+  }
+  if (status === 404) return 'Este movimiento ya no está disponible para tu organización.'
+  if (status === 409 || status === 429) {
+    return 'Ese archivado ya está en curso. Espera un momento y reintenta.'
+  }
+  if (status === 503) return 'Archivar está pausado temporalmente. Reintenta más tarde.'
+  return 'No pudimos archivar el movimiento. Reintenta en un momento.'
+}

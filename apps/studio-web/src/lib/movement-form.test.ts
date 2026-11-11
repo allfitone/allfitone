@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   canArchiveMovements,
+  movementArchiveFailure,
   emptyMovementForm,
   movementChanges,
   movementCreateRequest,
@@ -214,5 +215,19 @@ describe('who archives', () => {
     expect(canArchiveMovements(['admin'], catalog)).toBe(true)
     expect(canArchiveMovements(['coach'], catalog)).toBe(false)
     expect(canArchiveMovements(['admin'], undefined)).toBe(false)
+  })
+})
+
+describe('archiving', () => {
+  test('says why an archive was refused, by who may do it and what moved', () => {
+    expect(movementArchiveFailure(403)).toBe(
+      'Archivar movimientos corresponde a propietario y administración, y tu rol ya no lo permite.',
+    )
+    expect(movementArchiveFailure(404)).toBe(
+      'Este movimiento ya no está disponible para tu organización.',
+    )
+    expect(movementArchiveFailure(503)).toBe(
+      'Archivar está pausado temporalmente. Reintenta más tarde.',
+    )
   })
 })

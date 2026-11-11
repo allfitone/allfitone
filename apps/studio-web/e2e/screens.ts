@@ -2288,6 +2288,55 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/content/movements/[movementId]`, archiving · HU-066 ---
+  {
+    stories: 'HU-066 · archiving, said before the click',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-066 · a movement just archived',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await page.getByRole('button', { name: 'Archivar ahora' }).click()
+      await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-066 · an archive refused',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/archival')
+          ? { status: 403, body: problem('forbidden', 403) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await page.getByRole('button', { name: 'Archivar ahora' }).click()
+      await expect(page.getByText('No se archivó')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-066 · a coach, told who archives',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Archivar un movimiento corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
   {
     stories: 'HU-064 · a movement that is not this organization’s',
     path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000999`,

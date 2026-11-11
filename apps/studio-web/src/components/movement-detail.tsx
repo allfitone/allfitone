@@ -33,10 +33,11 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
+import { MovementArchive } from './movement-archive'
 import { MovementEditor } from './movement-editor'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
-import { RELATION_LABEL } from '@/lib/movement-form'
+import { RELATION_LABEL, canArchiveMovements } from '@/lib/movement-form'
 import { disciplineName, movementScopeLabel } from '@/lib/movement-search'
 import { canManageContent } from '@/lib/organization-content'
 import { disciplineOptions } from '@/lib/session-template-create'
@@ -157,6 +158,14 @@ export function MovementDetail() {
           organizationId={organizationId}
           disciplines={disciplineOptions(disciplinesQuery.data?.items ?? [])}
         />
+      ) : null}
+      {/* HU-066 is the owner's and the admin's; a coach is told who can. */}
+      {movement.scope === 'organization' && !movement.archived ? (
+        canArchiveMovements(current.roles, rolesQuery.data?.items) ? (
+          <MovementArchive movement={movement} organizationId={organizationId} />
+        ) : (
+          <p>Archivar un movimiento corresponde a propietario y administración.</p>
+        )
       ) : null}
     </section>
   )

@@ -1148,6 +1148,7 @@ const capabilityNames = {
   close_organization: 'Cerrar la organización',
   view_assigned_directory: 'Únicamente personas asignadas',
   manage_content: 'Crear y publicar contenido de entrenamiento',
+  archive_movements: 'Archivar movimientos propios',
   assign_programs: 'Asignar programas',
   exercise_grants: 'Ejercer grants solo con relación, asignación y grant vigentes',
   observe_training: 'Observar ejecuciones autorizadas',
@@ -1178,6 +1179,8 @@ const adminCapabilities = [
    * let them.
    */
   'manage_content',
+  // `organizations.role_capabilities` gives it to owner and admin, never to coach.
+  'archive_movements',
 ] as const
 
 const coachCapabilities = [
@@ -1816,6 +1819,26 @@ function defaultResponse(
     const entry = fixture.movements.find(({ movement }) => movement.id === movementPath[1])
     if (!entry) return { status: 404, body: problem('not-found', 404) }
     return { status: 200, body: movementDocument(entry) }
+  }
+  const archivalPath = /^\/studio\/v1\/organizations\/[^/]+\/movements\/([^/]+)\/archival$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && archivalPath) {
+    // `catalog.archive_organization_movement`: the organization's own only, and
+    // converging — archiving an archived one answers it and changes nothing.
+    const entry = fixture.movements.find(
+      ({ movement }) => movement.id === archivalPath[1] && movement.scope === 'organization',
+    )
+    if (!entry) return { status: 404, body: problem('not-found', 404) }
+    if (entry.movement.archived === true) {
+      return { status: 200, body: movementDocument(entry) }
+    }
+    const archived = replaceMovement(fixture, {
+      ...entry,
+      movement: { ...entry.movement, archived: true },
+      revision: (entry.revision ?? 1) + 1,
+    })
+    return { status: 200, body: movementDocument(archived) }
   }
   if (request.method === 'PATCH' && movementPath) {
     /*
