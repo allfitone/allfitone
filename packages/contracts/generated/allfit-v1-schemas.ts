@@ -14488,12 +14488,20 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   SpaceContactCorrection: {
     type: 'object',
     additionalProperties: false,
-    required: ['phone'],
+    minProperties: 1,
+    maxProperties: 1,
+    description: 'Exactly one of `phone` or `email`.',
     properties: {
       phone: {
         type: ['string', 'null'],
         maxLength: 32,
         description: 'E.164 once spaces, dashes and parentheses are dropped; null removes it.',
+      },
+      email: {
+        type: 'string',
+        maxLength: 254,
+        description:
+          'The new address. Trimmed and lower-cased; nothing changes until its code comes back.',
       },
     },
   },
@@ -14509,6 +14517,28 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       verified: {
         type: 'boolean',
+      },
+    },
+  },
+  SpaceContactVerification: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['code'],
+    properties: {
+      code: {
+        type: 'string',
+        pattern: '^[0-9]{6}$',
+      },
+    },
+  },
+  SpaceContactVerificationResult: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['outcome'],
+    properties: {
+      outcome: {
+        type: 'string',
+        enum: ['applying'],
       },
     },
   },
@@ -14535,6 +14565,25 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     },
     description:
       'Enough to resume the onboarding and nothing more. Absent answers are null rather than omitted, so the app never has to guess whether a step was skipped or the field simply did not travel.',
+  },
+  SpaceEmailChange: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['address', 'status', 'expires_at'],
+    properties: {
+      address: {
+        type: 'string',
+      },
+      status: {
+        type: 'string',
+        enum: ['awaiting_code', 'applying'],
+      },
+      expires_at: {
+        type: 'string',
+        format: 'date-time',
+        description: 'When the code stops working; meaningless once applying.',
+      },
+    },
   },
   SpaceExecution: {
     type: 'object',
@@ -15303,13 +15352,24 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       email: {
         type: 'object',
         additionalProperties: false,
-        required: ['address', 'verified'],
+        required: ['address', 'verified', 'pending'],
         properties: {
           address: {
             type: ['string', 'null'],
           },
           verified: {
             type: 'boolean',
+          },
+          pending: {
+            description: 'The change under way, or null when there is none.',
+            oneOf: [
+              {
+                $ref: '#/components/schemas/SpaceEmailChange',
+              },
+              {
+                type: 'null',
+              },
+            ],
           },
         },
       },

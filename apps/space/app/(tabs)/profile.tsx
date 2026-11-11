@@ -2,8 +2,10 @@
  * `PF-1` · Perfil — the index of the person's account, and `HU-SP-003`'s way out.
  *
  * The screen is a table of contents: who is signed in, the plan they are on, and then
- * the account in five groups — the person, their gyms, privacy, plan and payments, and
- * access. Each row carries the one fact that tells somebody whether to open it.
+ * the account in five groups — the person, their account and access, their gyms,
+ * privacy, and plan and payments. The account sits right after the person because it is
+ * where they change who they are and how they sign in. Each row carries the one fact that
+ * tells somebody whether to open it.
  *
  * **Only what exists opens.** Most of these parts of the account are their own stories
  * and have no screen yet. They are listed so the shape of the account is visible, but
@@ -218,6 +220,34 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
           />
         </ProfileGroup>
 
+        <ProfileGroup label="Cuenta">
+          <ProfileRow
+            icon="person"
+            title="Identidad y acceso"
+            caption="Fitness ID, correo, teléfono y contraseña"
+            end="open"
+            onPress={() => router.push('/me/identity')}
+          />
+          <ProfileRow
+            icon="notification"
+            title="Avisos"
+            caption="Qué te avisamos y por dónde"
+            end="soon"
+          />
+          <ProfileRow
+            icon="settings"
+            title="Preferencias"
+            caption="Kilos, kilómetros e idioma"
+            end="soon"
+          />
+          <ProfileRow
+            icon="activity"
+            title="Apple Health"
+            caption="Publica tus entrenos"
+            end="soon"
+          />
+        </ProfileGroup>
+
         <ProfileGroup label="Tus gimnasios">
           {gyms.length > 0 ? (
             gyms.map((gym) => (
@@ -292,34 +322,6 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
             caption="Los que ofrece tu gimnasio y los que pagas"
             end="open"
             onPress={() => router.push('/subscriptions')}
-          />
-        </ProfileGroup>
-
-        <ProfileGroup label="Cuenta">
-          <ProfileRow
-            icon="person"
-            title="Identidad y acceso"
-            caption="Fitness ID, correo, teléfono y contraseña"
-            end="open"
-            onPress={() => router.push('/me/identity')}
-          />
-          <ProfileRow
-            icon="notification"
-            title="Avisos"
-            caption="Qué te avisamos y por dónde"
-            end="soon"
-          />
-          <ProfileRow
-            icon="settings"
-            title="Preferencias"
-            caption="Kilos, kilómetros e idioma"
-            end="soon"
-          />
-          <ProfileRow
-            icon="activity"
-            title="Apple Health"
-            caption="Publica tus entrenos"
-            end="soon"
           />
         </ProfileGroup>
 

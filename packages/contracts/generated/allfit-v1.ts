@@ -1335,10 +1335,32 @@ export interface paths {
     options?: never
     head?: never
     /**
-     * Correct my contact phone
-     * @description HU-SP-076, the phone half (ADR-050). V1 sends no SMS, so the phone is a contact value: it is saved in E.164 at once and unverified, and `null` removes it. Spaces, dashes and parentheses are dropped before checking. Only a verified number is unique, so a number somebody else holds unverified is accepted. The email half, with its verification, is not part of this contract yet.
+     * Correct my contact phone, or ask to change my email
+     * @description HU-SP-076. Exactly one of `phone` or `email`.
+     *     **Phone** (ADR-050): V1 sends no SMS, so the phone is a contact value. It is saved in E.164 at once and unverified, and `null` removes it. Spaces, dashes and parentheses are dropped before checking. Only a verified number is unique, so a number somebody else holds unverified is accepted. Answers 200.
+     *     **Email** (TECH-44): nothing changes yet. A code goes to the new address, valid for 30 minutes, and the change waits for `POST /space/v1/me/contact/verification`. Answers 202 with the pending change. A malformed address, her own and one somebody else holds are the same 422, so nothing says who has an account. Asking again replaces the open request with a new code; more than five in an hour, or one while a change is being applied, is 409.
      */
     patch: operations['correctSpaceContact']
+    trace?: never
+  }
+  '/space/v1/me/contact/verification': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Confirm my new email with its code
+     * @description HU-SP-077 (TECH-44). The six-digit code sent to the new address. The right one answers 200 `applying`: the worker updates the sign-in address in WorkOS, warns the previous address, closes every other session (this one stays) and then promotes the new address, verified. A wrong or expired code is 422; the fifth wrong one ends the request, which is 409, and a new code has to be asked for.
+     */
+    post: operations['verifySpaceContact']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
     trace?: never
   }
   '/space/v1/profile': {
@@ -8407,6 +8429,8 @@ export interface components {
       email: {
         address: string | null
         verified: boolean
+        /** @description The change under way, or null when there is none. */
+        pending: components['schemas']['SpaceEmailChange'] | null
       }
       phone: components['schemas']['SpaceContactPhone']
       /** @description How the person signs in, by provider and link date; never the provider's subject. */
@@ -8421,9 +8445,29 @@ export interface components {
       number: string | null
       verified: boolean
     }
+    /** @description Exactly one of `phone` or `email`. */
     SpaceContactCorrection: {
       /** @description E.164 once spaces, dashes and parentheses are dropped; null removes it. */
-      phone: string | null
+      phone?: string | null
+      /** @description The new address. Trimmed and lower-cased; nothing changes until its code comes back. */
+      email?: string
+    }
+    SpaceEmailChange: {
+      address: string
+      /** @enum {string} */
+      status: 'awaiting_code' | 'applying'
+      /**
+       * Format: date-time
+       * @description When the code stops working; meaningless once applying.
+       */
+      expires_at: string
+    }
+    SpaceContactVerification: {
+      code: string
+    }
+    SpaceContactVerificationResult: {
+      /** @enum {string} */
+      outcome: 'applying'
     }
     SpaceOwnName: {
       given_name: string
@@ -16007,6 +16051,55 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['SpaceContactPhone']
+        }
+      }
+      /** @description The email change waiting for its code */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceEmailChange']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  verifySpaceContact: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceContactVerification']
+      }
+    }
+    responses: {
+      /** @description The change is being applied */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceContactVerificationResult']
         }
       }
       400: components['responses']['BadRequest']

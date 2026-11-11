@@ -578,6 +578,30 @@ describe('revokeSessions', () => {
     expect(calls[1]?.args).toEqual({ sessionId: 's_1' })
     expect(calls[2]?.args).toEqual({ sessionId: 's_2' })
   })
+
+  test('keeps the session it is told to keep, and closes the rest', async () => {
+    const { provider, calls } = providerWith()
+
+    await provider.revokeSessions('user_01FAKE', 's_1')
+
+    expect(calls.map((c) => c.method)).toEqual(['listSessions', 'revokeSession'])
+    expect(calls[1]?.args).toEqual({ sessionId: 's_2' })
+  })
+})
+
+describe('updateEmail', () => {
+  test('changes the sign-in address already verified: Allfit proved the mailbox', async () => {
+    const { provider, calls } = providerWith()
+
+    await provider.updateEmail('user_01FAKE', 'nueva@example.test')
+
+    expect(calls).toEqual([
+      {
+        method: 'updateUser',
+        args: { userId: 'user_01FAKE', email: 'nueva@example.test', emailVerified: true },
+      },
+    ])
+  })
 })
 
 describe('error translation', () => {

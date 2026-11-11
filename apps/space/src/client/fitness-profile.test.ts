@@ -10,6 +10,11 @@ import { describe, expect, test } from 'bun:test'
 import {
   activeSince,
   contactState,
+  emailChangeProgress,
+  emailChangeSteps,
+  emailRow,
+  replacedCodeNote,
+  newEmailProblem,
   typedPhone,
   daysLine,
   fewEquipmentAtHome,
@@ -22,6 +27,7 @@ import {
   versionsLine,
   type FitnessProfile,
   type ProfileEntry,
+  type SpaceIdentity,
 } from './fitness-profile'
 
 const entry = (over: Partial<ProfileEntry>): ProfileEntry => ({
@@ -208,5 +214,79 @@ describe('«Identidad y acceso»', () => {
     expect(typedPhone('   ')).toBeNull()
     expect(typedPhone('3001112233')).toBeUndefined()
     expect(typedPhone('+0123')).toBeUndefined()
+  })
+
+  test('T-SPC-UNIT-FP-16 the email row says where a change stands and where a tap leads', () => {
+    const address = 'camila@example.test'
+    const pending = (status: 'awaiting_code' | 'applying') => ({
+      address: 'camila.nueva@example.test',
+      status,
+      expires_at: '2026-11-10T10:30:00.000Z',
+    })
+
+    expect(emailRow({ address, verified: true, pending: null })).toEqual({
+      state: 'verified',
+      caption: 'También es con el que entras.',
+      route: '/me/email',
+    })
+    expect(emailRow({ address, verified: true, pending: pending('awaiting_code') })).toEqual({
+      state: 'awaiting_code',
+      caption: 'Escribe el código que enviamos a camila.nueva@example.test',
+      route: '/me/email-code',
+    })
+    expect(emailRow({ address, verified: true, pending: pending('applying') })).toEqual({
+      state: 'applying',
+      caption: 'Cambiando tu correo a camila.nueva@example.test…',
+      route: undefined,
+    })
+    expect(emailRow({ address, verified: false, pending: null }).state).toBe('unverified')
+  })
+
+  test('T-SPC-UNIT-FP-17 a new email is checked for its shape and against the current one', () => {
+    expect(newEmailProblem(' Camila.Nueva@Example.test ', 'camila@example.test')).toBeUndefined()
+    expect(newEmailProblem('sin-arroba', 'camila@example.test')).toBe('shape')
+    expect(newEmailProblem('   ', 'camila@example.test')).toBe('shape')
+    expect(newEmailProblem('CAMILA@example.test', 'camila@example.test')).toBe('same')
+  })
+
+  test('T-SPC-UNIT-FP-18 a confirmed change is done when the new address is in force', () => {
+    const target = 'camila.nueva@example.test'
+    const email = (
+      address: string,
+      pending: 'awaiting_code' | 'applying' | null,
+    ): SpaceIdentity['email'] => ({
+      address,
+      verified: true,
+      pending: pending
+        ? { address: target, status: pending, expires_at: '2026-11-10T10:30:00.000Z' }
+        : null,
+    })
+
+    expect(emailChangeProgress(email('camila@example.test', 'applying'), target)).toBe('waiting')
+    expect(emailChangeProgress(email('Camila.Nueva@Example.test', null), target)).toBe('done')
+    expect(emailChangeProgress(email('camila@example.test', null), target)).toBe('failed')
+  })
+
+  test('T-SPC-UNIT-FP-19 asking for another address says the pending code stops working', () => {
+    const pending = (status: 'awaiting_code' | 'applying') => ({
+      address: 'antonia@example.org',
+      status,
+      expires_at: '2026-11-10T10:30:00.000Z',
+    })
+
+    expect(replacedCodeNote(pending('awaiting_code'))).toBe(
+      'Ya pediste un código para antonia@example.org. Si escribes otro correo, ese código deja de servir.',
+    )
+    expect(replacedCodeNote(pending('applying'))).toBeUndefined()
+    expect(replacedCodeNote(null)).toBeUndefined()
+  })
+
+  test('T-SPC-UNIT-FP-20 the steps show only what the app can know: applying, then done', () => {
+    expect(emailChangeSteps(false)).toEqual([
+      { label: 'Código confirmado', state: 'done' },
+      { label: 'Actualizando tu inicio de sesión', state: 'now' },
+      { label: 'Cerrando tus otras sesiones', state: 'todo' },
+    ])
+    expect(emailChangeSteps(true).map((step) => step.state)).toEqual(['done', 'done', 'done'])
   })
 })

@@ -1908,7 +1908,10 @@ export type Database = {
           action_kind: Database['identity']['Enums']['identity_action_kind']
           cancelled_at: string | null
           case_reference: string | null
+          code_attempts: number
+          code_hash: string | null
           confirmed_at: string | null
+          confirming_session_id: string | null
           contact_fingerprint: string
           contact_hint: string
           created_at: string
@@ -1922,6 +1925,7 @@ export type Database = {
           initiated_by_kind: string
           initiated_by_person_id: string
           person_id: string
+          proposed_email: string | null
           status: Database['identity']['Enums']['identity_action_status']
           updated_at: string
         }
@@ -1930,7 +1934,10 @@ export type Database = {
           action_kind: Database['identity']['Enums']['identity_action_kind']
           cancelled_at?: string | null
           case_reference?: string | null
+          code_attempts?: number
+          code_hash?: string | null
           confirmed_at?: string | null
+          confirming_session_id?: string | null
           contact_fingerprint: string
           contact_hint: string
           created_at?: string
@@ -1944,6 +1951,7 @@ export type Database = {
           initiated_by_kind: string
           initiated_by_person_id: string
           person_id: string
+          proposed_email?: string | null
           status?: Database['identity']['Enums']['identity_action_status']
           updated_at?: string
         }
@@ -1952,7 +1960,10 @@ export type Database = {
           action_kind?: Database['identity']['Enums']['identity_action_kind']
           cancelled_at?: string | null
           case_reference?: string | null
+          code_attempts?: number
+          code_hash?: string | null
           confirmed_at?: string | null
+          confirming_session_id?: string | null
           contact_fingerprint?: string
           contact_hint?: string
           created_at?: string
@@ -1966,6 +1977,7 @@ export type Database = {
           initiated_by_kind?: string
           initiated_by_person_id?: string
           person_id?: string
+          proposed_email?: string | null
           status?: Database['identity']['Enums']['identity_action_status']
           updated_at?: string
         }
@@ -2818,6 +2830,10 @@ export type Database = {
           session_id: string
         }[]
       }
+      complete_email_change: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
       consume_account_recovery_send: {
         Args: { p_person_id: string }
         Returns: undefined
@@ -3170,6 +3186,10 @@ export type Database = {
         Args: { p_person_id: string; p_type: string }
         Returns: string
       }
+      email_change_code_hash: {
+        Args: { p_code: string; p_request_id: string }
+        Returns: string
+      }
       expire_backoffice_authentication_attempts: {
         Args: { p_limit: number }
         Returns: number
@@ -3177,6 +3197,14 @@ export type Database = {
       expire_backoffice_sessions: { Args: { p_limit: number }; Returns: number }
       expire_staff_invitations: { Args: { p_limit?: number }; Returns: number }
       fail_account_recovery_delivery: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      fail_email_change_apply: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      fail_email_change_delivery: {
         Args: { p_event_id: string }
         Returns: undefined
       }
@@ -3511,6 +3539,10 @@ export type Database = {
           result: Json
         }[]
       }
+      own_email_change_document: {
+        Args: { p_person_id: string }
+        Returns: Json
+      }
       own_name_document: { Args: { p_person_id: string }; Returns: Json }
       prepare_account_recovery_delivery: {
         Args: { p_event_id: string }
@@ -3537,6 +3569,26 @@ export type Database = {
           invitation_id: string
           organization_name: string
           token_key_version: number
+        }[]
+      }
+      prepare_email_change_apply: {
+        Args: { p_event_id: string }
+        Returns: {
+          apply_state: string
+          keep_session: string
+          new_email: string
+          previous_email: string
+          request_id: string
+          subject: string
+        }[]
+      }
+      prepare_email_change_delivery: {
+        Args: { p_event_id: string }
+        Returns: {
+          contact: string
+          delivery_state: string
+          expires_at: string
+          request_id: string
         }[]
       }
       prepare_ownership_invitation_delivery: {
@@ -3722,6 +3774,10 @@ export type Database = {
           value_numeric: number
         }[]
       }
+      record_email_change_code: {
+        Args: { p_code: string; p_event_id: string }
+        Returns: undefined
+      }
       record_health_context: {
         Args: {
           p_body_area: string
@@ -3749,6 +3805,21 @@ export type Database = {
           p_subject_person_id: string
         }
         Returns: string
+      }
+      request_email_change: {
+        Args: {
+          p_command_id: string
+          p_email: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
       }
       require_account_recovery_assistant: {
         Args: { p_actor_person_id: string; p_actor_session_id: string }
@@ -4071,6 +4142,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      verify_email_change: {
+        Args: {
+          p_code: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_session_id: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       withdraw_body_photo_share: {
         Args: {
           p_body_photo_id: string
@@ -4093,9 +4180,15 @@ export type Database = {
         'pending_enrollment' | 'pending_challenge' | 'completed' | 'failed' | 'expired'
       biological_sex: 'male' | 'female'
       eligibility_result: 'pass' | 'fail' | 'review_required' | 'unknown'
-      identity_action_kind: 'account_recovery'
+      identity_action_kind: 'account_recovery' | 'email_change'
       identity_action_status:
-        'initiated' | 'awaiting_verification' | 'confirmed' | 'expired' | 'cancelled' | 'failed'
+        | 'initiated'
+        | 'awaiting_verification'
+        | 'applying'
+        | 'confirmed'
+        | 'expired'
+        | 'cancelled'
+        | 'failed'
       invitation_intent_kind:
         'membership' | 'service_relationship' | 'program_assignment' | 'ownership'
       invitation_intent_status: 'pending' | 'accepted' | 'rejected' | 'revoked' | 'expired'
@@ -6922,10 +7015,11 @@ export const Constants = {
       ],
       biological_sex: ['male', 'female'],
       eligibility_result: ['pass', 'fail', 'review_required', 'unknown'],
-      identity_action_kind: ['account_recovery'],
+      identity_action_kind: ['account_recovery', 'email_change'],
       identity_action_status: [
         'initiated',
         'awaiting_verification',
+        'applying',
         'confirmed',
         'expired',
         'cancelled',

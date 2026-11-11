@@ -105,6 +105,65 @@ export function createAccountRecoveryDeliveryFromEnv(
   return createAccountRecoveryDelivery(client.userManagement)
 }
 
+/**
+ * The two calls of an email change (TECH-44), under Space's Application like the
+ * recovery: the person changes her Fitness ID's address, and every Application reaches
+ * the same directory.
+ */
+export interface EmailChangeIdentity {
+  /** The address arrives proven by Allfit's own code, so WorkOS takes it as verified. */
+  updateEmail(subject: string, email: string): Promise<void>
+  revokeOtherSessions(subject: string, keep: string): Promise<void>
+}
+
+export function createEmailChangeIdentityFromEnv(
+  env: ProviderEnv = process.env,
+): EmailChangeIdentity {
+  const client = new WorkOS({ apiKey: required(env, 'WORKOS_API_KEY_SPACE') })
+  return createEmailChangeIdentity(client.userManagement)
+}
+
+export function createEmailChangeIdentity(
+  userManagement: Pick<WorkOSUserManagement, 'updateUser' | 'listSessions' | 'revokeSession'>,
+): EmailChangeIdentity {
+  return {
+    async updateEmail(subject, email) {
+      try {
+        await userManagement.updateUser({ userId: subject, email, emailVerified: true })
+      } catch (error) {
+        throw emailChangeFailure(error)
+      }
+    },
+    async revokeOtherSessions(subject, keep) {
+      let sessions: { data: { id: string }[] }
+      try {
+        sessions = await userManagement.listSessions(subject)
+      } catch (error) {
+        throw emailChangeFailure(error)
+      }
+      for (const session of sessions.data.filter((one) => one.id !== keep)) {
+        try {
+          await userManagement.revokeSession({ sessionId: session.id })
+        } catch (error) {
+          if (statusOf(error) !== 404) throw emailChangeFailure(error)
+        }
+      }
+    },
+  }
+}
+
+// An address WorkOS refuses, or one another of its users holds, stays refused on retry.
+function emailChangeFailure(error: unknown): AuthError {
+  const status = statusOf(error)
+  if (status === 400 || status === 404 || status === 409 || status === 422) {
+    return new AuthError('invalid_email', `email change refused with status ${status}`)
+  }
+  return new AuthError(
+    'provider_unavailable',
+    `email change failed with status ${status ?? 'none'}`,
+  )
+}
+
 export function createAccountRecoveryDelivery(
   userManagement: Pick<WorkOSUserManagement, 'createPasswordReset'>,
 ): AccountRecoveryDelivery {

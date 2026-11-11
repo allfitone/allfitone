@@ -3337,13 +3337,21 @@ paths:
       operationId: correctSpaceContact
       x-allfit-operation: OP-IDN-021
       x-allfit-cache: no-store
-      summary: Correct my contact phone
+      summary: Correct my contact phone, or ask to change my email
       description: >-
-        HU-SP-076, the phone half (ADR-050). V1 sends no SMS, so the phone is a contact
-        value: it is saved in E.164 at once and unverified, and `null` removes it.
-        Spaces, dashes and parentheses are dropped before checking. Only a verified
-        number is unique, so a number somebody else holds unverified is accepted. The
-        email half, with its verification, is not part of this contract yet.
+        HU-SP-076. Exactly one of `phone` or `email`.
+
+        **Phone** (ADR-050): V1 sends no SMS, so the phone is a contact value. It is
+        saved in E.164 at once and unverified, and `null` removes it. Spaces, dashes and
+        parentheses are dropped before checking. Only a verified number is unique, so a
+        number somebody else holds unverified is accepted. Answers 200.
+
+        **Email** (TECH-44): nothing changes yet. A code goes to the new address, valid
+        for 30 minutes, and the change waits for `POST /space/v1/me/contact/verification`.
+        Answers 202 with the pending change. A malformed address, her own and one
+        somebody else holds are the same 422, so nothing says who has an account. Asking
+        again replaces the open request with a new code; more than five in an hour, or
+        one while a change is being applied, is 409.
       security:
         - bearerAuth: []
       parameters:
@@ -3367,6 +3375,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SpaceContactPhone'
+        '202':
+          description: The email change waiting for its code
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceEmailChange'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/me/contact/verification:
+    post:
+      tags: [Space Identity]
+      operationId: verifySpaceContact
+      x-allfit-operation: OP-IDN-022
+      x-allfit-cache: no-store
+      summary: Confirm my new email with its code
+      description: >-
+        HU-SP-077 (TECH-44). The six-digit code sent to the new address. The right one
+        answers 200 `applying`: the worker updates the sign-in address in WorkOS, warns
+        the previous address, closes every other session (this one stays) and then
+        promotes the new address, verified. A wrong or expired code is 422; the fifth
+        wrong one ends the request, which is 409, and a new code has to be asked for.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpaceContactVerification'
+      responses:
+        '200':
+          description: The change is being applied
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpaceContactVerificationResult'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -21757,12 +21827,17 @@ components:
         email:
           type: object
           additionalProperties: false
-          required: [address, verified]
+          required: [address, verified, pending]
           properties:
             address:
               type: [string, 'null']
             verified:
               type: boolean
+            pending:
+              description: The change under way, or null when there is none.
+              oneOf:
+                - $ref: '#/components/schemas/SpaceEmailChange'
+                - type: 'null'
         phone:
           $ref: '#/components/schemas/SpaceContactPhone'
         accounts:
@@ -21793,12 +21868,48 @@ components:
     SpaceContactCorrection:
       type: object
       additionalProperties: false
-      required: [phone]
+      minProperties: 1
+      maxProperties: 1
+      description: Exactly one of `phone` or `email`.
       properties:
         phone:
           type: [string, 'null']
           maxLength: 32
           description: E.164 once spaces, dashes and parentheses are dropped; null removes it.
+        email:
+          type: string
+          maxLength: 254
+          description: The new address. Trimmed and lower-cased; nothing changes until its code comes back.
+    SpaceEmailChange:
+      type: object
+      additionalProperties: false
+      required: [address, status, expires_at]
+      properties:
+        address:
+          type: string
+        status:
+          type: string
+          enum: [awaiting_code, applying]
+        expires_at:
+          type: string
+          format: date-time
+          description: When the code stops working; meaningless once applying.
+    SpaceContactVerification:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+    SpaceContactVerificationResult:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [applying]
     SpaceOwnName:
       type: object
       additionalProperties: false

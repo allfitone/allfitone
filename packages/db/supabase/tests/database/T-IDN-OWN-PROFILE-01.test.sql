@@ -199,7 +199,8 @@ select is(
     'family_name', 'Rojas',
     'username', 'camilarojas',
     'active_since', '2026-07-03T10:05:00+00:00',
-    'email', jsonb_build_object('address', 'camila@example.test', 'verified', true),
+    'email', jsonb_build_object('address', 'camila@example.test', 'verified', true,
+      'pending', null),
     'phone', jsonb_build_object('number', '+573105550142', 'verified', false),
     'accounts', jsonb_build_array(jsonb_build_object(
       'provider', 'workos', 'linked_at', '2026-07-03T10:00:00+00:00'

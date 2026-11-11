@@ -1,6 +1,7 @@
 /**
  * A person's own profile and identity on /space/v1: `OP-IDN-012`, `OP-IDN-013`,
- * `OP-IDN-021` (the phone only, ADR-050), `OP-IDN-063`, `OP-IDN-064`, `OP-IDN-065`.
+ * `OP-IDN-021` and `OP-IDN-022` (the phone, ADR-050; the email change, TECH-44),
+ * `OP-IDN-063`, `OP-IDN-064`, `OP-IDN-065`.
  *
  * `HU-SP-009`, `HU-SP-013`, `HU-SP-023`, `HU-SP-096` criterion 4 and `HU-SP-098`
  * criterion 6. Everything here is about the person the token resolves to, so no route
@@ -21,10 +22,15 @@ import {
   AVAILABLE_EQUIPMENT,
   BIOLOGICAL_SEXES,
   MAX_NAME_LENGTH,
+  CODE,
+  EMAIL_SHAPE,
+  MAX_EMAIL_LENGTH,
   MAX_PHONE_LENGTH,
   USERNAME,
   e164Phone,
   type AvailableEquipmentPiece,
+  type SpaceContactPhone,
+  type SpaceEmailChange,
   type SpaceOwnBiologicalSex,
   type SpaceOwnName,
 } from '../domain/own-profile.js'
@@ -86,9 +92,31 @@ export function spaceOwnProfileRoutes(
     ),
   )
 
+  // One route, two different commands: the phone is saved, the email only asked for.
   routes.patch('/me/contact', (c) =>
-    runCommand(c, verify, ownPhone, (token, command, { phone }) =>
-      own().correctPhone(token, { ...command, phone }),
+    runCommand<Contact, SpaceContactPhone | SpaceEmailChange>(
+      c,
+      verify,
+      ownContact,
+      (token, command, contact) =>
+        'email' in contact
+          ? own().requestEmailChange(token, { ...command, email: contact.email })
+          : own().correctPhone(token, { ...command, phone: contact.phone }),
+      (resource) => c.json(resource, 'status' in resource ? 202 : 200),
+    ),
+  )
+
+  routes.post('/me/contact/verification', (c) =>
+    runCommand(
+      c,
+      verify,
+      ownCode,
+      (token, command, { code }) =>
+        own().verifyEmailChange(token, { ...command, code, sessionId: token.sessionId }),
+      ({ outcome }) =>
+        outcome === 'applying'
+          ? c.json({ outcome }, 200)
+          : problem(c, outcome === 'too_many_attempts' ? 'conflict' : 'validation-failed'),
     ),
   )
 
@@ -115,6 +143,7 @@ async function runCommand<T, R>(
   verify: TokenVerifier,
   read: (body: unknown) => T | undefined,
   execute: (token: Token, command: Command, body: T) => Promise<{ resource: R; replayed: boolean }>,
+  answer: (resource: R) => Response = (resource) => c.json(resource, 200),
 ) {
   const token = await verifiedSpaceToken(c, verify)
   if (!token) return problem(c, 'unauthenticated')
@@ -127,7 +156,7 @@ async function runCommand<T, R>(
   try {
     const result = await execute(token, command, body)
     if (result.replayed) c.header('Idempotent-Replay', 'true')
-    return c.json(result.resource, 200)
+    return answer(result.resource)
   } catch (error) {
     return spaceFailure(c, error, OPERATION)
   }
@@ -146,13 +175,28 @@ function isName(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '' && value.trim().length <= MAX_NAME_LENGTH
 }
 
-function ownPhone(body: unknown): { phone: string | null } | undefined {
+type Contact = { phone: string | null } | { email: string }
+
+function ownContact(body: unknown): Contact | undefined {
+  const email = exactObject(body, ['email'])
+  if (email) {
+    const typed = email.email
+    if (typeof typed !== 'string' || typed.length > MAX_EMAIL_LENGTH) return undefined
+    return EMAIL_SHAPE.test(typed.trim()) ? { email: typed } : undefined
+  }
   const fields = exactObject(body, ['phone'])
   if (!fields) return undefined
   if (fields.phone === null) return { phone: null }
   if (typeof fields.phone !== 'string' || fields.phone.length > MAX_PHONE_LENGTH) return undefined
   const phone = e164Phone(fields.phone)
   return phone === undefined ? undefined : { phone }
+}
+
+function ownCode(body: unknown): { code: string } | undefined {
+  const fields = exactObject(body, ['code'])
+  return fields && typeof fields.code === 'string' && CODE.test(fields.code)
+    ? { code: fields.code }
+    : undefined
 }
 
 function ownBiologicalSex(body: unknown): SpaceOwnBiologicalSex | undefined {

@@ -1,6 +1,7 @@
 import { constantTimeBearerMatches, emailBrandAssetUrl } from '@allfitone/notifications'
 import {
   createAccountRecoveryDeliveryFromEnv,
+  createEmailChangeIdentityFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
 } from '@allfitone/auth-provider'
 import { createObjectStoreFromEnv, type ObjectStore } from '@allfitone/object-store'
@@ -62,6 +63,7 @@ import {
   type MediaDisposalResult,
 } from './media-disposals.js'
 import { createEmailSenderFromEnvironment } from './email.js'
+import { createEmailChangeBatchProcessor, createEmailChangeDatabase } from './email-change.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
@@ -384,6 +386,17 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         },
     deliveryEnabled: recoveryEnabled,
   })
+  // Off until the environment says so: requests wait as «initiated», and nothing moves.
+  const emailChangeEnabled = deliveryEnabled && process.env.EMAIL_CHANGE_DELIVERY_ENABLED === 'true'
+  const emailChanges = emailChangeEnabled
+    ? createEmailChangeBatchProcessor({
+        queue,
+        database: createEmailChangeDatabase(sql),
+        identity: createEmailChangeIdentityFromEnv(),
+        email,
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   let store: ObjectStore | undefined
   const mediaDisposal = createMediaDisposalProcessor({
     database: createMediaDisposalDatabase(sql),
@@ -416,10 +429,10 @@ function processorsFromEnvironment(): WorkerJobProcessors {
       const ownership = await ownershipInvitations()
       const client = await clientInvitations()
       /*
-       * Reassignment and resignation notices, substitution questions, correction proposals and
-       * subscription notices ride the same job rather than a cron each: the same claim against the same
-       * outbox, and a separate schedule would be another thing to notice when it stops
-       * running.
+       * Reassignment and resignation notices, substitution questions, correction proposals,
+       * subscription notices and email changes ride the same job rather than a cron each:
+       * the same claim against the same outbox, and a separate schedule would be another
+       * thing to notice when it stops running.
        *
        * Summed by a fold and not by hand. With seven processors and four counters the
        * written-out version was twenty-four terms, and a sixth kind added to three of
@@ -434,6 +447,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await substitutions(),
         await correctionProposals(),
         await subscriptionNotices(),
+        await emailChanges(),
         await waitlistEmails(),
       ]
       return {
