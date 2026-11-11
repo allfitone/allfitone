@@ -2183,6 +2183,56 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No se reemplazó el borrador')).toBeVisible()
     },
   },
+  // --- template version page, retiring · HU-040 ---
+  {
+    stories: 'HU-040 · retiring a template version, said before the click',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-040 · a template version just retired',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('Esta versión está retirada')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-040 · a template version retirement refused',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/deprecation')
+          ? { status: 403, body: problem('forbidden', 403) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('No se retiró')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-040 · a coach, told who retires a template version',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Retirar una versión corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
   {
     // Criterion 1, where the draft is edited: it says what it was started from.
     stories: 'HU-039 · a draft that says the version it came from',

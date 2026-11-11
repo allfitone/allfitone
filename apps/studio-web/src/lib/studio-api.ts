@@ -596,6 +596,23 @@ export const studioApi = {
     ),
 
   /**
+   * OP-PLN-005. Owners and admins only, by role; a coach is `403`. No body. It
+   * converges, and there is no way back. Nothing that already uses the version
+   * changes: only new content can no longer take it.
+   */
+  deprecateOrganizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    versionNumber: number,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateVersion>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}/deprecation`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
+    ),
+
+  /**
    * OP-PLN-021. One published template version, whole. Another organization's
    * version and one that never existed answer the same 404.
    */

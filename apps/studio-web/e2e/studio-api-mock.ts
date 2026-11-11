@@ -1808,6 +1808,47 @@ function defaultResponse(
     )
     return { status: 200, body: draft, headers: { ETag: String(draft.etag) } }
   }
+  const templateRetirementPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions\/(\d+)\/deprecation$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && templateRetirementPath) {
+    // `planning.deprecate_session_template_version`: converging, and touching nothing else.
+    const templateId = templateRetirementPath[1] ?? ''
+    const number = Number(templateRetirementPath[2])
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    const versions = (Array.isArray(template?.versions) ? template.versions : []).map(objectValue)
+    const summary = versions.find((version) => version.version_number === number)
+    const content = summary ? fixture.templateVersionContents[String(summary.id)] : undefined
+    if (!template || !summary || !content) return { status: 404, body: problem('not-found', 404) }
+    fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((candidate) =>
+      objectValue(candidate).id === templateId
+        ? {
+            ...objectValue(candidate),
+            versions: versions.map((version) =>
+              version.version_number === number ? { ...version, status: 'deprecated' } : version,
+            ),
+          }
+        : candidate,
+    )
+    return {
+      status: 200,
+      body: {
+        id: summary.id,
+        template_id: templateId,
+        version_number: number,
+        discipline_code: template.discipline_code,
+        activity_type_id: content.activity_type_id,
+        derived_from_version_id: null,
+        title: content.title,
+        status: 'deprecated',
+        published_at: summary.published_at,
+        steps: content.steps,
+      },
+    }
+  }
   /*
    * `OP-PLN-021`, both reads: the organization in the path or a 404, and the
    * version whole with its current status. Nothing here can change a version.

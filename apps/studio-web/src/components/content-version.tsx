@@ -36,10 +36,11 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, type ReactNode } from 'react'
 
-import { DeriveFromVersion } from './content-version-actions'
+import { DeriveFromVersion, RetireTemplateVersion } from './content-version-actions'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
+  canRetireContent,
   describeTarget,
   parseVersionNumber,
   programVersionWeeks,
@@ -156,6 +157,13 @@ export function SessionTemplateVersionView() {
       {version.status === 'deprecated' ? <RetiredNote kind="template" /> : null}
       {version.status === 'published' ? (
         <DeriveFromVersion version={version} organizationId={organizationId} />
+      ) : null}
+      {version.status === 'published' ? (
+        canRetireContent(current.roles) ? (
+          <RetireTemplateVersion version={version} organizationId={organizationId} />
+        ) : (
+          <p>{RETIRE_IS_THEIRS}</p>
+        )
       ) : null}
 
       <ol data-template-steps aria-label="Pasos">
@@ -331,6 +339,9 @@ export function ProgramVersionView() {
     </section>
   )
 }
+
+// HU-040 and HU-043 are the owner's and the admin's; a coach is told who can.
+const RETIRE_IS_THEIRS = 'Retirar una versión corresponde a propietario y administración.'
 
 const IMMUTABLE = 'Una versión publicada no cambia: lo que lees hoy es lo que se entrenó con ella.'
 
