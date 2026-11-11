@@ -49,6 +49,15 @@ export interface StudioApiFixture {
    * records as a refused read, not an empty answer.
    */
   clientTrainingProfile: unknown
+  /**
+   * Her executed sessions, newest first. An empty array is what `OP-EXE-017`
+   * answers both for a person who trained nothing and for one who shares
+   * neither category — the refusal is recorded, never returned, so the two are
+   * the same answer here as in production.
+   */
+  clientExecutions: unknown[]
+  /** `stale` answers `422` to any request carrying a cursor, as a moved list does. */
+  executionsCursor: 'ok' | 'stale'
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -989,6 +998,69 @@ export const clientTrainingProfile = {
   ],
 }
 
+/*
+ * Thirty sessions so the pager is pressed for real, newest first, and the first
+ * five are every shape the row has to draw: ours and hers, one nobody closed,
+ * one with no completeness level, and one she trained in another time zone.
+ */
+function executedSession(index: number, ours: boolean, partial: Record<string, unknown> = {}) {
+  const day = String(28 - (index % 28)).padStart(2, '0')
+  return {
+    id: `0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f${String(4000 + index).padStart(4, '0')}`,
+    started_at: `2026-07-${day}T06:04:00-05:00`,
+    ended_at: `2026-07-${day}T07:01:00-05:00`,
+    timezone: 'America/Bogota',
+    activity_type_code: ours ? 'strength_training' : 'running',
+    activity_type_name: ours ? 'Entrenamiento de fuerza' : 'Carrera',
+    discipline_code: ours ? 'strength' : 'endurance',
+    achieved_level: 'detailed',
+    origin: ours ? 'relationship' : 'prior',
+    planned_session_id: ours
+      ? `0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f${String(9000 + index).padStart(4, '0')}`
+      : null,
+    applied_scope: {
+      code: ours ? 'relationship_training' : 'prior_training_history',
+      version: ours ? 4 : 2,
+    },
+    ...partial,
+  }
+}
+
+export const clientExecutions = [
+  // Ours, and it fulfilled a session we planned.
+  executedSession(0, true, {
+    started_at: '2026-07-28T06:04:00-05:00',
+    ended_at: '2026-07-28T07:01:00-05:00',
+  }),
+  // Hers: no plan of ours, and the other category.
+  executedSession(3, false, {
+    started_at: '2026-07-27T18:30:00-05:00',
+    ended_at: '2026-07-27T19:15:00-05:00',
+  }),
+  // Nobody closed it. A session with no end is not a session of no duration.
+  executedSession(1, true, {
+    started_at: '2026-07-26T06:00:00-05:00',
+    ended_at: null,
+  }),
+  // No completeness level recorded, which must not read as «partial».
+  executedSession(2, true, {
+    started_at: '2026-07-25T07:00:00-05:00',
+    ended_at: '2026-07-25T08:30:00-05:00',
+    achieved_level: null,
+  }),
+  /*
+   * Trained in Madrid: a quarter past six there is a quarter past eleven the
+   * night before in Bogotá, and the row has to show the hour she lived.
+   */
+  executedSession(4, true, {
+    started_at: '2026-07-24T06:15:00+02:00',
+    ended_at: '2026-07-24T07:05:00+02:00',
+    timezone: 'Europe/Madrid',
+  }),
+  // The tail, so the pager is pressed for real. Two in three are ours.
+  ...Array.from({ length: 25 }, (_, offset) => executedSession(offset + 5, (offset + 5) % 3 !== 0)),
+]
+
 /** An older version of the same permission: fewer fields, same person. */
 export const narrowTrainingProfile = {
   applied_scope: { code: 'relationship_training', version: 1 },
@@ -1528,6 +1600,8 @@ export function createStudioApiFixture(
     authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
     clientCard: structuredClone(clientCard),
     clientTrainingProfile: structuredClone(clientTrainingProfile),
+    clientExecutions: structuredClone(clientExecutions),
+    executionsCursor: 'ok',
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -2772,6 +2846,38 @@ function defaultResponse(
       },
     }
     return { status: 201, body: fixture.relationshipState }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/executions$/.test(request.path)
+  ) {
+    // Not attending her is the same 404 as a person who does not exist, and the
+    // card is what says whether he attends her.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    const search = new URLSearchParams(request.search ?? '')
+    const cursor = search.get('cursor')
+    if (cursor && fixture.executionsCursor === 'stale') {
+      return { status: 422, body: error('invalid-cursor') }
+    }
+    /*
+     * Paged for real rather than handed over whole: «Ver más» is the only way to
+     * a second page, and a fixture that answered everything at once would let it
+     * ship without ever being pressed. The cursor is opaque, as the route's is.
+     */
+    const limit = Math.min(Math.max(Number(search.get('limit') ?? '25'), 1), 100)
+    const from = cursor ? Number(cursor.split('-').at(-1)) : 0
+    const slice = fixture.clientExecutions.slice(from, from + limit)
+    const hasMore = from + limit < fixture.clientExecutions.length
+    return {
+      status: 200,
+      body: {
+        data: slice,
+        page: {
+          next_cursor: hasMore ? `execution-offset-${String(from + limit)}` : null,
+          has_more: hasMore,
+        },
+      },
+    }
   }
   if (
     request.method === 'GET' &&
