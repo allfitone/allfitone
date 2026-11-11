@@ -20861,4 +20861,117 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  WaitlistConfirmation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status'],
+    properties: {
+      status: {
+        type: 'string',
+        enum: ['confirmed', 'already_confirmed'],
+      },
+    },
+  },
+  WaitlistConfirmationRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['token'],
+    properties: {
+      token: {
+        type: 'string',
+        maxLength: 256,
+      },
+    },
+  },
+  WaitlistEmailRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['email'],
+    properties: {
+      email: {
+        type: 'string',
+        format: 'email',
+        maxLength: 254,
+      },
+    },
+  },
+  WaitlistSignupAlreadyListed: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status'],
+    properties: {
+      status: {
+        type: 'string',
+        const: 'already_listed',
+      },
+    },
+  },
+  WaitlistSignupJoined: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'referral_code', 'referrals'],
+    properties: {
+      status: {
+        type: 'string',
+        const: 'joined',
+      },
+      referral_code: {
+        type: 'string',
+        pattern: '^[A-HJKMNP-Z2-9]{4,16}$',
+      },
+      referrals: {
+        type: 'integer',
+        minimum: 0,
+      },
+    },
+  },
+  WaitlistSignupRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'email', 'language', 'consent', 'policy_version'],
+    properties: {
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+      email: {
+        type: 'string',
+        format: 'email',
+        maxLength: 254,
+      },
+      language: {
+        type: 'string',
+        enum: ['es', 'en'],
+      },
+      consent: {
+        type: 'boolean',
+        const: true,
+        description:
+          "The person's authorization to process their data. Without it nothing is stored.",
+      },
+      policy_version: {
+        type: 'string',
+        pattern: '^[A-Za-z0-9._-]{1,32}$',
+        description: 'The version of the privacy policy the person authorized.',
+      },
+      referral_code: {
+        type: 'string',
+        pattern: '^[A-Za-z0-9]{4,16}$',
+        description: 'The code of whoever invited them. An unknown code is ignored.',
+      },
+      utm_source: {
+        type: 'string',
+        maxLength: 64,
+      },
+      utm_medium: {
+        type: 'string',
+        maxLength: 64,
+      },
+      utm_campaign: {
+        type: 'string',
+        maxLength: 64,
+      },
+    },
+  },
 }

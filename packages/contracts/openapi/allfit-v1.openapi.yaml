@@ -84,6 +84,10 @@ tags:
     description: Personal nutrition capture and goal operations.
   - name: Studio Nutrition
     description: Authorized professional nutrition operations.
+  - name: Space Waitlist
+    description: >-
+      The Allfit Space waitlist, before a person has an account (ADR-050). Called
+      only by space-web from its server, with a shared secret.
   - name: Space Pro
     description: Allfit Pro, its plans and the store purchases that pay for it (ADR-043).
   - name: Space Payments
@@ -14906,6 +14910,129 @@ paths:
           $ref: '#/components/responses/ValidationFailed'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
+  /space/v1/waitlist/signups:
+    post:
+      tags: [Space Waitlist]
+      operationId: joinSpaceWaitlist
+      x-allfit-operation: OP-WL-001
+      x-allfit-cache: no-store
+      summary: Join the Allfit Space waitlist
+      description: >-
+        Called by space-web from its server, never by a browser. A new address
+        answers 201 with its code. An address already on the list answers 202 with
+        nothing about the sign-up behind it: its code and counter go to its inbox.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WaitlistSecret'
+        - $ref: '#/components/parameters/WaitlistVisitorAddress'
+        - $ref: '#/components/parameters/WaitlistVisitorDevice'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitlistSignupRequest'
+      responses:
+        '201':
+          description: The address joined the waitlist and its confirmation email is on its way
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistSignupJoined'
+        '202':
+          description: The address was already on the waitlist; its link goes to its inbox
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistSignupAlreadyListed'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /space/v1/waitlist/confirmations:
+    post:
+      tags: [Space Waitlist]
+      operationId: confirmSpaceWaitlistEmail
+      x-allfit-operation: OP-WL-002
+      x-allfit-cache: no-store
+      summary: Confirm the email of a waitlist sign-up
+      description: >-
+        The page behind the confirmation link posts its token when the person
+        presses the button. Opening the link changes nothing. A token that is
+        unknown, voided or expired answers 404.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WaitlistSecret'
+        - $ref: '#/components/parameters/WaitlistVisitorAddress'
+        - $ref: '#/components/parameters/WaitlistVisitorDevice'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitlistConfirmationRequest'
+      responses:
+        '200':
+          description: The email is confirmed, now or by an earlier use of the same link
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistConfirmation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /space/v1/waitlist/email-requests:
+    post:
+      tags: [Space Waitlist]
+      operationId: requestSpaceWaitlistEmail
+      x-allfit-operation: OP-WL-003
+      x-allfit-cache: no-store
+      summary: Ask for the waitlist email again
+      description: >-
+        Sends the confirmation email again to an unconfirmed address, or its link
+        to a confirmed one. The answer is the same whether the address is on the
+        list or not.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WaitlistSecret'
+        - $ref: '#/components/parameters/WaitlistVisitorAddress'
+        - $ref: '#/components/parameters/WaitlistVisitorDevice'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitlistEmailRequest'
+      responses:
+        '202':
+          description: Accepted, whether or not the address is on the waitlist
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     cookieAuth:
@@ -14930,6 +15057,36 @@ components:
       description: Opaque, host-only, HttpOnly AAL2 Backoffice session.
 
   parameters:
+    WaitlistSecret:
+      name: X-Allfit-Waitlist-Secret
+      in: header
+      required: true
+      description: >-
+        The secret space-web shares with the API. Without it the waitlist routes
+        answer 404, as if they did not exist.
+      schema:
+        type: string
+        minLength: 32
+    WaitlistVisitorAddress:
+      name: X-Allfit-Visitor-Address
+      in: header
+      required: true
+      description: >-
+        The visitor's IP address as space-web saw it. It is believed only next to
+        the secret, and stored only as a keyed hash.
+      schema:
+        type: string
+        maxLength: 64
+    WaitlistVisitorDevice:
+      name: X-Allfit-Visitor-Device
+      in: header
+      required: false
+      description: >-
+        The random identifier space-web keeps in a first-party cookie. Stored only
+        as a keyed hash.
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9_-]{16,128}$'
     BreakGlassRequestId:
       name: requestId
       in: path
@@ -15946,6 +16103,90 @@ components:
             request_id: 01JEXAMPLE0000000000000000
 
   schemas:
+    WaitlistSignupRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, language, consent, policy_version]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        language:
+          type: string
+          enum: [es, en]
+        consent:
+          type: boolean
+          const: true
+          description: The person's authorization to process their data. Without it nothing is stored.
+        policy_version:
+          type: string
+          pattern: '^[A-Za-z0-9._-]{1,32}$'
+          description: The version of the privacy policy the person authorized.
+        referral_code:
+          type: string
+          pattern: '^[A-Za-z0-9]{4,16}$'
+          description: The code of whoever invited them. An unknown code is ignored.
+        utm_source:
+          type: string
+          maxLength: 64
+        utm_medium:
+          type: string
+          maxLength: 64
+        utm_campaign:
+          type: string
+          maxLength: 64
+    WaitlistSignupJoined:
+      type: object
+      additionalProperties: false
+      required: [status, referral_code, referrals]
+      properties:
+        status:
+          type: string
+          const: joined
+        referral_code:
+          type: string
+          pattern: '^[A-HJKMNP-Z2-9]{4,16}$'
+        referrals:
+          type: integer
+          minimum: 0
+    WaitlistSignupAlreadyListed:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: already_listed
+    WaitlistConfirmationRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          maxLength: 256
+    WaitlistConfirmation:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [confirmed, already_confirmed]
+    WaitlistEmailRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
     ScopeResourceRule:
       type: object
       additionalProperties: false

@@ -35,6 +35,10 @@ import {
   createClientInvitationDeliveryDatabase,
 } from './client-invitations.js'
 import {
+  createWaitlistEmailBatchProcessor,
+  createWaitlistEmailDeliveryDatabase,
+} from './waitlist-emails.js'
+import {
   createBackofficeAuthBatchProcessor,
   createBackofficeAuthCleanupDatabase,
   type BackofficeAuthBatchResult,
@@ -391,6 +395,19 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
   })
+  // Off until space-web serves the pages these emails link to (TECH-296). Until then the
+  // events wait unclaimed, and the waitlist routes are closed anyway without their secret.
+  const waitlistEmailsEnabled =
+    deliveryEnabled && process.env.WAITLIST_EMAIL_DELIVERY_ENABLED === 'true'
+  const waitlistEmails = waitlistEmailsEnabled
+    ? createWaitlistEmailBatchProcessor({
+        queue,
+        database: createWaitlistEmailDeliveryDatabase(sql),
+        email,
+        publicBaseUrl: required('WAITLIST_PUBLIC_BASE_URL'),
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
     // team batch already runs for every pending invitation whatever it proposes.
@@ -417,6 +434,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await substitutions(),
         await correctionProposals(),
         await subscriptionNotices(),
+        await waitlistEmails(),
       ]
       return {
         ...batches.reduce(

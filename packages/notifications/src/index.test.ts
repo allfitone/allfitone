@@ -5,6 +5,7 @@ import {
   NotificationDeliveryError,
   createInvitationToken,
   createResendEmailSender,
+  createWaitlistToken,
   hashInvitationToken,
   renderProfessionalReassignedEmail,
   renderTeamInvitationEmail,
@@ -22,6 +23,21 @@ describe('team invitation tokens', () => {
 
   test('rejects keys that are not exactly 32 bytes', () => {
     expect(() => createInvitationToken('0199b000-0000-7000-8000-000000000031', 'eA==')).toThrow()
+  })
+})
+
+describe('waitlist tokens', () => {
+  test('are stable for a row and never an invitation token for the same identifier', () => {
+    const id = '0199b000-0000-7000-8000-000000000031'
+    expect(createWaitlistToken(id, KEY)).toBe(createWaitlistToken(id, KEY))
+    expect(createWaitlistToken(id, KEY)).not.toBe(createInvitationToken(id, KEY))
+    expect(createWaitlistToken(id, KEY)).not.toBe(
+      createWaitlistToken('0199b000-0000-7000-8000-000000000032', KEY),
+    )
+  })
+
+  test('reject keys that are not exactly 32 bytes', () => {
+    expect(() => createWaitlistToken('0199b000-0000-7000-8000-000000000031', 'eA==')).toThrow()
   })
 })
 
