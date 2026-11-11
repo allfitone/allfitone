@@ -211,14 +211,14 @@ test('asks once on arrival and never again on its own', async ({ page }) => {
 })
 
 /*
- * The card is the way in. Its training section is the only one with a door,
- * because it is the only one whose reads this app can serve yet.
+ * The card is the way in, and only the training category opens this screen —
+ * the profile is read by one operation, which one category names.
  */
 test('is opened from the training section of the card, and only from it', async ({ page }) => {
   await page.goto(CARD)
   await expect(page.getByRole('heading', { name: 'Entrenamiento con nosotros' })).toBeVisible()
 
-  const doors = page.locator('[data-client-card-profile-link]')
+  const doors = page.locator('[data-client-card-door="getAuthorizedClientTrainingProfile"]')
   await expect(doors).toHaveCount(1)
 
   await doors.click()

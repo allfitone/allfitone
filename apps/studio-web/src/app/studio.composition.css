@@ -134,7 +134,8 @@
 [data-credential-actions],
 [data-card-footer-actions],
 [data-billing-actions],
-[data-profile-form-actions] {
+[data-profile-form-actions],
+[data-client-card-doors] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -247,7 +248,8 @@
 [data-relationship-state],
 [data-relationship-history],
 [data-client-card-screen],
-[data-client-profile-screen] {
+[data-client-profile-screen],
+[data-client-executions-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -569,7 +571,8 @@
 [data-relationship-facts] dt,
 [data-credential-details] dt,
 [data-version-details] dt,
-[data-client-profile-group-name] {
+[data-client-profile-group-name],
+[data-client-execution-facts] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -594,7 +597,8 @@
 [data-billing-facts],
 [data-authorized-scope-facts],
 [data-relationship-facts],
-[data-client-card-facts] {
+[data-client-card-facts],
+[data-client-execution-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -656,7 +660,8 @@
 [data-movement-variant-fields],
 [data-role-capability-list],
 [data-client-card-section-list],
-[data-client-profile-group-list] {
+[data-client-profile-group-list],
+[data-client-executions-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1121,6 +1126,16 @@
     flex: 1;
   }
 
+  /* Stacked rather than sharing the row, which is where this parts from the
+     action rows above. Two doors side by side on a phone leave each one about
+     forty per cent of the card and a label that breaks mid-word; one over the
+     other, each the card's width, reads as two things to open. */
+  [data-client-card-doors] {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
   /* The same rule, reached differently: these triggers are not in an action
      row, they are direct children of the collapsible, so they take the width
      themselves. */
@@ -1431,7 +1446,8 @@
 [data-organization-details-placeholder],
 [data-relationship-header-placeholder],
 [data-client-card-header-placeholder],
-[data-client-profile-header-placeholder] {
+[data-client-profile-header-placeholder],
+[data-client-executions-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
@@ -1439,7 +1455,8 @@
 [data-organization-card-placeholder],
 [data-relationship-card-placeholder],
 [data-client-card-panel-placeholder],
-[data-client-profile-panel-placeholder] {
+[data-client-profile-panel-placeholder],
+[data-client-executions-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1552,6 +1569,45 @@
 [data-relationship-holder] {
   display: grid;
   gap: 0;
+}
+
+/* One session: the hour leads, where it came from sits beside it, and the facts
+   about it step down below. Separated by hairlines rather than boxed, because a
+   card per session would make twenty-five boxes out of one list. */
+[data-client-execution] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-executions-list] > li:first-child [data-client-execution] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-execution-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-execution-when] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-execution-what] {
+  margin: 0;
+}
+
+/* Whatever follows the list stands off it. The pager had this air and the
+   notice did not, so the warning sat flush against the last session. */
+[data-client-executions-more],
+[data-client-executions-stale-cursor] {
+  margin-block-start: var(--afo-space-4);
 }
 
 /* One attribute: its name, then the claims in force for it. Hairlines rather

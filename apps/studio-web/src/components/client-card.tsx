@@ -31,6 +31,7 @@ import {
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
@@ -55,11 +56,11 @@ import {
   cardAccessLabel,
   categoryName,
   categorySummary,
-  clientTrainingProfilePath,
+  doorsBySection,
   lossReasonSentence,
-  sectionOpensTrainingProfile,
   sectionsState,
   withdrawalsNewestFirst,
+  type SectionDoor,
 } from '@/lib/client-card'
 import { clientInitials } from '@/lib/client-directory'
 import type {
@@ -141,7 +142,10 @@ export function ClientCardScreen() {
         catalog={catalogQuery.data?.items}
         catalogPending={catalogQuery.isPending}
         onRetryCatalog={() => void catalogQuery.refetch()}
-        profilePath={clientTrainingProfilePath(current.organization_id, params.personId)}
+        doors={doorsBySection(card.sections, {
+          organizationId: current.organization_id,
+          personId: params.personId,
+        })}
       />
       {card.withdrawn.length > 0 ? (
         <WithdrawnPanel withdrawn={card.withdrawn} catalog={catalogQuery.data?.items} />
@@ -209,13 +213,13 @@ function SectionsPanel({
   catalog,
   catalogPending,
   onRetryCatalog,
-  profilePath,
+  doors,
 }: {
   sections: readonly ClientCardSection[]
   catalog: readonly InformationCategory[] | undefined
   catalogPending: boolean
   onRetryCatalog: () => void
-  profilePath: string
+  doors: ReadonlyMap<string, readonly SectionDoor[]>
 }) {
   const state = sectionsState(sections, catalog, catalogPending)
   return (
@@ -249,7 +253,11 @@ function SectionsPanel({
           <ul data-client-card-section-list>
             {sections.map((section) => (
               <li key={section.scope_code}>
-                <SectionEntry section={section} catalog={state.catalog} profilePath={profilePath} />
+                <SectionEntry
+                  section={section}
+                  catalog={state.catalog}
+                  doors={doors.get(section.scope_code) ?? []}
+                />
               </li>
             ))}
           </ul>
@@ -275,10 +283,10 @@ function SectionsPanel({
 }
 
 /**
- * One category, with a way in where one exists. Each read it points to has its
- * own screen and its own entry in her log, and the training profile is the
- * first of them to be built; the rest carry no door rather than one that leads
- * nowhere.
+ * One category, with a way in for each read this app can serve. A category
+ * whose reads have no screen yet carries no door rather than one that leads
+ * nowhere, and a destination two categories share is offered once — see
+ * `doorsBySection`.
  *
  * The permission's version is left out. It explains why two gyms see different
  * fields of the same person, which is a thing to say where those fields are
@@ -287,11 +295,11 @@ function SectionsPanel({
 function SectionEntry({
   section,
   catalog,
-  profilePath,
+  doors,
 }: {
   section: ClientCardSection
   catalog: readonly InformationCategory[]
-  profilePath: string
+  doors: readonly SectionDoor[]
 }) {
   const summary = categorySummary(section.scope_code, catalog)
   return (
@@ -301,19 +309,6 @@ function SectionEntry({
           {categoryName(section.scope_code, catalog)}
         </CardTitle>
         {summary ? <CardDescription>{summary}</CardDescription> : null}
-        {sectionOpensTrainingProfile(section) ? (
-          <CardAction>
-            <Link
-              href={profilePath}
-              data-slot="button"
-              data-variant="outline"
-              data-client-card-profile-link
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Ver el perfil
-            </Link>
-          </CardAction>
-        ) : null}
       </CardHeader>
       <CardContent>
         <dl data-client-card-facts>
@@ -324,6 +319,28 @@ function SectionEntry({
           <dd>{formatDate(section.granted_at)}</dd>
         </dl>
       </CardContent>
+      {/* At the foot rather than in the header's action slot: a phone wants them
+          under the facts, and moving the header's own grid would be editing how
+          a Design System component lays itself out. `CardFooter` is where that
+          component already puts actions. */}
+      {doors.length > 0 ? (
+        <CardFooter>
+          <div data-client-card-doors>
+            {doors.map((door) => (
+              <Link
+                key={door.read}
+                href={door.href}
+                data-slot="button"
+                data-variant="outline"
+                data-client-card-door={door.read}
+                className={buttonVariants({ variant: 'outline', size: 'sm' })}
+              >
+                {door.label}
+              </Link>
+            ))}
+          </div>
+        </CardFooter>
+      ) : null}
     </Card>
   )
 }

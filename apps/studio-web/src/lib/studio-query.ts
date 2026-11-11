@@ -8,6 +8,8 @@ import {
 import {
   StudioApiError,
   studioApi,
+  type AuthorizedExecutionPage,
+  type AuthorizedExecutionSummary,
   type CatalogActivityTypeList,
   type CatalogDisciplineList,
   type OrganizationMovement,
@@ -142,6 +144,15 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
   clientTrainingProfile: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
+  clientExecutions: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-executions',
+      personId,
+      { limit },
+    ] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
   relationshipHistory: (organizationId: string, relationshipId: string, limit: number) =>
@@ -333,6 +344,59 @@ export function clientTrainingProfileQueryOptions(organizationId: string, person
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
+}
+
+/**
+ * Her sessions, newest first, a page at a time. Read under the same rules as the
+ * training profile and for the same reasons: `private-no-store`, so nothing is
+ * remembered, and no refetch of its own, because each page is a read recorded
+ * for her to see.
+ *
+ * It matters more here than there. An infinite query refetches **every page it
+ * holds**, so a window regaining focus with four pages loaded would write her
+ * four accesses nobody asked for.
+ */
+export function clientExecutionsQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientExecutions(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }) =>
+      studioApi.clientExecutions(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One list, even though two categories feed it: the operation answers them
+ * interleaved by when she trained, and a session can only arrive once.
+ */
+export function flattenExecutionPages(
+  data: InfiniteData<AuthorizedExecutionPage, unknown> | undefined,
+): AuthorizedExecutionSummary[] {
+  if (!data) return []
+  const sessions: AuthorizedExecutionSummary[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const session of page.data) {
+      if (seen.has(session.id)) continue
+      seen.add(session.id)
+      sessions.push(session)
+    }
+  }
+  return sessions
 }
 
 /**

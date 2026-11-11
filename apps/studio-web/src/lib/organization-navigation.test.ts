@@ -178,6 +178,13 @@ describe('organization workspace navigation', () => {
     ).toEqual({ title: 'Perfil de entrenamiento' })
   })
 
+  test('her sessions are titled as executed, to tell them from the planned ones', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/executions`, organizationId),
+    ).toEqual({ title: 'Sesiones ejecutadas' })
+  })
+
   test('a person card is titled Ficha, not Vínculo and not Studio', () => {
     const personId = '01991600-3000-7000-8000-0000000000aa'
     expect(resolveWorkspaceRoute(`${basePath}/clients/people/${personId}`, organizationId)).toEqual(
