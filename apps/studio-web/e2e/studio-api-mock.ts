@@ -73,6 +73,8 @@ export interface StudioApiFixture {
    */
   terminationOutcome: 'terminated' | 'already-ended' | 'forbidden'
   organizationSubscriptions: unknown[]
+  /** What `GET /plans` answers: published plans first, then drafts, each by name. */
+  organizationPlans: unknown[]
   /**
    * `applied` moves the row in the fixture, the way the real command does; the other two
    * are the refusals the screen has wording for. `no-cause` is `409` on a reactivation
@@ -781,6 +783,75 @@ export const activeSubscription = {
   started_at: '2026-10-01T15:12:44.118Z',
   suspended_at: null,
   ended_at: null,
+}
+
+/*
+ * The three states a plan can be in, one each, as `payments.organization_plan_projection`
+ * builds them: on sale with an older price retired beneath it, published once and off
+ * sale since, and a draft with a name and no price. Published come first, then drafts,
+ * each by name, which is the order `OP-PAY-006` answers in.
+ */
+function planVersion(
+  id: string,
+  number: number,
+  amountMinor: number,
+  status: 'published' | 'deprecated',
+  deliveryMode: 'in_person' | 'remote' = 'in_person',
+) {
+  return {
+    plan_version_id: id,
+    version_number: number,
+    amount_minor: amountMinor,
+    currency_code: 'COP',
+    billing_period: 'month',
+    delivery_mode: deliveryMode,
+    status,
+    published_at: `2026-${String(8 + number).padStart(2, '0')}-01T14:00:00.000Z`,
+    deprecated_at:
+      status === 'deprecated'
+        ? `2026-${String(9 + number).padStart(2, '0')}-01T14:00:00.000Z`
+        : null,
+  }
+}
+
+export const MONTHLY_PLAN_ID = '01991600-e000-7000-8000-000000000001'
+
+export const planOnSale = (() => {
+  const current = planVersion('01991600-e000-7000-8000-000000000012', 2, 12000000, 'published')
+  return {
+    plan_id: MONTHLY_PLAN_ID,
+    name: 'Mensual ilimitado',
+    status: 'published',
+    on_sale: true,
+    created_at: '2026-08-01T14:00:00.000Z',
+    current_version: current,
+    versions: [
+      current,
+      planVersion('01991600-e000-7000-8000-000000000011', 1, 10000000, 'deprecated'),
+    ],
+  }
+})()
+
+export const planOffSale = {
+  plan_id: '01991600-e000-7000-8000-000000000002',
+  name: 'Remoto de verano',
+  status: 'published',
+  on_sale: false,
+  created_at: '2026-07-01T14:00:00.000Z',
+  current_version: null,
+  versions: [
+    planVersion('01991600-e000-7000-8000-000000000021', 1, 8000000, 'deprecated', 'remote'),
+  ],
+}
+
+export const draftPlan = {
+  plan_id: '01991600-e000-7000-8000-000000000003',
+  name: 'Anual con nutrición',
+  status: 'draft',
+  on_sale: false,
+  created_at: '2026-11-01T14:00:00.000Z',
+  current_version: null,
+  versions: [],
 }
 
 /*
@@ -1536,6 +1607,8 @@ export function createStudioApiFixture(
     substitutionEndOutcome: 'ended',
     terminationOutcome: 'terminated',
     organizationSubscriptions: [structuredClone(activeSubscription)],
+    // Copies: plans are written now, and a write must not reach the next test.
+    organizationPlans: structuredClone([planOnSale, planOffSale, draftPlan]),
     subscriptionOutcome: 'applied',
     roleGrantOutcome: 'granted',
     roleRevokeOutcome: 'revoked',
@@ -2519,6 +2592,16 @@ function defaultResponse(
         )
       : fixture.organizationSubscriptions
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/plans$/.test(request.path)
+  ) {
+    // `OP-PAY-006`: every member reads it, coach and staff included.
+    return {
+      status: 200,
+      body: { data: fixture.organizationPlans, page: { has_more: false, next_cursor: null } },
+    }
   }
   /*
    * The three transitions answer the same shape and differ only in the state they leave

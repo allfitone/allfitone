@@ -122,6 +122,11 @@ export type AssignableOrganizationRoleCode = AllfitV1Schemas['AssignableOrganiza
 export type OrganizationSubscriptionPage = AllfitV1Schemas['OrganizationSubscriptionPage']
 export type OrganizationSubscription = AllfitV1Schemas['OrganizationSubscription']
 export type SubscriptionStatus = AllfitV1Schemas['SubscriptionStatus']
+export type OrganizationPlan = AllfitV1Schemas['StudioOrganizationPlan']
+export type OrganizationPlanPage = AllfitV1Schemas['StudioOrganizationPlanPage']
+export type PlanVersion = AllfitV1Schemas['StudioPlanVersion']
+export type PlanVersionPublish = AllfitV1Schemas['StudioPlanVersionPublish']
+export type PlanDeliveryMode = AllfitV1Schemas['PlanDeliveryMode']
 export type SubscriptionTransition = AllfitV1Schemas['SubscriptionTransition']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
@@ -798,6 +803,25 @@ export const studioApi = {
         cache: 'no-store',
         ...(signal ? { signal } : {}),
       },
+    )
+  },
+
+  /**
+   * OP-PAY-006. Every plan the organization sells, drafts included, published
+   * first and then by name. The whole team reads it: a price is nobody's
+   * personal data.
+   */
+  organizationPlans: (
+    organizationId: string,
+    limit: number,
+    signal?: AbortSignal,
+    cursor?: string,
+  ) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return request<OrganizationPlanPage>(
+      `/studio/v1/organizations/${organizationId}/plans?${query.toString()}`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
     )
   },
 

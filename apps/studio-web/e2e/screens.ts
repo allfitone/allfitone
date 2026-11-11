@@ -2564,6 +2564,72 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos este movimiento')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/billing`, plans · HU-077 ---
+  {
+    // An owner opens on who pays; the plans are the second tab.
+    stories: 'HU-077 · the plans tab beside the subscriptions',
+    path: `${workspace}/billing`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Planes' }).click()
+      await expect(page.getByText('Mensual ilimitado')).toBeVisible()
+    },
+  },
+  {
+    // HU-078 criterion 2 as well: no subscriptions tab, and the reason why.
+    stories: 'HU-077 · the plans, for a role that does not see who pays',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Mensual ilimitado')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · the plans on a phone',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Anual con nutrición')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · no plan yet',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.organizationPlans = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay planes')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · the plans could not be read',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/plans')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los planes')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',

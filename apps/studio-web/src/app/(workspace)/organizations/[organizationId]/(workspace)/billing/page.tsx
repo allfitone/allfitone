@@ -1,5 +1,5 @@
-import { OrganizationSubscriptions } from '@/components/organization-subscriptions'
+import { OrganizationBilling } from '@/components/organization-billing'
 
 export default function BillingPage() {
-  return <OrganizationSubscriptions />
+  return <OrganizationBilling />
 }
