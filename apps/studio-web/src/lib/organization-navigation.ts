@@ -23,6 +23,18 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/content\/templates\/[^/]+$/.test(pathname)) {
     return { title: 'Plantilla' }
   }
+  if (pathname === `${basePath}/content/programs/new`) {
+    return { title: 'Nuevo programa' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/programs\/[^/]+$/.test(pathname)) {
+    return { title: 'Programa' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/templates\/[^/]+\/versions\/[^/]+$/.test(pathname)) {
+    return { title: 'Versión de plantilla' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/programs\/[^/]+\/versions\/[^/]+$/.test(pathname)) {
+    return { title: 'Versión de programa' }
+  }
   if (pathname === `${basePath}/organization`) {
     return { title: 'Organización' }
   }

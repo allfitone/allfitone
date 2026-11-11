@@ -36,6 +36,36 @@ describe('organization workspace navigation', () => {
     )
   })
 
+  test('resolves the new program title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/programs/new`, organizationId)).toEqual({
+      title: 'Nuevo programa',
+    })
+  })
+
+  test('resolves the program draft title, without taking `new` for an id', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000003`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Programa' })
+  })
+
+  test('resolves a published version’s title, for a template and for a program', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de plantilla' })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de programa' })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

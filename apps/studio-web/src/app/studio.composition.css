@@ -236,6 +236,9 @@
 [data-role-register],
 [data-content-register],
 [data-template-steps],
+[data-program-weeks],
+/* Wider than the gap inside a session, so each one reads as its own group. */
+[data-program-sessions],
 [data-category-register],
 [data-organization-overview],
 [data-organization-details],
@@ -476,6 +479,7 @@
 [data-role-disclosure],
 [data-content-disclosure],
 [data-template-step-actions],
+[data-program-session-actions],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -528,7 +532,9 @@
    date. `auto-fit` gives the pair the row and still splits it when a second
    arrives, and the `min()` keeps the track from outgrowing a narrow card. */
 [data-credential-details],
-[data-template-target-fields] {
+[data-version-details],
+[data-template-target-fields],
+[data-program-session-fields] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
   gap: var(--afo-space-4);
@@ -537,7 +543,8 @@
 [data-team-invitation-summary] > div,
 [data-client-invitation-summary] > div,
 [data-ownership-invitation-summary] > div,
-[data-credential-details] > div {
+[data-credential-details] > div,
+[data-version-details] > div {
   min-width: 0;
 }
 
@@ -557,7 +564,8 @@
 [data-billing-facts] dt,
 [data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
-[data-credential-details] dt {
+[data-credential-details] dt,
+[data-version-details] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -640,6 +648,7 @@
 [data-relationship-history-list],
 [data-content-version-list],
 [data-movement-picker-results],
+[data-program-session],
 [data-role-capability-list],
 [data-client-card-section-list] {
   display: grid;
@@ -1063,7 +1072,9 @@
   [data-team-invitation-summary],
   [data-client-invitation-summary],
   [data-credential-details],
-  [data-template-target-fields] {
+  [data-version-details],
+  [data-template-target-fields],
+  [data-program-session-fields] {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1361,7 +1372,10 @@
 [data-site-form-refusal],
 [data-organization-form-refusal],
 [data-template-create-refusal],
-[data-template-save-bar] {
+[data-template-save-bar],
+[data-program-create-refusal],
+[data-program-save-bar],
+[data-version-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);
@@ -1450,8 +1464,10 @@
   margin-block-start: var(--afo-space-3);
 }
 
+/* Content's header carries two actions, and a shrinking box stacked them. */
 [data-organization-site-edit],
-[data-organization-edit] {
+[data-organization-edit],
+[data-page-header-actions] {
   flex: none;
 }
 

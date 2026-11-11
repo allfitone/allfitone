@@ -124,6 +124,15 @@ export interface StudioApiFixture {
    */
   publishedContents: Record<string, string>
   /**
+   * `saved` replaces a program draft the way `planning.replace_program_draft`
+   * does. `stale` makes the next save meet a teammate's, once.
+   */
+  programDraftSaveOutcome: 'saved' | 'stale'
+  /** The content each program's newest version was published with, as for templates. */
+  publishedProgramContents: Record<string, string>
+  /** Every template version's content, by version id: what reading one answers. */
+  templateVersionContents: Record<string, Record<string, unknown>>
+  /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
    * tries to prevent — a subscription that was still live when the transaction
@@ -528,6 +537,91 @@ export const archivedProgram = {
       deprecated_template_version_ids: [],
     },
   ],
+}
+
+/** `publishedTemplate`'s two versions, which a program names by id. */
+export const STRENGTH_TEMPLATE_V2_ID = '01991600-a000-7000-8000-000000000021'
+export const STRENGTH_TEMPLATE_V1_ID = '01991600-a000-7000-8000-000000000022'
+
+/**
+ * A program being composed and never published. Two sessions on the current
+ * version of the strength template and one on its retired first version, which
+ * the draft keeps — `replace_program_draft` refuses only a new reference to a
+ * retired version — and lists in `deprecated_template_version_ids`.
+ */
+export const draftedProgram = {
+  id: '01991600-9000-7000-8000-000000000003',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  status: 'draft',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: {
+    id: '01991600-9000-7000-8000-000000000033',
+    program_id: '01991600-9000-7000-8000-000000000003',
+    content_schema_version: 1,
+    content: {
+      title: 'Hipertrofia de cuatro semanas',
+      notes: null,
+      repeats_forever: false,
+      sessions: [
+        { position: 1, week: 1, day: 1, template_version_id: STRENGTH_TEMPLATE_V2_ID },
+        { position: 2, week: 1, day: 4, template_version_id: STRENGTH_TEMPLATE_V2_ID },
+        { position: 3, week: 2, day: 1, template_version_id: STRENGTH_TEMPLATE_V1_ID },
+      ],
+    },
+    etag: '"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"',
+    updated_at: '2026-10-06T10:00:00.000Z',
+    deprecated_template_version_ids: [STRENGTH_TEMPLATE_V1_ID],
+  },
+  versions: [],
+}
+
+/**
+ * What `publishedTemplate`'s two versions were published with. The listing
+ * carries only summaries, so the read of one version needs its content: the
+ * second is the draft as it stands, the first an older prescription.
+ */
+export const templateVersionContentCatalog: Record<string, Record<string, unknown>> = {
+  [STRENGTH_TEMPLATE_V2_ID]: structuredClone(publishedTemplate.draft.content),
+  [STRENGTH_TEMPLATE_V1_ID]: {
+    title: 'Fuerza tren superior',
+    activity_type_id: STRENGTH_ACTIVITY_TYPE_ID,
+    steps: [
+      {
+        position: 1,
+        movement_id: STRENGTH_GLOBAL_MOVEMENT_ID,
+        activity_type_id: null,
+        notes: 'Bajar la barra controlando.',
+        superset_group: null,
+        target: {
+          family: 'strength',
+          sets: [1, 2, 3].map((order) => ({
+            set_order: order,
+            kind: 'normal',
+            target_reps: 10,
+            target_load_value: 35,
+            target_load_unit_code: 'kg',
+            target_rpe: null,
+          })),
+          target_rest_seconds: 120,
+        },
+      },
+    ],
+  },
+}
+
+/** `draftedProgram` as it was first published, to read one program version whole. */
+export const programVersionOne = {
+  id: '01991600-9000-7000-8000-000000000301',
+  program_id: draftedProgram.id,
+  version_number: 1,
+  status: 'published',
+  title: 'Hipertrofia de cuatro semanas',
+  notes: 'Subir la carga cuando las ocho repeticiones salgan limpias.',
+  repeats_forever: false,
+  sessions: draftedProgram.draft.content.sessions,
+  published_at: '2026-10-07T14:00:00.000Z',
+  session_count: 3,
+  deprecated_template_version_ids: [STRENGTH_TEMPLATE_V1_ID],
 }
 
 /*
@@ -1301,8 +1395,8 @@ export function createStudioApiFixture(
     roleRevokeOutcome: 'revoked',
     membershipTerminationOutcome: 'terminated',
     membershipResignationOutcome: 'resigned',
-    organizationPrograms: [publishedProgram, archivedProgram],
     // Copies: drafts are editable now, and a save must not reach the next test.
+    organizationPrograms: structuredClone([publishedProgram, archivedProgram, draftedProgram]),
     organizationSessionTemplates: structuredClone([
       publishedTemplate,
       unpublishedTemplate,
@@ -1318,6 +1412,9 @@ export function createStudioApiFixture(
     activityTypes: structuredClone(activityTypeCatalog),
     draftSaveOutcome: 'saved',
     publishedContents: {},
+    programDraftSaveOutcome: 'saved',
+    publishedProgramContents: {},
+    templateVersionContents: structuredClone(templateVersionContentCatalog),
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1633,6 +1730,7 @@ function defaultResponse(
     }
     if (!unchanged || latest === 0) {
       fixture.publishedContents[templateId] = JSON.stringify(content)
+      fixture.templateVersionContents[version.id] = structuredClone(content)
       const summary = {
         id: version.id,
         template_id: templateId,
@@ -1648,6 +1746,53 @@ function defaultResponse(
       )
     }
     return { status: 201, body: version }
+  }
+  /*
+   * `OP-PLN-021`, both reads: the organization in the path or a 404, and the
+   * version whole with its current status. Nothing here can change a version.
+   */
+  const templateVersionPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions\/(\d+)$/.exec(
+      request.path,
+    )
+  if (request.method === 'GET' && templateVersionPath) {
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateVersionPath[1])
+    const summary = (Array.isArray(template?.versions) ? template.versions : [])
+      .map(objectValue)
+      .find((version) => version.version_number === Number(templateVersionPath[2]))
+    const content = summary ? fixture.templateVersionContents[String(summary.id)] : undefined
+    if (!template || !summary || !content) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    return {
+      status: 200,
+      body: {
+        id: summary.id,
+        template_id: template.id,
+        version_number: summary.version_number,
+        discipline_code: template.discipline_code,
+        activity_type_id: content.activity_type_id,
+        derived_from_version_id: null,
+        title: content.title,
+        status: summary.status,
+        published_at: summary.published_at,
+        steps: content.steps,
+      },
+    }
+  }
+  const programVersionPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions\/(\d+)$/.exec(request.path)
+  if (request.method === 'GET' && programVersionPath) {
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programVersionPath[1])
+    const version = (Array.isArray(program?.versions) ? program.versions : [])
+      .map(objectValue)
+      .find((candidate) => candidate.version_number === Number(programVersionPath[2]))
+    if (!version) return { status: 404, body: problem('not-found', 404) }
+    return { status: 200, body: version }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/catalog/activity-types') {
     return { status: 200, body: { items: fixture.activityTypes } }
@@ -1679,6 +1824,149 @@ function defaultResponse(
         page: { has_more: false, next_cursor: null },
       },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/programs$/.test(request.path)
+  ) {
+    // What `planning.create_program` writes: an organization-owned program in
+    // `draft`, and a first draft with the trimmed name, no notes and no sessions.
+    const organizationId = request.path.split('/')[4] ?? ''
+    const body = objectValue(request.body)
+    const sequence = String(fixture.organizationPrograms.length + 1).padStart(3, '0')
+    const programId = `01991600-9000-7000-8000-000000000${sequence}`
+    const etag = `"sha256:${'9'.repeat(40)}${sequence}"`
+    const program = {
+      id: programId,
+      organization_id: organizationId,
+      status: 'draft',
+      author_person_id: '01991600-7000-7000-8000-000000000002',
+      draft: {
+        id: `01991600-9000-7000-8000-000000001${sequence}`,
+        program_id: programId,
+        content_schema_version: 1,
+        content: { title: String(body.title).trim(), notes: null, sessions: [] },
+        etag,
+        updated_at: '2026-11-10T15:04:11.000Z',
+        deprecated_template_version_ids: [],
+      },
+      versions: [],
+    }
+    fixture.organizationPrograms = [program, ...fixture.organizationPrograms]
+    return {
+      status: 201,
+      body: program,
+      headers: {
+        ETag: etag,
+        Location: `/studio/v1/organizations/${organizationId}/programs/${programId}/draft`,
+      },
+    }
+  }
+  const programDraftPath = /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/draft$/.exec(
+    request.path,
+  )
+  if (request.method === 'PUT' && programDraftPath) {
+    /*
+     * What `planning.replace_program_draft` does, in its order: 428 without the
+     * condition, the current draft with a stale one, then every session's
+     * version checked, and a retired version refused only where it is new.
+     */
+    const programId = programDraftPath[1] ?? ''
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programId)
+    if (!program) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    let current = objectValue(program.draft)
+    if (fixture.programDraftSaveOutcome === 'stale') {
+      fixture.programDraftSaveOutcome = 'saved'
+      const theirs = objectValue(current.content)
+      current = replaceProgramDraft(fixture, programId, {
+        ...theirs,
+        title: `${String(theirs.title)} (versión del equipo)`,
+      })
+    }
+    if (expected !== current.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: current }) }
+    }
+    const content = objectValue(request.body)
+    const errors = programDraftErrors(fixture, content, objectValue(current.content))
+    if (errors.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: errors.map((code) => ({ code, path: '/sessions', message: code })),
+        }),
+      }
+    }
+    const saved = replaceProgramDraft(fixture, programId, content)
+    return { status: 200, body: saved, headers: { ETag: String(saved.etag) } }
+  }
+  const programVersionsPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions$/.exec(request.path)
+  if (request.method === 'POST' && programVersionsPath) {
+    /*
+     * What `planning.publish_program_version` does: 428 without the condition,
+     * the current draft with a stale one, `sessions` for an empty draft, and —
+     * against the newest version only — that version again when nothing changed.
+     * A retired version the draft kept is published as it is.
+     */
+    const programId = programVersionsPath[1] ?? ''
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programId)
+    if (!program) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const draft = objectValue(program.draft)
+    if (expected !== draft.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: draft }) }
+    }
+    const content = objectValue(draft.content)
+    const sessions = (Array.isArray(content.sessions) ? content.sessions : []).map(objectValue)
+    if (sessions.length === 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'sessions', path: '/sessions', message: 'sessions' }],
+        }),
+      }
+    }
+    const versions = (Array.isArray(program.versions) ? program.versions : []).map(objectValue)
+    const latest = Math.max(0, ...versions.map((version) => Number(version.version_number)))
+    const unchanged = fixture.publishedProgramContents[programId] === JSON.stringify(content)
+    if (unchanged && latest > 0) {
+      const newest = versions.find((version) => Number(version.version_number) === latest)
+      return { status: 201, body: newest }
+    }
+    const number = latest + 1
+    const version = {
+      id: `01991600-9000-7000-8000-0000000003${String(number).padStart(2, '0')}`,
+      program_id: programId,
+      version_number: number,
+      status: 'published',
+      title: String(content.title),
+      notes: content.notes ?? null,
+      repeats_forever: content.repeats_forever === true,
+      sessions: sessions.toSorted((left, right) => Number(left.position) - Number(right.position)),
+      published_at: '2026-11-10T17:00:00.000Z',
+      session_count: sessions.length,
+      deprecated_template_version_ids: [
+        ...new Set(
+          Array.isArray(draft.deprecated_template_version_ids)
+            ? draft.deprecated_template_version_ids
+            : [],
+        ),
+      ],
+    }
+    fixture.publishedProgramContents[programId] = JSON.stringify(content)
+    fixture.organizationPrograms = fixture.organizationPrograms.map((candidate) =>
+      objectValue(candidate).id === programId
+        ? { ...objectValue(candidate), status: 'published', versions: [version, ...versions] }
+        : candidate,
+    )
+    return { status: 201, body: version }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/offerable-scopes') {
     return { status: 200, body: { items: fixture.offerableScopes } }
@@ -2626,6 +2914,75 @@ function replaceDraft(
   }
   fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((candidate) =>
     objectValue(candidate).id === templateId ? { ...objectValue(candidate), draft } : candidate,
+  )
+  return draft
+}
+
+/** Every published template version the fixture holds, with its status, by id. */
+function templateVersionStatuses(fixture: StudioApiFixture): Map<string, string> {
+  return new Map(
+    fixture.organizationSessionTemplates
+      .map(objectValue)
+      .flatMap((template) => (Array.isArray(template.versions) ? template.versions : []))
+      .map(objectValue)
+      .map((version) => [String(version.id), String(version.status)]),
+  )
+}
+
+function sessionVersionIds(content: Record<string, unknown>): string[] {
+  const sessions = Array.isArray(content.sessions) ? content.sessions : []
+  return sessions.map(objectValue).map((session) => String(session.template_version_id))
+}
+
+/**
+ * `program_content_errors` for what a save can get wrong from this screen: a
+ * version that is not the organization's, and then — only when nothing else
+ * failed — a retired version referenced more times than the draft already did.
+ */
+function programDraftErrors(
+  fixture: StudioApiFixture,
+  content: Record<string, unknown>,
+  previous: Record<string, unknown>,
+): string[] {
+  const statuses = templateVersionStatuses(fixture)
+  const requested = sessionVersionIds(content)
+  if (requested.some((id) => !statuses.has(id))) return ['template-version']
+  const before = sessionVersionIds(previous)
+  const count = (ids: string[], id: string) => ids.filter((candidate) => candidate === id).length
+  const addsRetired = [...new Set(requested)].some(
+    (id) => statuses.get(id) === 'deprecated' && count(requested, id) > count(before, id),
+  )
+  return addsRetired ? ['template-version-deprecated'] : []
+}
+
+/**
+ * What `planning.replace_program_draft` writes, like `replaceDraft` for a
+ * template, plus what `program_draft_projection` derives: the retired versions
+ * the content names, once per session that names one.
+ */
+function replaceProgramDraft(
+  fixture: StudioApiFixture,
+  programId: string,
+  content: Record<string, unknown>,
+): Record<string, unknown> {
+  const program = fixture.organizationPrograms
+    .map(objectValue)
+    .find((candidate) => candidate.id === programId)
+  const previous = objectValue(program?.draft)
+  if (JSON.stringify(previous.content) === JSON.stringify(content)) return previous
+  const revision = Number(/(\d+)"$/.exec(String(previous.etag))?.[1] ?? '0') + 1
+  const statuses = templateVersionStatuses(fixture)
+  const draft = {
+    ...previous,
+    content,
+    etag: `"sha256:${'f'.repeat(43 - String(revision).length)}${revision}"`,
+    updated_at: `2026-11-10T16:${String(10 + revision).padStart(2, '0')}:00.000Z`,
+    deprecated_template_version_ids: sessionVersionIds(content).filter(
+      (id) => statuses.get(id) === 'deprecated',
+    ),
+  }
+  fixture.organizationPrograms = fixture.organizationPrograms.map((candidate) =>
+    objectValue(candidate).id === programId ? { ...objectValue(candidate), draft } : candidate,
   )
   return draft
 }
