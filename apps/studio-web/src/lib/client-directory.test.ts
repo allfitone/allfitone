@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   canSearchWithin,
   canViewClientDirectory,
+  clientEntryPath,
   clientInitials,
   directoryEntryId,
   directoryEntryLabel,
@@ -11,7 +12,11 @@ import {
   searchTermToSend,
   seesEveryClient,
 } from './client-directory'
-import type { ClientDirectoryItem, OrganizationRole } from './studio-api'
+import type {
+  ClientDirectoryItem,
+  ClientDirectoryRelationship,
+  OrganizationRole,
+} from './studio-api'
 
 function role(code: string, capabilities: string[]): OrganizationRole {
   return {
@@ -160,6 +165,28 @@ describe('what the directory search will send', () => {
   test('% and _ are characters, never wildcards, so they only make a term', () => {
     expect(searchTermToSend('100%')).toBe('100%')
     expect(searchTermToSend('a_b')).toBe('a_b')
+  })
+})
+
+/*
+ * The destination is not a preference: `OP-REL-019` answers a reader of the
+ * whole organization the same 404 as for somebody who does not exist, so
+ * sending them to the card would send them to a dead end.
+ */
+describe('where a person in the list leads', () => {
+  const reader = { organizationId: '019ad000-0000-7000-8000-0000000000ff' }
+  const entry = RELATIONSHIP as ClientDirectoryRelationship
+
+  test('a coach goes to her card: every row he can see is one he attends', () => {
+    expect(clientEntryPath(entry, { ...reader, everyClient: false })).toBe(
+      '/organizations/019ad000-0000-7000-8000-0000000000ff/clients/people/019ad000-0000-7000-8000-000000000001',
+    )
+  })
+
+  test('a reader of the whole gym goes to the relationship, which is theirs', () => {
+    expect(clientEntryPath(entry, { ...reader, everyClient: true })).toBe(
+      '/organizations/019ad000-0000-7000-8000-0000000000ff/clients/019ad000-0000-7000-8000-000000000301',
+    )
   })
 })
 

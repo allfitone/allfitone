@@ -33,6 +33,7 @@ import {
   SEARCH_UNAVAILABLE_REASON,
   canSearchWithin,
   canViewClientDirectory,
+  clientEntryPath,
   clientInitials,
   directoryEntryId,
   searchTermState,
@@ -87,7 +88,11 @@ export function ClientDirectoryList() {
   const settledBox = useDebouncedValue(searchBox, SEARCH_SETTLE_MS)
   const search = searchAllowed ? searchTermToSend(settledBox) : undefined
   const searching = search !== undefined
-  const relationshipPath = `/organizations/${current.organization_id}/clients`
+  /*
+   * What a row leads to depends on who is reading, so the decision travels with
+   * the reader instead of a path: `clientEntryPath` says why.
+   */
+  const reader = { organizationId: current.organization_id, everyClient }
   const options = organizationClientsQueryOptions(
     current.organization_id,
     filter,
@@ -257,7 +262,7 @@ export function ClientDirectoryList() {
             <ul data-client-directory-card-list>
               {items.map((entry) => (
                 <li key={directoryEntryId(entry)}>
-                  <ClientCard entry={entry} relationshipPath={relationshipPath} />
+                  <ClientCard entry={entry} reader={reader} />
                 </li>
               ))}
             </ul>
@@ -292,11 +297,7 @@ export function ClientDirectoryList() {
               <TableState colSpan={4} {...tableState} />
             ) : (
               items.map((entry) => (
-                <ClientRow
-                  key={directoryEntryId(entry)}
-                  entry={entry}
-                  relationshipPath={relationshipPath}
-                />
+                <ClientRow key={directoryEntryId(entry)} entry={entry} reader={reader} />
               ))
             )}
           </TableBody>
@@ -377,10 +378,10 @@ const DIRECTORY_NOTE =
 
 function ClientCard({
   entry,
-  relationshipPath,
+  reader,
 }: {
   entry: ClientDirectoryItem
-  relationshipPath: string
+  reader: { organizationId: string; everyClient: boolean }
 }) {
   return (
     <Card data-client-card>
@@ -397,7 +398,7 @@ function ClientCard({
             {entry.kind === 'invitation' ? (
               entry.contact_hint
             ) : (
-              <Link href={`${relationshipPath}/${entry.relationship_id}`} data-client-open>
+              <Link href={clientEntryPath(entry, reader)} data-client-open>
                 {entry.display_name}
               </Link>
             )}
@@ -436,10 +437,10 @@ function ClientCard({
  */
 function ClientRow({
   entry,
-  relationshipPath,
+  reader,
 }: {
   entry: ClientDirectoryItem
-  relationshipPath: string
+  reader: { organizationId: string; everyClient: boolean }
 }) {
   return (
     <TableRow>
@@ -454,7 +455,7 @@ function ClientRow({
             <strong>{entry.contact_hint}</strong>
           ) : (
             <strong>
-              <Link href={`${relationshipPath}/${entry.relationship_id}`} data-client-open>
+              <Link href={clientEntryPath(entry, reader)} data-client-open>
                 {entry.display_name}
               </Link>
             </strong>
