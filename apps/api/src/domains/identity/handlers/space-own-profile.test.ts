@@ -13,6 +13,7 @@ const OPERATIONS = [
   'OP-IDN-012',
   'OP-IDN-013',
   'OP-IDN-021',
+  'OP-IDN-022',
   'OP-IDN-063',
   'OP-IDN-064',
   'OP-IDN-065',
@@ -23,7 +24,7 @@ const identity: AllfitV1Schemas['SpaceIdentity'] = {
   family_name: 'Rojas',
   username: 'camilarojas',
   active_since: '2026-07-03T10:05:00.000Z',
-  email: { address: 'camila@example.test', verified: true },
+  email: { address: 'camila@example.test', verified: true, pending: null },
   phone: { number: '+573105550142', verified: false },
   accounts: [{ provider: 'workos', linked_at: '2026-07-03T10:00:00.000Z' }],
 }
@@ -79,6 +80,21 @@ function ownProfileService(overrides: Partial<OwnProfileService> = {}): OwnProfi
         resource: { number: input.phone, verified: false },
         replayed: false,
       })
+    },
+    requestEmailChange: (verifiedToken, input) => {
+      captured.push({ operation: 'requestEmailChange', token: verifiedToken, input })
+      return Promise.resolve({
+        resource: {
+          address: input.email.trim().toLowerCase(),
+          status: 'awaiting_code' as const,
+          expires_at: '2026-11-10T10:30:00.000Z',
+        },
+        replayed: false,
+      })
+    },
+    verifyEmailChange: (verifiedToken, input) => {
+      captured.push({ operation: 'verifyEmailChange', token: verifiedToken, input })
+      return Promise.resolve({ resource: { outcome: 'applying' as const }, replayed: false })
     },
     declareEquipment: (verifiedToken, input) => {
       captured.push({ operation: 'declareEquipment', token: verifiedToken, input })
@@ -149,7 +165,7 @@ beforeEach(() => {
 })
 
 describe('Space own profile API contract', () => {
-  test('T-IDN-OWNPROFILE-API-01 mounts the two reads and four commands of the contract', () => {
+  test('T-IDN-OWNPROFILE-API-01 mounts the two reads and five commands of the contract', () => {
     const contract = allfitV1ContractManifest.operations
       .filter((operation) => OPERATIONS.includes(operation.allfitOperation))
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
@@ -159,7 +175,7 @@ describe('Space own profile API contract', () => {
       .map((route) => `${route.method} /space/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(6)
+    expect(contract).toHaveLength(7)
     expect(mounted).toEqual(contract)
   })
 
@@ -173,6 +189,7 @@ describe('Space own profile API contract', () => {
     expect(mounted).toContain('GET /space/v1/me')
     expect(mounted).toContain('POST /space/v1/me/name')
     expect(mounted).toContain('PATCH /space/v1/me/contact')
+    expect(mounted).toContain('POST /space/v1/me/contact/verification')
     expect(mounted).toContain('GET /space/v1/profile')
     expect(mounted).toContain('POST /space/v1/profile/biological-sex')
     expect(mounted).toContain('POST /space/v1/profile/equipment')
@@ -392,6 +409,74 @@ describe('Space own profile API contract', () => {
     )
 
     expect(answers.map((response) => response.status)).toEqual(bodies.map(() => 422))
+    expect(captured).toEqual([])
+  })
+
+  test('T-IDN-OWNPROFILE-API-15 asks to change the email: 202, and nothing in force moves', async () => {
+    const response = await routes().fetch(
+      command('/me/contact', { email: ' Camila.Nueva@Example.test ' }, {}, 'PATCH'),
+    )
+
+    expect(response.status).toBe(202)
+    await expect(response.json()).resolves.toEqual({
+      address: 'camila.nueva@example.test',
+      status: 'awaiting_code',
+      expires_at: '2026-11-10T10:30:00.000Z',
+    })
+    expect(captured).toMatchObject([
+      {
+        operation: 'requestEmailChange',
+        input: { idempotencyKey: IDEMPOTENCY_KEY, email: ' Camila.Nueva@Example.test ' },
+      },
+    ])
+  })
+
+  test('T-IDN-OWNPROFILE-API-16 takes exactly one of phone or email', async () => {
+    const bodies: unknown[] = [
+      { phone: '+573001112233', email: 'camila@example.test' },
+      { email: null },
+      { email: 42 },
+      { email: 'a'.repeat(250) + '@example.test' },
+      { email: 'sin-arroba' },
+    ]
+    const answers = await Promise.all(
+      bodies.map((body) => routes().fetch(command('/me/contact', body, {}, 'PATCH'))),
+    )
+
+    expect(answers.map((response) => response.status)).toEqual(bodies.map(() => 422))
+    expect(captured).toEqual([])
+  })
+
+  test('T-IDN-OWNPROFILE-API-17 confirms the code from this session, and keeps it', async () => {
+    const response = await routes().fetch(command('/me/contact/verification', { code: '482913' }))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ outcome: 'applying' })
+    expect(captured).toMatchObject([
+      {
+        operation: 'verifyEmailChange',
+        input: { idempotencyKey: IDEMPOTENCY_KEY, code: '482913', sessionId: 'session_1' },
+      },
+    ])
+  })
+
+  test('T-IDN-OWNPROFILE-API-18 a wrong or late code is 422, the fifth one 409', async () => {
+    const answering = (outcome: 'wrong_code' | 'expired' | 'too_many_attempts') =>
+      routes(
+        ownProfileService({
+          verifyEmailChange: () => Promise.resolve({ resource: { outcome }, replayed: false }),
+        }),
+      ).fetch(command('/me/contact/verification', { code: '000000' }))
+    const malformed = await Promise.all(
+      [{ code: '12345' }, { code: 482913 }, { code: '482913', extra: true }].map((body) =>
+        routes().fetch(command('/me/contact/verification', body)),
+      ),
+    )
+
+    expect((await answering('wrong_code')).status).toBe(422)
+    expect((await answering('expired')).status).toBe(422)
+    expect((await answering('too_many_attempts')).status).toBe(409)
+    expect(malformed.map((response) => response.status)).toEqual([422, 422, 422])
     expect(captured).toEqual([])
   })
 })

@@ -17,6 +17,8 @@ import type {
   SpaceFitnessProfile,
   SpaceIdentity,
   SpaceContactPhone,
+  SpaceEmailChange,
+  EmailChangeOutcome,
   SpaceOwnBiologicalSex,
   SpaceOwnName,
 } from '../domain/own-profile.js'
@@ -68,6 +70,28 @@ export function createOwnProfileDatabase(): OwnProfileDatabase {
           )
         `
         return result(rows, 'correct the phone')
+      }),
+
+    requestEmailChange: (input) =>
+      withinRequest(sql, input.requestId, async (transaction) => {
+        const rows = await transaction<CommandRow<SpaceEmailChange>[]>`
+          select * from identity.request_email_change(
+            ${PROVIDER}, ${input.issuer}, ${input.subject}, ${input.email},
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return result(rows, 'ask for the email change')
+      }),
+
+    verifyEmailChange: (input) =>
+      withinRequest(sql, input.requestId, async (transaction) => {
+        const rows = await transaction<CommandRow<{ outcome: EmailChangeOutcome }>[]>`
+          select * from identity.verify_email_change(
+            ${PROVIDER}, ${input.issuer}, ${input.subject}, ${input.sessionId}, ${input.code},
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return result(rows, 'verify the email change')
       }),
 
     correctBiologicalSex: (input) =>

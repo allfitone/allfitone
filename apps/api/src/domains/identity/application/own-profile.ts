@@ -17,6 +17,8 @@ import type {
   SpaceFitnessProfile,
   SpaceIdentity,
   SpaceContactPhone,
+  SpaceEmailChange,
+  EmailChangeOutcome,
   SpaceOwnBiologicalSex,
   SpaceOwnName,
 } from '../domain/own-profile.js'
@@ -38,6 +40,14 @@ export interface OwnProfileService {
     token: VerifiedToken,
     input: Command & { phone: string | null },
   ): Promise<OwnProfileResult<SpaceContactPhone>>
+  requestEmailChange(
+    token: VerifiedToken,
+    input: Command & { email: string },
+  ): Promise<OwnProfileResult<SpaceEmailChange>>
+  verifyEmailChange(
+    token: VerifiedToken,
+    input: Command & { code: string; sessionId: string },
+  ): Promise<OwnProfileResult<{ outcome: EmailChangeOutcome }>>
   declareEquipment(
     token: VerifiedToken,
     input: Command & { equipment: AvailableEquipmentPiece[] },
@@ -64,6 +74,10 @@ export function createOwnProfileService(dependencies: {
       dependencies.database.correctBiologicalSex({ ...holder(token), ...input }),
     correctPhone: (token, input) =>
       dependencies.database.correctPhone({ ...holder(token), ...input }),
+    requestEmailChange: (token, input) =>
+      dependencies.database.requestEmailChange({ ...holder(token), ...input }),
+    verifyEmailChange: (token, input) =>
+      dependencies.database.verifyEmailChange({ ...holder(token), ...input }),
     declareEquipment: (token, input) =>
       dependencies.database.declareEquipment({ ...holder(token), ...input }),
   }
