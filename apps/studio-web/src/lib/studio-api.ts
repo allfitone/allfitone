@@ -46,6 +46,9 @@ export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
 export type SessionTemplate = AllfitV1Schemas['SessionTemplate']
 export type SessionTemplatePage = AllfitV1Schemas['SessionTemplatePage']
 export type SessionTemplateVersion = AllfitV1Schemas['SessionTemplateVersion']
+export type SessionTemplateCreate = AllfitV1Schemas['SessionTemplateCreate']
+export type CatalogDiscipline = AllfitV1Schemas['CatalogDiscipline']
+export type CatalogDisciplineList = AllfitV1Schemas['CatalogDisciplineList']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
 export type StudioGuestQuota = AllfitV1Schemas['StudioGuestQuota']
 export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
@@ -93,14 +96,34 @@ export type SubscriptionTransition = AllfitV1Schemas['SubscriptionTransition']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
+/** One thing a problem answer says is wrong, named by a stable code. */
+export interface StudioApiIssue {
+  code: string
+  path: string
+}
+
 export class StudioApiError extends Error {
+  /**
+   * What an RFC 9457 answer lists under `errors`, such as everything a draft
+   * still lacks before it can be published. Empty for the legacy envelope.
+   */
+  readonly issues: readonly StudioApiIssue[]
+  /**
+   * The state somebody else saved, which a stale-draft conflict hands back so
+   * the editor can show it instead of losing either version.
+   */
+  readonly currentState: unknown
+
   constructor(
     readonly status: number,
     readonly code: string,
     readonly detail?: string,
+    extensions: { issues?: readonly StudioApiIssue[]; currentState?: unknown } = {},
   ) {
     super(code)
     this.name = 'StudioApiError'
+    this.issues = extensions.issues ?? []
+    this.currentState = extensions.currentState
   }
 }
 
@@ -333,6 +356,35 @@ export const studioApi = {
       `/studio/v1/organizations/${organizationId}/programs?limit=${limit}`,
       signal ? { signal } : {},
     ),
+
+  /*
+   * OP-PLN-001. The template belongs to the organization; the server records the
+   * caller as its author and opens its first draft in the same transaction.
+   */
+  createOrganizationSessionTemplate: (
+    organizationId: string,
+    body: SessionTemplateCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplate>(`/studio/v1/organizations/${organizationId}/session-templates`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * `OP-CAT-007`. The disciplines Backoffice has published, read under
+   * `/studio/v1` for the same reason as the information categories: the session
+   * cookie travels nowhere else. Empty until one is published, and then no
+   * template can be created.
+   */
+  catalogDisciplines: (signal?: AbortSignal) =>
+    request<CatalogDisciplineList>('/studio/v1/catalog/disciplines', {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
 
   organizationClients: (
     organizationId: string,
@@ -859,9 +911,34 @@ async function responseError(response: Response): Promise<StudioApiError> {
   const payload = await response.json().catch(() => undefined)
   return new StudioApiError(
     response.status,
-    errorCode(payload) ?? `http-${response.status}`,
+    errorCode(payload) ?? problemCode(payload) ?? `http-${response.status}`,
     errorDetail(payload),
+    { issues: problemIssues(payload), currentState: problemField(payload, 'current_state') },
   )
+}
+
+/** An RFC 9457 problem is named by the last segment of its `type`. */
+function problemCode(value: unknown): string | undefined {
+  const type = problemField(value, 'type')
+  if (typeof type !== 'string') return undefined
+  const code = type.split('/').at(-1)
+  return code ? code : undefined
+}
+
+function problemIssues(value: unknown): StudioApiIssue[] {
+  const errors = problemField(value, 'errors')
+  if (!Array.isArray(errors)) return []
+  return errors.flatMap((issue: unknown) => {
+    if (!issue || typeof issue !== 'object') return []
+    const code = 'code' in issue ? issue.code : undefined
+    const path = 'path' in issue ? issue.path : undefined
+    return typeof code === 'string' ? [{ code, path: typeof path === 'string' ? path : '' }] : []
+  })
+}
+
+function problemField(value: unknown, field: string): unknown {
+  if (!value || typeof value !== 'object' || !(field in value)) return undefined
+  return (value as Record<string, unknown>)[field]
 }
 
 function commandHeaders(command: CommandHeaders): HeadersInit {

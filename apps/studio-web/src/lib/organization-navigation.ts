@@ -16,6 +16,9 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/content`) {
     return { title: 'Contenido' }
   }
+  if (pathname === `${basePath}/content/templates/new`) {
+    return { title: 'Nueva plantilla' }
+  }
   if (pathname === `${basePath}/organization`) {
     return { title: 'Organización' }
   }

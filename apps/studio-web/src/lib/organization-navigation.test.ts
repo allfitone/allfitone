@@ -18,6 +18,12 @@ describe('organization workspace navigation', () => {
     })
   })
 
+  test('resolves the new template title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId)).toEqual({
+      title: 'Nueva plantilla',
+    })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

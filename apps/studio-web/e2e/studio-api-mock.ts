@@ -82,6 +82,14 @@ export interface StudioApiFixture {
   organizationPrograms: unknown[]
   /** What `GET /session-templates` answers. */
   organizationSessionTemplates: unknown[]
+  /** What `GET /catalog/disciplines` answers: what Backoffice has published. */
+  disciplines: Array<{ code: string; name: string }>
+  /**
+   * `created` adds the template and its empty first draft to the list, the way
+   * the command does. `not-found` is how `planning.assert_manage_content`
+   * answers a missing capability or an organization that is no longer active.
+   */
+  templateCreateOutcome: 'created' | 'not-found'
   /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
@@ -1057,6 +1065,11 @@ export function createStudioApiFixture(
       adaptedTemplate,
       archivedTemplate,
     ],
+    disciplines: [
+      { code: 'strength', name: 'Fuerza' },
+      { code: 'mobility', name: 'Movilidad' },
+    ],
+    templateCreateOutcome: 'created',
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1203,6 +1216,50 @@ function defaultResponse(
       body: {
         data: fixture.organizationSessionTemplates,
         page: { has_more: false, next_cursor: null },
+      },
+    }
+  }
+  if (request.method === 'GET' && request.path === '/studio/v1/catalog/disciplines') {
+    return { status: 200, body: { items: fixture.disciplines } }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates$/.test(request.path)
+  ) {
+    if (fixture.templateCreateOutcome === 'not-found') {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    // What `planning.create_session_template` writes: an organization-owned
+    // template in `draft`, and a first draft holding the trimmed name and nothing else.
+    const organizationId = request.path.split('/')[4] ?? ''
+    const body = objectValue(request.body)
+    const sequence = String(fixture.organizationSessionTemplates.length + 1).padStart(3, '0')
+    const templateId = `01991600-a000-7000-8000-000000000${sequence}`
+    const etag = `"sha256:${'c'.repeat(40)}${sequence}"`
+    const template = {
+      id: templateId,
+      organization_id: organizationId,
+      discipline_code: String(body.discipline_code),
+      status: 'draft',
+      author_person_id: '01991600-7000-7000-8000-000000000002',
+      draft: {
+        id: `01991600-a000-7000-8000-000000001${sequence}`,
+        template_id: templateId,
+        content_schema_version: 1,
+        content: { title: String(body.title).trim(), activity_type_id: null, steps: [] },
+        derived_from_version_id: null,
+        etag,
+        updated_at: '2026-11-10T15:04:11.000Z',
+      },
+      versions: [],
+    }
+    fixture.organizationSessionTemplates = [template, ...fixture.organizationSessionTemplates]
+    return {
+      status: 201,
+      body: template,
+      headers: {
+        ETag: etag,
+        Location: `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
       },
     }
   }
@@ -2224,4 +2281,23 @@ function foldForSearch(value: string): string {
 
 export function error(code: string, detail?: string): { error: { code: string; detail?: string } } {
   return { error: { code, ...(detail ? { detail } : {}) } }
+}
+
+/**
+ * An RFC 9457 answer, which is what the content block's routes send instead of
+ * the `{ error }` envelope. Extensions such as `errors` and `current_state` ride
+ * alongside, as the API puts them.
+ */
+export function problem(
+  code: string,
+  status: number,
+  extensions: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    type: `https://errors.allfit.invalid/${code}`,
+    title: code,
+    status,
+    request_id: '01991600-ffff-7000-8000-000000000001',
+    ...extensions,
+  }
 }

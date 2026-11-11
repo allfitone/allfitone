@@ -1648,6 +1648,44 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Todavía no hay plantillas/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/content/templates/new` · HU-036 ---
+  {
+    // Submitted empty, so both field errors are on the page with the open form.
+    stories: 'HU-036 · a new template, and what it still needs',
+    path: `${workspace}/content/templates/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear plantilla' }).click()
+      await expect(page.getByText('Escribe el nombre de la plantilla.')).toBeVisible()
+    },
+  },
+  {
+    // Before Backoffice publishes a discipline nothing can be created, and the
+    // screen says why instead of offering an empty list.
+    stories: 'HU-036 · no discipline published yet',
+    path: `${workspace}/content/templates/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership], disciplines: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay disciplinas publicadas')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-036 · the server refused the template',
+    path: `${workspace}/content/templates/new`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        templateCreateOutcome: 'not-found',
+      }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina').click()
+      await page.getByRole('option', { name: 'Fuerza' }).click()
+      await page.getByLabel('Nombre').fill('Fuerza tren inferior')
+      await page.getByRole('button', { name: 'Crear plantilla' }).click()
+      await expect(page.getByText(/Tu rol ya no crea contenido/)).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',

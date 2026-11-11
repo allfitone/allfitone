@@ -8,6 +8,7 @@ import {
 import {
   StudioApiError,
   studioApi,
+  type CatalogDisciplineList,
   type ClientDirectoryGroup,
   type InformationCategoryList,
   type OfferableScopeCatalog,
@@ -59,9 +60,12 @@ export const studioQueryKeys = {
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
   organizationPrograms: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'programs', { limit }] as const,
+  organizationSessionTemplatesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates'] as const,
   organizationSessionTemplates: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'session-templates', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
+  catalogDisciplines: () => [...ROOT_KEY, 'catalog', 'disciplines'] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
   /*
@@ -459,6 +463,18 @@ export function informationCategoriesQueryOptions() {
     queryKey: studioQueryKeys.informationCategories(),
     queryFn: ({ signal }): Promise<InformationCategoryList> =>
       studioApi.informationCategories(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/**
+ * The disciplines a template can belong to. Published by Backoffice, which is
+ * rare and never mid-session, so held as long as the role catalogue.
+ */
+export function catalogDisciplinesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.catalogDisciplines(),
+    queryFn: ({ signal }): Promise<CatalogDisciplineList> => studioApi.catalogDisciplines(signal),
     staleTime: STUDIO_ROLE_STALE_TIME_MS,
   })
 }

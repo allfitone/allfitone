@@ -1349,7 +1349,8 @@
    a section they had no space between them and read as one block. The button
    sizes to its label rather than stretching the width of the alert. */
 [data-site-form-refusal],
-[data-organization-form-refusal] {
+[data-organization-form-refusal],
+[data-template-create-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);

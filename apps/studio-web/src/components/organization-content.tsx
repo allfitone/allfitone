@@ -18,7 +18,7 @@
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button } from '@allfitone/react/components/button'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Card,
   CardAction,
@@ -43,13 +43,14 @@ import { Spinner } from '@allfitone/react/components/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
   archivedItems,
-  canReadContent,
+  canManageContent,
   isAdaptation,
   livingItems,
   programItems,
@@ -76,7 +77,7 @@ export function OrganizationContent() {
     organizationProgramsQueryOptions(current.organization_id, PAGE_SIZE),
   )
 
-  const allowed = canReadContent(current.roles, rolesQuery.data?.items)
+  const allowed = canManageContent(current.roles, rolesQuery.data?.items)
   const forbidden =
     isStudioForbidden(templatesQuery.error) || isStudioForbidden(programsQuery.error)
   const pending = templatesQuery.isPending || programsQuery.isPending
@@ -114,6 +115,18 @@ export function OrganizationContent() {
     <section data-content-page aria-label="Contenido">
       <WorkspacePageHeader
         description={`Las plantillas de sesión y los programas de ${current.display_name}. Un borrador es lo que alguien está escribiendo; una versión publicada ya no cambia y es la que puede asignarse.`}
+        actions={
+          allowed ? (
+            <Link
+              href={`/organizations/${current.organization_id}/content/templates/new`}
+              data-slot="button"
+              data-variant="default"
+              className={buttonVariants()}
+            >
+              Nueva plantilla
+            </Link>
+          ) : undefined
+        }
       />
 
       {(templatesQuery.isFetching || programsQuery.isFetching) && ready ? (
