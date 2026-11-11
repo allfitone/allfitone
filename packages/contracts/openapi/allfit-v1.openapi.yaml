@@ -15033,6 +15033,78 @@ paths:
           $ref: '#/components/responses/NotFound'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /space/v1/waitlist/link-reads:
+    post:
+      tags: [Space Waitlist]
+      operationId: readSpaceWaitlistLink
+      x-allfit-operation: OP-WL-004
+      x-allfit-cache: no-store
+      summary: Read my waitlist link and counter
+      description: >-
+        Reads the code and the counter of the sign-up a private link belongs to.
+        The token travels in the body because it is a bearer credential. The
+        answer never names the people who joined with the code.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WaitlistSecret'
+        - $ref: '#/components/parameters/WaitlistVisitorAddress'
+        - $ref: '#/components/parameters/WaitlistVisitorDevice'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitlistPrivateLinkRequest'
+      responses:
+        '200':
+          description: The sign-up's own code, counter and state
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WaitlistLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /space/v1/waitlist/departures:
+    post:
+      tags: [Space Waitlist]
+      operationId: leaveSpaceWaitlist
+      x-allfit-operation: OP-WL-005
+      x-allfit-cache: no-store
+      summary: Leave the waitlist
+      description: >-
+        Deletes the sign-up a private link belongs to, with every link it ever
+        received. The people it invited stay on the list. A link whose sign-up
+        already left answers like one that never existed.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/WaitlistSecret'
+        - $ref: '#/components/parameters/WaitlistVisitorAddress'
+        - $ref: '#/components/parameters/WaitlistVisitorDevice'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WaitlistPrivateLinkRequest'
+      responses:
+        '204':
+          description: The sign-up was deleted
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
 components:
   securitySchemes:
     cookieAuth:
@@ -16187,6 +16259,31 @@ components:
           type: string
           format: email
           maxLength: 254
+    WaitlistPrivateLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          maxLength: 256
+    WaitlistLink:
+      type: object
+      additionalProperties: false
+      required: [referral_code, referrals, language, confirmed]
+      properties:
+        referral_code:
+          type: string
+        referrals:
+          type: integer
+          minimum: 0
+          description: Sign-ups that joined with the code, confirmed and count.
+        language:
+          type: string
+          enum: [es, en]
+        confirmed:
+          type: boolean
+          description: Whether this sign-up confirmed its own email.
     ScopeResourceRule:
       type: object
       additionalProperties: false

@@ -1559,10 +1559,26 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'POST',
+      path: '/space/v1/waitlist/departures',
+      operationId: 'leaveSpaceWaitlist',
+      allfitOperation: 'OP-WL-005',
+      responses: ['204', '400', '404', '429'],
+      security: [],
+    },
+    {
+      method: 'POST',
       path: '/space/v1/waitlist/email-requests',
       operationId: 'requestSpaceWaitlistEmail',
       allfitOperation: 'OP-WL-003',
       responses: ['202', '400', '404', '429'],
+      security: [],
+    },
+    {
+      method: 'POST',
+      path: '/space/v1/waitlist/link-reads',
+      operationId: 'readSpaceWaitlistLink',
+      allfitOperation: 'OP-WL-004',
+      responses: ['200', '400', '404', '429'],
       security: [],
     },
     {
