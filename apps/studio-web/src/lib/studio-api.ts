@@ -854,6 +854,27 @@ export const studioApi = {
       ...(signal ? { signal } : {}),
     }),
 
+  /**
+   * OP-PAY-004. Puts a price on sale and retires the previous one in the same command.
+   * The price already on sale answers `200` with the plan unchanged.
+   */
+  publishOrganizationPlanVersion: (
+    organizationId: string,
+    planId: string,
+    body: PlanVersionPublish,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(
+      `/studio/v1/organizations/${organizationId}/plans/${planId}/versions`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
   /*
    * The three transitions carry no body: the subscription is in the path and there is
    * nothing to choose. They are separate methods rather than one with a verb argument so

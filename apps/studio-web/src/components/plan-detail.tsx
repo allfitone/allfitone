@@ -43,6 +43,7 @@ import { useParams } from 'next/navigation'
 import { type FormEvent, useEffect, useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
+import { PlanPublish } from './plan-publish'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { canManageBilling } from '@/lib/organization-billing'
@@ -139,7 +140,14 @@ export function PlanDetail() {
       />
       <PlanSummary plan={plan} />
       {canManage ? (
-        <PlanRename key={plan.plan_id} plan={plan} organizationId={organizationId} />
+        <>
+          <PlanPublish
+            key={`publish-${plan.plan_id}`}
+            plan={plan}
+            organizationId={organizationId}
+          />
+          <PlanRename key={plan.plan_id} plan={plan} organizationId={organizationId} />
+        </>
       ) : (
         <p>Cambiar un plan corresponde a quienes administran los cobros.</p>
       )}

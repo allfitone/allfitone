@@ -2649,6 +2649,81 @@ function defaultResponse(
     )
     return { status: 200, body: renamed }
   }
+  const planVersionsPath = /^\/studio\/v1\/organizations\/[^/]+\/plans\/([^/]+)\/versions$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && planVersionsPath) {
+    /*
+     * `payments.publish_plan_version`: whole pesos in COP, monthly or yearly, in person or
+     * remote. The price already on sale answers `200` unchanged; a new one retires it.
+     */
+    const body = objectValue(request.body)
+    const amount = body.amount_minor
+    if (
+      typeof amount !== 'number' ||
+      !Number.isInteger(amount) ||
+      amount < 100 ||
+      amount > 100_000_000_000 ||
+      amount % 100 !== 0 ||
+      body.currency_code !== 'COP' ||
+      (body.billing_period !== 'month' && body.billing_period !== 'year') ||
+      (body.delivery_mode !== 'in_person' && body.delivery_mode !== 'remote')
+    ) {
+      return { status: 422, body: error('validation-failed') }
+    }
+    const plan = fixture.organizationPlans
+      .map(objectValue)
+      .find((candidate) => candidate.plan_id === planVersionsPath[1])
+    if (!plan) return { status: 404, body: error('not-found') }
+    const current = plan.current_version === null ? null : objectValue(plan.current_version)
+    if (
+      current &&
+      current.amount_minor === amount &&
+      current.billing_period === body.billing_period &&
+      current.delivery_mode === body.delivery_mode
+    ) {
+      return { status: 200, body: plan }
+    }
+    const versions = Array.isArray(plan.versions) ? plan.versions.map(objectValue) : []
+    const sequence = fixture.organizationPlans
+      .map(objectValue)
+      .reduce(
+        (total, entry) => total + (Array.isArray(entry.versions) ? entry.versions.length : 0),
+        1,
+      )
+    const published = {
+      plan_version_id: `01991600-e100-7000-8000-${String(sequence).padStart(12, '0')}`,
+      version_number:
+        versions.reduce((top, entry) => Math.max(top, Number(entry.version_number)), 0) + 1,
+      amount_minor: amount,
+      currency_code: 'COP',
+      billing_period: body.billing_period,
+      delivery_mode: body.delivery_mode,
+      status: 'published',
+      published_at: '2026-11-11T15:00:00.000Z',
+      deprecated_at: null,
+    }
+    const next = {
+      ...plan,
+      status: 'published',
+      on_sale: true,
+      current_version: published,
+      versions: [
+        published,
+        ...versions.map((entry) =>
+          entry.status === 'published'
+            ? { ...entry, status: 'deprecated', deprecated_at: '2026-11-11T15:00:00.000Z' }
+            : entry,
+        ),
+      ],
+    }
+    fixture.organizationPlans = sortPlans(
+      fixture.organizationPlans.map((candidate) =>
+        objectValue(candidate).plan_id === plan.plan_id ? next : candidate,
+      ),
+    )
+    return { status: 201, body: next }
+  }
   /*
    * The three transitions answer the same shape and differ only in the state they leave
    * behind, so one handler reads the verb from the path. Writing the new state into the

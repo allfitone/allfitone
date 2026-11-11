@@ -2689,6 +2689,59 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos este plan')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/billing/plans/[planId]`, publish a price · HU-075 ---
+  {
+    stories: 'HU-075 · what replacing the price on sale changes, before the click',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('Se retira el precio')
+    },
+  },
+  {
+    stories: 'HU-075 · a remote first price, not chargeable yet',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000003`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('90000')
+      await page.getByRole('radio', { name: 'Remoto' }).click()
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('todavía no está disponible')
+    },
+  },
+  {
+    stories: 'HU-075 · the price on sale, and centavos, refused on the form',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('120000,50')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByText(/pesos enteros, sin centavos/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-075 · the publish refused, said in the dialog',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/versions')
+          ? { status: 409, body: error('conflict') }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await page.getByRole('button', { name: 'Publicar ahora' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se publicó')
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',
