@@ -26,6 +26,8 @@ const sql = postgres({
 // Every address of a run carries this tag, so the run removes exactly what it wrote.
 const RUN = `wl${randomBytes(6).toString('hex')}`
 const address = (name: string) => `${name}@${RUN}.example.com`
+// The attempt windows have no address to tag, so the run remembers its connections.
+const connections: Buffer[] = []
 
 afterAll(async () => {
   await sql`
@@ -35,6 +37,7 @@ afterAll(async () => {
         select id from waitlist.signups where canonical_email like ${`%@${RUN}.example.com`}
       )`
   await sql`delete from waitlist.signups where canonical_email like ${`%@${RUN}.example.com`}`
+  await sql`delete from waitlist.rate_windows where scope_hash in ${sql(connections)}`
   await sql.end({ timeout: 1 })
 })
 
@@ -47,11 +50,13 @@ async function join(
   email: string,
   options: { inviterCode?: string; connection?: Buffer; device?: Buffer } = {},
 ): Promise<Joined> {
+  const connection = options.connection ?? randomBytes(32)
+  connections.push(connection)
   const [row] = await sql<Joined[]>`
     select * from waitlist.join(
       'Ana', ${email}, 'es', true, '2026-11-10', ${options.inviterCode ?? null},
       null, null, null,
-      ${options.connection ?? randomBytes(32)}, ${options.device ?? randomBytes(32)},
+      ${connection}, ${options.device ?? randomBytes(32)},
       ${randomUUID()}::uuid, ${randomBytes(32)}, ${randomUUID()}::uuid, ${randomBytes(32)},
       ${1}::smallint
     )`
