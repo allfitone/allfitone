@@ -75,6 +75,11 @@ export type ClientDirectoryRelationship = AllfitV1Schemas['ClientDirectoryRelati
 export type ClientDirectoryInvitation = AllfitV1Schemas['ClientDirectoryInvitation']
 export type ClientDirectoryGroup = AllfitV1Schemas['ClientDirectoryGroup']
 export type AccessLevel = AllfitV1Schemas['AccessLevel']
+export type ClientTrainingProfile = AllfitV1Schemas['ClientTrainingProfile']
+export type ClientProfileClaim = AllfitV1Schemas['ClientProfileClaim']
+export type ClientBiologicalSex = AllfitV1Schemas['ClientBiologicalSex']
+export type Provenance = AllfitV1Schemas['Provenance']
+export type AppliedScope = AllfitV1Schemas['AppliedScope']
 export type ClientCard = AllfitV1Schemas['StudioClientCard']
 export type AttendedClientCard = AllfitV1Schemas['StudioAttendedClientCard']
 export type FormerClientCard = AllfitV1Schemas['StudioFormerClientCard']
@@ -791,6 +796,20 @@ export const studioApi = {
       cache: 'no-store',
       ...(signal ? { signal } : {}),
     }),
+
+  /**
+   * `OP-IDN-018`. The training claims she shares with this caller, each with
+   * where it came from. 404 for anybody who does not attend her; 403 when she
+   * shares nothing, and that refusal is recorded like a read.
+   */
+  clientTrainingProfile: (organizationId: string, personId: string, signal?: AbortSignal) =>
+    request<ClientTrainingProfile>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/profile`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
 
   relationshipHistory: (
     organizationId: string,

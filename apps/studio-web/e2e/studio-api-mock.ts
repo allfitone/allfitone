@@ -43,6 +43,12 @@ export interface StudioApiFixture {
    * caller does not attend — the same answer for both, on purpose.
    */
   clientCard: unknown
+  /**
+   * The training profile `OP-IDN-018` answers. `null` is its `403`
+   * `scope-required` — she shares nothing of the category, which the route
+   * records as a refused read, not an empty answer.
+   */
+  clientTrainingProfile: unknown
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -884,6 +890,129 @@ export const formerClientCard = {
   lost_at: '2026-02-02T11:00:00.000Z',
 }
 
+/**
+ * `OP-IDN-018`, written from `identity.read_client_training_profile`.
+ *
+ * The fullest useful case, and every part of it is something the screen has to
+ * say differently: a discipline and a goal she declared, **two experience
+ * claims in force at once** (hers and a professional's), two emphasis zones as
+ * two separate claims — which is how they arrive — and one claim whose value
+ * the version withheld, with `value_text` null while its attribute code
+ * travelled.
+ */
+export const clientTrainingProfile = {
+  applied_scope: { code: 'relationship_training', version: 4 },
+  biological_sex: { value: 'female', provenance: 'person_declared' },
+  attributes: [
+    {
+      id: '019f4900-0000-7000-8000-000000000c01',
+      attribute_code: 'training_discipline',
+      value_text: 'strength',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:12:44.118Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c02',
+      attribute_code: 'primary_training_goal',
+      value_text: 'get_fit',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:14:02.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c03',
+      attribute_code: 'training_experience',
+      value_text: 'experienced',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'professional_observation',
+      valid_from: '2026-10-31T10:00:00.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c04',
+      attribute_code: 'training_experience',
+      value_text: 'some_practice',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:15:30.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c05',
+      attribute_code: 'focus_areas',
+      value_text: 'glutes',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:16:10.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c06',
+      attribute_code: 'focus_areas',
+      value_text: 'legs',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:16:10.000Z',
+    },
+    /*
+     * A third zone whose value the version withheld, beside two that travelled.
+     * The group must then count two rows and not three: a badge counting the
+     * claims that arrived said "3 vigentes" above two lines.
+     */
+    {
+      id: '019f4900-0000-7000-8000-000000000c08',
+      attribute_code: 'focus_areas',
+      value_text: null,
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:16:10.000Z',
+    },
+    /*
+     * The column the version withheld. `attribute_code` travelled and
+     * `value_text` did not, which is the one gap the screen may name: she
+     * shares a datum of this kind and its value is not in this version.
+     */
+    {
+      id: '019f4900-0000-7000-8000-000000000c07',
+      attribute_code: 'training_days_per_week',
+      value_text: null,
+      value_numeric: null,
+      unit_code: null,
+      provenance: null,
+      valid_from: null,
+    },
+  ],
+}
+
+/** An older version of the same permission: fewer fields, same person. */
+export const narrowTrainingProfile = {
+  applied_scope: { code: 'relationship_training', version: 1 },
+  biological_sex: null,
+  attributes: [
+    {
+      id: '019f4900-0000-7000-8000-000000000c02',
+      attribute_code: 'primary_training_goal',
+      value_text: 'get_fit',
+      value_numeric: null,
+      unit_code: null,
+      provenance: null,
+      valid_from: null,
+    },
+  ],
+}
+
+/** Shares the category and nothing inside it: not a refusal, and not a failure. */
+export const emptyTrainingProfile = {
+  applied_scope: { code: 'relationship_training', version: 4 },
+  biological_sex: null,
+  attributes: [],
+}
+
 /** Attended, and she has shared nothing: being assigned asks her for nothing. */
 export const clientCardWithoutSections = {
   ...clientCard,
@@ -1398,6 +1527,7 @@ export function createStudioApiFixture(
     guestQuota: null,
     authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
     clientCard: structuredClone(clientCard),
+    clientTrainingProfile: structuredClone(clientTrainingProfile),
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -2530,6 +2660,26 @@ function defaultResponse(
       },
     }
     return { status: 201, body: fixture.relationshipState }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/profile$/.test(request.path)
+  ) {
+    // Nothing shared is the `403` that names the category it would take, not an
+    // empty profile: the route refuses before reading, and records the attempt.
+    if (fixture.clientTrainingProfile === null) {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'read' },
+        },
+      }
+    }
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    return { status: 200, body: fixture.clientTrainingProfile }
   }
   if (
     request.method === 'GET' &&

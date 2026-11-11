@@ -88,6 +88,13 @@ export function resolveWorkspaceRoute(
     return { title: 'Ficha' }
   }
   /*
+   * Named after the category she shares rather than after the screen: a coach
+   * reading "Perfil" would not know which of the seven he is looking at.
+   */
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/profile$/.test(pathname)) {
+    return { title: 'Perfil de entrenamiento' }
+  }
+  /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
    * `invitations`, `information-categories`, `authorizations` or `people`,

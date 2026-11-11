@@ -171,6 +171,13 @@ describe('organization workspace navigation', () => {
    * that nobody registers here is titled "Studio", which fails silently: the
    * screen renders and only the heading is wrong.
    */
+  test('the training profile is titled by the category, under the card', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/profile`, organizationId),
+    ).toEqual({ title: 'Perfil de entrenamiento' })
+  })
+
   test('a person card is titled Ficha, not Vínculo and not Studio', () => {
     const personId = '01991600-3000-7000-8000-0000000000aa'
     expect(resolveWorkspaceRoute(`${basePath}/clients/people/${personId}`, organizationId)).toEqual(

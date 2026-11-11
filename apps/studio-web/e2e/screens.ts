@@ -38,6 +38,8 @@ import {
   relationshipState,
   clientCard,
   clientCardWithoutSections,
+  emptyTrainingProfile,
+  narrowTrainingProfile,
   coveredClientCard,
   formerClientCard,
   secondActiveMembership,
@@ -135,6 +137,7 @@ async function settleAnimations(page: Page): Promise<void> {
 const workspace = `/organizations/${activeMembership.organization_id}`
 const relationshipId = relationshipState.relationship_id
 const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
+const trainingProfilePath = `${clientCardPath}/profile`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1416,6 +1419,81 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('Ya no la atiendes')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/profile` · HU-051 ---
+  {
+    /*
+     * The fullest the screen gets: a discipline, a goal, two experience claims
+     * in force at once, two emphasis zones as two claims, and one datum whose
+     * value the version withheld. Every row this screen can draw, at once.
+     */
+    stories: 'HU-051 · the training profile, with two claims in force at once',
+    path: trainingProfilePath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      /*
+       * Scoped to the group: two attributes carry that badge, because two of
+       * them hold two readable claims each. An unscoped match is a strict-mode
+       * violation rather than a failure of the screen.
+       */
+      const experience = page
+        .locator('[data-client-profile-group]')
+        .filter({ hasText: 'Experiencia de entrenamiento' })
+      await expect(experience).toContainText('Tiene experiencia')
+      await expect(experience).toContainText('2 vigentes')
+    },
+  },
+  {
+    // An older version of the same permission: fewer fields of the same person,
+    // and an origin that did not travel either.
+    stories: 'HU-051 · an older version of the permission, with fewer fields',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientTrainingProfile: narrowTrainingProfile,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sin origen disponible')).toBeVisible()
+    },
+  },
+  {
+    // She shares the category and nothing inside it. A state, and it has to read
+    // as one rather than as a screen that failed.
+    stories: 'HU-051 · the category shared with nothing in it',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientTrainingProfile: emptyTrainingProfile,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: a refusal, not an empty profile, and it names what it takes.
+    stories: 'HU-051 · without the training permission in force',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientTrainingProfile: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-051 · a profile the caller does not attend',
+    path: trainingProfilePath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este perfil')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---

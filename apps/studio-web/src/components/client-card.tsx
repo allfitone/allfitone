@@ -55,7 +55,9 @@ import {
   cardAccessLabel,
   categoryName,
   categorySummary,
+  clientTrainingProfilePath,
   lossReasonSentence,
+  sectionOpensTrainingProfile,
   sectionsState,
   withdrawalsNewestFirst,
 } from '@/lib/client-card'
@@ -139,6 +141,7 @@ export function ClientCardScreen() {
         catalog={catalogQuery.data?.items}
         catalogPending={catalogQuery.isPending}
         onRetryCatalog={() => void catalogQuery.refetch()}
+        profilePath={clientTrainingProfilePath(current.organization_id, params.personId)}
       />
       {card.withdrawn.length > 0 ? (
         <WithdrawnPanel withdrawn={card.withdrawn} catalog={catalogQuery.data?.items} />
@@ -206,11 +209,13 @@ function SectionsPanel({
   catalog,
   catalogPending,
   onRetryCatalog,
+  profilePath,
 }: {
   sections: readonly ClientCardSection[]
   catalog: readonly InformationCategory[] | undefined
   catalogPending: boolean
   onRetryCatalog: () => void
+  profilePath: string
 }) {
   const state = sectionsState(sections, catalog, catalogPending)
   return (
@@ -244,7 +249,7 @@ function SectionsPanel({
           <ul data-client-card-section-list>
             {sections.map((section) => (
               <li key={section.scope_code}>
-                <SectionEntry section={section} catalog={state.catalog} />
+                <SectionEntry section={section} catalog={state.catalog} profilePath={profilePath} />
               </li>
             ))}
           </ul>
@@ -270,10 +275,10 @@ function SectionsPanel({
 }
 
 /**
- * One category, and deliberately not a way in to its content: the operations
- * that read it each have their own screen and their own entry in her log, and
- * none of them is built yet. A door that led nowhere would be worse than no
- * door.
+ * One category, with a way in where one exists. Each read it points to has its
+ * own screen and its own entry in her log, and the training profile is the
+ * first of them to be built; the rest carry no door rather than one that leads
+ * nowhere.
  *
  * The permission's version is left out. It explains why two gyms see different
  * fields of the same person, which is a thing to say where those fields are
@@ -282,9 +287,11 @@ function SectionsPanel({
 function SectionEntry({
   section,
   catalog,
+  profilePath,
 }: {
   section: ClientCardSection
   catalog: readonly InformationCategory[]
+  profilePath: string
 }) {
   const summary = categorySummary(section.scope_code, catalog)
   return (
@@ -294,6 +301,19 @@ function SectionEntry({
           {categoryName(section.scope_code, catalog)}
         </CardTitle>
         {summary ? <CardDescription>{summary}</CardDescription> : null}
+        {sectionOpensTrainingProfile(section) ? (
+          <CardAction>
+            <Link
+              href={profilePath}
+              data-slot="button"
+              data-variant="outline"
+              data-client-card-profile-link
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Ver el perfil
+            </Link>
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent>
         <dl data-client-card-facts>

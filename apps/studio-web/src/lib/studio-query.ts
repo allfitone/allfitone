@@ -140,6 +140,8 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions', { status, limit }] as const,
   clientCard: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
+  clientTrainingProfile: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
   relationshipHistory: (organizationId: string, relationshipId: string, limit: number) =>
@@ -306,6 +308,30 @@ export function clientCardQueryOptions(organizationId: string, personId: string)
     queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
     staleTime: 0,
     gcTime: 0,
+  })
+}
+
+/**
+ * Never cached, for the same reason as the card: `OP-IDN-018` answers
+ * `private-no-store`, and a remembered copy would outlive the grant it was read
+ * under — she can revoke the category between two visits.
+ *
+ * **And never refetched on its own.** Every answer here is a read of her data,
+ * recorded inside the same transaction and shown to her. With the client's
+ * defaults, alt-tabbing back to the screen would write her another access she
+ * can see and the coach never asked for — a log of the window's focus rather
+ * than of anybody's intent. So this is the one read in Studio that leaves the
+ * window and the network alone and goes only when somebody arrives or presses
+ * the button.
+ */
+export function clientTrainingProfileQueryOptions(organizationId: string, personId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientTrainingProfile(organizationId, personId),
+    queryFn: ({ signal }) => studioApi.clientTrainingProfile(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }
 

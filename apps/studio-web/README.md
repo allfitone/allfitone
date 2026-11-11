@@ -42,3 +42,11 @@ travels. The client card (`OP-REL-019`) is the first of these: it decides which
 categories of a person's data appear at all, so a remembered copy would put
 back a category she revoked seconds ago. The cost is a loading state on every
 arrival, which for an index of what somebody authorized is the right way round.
+
+A read of the person's own data goes further and turns the automatic refetches
+off as well (`refetchOnWindowFocus: false`, `refetchOnReconnect: false`). Those
+reads are recorded inside the transaction that answers them and shown to her, so
+leaving the tab and coming back would write her an access the professional never
+asked for — a log of the window's focus rather than of anybody's intent. The
+authorized training profile (`OP-IDN-018`) is the first of these; the same
+applies to every `clients/{personId}/…` read that follows it.
