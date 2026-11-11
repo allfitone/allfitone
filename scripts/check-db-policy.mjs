@@ -88,6 +88,8 @@ let base = argumentValue('--base') ?? process.env.DB_POLICY_BASE_SHA
 if (base === '0000000000000000000000000000000000000000') base = undefined
 
 const newMigrations = []
+// Renamed only to undo a duplicated version: dated like a new one, its SQL not re-read.
+const renumbered = []
 if (base) {
   try {
     runGit(['cat-file', '-e', `${base}^{commit}`])
@@ -100,11 +102,32 @@ if (base) {
       'packages/db/supabase/migrations',
     ])
 
+    // Two branches that merge minutes apart can each bring a migration with the same
+    // version. `supabase db push` applies the first and fails recording the second, so
+    // neither that deploy nor any later one can finish. The only repair is to renumber
+    // one of them, and that one rename is allowed: unchanged content (R100), and only
+    // while the base really holds its version twice. It happened on 2026-11-11.
+    const versionsAtBase = runGit([
+      'ls-tree',
+      '-r',
+      '--name-only',
+      base,
+      '--',
+      'packages/db/supabase/migrations',
+    ])
+      .split(/\r?\n/)
+      .filter((filePath) => filePath.endsWith('.sql'))
+      .map((filePath) => basename(filePath).split('_')[0])
+    const duplicatedAtBase = (filePath) =>
+      versionsAtBase.filter((version) => version === basename(filePath).split('_')[0]).length > 1
+
     for (const line of changes.split(/\r?\n/).filter(Boolean)) {
       const [status, ...paths] = line.split('\t')
       const sqlPaths = paths.filter((filePath) => filePath.endsWith('.sql'))
       if (sqlPaths.length === 0) continue
-      if (status === 'A') {
+      if (status === 'R100' && sqlPaths.length === 2 && duplicatedAtBase(sqlPaths[0])) {
+        renumbered.push(resolve(repositoryRoot, sqlPaths[1]))
+      } else if (status === 'A') {
         const filePath = sqlPaths[0]
         if (filePath.endsWith('.sql')) newMigrations.push(resolve(repositoryRoot, filePath))
       } else if (/^[MDRC]/.test(status)) {
@@ -147,11 +170,12 @@ if (base) {
       .sort()
     const newestAtBase = baseMigrations.at(-1)
     if (newestAtBase) {
-      for (const filePath of newMigrations) {
+      for (const filePath of [...newMigrations, ...renumbered]) {
         const version = basename(filePath).split('_')[0]
-        if (version < newestAtBase) {
+        // Not later is not enough: an equal version is a second file under one key.
+        if (version <= newestAtBase) {
           fail(
-            `${basename(filePath)} is dated before ${newestAtBase}, which the base branch ` +
+            `${basename(filePath)} is not dated after ${newestAtBase}, which the base branch ` +
               'already has. Rename it to a later timestamp: deploying it would land out of order.',
           )
         }
