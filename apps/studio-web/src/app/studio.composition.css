@@ -803,6 +803,7 @@
 [data-team-directory-note],
 [data-client-directory-note],
 [data-client-directory-search],
+[data-movement-search],
 [data-guest-quota-summary],
 [data-billing-note],
 [data-authorized-scope-note],
@@ -1359,7 +1360,8 @@
 /* Status and the way to change it share the card's action slot. They are two
    different kinds of thing, so they get space between them, and they wrap
    rather than push the card's title out of its own box on a narrow screen. */
-[data-organization-identity-action] {
+[data-organization-identity-action],
+[data-movement-badges] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

@@ -1648,6 +1648,29 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Todavía no hay plantillas/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/content`, movements tab · HU-067 ---
+  {
+    // Both libraries and an archived movement in one list: every badge the
+    // cards carry, side by side.
+    stories: 'HU-067 · the movements a gym can plan with',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Movimientos' }).click()
+      await page.getByRole('checkbox', { name: 'Incluir los archivados' }).click()
+      await expect(page.getByText('Zancada lateral con banda')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-067 · a search that finds nothing',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Movimientos' }).click()
+      await page.getByLabel('Buscar un movimiento').fill('rotacion')
+      await expect(page.getByText(/Ningún movimiento coincide/)).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/content/templates/new` · HU-036 ---
   {
     // Submitted empty, so both field errors are on the page with the open form.

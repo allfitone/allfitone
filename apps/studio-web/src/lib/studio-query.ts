@@ -9,6 +9,7 @@ import {
   StudioApiError,
   studioApi,
   type CatalogDisciplineList,
+  type StudioMovementPage,
   type ClientDirectoryGroup,
   type InformationCategoryList,
   type OfferableScopeCatalog,
@@ -28,6 +29,7 @@ import {
   type TeamInvitationPage,
   type TeamInvitationStatus,
 } from './studio-api'
+import type { MovementSearchFilters } from './movement-search'
 
 export type MembershipFilter = OrganizationMembershipStatus | 'all'
 export type InvitationFilter = TeamInvitationStatus | 'all'
@@ -66,6 +68,10 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'session-templates', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
   catalogDisciplines: () => [...ROOT_KEY, 'catalog', 'disciplines'] as const,
+  organizationMovementsRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movements'] as const,
+  organizationMovements: (organizationId: string, filters: MovementSearchFilters, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movements', { ...filters, limit }] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
   /*
@@ -476,6 +482,37 @@ export function catalogDisciplinesQueryOptions() {
     queryKey: studioQueryKeys.catalogDisciplines(),
     queryFn: ({ signal }): Promise<CatalogDisciplineList> => studioApi.catalogDisciplines(signal),
     staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * A search, so every filter is part of the key: a new term is a new query with
+ * its own pages, which also drops a cursor the server issued for the old one.
+ * Held as briefly as a directory page because a teammate can add or archive a
+ * movement while the editor is open.
+ */
+export function organizationMovementsQueryOptions(
+  organizationId: string,
+  filters: MovementSearchFilters,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationMovements(organizationId, filters, limit),
+    queryFn: ({ pageParam, signal }): Promise<StudioMovementPage> =>
+      studioApi.organizationMovements(
+        organizationId,
+        {
+          ...(filters.term ? { search: filters.term } : {}),
+          ...(filters.disciplineCode ? { discipline: filters.disciplineCode } : {}),
+          includeArchived: filters.includeArchived,
+          limit,
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
   })
 }
 

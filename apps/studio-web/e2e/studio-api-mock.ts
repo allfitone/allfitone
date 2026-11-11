@@ -91,6 +91,12 @@ export interface StudioApiFixture {
    */
   templateCreateOutcome: 'created' | 'not-found'
   /**
+   * What `catalog.search_organization_movements` searches. The other names are
+   * matched but never answered — `StudioMovement` does not carry them — so they
+   * sit beside the movement here and the mock strips them, as the route does.
+   */
+  movements: Array<{ movement: Record<string, unknown>; aliases: string[] }>
+  /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
    * tries to prevent — a subscription that was still live when the transaction
@@ -177,6 +183,83 @@ export const terminatedMembership = {
   ended_at: '2025-06-01T21:08:44.319Z',
   roles: ['staff'],
 }
+
+/*
+ * The movement library a gym searches: the global catalogue and the gym's own
+ * in one list, one of each kind the screen tells apart, plus an archived one
+ * that appears only when asked for.
+ */
+export const STRENGTH_GLOBAL_MOVEMENT_ID = '01991600-c000-7000-8000-000000000001'
+export const STRENGTH_OWN_MOVEMENT_ID = '01991600-c000-7000-8000-000000000003'
+
+function libraryMovement(
+  id: string,
+  name: string,
+  discipline: string,
+  scope: 'global' | 'organization',
+  archived = false,
+): Record<string, unknown> {
+  return {
+    id,
+    discipline_code: discipline,
+    name,
+    scope,
+    archived,
+    // The organization's own carry no muscles: only the catalogue curates them.
+    muscles: scope === 'global' ? ['quadriceps'] : [],
+    equipment: [],
+    demo_url: null,
+  }
+}
+
+export const movementLibrary: StudioApiFixture['movements'] = [
+  {
+    movement: libraryMovement(
+      STRENGTH_GLOBAL_MOVEMENT_ID,
+      'Sentadilla trasera',
+      'strength',
+      'global',
+    ),
+    aliases: ['Back squat'],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000002',
+      'Press de banca',
+      'strength',
+      'global',
+    ),
+    aliases: ['Bench press'],
+  },
+  {
+    movement: libraryMovement(
+      STRENGTH_OWN_MOVEMENT_ID,
+      'Remo con mancuerna a una mano',
+      'strength',
+      'organization',
+    ),
+    aliases: [],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000004',
+      'Zancada lateral con banda',
+      'strength',
+      'organization',
+      true,
+    ),
+    aliases: [],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000005',
+      'Rotación torácica',
+      'mobility',
+      'global',
+    ),
+    aliases: ['Thoracic rotation'],
+  },
+]
 
 /*
  * The four template states the content screen tells apart, one fixture each.
@@ -1070,6 +1153,7 @@ export function createStudioApiFixture(
       { code: 'mobility', name: 'Movilidad' },
     ],
     templateCreateOutcome: 'created',
+    movements: structuredClone(movementLibrary),
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1221,6 +1305,45 @@ function defaultResponse(
   }
   if (request.method === 'GET' && request.path === '/studio/v1/catalog/disciplines') {
     return { status: 200, body: { items: fixture.disciplines } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/movements$/.test(request.path)
+  ) {
+    /*
+     * The route's rules, written where the simulator can apply them: names and
+     * other names matched anywhere ignoring case but not accents, the archived
+     * left out unless asked for, name order, and an opaque cursor per page.
+     */
+    const params = new URLSearchParams(request.search)
+    const term = (params.get('q') ?? '').trim().toLocaleLowerCase('es-CO')
+    const discipline = params.get('discipline')
+    const includeArchived = params.get('include_archived') === 'true'
+    const limit = Number(params.get('limit') ?? '25')
+    const offset = Number((params.get('cursor') ?? 'movement-offset-0').split('-').at(-1))
+    const matches = fixture.movements
+      .filter(({ movement, aliases }) => {
+        if (!includeArchived && movement.archived === true) return false
+        if (discipline && movement.discipline_code !== discipline) return false
+        if (!term) return true
+        return [String(movement.name), ...aliases].some((name) =>
+          name.toLocaleLowerCase('es-CO').includes(term),
+        )
+      })
+      .map(({ movement }) => movement)
+      .toSorted((left, right) => String(left.name).localeCompare(String(right.name), 'es'))
+    const data = matches.slice(offset, offset + limit)
+    const hasMore = offset + limit < matches.length
+    return {
+      status: 200,
+      body: {
+        data,
+        page: {
+          has_more: hasMore,
+          next_cursor: hasMore ? `movement-offset-${offset + limit}` : null,
+        },
+      },
+    }
   }
   if (
     request.method === 'POST' &&

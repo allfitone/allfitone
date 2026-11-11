@@ -46,6 +46,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
 
+import { MovementLibrary } from './movement-library'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
@@ -173,6 +174,7 @@ export function OrganizationContent() {
           <TabsList variant="line" aria-label="Secciones del contenido">
             <TabsTrigger value="templates">Plantillas</TabsTrigger>
             <TabsTrigger value="programs">Programas</TabsTrigger>
+            <TabsTrigger value="movements">Movimientos</TabsTrigger>
           </TabsList>
           <TabsContent value="templates">
             <ContentRegister
@@ -189,6 +191,11 @@ export function OrganizationContent() {
               emptyTitle="Todavía no hay programas"
               emptyDescription="Un programa ordena en semanas y días las versiones publicadas de vuestras plantillas, y es lo que se le asigna a una persona."
             />
+          </TabsContent>
+          {/* Mounted only while open, so the search is not sent for a tab
+              nobody looked at. */}
+          <TabsContent value="movements">
+            <MovementLibrary />
           </TabsContent>
         </Tabs>
       ) : null}

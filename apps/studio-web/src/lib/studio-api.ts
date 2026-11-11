@@ -49,6 +49,8 @@ export type SessionTemplateVersion = AllfitV1Schemas['SessionTemplateVersion']
 export type SessionTemplateCreate = AllfitV1Schemas['SessionTemplateCreate']
 export type CatalogDiscipline = AllfitV1Schemas['CatalogDiscipline']
 export type CatalogDisciplineList = AllfitV1Schemas['CatalogDisciplineList']
+export type StudioMovement = AllfitV1Schemas['StudioMovement']
+export type StudioMovementPage = AllfitV1Schemas['StudioMovementPage']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
 export type StudioGuestQuota = AllfitV1Schemas['StudioGuestQuota']
 export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
@@ -380,6 +382,34 @@ export const studioApi = {
    * cookie travels nowhere else. Empty until one is published, and then no
    * template can be created.
    */
+  /*
+   * OP-CAT-009. The global library and the organization's own in one list, each
+   * saying whose it is. Archived movements come only when asked for.
+   */
+  organizationMovements: (
+    organizationId: string,
+    options: {
+      search?: string
+      discipline?: string
+      includeArchived?: boolean
+      limit?: number
+      cursor?: string
+    } = {},
+    signal?: AbortSignal,
+  ) => {
+    const query = new URLSearchParams()
+    if (options.search) query.set('q', options.search)
+    if (options.discipline) query.set('discipline', options.discipline)
+    if (options.includeArchived) query.set('include_archived', 'true')
+    if (options.limit) query.set('limit', String(options.limit))
+    if (options.cursor) query.set('cursor', options.cursor)
+    const suffix = query.size ? `?${query.toString()}` : ''
+    return request<StudioMovementPage>(
+      `/studio/v1/organizations/${organizationId}/movements${suffix}`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
+    )
+  },
+
   catalogDisciplines: (signal?: AbortSignal) =>
     request<CatalogDisciplineList>('/studio/v1/catalog/disciplines', {
       cache: 'no-store',

@@ -530,3 +530,35 @@ describe('the revision a site edit is based on', () => {
     expect(body.expected_revision).toBe(0)
   })
 })
+
+describe('searching movements', () => {
+  test('sends each filter under the name the route reads, and nothing it was not given', async () => {
+    const calls: string[] = []
+    globalThis.fetch = (async (input) => {
+      calls.push(String(input))
+      return Response.json({ data: [], page: { has_more: false, next_cursor: null } })
+    }) as typeof fetch
+
+    await studioApi.organizationMovements('01991600-1000-7000-8000-000000000002', {
+      search: 'bench',
+      discipline: 'strength',
+      includeArchived: true,
+      limit: 25,
+    })
+    await studioApi.organizationMovements('01991600-1000-7000-8000-000000000002', {
+      includeArchived: false,
+    })
+
+    const first = new URL(calls[0] ?? '')
+    expect(first.pathname).toBe(
+      '/studio/v1/organizations/01991600-1000-7000-8000-000000000002/movements',
+    )
+    expect(Object.fromEntries(first.searchParams)).toEqual({
+      q: 'bench',
+      discipline: 'strength',
+      include_archived: 'true',
+      limit: '25',
+    })
+    expect(new URL(calls[1] ?? '').search).toBe('')
+  })
+})
