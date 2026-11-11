@@ -180,6 +180,11 @@ export function OrganizationContent() {
             <ContentRegister
               items={templates}
               kind="templates"
+              draftHref={(item) =>
+                item.draft && !item.archived
+                  ? `/organizations/${current.organization_id}/content/templates/${item.id}`
+                  : undefined
+              }
               emptyTitle="Todavía no hay plantillas de sesión"
               emptyDescription="Una plantilla es una sesión que se puede reutilizar. Es lo primero que hace falta: un programa se compone de versiones publicadas de plantillas."
             />
@@ -208,11 +213,14 @@ function ContentRegister({
   kind,
   emptyTitle,
   emptyDescription,
+  draftHref,
 }: {
   items: ContentItem[]
   kind: 'templates' | 'programs'
   emptyTitle: string
   emptyDescription: string
+  /** Where an item's draft is edited, for the kinds that have an editor. */
+  draftHref?: (item: ContentItem) => string | undefined
 }) {
   const living = livingItems(items)
   const archived = archivedItems(items)
@@ -241,7 +249,12 @@ function ContentRegister({
     <div data-content-panel>
       <div data-content-register>
         {living.map((item) => (
-          <ContentRegisterItem key={item.id} item={item} kind={kind} />
+          <ContentRegisterItem
+            key={item.id}
+            item={item}
+            kind={kind}
+            draftHref={draftHref?.(item)}
+          />
         ))}
       </div>
       {archived.length > 0 ? (
@@ -252,7 +265,12 @@ function ContentRegister({
           <CollapsibleContent>
             <div data-content-register>
               {archived.map((item) => (
-                <ContentRegisterItem key={item.id} item={item} kind={kind} />
+                <ContentRegisterItem
+                  key={item.id}
+                  item={item}
+                  kind={kind}
+                  draftHref={draftHref?.(item)}
+                />
               ))}
             </div>
           </CollapsibleContent>
@@ -262,7 +280,15 @@ function ContentRegister({
   )
 }
 
-function ContentRegisterItem({ item, kind }: { item: ContentItem; kind: string }) {
+function ContentRegisterItem({
+  item,
+  kind,
+  draftHref,
+}: {
+  item: ContentItem
+  kind: string
+  draftHref: string | undefined
+}) {
   const [open, setOpen] = useState(false)
   const published = item.versions.length
   return (
@@ -286,15 +312,27 @@ function ContentRegisterItem({ item, kind }: { item: ContentItem; kind: string }
         </CardHeader>
 
         <CardContent data-content-card-body>
-          {published === 0 ? (
-            <p>Nada publicado todavía, así que no se puede asignar.</p>
-          ) : (
+          {published === 0 ? <p>Nada publicado todavía, así que no se puede asignar.</p> : null}
+          {published > 0 || draftHref ? (
             <div data-content-disclosure>
-              <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
-                {open ? 'Ocultar versiones' : `Ver versiones · ${published}`}
-              </CollapsibleTrigger>
+              {published > 0 ? (
+                <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
+                  {open ? 'Ocultar versiones' : `Ver versiones · ${published}`}
+                </CollapsibleTrigger>
+              ) : null}
+              {draftHref ? (
+                <Link
+                  href={draftHref}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                  data-slot="button"
+                  data-variant="outline"
+                  data-size="sm"
+                >
+                  Abrir el borrador
+                </Link>
+              ) : null}
             </div>
-          )}
+          ) : null}
 
           <CollapsibleContent>
             <ul data-content-version-list>

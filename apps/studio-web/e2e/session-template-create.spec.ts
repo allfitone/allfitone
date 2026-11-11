@@ -30,7 +30,9 @@ function createRequests(fixture: StudioApiFixture) {
   )
 }
 
-test('a template is created from the content page and waits there as a draft', async ({ page }) => {
+test('a template is created from the content page, opens its draft and waits as one', async ({
+  page,
+}) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await page.goto(CONTENT_PATH)
@@ -42,6 +44,11 @@ test('a template is created from the content page and waits there as a draft', a
   await page.getByLabel('Nombre').fill('  Fuerza tren inferior  ')
   await page.getByRole('button', { name: 'Crear plantilla' }).click()
 
+  // Criterion 2: the template exists, with its draft, before anything is published.
+  await expect(page.getByRole('heading', { level: 1, name: 'Plantilla' })).toBeVisible()
+  await expect(page.getByLabel('Nombre')).toHaveValue('Fuerza tren inferior')
+
+  await page.getByRole('link', { name: 'Volver al contenido' }).click()
   await expect(page).toHaveURL(CONTENT_PATH)
   const created = page.locator('[data-content-register-item]', {
     hasText: 'Fuerza tren inferior',

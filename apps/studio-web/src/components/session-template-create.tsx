@@ -134,8 +134,12 @@ export function SessionTemplateCreateForm() {
     if (submitting || Object.keys(templateCreateErrors(draft)).length > 0) return
     setError(undefined)
     try {
-      await createMutation.mutateAsync({ body: templateCreateRequest(draft), command })
-      router.replace(contentPath)
+      const template = await createMutation.mutateAsync({
+        body: templateCreateRequest(draft),
+        command,
+      })
+      // Straight into the draft the server opened with it: that is the next thing to do.
+      router.replace(`${contentPath}/templates/${template.id}`)
     } catch (caught) {
       if (isStudioQuerySessionCancelled(caught)) {
         setCommand(newCommand())

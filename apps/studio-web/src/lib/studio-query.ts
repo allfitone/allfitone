@@ -8,7 +8,10 @@ import {
 import {
   StudioApiError,
   studioApi,
+  type CatalogActivityTypeList,
   type CatalogDisciplineList,
+  type OrganizationMovement,
+  type SessionTemplateDraft,
   type StudioMovementPage,
   type ClientDirectoryGroup,
   type InformationCategoryList,
@@ -68,6 +71,13 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'session-templates', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
   catalogDisciplines: () => [...ROOT_KEY, 'catalog', 'disciplines'] as const,
+  catalogActivityTypes: () => [...ROOT_KEY, 'catalog', 'activity-types'] as const,
+  organizationSessionTemplatePages: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates', 'pages', { limit }] as const,
+  sessionTemplateDraft: (organizationId: string, templateId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-template-draft', templateId] as const,
+  organizationMovement: (organizationId: string, movementId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movement', movementId] as const,
   organizationMovementsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'movements'] as const,
   organizationMovements: (organizationId: string, filters: MovementSearchFilters, limit: number) =>
@@ -512,6 +522,58 @@ export function organizationMovementsQueryOptions(
       ),
     initialPageParam: null as string | null,
     getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function catalogActivityTypesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.catalogActivityTypes(),
+    queryFn: ({ signal }): Promise<CatalogActivityTypeList> =>
+      studioApi.catalogActivityTypes(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the library, for a screen that has to find one template in it:
+ * the editor reads the discipline there, which the draft does not carry.
+ */
+export function organizationSessionTemplatePagesQueryOptions(
+  organizationId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationSessionTemplatePages(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<SessionTemplatePage> =>
+      studioApi.organizationSessionTemplates(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * The base an edit starts from. Never refetched behind the editor's back: the
+ * screen keeps its own copy, and a draft somebody else saved arrives with the
+ * conflict the next save meets, which is where it can be compared.
+ */
+export function sessionTemplateDraftQueryOptions(organizationId: string, templateId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.sessionTemplateDraft(organizationId, templateId),
+    queryFn: ({ signal }): Promise<SessionTemplateDraft> =>
+      studioApi.organizationSessionTemplateDraft(organizationId, templateId, signal),
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+export function organizationMovementQueryOptions(organizationId: string, movementId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationMovement(organizationId, movementId),
+    queryFn: ({ signal }): Promise<OrganizationMovement> =>
+      studioApi.organizationMovement(organizationId, movementId, signal),
     staleTime: STUDIO_TEAM_STALE_TIME_MS,
   })
 }

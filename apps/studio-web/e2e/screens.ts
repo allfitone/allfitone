@@ -23,6 +23,9 @@ import {
   organizationWithoutSites,
   error,
   installStudioApiMock,
+  problem,
+  publishedTemplate,
+  unpublishedTemplate,
   professionalCredential,
   professionalPracticeOrganization,
   endedRelationshipState,
@@ -1707,6 +1710,120 @@ export const SCREENS: Screen[] = [
       await page.getByLabel('Nombre').fill('Fuerza tren inferior')
       await page.getByRole('button', { name: 'Crear plantilla' }).click()
       await expect(page.getByText(/Tu rol ya no crea contenido/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/[templateId]` · HU-037 ---
+  {
+    // A strength step with its three sets: the widest the form gets.
+    stories: 'HU-037 · a draft with its steps',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+    },
+  },
+  {
+    // Four set fields in a row become one column, and the step's buttons wrap.
+    stories: 'HU-037 · a draft with its steps on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+    },
+  },
+  {
+    // Fresh from creation: no activity type yet, so no step can be added.
+    stories: 'HU-037 · a draft that has not chosen its activity type',
+    path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((entry) => {
+        const template = entry as typeof unpublishedTemplate
+        return template.id === unpublishedTemplate.id
+          ? {
+              ...template,
+              draft: {
+                ...template.draft,
+                content: { ...template.draft.content, activity_type_id: null },
+              },
+            }
+          : entry
+      })
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Elige un tipo de actividad para poder agregar pasos.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · a value the server would refuse, named on its step',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Esfuerzo (RPE)').first().fill('12')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('Este paso todavía no se puede guardar')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: the saved draft beside the unsaved one, and the choice.
+    stories: 'HU-037 · somebody else saved the draft first',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], draftSaveOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Mi versión')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · the server refused the draft',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'PUT'
+          ? {
+              status: 422,
+              body: problem('validation-failed', 422, {
+                errors: [{ code: 'movement', path: '/steps/0/movement_id', message: 'x' }],
+              }),
+            }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Otro nombre')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
+    },
+  },
+  {
+    // The picker holds the template's discipline, so mobility never shows here.
+    stories: 'HU-037 · choosing a step’s movement',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Cambiar el movimiento' }).click()
+      await expect(
+        page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · a template that is not this organization’s',
+    path: `${workspace}/content/templates/01991600-a000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta plantilla')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---

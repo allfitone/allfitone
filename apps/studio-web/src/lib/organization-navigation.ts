@@ -19,6 +19,10 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/content/templates/new`) {
     return { title: 'Nueva plantilla' }
   }
+  // `new` is matched above, so it never reaches this as a template id.
+  if (/^\/organizations\/[^/]+\/content\/templates\/[^/]+$/.test(pathname)) {
+    return { title: 'Plantilla' }
+  }
   if (pathname === `${basePath}/organization`) {
     return { title: 'Organización' }
   }

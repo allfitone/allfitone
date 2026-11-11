@@ -49,6 +49,14 @@ export type SessionTemplateVersion = AllfitV1Schemas['SessionTemplateVersion']
 export type SessionTemplateCreate = AllfitV1Schemas['SessionTemplateCreate']
 export type CatalogDiscipline = AllfitV1Schemas['CatalogDiscipline']
 export type CatalogDisciplineList = AllfitV1Schemas['CatalogDisciplineList']
+export type CatalogActivityType = AllfitV1Schemas['CatalogActivityType']
+export type CatalogActivityTypeList = AllfitV1Schemas['CatalogActivityTypeList']
+export type ActivityFamily = AllfitV1Schemas['ActivityFamily']
+export type SessionTemplateDraft = AllfitV1Schemas['SessionTemplateDraft']
+export type SessionTemplateDraftContent = AllfitV1Schemas['SessionTemplateDraftContent']
+export type PlannedStepContent = AllfitV1Schemas['PlannedStepContent']
+export type PlannedSetContent = AllfitV1Schemas['PlannedSetContent']
+export type OrganizationMovement = AllfitV1Schemas['OrganizationMovement']
 export type StudioMovement = AllfitV1Schemas['StudioMovement']
 export type StudioMovementPage = AllfitV1Schemas['StudioMovementPage']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
@@ -347,10 +355,75 @@ export const studioApi = {
    * Both are organization-scoped in PostgreSQL, so nothing here filters: a
    * second place for that rule is a second place for it to be wrong.
    */
-  organizationSessionTemplates: (organizationId: string, limit: number, signal?: AbortSignal) =>
-    request<SessionTemplatePage>(
-      `/studio/v1/organizations/${organizationId}/session-templates?limit=${limit}`,
+  organizationSessionTemplates: (
+    organizationId: string,
+    limit: number,
+    signal?: AbortSignal,
+    cursor?: string,
+  ) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return request<SessionTemplatePage>(
+      `/studio/v1/organizations/${organizationId}/session-templates?${query.toString()}`,
       signal ? { signal } : {},
+    )
+  },
+
+  /**
+   * OP-PLN-023: the draft in the shape it is edited in, with the ETag the
+   * next save has to send. Another organization's draft and one that never
+   * existed answer the same 404.
+   */
+  organizationSessionTemplateDraft: (
+    organizationId: string,
+    templateId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateDraft>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
+    ),
+
+  /**
+   * OP-PLN-002. Replaces the whole draft. The ETag goes in `If-Match`, which the
+   * route requires (428 without it), unlike the site edit below that moved its
+   * revision into the body: the API is served by the load balancer directly
+   * (`behind_cdn = false`), so no edge answers the condition before the route.
+   * A stale ETag is a `409` carrying the current draft.
+   */
+  replaceOrganizationSessionTemplateDraft: (
+    organizationId: string,
+    templateId: string,
+    content: SessionTemplateDraftContent,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateDraft>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
+      {
+        method: 'PUT',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        body: JSON.stringify(content),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-CAT-008. Every published global activity type with the family of target
+   * its steps take, read under `/studio/v1` like the disciplines.
+   */
+  catalogActivityTypes: (signal?: AbortSignal) =>
+    request<CatalogActivityTypeList>('/studio/v1/catalog/activity-types', {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** OP-CAT-010: one movement the organization can use, to name a step. */
+  organizationMovement: (organizationId: string, movementId: string, signal?: AbortSignal) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
     ),
 
   organizationPrograms: (organizationId: string, limit: number, signal?: AbortSignal) =>
