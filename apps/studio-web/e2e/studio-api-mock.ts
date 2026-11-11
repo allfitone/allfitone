@@ -1808,6 +1808,33 @@ function defaultResponse(
     )
     return { status: 200, body: draft, headers: { ETag: String(draft.etag) } }
   }
+  const programRetirementPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions\/(\d+)\/deprecation$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && programRetirementPath) {
+    // `planning.deprecate_program_version`: converging, and cancelling nothing.
+    const programId = programRetirementPath[1] ?? ''
+    const number = Number(programRetirementPath[2])
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programId)
+    const versions = (Array.isArray(program?.versions) ? program.versions : []).map(objectValue)
+    const target = versions.find((version) => version.version_number === number)
+    if (!program || !target) return { status: 404, body: problem('not-found', 404) }
+    const retired = { ...target, status: 'deprecated' }
+    fixture.organizationPrograms = fixture.organizationPrograms.map((candidate) =>
+      objectValue(candidate).id === programId
+        ? {
+            ...objectValue(candidate),
+            versions: versions.map((version) =>
+              version.version_number === number ? retired : version,
+            ),
+          }
+        : candidate,
+    )
+    return { status: 200, body: retired }
+  }
   const templateRetirementPath =
     /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions\/(\d+)\/deprecation$/.exec(
       request.path,

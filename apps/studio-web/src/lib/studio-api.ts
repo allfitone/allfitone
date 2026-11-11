@@ -627,6 +627,22 @@ export const studioApi = {
       signal ? { signal } : {},
     ),
 
+  /**
+   * OP-PLN-009. Owners and admins only, by role. No body. It converges, has no
+   * way back, and cancels nothing: only new assignments stop.
+   */
+  deprecateOrganizationProgramVersion: (
+    organizationId: string,
+    programId: string,
+    versionNumber: number,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramVersion>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/versions/${versionNumber}/deprecation`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
+    ),
+
   /** OP-PLN-021. One published program version, whole; the read is audited. */
   organizationProgramVersion: (
     organizationId: string,

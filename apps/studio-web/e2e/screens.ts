@@ -2183,6 +2183,58 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No se reemplazó el borrador')).toBeVisible()
     },
   },
+  // --- program version page, retiring · HU-043 ---
+  {
+    stories: 'HU-043 · retiring a program version, said before the click',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-043 · a program version just retired',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('Ya no se puede asignar a nadie más.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-043 · a coach, told who retires a program version',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Retirar una versión corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
   // --- template version page, retiring · HU-040 ---
   {
     stories: 'HU-040 · retiring a template version, said before the click',

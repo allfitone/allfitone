@@ -40,6 +40,7 @@ import {
   newCommand,
   studioApi,
   type CommandHeaders,
+  type ProgramVersion,
   type SessionTemplateVersion,
 } from '@/lib/studio-api'
 import {
@@ -331,6 +332,54 @@ export function RetireTemplateVersion({
         // The library counts retired versions, and the program editor marks them.
         void queryClient.invalidateQueries({
           queryKey: studioQueryKeys.organizationSessionTemplatesRoot(organizationId),
+        })
+      }}
+    />
+  )
+}
+
+/**
+ * `HU-STUDIO-043`. Criterion 1, no new assignment: the invitation's program
+ * picker offers published versions only, and the server refuses a retired
+ * one. Criterion 2, nothing cancelled: current assignments and their sessions
+ * name the version by id and nothing rewrites them.
+ */
+export function RetireProgramVersion({
+  version,
+  organizationId,
+}: {
+  version: ProgramVersion
+  organizationId: string
+}) {
+  const queryClient = useQueryClient()
+  return (
+    <RetireVersionCard
+      title="Retirar esta versión"
+      description="Deja de poder asignarse a nadie más. No cancela ni altera las asignaciones vigentes ni sus sesiones. No se puede deshacer."
+      dialogTitle={`¿Retirar la versión ${version.version_number} de «${version.title}»?`}
+      dialogDescription="Nadie podrá recibirla en una asignación nueva."
+      consequence="Quien ya la tiene asignada la conserva, con todas sus sesiones."
+      retire={(command, signal) =>
+        studioApi.deprecateOrganizationProgramVersion(
+          organizationId,
+          version.program_id,
+          version.version_number,
+          command,
+          signal,
+        )
+      }
+      onRetired={(retired) => {
+        queryClient.setQueryData(
+          studioQueryKeys.programVersion(
+            organizationId,
+            version.program_id,
+            version.version_number,
+          ),
+          retired,
+        )
+        // The library counts retired versions, and the invitation stops offering it.
+        void queryClient.invalidateQueries({
+          queryKey: studioQueryKeys.organizationProgramsRoot(organizationId),
         })
       }}
     />

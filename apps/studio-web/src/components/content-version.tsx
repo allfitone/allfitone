@@ -36,7 +36,11 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, type ReactNode } from 'react'
 
-import { DeriveFromVersion, RetireTemplateVersion } from './content-version-actions'
+import {
+  DeriveFromVersion,
+  RetireProgramVersion,
+  RetireTemplateVersion,
+} from './content-version-actions'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
@@ -288,6 +292,13 @@ export function ProgramVersionView() {
       </Card>
 
       {version.status === 'deprecated' ? <RetiredNote kind="program" /> : null}
+      {version.status === 'published' ? (
+        canRetireContent(current.roles) ? (
+          <RetireProgramVersion version={version} organizationId={organizationId} />
+        ) : (
+          <p>{RETIRE_IS_THEIRS}</p>
+        )
+      ) : null}
 
       <ol data-program-weeks aria-label="Semanas">
         {weeks.map(({ week, sessions }) => (
