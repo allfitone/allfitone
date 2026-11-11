@@ -25,7 +25,10 @@ export {
   createAccountRecoveryDeliveryFromEnv,
   createAuthProviderFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
+  createEmailChangeIdentity,
+  createEmailChangeIdentityFromEnv,
   type AccountRecoveryDelivery,
+  type EmailChangeIdentity,
   type BackofficeAuthMaintenance,
   type ProviderEnv,
 } from './factory.js'

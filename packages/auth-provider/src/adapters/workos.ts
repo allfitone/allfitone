@@ -484,20 +484,20 @@ export function createWorkOSAuthProvider(config: WorkOSConfig): AuthProvider {
       // Application's credentials reach the same directory.
       const c = requireClient(ADMIN_SURFACE)
       try {
-        await c.userManagement.updateUser({ userId: subject, email })
+        await c.userManagement.updateUser({ userId: subject, email, emailVerified: true })
       } catch (cause) {
         throw translate(cause)
       }
     },
 
-    async revokeSessions(subject: ExternalSubject): Promise<void> {
+    async revokeSessions(subject: ExternalSubject, keep?: string): Promise<void> {
       // The SDK revokes one session at a time, so "close every session" is list
       // then revoke each. Expressed here rather than in the domain, because the
       // domain should not know that limitation exists.
       const c = requireClient(ADMIN_SURFACE)
       try {
         const sessions = await c.userManagement.listSessions(subject)
-        for (const session of sessions.data) {
+        for (const session of sessions.data.filter((one) => one.id !== keep)) {
           await c.userManagement.revokeSession({ sessionId: session.id })
         }
       } catch (cause) {
