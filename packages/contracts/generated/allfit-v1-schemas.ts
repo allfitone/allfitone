@@ -2209,6 +2209,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           $ref: '#/components/schemas/ExecutionDetail',
         },
       },
+      has_older_sessions: {
+        type: 'boolean',
+        description:
+          'HU-BO-008, returned with either training category: sessions older than this page remain. The next read sends the last session shown as `before`, and is a read of its own, logged before it answers.',
+      },
       agenda: {
         type: 'array',
         maxItems: 100,
@@ -2216,6 +2221,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           "HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym.",
         items: {
           $ref: '#/components/schemas/BreakGlassAgendaEntry',
+        },
+      },
+      hidden_sessions: {
+        type: 'array',
+        description:
+          'HU-BO-008 criterion 4, returned with either training category: of the sessions the read returns, each one she hid from a gym and which gym, newest session first. A hiding she took back is not listed. It travels beside the sessions, never inside them, because the session shape is the one Studio reads too.',
+        items: {
+          $ref: '#/components/schemas/BreakGlassHiddenSession',
         },
       },
     },
@@ -2231,6 +2244,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       resource_type: {
         type: 'string',
         pattern: '^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$',
+      },
+      before: {
+        $ref: '#/components/schemas/BreakGlassSessionCursor',
       },
       resource_id: {
         type: ['string', 'null'],
@@ -2265,6 +2281,35 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       category: {
         $ref: '#/components/schemas/BreakGlassCategory',
+      },
+    },
+  },
+  BreakGlassHiddenSession: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'executed_session_id',
+      'relationship_id',
+      'organization_id',
+      'organization_name',
+      'hidden_at',
+    ],
+    properties: {
+      executed_session_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      relationship_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      organization_name: {
+        type: 'string',
+      },
+      hidden_at: {
+        type: 'string',
+        format: 'date-time',
       },
     },
   },
@@ -2621,6 +2666,22 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       '`incident_opened` is not a worse `unjustified`: it says somebody has to act, and it publishes a different domain event for that reason.',
     enum: ['justified', 'unjustified', 'incident_opened'],
   },
+  BreakGlassSessionCursor: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['started_at', 'id'],
+    description:
+      'HU-BO-008: the last session a training read already showed. The read answers the hundred sessions older than it. Only a training category pages; both halves or neither.',
+    properties: {
+      started_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+    },
+  },
   BreakGlassStatus: {
     type: 'string',
     enum: ['requested', 'approved', 'rejected', 'closed', 'expired'],
@@ -2633,7 +2694,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   CatalogActivityType: {
     type: 'object',
     additionalProperties: false,
-    required: ['id', 'discipline_code', 'code', 'name'],
+    required: ['id', 'discipline_code', 'code', 'name', 'activity_family'],
     properties: {
       id: {
         $ref: '#/components/schemas/Uuid',
@@ -2650,6 +2711,18 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         minLength: 1,
         maxLength: 120,
+      },
+      activity_family: {
+        oneOf: [
+          {
+            $ref: '#/components/schemas/ActivityFamily',
+          },
+          {
+            type: 'null',
+          },
+        ],
+        description:
+          'The family of target a step of this type takes, read from its effective default result contract, the same one the template validator reads. Null when no default contract is in force, and then every target is refused, so an editor offers none rather than guessing.',
       },
     },
   },
@@ -4784,7 +4857,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       kind: {
         type: 'string',
-        enum: ['initial', 'renewal'],
+        enum: ['initial', 'renewal', 'name_change'],
       },
       status: {
         type: 'string',
@@ -4872,7 +4945,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       kind: {
         type: 'string',
-        enum: ['initial', 'renewal'],
+        enum: ['initial', 'renewal', 'name_change'],
+        description:
+          '`name_change` (HU-BO-021 criterion 7): the holder changed her name while the credential had a verification in force. That verification stays intact and in force; the reviewer decides whether the credential still matches her.',
       },
       requested_at: {
         type: 'string',
@@ -10625,6 +10700,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  PlatformAccessPersonName: {
+    type: ['string', 'null'],
+    description:
+      "HU-BO-029: the person's name as `identity.people` holds it, so the Team screen says who holds access and who granted it. Null only when the person has no name on file. Reading the inventory leaves an access event on every person it names (ADR-046).",
+  },
   PlatformAccessReasonCode: {
     type: 'string',
     minLength: 1,
@@ -10643,6 +10723,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     required: [
       'id',
       'person_id',
+      'person_name',
       'duty_code',
       'actor_mode',
       'status',
@@ -10651,6 +10732,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'valid_to',
       'required_aal',
       'granted_by_person_id',
+      'granted_by_name',
       'recertified_by_person_id',
       'recertified_at',
       'suspended_by_person_id',
@@ -10665,6 +10747,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      person_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
       },
       duty_code: {
         $ref: '#/components/schemas/PlatformDutyCode',
@@ -10696,6 +10781,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       granted_by_person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      granted_by_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
       },
       recertified_by_person_id: {
         oneOf: [
@@ -11203,9 +11291,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     required: [
       'id',
       'person_id',
+      'person_name',
       'platform_role',
       'status',
       'granted_by_person_id',
+      'granted_by_name',
       'granted_at',
       'revoked_by_person_id',
       'revoked_at',
@@ -11217,6 +11307,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       person_id: {
         $ref: '#/components/schemas/Uuid',
       },
+      person_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
+      },
       platform_role: {
         type: 'string',
         enum: ['allfit_admin'],
@@ -11227,6 +11320,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       granted_by_person_id: {
         $ref: '#/components/schemas/Uuid',
+      },
+      granted_by_name: {
+        $ref: '#/components/schemas/PlatformAccessPersonName',
       },
       granted_at: {
         type: 'string',
@@ -20834,6 +20930,153 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       message: {
         type: 'string',
         maxLength: 500,
+      },
+    },
+  },
+  WaitlistConfirmation: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status'],
+    properties: {
+      status: {
+        type: 'string',
+        enum: ['confirmed', 'already_confirmed'],
+      },
+    },
+  },
+  WaitlistConfirmationRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['token'],
+    properties: {
+      token: {
+        type: 'string',
+        maxLength: 256,
+      },
+    },
+  },
+  WaitlistEmailRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['email'],
+    properties: {
+      email: {
+        type: 'string',
+        format: 'email',
+        maxLength: 254,
+      },
+    },
+  },
+  WaitlistLink: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['referral_code', 'referrals', 'language', 'confirmed'],
+    properties: {
+      referral_code: {
+        type: 'string',
+      },
+      referrals: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Sign-ups that joined with the code, confirmed and count.',
+      },
+      language: {
+        type: 'string',
+        enum: ['es', 'en'],
+      },
+      confirmed: {
+        type: 'boolean',
+        description: 'Whether this sign-up confirmed its own email.',
+      },
+    },
+  },
+  WaitlistPrivateLinkRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['token'],
+    properties: {
+      token: {
+        type: 'string',
+        maxLength: 256,
+      },
+    },
+  },
+  WaitlistSignupAlreadyListed: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status'],
+    properties: {
+      status: {
+        type: 'string',
+        const: 'already_listed',
+      },
+    },
+  },
+  WaitlistSignupJoined: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['status', 'referral_code', 'referrals'],
+    properties: {
+      status: {
+        type: 'string',
+        const: 'joined',
+      },
+      referral_code: {
+        type: 'string',
+        pattern: '^[A-HJKMNP-Z2-9]{4,16}$',
+      },
+      referrals: {
+        type: 'integer',
+        minimum: 0,
+      },
+    },
+  },
+  WaitlistSignupRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['name', 'email', 'language', 'consent', 'policy_version'],
+    properties: {
+      name: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 80,
+      },
+      email: {
+        type: 'string',
+        format: 'email',
+        maxLength: 254,
+      },
+      language: {
+        type: 'string',
+        enum: ['es', 'en'],
+      },
+      consent: {
+        type: 'boolean',
+        const: true,
+        description:
+          "The person's authorization to process their data. Without it nothing is stored.",
+      },
+      policy_version: {
+        type: 'string',
+        pattern: '^[A-Za-z0-9._-]{1,32}$',
+        description: 'The version of the privacy policy the person authorized.',
+      },
+      referral_code: {
+        type: 'string',
+        pattern: '^[A-Za-z0-9]{4,16}$',
+        description: 'The code of whoever invited them. An unknown code is ignored.',
+      },
+      utm_source: {
+        type: 'string',
+        maxLength: 64,
+      },
+      utm_medium: {
+        type: 'string',
+        maxLength: 64,
+      },
+      utm_campaign: {
+        type: 'string',
+        maxLength: 64,
       },
     },
   },

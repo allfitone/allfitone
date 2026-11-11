@@ -91,6 +91,13 @@ test('shows what is still owed, with the ones past the thirty days called out', 
             },
           ],
         }),
+        // Still owed and past the thirty days: the one the panel has to call out.
+        openRequest({
+          id: '019ac000-0000-7000-8000-000000000503',
+          subject_person_id: '019ac000-0000-7000-8000-000000000007',
+          opened_at: day(-35),
+          due_at: day(-5),
+        }),
       ],
     },
   })
@@ -101,18 +108,23 @@ test('shows what is still owed, with the ones past the thirty days called out', 
   await page.goto(PATH)
 
   const summary = page.locator('[data-erasure-summary]')
-  await expect(summary).toContainText('2 solicitudes abiertas')
+  await expect(summary).toContainText('3 solicitudes abiertas')
   await expect(summary).toContainText('1 pasada de los 30 días')
+  // HU-BO-033: a request held by a legal obligation waits; it is not late.
+  await expect(summary).toContainText('1 en espera por una obligación legal')
 
   const table = page.getByRole('table', { name: 'Solicitudes de eliminación' })
   // The oldest request is answered first, so it is the first row.
   const rows = table.locator('[data-erasure-row]')
   await expect(rows.first()).toContainText('019ac000-0000-7000-8000-000000000006')
-  await expect(rows.first()).toContainText('10 días de retraso')
+  await expect(rows.first()).toContainText('En espera legal')
+  await expect(rows.first()).not.toContainText('retraso')
   await expect(rows.first()).toContainText('en espera por una obligación legal')
-  await expect(rows.nth(1)).toContainText('Faltan 3 días')
-  await expect(rows.nth(1)).toContainText('Cuerpo · eliminado (2)')
-  await expect(rows.nth(1)).toContainText('Salud · pendiente de eliminar (1)')
+  await expect(rows.nth(1)).toContainText('019ac000-0000-7000-8000-000000000007')
+  await expect(rows.nth(1)).toContainText('5 días de retraso')
+  await expect(rows.nth(2)).toContainText('Faltan 3 días')
+  await expect(rows.nth(2)).toContainText('Cuerpo · eliminado (2)')
+  await expect(rows.nth(2)).toContainText('Salud · pendiente de eliminar (1)')
 
   const region = page.getByRole('region', { name: 'Solicitudes de eliminación' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)

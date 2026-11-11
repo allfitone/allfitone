@@ -13,6 +13,7 @@ import {
   canRecertify,
   DUTY_STATUS_FILTERS,
   isValidPersonId,
+  personName,
   platformAccessMessage,
   roleStatusLabel,
   shortIdentifier,
@@ -103,6 +104,13 @@ describe('platform access presentation rules', () => {
     expect(dutyWindowLabel(granted)).toBe(
       `${formatInstant(granted.valid_from)} → ${formatInstant(granted.valid_to)}`,
     )
+  })
+
+  test('says who holds access by name, and says so when no name is on file (HU-BO-029 c1)', () => {
+    expect(personName('Carla Nueva')).toBe('Carla Nueva')
+    expect(personName('  Carla Nueva  ')).toBe('Carla Nueva')
+    expect(personName(null)).toBe('Sin nombre registrado')
+    expect(personName('   ')).toBe('Sin nombre registrado')
   })
 
   test('accepts only a well formed person identifier', () => {

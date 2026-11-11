@@ -19,16 +19,29 @@ import {
   activeTeamMember,
   coachedTeam,
   createStudioApiFixture,
+  draftedProgram,
+  programVersionOne,
+  STRENGTH_GLOBAL_MOVEMENT_ID,
+  STRENGTH_OWN_MOVEMENT_ID,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
   installStudioApiMock,
+  problem,
+  publishedTemplate,
+  unpublishedTemplate,
   professionalCredential,
   professionalPracticeOrganization,
   endedRelationshipState,
   professionalProfile,
   holderMembership,
   relationshipState,
+  clientCard,
+  clientCardWithoutSections,
+  emptyTrainingProfile,
+  narrowTrainingProfile,
+  coveredClientCard,
+  formerClientCard,
   secondActiveMembership,
   terminatedMembership,
   terminatedTeamMember,
@@ -123,6 +136,8 @@ async function settleAnimations(page: Page): Promise<void> {
 
 const workspace = `/organizations/${activeMembership.organization_id}`
 const relationshipId = relationshipState.relationship_id
+const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
+const trainingProfilePath = `${clientCardPath}/profile`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -933,6 +948,34 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    /*
+     * HU-082. A search that matched nobody: the box carries a term and the
+     * register answers «nobody by that name», which has to read differently
+     * from an empty gym — the state right below this one.
+     */
+    stories: 'HU-082 · a search that found nobody',
+    path: `${workspace}/clients`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.locator('#client-directory-search').fill('zzz')
+      await expect(page.getByText('No encontramos a nadie con ese nombre')).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-082. Among invitations the route refuses a search, so the box is
+     * disabled with its reason beside it rather than removed. Disabled inputs
+     * are where contrast fails, which is why this state is swept.
+     */
+    stories: 'HU-082 · the search turned off among invitations',
+    path: `${workspace}/clients`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Invitados', exact: true }).click()
+      await expect(page.locator('#client-directory-search')).toBeDisabled()
+    },
+  },
+  {
     stories: 'HU-024 · a directory with nobody in it yet',
     path: `${workspace}/clients`,
     fixture: () =>
@@ -1312,6 +1355,147 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Pasa ahora mismo, sin preaviso/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/clients/people/[personId]` · HU-083 ---
+  {
+    /*
+     * The card as a coach normally meets it: two categories at two different
+     * levels and one she took back. Every panel on the screen at once, which is
+     * where they crowd each other if they are going to.
+     */
+    stories: 'HU-083 · a client card, with what she shares and what she took back',
+    path: clientCardPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Entrenamiento con nosotros' })).toBeVisible()
+      await expect(page.getByText('Lo que retiró')).toBeVisible()
+    },
+  },
+  {
+    // Read by somebody covering: the only state that carries an end date, and
+    // the one place a calendar day is rendered on this screen.
+    stories: 'HU-083 · a card read by somebody covering, with the day the cover ends',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: coveredClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Cubres hasta')).toBeVisible()
+    },
+  },
+  {
+    // Assigned to her and allowed nothing. A legitimate state, and it has to
+    // read as one rather than as a screen that failed to load.
+    stories: 'HU-083 · a client who has authorized nothing yet',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: clientCardWithoutSections,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no te autorizó ninguna categoría')).toBeVisible()
+    },
+  },
+  {
+    // Absent, or not the caller's to read — the operation answers the same for
+    // both, so the screen says the same for both.
+    stories: 'HU-083 · a card the caller does not attend',
+    path: clientCardPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta ficha')).toBeVisible()
+    },
+  },
+  {
+    // HU-084, as far as this operation answers it: thirty days of why, with no
+    // name and no reason beyond the three the contract lists.
+    stories: 'HU-084 · why the caller no longer attends her',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: formerClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Ya no la atiendes')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/profile` · HU-051 ---
+  {
+    /*
+     * The fullest the screen gets: a discipline, a goal, two experience claims
+     * in force at once, two emphasis zones as two claims, and one datum whose
+     * value the version withheld. Every row this screen can draw, at once.
+     */
+    stories: 'HU-051 · the training profile, with two claims in force at once',
+    path: trainingProfilePath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      /*
+       * Scoped to the group: two attributes carry that badge, because two of
+       * them hold two readable claims each. An unscoped match is a strict-mode
+       * violation rather than a failure of the screen.
+       */
+      const experience = page
+        .locator('[data-client-profile-group]')
+        .filter({ hasText: 'Experiencia de entrenamiento' })
+      await expect(experience).toContainText('Tiene experiencia')
+      await expect(experience).toContainText('2 vigentes')
+    },
+  },
+  {
+    // An older version of the same permission: fewer fields of the same person,
+    // and an origin that did not travel either.
+    stories: 'HU-051 · an older version of the permission, with fewer fields',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientTrainingProfile: narrowTrainingProfile,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sin origen disponible')).toBeVisible()
+    },
+  },
+  {
+    // She shares the category and nothing inside it. A state, and it has to read
+    // as one rather than as a screen that failed.
+    stories: 'HU-051 · the category shared with nothing in it',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientTrainingProfile: emptyTrainingProfile,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: a refusal, not an empty profile, and it names what it takes.
+    stories: 'HU-051 · without the training permission in force',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientTrainingProfile: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-051 · a profile the caller does not attend',
+    path: trainingProfilePath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este perfil')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---
   {
     // The timeline with every kind in it, including the handover whose two
@@ -1618,6 +1802,626 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText(/Todavía no hay plantillas/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content`, movements tab · HU-067 ---
+  {
+    // Both libraries and an archived movement in one list: every badge the
+    // cards carry, side by side.
+    stories: 'HU-067 · the movements a gym can plan with',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Movimientos' }).click()
+      await page.getByRole('checkbox', { name: 'Incluir los archivados' }).click()
+      await expect(page.getByText('Zancada lateral con banda')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-067 · a search that finds nothing',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Movimientos' }).click()
+      await page.getByLabel('Buscar un movimiento').fill('rotacion')
+      await expect(page.getByText(/Ningún movimiento coincide/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/new` · HU-036 ---
+  {
+    // Submitted empty, so both field errors are on the page with the open form.
+    stories: 'HU-036 · a new template, and what it still needs',
+    path: `${workspace}/content/templates/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear plantilla' }).click()
+      await expect(page.getByText('Escribe el nombre de la plantilla.')).toBeVisible()
+    },
+  },
+  {
+    // Before Backoffice publishes a discipline nothing can be created, and the
+    // screen says why instead of offering an empty list.
+    stories: 'HU-036 · no discipline published yet',
+    path: `${workspace}/content/templates/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership], disciplines: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay disciplinas publicadas')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-036 · the server refused the template',
+    path: `${workspace}/content/templates/new`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        templateCreateOutcome: 'not-found',
+      }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina').click()
+      await page.getByRole('option', { name: 'Fuerza' }).click()
+      await page.getByLabel('Nombre').fill('Fuerza tren inferior')
+      await page.getByRole('button', { name: 'Crear plantilla' }).click()
+      await expect(page.getByText(/Tu rol ya no crea contenido/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/[templateId]` · HU-037 ---
+  {
+    // A strength step with its three sets: the widest the form gets.
+    stories: 'HU-037 · a draft with its steps',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+    },
+  },
+  {
+    // Four set fields in a row become one column, and the step's buttons wrap.
+    stories: 'HU-037 · a draft with its steps on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+    },
+  },
+  {
+    // Fresh from creation: no activity type yet, so no step can be added.
+    stories: 'HU-037 · a draft that has not chosen its activity type',
+    path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((entry) => {
+        const template = entry as typeof unpublishedTemplate
+        return template.id === unpublishedTemplate.id
+          ? {
+              ...template,
+              draft: {
+                ...template.draft,
+                content: { ...template.draft.content, activity_type_id: null },
+              },
+            }
+          : entry
+      })
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Elige un tipo de actividad para poder agregar pasos.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · a value the server would refuse, named on its step',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Esfuerzo (RPE)').first().fill('12')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('Este paso todavía no se puede guardar')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: the saved draft beside the unsaved one, and the choice.
+    stories: 'HU-037 · somebody else saved the draft first',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], draftSaveOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Mi versión')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · the server refused the draft',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'PUT'
+          ? {
+              status: 422,
+              body: problem('validation-failed', 422, {
+                errors: [{ code: 'movement', path: '/steps/0/movement_id', message: 'x' }],
+              }),
+            }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Otro nombre')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
+    },
+  },
+  {
+    // The picker holds the template's discipline, so mobility never shows here.
+    stories: 'HU-037 · choosing a step’s movement',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Cambiar el movimiento' }).click()
+      await expect(
+        page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · a template that is not this organization’s',
+    path: `${workspace}/content/templates/01991600-a000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta plantilla')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/[templateId]`, publishing · HU-038 ---
+  {
+    stories: 'HU-038 · a version just published',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText(/Publicada la versión 3/)).toBeVisible()
+    },
+  },
+  {
+    // Criterion 3: the list of what an incomplete draft still lacks.
+    stories: 'HU-038 · a draft that is not complete yet',
+    path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-038 · unsaved work waits to be saved before publishing',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Fuerza tren superior · bloque 2')
+      await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/new` · HU-041 ---
+  {
+    stories: 'HU-041 · a new program, and the name it still needs',
+    path: `${workspace}/content/programs/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear programa' }).click()
+      await expect(page.getByText('Escribe el nombre del programa.')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/[programId]` · HU-041 ---
+  {
+    // Two weeks, and the retired version the draft keeps, said twice.
+    stories: 'HU-041 · a program by week, with a retired version kept',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    // Each session's two selects become one column, and its button wraps.
+    stories: 'HU-041 · a program by week on a phone',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    /*
+     * Criterion 1: the version named by number once a template is chosen. The
+     * list is closed again before the audit: an open Select carries the Design
+     * System's focus guards, which axe reports as `aria-hidden-focus`.
+     */
+    stories: 'HU-041 · choosing the exact version a session uses',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      const card = page.locator('[data-program-add-session]')
+      await card.getByLabel('Plantilla', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza tren superior' }).click()
+      await expect(card.getByLabel('Versión', { exact: true })).toContainText('Versión 2')
+    },
+  },
+  {
+    // A program with no sessions in an organization with nothing published.
+    stories: 'HU-041 · nothing published to compose with',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = []
+      fixture.organizationPrograms = [
+        {
+          ...draftedProgram,
+          draft: {
+            ...draftedProgram.draft,
+            content: { ...draftedProgram.draft.content, sessions: [] },
+            deprecated_template_version_ids: [],
+          },
+        },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay versiones de plantilla que usar')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-041 · somebody else saved the program first',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], programDraftSaveOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Mi versión del programa')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-041 · the server refused the program draft',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'PUT'
+          ? {
+              status: 422,
+              body: problem('validation-failed', 422, {
+                errors: [{ code: 'template-version', path: '/sessions/0', message: 'x' }],
+              }),
+            }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Otro nombre')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/[programId]`, publishing · HU-042 ---
+  {
+    // The retired version is warned about in the card that just published it.
+    stories: 'HU-042 · a program version just published',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText(/Publicada la versión 1/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-042 · an empty program that cannot be published yet',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        {
+          ...draftedProgram,
+          draft: {
+            ...draftedProgram.draft,
+            content: { ...draftedProgram.draft.content, sessions: [] },
+            deprecated_template_version_ids: [],
+          },
+        },
+      ]
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-042 · unsaved work waits to be saved before publishing',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Hipertrofia · bloque 2')
+      await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/{templates,programs}/[id]/versions/[n]` · HU-045 ---
+  {
+    // The retired first version: the note, the details and a step's sets.
+    stories: 'HU-045 · a retired template version, read whole',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/1`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Serie 1: 10 repeticiones · 35 kg')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a template version on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Serie 1: 8 repeticiones · 40 kg')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a program version by week',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    // Each session's name, badge and link wrap inside a 390px card.
+    stories: 'HU-045 · a program version on a phone',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a version that is not this organization’s',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/9`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta versión')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a version that could not be read',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/versions/2')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos abrir la versión')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-041 · a program that is not this organization’s',
+    path: `${workspace}/content/programs/01991600-9000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este programa')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/new` · HU-064 ---
+  {
+    stories: 'HU-064 · a new movement, and what it still needs',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear movimiento' }).click()
+      await expect(page.getByText('Escribe el nombre del movimiento.')).toBeVisible()
+    },
+  },
+  {
+    // The variant's three fields open under the field that chose it.
+    stories: 'HU-064 · a new movement that is a variant of a global one',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await page
+        .getByRole('dialog', { name: 'Elegir un movimiento' })
+        .getByRole('button', { name: 'Press de banca' })
+        .click()
+      await expect(page.getByLabel('Nota de la variante')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · choosing the global movement a variant is of',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await expect(
+        page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
+      ).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: the repeated name refused on the field, not duplicated.
+    stories: 'HU-064 · a name the organization already uses',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByLabel('Nombre', { exact: true }).fill('Remo con mancuerna a una mano')
+      await page.getByRole('button', { name: 'Crear movimiento' }).click()
+      await expect(
+        page.getByText('Ya hay un movimiento de tu organización con ese nombre.'),
+      ).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]` · HU-064 ---
+  {
+    stories: 'HU-064 · a movement of our own',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Solo lo ve tu organización/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · a movement of the global catalogue',
+    path: `${workspace}/content/movements/${STRENGTH_GLOBAL_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Un movimiento del catálogo de Allfit/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]`, editing · HU-065 ---
+  {
+    // The summary, then the edit form under it: the longest the page gets.
+    stories: 'HU-065 · a movement of ours to correct, on a phone',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: the discipline disabled and the rename refused on the field.
+    stories: 'HU-065 · a movement a published version uses',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.movements = fixture.movements.map((entry) =>
+        entry.movement.id === STRENGTH_OWN_MOVEMENT_ID ? { ...entry, nameLocked: true } : entry,
+      )
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre', { exact: true }).fill('Remo con kettlebell')
+      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await expect(page.getByText(/el nombre solo admite cambios de mayúsculas/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-065 · somebody else changed the movement first',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], movementEditOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Otros nombres').fill('Remo unilateral')
+      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await expect(page.getByText(/Alguien cambió este movimiento/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-065 · an archived movement of ours, read and not edited',
+    path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000004`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]`, archiving · HU-066 ---
+  {
+    stories: 'HU-066 · archiving, said before the click',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-066 · a movement just archived',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await page.getByRole('button', { name: 'Archivar ahora' }).click()
+      await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-066 · an archive refused',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/archival')
+          ? { status: 403, body: problem('forbidden', 403) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await page.getByRole('button', { name: 'Archivar ahora' }).click()
+      await expect(page.getByText('No se archivó')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-066 · a coach, told who archives',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Archivar un movimiento corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · a movement that is not this organization’s',
+    path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este movimiento')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---

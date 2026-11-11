@@ -195,10 +195,13 @@ jobs:
     needs: verify
     if: needs.verify.outputs.studio == 'true'
     runs-on: ubuntu-latest
-    # The sweep grew from 322 cases to 384 as the screen inventory filled, and a
-    # run that passed took 15m02s — cut during cleanup, reported as cancelled
-    # with every step green. Sharding across runners is the answer when this is
-    # tight again; the suite is 6 minutes locally, so it is not yet.
+    # The sweep passed 1 400 cases as the screen inventory filled, and this
+    # ceiling cancelled two pull requests at 29 minutes. The suite now runs
+    # parallel within a file as well as across them — 18.1 minutes to 6.8 on
+    # twelve cores, every case passing with no retry — and `playwright.config.ts`
+    # carries the measurements. A runner has four cores, so the figure here is
+    # smaller; read this job's duration rather than assuming it. Sharding across
+    # runners is the next step if it is tight again, not a bigger ceiling.
     timeout-minutes: 25
 
     steps:

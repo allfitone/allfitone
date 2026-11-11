@@ -107,17 +107,26 @@ locals {
     "APPLE_APP_APPLE_ID", "APPLE_BUNDLE_ID", "APPLE_ENVIRONMENT",
     "GOOGLE_PLAY_PACKAGE_NAME", "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
     "GOOGLE_PUBSUB_AUDIENCE", "GOOGLE_PUBSUB_SERVICE_ACCOUNT",
+    "WAITLIST_SPACE_WEB_SECRET", "WAITLIST_FINGERPRINT_KEY",
   ])
+
+  # The waitlist routes of the API answer only to space-web (ADR-050): it sends this
+  # secret from its server, and it is the only web app that holds a key at all.
+  space_web_secret_keys = ["WAITLIST_SPACE_WEB_SECRET"]
 
   # The one address the app sends from; the worker's role can use no other.
   # It has a mailbox in Google Workspace, so a reply reaches someone.
   email_sender = "hello@allfit.one"
 
   # RESEND_API_KEY stays until SES has carried production email for two weeks (ADR-049).
+  # The store keys are the API's: the worker removes the photos the API could not (HU-BO-033).
   worker_secret_keys = concat(local.shared_secret_keys, [
     "CRON_SECRET", "RESEND_API_KEY",
     "STAFF_INVITATION_DELIVERY_ENABLED", "STAFF_INVITATION_PUBLIC_BASE_URL",
     "CLIENT_INVITATION_DELIVERY_ENABLED", "ACCOUNT_RECOVERY_DELIVERY_ENABLED",
+    "WAITLIST_EMAIL_DELIVERY_ENABLED", "WAITLIST_PUBLIC_BASE_URL",
+    "OBJECT_STORE_BUCKET", "OBJECT_STORE_REGION", "OBJECT_STORE_ENDPOINT",
+    "OBJECT_STORE_ACCESS_KEY_ID", "OBJECT_STORE_SECRET_ACCESS_KEY", "OBJECT_STORE_KMS_KEY_ID",
   ])
 
   # Above the load balancer's 60 s idle timeout, so the app never closes a
@@ -210,6 +219,7 @@ module "edge" {
   instance_security_group_id = module.compute.instance_security_group_id
   certificate_arn            = aws_acm_certificate_validation.this.certificate_arn
   origin_verify_secret       = var.origin_verify_secret
+  backoffice_origin          = "https://${local.routes["backoffice-web"].hosts[0]}"
   apps                       = local.routes
 }
 
@@ -268,7 +278,7 @@ module "services" {
     }
     studio-web     = local.web_service
     backoffice-web = local.web_service
-    space-web      = local.web_service
+    space-web      = merge(local.web_service, { secret_keys = local.space_web_secret_keys })
   }
 
   tasks = {

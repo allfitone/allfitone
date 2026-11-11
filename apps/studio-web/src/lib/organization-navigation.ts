@@ -16,6 +16,31 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/content`) {
     return { title: 'Contenido' }
   }
+  if (pathname === `${basePath}/content/templates/new`) {
+    return { title: 'Nueva plantilla' }
+  }
+  // `new` is matched above, so it never reaches this as a template id.
+  if (/^\/organizations\/[^/]+\/content\/templates\/[^/]+$/.test(pathname)) {
+    return { title: 'Plantilla' }
+  }
+  if (pathname === `${basePath}/content/programs/new`) {
+    return { title: 'Nuevo programa' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/programs\/[^/]+$/.test(pathname)) {
+    return { title: 'Programa' }
+  }
+  if (pathname === `${basePath}/content/movements/new`) {
+    return { title: 'Nuevo movimiento' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/movements\/[^/]+$/.test(pathname)) {
+    return { title: 'Movimiento' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/templates\/[^/]+\/versions\/[^/]+$/.test(pathname)) {
+    return { title: 'Versión de plantilla' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/programs\/[^/]+\/versions\/[^/]+$/.test(pathname)) {
+    return { title: 'Versión de programa' }
+  }
   if (pathname === `${basePath}/organization`) {
     return { title: 'Organización' }
   }
@@ -55,15 +80,30 @@ export function resolveWorkspaceRoute(
     return { title: 'Autorizaciones' }
   }
   /*
+   * "Ficha" is the word the story uses — "abrir la ficha de mi cliente" — and
+   * it is a different screen from the one below: the link is how the gym stands
+   * with her, the card is what she lets this coach read.
+   */
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+$/.test(pathname)) {
+    return { title: 'Ficha' }
+  }
+  /*
+   * Named after the category she shares rather than after the screen: a coach
+   * reading "Perfil" would not know which of the seven he is looking at.
+   */
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/profile$/.test(pathname)) {
+    return { title: 'Perfil de entrenamiento' }
+  }
+  /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
-   * `invitations`, `information-categories` or `authorizations`, which are
-   * paths and not relationship ids; all are excluded here as well as matched
-   * above, because a static route added below this one would otherwise be
-   * titled "Vínculo".
+   * `invitations`, `information-categories`, `authorizations` or `people`,
+   * which are paths and not relationship ids; all are excluded here as well as
+   * matched above, because a static route added below this one would otherwise
+   * be titled "Vínculo".
    */
   if (
-    /^\/organizations\/[^/]+\/clients\/(?!invitations$|information-categories$|authorizations$)[^/]+$/.test(
+    /^\/organizations\/[^/]+\/clients\/(?!invitations$|information-categories$|authorizations$|people$)[^/]+$/.test(
       pathname,
     )
   ) {

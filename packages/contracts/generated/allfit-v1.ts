@@ -603,7 +603,7 @@ export interface paths {
     /**
      * Read a gym's file
      * @description `HU-BO-013`: its data, its owner, its sites and its team. Ordinary support reads identifiers, states, dates and counters, so the owner and the team are person identifiers with their roles, never names or contacts, and the responsible party of an independent professional is never named.
-     *     Every active member the file returns is recorded in the access log before the file is returned. A natural person's site address is withheld, because it can be their home. People served, plans, the payment method and Premium have no tables yet and say `not_modelled` instead of an answer.
+     *     Every active member the file returns is recorded in the access log before the file is returned. A natural person's site address is withheld, because it can be their home. People served, its plans and their subscribers, whether its payment method is connected (never a credential), its guest quota and whether it gives Pro to the people it serves are answered from relationships, payments and the quota, each as the platform holds it today.
      */
     get: operations['readBackofficeOrganizationFile']
     put?: never
@@ -889,7 +889,7 @@ export interface paths {
     /**
      * Exercise an approved break-glass window
      * @description Only the exact requester exercises. Every attempt, allowed or denied, writes evidence before anything is returned — a denial is an answer with a recorded reason, not an error, because the record of a refused attempt is the point.
-     *     The content projection is not available in this version: `execution` and `nutrition` do not exist yet, so an authorised exercise answers `content_unavailable` rather than inventing data.
+     *     An authorised exercise answers the content of its category: measurements and the days with body photos (never a photo), health context, meals, or training with its agenda and the sessions she hid from a gym. A category whose data the platform does not store answers `content_unavailable` rather than inventing data.
      */
     post: operations['exerciseBackofficeBreakGlass']
     delete?: never
@@ -5190,7 +5190,7 @@ export interface paths {
     }
     /**
      * Read how the business is going
-     * @description Counts of people, gyms and money, each one carrying the period it was measured over. A figure the platform cannot compute is `not_modelled` with no value and a reason, never zero: payments have no tables yet, and Space keeps no session, so "people active this week" has no signal at all.
+     * @description Counts of people, gyms and money, each one carrying the period it was measured over. A figure the platform cannot compute is `not_modelled` with no value and a reason, never zero. Every figure is computed today: people active this week are the people who trained this week, and the money is what the stores reported as collected.
      *     A count of people below `minimum_aggregate` is `below_threshold` with no value, so no figure narrows the platform down to somebody. A true zero is published, because it singles nobody out. Nothing here names a person, so reading it records no access, and no figure leads to one.
      *     Requires `view_platform_metrics`.
      */
@@ -5903,10 +5903,162 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/waitlist/signups': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Join the Allfit Space waitlist
+     * @description Called by space-web from its server, never by a browser. A new address answers 201 with its code. An address already on the list answers 202 with nothing about the sign-up behind it: its code and counter go to its inbox.
+     */
+    post: operations['joinSpaceWaitlist']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/confirmations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Confirm the email of a waitlist sign-up
+     * @description The page behind the confirmation link posts its token when the person presses the button. Opening the link changes nothing. A token that is unknown, voided or expired answers 404.
+     */
+    post: operations['confirmSpaceWaitlistEmail']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/email-requests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ask for the waitlist email again
+     * @description Sends the confirmation email again to an unconfirmed address, or its link to a confirmed one. The answer is the same whether the address is on the list or not.
+     */
+    post: operations['requestSpaceWaitlistEmail']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/link-reads': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Read my waitlist link and counter
+     * @description Reads the code and the counter of the sign-up a private link belongs to. The token travels in the body because it is a bearer credential. The answer never names the people who joined with the code.
+     */
+    post: operations['readSpaceWaitlistLink']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/departures': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Leave the waitlist
+     * @description Deletes the sign-up a private link belongs to, with every link it ever received. The people it invited stay on the list. A link whose sign-up already left answers like one that never existed.
+     */
+    post: operations['leaveSpaceWaitlist']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    WaitlistSignupRequest: {
+      name: string
+      /** Format: email */
+      email: string
+      /** @enum {string} */
+      language: 'es' | 'en'
+      /**
+       * @description The person's authorization to process their data. Without it nothing is stored.
+       * @constant
+       */
+      consent: true
+      /** @description The version of the privacy policy the person authorized. */
+      policy_version: string
+      /** @description The code of whoever invited them. An unknown code is ignored. */
+      referral_code?: string
+      utm_source?: string
+      utm_medium?: string
+      utm_campaign?: string
+    }
+    WaitlistSignupJoined: {
+      /** @constant */
+      status: 'joined'
+      referral_code: string
+      referrals: number
+    }
+    WaitlistSignupAlreadyListed: {
+      /** @constant */
+      status: 'already_listed'
+    }
+    WaitlistConfirmationRequest: {
+      token: string
+    }
+    WaitlistConfirmation: {
+      /** @enum {string} */
+      status: 'confirmed' | 'already_confirmed'
+    }
+    WaitlistEmailRequest: {
+      /** Format: email */
+      email: string
+    }
+    WaitlistPrivateLinkRequest: {
+      token: string
+    }
+    WaitlistLink: {
+      referral_code: string
+      /** @description Sign-ups that joined with the code, confirmed and count. */
+      referrals: number
+      /** @enum {string} */
+      language: 'es' | 'en'
+      /** @description Whether this sign-up confirmed its own email. */
+      confirmed: boolean
+    }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
     ScopeResourceRule: {
       resource: string
@@ -6251,8 +6403,11 @@ export interface components {
     CredentialVerificationResult: 'verified' | 'rejected' | 'unverifiable'
     CredentialVerificationRequest: {
       request_id: components['schemas']['Uuid']
-      /** @enum {string} */
-      kind: 'initial' | 'renewal'
+      /**
+       * @description `name_change` (HU-BO-021 criterion 7): the holder changed her name while the credential had a verification in force. That verification stays intact and in force; the reviewer decides whether the credential still matches her.
+       * @enum {string}
+       */
+      kind: 'initial' | 'renewal' | 'name_change'
       /** Format: date-time */
       requested_at: string
       credential_id: components['schemas']['Uuid']
@@ -6312,7 +6467,7 @@ export interface components {
     CredentialVerificationOutcome: {
       request_id: components['schemas']['Uuid']
       /** @enum {string} */
-      kind: 'initial' | 'renewal'
+      kind: 'initial' | 'renewal' | 'name_change'
       /** @enum {string} */
       status: 'pending' | 'resolved' | 'cancelled'
       credential_id: components['schemas']['Uuid']
@@ -6465,8 +6620,15 @@ export interface components {
     BreakGlassExercise: {
       category: components['schemas']['BreakGlassCategory']
       resource_type: string
+      before?: components['schemas']['BreakGlassSessionCursor']
       /** Format: uuid */
       resource_id?: string | null
+    }
+    /** @description HU-BO-008: the last session a training read already showed. The read answers the hundred sessions older than it. Only a training category pages; both halves or neither. */
+    BreakGlassSessionCursor: {
+      /** Format: date-time */
+      started_at: string
+      id: components['schemas']['Uuid']
     }
     /** @description Every attempt is recorded before this answers, so `break_glass_event_id` is the evidence of this exact attempt. Only `allowed` carries content, and only for a category whose data the platform stores; the others answer `content_unavailable`. A category that returns content reads only its own kind of data, so pointing it at another is `denied` with `resource_out_of_scope`. */
     BreakGlassExerciseOutcome: {
@@ -6868,6 +7030,8 @@ export interface components {
       discipline_code: string
       code: string
       name: string
+      /** @description The family of target a step of this type takes, read from its effective default result contract, the same one the template validator reads. Null when no default contract is in force, and then every target is refused, so an editor offers none rather than guessing. */
+      activity_family: components['schemas']['ActivityFamily'] | null
     }
     CatalogActivityTypeList: {
       items: components['schemas']['CatalogActivityType'][]
@@ -6995,17 +7159,21 @@ export interface components {
     PlatformRoleAssignment: {
       id: components['schemas']['UuidV7']
       person_id: components['schemas']['Uuid']
+      person_name: components['schemas']['PlatformAccessPersonName']
       /** @enum {string} */
       platform_role: 'allfit_admin'
       /** @enum {string} */
       status: 'active' | 'revoked'
       granted_by_person_id: components['schemas']['Uuid']
+      granted_by_name: components['schemas']['PlatformAccessPersonName']
       /** Format: date-time */
       granted_at: string
       revoked_by_person_id: components['schemas']['Uuid'] | null
       /** Format: date-time */
       revoked_at: string | null
     }
+    /** @description HU-BO-029: the person's name as `identity.people` holds it, so the Team screen says who holds access and who granted it. Null only when the person has no name on file. Reading the inventory leaves an access event on every person it names (ADR-046). */
+    PlatformAccessPersonName: string | null
     PlatformDutyGrant: {
       person_id: components['schemas']['Uuid']
       duty_code: components['schemas']['PlatformDutyCode']
@@ -7024,6 +7192,7 @@ export interface components {
     PlatformDutyAssignment: {
       id: components['schemas']['UuidV7']
       person_id: components['schemas']['Uuid']
+      person_name: components['schemas']['PlatformAccessPersonName']
       duty_code: components['schemas']['PlatformDutyCode']
       actor_mode: components['schemas']['PlatformActorMode']
       /** @enum {string} */
@@ -7040,6 +7209,7 @@ export interface components {
       /** @constant */
       required_aal: 2
       granted_by_person_id: components['schemas']['Uuid']
+      granted_by_name: components['schemas']['PlatformAccessPersonName']
       recertified_by_person_id: components['schemas']['Uuid'] | null
       /** Format: date-time */
       recertified_at: string | null
@@ -12254,8 +12424,20 @@ export interface components {
       prior_training_history?: components['schemas']['ExecutionDetail'][]
       /** @description Sessions trained under a gym, returned by a `relationship_training` read. */
       relationship_training?: components['schemas']['ExecutionDetail'][]
+      /** @description HU-BO-008, returned with either training category: sessions older than this page remain. The next read sends the last session shown as `before`, and is a read of its own, logged before it answers. */
+      has_older_sessions?: boolean
       /** @description HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym. */
       agenda?: components['schemas']['BreakGlassAgendaEntry'][]
+      /** @description HU-BO-008 criterion 4, returned with either training category: of the sessions the read returns, each one she hid from a gym and which gym, newest session first. A hiding she took back is not listed. It travels beside the sessions, never inside them, because the session shape is the one Studio reads too. */
+      hidden_sessions?: components['schemas']['BreakGlassHiddenSession'][]
+    }
+    BreakGlassHiddenSession: {
+      executed_session_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      organization_id: components['schemas']['Uuid']
+      organization_name: string
+      /** Format: date-time */
+      hidden_at: string
     }
     BreakGlassAgendaEntry: {
       /** Format: date-time */
@@ -13406,6 +13588,12 @@ export interface components {
     }
   }
   parameters: {
+    /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+    WaitlistSecret: string
+    /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+    WaitlistVisitorAddress: string
+    /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+    WaitlistVisitorDevice: string
     BreakGlassRequestId: components['schemas']['UuidV7']
     /** @description Only your own requests. Absent means the whole tray. */
     BreakGlassMine: boolean
@@ -24300,6 +24488,188 @@ export interface operations {
       403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  joinSpaceWaitlist: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistSignupRequest']
+      }
+    }
+    responses: {
+      /** @description The address joined the waitlist and its confirmation email is on its way */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistSignupJoined']
+        }
+      }
+      /** @description The address was already on the waitlist; its link goes to its inbox */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistSignupAlreadyListed']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  confirmSpaceWaitlistEmail: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistConfirmationRequest']
+      }
+    }
+    responses: {
+      /** @description The email is confirmed, now or by an earlier use of the same link */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistConfirmation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  requestSpaceWaitlistEmail: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistEmailRequest']
+      }
+    }
+    responses: {
+      /** @description Accepted, whether or not the address is on the waitlist */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  readSpaceWaitlistLink: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistPrivateLinkRequest']
+      }
+    }
+    responses: {
+      /** @description The sign-up's own code, counter and state */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistLink']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  leaveSpaceWaitlist: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistPrivateLinkRequest']
+      }
+    }
+    responses: {
+      /** @description The sign-up was deleted */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
     }
   }
 }

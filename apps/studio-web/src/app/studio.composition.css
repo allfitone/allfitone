@@ -235,13 +235,19 @@
 [data-ready-later],
 [data-role-register],
 [data-content-register],
+[data-template-steps],
+[data-program-weeks],
+/* Wider than the gap inside a session, so each one reads as its own group. */
+[data-program-sessions],
 [data-category-register],
 [data-organization-overview],
 [data-organization-details],
 [data-profile-presentation],
 [data-account-map],
 [data-relationship-state],
-[data-relationship-history] {
+[data-relationship-history],
+[data-client-card-screen],
+[data-client-profile-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -473,6 +479,10 @@
 [data-membership-roles],
 [data-role-disclosure],
 [data-content-disclosure],
+[data-template-step-actions],
+[data-program-session-actions],
+[data-movement-variant-actions],
+[data-movement-library-actions],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -524,7 +534,10 @@
    membership card is the common case: a person who has not left has no end
    date. `auto-fit` gives the pair the row and still splits it when a second
    arrives, and the `min()` keeps the track from outgrowing a narrow card. */
-[data-credential-details] {
+[data-credential-details],
+[data-version-details],
+[data-template-target-fields],
+[data-program-session-fields] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
   gap: var(--afo-space-4);
@@ -533,7 +546,8 @@
 [data-team-invitation-summary] > div,
 [data-client-invitation-summary] > div,
 [data-ownership-invitation-summary] > div,
-[data-credential-details] > div {
+[data-credential-details] > div,
+[data-version-details] > div {
   min-width: 0;
 }
 
@@ -553,7 +567,9 @@
 [data-billing-facts] dt,
 [data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
-[data-credential-details] dt {
+[data-credential-details] dt,
+[data-version-details] dt,
+[data-client-profile-group-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -577,7 +593,8 @@
 [data-client-facts],
 [data-billing-facts],
 [data-authorized-scope-facts],
-[data-relationship-facts] {
+[data-relationship-facts],
+[data-client-card-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -634,7 +651,12 @@
 [data-relationship-grant-cards],
 [data-relationship-history-list],
 [data-content-version-list],
-[data-role-capability-list] {
+[data-movement-picker-results],
+[data-program-session],
+[data-movement-variant-fields],
+[data-role-capability-list],
+[data-client-card-section-list],
+[data-client-profile-group-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -644,6 +666,7 @@
 [data-organization-site-list] > li,
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
+[data-movement-picker-results] > li,
 [data-role-capability-list] > li {
   display: flex;
   min-width: 0;
@@ -802,6 +825,8 @@
 
 [data-team-directory-note],
 [data-client-directory-note],
+[data-client-directory-search],
+[data-movement-search],
 [data-guest-quota-summary],
 [data-billing-note],
 [data-authorized-scope-note],
@@ -1052,7 +1077,10 @@
   [data-credential-grid],
   [data-team-invitation-summary],
   [data-client-invitation-summary],
-  [data-credential-details] {
+  [data-credential-details],
+  [data-version-details],
+  [data-template-target-fields],
+  [data-program-session-fields] {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1348,7 +1376,12 @@
    a section they had no space between them and read as one block. The button
    sizes to its label rather than stretching the width of the alert. */
 [data-site-form-refusal],
-[data-organization-form-refusal] {
+[data-organization-form-refusal],
+[data-template-create-refusal],
+[data-template-save-bar],
+[data-program-create-refusal],
+[data-program-save-bar],
+[data-version-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);
@@ -1357,7 +1390,8 @@
 /* Status and the way to change it share the card's action slot. They are two
    different kinds of thing, so they get space between them, and they wrap
    rather than push the card's title out of its own box on a narrow screen. */
-[data-organization-identity-action] {
+[data-organization-identity-action],
+[data-movement-badges] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1395,13 +1429,17 @@
 }
 
 [data-organization-details-placeholder],
-[data-relationship-header-placeholder] {
+[data-relationship-header-placeholder],
+[data-client-card-header-placeholder],
+[data-client-profile-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
 
 [data-organization-card-placeholder],
-[data-relationship-card-placeholder] {
+[data-relationship-card-placeholder],
+[data-client-card-panel-placeholder],
+[data-client-profile-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1434,8 +1472,10 @@
   margin-block-start: var(--afo-space-3);
 }
 
+/* Content's header carries two actions, and a shrinking box stacked them. */
 [data-organization-site-edit],
-[data-organization-edit] {
+[data-organization-edit],
+[data-page-header-actions] {
   flex: none;
 }
 
@@ -1504,13 +1544,86 @@
 
 /* The person, then the facts about her. CardContent pads sideways only, so
    without this the name sat flush on the first label. */
-[data-relationship-subject] {
+[data-relationship-subject],
+[data-client-card-subject] {
   margin-block-end: var(--afo-space-4);
 }
 
 [data-relationship-holder] {
   display: grid;
   gap: 0;
+}
+
+/* One attribute: its name, then the claims in force for it. Hairlines rather
+   than boxes — the panel is already a card, and a card per attribute would make
+   eight boxes out of one list. */
+[data-client-profile-group] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-profile-group]:first-child {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+/* Drawn as the same label every other value on the product carries, so the
+   hierarchy here is the claim's value and not its name. Its own rule only
+   places the badge that explains why more than one line follows. */
+[data-client-profile-group-name] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  margin: 0;
+}
+
+[data-client-profile-claims] {
+  display: grid;
+  gap: var(--afo-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The value leads; where it came from and since when step down beside it, and
+   wrap under it when the line runs out. */
+[data-client-profile-claim] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--afo-space-1) var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-profile-claim] > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-profile-origin],
+[data-client-profile-since],
+[data-client-profile-unreadable] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-client-profile-unreadable] {
+  margin: 0;
+}
+
+/* A sentence, the date it happened, and the way back — stacked, and each as
+   wide as it needs rather than as wide as the card. */
+[data-client-card-loss] {
+  display: grid;
+  justify-items: start;
+  gap: var(--afo-space-4);
+}
+
+[data-client-card-loss-reason] {
+  margin: 0;
 }
 
 [data-relationship-subheading],

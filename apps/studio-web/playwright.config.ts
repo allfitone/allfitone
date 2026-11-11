@@ -5,9 +5,26 @@ const BASE_URL = `http://127.0.0.1:${PORT}`
 
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false,
+  /**
+   * Parallel within a file as well as across them, and half the machine's cores.
+   *
+   * Both were pinned to one thread with no reason written down, and the cost
+   * grew with the screen inventory until CI cancelled two pull requests on the
+   * 25-minute ceiling. Across files alone buys almost nothing here: the screen
+   * sweep is one file, and it was 12.3 of the suite's 12.6 minutes.
+   *
+   * Measured on the whole suite, 1 465 cases, all passing with no retry:
+   * 18.1 minutes as it was, 12.6 with four workers, 6.8 with both. A sweep
+   * measures layout in a browser of its own at a fixed viewport, so sharing a
+   * CPU changes how long it waits and not what it sees.
+   *
+   * `50%` rather than a number because the figure that matters differs by
+   * machine — twelve cores here, four on a GitHub runner. If a runner is still
+   * tight, sharding across runners is the next step, not a bigger ceiling.
+   */
+  fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  workers: '50%',
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     ...devices['Desktop Chrome'],

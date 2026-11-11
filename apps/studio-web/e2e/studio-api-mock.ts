@@ -37,6 +37,18 @@ export interface StudioApiFixture {
    */
   guestQuota: StudioGuestQuotaBody | null
   authorizedScopes: unknown[]
+  /**
+   * The card of the person `activeClient` names. `null` is the `404`
+   * `OP-REL-019` answers for a person who does not exist and for one the
+   * caller does not attend — the same answer for both, on purpose.
+   */
+  clientCard: unknown
+  /**
+   * The training profile `OP-IDN-018` answers. `null` is its `403`
+   * `scope-required` — she shares nothing of the category, which the route
+   * records as a refused read, not an empty answer.
+   */
+  clientTrainingProfile: unknown
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -82,6 +94,63 @@ export interface StudioApiFixture {
   organizationPrograms: unknown[]
   /** What `GET /session-templates` answers. */
   organizationSessionTemplates: unknown[]
+  /** What `GET /catalog/disciplines` answers: what Backoffice has published. */
+  disciplines: Array<{ code: string; name: string }>
+  /**
+   * `created` adds the template and its empty first draft to the list, the way
+   * the command does. `not-found` is how `planning.assert_manage_content`
+   * answers a missing capability or an organization that is no longer active.
+   */
+  templateCreateOutcome: 'created' | 'not-found'
+  /**
+   * What `catalog.search_organization_movements` searches. The other names are
+   * matched but never answered — `StudioMovement` does not carry them — so they
+   * sit beside the movement here and the mock strips them, as the route does.
+   */
+  movements: Array<{
+    movement: Record<string, unknown>
+    aliases: string[]
+    /** What an edit names in `expected_revision`; 1 when absent. */
+    revision?: number
+    variantOf?: Record<string, unknown> | null
+    /** True once a published version uses one of the organization's own. */
+    nameLocked?: boolean
+  }>
+  /**
+   * `saved` applies an edit the way `catalog.update_organization_movement`
+   * does. `stale` makes the next edit meet a teammate's first, once.
+   */
+  movementEditOutcome: 'saved' | 'stale'
+  /** What `GET /catalog/activity-types` answers, each with the family of its targets. */
+  activityTypes: Array<{
+    id: string
+    discipline_code: string
+    code: string
+    name: string
+    activity_family: 'strength' | 'endurance' | 'interval' | 'mobility' | null
+  }>
+  /**
+   * `saved` replaces the draft the way `planning.replace_session_template_draft`
+   * does, and answers a stale ETag with `409` and the current draft. `stale`
+   * makes the next save meet somebody else's, once: the draft changes under it
+   * first, as it would if a teammate had saved.
+   */
+  draftSaveOutcome: 'saved' | 'stale'
+  /**
+   * The content each template's newest version was published with, by
+   * template. A version summary does not carry it, and the server compares a
+   * publication against it to decide whether anything changed.
+   */
+  publishedContents: Record<string, string>
+  /**
+   * `saved` replaces a program draft the way `planning.replace_program_draft`
+   * does. `stale` makes the next save meet a teammate's, once.
+   */
+  programDraftSaveOutcome: 'saved' | 'stale'
+  /** The content each program's newest version was published with, as for templates. */
+  publishedProgramContents: Record<string, string>
+  /** Every template version's content, by version id: what reading one answers. */
+  templateVersionContents: Record<string, Record<string, unknown>>
   /**
    * `closed` ends the organization and reports how many relationships it took
    * with it, the way the response does. `rejected` is the `422` the screen
@@ -171,6 +240,122 @@ export const terminatedMembership = {
 }
 
 /*
+ * The movement library a gym searches: the global catalogue and the gym's own
+ * in one list, one of each kind the screen tells apart, plus an archived one
+ * that appears only when asked for.
+ */
+export const STRENGTH_GLOBAL_MOVEMENT_ID = '01991600-c000-7000-8000-000000000001'
+export const STRENGTH_OWN_MOVEMENT_ID = '01991600-c000-7000-8000-000000000003'
+
+function libraryMovement(
+  id: string,
+  name: string,
+  discipline: string,
+  scope: 'global' | 'organization',
+  archived = false,
+): Record<string, unknown> {
+  return {
+    id,
+    discipline_code: discipline,
+    name,
+    scope,
+    archived,
+    // The organization's own carry no muscles: only the catalogue curates them.
+    muscles: scope === 'global' ? ['quadriceps'] : [],
+    equipment: [],
+    demo_url: null,
+  }
+}
+
+export const movementLibrary: StudioApiFixture['movements'] = [
+  {
+    movement: libraryMovement(
+      STRENGTH_GLOBAL_MOVEMENT_ID,
+      'Sentadilla trasera',
+      'strength',
+      'global',
+    ),
+    aliases: ['Back squat'],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000002',
+      'Press de banca',
+      'strength',
+      'global',
+    ),
+    aliases: ['Bench press'],
+  },
+  {
+    movement: libraryMovement(
+      STRENGTH_OWN_MOVEMENT_ID,
+      'Remo con mancuerna a una mano',
+      'strength',
+      'organization',
+    ),
+    aliases: [],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000004',
+      'Zancada lateral con banda',
+      'strength',
+      'organization',
+      true,
+    ),
+    aliases: [],
+  },
+  {
+    movement: libraryMovement(
+      '01991600-c000-7000-8000-000000000005',
+      'Rotación torácica',
+      'mobility',
+      'global',
+    ),
+    aliases: ['Thoracic rotation'],
+  },
+]
+
+/*
+ * The global activity types, each with the family its steps take, as
+ * `catalog.list_activity_types()` answers them. One has no default result
+ * contract in force, so it names no family and can hold no step.
+ */
+export const STRENGTH_ACTIVITY_TYPE_ID = '01991600-b000-7000-8000-000000000001'
+export const INTERVAL_ACTIVITY_TYPE_ID = '01991600-b000-7000-8000-000000000002'
+
+export const activityTypeCatalog: StudioApiFixture['activityTypes'] = [
+  {
+    id: STRENGTH_ACTIVITY_TYPE_ID,
+    discipline_code: 'strength',
+    code: 'gym_strength',
+    name: 'Fuerza en gimnasio',
+    activity_family: 'strength',
+  },
+  {
+    id: INTERVAL_ACTIVITY_TYPE_ID,
+    discipline_code: 'strength',
+    code: 'circuit',
+    name: 'Circuito por intervalos',
+    activity_family: 'interval',
+  },
+  {
+    id: '01991600-b000-7000-8000-000000000003',
+    discipline_code: 'strength',
+    code: 'plyometrics',
+    name: 'Pliometría',
+    activity_family: null,
+  },
+  {
+    id: '01991600-b000-7000-8000-000000000004',
+    discipline_code: 'mobility',
+    code: 'guided_mobility',
+    name: 'Movilidad guiada',
+    activity_family: 'mobility',
+  },
+]
+
+/*
  * The four template states the content screen tells apart, one fixture each.
  *
  * The listing gives a template's versions as `SessionTemplateVersionSummary`,
@@ -192,8 +377,29 @@ export const publishedTemplate = {
     content_schema_version: 1,
     content: {
       title: 'Fuerza tren superior',
-      activity_type_id: '01991600-b000-7000-8000-000000000001',
-      steps: [],
+      activity_type_id: STRENGTH_ACTIVITY_TYPE_ID,
+      // One step, in the shape the current editor writes: sets one by one.
+      steps: [
+        {
+          position: 1,
+          movement_id: STRENGTH_GLOBAL_MOVEMENT_ID,
+          activity_type_id: null,
+          notes: null,
+          superset_group: null,
+          target: {
+            family: 'strength',
+            sets: [1, 2, 3].map((order) => ({
+              set_order: order,
+              kind: 'normal',
+              target_reps: 8,
+              target_load_value: 40,
+              target_load_unit_code: 'kg',
+              target_rpe: null,
+            })),
+            target_rest_seconds: 90,
+          },
+        },
+      ],
     },
     derived_from_version_id: null,
     etag: '"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
@@ -230,7 +436,8 @@ export const unpublishedTemplate = {
     content_schema_version: 1,
     content: {
       title: 'Movilidad matutina',
-      activity_type_id: '01991600-b000-7000-8000-000000000001',
+      // A mobility template declares a mobility type; the editor opens it now.
+      activity_type_id: '01991600-b000-7000-8000-000000000004',
       steps: [],
     },
     derived_from_version_id: null,
@@ -349,6 +556,91 @@ export const archivedProgram = {
       deprecated_template_version_ids: [],
     },
   ],
+}
+
+/** `publishedTemplate`'s two versions, which a program names by id. */
+export const STRENGTH_TEMPLATE_V2_ID = '01991600-a000-7000-8000-000000000021'
+export const STRENGTH_TEMPLATE_V1_ID = '01991600-a000-7000-8000-000000000022'
+
+/**
+ * A program being composed and never published. Two sessions on the current
+ * version of the strength template and one on its retired first version, which
+ * the draft keeps — `replace_program_draft` refuses only a new reference to a
+ * retired version — and lists in `deprecated_template_version_ids`.
+ */
+export const draftedProgram = {
+  id: '01991600-9000-7000-8000-000000000003',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  status: 'draft',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: {
+    id: '01991600-9000-7000-8000-000000000033',
+    program_id: '01991600-9000-7000-8000-000000000003',
+    content_schema_version: 1,
+    content: {
+      title: 'Hipertrofia de cuatro semanas',
+      notes: null,
+      repeats_forever: false,
+      sessions: [
+        { position: 1, week: 1, day: 1, template_version_id: STRENGTH_TEMPLATE_V2_ID },
+        { position: 2, week: 1, day: 4, template_version_id: STRENGTH_TEMPLATE_V2_ID },
+        { position: 3, week: 2, day: 1, template_version_id: STRENGTH_TEMPLATE_V1_ID },
+      ],
+    },
+    etag: '"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"',
+    updated_at: '2026-10-06T10:00:00.000Z',
+    deprecated_template_version_ids: [STRENGTH_TEMPLATE_V1_ID],
+  },
+  versions: [],
+}
+
+/**
+ * What `publishedTemplate`'s two versions were published with. The listing
+ * carries only summaries, so the read of one version needs its content: the
+ * second is the draft as it stands, the first an older prescription.
+ */
+export const templateVersionContentCatalog: Record<string, Record<string, unknown>> = {
+  [STRENGTH_TEMPLATE_V2_ID]: structuredClone(publishedTemplate.draft.content),
+  [STRENGTH_TEMPLATE_V1_ID]: {
+    title: 'Fuerza tren superior',
+    activity_type_id: STRENGTH_ACTIVITY_TYPE_ID,
+    steps: [
+      {
+        position: 1,
+        movement_id: STRENGTH_GLOBAL_MOVEMENT_ID,
+        activity_type_id: null,
+        notes: 'Bajar la barra controlando.',
+        superset_group: null,
+        target: {
+          family: 'strength',
+          sets: [1, 2, 3].map((order) => ({
+            set_order: order,
+            kind: 'normal',
+            target_reps: 10,
+            target_load_value: 35,
+            target_load_unit_code: 'kg',
+            target_rpe: null,
+          })),
+          target_rest_seconds: 120,
+        },
+      },
+    ],
+  },
+}
+
+/** `draftedProgram` as it was first published, to read one program version whole. */
+export const programVersionOne = {
+  id: '01991600-9000-7000-8000-000000000301',
+  program_id: draftedProgram.id,
+  version_number: 1,
+  status: 'published',
+  title: 'Hipertrofia de cuatro semanas',
+  notes: 'Subir la carga cuando las ocho repeticiones salgan limpias.',
+  repeats_forever: false,
+  sessions: draftedProgram.draft.content.sessions,
+  published_at: '2026-10-07T14:00:00.000Z',
+  session_count: 3,
+  deprecated_template_version_ids: [STRENGTH_TEMPLATE_V1_ID],
 }
 
 /*
@@ -532,6 +824,200 @@ export const activeClient = {
   invitation_status: 'accepted',
   started_at: '2025-03-04T15:12:44.118Z',
   ended_at: null,
+}
+
+/**
+ * `OP-REL-019`: an index of what she lets this caller read, and nothing of
+ * hers. The fullest useful case — two categories at two different levels, and
+ * one she took back — so the screen has to say three different things.
+ *
+ * `reads` carries what the real projection carries: the operations that read
+ * each category. The screen shows none of them, and that is the point of having
+ * them here — a fixture that dropped them would let a prefetch be added without
+ * anything noticing.
+ */
+export const clientCard = {
+  kind: 'attending',
+  person_id: '01991600-7000-7000-8000-000000000201',
+  display_name: 'Ana Álvarez',
+  relationship: {
+    id: '01991600-7000-7000-8000-000000000101',
+    started_at: '2025-03-04T15:12:44.118Z',
+  },
+  attendance: { role: 'holder', ends_on: null },
+  sections: [
+    {
+      scope_code: 'relationship_training',
+      scope_version: 2,
+      access_level: 'contribute',
+      granted_at: '2025-03-05T10:00:00.000Z',
+      reads: [
+        'getAuthorizedClientTrainingProfile',
+        'listAuthorizedClientExecutions',
+        'getAuthorizedClientProgress',
+        'listRelationshipAssignments',
+      ],
+    },
+    {
+      scope_code: 'health_context',
+      scope_version: 1,
+      access_level: 'read',
+      granted_at: '2025-06-11T18:30:00.000Z',
+      reads: ['listAuthorizedClientHealthContext'],
+    },
+  ],
+  withdrawn: [{ scope_code: 'body_progress', withdrawn_at: '2026-01-20T14:05:00.000Z' }],
+}
+
+/**
+ * The same person, read by somebody covering for her coach. The cover ends on a
+ * day of the gym's calendar and not an instant, which is the half that renders
+ * one day early anywhere west of Greenwich if it is read as one.
+ */
+export const coveredClientCard = {
+  ...clientCard,
+  attendance: { role: 'substitute', ends_on: '2026-03-12' },
+}
+
+/**
+ * `HU-STUDIO-084`. A coach who lost her: why, when, and nothing else — no name,
+ * no categories, and never who decided it.
+ */
+export const formerClientCard = {
+  kind: 'former',
+  person_id: '01991600-7000-7000-8000-000000000201',
+  reason: 'assignment_ended',
+  lost_at: '2026-02-02T11:00:00.000Z',
+}
+
+/**
+ * `OP-IDN-018`, written from `identity.read_client_training_profile`.
+ *
+ * The fullest useful case, and every part of it is something the screen has to
+ * say differently: a discipline and a goal she declared, **two experience
+ * claims in force at once** (hers and a professional's), two emphasis zones as
+ * two separate claims — which is how they arrive — and one claim whose value
+ * the version withheld, with `value_text` null while its attribute code
+ * travelled.
+ */
+export const clientTrainingProfile = {
+  applied_scope: { code: 'relationship_training', version: 4 },
+  biological_sex: { value: 'female', provenance: 'person_declared' },
+  attributes: [
+    {
+      id: '019f4900-0000-7000-8000-000000000c01',
+      attribute_code: 'training_discipline',
+      value_text: 'strength',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:12:44.118Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c02',
+      attribute_code: 'primary_training_goal',
+      value_text: 'get_fit',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:14:02.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c03',
+      attribute_code: 'training_experience',
+      value_text: 'experienced',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'professional_observation',
+      valid_from: '2026-10-31T10:00:00.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c04',
+      attribute_code: 'training_experience',
+      value_text: 'some_practice',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:15:30.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c05',
+      attribute_code: 'focus_areas',
+      value_text: 'glutes',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:16:10.000Z',
+    },
+    {
+      id: '019f4900-0000-7000-8000-000000000c06',
+      attribute_code: 'focus_areas',
+      value_text: 'legs',
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:16:10.000Z',
+    },
+    /*
+     * A third zone whose value the version withheld, beside two that travelled.
+     * The group must then count two rows and not three: a badge counting the
+     * claims that arrived said "3 vigentes" above two lines.
+     */
+    {
+      id: '019f4900-0000-7000-8000-000000000c08',
+      attribute_code: 'focus_areas',
+      value_text: null,
+      value_numeric: null,
+      unit_code: null,
+      provenance: 'person_declared',
+      valid_from: '2026-03-04T15:16:10.000Z',
+    },
+    /*
+     * The column the version withheld. `attribute_code` travelled and
+     * `value_text` did not, which is the one gap the screen may name: she
+     * shares a datum of this kind and its value is not in this version.
+     */
+    {
+      id: '019f4900-0000-7000-8000-000000000c07',
+      attribute_code: 'training_days_per_week',
+      value_text: null,
+      value_numeric: null,
+      unit_code: null,
+      provenance: null,
+      valid_from: null,
+    },
+  ],
+}
+
+/** An older version of the same permission: fewer fields, same person. */
+export const narrowTrainingProfile = {
+  applied_scope: { code: 'relationship_training', version: 1 },
+  biological_sex: null,
+  attributes: [
+    {
+      id: '019f4900-0000-7000-8000-000000000c02',
+      attribute_code: 'primary_training_goal',
+      value_text: 'get_fit',
+      value_numeric: null,
+      unit_code: null,
+      provenance: null,
+      valid_from: null,
+    },
+  ],
+}
+
+/** Shares the category and nothing inside it: not a refusal, and not a failure. */
+export const emptyTrainingProfile = {
+  applied_scope: { code: 'relationship_training', version: 4 },
+  biological_sex: null,
+  attributes: [],
+}
+
+/** Attended, and she has shared nothing: being assigned asks her for nothing. */
+export const clientCardWithoutSections = {
+  ...clientCard,
+  sections: [],
+  withdrawn: [],
 }
 
 /**
@@ -791,6 +1277,7 @@ const capabilityNames = {
   close_organization: 'Cerrar la organización',
   view_assigned_directory: 'Únicamente personas asignadas',
   manage_content: 'Crear y publicar contenido de entrenamiento',
+  archive_movements: 'Archivar movimientos propios',
   assign_programs: 'Asignar programas',
   exercise_grants: 'Ejercer grants solo con relación, asignación y grant vigentes',
   observe_training: 'Observar ejecuciones autorizadas',
@@ -821,6 +1308,8 @@ const adminCapabilities = [
    * let them.
    */
   'manage_content',
+  // `organizations.role_capabilities` gives it to owner and admin, never to coach.
+  'archive_movements',
 ] as const
 
 const coachCapabilities = [
@@ -1037,6 +1526,8 @@ export function createStudioApiFixture(
     organizationClients: [activeClient, pendingClientInvitation, terminatedClient],
     guestQuota: null,
     authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
+    clientCard: structuredClone(clientCard),
+    clientTrainingProfile: structuredClone(clientTrainingProfile),
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -1050,13 +1541,27 @@ export function createStudioApiFixture(
     roleRevokeOutcome: 'revoked',
     membershipTerminationOutcome: 'terminated',
     membershipResignationOutcome: 'resigned',
-    organizationPrograms: [publishedProgram, archivedProgram],
-    organizationSessionTemplates: [
+    // Copies: drafts are editable now, and a save must not reach the next test.
+    organizationPrograms: structuredClone([publishedProgram, archivedProgram, draftedProgram]),
+    organizationSessionTemplates: structuredClone([
       publishedTemplate,
       unpublishedTemplate,
       adaptedTemplate,
       archivedTemplate,
+    ]),
+    disciplines: [
+      { code: 'strength', name: 'Fuerza' },
+      { code: 'mobility', name: 'Movilidad' },
     ],
+    templateCreateOutcome: 'created',
+    movements: structuredClone(movementLibrary),
+    movementEditOutcome: 'saved',
+    activityTypes: structuredClone(activityTypeCatalog),
+    draftSaveOutcome: 'saved',
+    publishedContents: {},
+    programDraftSaveOutcome: 'saved',
+    publishedProgramContents: {},
+    templateVersionContents: structuredClone(templateVersionContentCatalog),
     organizationClosureOutcome: 'closed',
     closedRelationships: 3,
     programProposalOutcome: 'proposed',
@@ -1206,6 +1711,414 @@ function defaultResponse(
       },
     }
   }
+  if (request.method === 'GET' && request.path === '/studio/v1/catalog/disciplines') {
+    return { status: 200, body: { items: fixture.disciplines } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/movements$/.test(request.path)
+  ) {
+    /*
+     * The route's rules, written where the simulator can apply them: names and
+     * other names matched anywhere ignoring case but not accents, the archived
+     * left out unless asked for, name order, and an opaque cursor per page.
+     */
+    const params = new URLSearchParams(request.search)
+    const term = (params.get('q') ?? '').trim().toLocaleLowerCase('es-CO')
+    const discipline = params.get('discipline')
+    const includeArchived = params.get('include_archived') === 'true'
+    const limit = Number(params.get('limit') ?? '25')
+    const offset = Number((params.get('cursor') ?? 'movement-offset-0').split('-').at(-1))
+    const matches = fixture.movements
+      .filter(({ movement, aliases }) => {
+        if (!includeArchived && movement.archived === true) return false
+        if (discipline && movement.discipline_code !== discipline) return false
+        if (!term) return true
+        return [String(movement.name), ...aliases].some((name) =>
+          name.toLocaleLowerCase('es-CO').includes(term),
+        )
+      })
+      .map(({ movement }) => movement)
+      .toSorted((left, right) => String(left.name).localeCompare(String(right.name), 'es'))
+    const data = matches.slice(offset, offset + limit)
+    const hasMore = offset + limit < matches.length
+    return {
+      status: 200,
+      body: {
+        data,
+        page: {
+          has_more: hasMore,
+          next_cursor: hasMore ? `movement-offset-${offset + limit}` : null,
+        },
+      },
+    }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates$/.test(request.path)
+  ) {
+    if (fixture.templateCreateOutcome === 'not-found') {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    // What `planning.create_session_template` writes: an organization-owned
+    // template in `draft`, and a first draft holding the trimmed name and nothing else.
+    const organizationId = request.path.split('/')[4] ?? ''
+    const body = objectValue(request.body)
+    const sequence = String(fixture.organizationSessionTemplates.length + 1).padStart(3, '0')
+    const templateId = `01991600-a000-7000-8000-000000000${sequence}`
+    const etag = `"sha256:${'c'.repeat(40)}${sequence}"`
+    const template = {
+      id: templateId,
+      organization_id: organizationId,
+      discipline_code: String(body.discipline_code),
+      status: 'draft',
+      author_person_id: '01991600-7000-7000-8000-000000000002',
+      draft: {
+        id: `01991600-a000-7000-8000-000000001${sequence}`,
+        template_id: templateId,
+        content_schema_version: 1,
+        content: { title: String(body.title).trim(), activity_type_id: null, steps: [] },
+        derived_from_version_id: null,
+        etag,
+        updated_at: '2026-11-10T15:04:11.000Z',
+      },
+      versions: [],
+    }
+    fixture.organizationSessionTemplates = [template, ...fixture.organizationSessionTemplates]
+    return {
+      status: 201,
+      body: template,
+      headers: {
+        ETag: etag,
+        Location: `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
+      },
+    }
+  }
+  const draftPath = /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/draft$/.exec(
+    request.path,
+  )
+  if (draftPath && (request.method === 'GET' || request.method === 'PUT')) {
+    const templateId = draftPath[1] ?? ''
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    if (!template) return { status: 404, body: problem('not-found', 404) }
+    const draft = objectValue(template.draft)
+    if (request.method === 'GET') {
+      return { status: 200, body: draft, headers: { ETag: String(draft.etag) } }
+    }
+    // The route answers 428 before anything else when the condition is missing.
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    let current = draft
+    if (fixture.draftSaveOutcome === 'stale') {
+      // Somebody else saves first; the next save from this screen is then current.
+      fixture.draftSaveOutcome = 'saved'
+      current = replaceDraft(fixture, templateId, {
+        ...objectValue(draft.content),
+        title: 'Fuerza tren superior (versión del equipo)',
+      })
+    }
+    if (expected !== current.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: current }) }
+    }
+    const saved = replaceDraft(fixture, templateId, objectValue(request.body))
+    return { status: 200, body: saved, headers: { ETag: String(saved.etag) } }
+  }
+  const versionsPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions$/.exec(request.path)
+  if (request.method === 'POST' && versionsPath) {
+    /*
+     * What `planning.publish_session_template_version` does: 428 without the
+     * condition, the current draft with a stale one, the list of what a complete
+     * draft still lacks, and — against the newest version only — the same
+     * version again when nothing changed.
+     */
+    const templateId = versionsPath[1] ?? ''
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    if (!template) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const draft = objectValue(template.draft)
+    if (expected !== draft.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: draft }) }
+    }
+    const content = objectValue(draft.content)
+    const steps = Array.isArray(content.steps) ? content.steps : []
+    const missing = [
+      ...(content.activity_type_id ? [] : ['activity-type']),
+      ...(steps.length > 0 ? [] : ['steps']),
+    ]
+    if (missing.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: missing.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
+    }
+    const versions = (Array.isArray(template.versions) ? template.versions : []).map(objectValue)
+    const latest = Math.max(0, ...versions.map((version) => Number(version.version_number)))
+    const unchanged = fixture.publishedContents[templateId] === JSON.stringify(content)
+    const number = unchanged && latest > 0 ? latest : latest + 1
+    const version = {
+      id: `01991600-a000-7000-8000-0000000002${String(number).padStart(2, '0')}`,
+      template_id: templateId,
+      version_number: number,
+      discipline_code: template.discipline_code,
+      activity_type_id: content.activity_type_id,
+      derived_from_version_id: null,
+      title: content.title,
+      status: 'published',
+      published_at: '2026-11-10T16:00:00.000Z',
+      steps,
+    }
+    if (!unchanged || latest === 0) {
+      fixture.publishedContents[templateId] = JSON.stringify(content)
+      fixture.templateVersionContents[version.id] = structuredClone(content)
+      const summary = {
+        id: version.id,
+        template_id: templateId,
+        version_number: number,
+        status: 'published',
+        published_at: version.published_at,
+      }
+      fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map(
+        (candidate) =>
+          objectValue(candidate).id === templateId
+            ? { ...objectValue(candidate), status: 'published', versions: [summary, ...versions] }
+            : candidate,
+      )
+    }
+    return { status: 201, body: version }
+  }
+  /*
+   * `OP-PLN-021`, both reads: the organization in the path or a 404, and the
+   * version whole with its current status. Nothing here can change a version.
+   */
+  const templateVersionPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions\/(\d+)$/.exec(
+      request.path,
+    )
+  if (request.method === 'GET' && templateVersionPath) {
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateVersionPath[1])
+    const summary = (Array.isArray(template?.versions) ? template.versions : [])
+      .map(objectValue)
+      .find((version) => version.version_number === Number(templateVersionPath[2]))
+    const content = summary ? fixture.templateVersionContents[String(summary.id)] : undefined
+    if (!template || !summary || !content) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    return {
+      status: 200,
+      body: {
+        id: summary.id,
+        template_id: template.id,
+        version_number: summary.version_number,
+        discipline_code: template.discipline_code,
+        activity_type_id: content.activity_type_id,
+        derived_from_version_id: null,
+        title: content.title,
+        status: summary.status,
+        published_at: summary.published_at,
+        steps: content.steps,
+      },
+    }
+  }
+  const programVersionPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions\/(\d+)$/.exec(request.path)
+  if (request.method === 'GET' && programVersionPath) {
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programVersionPath[1])
+    const version = (Array.isArray(program?.versions) ? program.versions : [])
+      .map(objectValue)
+      .find((candidate) => candidate.version_number === Number(programVersionPath[2]))
+    if (!version) return { status: 404, body: problem('not-found', 404) }
+    return { status: 200, body: version }
+  }
+  if (request.method === 'GET' && request.path === '/studio/v1/catalog/activity-types') {
+    return { status: 200, body: { items: fixture.activityTypes } }
+  }
+  const movementPath = /^\/studio\/v1\/organizations\/[^/]+\/movements\/([^/]+)$/.exec(request.path)
+  if (request.method === 'GET' && movementPath) {
+    const entry = fixture.movements.find(({ movement }) => movement.id === movementPath[1])
+    if (!entry) return { status: 404, body: problem('not-found', 404) }
+    return { status: 200, body: movementDocument(entry) }
+  }
+  const archivalPath = /^\/studio\/v1\/organizations\/[^/]+\/movements\/([^/]+)\/archival$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && archivalPath) {
+    // `catalog.archive_organization_movement`: the organization's own only, and
+    // converging — archiving an archived one answers it and changes nothing.
+    const entry = fixture.movements.find(
+      ({ movement }) => movement.id === archivalPath[1] && movement.scope === 'organization',
+    )
+    if (!entry) return { status: 404, body: problem('not-found', 404) }
+    if (entry.movement.archived === true) {
+      return { status: 200, body: movementDocument(entry) }
+    }
+    const archived = replaceMovement(fixture, {
+      ...entry,
+      movement: { ...entry.movement, archived: true },
+      revision: (entry.revision ?? 1) + 1,
+    })
+    return { status: 200, body: movementDocument(archived) }
+  }
+  if (request.method === 'PATCH' && movementPath) {
+    /*
+     * What `catalog.update_organization_movement` and the trigger that keeps a
+     * movement's meaning do, in their order: the fields checked, then only the
+     * organization's own (a global one is 404), archived refused, the revision
+     * compared, a rename or a new discipline refused once a published version
+     * uses it, and a name another of ours has refused by the unique index.
+     */
+    const body = objectValue(request.body)
+    const { expected_revision: expected, ...changes } = body
+    const problems = movementProblems(fixture, {
+      ...(typeof changes.discipline_code === 'string'
+        ? { disciplineCode: changes.discipline_code }
+        : {}),
+      ...(typeof changes.name === 'string' ? { name: changes.name } : {}),
+      ...(Array.isArray(changes.aliases) ? { aliases: changes.aliases.map(String) } : {}),
+      ...('variant' in changes ? { variant: changes.variant } : {}),
+    })
+    if (Object.keys(changes).length === 0) problems.push('changes')
+    if (problems.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: problems.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
+    }
+    let entry = fixture.movements.find(
+      ({ movement }) => movement.id === movementPath[1] && movement.scope === 'organization',
+    )
+    if (!entry) return { status: 404, body: problem('not-found', 404) }
+    if (entry.movement.archived === true) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'movement-archived', path: '', message: 'movement-archived' }],
+        }),
+      }
+    }
+    if (fixture.movementEditOutcome === 'stale') {
+      // A teammate's edit lands first: one more other name, and a new revision.
+      fixture.movementEditOutcome = 'saved'
+      entry = replaceMovement(fixture, {
+        ...entry,
+        aliases: [...entry.aliases, 'Remo a una mano'],
+        revision: (entry.revision ?? 1) + 1,
+      })
+    }
+    if (Number(expected) !== (entry.revision ?? 1)) {
+      return { status: 409, body: problem('stale-draft', 409) }
+    }
+    const renamed =
+      typeof changes.name === 'string' &&
+      normalizeMovementName(changes.name) !== normalizeMovementName(String(entry.movement.name))
+    const moved =
+      typeof changes.discipline_code === 'string' &&
+      changes.discipline_code !== entry.movement.discipline_code
+    if (entry.nameLocked === true && (renamed || moved)) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'movement-in-use', path: '', message: 'movement-in-use' }],
+        }),
+      }
+    }
+    if (
+      typeof changes.name === 'string' &&
+      movementNameTaken(fixture, changes.name, String(entry.movement.id))
+    ) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'name-taken', path: '/name', message: 'name-taken' }],
+        }),
+      }
+    }
+    const updated = replaceMovement(fixture, {
+      ...entry,
+      movement: {
+        ...entry.movement,
+        ...(typeof changes.name === 'string' ? { name: tidyMovementName(changes.name) } : {}),
+        ...(typeof changes.discipline_code === 'string'
+          ? { discipline_code: changes.discipline_code }
+          : {}),
+      },
+      aliases: Array.isArray(changes.aliases)
+        ? changes.aliases.map((alias) => tidyMovementName(String(alias)))
+        : entry.aliases,
+      variantOf:
+        'variant' in changes
+          ? variantOfDocument(fixture, changes.variant)
+          : (entry.variantOf ?? null),
+      revision: (entry.revision ?? 1) + 1,
+    })
+    return { status: 200, body: movementDocument(updated) }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/movements$/.test(request.path)
+  ) {
+    /*
+     * What `catalog.create_organization_movement` does: every field checked
+     * first and refused together, then a name already used in the organization
+     * refused by its unique index, and the command id kept as the movement's id.
+     */
+    const body = objectValue(request.body)
+    const name = String(body.name ?? '')
+    const aliases = Array.isArray(body.aliases) ? body.aliases.map(String) : []
+    const problems = movementProblems(fixture, {
+      disciplineCode: String(body.discipline_code ?? ''),
+      name,
+      aliases,
+      variant: body.variant,
+    })
+    if (problems.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: problems.map((code) => ({ code, path: `/${code}`, message: code })),
+        }),
+      }
+    }
+    if (movementNameTaken(fixture, name)) {
+      return {
+        status: 409,
+        body: problem('conflict', 409, {
+          errors: [{ code: 'name-taken', path: '/name', message: 'name-taken' }],
+        }),
+      }
+    }
+    const entry = {
+      movement: {
+        id: request.headers['command-id'] ?? '01991600-c000-7000-8000-000000000099',
+        discipline_code: String(body.discipline_code),
+        name: tidyMovementName(name),
+        scope: 'organization',
+        archived: false,
+        muscles: [],
+        equipment: [],
+        demo_url: null,
+      },
+      aliases: aliases.map(tidyMovementName),
+      revision: 1,
+      variantOf: variantOfDocument(fixture, body.variant),
+      nameLocked: false,
+    }
+    fixture.movements = [...fixture.movements, entry]
+    return { status: 201, body: movementDocument(entry) }
+  }
   if (
     request.method === 'GET' &&
     /^\/studio\/v1\/organizations\/[^/]+\/programs$/.test(request.path)
@@ -1217,6 +2130,149 @@ function defaultResponse(
         page: { has_more: false, next_cursor: null },
       },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/programs$/.test(request.path)
+  ) {
+    // What `planning.create_program` writes: an organization-owned program in
+    // `draft`, and a first draft with the trimmed name, no notes and no sessions.
+    const organizationId = request.path.split('/')[4] ?? ''
+    const body = objectValue(request.body)
+    const sequence = String(fixture.organizationPrograms.length + 1).padStart(3, '0')
+    const programId = `01991600-9000-7000-8000-000000000${sequence}`
+    const etag = `"sha256:${'9'.repeat(40)}${sequence}"`
+    const program = {
+      id: programId,
+      organization_id: organizationId,
+      status: 'draft',
+      author_person_id: '01991600-7000-7000-8000-000000000002',
+      draft: {
+        id: `01991600-9000-7000-8000-000000001${sequence}`,
+        program_id: programId,
+        content_schema_version: 1,
+        content: { title: String(body.title).trim(), notes: null, sessions: [] },
+        etag,
+        updated_at: '2026-11-10T15:04:11.000Z',
+        deprecated_template_version_ids: [],
+      },
+      versions: [],
+    }
+    fixture.organizationPrograms = [program, ...fixture.organizationPrograms]
+    return {
+      status: 201,
+      body: program,
+      headers: {
+        ETag: etag,
+        Location: `/studio/v1/organizations/${organizationId}/programs/${programId}/draft`,
+      },
+    }
+  }
+  const programDraftPath = /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/draft$/.exec(
+    request.path,
+  )
+  if (request.method === 'PUT' && programDraftPath) {
+    /*
+     * What `planning.replace_program_draft` does, in its order: 428 without the
+     * condition, the current draft with a stale one, then every session's
+     * version checked, and a retired version refused only where it is new.
+     */
+    const programId = programDraftPath[1] ?? ''
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programId)
+    if (!program) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    let current = objectValue(program.draft)
+    if (fixture.programDraftSaveOutcome === 'stale') {
+      fixture.programDraftSaveOutcome = 'saved'
+      const theirs = objectValue(current.content)
+      current = replaceProgramDraft(fixture, programId, {
+        ...theirs,
+        title: `${String(theirs.title)} (versión del equipo)`,
+      })
+    }
+    if (expected !== current.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: current }) }
+    }
+    const content = objectValue(request.body)
+    const errors = programDraftErrors(fixture, content, objectValue(current.content))
+    if (errors.length > 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: errors.map((code) => ({ code, path: '/sessions', message: code })),
+        }),
+      }
+    }
+    const saved = replaceProgramDraft(fixture, programId, content)
+    return { status: 200, body: saved, headers: { ETag: String(saved.etag) } }
+  }
+  const programVersionsPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/programs\/([^/]+)\/versions$/.exec(request.path)
+  if (request.method === 'POST' && programVersionsPath) {
+    /*
+     * What `planning.publish_program_version` does: 428 without the condition,
+     * the current draft with a stale one, `sessions` for an empty draft, and —
+     * against the newest version only — that version again when nothing changed.
+     * A retired version the draft kept is published as it is.
+     */
+    const programId = programVersionsPath[1] ?? ''
+    const program = fixture.organizationPrograms
+      .map(objectValue)
+      .find((candidate) => candidate.id === programId)
+    if (!program) return { status: 404, body: problem('not-found', 404) }
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const draft = objectValue(program.draft)
+    if (expected !== draft.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: draft }) }
+    }
+    const content = objectValue(draft.content)
+    const sessions = (Array.isArray(content.sessions) ? content.sessions : []).map(objectValue)
+    if (sessions.length === 0) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'sessions', path: '/sessions', message: 'sessions' }],
+        }),
+      }
+    }
+    const versions = (Array.isArray(program.versions) ? program.versions : []).map(objectValue)
+    const latest = Math.max(0, ...versions.map((version) => Number(version.version_number)))
+    const unchanged = fixture.publishedProgramContents[programId] === JSON.stringify(content)
+    if (unchanged && latest > 0) {
+      const newest = versions.find((version) => Number(version.version_number) === latest)
+      return { status: 201, body: newest }
+    }
+    const number = latest + 1
+    const version = {
+      id: `01991600-9000-7000-8000-0000000003${String(number).padStart(2, '0')}`,
+      program_id: programId,
+      version_number: number,
+      status: 'published',
+      title: String(content.title),
+      notes: content.notes ?? null,
+      repeats_forever: content.repeats_forever === true,
+      sessions: sessions.toSorted((left, right) => Number(left.position) - Number(right.position)),
+      published_at: '2026-11-10T17:00:00.000Z',
+      session_count: sessions.length,
+      deprecated_template_version_ids: [
+        ...new Set(
+          Array.isArray(draft.deprecated_template_version_ids)
+            ? draft.deprecated_template_version_ids
+            : [],
+        ),
+      ],
+    }
+    fixture.publishedProgramContents[programId] = JSON.stringify(content)
+    fixture.organizationPrograms = fixture.organizationPrograms.map((candidate) =>
+      objectValue(candidate).id === programId
+        ? { ...objectValue(candidate), status: 'published', versions: [version, ...versions] }
+        : candidate,
+    )
+    return { status: 201, body: version }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/offerable-scopes') {
     return { status: 200, body: { items: fixture.offerableScopes } }
@@ -1266,10 +2322,28 @@ function defaultResponse(
     request.method === 'GET' &&
     /^\/studio\/v1\/organizations\/[^/]+\/clients$/.test(request.path)
   ) {
-    const status = new URLSearchParams(request.search).get('status')
+    const params = new URLSearchParams(request.search)
+    const status = params.get('status')
+    /*
+     * The search mirrors the route rather than being convenient: up to 200
+     * characters raw, 2 to 80 once surrounding and repeated spaces are gone,
+     * and refused together with `invited` because an unanswered invitation has
+     * no name to match. `%` and `_` are characters here as they are there.
+     */
+    const rawSearch = params.get('q')
+    let search: string | undefined
+    if (rawSearch !== null) {
+      if (rawSearch.length > 200) return { status: 422, body: error('validation-failed') }
+      const normalized = rawSearch.trim().replace(/\s+/gu, ' ')
+      if (normalized.length < 2 || normalized.length > 80) {
+        return { status: 422, body: error('validation-failed') }
+      }
+      if (status === 'invited') return { status: 422, body: error('validation-failed') }
+      search = normalized
+    }
     // The filter is one value over two kinds of row: `invited` selects the
     // invitations, the other two select relationships by their own state.
-    const data = status
+    const filtered = status
       ? fixture.organizationClients.filter((entry) => {
           if (typeof entry !== 'object' || entry === null || !('kind' in entry)) return false
           if (status === 'invited') return entry.kind === 'invitation'
@@ -1280,6 +2354,18 @@ function defaultResponse(
           )
         })
       : fixture.organizationClients
+    // Names only, accents and case ignored — so a search never reaches an
+    // invitation, which is what makes the `invited` refusal above consistent.
+    const data = search
+      ? filtered.filter(
+          (entry) =>
+            typeof entry === 'object' &&
+            entry !== null &&
+            'display_name' in entry &&
+            typeof entry.display_name === 'string' &&
+            foldForSearch(entry.display_name).includes(foldForSearch(search)),
+        )
+      : filtered
     return {
       status: 200,
       body: {
@@ -1574,6 +2660,37 @@ function defaultResponse(
       },
     }
     return { status: 201, body: fixture.relationshipState }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/profile$/.test(request.path)
+  ) {
+    // Nothing shared is the `403` that names the category it would take, not an
+    // empty profile: the route refuses before reading, and records the attempt.
+    if (fixture.clientTrainingProfile === null) {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'read' },
+        },
+      }
+    }
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    return { status: 200, body: fixture.clientTrainingProfile }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+$/.test(request.path)
+  ) {
+    // Absent and not-attended answer the same 404 here as in PostgreSQL. A
+    // fixture that told them apart would let a screen be built on a difference
+    // production never reports — and the difference it would leak is whether
+    // the gym has that person as a client.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    return { status: 200, body: fixture.clientCard }
   }
   if (
     request.method === 'GET' &&
@@ -2098,6 +3215,209 @@ function credentials(fixture: StudioApiFixture): Array<Record<string, unknown>> 
   return Array.isArray(value) ? (value as Array<Record<string, unknown>>) : []
 }
 
+/**
+ * What `planning.replace_session_template_draft` writes: the content whole, a
+ * new ETag and a new time — or nothing new at all when the content is the same,
+ * because an unchanged replacement keeps its ETag. The template in the list is
+ * replaced rather than mutated, so the library reads the new name.
+ */
+function replaceDraft(
+  fixture: StudioApiFixture,
+  templateId: string,
+  content: Record<string, unknown>,
+): Record<string, unknown> {
+  const template = fixture.organizationSessionTemplates
+    .map(objectValue)
+    .find((candidate) => candidate.id === templateId)
+  const previous = objectValue(template?.draft)
+  if (JSON.stringify(previous.content) === JSON.stringify(content)) return previous
+  const revision = Number(/(\d+)"$/.exec(String(previous.etag))?.[1] ?? '0') + 1
+  const draft = {
+    ...previous,
+    content,
+    etag: `"sha256:${'d'.repeat(43 - String(revision).length)}${revision}"`,
+    updated_at: `2026-11-10T15:${String(10 + revision).padStart(2, '0')}:00.000Z`,
+  }
+  fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((candidate) =>
+    objectValue(candidate).id === templateId ? { ...objectValue(candidate), draft } : candidate,
+  )
+  return draft
+}
+
+type MovementEntry = StudioApiFixture['movements'][number]
+
+/** `catalog.normalize_movement_name`: case and spacing, never accents. */
+function normalizeMovementName(name: string): string {
+  return tidyMovementName(name).toLocaleLowerCase('es-CO')
+}
+
+function tidyMovementName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ')
+}
+
+/**
+ * `OrganizationMovement` as `catalog.organization_movement_document` builds it:
+ * the search's shape, plus what an edit needs. A global movement's name is
+ * always locked; an own one's once a published version uses it.
+ */
+function movementDocument(entry: MovementEntry): Record<string, unknown> {
+  return {
+    ...entry.movement,
+    revision: entry.revision ?? 1,
+    aliases: entry.aliases,
+    variant_of: entry.variantOf ?? null,
+    name_locked: entry.movement.scope === 'global' || entry.nameLocked === true,
+  }
+}
+
+/** The variant as the document names it, from a published global movement. */
+function variantOfDocument(
+  fixture: StudioApiFixture,
+  variant: unknown,
+): Record<string, unknown> | null {
+  const input = objectValue(variant)
+  const base = fixture.movements.find(({ movement }) => movement.id === input.movement_id)
+  if (!base) return null
+  const note = typeof input.note === 'string' ? input.note.trim() : ''
+  return {
+    id: base.movement.id,
+    name: base.movement.name,
+    relation: input.relation,
+    note: note || null,
+  }
+}
+
+/**
+ * The field checks `create_organization_movement` and its edit share: a
+ * published discipline, a name, ten distinct other names that do not repeat
+ * it, and a variant only of a published global movement.
+ */
+function movementProblems(
+  fixture: StudioApiFixture,
+  fields: { disciplineCode?: string; name?: string; aliases?: string[]; variant?: unknown },
+): string[] {
+  const problems: string[] = []
+  if (
+    fields.disciplineCode !== undefined &&
+    !fixture.disciplines.some((discipline) => discipline.code === fields.disciplineCode)
+  ) {
+    problems.push('discipline_code')
+  }
+  const name = fields.name === undefined ? undefined : normalizeMovementName(fields.name)
+  if (name !== undefined && (name === '' || name.length > 120)) problems.push('name')
+  if (fields.aliases !== undefined) {
+    const aliases = fields.aliases.map(normalizeMovementName)
+    if (
+      aliases.length > 10 ||
+      aliases.some((alias) => alias === '' || alias === name) ||
+      new Set(aliases).size !== aliases.length
+    ) {
+      problems.push('aliases')
+    }
+  }
+  if (fields.variant !== undefined && fields.variant !== null) {
+    const input = objectValue(fields.variant)
+    const base = fixture.movements.find(({ movement }) => movement.id === input.movement_id)
+    if (
+      !base ||
+      base.movement.scope !== 'global' ||
+      base.movement.archived === true ||
+      !['variant', 'regression', 'progression'].includes(String(input.relation))
+    ) {
+      problems.push('variant')
+    }
+  }
+  return problems
+}
+
+/** Replaces one movement in the library, rather than mutating it, and returns it. */
+function replaceMovement(fixture: StudioApiFixture, entry: MovementEntry): MovementEntry {
+  fixture.movements = fixture.movements.map((candidate) =>
+    candidate.movement.id === entry.movement.id ? entry : candidate,
+  )
+  return entry
+}
+
+/** The unique index on a name within the organization, leaving one movement out. */
+function movementNameTaken(fixture: StudioApiFixture, name: string, exceptId?: string): boolean {
+  const normalized = normalizeMovementName(name)
+  return fixture.movements.some(
+    ({ movement }) =>
+      movement.scope === 'organization' &&
+      movement.id !== exceptId &&
+      normalizeMovementName(String(movement.name)) === normalized,
+  )
+}
+
+/** Every published template version the fixture holds, with its status, by id. */
+function templateVersionStatuses(fixture: StudioApiFixture): Map<string, string> {
+  return new Map(
+    fixture.organizationSessionTemplates
+      .map(objectValue)
+      .flatMap((template) => (Array.isArray(template.versions) ? template.versions : []))
+      .map(objectValue)
+      .map((version) => [String(version.id), String(version.status)]),
+  )
+}
+
+function sessionVersionIds(content: Record<string, unknown>): string[] {
+  const sessions = Array.isArray(content.sessions) ? content.sessions : []
+  return sessions.map(objectValue).map((session) => String(session.template_version_id))
+}
+
+/**
+ * `program_content_errors` for what a save can get wrong from this screen: a
+ * version that is not the organization's, and then — only when nothing else
+ * failed — a retired version referenced more times than the draft already did.
+ */
+function programDraftErrors(
+  fixture: StudioApiFixture,
+  content: Record<string, unknown>,
+  previous: Record<string, unknown>,
+): string[] {
+  const statuses = templateVersionStatuses(fixture)
+  const requested = sessionVersionIds(content)
+  if (requested.some((id) => !statuses.has(id))) return ['template-version']
+  const before = sessionVersionIds(previous)
+  const count = (ids: string[], id: string) => ids.filter((candidate) => candidate === id).length
+  const addsRetired = [...new Set(requested)].some(
+    (id) => statuses.get(id) === 'deprecated' && count(requested, id) > count(before, id),
+  )
+  return addsRetired ? ['template-version-deprecated'] : []
+}
+
+/**
+ * What `planning.replace_program_draft` writes, like `replaceDraft` for a
+ * template, plus what `program_draft_projection` derives: the retired versions
+ * the content names, once per session that names one.
+ */
+function replaceProgramDraft(
+  fixture: StudioApiFixture,
+  programId: string,
+  content: Record<string, unknown>,
+): Record<string, unknown> {
+  const program = fixture.organizationPrograms
+    .map(objectValue)
+    .find((candidate) => candidate.id === programId)
+  const previous = objectValue(program?.draft)
+  if (JSON.stringify(previous.content) === JSON.stringify(content)) return previous
+  const revision = Number(/(\d+)"$/.exec(String(previous.etag))?.[1] ?? '0') + 1
+  const statuses = templateVersionStatuses(fixture)
+  const draft = {
+    ...previous,
+    content,
+    etag: `"sha256:${'f'.repeat(43 - String(revision).length)}${revision}"`,
+    updated_at: `2026-11-10T16:${String(10 + revision).padStart(2, '0')}:00.000Z`,
+    deprecated_template_version_ids: sessionVersionIds(content).filter(
+      (id) => statuses.get(id) === 'deprecated',
+    ),
+  }
+  fixture.organizationPrograms = fixture.organizationPrograms.map((candidate) =>
+    objectValue(candidate).id === programId ? { ...objectValue(candidate), draft } : candidate,
+  )
+  return draft
+}
+
 function appendCredential(fixture: StudioApiFixture, credential: Record<string, unknown>): void {
   if (fixture.me.profile) fixture.me.profile.credentials = [credential, ...credentials(fixture)]
 }
@@ -2180,6 +3500,37 @@ function objectValue(value: unknown): Record<string, unknown> {
     : {}
 }
 
+/**
+ * What the directory search compares: lower case with the accents stripped, so
+ * «Belén» is found by «belen» and by «BELEN». The route folds in PostgreSQL;
+ * this is the same rule written where the simulator can apply it.
+ */
+function foldForSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLocaleLowerCase('es-CO')
+}
+
 export function error(code: string, detail?: string): { error: { code: string; detail?: string } } {
   return { error: { code, ...(detail ? { detail } : {}) } }
+}
+
+/**
+ * An RFC 9457 answer, which is what the content block's routes send instead of
+ * the `{ error }` envelope. Extensions such as `errors` and `current_state` ride
+ * alongside, as the API puts them.
+ */
+export function problem(
+  code: string,
+  status: number,
+  extensions: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    type: `https://errors.allfit.invalid/${code}`,
+    title: code,
+    status,
+    request_id: '01991600-ffff-7000-8000-000000000001',
+    ...extensions,
+  }
 }

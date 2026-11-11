@@ -18,7 +18,7 @@
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button } from '@allfitone/react/components/button'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Card,
   CardAction,
@@ -43,13 +43,15 @@ import { Spinner } from '@allfitone/react/components/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
 import { useState } from 'react'
 
+import { MovementLibrary } from './movement-library'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
   archivedItems,
-  canReadContent,
+  canManageContent,
   isAdaptation,
   livingItems,
   programItems,
@@ -76,7 +78,7 @@ export function OrganizationContent() {
     organizationProgramsQueryOptions(current.organization_id, PAGE_SIZE),
   )
 
-  const allowed = canReadContent(current.roles, rolesQuery.data?.items)
+  const allowed = canManageContent(current.roles, rolesQuery.data?.items)
   const forbidden =
     isStudioForbidden(templatesQuery.error) || isStudioForbidden(programsQuery.error)
   const pending = templatesQuery.isPending || programsQuery.isPending
@@ -114,6 +116,28 @@ export function OrganizationContent() {
     <section data-content-page aria-label="Contenido">
       <WorkspacePageHeader
         description={`Las plantillas de sesión y los programas de ${current.display_name}. Un borrador es lo que alguien está escribiendo; una versión publicada ya no cambia y es la que puede asignarse.`}
+        actions={
+          allowed ? (
+            <>
+              <Link
+                href={`/organizations/${current.organization_id}/content/programs/new`}
+                data-slot="button"
+                data-variant="outline"
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                Nuevo programa
+              </Link>
+              <Link
+                href={`/organizations/${current.organization_id}/content/templates/new`}
+                data-slot="button"
+                data-variant="default"
+                className={buttonVariants()}
+              >
+                Nueva plantilla
+              </Link>
+            </>
+          ) : undefined
+        }
       />
 
       {(templatesQuery.isFetching || programsQuery.isFetching) && ready ? (
@@ -160,11 +184,18 @@ export function OrganizationContent() {
           <TabsList variant="line" aria-label="Secciones del contenido">
             <TabsTrigger value="templates">Plantillas</TabsTrigger>
             <TabsTrigger value="programs">Programas</TabsTrigger>
+            <TabsTrigger value="movements">Movimientos</TabsTrigger>
           </TabsList>
           <TabsContent value="templates">
             <ContentRegister
               items={templates}
               kind="templates"
+              basePath={`/organizations/${current.organization_id}/content/templates`}
+              draftHref={(item) =>
+                item.draft && !item.archived
+                  ? `/organizations/${current.organization_id}/content/templates/${item.id}`
+                  : undefined
+              }
               emptyTitle="Todavía no hay plantillas de sesión"
               emptyDescription="Una plantilla es una sesión que se puede reutilizar. Es lo primero que hace falta: un programa se compone de versiones publicadas de plantillas."
             />
@@ -173,9 +204,20 @@ export function OrganizationContent() {
             <ContentRegister
               items={programs}
               kind="programs"
+              basePath={`/organizations/${current.organization_id}/content/programs`}
+              draftHref={(item) =>
+                item.draft && !item.archived
+                  ? `/organizations/${current.organization_id}/content/programs/${item.id}`
+                  : undefined
+              }
               emptyTitle="Todavía no hay programas"
               emptyDescription="Un programa ordena en semanas y días las versiones publicadas de vuestras plantillas, y es lo que se le asigna a una persona."
             />
+          </TabsContent>
+          {/* Mounted only while open, so the search is not sent for a tab
+              nobody looked at. */}
+          <TabsContent value="movements">
+            <MovementLibrary />
           </TabsContent>
         </Tabs>
       ) : null}
@@ -186,13 +228,19 @@ export function OrganizationContent() {
 function ContentRegister({
   items,
   kind,
+  basePath,
   emptyTitle,
   emptyDescription,
+  draftHref,
 }: {
   items: ContentItem[]
   kind: 'templates' | 'programs'
+  /** Where this kind's items live; a version is read under it. */
+  basePath: string
   emptyTitle: string
   emptyDescription: string
+  /** Where an item's draft is edited, for the kinds that have an editor. */
+  draftHref?: (item: ContentItem) => string | undefined
 }) {
   const living = livingItems(items)
   const archived = archivedItems(items)
@@ -221,7 +269,13 @@ function ContentRegister({
     <div data-content-panel>
       <div data-content-register>
         {living.map((item) => (
-          <ContentRegisterItem key={item.id} item={item} kind={kind} />
+          <ContentRegisterItem
+            key={item.id}
+            item={item}
+            kind={kind}
+            basePath={basePath}
+            draftHref={draftHref?.(item)}
+          />
         ))}
       </div>
       {archived.length > 0 ? (
@@ -232,7 +286,13 @@ function ContentRegister({
           <CollapsibleContent>
             <div data-content-register>
               {archived.map((item) => (
-                <ContentRegisterItem key={item.id} item={item} kind={kind} />
+                <ContentRegisterItem
+                  key={item.id}
+                  item={item}
+                  kind={kind}
+                  basePath={basePath}
+                  draftHref={draftHref?.(item)}
+                />
               ))}
             </div>
           </CollapsibleContent>
@@ -242,7 +302,17 @@ function ContentRegister({
   )
 }
 
-function ContentRegisterItem({ item, kind }: { item: ContentItem; kind: string }) {
+function ContentRegisterItem({
+  item,
+  kind,
+  basePath,
+  draftHref,
+}: {
+  item: ContentItem
+  kind: string
+  basePath: string
+  draftHref: string | undefined
+}) {
   const [open, setOpen] = useState(false)
   const published = item.versions.length
   return (
@@ -266,15 +336,28 @@ function ContentRegisterItem({ item, kind }: { item: ContentItem; kind: string }
         </CardHeader>
 
         <CardContent data-content-card-body>
-          {published === 0 ? (
-            <p>Nada publicado todavía, así que no se puede asignar.</p>
-          ) : (
+          {published === 0 ? <p>Nada publicado todavía, así que no se puede asignar.</p> : null}
+          {published > 0 || draftHref ? (
             <div data-content-disclosure>
-              <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
-                {open ? 'Ocultar versiones' : `Ver versiones · ${published}`}
-              </CollapsibleTrigger>
+              {published > 0 ? (
+                <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
+                  {open ? 'Ocultar versiones' : `Ver versiones · ${published}`}
+                </CollapsibleTrigger>
+              ) : null}
+              {draftHref ? (
+                /* The size the trigger beside it renders at: as `sm` it was
+                    12px against the trigger's 14px. */
+                <Link
+                  href={draftHref}
+                  className={buttonVariants({ variant: 'outline' })}
+                  data-slot="button"
+                  data-variant="outline"
+                >
+                  Abrir el borrador
+                </Link>
+              ) : null}
             </div>
-          )}
+          ) : null}
 
           <CollapsibleContent>
             <ul data-content-version-list>
@@ -284,6 +367,16 @@ function ContentRegisterItem({ item, kind }: { item: ContentItem; kind: string }
                   {version.title ? <span>{version.title}</span> : null}
                   <span data-content-version-date>{formatDate(version.published_at)}</span>
                   {version.retired ? <Badge variant="outline">Retirada</Badge> : null}
+                  {/* HU-STUDIO-045: every version, retired or not, reads whole. */}
+                  <Link
+                    href={`${basePath}/${item.id}/versions/${version.version_number}`}
+                    data-slot="button"
+                    data-variant="link"
+                    className={buttonVariants({ variant: 'link' })}
+                    aria-label={`Leer la versión ${version.version_number} de ${item.title}`}
+                  >
+                    Leer
+                  </Link>
                 </li>
               ))}
             </ul>

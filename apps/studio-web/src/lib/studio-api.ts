@@ -43,9 +43,29 @@ export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
 export type Program = AllfitV1Schemas['Program']
 export type ProgramPage = AllfitV1Schemas['ProgramPage']
 export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
+export type ProgramCreate = AllfitV1Schemas['ProgramCreate']
+export type ProgramDraft = AllfitV1Schemas['ProgramDraft']
+export type ProgramDraftContent = AllfitV1Schemas['ProgramDraftContent']
+export type ProgramSessionContent = AllfitV1Schemas['ProgramVersionSessionCreate']
 export type SessionTemplate = AllfitV1Schemas['SessionTemplate']
 export type SessionTemplatePage = AllfitV1Schemas['SessionTemplatePage']
 export type SessionTemplateVersion = AllfitV1Schemas['SessionTemplateVersion']
+export type SessionTemplateCreate = AllfitV1Schemas['SessionTemplateCreate']
+export type CatalogDiscipline = AllfitV1Schemas['CatalogDiscipline']
+export type CatalogDisciplineList = AllfitV1Schemas['CatalogDisciplineList']
+export type CatalogActivityType = AllfitV1Schemas['CatalogActivityType']
+export type CatalogActivityTypeList = AllfitV1Schemas['CatalogActivityTypeList']
+export type ActivityFamily = AllfitV1Schemas['ActivityFamily']
+export type SessionTemplateDraft = AllfitV1Schemas['SessionTemplateDraft']
+export type SessionTemplateDraftContent = AllfitV1Schemas['SessionTemplateDraftContent']
+export type PlannedStepContent = AllfitV1Schemas['PlannedStepContent']
+export type PlannedSetContent = AllfitV1Schemas['PlannedSetContent']
+export type OrganizationMovement = AllfitV1Schemas['OrganizationMovement']
+export type OrganizationMovementCreate = AllfitV1Schemas['OrganizationMovementCreate']
+export type OrganizationMovementUpdate = AllfitV1Schemas['OrganizationMovementUpdate']
+export type MovementRelation = AllfitV1Schemas['MovementRelation']
+export type StudioMovement = AllfitV1Schemas['StudioMovement']
+export type StudioMovementPage = AllfitV1Schemas['StudioMovementPage']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
 export type StudioGuestQuota = AllfitV1Schemas['StudioGuestQuota']
 export type AuthorizedScopeItem = AllfitV1Schemas['AuthorizedScopeItem']
@@ -54,6 +74,19 @@ export type ClientDirectoryItem = AllfitV1Schemas['ClientDirectoryItem']
 export type ClientDirectoryRelationship = AllfitV1Schemas['ClientDirectoryRelationship']
 export type ClientDirectoryInvitation = AllfitV1Schemas['ClientDirectoryInvitation']
 export type ClientDirectoryGroup = AllfitV1Schemas['ClientDirectoryGroup']
+export type AccessLevel = AllfitV1Schemas['AccessLevel']
+export type ClientTrainingProfile = AllfitV1Schemas['ClientTrainingProfile']
+export type ClientProfileClaim = AllfitV1Schemas['ClientProfileClaim']
+export type ClientBiologicalSex = AllfitV1Schemas['ClientBiologicalSex']
+export type Provenance = AllfitV1Schemas['Provenance']
+export type AppliedScope = AllfitV1Schemas['AppliedScope']
+export type ClientCard = AllfitV1Schemas['StudioClientCard']
+export type AttendedClientCard = AllfitV1Schemas['StudioAttendedClientCard']
+export type FormerClientCard = AllfitV1Schemas['StudioFormerClientCard']
+export type ClientCardSection = AllfitV1Schemas['StudioClientCardSection']
+export type ClientCardWithdrawal = AllfitV1Schemas['StudioClientCardWithdrawal']
+export type ClientLossReason = AllfitV1Schemas['StudioClientLossReason']
+export type ScopeCode = AllfitV1Schemas['ScopeCode']
 export type RelationshipState = AllfitV1Schemas['RelationshipState']
 export type RelationshipHistoryPage = AllfitV1Schemas['RelationshipHistoryPage']
 export type RelationshipHistoryEvent = AllfitV1Schemas['RelationshipHistoryEvent']
@@ -93,14 +126,34 @@ export type SubscriptionTransition = AllfitV1Schemas['SubscriptionTransition']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
+/** One thing a problem answer says is wrong, named by a stable code. */
+export interface StudioApiIssue {
+  code: string
+  path: string
+}
+
 export class StudioApiError extends Error {
+  /**
+   * What an RFC 9457 answer lists under `errors`, such as everything a draft
+   * still lacks before it can be published. Empty for the legacy envelope.
+   */
+  readonly issues: readonly StudioApiIssue[]
+  /**
+   * The state somebody else saved, which a stale-draft conflict hands back so
+   * the editor can show it instead of losing either version.
+   */
+  readonly currentState: unknown
+
   constructor(
     readonly status: number,
     readonly code: string,
     readonly detail?: string,
+    extensions: { issues?: readonly StudioApiIssue[]; currentState?: unknown } = {},
   ) {
     super(code)
     this.name = 'StudioApiError'
+    this.issues = extensions.issues ?? []
+    this.currentState = extensions.currentState
   }
 }
 
@@ -322,25 +375,328 @@ export const studioApi = {
    * Both are organization-scoped in PostgreSQL, so nothing here filters: a
    * second place for that rule is a second place for it to be wrong.
    */
-  organizationSessionTemplates: (organizationId: string, limit: number, signal?: AbortSignal) =>
-    request<SessionTemplatePage>(
-      `/studio/v1/organizations/${organizationId}/session-templates?limit=${limit}`,
+  organizationSessionTemplates: (
+    organizationId: string,
+    limit: number,
+    signal?: AbortSignal,
+    cursor?: string,
+  ) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return request<SessionTemplatePage>(
+      `/studio/v1/organizations/${organizationId}/session-templates?${query.toString()}`,
+      signal ? { signal } : {},
+    )
+  },
+
+  /**
+   * OP-PLN-023: the draft in the shape it is edited in, with the ETag the
+   * next save has to send. Another organization's draft and one that never
+   * existed answer the same 404.
+   */
+  organizationSessionTemplateDraft: (
+    organizationId: string,
+    templateId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateDraft>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
+    ),
+
+  /**
+   * OP-PLN-002. Replaces the whole draft. The ETag goes in `If-Match`, which the
+   * route requires (428 without it), unlike the site edit below that moved its
+   * revision into the body: the API is served by the load balancer directly
+   * (`behind_cdn = false`), so no edge answers the condition before the route.
+   * A stale ETag is a `409` carrying the current draft.
+   */
+  replaceOrganizationSessionTemplateDraft: (
+    organizationId: string,
+    templateId: string,
+    content: SessionTemplateDraftContent,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateDraft>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/draft`,
+      {
+        method: 'PUT',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        body: JSON.stringify(content),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-PLN-003. Publishes the draft as the server has it saved, conditioned on
+   * its ETag. No body: one is refused with 415. An incomplete draft answers 422
+   * listing what is missing; the same content as the newest version answers
+   * that version rather than a new one.
+   */
+  publishOrganizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateVersion>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions`,
+      {
+        method: 'POST',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-CAT-008. Every published global activity type with the family of target
+   * its steps take, read under `/studio/v1` like the disciplines.
+   */
+  catalogActivityTypes: (signal?: AbortSignal) =>
+    request<CatalogActivityTypeList>('/studio/v1/catalog/activity-types', {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** OP-CAT-010: one movement the organization can use, to name a step. */
+  organizationMovement: (organizationId: string, movementId: string, signal?: AbortSignal) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
+    ),
+
+  /**
+   * OP-CAT-001. A movement of the organization's own, published at once and
+   * seen by nobody else. The server takes the command id as the movement's id.
+   * A repeated name is a `409` whose first issue is `name-taken`.
+   */
+  createOrganizationMovement: (
+    organizationId: string,
+    body: OrganizationMovementCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(`/studio/v1/organizations/${organizationId}/movements`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * OP-CAT-002. A partial edit: the fields present replace what was there, and
+   * `expected_revision` names the revision read. A newer one answers `409
+   * stale-draft`; a rename a published version forbids, `409` `movement-in-use`.
+   */
+  updateOrganizationMovement: (
+    organizationId: string,
+    movementId: string,
+    body: OrganizationMovementUpdate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
+      {
+        method: 'PATCH',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-CAT-003. Owners and admins only (`archive_movements`); a coach is `403`.
+   * No body. It converges: archiving it again answers the archived movement,
+   * and there is no way back.
+   */
+  archiveOrganizationMovement: (
+    organizationId: string,
+    movementId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}/archival`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
+    ),
+
+  organizationPrograms: (
+    organizationId: string,
+    limit: number,
+    signal?: AbortSignal,
+    cursor?: string,
+  ) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return request<ProgramPage>(
+      `/studio/v1/organizations/${organizationId}/programs?${query.toString()}`,
+      signal ? { signal } : {},
+    )
+  },
+
+  /*
+   * OP-PLN-006. The program belongs to the organization, the caller is its
+   * author, and its first draft opens empty in the same transaction.
+   */
+  createOrganizationProgram: (
+    organizationId: string,
+    body: ProgramCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<Program>(`/studio/v1/organizations/${organizationId}/programs`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * OP-PLN-007. Replaces the whole draft under its ETag, like a template's: 428
+   * without `If-Match`, and a stale one is a `409` carrying the current draft.
+   * There is no read of a program draft on its own; the listing carries it.
+   */
+  replaceOrganizationProgramDraft: (
+    organizationId: string,
+    programId: string,
+    content: ProgramDraftContent,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramDraft>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/draft`,
+      {
+        method: 'PUT',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        body: JSON.stringify(content),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-PLN-021. One published template version, whole. Another organization's
+   * version and one that never existed answer the same 404.
+   */
+  organizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    versionNumber: number,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateVersion>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}`,
       signal ? { signal } : {},
     ),
 
-  organizationPrograms: (organizationId: string, limit: number, signal?: AbortSignal) =>
-    request<ProgramPage>(
-      `/studio/v1/organizations/${organizationId}/programs?limit=${limit}`,
+  /** OP-PLN-021. One published program version, whole; the read is audited. */
+  organizationProgramVersion: (
+    organizationId: string,
+    programId: string,
+    versionNumber: number,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramVersion>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/versions/${versionNumber}`,
       signal ? { signal } : {},
     ),
+
+  /**
+   * OP-PLN-008. Publishes the program draft as the server has it saved, under
+   * its ETag and with no body (415 with one). An empty draft answers 422; the
+   * same content as the newest version answers that version again.
+   */
+  publishOrganizationProgramVersion: (
+    organizationId: string,
+    programId: string,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramVersion>(
+      `/studio/v1/organizations/${organizationId}/programs/${programId}/versions`,
+      {
+        method: 'POST',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /*
+   * OP-PLN-001. The template belongs to the organization; the server records the
+   * caller as its author and opens its first draft in the same transaction.
+   */
+  createOrganizationSessionTemplate: (
+    organizationId: string,
+    body: SessionTemplateCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplate>(`/studio/v1/organizations/${organizationId}/session-templates`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * `OP-CAT-007`. The disciplines Backoffice has published, read under
+   * `/studio/v1` for the same reason as the information categories: the session
+   * cookie travels nowhere else. Empty until one is published, and then no
+   * template can be created.
+   */
+  /*
+   * OP-CAT-009. The global library and the organization's own in one list, each
+   * saying whose it is. Archived movements come only when asked for.
+   */
+  organizationMovements: (
+    organizationId: string,
+    options: {
+      search?: string
+      discipline?: string
+      includeArchived?: boolean
+      limit?: number
+      cursor?: string
+    } = {},
+    signal?: AbortSignal,
+  ) => {
+    const query = new URLSearchParams()
+    if (options.search) query.set('q', options.search)
+    if (options.discipline) query.set('discipline', options.discipline)
+    if (options.includeArchived) query.set('include_archived', 'true')
+    if (options.limit) query.set('limit', String(options.limit))
+    if (options.cursor) query.set('cursor', options.cursor)
+    const suffix = query.size ? `?${query.toString()}` : ''
+    return request<StudioMovementPage>(
+      `/studio/v1/organizations/${organizationId}/movements${suffix}`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
+    )
+  },
+
+  catalogDisciplines: (signal?: AbortSignal) =>
+    request<CatalogDisciplineList>('/studio/v1/catalog/disciplines', {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
 
   organizationClients: (
     organizationId: string,
-    options: { status?: ClientDirectoryGroup; limit?: number; cursor?: string } = {},
+    options: {
+      status?: ClientDirectoryGroup
+      limit?: number
+      cursor?: string
+      search?: string
+    } = {},
     signal?: AbortSignal,
   ) => {
     const query = new URLSearchParams()
     if (options.status) query.set('status', options.status)
+    // `q` on the wire, because that is what the route reads.
+    if (options.search) query.set('q', options.search)
     if (options.limit) query.set('limit', String(options.limit))
     if (options.cursor) query.set('cursor', options.cursor)
     const suffix = query.size ? `?${query.toString()}` : ''
@@ -421,6 +777,34 @@ export const studioApi = {
   relationshipState: (organizationId: string, relationshipId: string, signal?: AbortSignal) =>
     request<RelationshipState>(
       `/studio/v1/organizations/${organizationId}/relationships/${relationshipId}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-REL-019`. An index of what this caller may read about her, never the
+   * data itself: opening it reads nothing of hers and records no access, and
+   * each operation it names records its own.
+   *
+   * Keyed by the person and not by the relationship, which is why it does not
+   * sit beside `relationshipState` above.
+   */
+  clientCard: (organizationId: string, personId: string, signal?: AbortSignal) =>
+    request<ClientCard>(`/studio/v1/organizations/${organizationId}/clients/${personId}`, {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * `OP-IDN-018`. The training claims she shares with this caller, each with
+   * where it came from. 404 for anybody who does not attend her; 403 when she
+   * shares nothing, and that refusal is recorded like a read.
+   */
+  clientTrainingProfile: (organizationId: string, personId: string, signal?: AbortSignal) =>
+    request<ClientTrainingProfile>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/profile`,
       {
         cache: 'no-store',
         ...(signal ? { signal } : {}),
@@ -852,9 +1236,34 @@ async function responseError(response: Response): Promise<StudioApiError> {
   const payload = await response.json().catch(() => undefined)
   return new StudioApiError(
     response.status,
-    errorCode(payload) ?? `http-${response.status}`,
+    errorCode(payload) ?? problemCode(payload) ?? `http-${response.status}`,
     errorDetail(payload),
+    { issues: problemIssues(payload), currentState: problemField(payload, 'current_state') },
   )
+}
+
+/** An RFC 9457 problem is named by the last segment of its `type`. */
+function problemCode(value: unknown): string | undefined {
+  const type = problemField(value, 'type')
+  if (typeof type !== 'string') return undefined
+  const code = type.split('/').at(-1)
+  return code ? code : undefined
+}
+
+function problemIssues(value: unknown): StudioApiIssue[] {
+  const errors = problemField(value, 'errors')
+  if (!Array.isArray(errors)) return []
+  return errors.flatMap((issue: unknown) => {
+    if (!issue || typeof issue !== 'object') return []
+    const code = 'code' in issue ? issue.code : undefined
+    const path = 'path' in issue ? issue.path : undefined
+    return typeof code === 'string' ? [{ code, path: typeof path === 'string' ? path : '' }] : []
+  })
+}
+
+function problemField(value: unknown, field: string): unknown {
+  if (!value || typeof value !== 'object' || !(field in value)) return undefined
+  return (value as Record<string, unknown>)[field]
 }
 
 function commandHeaders(command: CommandHeaders): HeadersInit {

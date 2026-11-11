@@ -200,6 +200,7 @@ export type TelemetryEvent =
           | 'backoffice_auth_cleanup'
           | 'correction_proposal_expiry'
           | 'invitation_delivery'
+          | 'media_disposal'
           | 'outbox_batch'
           | 'platform_duty_lapse'
           | 'privacy_disposition'
@@ -378,6 +379,7 @@ function validateSpecific(name: TelemetryEventName, properties: Record<string, u
             'backoffice_auth_cleanup',
             'correction_proposal_expiry',
             'invitation_delivery',
+            'media_disposal',
             'outbox_batch',
             'platform_duty_lapse',
             'privacy_disposition',

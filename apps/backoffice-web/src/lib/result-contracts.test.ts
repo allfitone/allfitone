@@ -115,9 +115,27 @@ describe('result contract publication rules', () => {
 
 describe('the global catalogue as the operator reads it', () => {
   const activityTypes = [
-    { id: 'a', discipline_code: 'strength', code: 'squat', name: 'Sentadilla' },
-    { id: 'b', discipline_code: 'endurance', code: 'run', name: 'Carrera' },
-    { id: 'c', discipline_code: 'strength', code: 'bench', name: 'Press banca' },
+    {
+      id: 'a',
+      discipline_code: 'strength',
+      code: 'squat',
+      name: 'Sentadilla',
+      activity_family: 'strength' as const,
+    },
+    {
+      id: 'b',
+      discipline_code: 'endurance',
+      code: 'run',
+      name: 'Carrera',
+      activity_family: 'endurance' as const,
+    },
+    {
+      id: 'c',
+      discipline_code: 'strength',
+      code: 'bench',
+      name: 'Press banca',
+      activity_family: 'strength' as const,
+    },
   ]
 
   test('groups the picker by discipline, in the name the operator reads', () => {

@@ -270,6 +270,7 @@ const DOMAINS = [
   'privacy',
   'relationships',
   'support',
+  'waitlist',
 ]
 
 // Brace expansion is NOT supported here — a `{a,b}` pattern silently matches

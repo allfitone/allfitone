@@ -1,13 +1,22 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  canSearchWithin,
   canViewClientDirectory,
+  clientEntryPath,
   clientInitials,
   directoryEntryId,
   directoryEntryLabel,
+  normalizeSearchTerm,
+  searchTermState,
+  searchTermToSend,
   seesEveryClient,
 } from './client-directory'
-import type { ClientDirectoryItem, OrganizationRole } from './studio-api'
+import type {
+  ClientDirectoryItem,
+  ClientDirectoryRelationship,
+  OrganizationRole,
+} from './studio-api'
 
 function role(code: string, capabilities: string[]): OrganizationRole {
   return {
@@ -112,5 +121,83 @@ describe('initials', () => {
 
   test('survives a single name', () => {
     expect(clientInitials('Ana')).toBe('A')
+  })
+})
+
+/*
+ * These mirror `parseSearch` in the route (apps/api, relationships/handlers).
+ * They exist so the screen asks only for terms the server accepts: if that
+ * function's bounds ever move, these are what should fail first.
+ */
+describe('what the directory search will send', () => {
+  test('surrounding and repeated spaces are ignored, as the route ignores them', () => {
+    expect(normalizeSearchTerm('  Ana   María  ')).toBe('Ana María')
+  })
+
+  test('an empty box is not an error: the directory simply shows everything', () => {
+    expect(searchTermState('')).toBe('idle')
+    expect(searchTermState('   ')).toBe('idle')
+    expect(searchTermToSend('')).toBeUndefined()
+  })
+
+  test('one letter asks for nothing, because the route would refuse it', () => {
+    expect(searchTermState('a')).toBe('too-short')
+    expect(searchTermToSend('a')).toBeUndefined()
+  })
+
+  test('two letters are enough', () => {
+    expect(searchTermState('an')).toBe('ready')
+    expect(searchTermToSend(' an ')).toBe('an')
+  })
+
+  test('eighty characters are accepted and eighty-one are not', () => {
+    expect(searchTermState('a'.repeat(80))).toBe('ready')
+    expect(searchTermState('a'.repeat(81))).toBe('too-long')
+    expect(searchTermToSend('a'.repeat(81))).toBeUndefined()
+  })
+
+  test('the raw limit is counted before trimming, the way the route counts it', () => {
+    // 200 raw characters that collapse to a short name: the route accepts it.
+    expect(searchTermState(`Ana${' '.repeat(197)}`)).toBe('ready')
+    expect(searchTermState(' '.repeat(201))).toBe('too-long')
+  })
+
+  test('% and _ are characters, never wildcards, so they only make a term', () => {
+    expect(searchTermToSend('100%')).toBe('100%')
+    expect(searchTermToSend('a_b')).toBe('a_b')
+  })
+})
+
+/*
+ * The destination is not a preference: `OP-REL-019` answers a reader of the
+ * whole organization the same 404 as for somebody who does not exist, so
+ * sending them to the card would send them to a dead end.
+ */
+describe('where a person in the list leads', () => {
+  const reader = { organizationId: '019ad000-0000-7000-8000-0000000000ff' }
+  const entry = RELATIONSHIP as ClientDirectoryRelationship
+
+  test('a coach goes to her card: every row he can see is one he attends', () => {
+    expect(clientEntryPath(entry, { ...reader, everyClient: false })).toBe(
+      '/organizations/019ad000-0000-7000-8000-0000000000ff/clients/people/019ad000-0000-7000-8000-000000000001',
+    )
+  })
+
+  test('a reader of the whole gym goes to the relationship, which is theirs', () => {
+    expect(clientEntryPath(entry, { ...reader, everyClient: true })).toBe(
+      '/organizations/019ad000-0000-7000-8000-0000000000ff/clients/019ad000-0000-7000-8000-000000000301',
+    )
+  })
+})
+
+describe('where the directory search is offered', () => {
+  test('not among invitations: until somebody accepts there is no name to match', () => {
+    expect(canSearchWithin('invited')).toBe(false)
+  })
+
+  test('everywhere else', () => {
+    expect(canSearchWithin('all')).toBe(true)
+    expect(canSearchWithin('active')).toBe(true)
+    expect(canSearchWithin('terminated')).toBe(true)
   })
 })

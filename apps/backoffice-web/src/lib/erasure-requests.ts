@@ -40,10 +40,12 @@ export const DUE_SOON_DAYS = 5
 
 const DAY = 24 * 60 * 60 * 1000
 
-export type Urgency = 'overdue' | 'due_soon' | 'on_time' | 'resolved'
+export type Urgency = 'overdue' | 'due_soon' | 'on_time' | 'held' | 'resolved'
 
 export function urgencyOf(request: ErasureRequest, now = Date.now()): Urgency {
   if (request.status === 'closed') return 'resolved'
+  // HU-BO-033: all that remains is kept by a legal hold, so nothing is owed yet.
+  if (request.pending_items === 0 && request.suspended_items > 0) return 'held'
   const remaining = Date.parse(request.due_at) - now
   if (Number.isNaN(remaining)) return 'on_time'
   if (remaining < 0) return 'overdue'
@@ -87,6 +89,8 @@ export function requestRows(page: ErasureRequestPage, now = Date.now()): Erasure
 
 function urgencyLabel(request: ErasureRequest, urgency: Urgency, now: number): string {
   if (urgency === 'resolved') return 'Resuelta'
+  // Short: the badge shares a row that must fit a laptop; «Falta» says why at length.
+  if (urgency === 'held') return 'En espera legal'
   const days = Math.ceil((Date.parse(request.due_at) - now) / DAY)
   if (Number.isNaN(days)) return 'Sin fecha objetivo'
   if (days < 0) return `${plural(Math.abs(days), 'día', 'días')} de retraso`
@@ -183,6 +187,7 @@ export function panelSummary(
   }
   const late = page.items.filter((request) => urgencyOf(request, now) === 'overdue').length
   const soon = page.items.filter((request) => urgencyOf(request, now) === 'due_soon').length
+  const held = page.items.filter((request) => urgencyOf(request, now) === 'held').length
   // With more to fetch the counts are of what is loaded, and the sentence says so.
   const loaded = page.has_more ? (total === 1 ? ' cargada' : ' cargadas') : ''
   const sentences = [
@@ -192,6 +197,7 @@ export function panelSummary(
   ]
   if (late > 0) sentences.push(`${late} pasada${late === 1 ? '' : 's'} de los 30 días`)
   if (soon > 0) sentences.push(`${soon} por vencer en ${DUE_SOON_DAYS} días o menos`)
+  if (held > 0) sentences.push(`${held} en espera por una obligación legal`)
   const summary = `${sentences.join(', ')}.`
   return page.has_more ? `${summary} Hay más: «Ver más solicitudes» trae las siguientes.` : summary
 }

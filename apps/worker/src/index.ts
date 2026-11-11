@@ -4,6 +4,7 @@ import {
   createEmailChangeIdentityFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
 } from '@allfitone/auth-provider'
+import { createObjectStoreFromEnv, type ObjectStore } from '@allfitone/object-store'
 import { createPostgresQueue } from '@allfitone/queue'
 import type { TelemetryEventFor } from '@allfitone/telemetry'
 import { telemetryEnvironmentFromRuntime } from '@allfitone/telemetry/node'
@@ -35,6 +36,10 @@ import {
   createClientInvitationDeliveryDatabase,
 } from './client-invitations.js'
 import {
+  createWaitlistEmailBatchProcessor,
+  createWaitlistEmailDeliveryDatabase,
+} from './waitlist-emails.js'
+import {
   createBackofficeAuthBatchProcessor,
   createBackofficeAuthCleanupDatabase,
   type BackofficeAuthBatchResult,
@@ -52,6 +57,11 @@ import {
   createPrivacyDispositionProcessor,
   type PrivacyDispositionResult,
 } from './privacy-dispositions.js'
+import {
+  createMediaDisposalDatabase,
+  createMediaDisposalProcessor,
+  type MediaDisposalResult,
+} from './media-disposals.js'
 import { createEmailSenderFromEnvironment } from './email.js'
 import { createEmailChangeBatchProcessor, createEmailChangeDatabase } from './email-change.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
@@ -66,6 +76,7 @@ export interface WorkerJobProcessors {
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
   privacyDisposition(): Promise<PrivacyDispositionResult>
   correctionProposalExpiry(): Promise<CorrectionProposalExpiryResult>
+  mediaDisposal(): Promise<MediaDisposalResult>
   /** Leaves the run behind for the Backoffice diagnosis (HU-BO-031 c2). */
   recordJobRun(run: JobRun): Promise<void>
 }
@@ -77,6 +88,7 @@ export interface WorkerBatchResult {
   platformDuties: PlatformDutyLapseResult
   privacyDispositions: PrivacyDispositionResult
   correctionProposals: CorrectionProposalExpiryResult
+  mediaDisposals: MediaDisposalResult
 }
 
 type WorkerJob =
@@ -84,6 +96,7 @@ type WorkerJob =
   | 'backoffice_auth_cleanup'
   | 'correction_proposal_expiry'
   | 'invitation_delivery'
+  | 'media_disposal'
   | 'outbox_batch'
   | 'platform_duty_lapse'
   | 'privacy_disposition'
@@ -150,6 +163,14 @@ export function createWorkerApp(
         'correction_proposal_expiry',
         processors.correctionProposalExpiry,
       )
+      // Last: the only job that needs the store, so a store it cannot reach stops nothing else.
+      const mediaDisposals = await runJob(
+        telemetry,
+        logs,
+        record,
+        'media_disposal',
+        processors.mediaDisposal,
+      )
 
       const result: WorkerBatchResult = {
         invitations,
@@ -158,6 +179,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        mediaDisposals,
       }
       const jobs = [
         invitations,
@@ -166,6 +188,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        mediaDisposals,
       ]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
       captureJob(
@@ -374,12 +397,30 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         brandAssetUrl,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  let store: ObjectStore | undefined
+  const mediaDisposal = createMediaDisposalProcessor({
+    database: createMediaDisposalDatabase(sql),
+    store: () => (store ??= createObjectStoreFromEnv(process.env)),
+  })
   const subscriptionNotices = createSubscriptionNoticeBatchProcessor({
     queue,
     email,
     brandAssetUrl,
     deliveryEnabled,
   })
+  // Off until space-web serves the pages these emails link to (TECH-296). Until then the
+  // events wait unclaimed, and the waitlist routes are closed anyway without their secret.
+  const waitlistEmailsEnabled =
+    deliveryEnabled && process.env.WAITLIST_EMAIL_DELIVERY_ENABLED === 'true'
+  const waitlistEmails = waitlistEmailsEnabled
+    ? createWaitlistEmailBatchProcessor({
+        queue,
+        database: createWaitlistEmailDeliveryDatabase(sql),
+        email,
+        publicBaseUrl: required('WAITLIST_PUBLIC_BASE_URL'),
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
     // team batch already runs for every pending invitation whatever it proposes.
@@ -407,6 +448,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await correctionProposals(),
         await subscriptionNotices(),
         await emailChanges(),
+        await waitlistEmails(),
       ]
       return {
         ...batches.reduce(
@@ -426,6 +468,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
     privacyDisposition: createPrivacyDispositionProcessor(sql),
     correctionProposalExpiry: createCorrectionProposalExpiryProcessor(sql),
+    mediaDisposal,
     recordJobRun: createJobRunRecorder(sql),
   }
   return cachedProcessors

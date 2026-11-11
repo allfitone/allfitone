@@ -929,6 +929,7 @@ export type Database = {
       list_activity_types: {
         Args: never
         Returns: {
+          activity_family: Database['catalog']['Enums']['activity_family']
           code: string
           discipline_code: string
           id: string
@@ -1455,21 +1456,27 @@ export type Database = {
         Row: {
           id: string
           media_ref: string
+          next_attempt_at: string | null
           person_id: string
+          purge_attempts: number
           requested_at: string
           sealed_at: string | null
         }
         Insert: {
           id?: string
           media_ref: string
+          next_attempt_at?: string | null
           person_id: string
+          purge_attempts?: number
           requested_at?: string
           sealed_at?: string | null
         }
         Update: {
           id?: string
           media_ref?: string
+          next_attempt_at?: string | null
           person_id?: string
+          purge_attempts?: number
           requested_at?: string
           sealed_at?: string | null
         }
@@ -2773,6 +2780,14 @@ export type Database = {
           result: Json
         }[]
       }
+      claim_body_photo_disposals: {
+        Args: { p_limit: number }
+        Returns: {
+          id: string
+          media_ref: string
+          purge_attempts: number
+        }[]
+      }
       client_invitation_projection: {
         Args: { p_invitation_id: string }
         Returns: {
@@ -4019,6 +4034,10 @@ export type Database = {
       seal_body_photo_disposal: {
         Args: { p_media_ref: string; p_person_id: string }
         Returns: undefined
+      }
+      seal_swept_body_photo_disposal: {
+        Args: { p_disposal_id: string }
+        Returns: boolean
       }
       share_body_photo: {
         Args: {

@@ -8,6 +8,11 @@ import {
 import {
   StudioApiError,
   studioApi,
+  type CatalogActivityTypeList,
+  type CatalogDisciplineList,
+  type OrganizationMovement,
+  type SessionTemplateDraft,
+  type StudioMovementPage,
   type ClientDirectoryGroup,
   type InformationCategoryList,
   type OfferableScopeCatalog,
@@ -20,13 +25,16 @@ import {
   type OrganizationSubscriptionPage,
   type SubscriptionStatus,
   type ProgramPage,
+  type ProgramVersion,
   type SessionTemplatePage,
+  type SessionTemplateVersion,
   type ProfessionalCredential,
   type ProfessionalProfile,
   type StudioMe,
   type TeamInvitationPage,
   type TeamInvitationStatus,
 } from './studio-api'
+import type { MovementSearchFilters } from './movement-search'
 
 export type MembershipFilter = OrganizationMembershipStatus | 'all'
 export type InvitationFilter = TeamInvitationStatus | 'all'
@@ -57,15 +65,71 @@ export const studioQueryKeys = {
   organizationMemberships: (organizationId: string, status: MembershipFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'memberships', { status, limit }] as const,
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
+  organizationProgramsRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs'] as const,
   organizationPrograms: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'programs', { limit }] as const,
+  organizationProgramPages: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs', 'pages', { limit }] as const,
+  organizationSessionTemplatesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates'] as const,
   organizationSessionTemplates: (organizationId: string, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'session-templates', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
+  catalogDisciplines: () => [...ROOT_KEY, 'catalog', 'disciplines'] as const,
+  catalogActivityTypes: () => [...ROOT_KEY, 'catalog', 'activity-types'] as const,
+  organizationSessionTemplatePages: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates', 'pages', { limit }] as const,
+  sessionTemplateVersion: (organizationId: string, templateId: string, versionNumber: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'session-templates',
+      'version',
+      templateId,
+      versionNumber,
+    ] as const,
+  programVersion: (organizationId: string, programId: string, versionNumber: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'programs',
+      'version',
+      programId,
+      versionNumber,
+    ] as const,
+  sessionTemplateDraft: (organizationId: string, templateId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-template-draft', templateId] as const,
+  organizationMovement: (organizationId: string, movementId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movement', movementId] as const,
+  organizationMovementsRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movements'] as const,
+  organizationMovements: (organizationId: string, filters: MovementSearchFilters, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movements', { ...filters, limit }] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
-  organizationClients: (organizationId: string, status: ClientFilter, limit: number) =>
-    [...ROOT_KEY, 'organization', organizationId, 'clients', { status, limit }] as const,
+  /*
+   * The search belongs in the key, so a new term is a different query with its
+   * own pages — which is also what drops the cursor, since a cursor the server
+   * issued only resumes the search it was issued under. Without a term the key
+   * keeps its old shape, so the unsearched directory and the invitation form
+   * go on sharing one cache entry.
+   */
+  organizationClients: (
+    organizationId: string,
+    status: ClientFilter,
+    limit: number,
+    search?: string,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'clients',
+      { status, limit, ...(search ? { search } : {}) },
+    ] as const,
   authorizedScopesRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'authorized-scopes'] as const,
   authorizedScopes: (organizationId: string, limit: number) =>
@@ -74,6 +138,10 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions'] as const,
   organizationSubscriptions: (organizationId: string, status: SubscriptionFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions', { status, limit }] as const,
+  clientCard: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
+  clientTrainingProfile: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
   relationshipHistory: (organizationId: string, relationshipId: string, limit: number) =>
@@ -221,6 +289,53 @@ export function organizationQueryOptions(organizationId: string) {
 }
 
 /**
+ * Never cached, which for this one read is the contract and not a preference:
+ * `OP-REL-019` answers `private-no-store`.
+ *
+ * It is also what the screen needs. This answer decides which categories appear
+ * at all, so showing a remembered copy would put back a section the person
+ * revoked seconds ago — and a section on screen is an invitation to go read what
+ * is behind it. `gcTime: 0` drops it the moment nobody is looking, so coming
+ * back to the card always asks again rather than painting the old answer while
+ * the new one travels.
+ *
+ * The cost is a loading state on every arrival instead of a flash of stale
+ * content. For an index of what somebody allowed, that is the right way round.
+ */
+export function clientCardQueryOptions(organizationId: string, personId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientCard(organizationId, personId),
+    queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
+/**
+ * Never cached, for the same reason as the card: `OP-IDN-018` answers
+ * `private-no-store`, and a remembered copy would outlive the grant it was read
+ * under — she can revoke the category between two visits.
+ *
+ * **And never refetched on its own.** Every answer here is a read of her data,
+ * recorded inside the same transaction and shown to her. With the client's
+ * defaults, alt-tabbing back to the screen would write her another access she
+ * can see and the coach never asked for — a log of the window's focus rather
+ * than of anybody's intent. So this is the one read in Studio that leaves the
+ * window and the network alone and goes only when somebody arrives or presses
+ * the button.
+ */
+export function clientTrainingProfileQueryOptions(organizationId: string, personId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientTrainingProfile(organizationId, personId),
+    queryFn: ({ signal }) => studioApi.clientTrainingProfile(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
  * The team stale time, not the organization one. Who attends a client changes
  * when somebody reassigns them, and a permission disappears the moment the
  * person revokes it — both are decisions other people make while this screen is
@@ -352,9 +467,10 @@ export function organizationClientsQueryOptions(
   organizationId: string,
   status: ClientFilter,
   limit: number,
+  search?: string,
 ) {
   return infiniteQueryOptions({
-    queryKey: studioQueryKeys.organizationClients(organizationId, status, limit),
+    queryKey: studioQueryKeys.organizationClients(organizationId, status, limit, search),
     queryFn: ({ pageParam, signal }) =>
       studioApi.organizationClients(
         organizationId,
@@ -362,6 +478,7 @@ export function organizationClientsQueryOptions(
           ...(status === 'all' ? {} : { status }),
           limit,
           ...(pageParam ? { cursor: pageParam } : {}),
+          ...(search ? { search } : {}),
         },
         signal,
       ),
@@ -440,6 +557,151 @@ export function informationCategoriesQueryOptions() {
     queryFn: ({ signal }): Promise<InformationCategoryList> =>
       studioApi.informationCategories(signal),
     staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/**
+ * The disciplines a template can belong to. Published by Backoffice, which is
+ * rare and never mid-session, so held as long as the role catalogue.
+ */
+export function catalogDisciplinesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.catalogDisciplines(),
+    queryFn: ({ signal }): Promise<CatalogDisciplineList> => studioApi.catalogDisciplines(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * A search, so every filter is part of the key: a new term is a new query with
+ * its own pages, which also drops a cursor the server issued for the old one.
+ * Held as briefly as a directory page because a teammate can add or archive a
+ * movement while the editor is open.
+ */
+export function organizationMovementsQueryOptions(
+  organizationId: string,
+  filters: MovementSearchFilters,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationMovements(organizationId, filters, limit),
+    queryFn: ({ pageParam, signal }): Promise<StudioMovementPage> =>
+      studioApi.organizationMovements(
+        organizationId,
+        {
+          ...(filters.term ? { search: filters.term } : {}),
+          ...(filters.disciplineCode ? { discipline: filters.disciplineCode } : {}),
+          includeArchived: filters.includeArchived,
+          limit,
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function catalogActivityTypesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.catalogActivityTypes(),
+    queryFn: ({ signal }): Promise<CatalogActivityTypeList> =>
+      studioApi.catalogActivityTypes(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the library, for a screen that has to find one template in it:
+ * the editor reads the discipline there, which the draft does not carry.
+ */
+export function organizationSessionTemplatePagesQueryOptions(
+  organizationId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationSessionTemplatePages(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<SessionTemplatePage> =>
+      studioApi.organizationSessionTemplates(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * A published version's content never changes, but its status does when it is
+ * retired, so it is revalidated like the listing rather than cached for good.
+ */
+export function sessionTemplateVersionQueryOptions(
+  organizationId: string,
+  templateId: string,
+  versionNumber: number,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.sessionTemplateVersion(organizationId, templateId, versionNumber),
+    queryFn: ({ signal }): Promise<SessionTemplateVersion> =>
+      studioApi.organizationSessionTemplateVersion(
+        organizationId,
+        templateId,
+        versionNumber,
+        signal,
+      ),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function programVersionQueryOptions(
+  organizationId: string,
+  programId: string,
+  versionNumber: number,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.programVersion(organizationId, programId, versionNumber),
+    queryFn: ({ signal }): Promise<ProgramVersion> =>
+      studioApi.organizationProgramVersion(organizationId, programId, versionNumber, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the programs, for the editor: a program draft has no read of
+ * its own, so the editor finds it in the listing.
+ */
+export function organizationProgramPagesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationProgramPages(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ProgramPage> =>
+      studioApi.organizationPrograms(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * The base an edit starts from. Never refetched behind the editor's back: the
+ * screen keeps its own copy, and a draft somebody else saved arrives with the
+ * conflict the next save meets, which is where it can be compared.
+ */
+export function sessionTemplateDraftQueryOptions(organizationId: string, templateId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.sessionTemplateDraft(organizationId, templateId),
+    queryFn: ({ signal }): Promise<SessionTemplateDraft> =>
+      studioApi.organizationSessionTemplateDraft(organizationId, templateId, signal),
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+export function organizationMovementQueryOptions(organizationId: string, movementId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationMovement(organizationId, movementId),
+    queryFn: ({ signal }): Promise<OrganizationMovement> =>
+      studioApi.organizationMovement(organizationId, movementId, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
   })
 }
 

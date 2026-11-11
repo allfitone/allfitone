@@ -10,7 +10,8 @@
  *   email already carries everything this one does.
  *
  * Both carry what TECH-294 asks of every waitlist email: the person's code, the link
- * they share, how many people joined with it, and the private «mi link» page.
+ * they share, how many people joined with it, and the private «mi link» page. Both also
+ * carry the way out (TECH-323): a link to leave the list, which deletes the sign-up.
  *
  * Two links travel in each email, and they must never be confused. The referral link is
  * public by design; sharing it is the point. The «mi link» URL holds a bearer token, so
@@ -46,6 +47,8 @@ export interface WaitlistReferralStatus {
   referrals: number
   /** The private «mi link» page. Its token is a bearer credential. */
   referralsPageUrl: string
+  /** The page that leaves the list. It carries the same private token. */
+  leaveUrl: string
 }
 
 interface WaitlistRecipient extends WaitlistReferralStatus {
@@ -76,6 +79,9 @@ const WORDS = {
     linkLabel: 'TU LINK',
     referralsLabel: 'TUS REFERIDOS',
     referralsPage: 'Ver mis referidos',
+    leave: (link: (label: string) => string) =>
+      `Puedes ${link('salir de la lista de espera')} cuando quieras: al salir borramos tus datos.`,
+    leaveText: 'Salir de la lista de espera y borrar tus datos',
     confirmation: {
       subject: 'Confirma tu correo para la lista de Allfit Space',
       preheader:
@@ -118,6 +124,9 @@ const WORDS = {
     linkLabel: 'YOUR LINK',
     referralsLabel: 'YOUR REFERRALS',
     referralsPage: 'See my referrals',
+    leave: (link: (label: string) => string) =>
+      `You can ${link('leave the waitlist')} whenever you like: leaving deletes your data.`,
+    leaveText: 'Leave the waitlist and delete your data',
     confirmation: {
       subject: 'Confirm your email for the Allfit Space waitlist',
       preheader: 'Your place counts once you confirm. Your code and your invite link are inside.',
@@ -168,6 +177,7 @@ export function renderWaitlistConfirmationEmail(
       referralLines(input),
       copy.note,
       `${copy.footerQuestion} ${copy.footer}`,
+      `${words.leaveText}: ${input.leaveUrl}`,
     ].join('\n\n'),
     html: invitationEmailHtml({
       language: input.language,
@@ -186,7 +196,7 @@ export function renderWaitlistConfirmationEmail(
       brandAssetUrl: input.brandAssetUrl,
       note: copy.note,
       footerQuestion: copy.footerQuestion,
-      footer: copy.footer,
+      footer: `${copy.footer} ${leaveSentence(input)}`,
     }),
   }
 }
@@ -208,6 +218,7 @@ export function renderWaitlistLinkEmail(input: WaitlistRecipient): {
       referralLines(input),
       copy.note,
       `${copy.footerQuestion} ${copy.footer}`,
+      `${words.leaveText}: ${input.leaveUrl}`,
     ].join('\n\n'),
     html: invitationEmailHtml({
       language: input.language,
@@ -224,9 +235,17 @@ export function renderWaitlistLinkEmail(input: WaitlistRecipient): {
       brandAssetUrl: input.brandAssetUrl,
       note: copy.note,
       footerQuestion: copy.footerQuestion,
-      footer: copy.footer,
+      footer: `${copy.footer} ${leaveSentence(input)}`,
     }),
   }
+}
+
+/** The way out, as the last sentence of the footer. */
+function leaveSentence(input: WaitlistRecipient): string {
+  return WORDS[input.language].leave(
+    (label) =>
+      `<a href="${escapeHtml(input.leaveUrl)}" target="_blank" style="color:${EMAIL_COLOR.textSecondary};text-decoration:underline;">${label}</a>`,
+  )
 }
 
 function referralLines(input: WaitlistRecipient): string {

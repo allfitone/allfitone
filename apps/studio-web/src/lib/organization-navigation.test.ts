@@ -18,6 +18,66 @@ describe('organization workspace navigation', () => {
     })
   })
 
+  test('resolves the new template title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId)).toEqual({
+      title: 'Nueva plantilla',
+    })
+  })
+
+  test('resolves the template draft title, without taking `new` for an id', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Plantilla' })
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId).title).toBe(
+      'Nueva plantilla',
+    )
+  })
+
+  test('resolves the new program title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/programs/new`, organizationId)).toEqual({
+      title: 'Nuevo programa',
+    })
+  })
+
+  test('resolves the program draft title, without taking `new` for an id', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000003`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Programa' })
+  })
+
+  test('resolves a published version’s title, for a template and for a program', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de plantilla' })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de programa' })
+  })
+
+  test('resolves the new movement title, and a movement’s, without taking `new` for an id', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/movements/new`, organizationId)).toEqual({
+      title: 'Nuevo movimiento',
+    })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/movements/01991600-c000-7000-8000-000000000003`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Movimiento' })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',
@@ -98,10 +158,30 @@ describe('organization workspace navigation', () => {
     expect(resolveWorkspaceRoute(`${basePath}/clients/${relationshipId}`, organizationId)).toEqual({
       title: 'Vínculo',
     })
-    for (const segment of ['invitations', 'information-categories']) {
+    for (const segment of ['invitations', 'information-categories', 'people']) {
       expect(resolveWorkspaceRoute(`${basePath}/clients/${segment}`, organizationId)).not.toEqual({
         title: 'Vínculo',
       })
     }
+  })
+
+  /*
+   * The card and the relationship are two screens about the same person, and
+   * the shell's `h1` is the only thing that says which one is open. A new route
+   * that nobody registers here is titled "Studio", which fails silently: the
+   * screen renders and only the heading is wrong.
+   */
+  test('the training profile is titled by the category, under the card', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/profile`, organizationId),
+    ).toEqual({ title: 'Perfil de entrenamiento' })
+  })
+
+  test('a person card is titled Ficha, not Vínculo and not Studio', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(resolveWorkspaceRoute(`${basePath}/clients/people/${personId}`, organizationId)).toEqual(
+      { title: 'Ficha' },
+    )
   })
 })

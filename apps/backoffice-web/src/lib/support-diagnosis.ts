@@ -104,6 +104,7 @@ const JOB_LABELS: Record<string, string> = {
   platform_duty_lapse: 'Vencimiento de deberes',
   privacy_disposition: 'Eliminaciones de privacidad',
   correction_proposal_expiry: 'Vencimiento de propuestas de corrección',
+  media_disposal: 'Borrado de fotos eliminadas',
 }
 
 /** A known job reads as what it does; a new one is named by its code until it has words. */

@@ -11,6 +11,7 @@ const BASE = {
   referralUrl: 'https://space.allfit.one/es/waitlist?ref=LAURA7K',
   referrals: 0,
   referralsPageUrl: 'https://space.allfit.one/es/waitlist/me?token=private-token',
+  leaveUrl: 'https://space.allfit.one/es/waitlist/leave#token=private-token',
   brandAssetUrl: 'https://studio.allfit.one/email/allfit-one-lockup-on-light.png',
 }
 
@@ -175,5 +176,30 @@ describe('waitlist emails escape what a person typed', () => {
     expect(readable(html)).toContain('&lt;b&gt;Ana &amp; &quot;Co&quot;&lt;/b&gt;')
     expect(readable(html)).toContain('ref=ANA1&amp;x=&quot;y&quot;')
     expect(readable(html)).toContain('token=a&amp;next=&quot;b&quot;')
+  })
+})
+
+describe('the way out of the waitlist', () => {
+  test.each([
+    ['confirmation', () => renderWaitlistConfirmationEmail({ ...CONFIRMATION, language: 'es' })],
+    ['link', () => renderWaitlistLinkEmail({ ...BASE, language: 'es' })],
+  ] as const)(
+    'the %s email links to leaving, once, and says what leaving does',
+    (_name, render) => {
+      const { text, html } = render()
+
+      expect(readable(html)).toContain(`<a href="${BASE.leaveUrl}"`)
+      expect(html.split(BASE.leaveUrl).length - 1).toBe(1)
+      expect(readable(html)).toContain('salir de la lista de espera</a> cuando quieras')
+      expect(readable(html)).toContain('al salir borramos tus datos.')
+      expect(text).toContain(`Salir de la lista de espera y borrar tus datos: ${BASE.leaveUrl}`)
+    },
+  )
+
+  test('says it in English to someone who joined in English', () => {
+    const { text, html } = renderWaitlistLinkEmail({ ...BASE, language: 'en' })
+
+    expect(readable(html)).toContain('leave the waitlist</a> whenever you like')
+    expect(text).toContain(`Leave the waitlist and delete your data: ${BASE.leaveUrl}`)
   })
 })
