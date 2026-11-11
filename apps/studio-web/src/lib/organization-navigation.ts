@@ -29,6 +29,12 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/content\/programs\/[^/]+$/.test(pathname)) {
     return { title: 'Programa' }
   }
+  if (pathname === `${basePath}/content/movements/new`) {
+    return { title: 'Nuevo movimiento' }
+  }
+  if (/^\/organizations\/[^/]+\/content\/movements\/[^/]+$/.test(pathname)) {
+    return { title: 'Movimiento' }
+  }
   if (/^\/organizations\/[^/]+\/content\/templates\/[^/]+\/versions\/[^/]+$/.test(pathname)) {
     return { title: 'Versión de plantilla' }
   }

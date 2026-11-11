@@ -61,6 +61,9 @@ export type SessionTemplateDraftContent = AllfitV1Schemas['SessionTemplateDraftC
 export type PlannedStepContent = AllfitV1Schemas['PlannedStepContent']
 export type PlannedSetContent = AllfitV1Schemas['PlannedSetContent']
 export type OrganizationMovement = AllfitV1Schemas['OrganizationMovement']
+export type OrganizationMovementCreate = AllfitV1Schemas['OrganizationMovementCreate']
+export type OrganizationMovementUpdate = AllfitV1Schemas['OrganizationMovementUpdate']
+export type MovementRelation = AllfitV1Schemas['MovementRelation']
 export type StudioMovement = AllfitV1Schemas['StudioMovement']
 export type StudioMovementPage = AllfitV1Schemas['StudioMovementPage']
 export type ClientDirectoryPage = AllfitV1Schemas['ClientDirectoryPage']
@@ -458,6 +461,62 @@ export const studioApi = {
     request<OrganizationMovement>(
       `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
       { cache: 'no-store', ...(signal ? { signal } : {}) },
+    ),
+
+  /**
+   * OP-CAT-001. A movement of the organization's own, published at once and
+   * seen by nobody else. The server takes the command id as the movement's id.
+   * A repeated name is a `409` whose first issue is `name-taken`.
+   */
+  createOrganizationMovement: (
+    organizationId: string,
+    body: OrganizationMovementCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(`/studio/v1/organizations/${organizationId}/movements`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * OP-CAT-002. A partial edit: the fields present replace what was there, and
+   * `expected_revision` names the revision read. A newer one answers `409
+   * stale-draft`; a rename a published version forbids, `409` `movement-in-use`.
+   */
+  updateOrganizationMovement: (
+    organizationId: string,
+    movementId: string,
+    body: OrganizationMovementUpdate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}`,
+      {
+        method: 'PATCH',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-CAT-003. Owners and admins only (`archive_movements`); a coach is `403`.
+   * No body. It converges: archiving it again answers the archived movement,
+   * and there is no way back.
+   */
+  archiveOrganizationMovement: (
+    organizationId: string,
+    movementId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationMovement>(
+      `/studio/v1/organizations/${organizationId}/movements/${movementId}/archival`,
+      { method: 'POST', headers: commandHeaders(command), ...(signal ? { signal } : {}) },
     ),
 
   organizationPrograms: (
