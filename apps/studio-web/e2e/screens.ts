@@ -16,6 +16,7 @@ import {
   TEST_ANALYTICS_ID,
   activeCoach,
   activeMembership,
+  adaptedTemplate,
   activeTeamMember,
   coachedTeam,
   createStudioApiFixture,
@@ -2153,6 +2154,43 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No pudimos abrir la versión')).toBeVisible()
+    },
+  },
+  // --- template version page and editor, starting from a version · HU-039 ---
+  {
+    stories: 'HU-039 · starting a draft from a version, said before the click',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Partir de esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('se pierde')
+    },
+  },
+  {
+    stories: 'HU-039 · a start from a version refused',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/derivation')
+          ? { status: 404, body: problem('not-found', 404) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Partir de esta versión' }).click()
+      await page.getByRole('button', { name: 'Reemplazar el borrador' }).click()
+      await expect(page.getByText('No se reemplazó el borrador')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1, where the draft is edited: it says what it was started from.
+    stories: 'HU-039 · a draft that says the version it came from',
+    path: `${workspace}/content/templates/${adaptedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Parte de una versión publicada\./)).toBeVisible()
     },
   },
   {

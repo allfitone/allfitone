@@ -36,6 +36,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, type ReactNode } from 'react'
 
+import { DeriveFromVersion } from './content-version-actions'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import {
@@ -153,6 +154,9 @@ export function SessionTemplateVersionView() {
       </Card>
 
       {version.status === 'deprecated' ? <RetiredNote kind="template" /> : null}
+      {version.status === 'published' ? (
+        <DeriveFromVersion version={version} organizationId={organizationId} />
+      ) : null}
 
       <ol data-template-steps aria-label="Pasos">
         {version.steps
@@ -336,7 +340,7 @@ function RetiredNote({ kind }: { kind: 'template' | 'program' }) {
       <AlertTitle>Esta versión está retirada</AlertTitle>
       <AlertDescription>
         {kind === 'template'
-          ? 'Ya no se puede sumar a programas nuevos. Los programas que ya la usan la conservan.'
+          ? 'Ya no se puede sumar a programas nuevos ni servir de punto de partida. Los programas que ya la usan la conservan.'
           : 'Ya no se puede asignar a nadie más. Quien ya la tiene asignada la conserva.'}
       </AlertDescription>
     </Alert>

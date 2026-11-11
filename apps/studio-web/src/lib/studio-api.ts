@@ -574,6 +574,28 @@ export const studioApi = {
     ),
 
   /**
+   * OP-PLN-004. Replaces the template's draft with one of its published
+   * versions and records which. Conditioned on the draft's ETag like a save,
+   * with no body. A retired version, or another organization's, answers 404.
+   */
+  deriveOrganizationSessionTemplateVersion: (
+    organizationId: string,
+    templateId: string,
+    versionNumber: number,
+    etag: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<SessionTemplateDraft>(
+      `/studio/v1/organizations/${organizationId}/session-templates/${templateId}/versions/${versionNumber}/derivation`,
+      {
+        method: 'POST',
+        headers: { ...commandHeaders(command), 'If-Match': etag },
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
    * OP-PLN-021. One published template version, whole. Another organization's
    * version and one that never existed answer the same 404.
    */

@@ -142,3 +142,57 @@ export function programVersionWeeks(
   }
   return [...weeks].map(([week, entries]) => ({ week, sessions: entries }))
 }
+
+/**
+ * Retiring a version is the owner's and the admin's (`HU-STUDIO-040` and
+ * `HU-STUDIO-043`). `planning.assert_deprecate_content` checks the role itself,
+ * not a capability, so this reads the roles the same way.
+ */
+export function canRetireContent(roles: readonly string[]): boolean {
+  return roles.includes('owner') || roles.includes('admin')
+}
+
+/**
+ * `HU-STUDIO-039` criterion 1, said where the draft is edited: the version it
+ * was started from, by number when the template's versions are at hand.
+ */
+export function derivedFromLabel(
+  versionId: string | null | undefined,
+  versions: ReadonlyArray<{ id: string; version_number: number }>,
+): string | undefined {
+  if (!versionId) return undefined
+  const source = versions.find((version) => version.id === versionId)
+  return source
+    ? `Parte de la versión ${source.version_number}.`
+    : 'Parte de una versión publicada.'
+}
+
+export function retireFailure(status: number): string {
+  if (status === 403) {
+    return 'Retirar versiones corresponde a propietario y administración, y tu rol ya no lo permite.'
+  }
+  if (status === 404) return 'Esta versión ya no está disponible para tu organización.'
+  if (status === 409 || status === 429) {
+    return 'Ese retiro ya está en curso. Espera un momento y reintenta.'
+  }
+  if (status === 503) return 'Retirar está pausado temporalmente. Reintenta más tarde.'
+  return 'No pudimos retirar la versión. Reintenta en un momento.'
+}
+
+/**
+ * Starting from a version answers 404 for a retired one too: the command reads
+ * only published versions of the organization's own template.
+ */
+export function deriveFailure(status: number): string {
+  if (status === 404) {
+    return 'Esa versión ya no se puede usar como punto de partida: no está publicada o no es de tu organización.'
+  }
+  if (status === 403) {
+    return 'Ya no puedes editar esta plantilla: tu rol cambió o la organización no está activa.'
+  }
+  if (status === 409 || status === 429) {
+    return 'Ese cambio ya está en curso. Espera un momento y reintenta.'
+  }
+  if (status === 503) return 'Está pausado temporalmente. Reintenta más tarde.'
+  return 'No pudimos partir de esta versión. Reintenta en un momento.'
+}

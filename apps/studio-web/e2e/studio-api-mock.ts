@@ -1764,6 +1764,50 @@ function defaultResponse(
     }
     return { status: 201, body: version }
   }
+  const derivationPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/session-templates\/([^/]+)\/versions\/(\d+)\/derivation$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && derivationPath) {
+    /*
+     * What `planning.derive_session_template_version` does: 428 without the
+     * condition (the route checks it first), a 404 for a version that is not a
+     * published one of this template, the current draft with a stale ETag, and
+     * then the draft replaced by the version's content with its source recorded.
+     */
+    const expected = request.headers['if-match']
+    if (!expected) return { status: 428, body: problem('precondition-required', 428) }
+    const templateId = derivationPath[1] ?? ''
+    const template = fixture.organizationSessionTemplates
+      .map(objectValue)
+      .find((candidate) => candidate.id === templateId)
+    const source = (Array.isArray(template?.versions) ? template.versions : [])
+      .map(objectValue)
+      .find(
+        (version) =>
+          version.version_number === Number(derivationPath[2]) && version.status === 'published',
+      )
+    const content = source ? fixture.templateVersionContents[String(source.id)] : undefined
+    if (!template || !source || !content) return { status: 404, body: problem('not-found', 404) }
+    const previous = objectValue(template.draft)
+    if (expected !== previous.etag) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: previous }) }
+    }
+    const unchanged = JSON.stringify(previous.content) === JSON.stringify(content)
+    const draft = {
+      ...previous,
+      content: structuredClone(content),
+      derived_from_version_id: source.id,
+      etag: unchanged
+        ? previous.etag
+        : `"sha256:${'7'.repeat(42)}${String(source.version_number)}"`,
+      updated_at: '2026-11-11T09:00:00.000Z',
+    }
+    fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((candidate) =>
+      objectValue(candidate).id === templateId ? { ...objectValue(candidate), draft } : candidate,
+    )
+    return { status: 200, body: draft, headers: { ETag: String(draft.etag) } }
+  }
   /*
    * `OP-PLN-021`, both reads: the organization in the path or a 404, and the
    * version whole with its current status. Nothing here can change a version.
