@@ -875,6 +875,26 @@ export const studioApi = {
       },
     ),
 
+  /**
+   * OP-PAY-005. Takes one version off sale, without a body. Nobody subscribed to it is
+   * cancelled, suspended or moved; retiring a version already replaced changes nothing.
+   */
+  deprecateOrganizationPlanVersion: (
+    organizationId: string,
+    planId: string,
+    planVersionId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(
+      `/studio/v1/organizations/${organizationId}/plans/${planId}/versions/${planVersionId}/deprecation`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
   /*
    * The three transitions carry no body: the subscription is in the path and there is
    * nothing to choose. They are separate methods rather than one with a verb argument so

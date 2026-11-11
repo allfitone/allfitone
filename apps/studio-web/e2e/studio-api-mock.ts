@@ -2724,6 +2724,42 @@ function defaultResponse(
     )
     return { status: 201, body: next }
   }
+  const deprecationPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/plans\/([^/]+)\/versions\/([^/]+)\/deprecation$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && deprecationPath) {
+    /*
+     * `payments.deprecate_plan_version`: retiring the price on sale takes the plan off sale;
+     * retiring one already retired converges, and either way it answers the plan.
+     */
+    const plan = fixture.organizationPlans
+      .map(objectValue)
+      .find((candidate) => candidate.plan_id === deprecationPath[1])
+    const versions = plan && Array.isArray(plan.versions) ? plan.versions.map(objectValue) : []
+    if (!plan || !versions.some((entry) => entry.plan_version_id === deprecationPath[2])) {
+      return { status: 404, body: error('not-found') }
+    }
+    const retired = versions.map((entry) =>
+      entry.plan_version_id === deprecationPath[2] && entry.status === 'published'
+        ? { ...entry, status: 'deprecated', deprecated_at: '2026-11-11T15:00:00.000Z' }
+        : entry,
+    )
+    const current = plan.current_version === null ? null : objectValue(plan.current_version)
+    const stillOnSale = current !== null && current.plan_version_id !== deprecationPath[2]
+    const next = {
+      ...plan,
+      on_sale: stillOnSale,
+      current_version: stillOnSale ? current : null,
+      versions: retired,
+    }
+    fixture.organizationPlans = sortPlans(
+      fixture.organizationPlans.map((candidate) =>
+        objectValue(candidate).plan_id === plan.plan_id ? next : candidate,
+      ),
+    )
+    return { status: 200, body: next }
+  }
   /*
    * The three transitions answer the same shape and differ only in the state they leave
    * behind, so one handler reads the verb from the path. Writing the new state into the

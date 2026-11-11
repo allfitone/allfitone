@@ -44,6 +44,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { PlanPublish } from './plan-publish'
+import { PlanRetire } from './plan-retire'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { canManageBilling } from '@/lib/organization-billing'
@@ -146,6 +147,7 @@ export function PlanDetail() {
             plan={plan}
             organizationId={organizationId}
           />
+          <PlanRetire key={`retire-${plan.plan_id}`} plan={plan} organizationId={organizationId} />
           <PlanRename key={plan.plan_id} plan={plan} organizationId={organizationId} />
         </>
       ) : (

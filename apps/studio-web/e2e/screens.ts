@@ -2742,6 +2742,43 @@ export const SCREENS: Screen[] = [
       await expect(page.getByRole('alertdialog')).toContainText('No se publicó')
     },
   },
+  // --- `/organizations/[id]/billing/plans/[planId]`, retire a price · HU-076 ---
+  {
+    stories: 'HU-076 · both halves of retiring, before the click',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('no se cancela, no se suspende')
+    },
+  },
+  {
+    stories: 'HU-076 · a plan off sale, with nothing to retire',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000002`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Ahora no tiene ningún precio a la venta.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-076 · the retirement refused, said in the dialog',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/deprecation')
+          ? { status: 403, body: error('forbidden') }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se retiró')
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',
