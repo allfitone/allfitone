@@ -39,6 +39,8 @@ export type ApiErrorCode =
   | 'credential-required'
   /** The chosen password was refused: too short, or known to be breached. */
   | 'weak-password'
+  /** The current password typed to change it is not the one in force (OP-IDN-066). */
+  | 'wrong-password'
   /** The command conflicts with durable state or a prior idempotent request. */
   | 'conflict'
   /** The write base revision is no longer current. */
@@ -80,6 +82,7 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'scope-required': 403,
   'credential-required': 403,
   'weak-password': 422,
+  'wrong-password': 422,
   conflict: 409,
   'stale-draft': 409,
   'precondition-required': 428,
@@ -110,6 +113,7 @@ const TITLE: Record<ApiErrorCode, string> = {
   'scope-required': 'Required consent is not effective',
   'credential-required': 'A verified professional credential is required',
   'weak-password': 'The password does not satisfy the security policy',
+  'wrong-password': 'The current password is not correct',
   conflict: 'The request conflicts with current state',
   'stale-draft': 'The local draft is stale',
   'precondition-required': 'If-Match is required',
