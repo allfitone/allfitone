@@ -29,7 +29,7 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
-    // Programme covers fill tall cards; 75 smears their dark gradients.
+    // Programme covers and the Pro photo have dark gradients that 75 smears.
     qualities: [75, 88],
   },
 }

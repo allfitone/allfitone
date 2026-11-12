@@ -105,7 +105,7 @@ export const en: Dictionary = {
   pro: {
     title: ['DOES YOUR GYM', 'USE ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
     text: "The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail, and you don't pay for it while you stay with that gym.",
-    alt: 'Athlete with headphones focusing before training at the gym.',
+    alt: 'Athlete doing a biceps curl with a dumbbell in each hand.',
   },
   studio: {
     title: 'Do you run a gym or coach others?',

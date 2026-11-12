@@ -189,9 +189,10 @@ export default async function Landing({ params }: LocaleParams) {
               </div>
               <div className="pro__photo">
                 <Image
-                  src="/images/photos/pro.webp"
+                  src="/images/photos/pro-curl.webp"
                   alt={copy.pro.alt}
                   fill
+                  quality={88}
                   sizes="(max-width: 900px) 100vw, 648px"
                 />
               </div>

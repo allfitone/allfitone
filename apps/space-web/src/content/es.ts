@@ -111,7 +111,7 @@ export const es = {
   pro: {
     title: ['¿TU GIMNASIO USA', 'ALLFIT STUDIO?', 'PRO VA INCLUIDO.'],
     text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle, y no lo pagas mientras sigas con ese gimnasio.',
-    alt: 'Atleta con audífonos concentrado antes de entrenar en el gimnasio.',
+    alt: 'Atleta haciendo curl de bíceps con una mancuerna en cada mano.',
   },
   studio: {
     title: '¿Tienes un gimnasio o entrenas a otros?',
