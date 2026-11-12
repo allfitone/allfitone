@@ -478,9 +478,14 @@ const dateOf = (iso: string) => {
   return new Date(Date.UTC(year, month - 1, day))
 }
 
+/** Whole days from `date` to `today`: 0 is today, 1 is yesterday. */
+export function daysBefore(date: string, today: string): number {
+  return Math.round((dateOf(today).getTime() - dateOf(date).getTime()) / 86_400_000)
+}
+
 /** «Hoy», «Ayer», «Domingo 27». */
 export function dayTitle(date: string, today: string): string {
-  const days = Math.round((dateOf(today).getTime() - dateOf(date).getTime()) / 86_400_000)
+  const days = daysBefore(date, today)
   if (days === 0) return 'Hoy'
   if (days === 1) return 'Ayer'
   const at = dateOf(date)
