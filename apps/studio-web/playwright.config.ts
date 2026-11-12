@@ -19,8 +19,8 @@ export default defineConfig({
    * CPU changes how long it waits and not what it sees.
    *
    * `50%` rather than a number because the figure that matters differs by
-   * machine — twelve cores here, four on a GitHub runner. If a runner is still
-   * tight, sharding across runners is the next step, not a bigger ceiling.
+   * machine — twelve cores here, four on a GitHub runner. CI also splits the
+   * suite across four runners with `--shard`; see the Studio E2E job.
    */
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,

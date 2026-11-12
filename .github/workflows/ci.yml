@@ -191,17 +191,22 @@ jobs:
         run: bun run db:stop
 
   studio-e2e:
-    name: Studio E2E
+    name: Studio E2E (${{ matrix.shard }}/4)
     needs: verify
     if: needs.verify.outputs.studio == 'true'
     runs-on: ubuntu-latest
-    # The sweep passed 1 400 cases as the screen inventory filled, and this
-    # ceiling cancelled two pull requests at 29 minutes. The suite now runs
-    # parallel within a file as well as across them — 18.1 minutes to 6.8 on
-    # twelve cores, every case passing with no retry — and `playwright.config.ts`
-    # carries the measurements. A runner has four cores, so the figure here is
-    # smaller; read this job's duration rather than assuming it. Sharding across
-    # runners is the next step if it is tight again, not a bigger ceiling.
+    # A runner has four cores, so Playwright runs two workers, and running in
+    # parallel inside one runner was not enough: at 1 714 cases the sweep took
+    # 20 minutes against this 25-minute ceiling, and grew by about 300 cases a
+    # day. Four runners split it by case count, so each one carries a quarter.
+    # Public repositories pay nothing for these minutes; every runner repeats
+    # the setup, about a minute and a half. When a shard nears the ceiling
+    # again, add shards rather than raising it.
+    strategy:
+      # A failure in one quarter says nothing about the others: let all report.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     timeout-minutes: 25
 
     steps:
@@ -249,4 +254,4 @@ jobs:
             studio-next-${{ runner.os }}-
 
       - name: Test Studio interactions
-        run: bun run --cwd apps/studio-web test:e2e
+        run: bun run --cwd apps/studio-web test:e2e --shard=${{ matrix.shard }}/4
