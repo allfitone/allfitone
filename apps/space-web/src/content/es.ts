@@ -10,7 +10,7 @@ export const es = {
   meta: {
     title: 'Allfit Space | App de entrenamiento y nutrición',
     description:
-      'App de entrenamiento y nutrición: tu programa, cada serie y lo que comes en un solo lugar. Tu historial viaja contigo y tus datos son tuyos.',
+      'App de entrenamiento y nutrición: sigue un programa para tu objetivo, supera tus series de la vez anterior y lleva tus comidas frente a tu meta. Gratis.',
     shareImageAlt:
       'Una atleta prepara un peso muerto con la barra cargada en un gimnasio en penumbra.',
   },
@@ -31,8 +31,8 @@ export const es = {
     download: 'Descárgala en',
   },
   hero: {
-    lines: ['TU HISTORIAL', 'SE VA', 'CONTIGO.'],
-    lead: 'Tu programa, cada serie y lo que comes, en una sola app. Si cambias de gimnasio, no empiezas de cero.',
+    lines: ['SUPERA', 'TU ÚLTIMA', 'SESIÓN.'],
+    lead: 'Un programa para tu objetivo, cada serie anotada y lo que comes frente a tu meta. Todo en una app, para que tu próxima sesión le gane a esta.',
     todayAlt: 'Pantalla Hoy de Allfit Space: la sesión de Tirón del día y el resumen de la semana.',
     programAlt:
       'Detalle del programa Torso y pierna: 10 semanas, 4 días por semana y sus sesiones.',
@@ -42,8 +42,8 @@ export const es = {
     cards: [
       {
         title: 'TU SEMANA, A LA VISTA',
-        text: 'Qué toca hoy, cuánto llevas esta semana y todo lo que ya entrenaste.',
-        alt: 'Pantalla Hoy con el resumen semanal y el historial de sesiones.',
+        text: 'Qué toca hoy y cuánto llevas esta semana.',
+        alt: 'Pantalla Hoy con el resumen de la semana y las sesiones que ya hiciste.',
       },
       {
         title: 'CADA SERIE CUENTA',
@@ -119,7 +119,7 @@ export const es = {
     cta: 'Conocer Allfit Studio',
   },
   closing: {
-    title: ['CAMBIA DE GIMNASIO,', 'NO DE APP.'],
+    title: ['CADA SEMANA,', 'UN POCO MÁS.'],
   },
   nvidia: {
     member: 'Allfit One es miembro de NVIDIA Inception.',
