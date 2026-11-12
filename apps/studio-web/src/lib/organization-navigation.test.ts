@@ -204,6 +204,13 @@ describe('organization workspace navigation', () => {
     ).toEqual({ title: 'Progreso' })
   })
 
+  test('her programs are titled Programas asignados, never Planes', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/programs`, organizationId),
+    ).toEqual({ title: 'Programas asignados' })
+  })
+
   test('a person card is titled Ficha, not Vínculo and not Studio', () => {
     const personId = '01991600-3000-7000-8000-0000000000aa'
     expect(resolveWorkspaceRoute(`${basePath}/clients/people/${personId}`, organizationId)).toEqual(

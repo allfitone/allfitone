@@ -133,6 +133,7 @@ const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
   { read: 'getAuthorizedClientTrainingProfile', label: 'Ver el perfil', segment: 'profile' },
   { read: 'listAuthorizedClientExecutions', label: 'Ver las sesiones', segment: 'executions' },
   { read: 'getAuthorizedClientProgress', label: 'Ver el progreso', segment: 'progress' },
+  { read: 'listRelationshipAssignments', label: 'Ver sus programas', segment: 'programs' },
 ]
 
 /**
@@ -177,6 +178,18 @@ export function clientExecutionsPath(organizationId: string, personId: string): 
 /** And her progress, beside both. */
 export function clientProgressPath(organizationId: string, personId: string): string {
   return `${clientCardPath(organizationId, personId)}/progress`
+}
+
+/**
+ * And the programs this relationship gave her, beside the other three.
+ *
+ * The operation behind it is the only one of the card's reads keyed by the
+ * relationship rather than by the person, but the screen stays a child of the
+ * card: the four doors belong together, and the relationship's id is in the
+ * card the screen already has to open.
+ */
+export function clientProgramsPath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/programs`
 }
 
 /** Where a person's card lives. One string, so the directory and the card agree. */

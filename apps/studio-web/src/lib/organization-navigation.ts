@@ -105,6 +105,13 @@ export function resolveWorkspaceRoute(
     return { title: 'Progreso' }
   }
   /*
+   * "Programas" and not "Planes": a plan in this product is what the gym sells,
+   * and it already titles another screen. A program is what she trains.
+   */
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/programs$/.test(pathname)) {
+    return { title: 'Programas asignados' }
+  }
+  /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
    * `invitations`, `information-categories`, `authorizations` or `people`,

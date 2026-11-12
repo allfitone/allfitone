@@ -143,6 +143,7 @@ const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
 const trainingProfilePath = `${clientCardPath}/profile`
 const executionsPath = `${clientCardPath}/executions`
 const progressPath = `${clientCardPath}/progress`
+const programsPath = `${clientCardPath}/programs`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1615,6 +1616,65 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No encontramos este progreso')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-047 ---
+  {
+    // Three programs, each with its calendar: the longest page the client's
+    // screens draw, and the one where a session title somebody typed has to
+    // wrap inside its column instead of over the next one.
+    stories: 'HU-047 · the programs this relationship gave her',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+      await expect(
+        page.getByText('Ya no lo administramos: el plan quedó en sus manos'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-047 · nothing assigned to her yet',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], relationshipAssignments: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no le asignamos ningún programa')).toBeVisible()
+    },
+  },
+  {
+    // Her training is not shared, so nothing is answered — which is a refusal
+    // and not an empty list.
+    stories: 'HU-047 · no training permission, so no programs to answer',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], relationshipAssignments: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 3: the link ended, so the detached program stops being visible.
+    stories: 'HU-047 · a coach who no longer attends her',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: formerClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('sus programas dejan de verse desde aquí')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-047 · programs of a person the caller does not attend',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos estos programas')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---

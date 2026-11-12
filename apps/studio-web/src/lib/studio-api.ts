@@ -111,6 +111,9 @@ export type RelationshipTermination = AllfitV1Schemas['RelationshipTermination']
 export type RelationshipTerminationCreate = AllfitV1Schemas['RelationshipTerminationCreate']
 export type RelationshipSubstitutionTermination =
   AllfitV1Schemas['RelationshipSubstitutionTermination']
+export type RelationshipAssignmentPage = AllfitV1Schemas['RelationshipAssignmentPage']
+export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
+export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -984,6 +987,32 @@ export const studioApi = {
     if (query.cursor) search.set('cursor', query.cursor)
     return request<AuthorizedExecutionPage>(
       `/studio/v1/organizations/${organizationId}/clients/${personId}/executions?${search}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    )
+  },
+
+  /**
+   * `OP-PLN-018`. The programs this relationship gave her, newest first, each
+   * with the calendar planted for it. Never what she took on her own nor what
+   * another organization gave her — the operation is keyed by the relationship,
+   * which is what makes that true at the source instead of by filtering here.
+   *
+   * `403` is only ever `scope-required`: she stopped sharing her training, or
+   * never shared it. The attempt is recorded either way.
+   */
+  relationshipAssignments: (
+    organizationId: string,
+    relationshipId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) => {
+    const search = new URLSearchParams({ limit: String(query.limit) })
+    if (query.cursor) search.set('cursor', query.cursor)
+    return request<RelationshipAssignmentPage>(
+      `/studio/v1/organizations/${organizationId}/relationships/${relationshipId}/assignments?${search}`,
       {
         cache: 'no-store',
         ...(signal ? { signal } : {}),

@@ -6,6 +6,7 @@ import {
   categorySummary,
   clientCardPath,
   clientExecutionsPath,
+  clientProgramsPath,
   clientTrainingProfilePath,
   doorsBySection,
   lossReasonSentence,
@@ -189,6 +190,7 @@ describe('the doors on each category', () => {
           'getAuthorizedClientTrainingProfile',
           'listAuthorizedClientExecutions',
           'getAuthorizedClientProgress',
+          'listRelationshipAssignments',
         ]),
       ],
       reader,
@@ -197,6 +199,7 @@ describe('the doors on each category', () => {
       'Ver el perfil',
       'Ver las sesiones',
       'Ver el progreso',
+      'Ver sus programas',
     ])
   })
 
@@ -237,6 +240,13 @@ describe('the doors on each category', () => {
     )
     expect(clientExecutionsPath('019a0000-org', '019a0000-person')).toBe(
       '/organizations/019a0000-org/clients/people/019a0000-person/executions',
+    )
+    /*
+     * Even this one, whose operation is keyed by the relationship: the screen
+     * reads the card for that id, so the four doors stay siblings.
+     */
+    expect(clientProgramsPath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/programs',
     )
   })
 })
