@@ -58,8 +58,10 @@ test('says whose each session was', async ({ page }) => {
 
 /*
  * The hour she lived, not the hour the reader would have read it at. The fixture
- * has one session trained in Madrid at 06:15, which is 23:15 of the day before
- * in Bogotá — the browser running this suite is on Bogotá time.
+ * has one session trained in Madrid at 06:15, and what this asserts holds in any
+ * zone, because the session carries its own. The reader's zone belongs to the
+ * machine — a laptop in Bogotá and a CI runner in UTC disagree — so no assertion
+ * may be written against it.
  */
 test('shows the hour she trained at, in the zone where she trained', async ({ page }) => {
   await page.goto(EXECUTIONS)

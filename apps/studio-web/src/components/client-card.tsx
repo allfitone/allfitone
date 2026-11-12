@@ -31,7 +31,6 @@ import {
   CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
@@ -318,13 +317,16 @@ function SectionEntry({
           <dt>Desde</dt>
           <dd>{formatDate(section.granted_at)}</dd>
         </dl>
-      </CardContent>
-      {/* At the foot rather than in the header's action slot: a phone wants them
-          under the facts, and moving the header's own grid would be editing how
-          a Design System component lays itself out. `CardFooter` is where that
-          component already puts actions. */}
-      {doors.length > 0 ? (
-        <CardFooter>
+        {/* Under the facts, inside the content, and deliberately not in a
+            `CardFooter`. A phone wants them here, and the header's action slot
+            would have meant editing a Design System card's own grid — but the
+            footer is not the way either: the library marks a card that
+            `:has([data-slot=card-footer])` as supplying its own bottom padding,
+            and that selector matches a descendant, so a footer in here stripped
+            the padding off the panel that contains this card. Avoided here
+            rather than patched in this app's CSS; the selector needs a child
+            combinator, which is a fix for the library. */}
+        {doors.length > 0 ? (
           <div data-client-card-doors>
             {doors.map((door) => (
               <Link
@@ -339,8 +341,8 @@ function SectionEntry({
               </Link>
             ))}
           </div>
-        </CardFooter>
-      ) : null}
+        ) : null}
+      </CardContent>
     </Card>
   )
 }
