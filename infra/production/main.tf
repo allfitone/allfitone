@@ -270,6 +270,8 @@ module "services" {
         WORKER_PORT    = "8090"
         EMAIL_PROVIDER = "ses"
         EMAIL_FROM     = "Allfit One <${local.email_sender}>"
+        # A switch, not a credential: closing the other sessions after a password change.
+        PASSWORD_CHANGE_DELIVERY_ENABLED = "true"
       }
       # The image has Node and no curl.
       health_command = "node -e \"fetch('http://127.0.0.1:8090/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))\""
