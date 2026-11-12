@@ -1,5 +1,6 @@
 /**
- * Health context routes on /space/v1: `OP-IDN-008`, `OP-IDN-049`, `OP-IDN-050`.
+ * Health context routes on /space/v1: `OP-IDN-008`, `OP-IDN-049`, `OP-IDN-050` and
+ * `OP-IDN-067`, which corrects a claim in place (ADR-052).
  *
  * `HU-SP-014`, `HU-SP-028`. The most protected category V1 keeps, and not a clinical
  * record: a body carries a type, a short description and, optionally, a body area and an
@@ -86,6 +87,26 @@ export function spaceHealthContextRoutes(
       })
       if (result.replayed) c.header('Idempotent-Replay', 'true')
       return c.json(result.resource, 201)
+    } catch (error) {
+      return spaceFailure(c, error, OPERATION)
+    }
+  })
+
+  routes.put('/health-context/:claimId', async (c) => {
+    const token = await verifiedSpaceToken(c, verify)
+    if (!token) return problem(c, 'unauthenticated')
+    const claimId = c.req.param('claimId')
+    if (!UUID_V7.test(claimId)) return problem(c, 'invalid-request')
+    if (!isJsonRequest(c)) return problem(c, 'unsupported-media-type')
+    const claim = declaration(await readJson(c))
+    if (!claim) return problem(c, 'validation-failed')
+    const command = spaceCommand(c, { claimId, ...claim })
+    if (!command) return problem(c, 'invalid-request')
+
+    try {
+      const result = await claims().correct(token, { ...command, claimId, claim })
+      if (result.replayed) c.header('Idempotent-Replay', 'true')
+      return c.json(result.resource, 200)
     } catch (error) {
       return spaceFailure(c, error, OPERATION)
     }
