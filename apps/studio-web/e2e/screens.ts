@@ -24,6 +24,7 @@ import {
   programVersionOne,
   STRENGTH_GLOBAL_MOVEMENT_ID,
   STRENGTH_OWN_MOVEMENT_ID,
+  MONTHLY_PLAN_ID,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
@@ -2614,6 +2615,220 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No encontramos este movimiento')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing`, plans · HU-077 ---
+  {
+    // An owner opens on who pays; the plans are the second tab.
+    stories: 'HU-077 · the plans tab beside the subscriptions',
+    path: `${workspace}/billing`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Planes' }).click()
+      await expect(page.getByText('Mensual ilimitado')).toBeVisible()
+    },
+  },
+  {
+    // HU-078 criterion 2 as well: no subscriptions tab, and the reason why.
+    stories: 'HU-077 · the plans, for a role that does not see who pays',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Mensual ilimitado')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · the plans on a phone',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Anual con nutrición')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · no plan yet',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.organizationPlans = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay planes')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · the plans could not be read',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/plans')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los planes')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/...`, create and rename · HU-074 ---
+  {
+    stories: 'HU-074 · a new plan, the name asked for',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear plan' }).click()
+      await expect(page.getByText('Escribe el nombre del plan.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a name the organization already uses',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('mensual ilimitado')
+      await page.getByRole('button', { name: 'Crear plan' }).click()
+      await expect(page.getByText(/Ya hay un plan con ese nombre/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a role that does not create plans',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Tu rol no crea planes')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, for an owner',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Guardar el nombre' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, on a phone',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-plan-summary]')).toContainText('Versión 2')
+    },
+  },
+  {
+    stories: 'HU-074 · a plan that is not this organization’s',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este plan')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/[planId]`, publish a price · HU-075 ---
+  {
+    stories: 'HU-075 · what replacing the price on sale changes, before the click',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('Se retira el precio')
+    },
+  },
+  {
+    stories: 'HU-075 · a remote first price, not chargeable yet',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000003`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('90000')
+      await page.getByRole('radio', { name: 'Remoto' }).click()
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('todavía no está disponible')
+    },
+  },
+  {
+    stories: 'HU-075 · the price on sale, and centavos, refused on the form',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('120000,50')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByText(/pesos enteros, sin centavos/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-075 · the publish refused, said in the dialog',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/versions')
+          ? { status: 409, body: error('conflict') }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await page.getByRole('button', { name: 'Publicar ahora' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se publicó')
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/[planId]`, retire a price · HU-076 ---
+  {
+    stories: 'HU-076 · both halves of retiring, before the click',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('no se cancela, no se suspende')
+    },
+  },
+  {
+    stories: 'HU-076 · a plan off sale, with nothing to retire',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000002`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Ahora no tiene ningún precio a la venta.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-076 · the retirement refused, said in the dialog',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/deprecation')
+          ? { status: 403, body: error('forbidden') }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se retiró')
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---

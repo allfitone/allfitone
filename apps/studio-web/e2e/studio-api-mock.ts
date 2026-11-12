@@ -82,6 +82,8 @@ export interface StudioApiFixture {
    */
   terminationOutcome: 'terminated' | 'already-ended' | 'forbidden'
   organizationSubscriptions: unknown[]
+  /** What `GET /plans` answers: published plans first, then drafts, each by name. */
+  organizationPlans: unknown[]
   /**
    * `applied` moves the row in the fixture, the way the real command does; the other two
    * are the refusals the screen has wording for. `no-cause` is `409` on a reactivation
@@ -790,6 +792,75 @@ export const activeSubscription = {
   started_at: '2026-10-01T15:12:44.118Z',
   suspended_at: null,
   ended_at: null,
+}
+
+/*
+ * The three states a plan can be in, one each, as `payments.organization_plan_projection`
+ * builds them: on sale with an older price retired beneath it, published once and off
+ * sale since, and a draft with a name and no price. Published come first, then drafts,
+ * each by name, which is the order `OP-PAY-006` answers in.
+ */
+function planVersion(
+  id: string,
+  number: number,
+  amountMinor: number,
+  status: 'published' | 'deprecated',
+  deliveryMode: 'in_person' | 'remote' = 'in_person',
+) {
+  return {
+    plan_version_id: id,
+    version_number: number,
+    amount_minor: amountMinor,
+    currency_code: 'COP',
+    billing_period: 'month',
+    delivery_mode: deliveryMode,
+    status,
+    published_at: `2026-${String(8 + number).padStart(2, '0')}-01T14:00:00.000Z`,
+    deprecated_at:
+      status === 'deprecated'
+        ? `2026-${String(9 + number).padStart(2, '0')}-01T14:00:00.000Z`
+        : null,
+  }
+}
+
+export const MONTHLY_PLAN_ID = '01991600-e000-7000-8000-000000000001'
+
+export const planOnSale = (() => {
+  const current = planVersion('01991600-e000-7000-8000-000000000012', 2, 12000000, 'published')
+  return {
+    plan_id: MONTHLY_PLAN_ID,
+    name: 'Mensual ilimitado',
+    status: 'published',
+    on_sale: true,
+    created_at: '2026-08-01T14:00:00.000Z',
+    current_version: current,
+    versions: [
+      current,
+      planVersion('01991600-e000-7000-8000-000000000011', 1, 10000000, 'deprecated'),
+    ],
+  }
+})()
+
+export const planOffSale = {
+  plan_id: '01991600-e000-7000-8000-000000000002',
+  name: 'Remoto de verano',
+  status: 'published',
+  on_sale: false,
+  created_at: '2026-07-01T14:00:00.000Z',
+  current_version: null,
+  versions: [
+    planVersion('01991600-e000-7000-8000-000000000021', 1, 8000000, 'deprecated', 'remote'),
+  ],
+}
+
+export const draftPlan = {
+  plan_id: '01991600-e000-7000-8000-000000000003',
+  name: 'Anual con nutrición',
+  status: 'draft',
+  on_sale: false,
+  created_at: '2026-11-01T14:00:00.000Z',
+  current_version: null,
+  versions: [],
 }
 
 /*
@@ -1610,6 +1681,8 @@ export function createStudioApiFixture(
     substitutionEndOutcome: 'ended',
     terminationOutcome: 'terminated',
     organizationSubscriptions: [structuredClone(activeSubscription)],
+    // Copies: plans are written now, and a write must not reach the next test.
+    organizationPlans: structuredClone([planOnSale, planOffSale, draftPlan]),
     subscriptionOutcome: 'applied',
     roleGrantOutcome: 'granted',
     roleRevokeOutcome: 'revoked',
@@ -2594,6 +2667,173 @@ function defaultResponse(
       : fixture.organizationSubscriptions
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
   }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/plans$/.test(request.path)
+  ) {
+    // `OP-PAY-006`: every member reads it, coach and staff included.
+    fixture.organizationPlans = sortPlans(fixture.organizationPlans)
+    return {
+      status: 200,
+      body: { data: fixture.organizationPlans, page: { has_more: false, next_cursor: null } },
+    }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/plans$/.test(request.path)
+  ) {
+    /*
+     * `payments.create_organization_plan`: a trimmed name of one to eighty characters, then
+     * the unique index on the name without regard to case, which the API answers as `409`.
+     * The legacy `{ error }` envelope, because the payments routes still answer it.
+     */
+    const name = String(objectValue(request.body).name ?? '').trim()
+    if (!name || name.length > 80) return { status: 422, body: error('validation-failed') }
+    if (planNameTaken(fixture, name)) return { status: 409, body: error('conflict') }
+    const sequence = String(fixture.organizationPlans.length + 1).padStart(3, '0')
+    const plan = {
+      plan_id: `01991600-e000-7000-8000-000000000${sequence}`,
+      name,
+      status: 'draft',
+      on_sale: false,
+      created_at: '2026-11-11T15:00:00.000Z',
+      current_version: null,
+      versions: [],
+    }
+    fixture.organizationPlans = sortPlans([...fixture.organizationPlans, plan])
+    return { status: 201, body: plan }
+  }
+  const planPath = /^\/studio\/v1\/organizations\/[^/]+\/plans\/([^/]+)$/.exec(request.path)
+  if (request.method === 'PATCH' && planPath) {
+    // `payments.rename_organization_plan`: the same rules, a draft and a plan on sale alike.
+    const name = String(objectValue(request.body).name ?? '').trim()
+    if (!name || name.length > 80) return { status: 422, body: error('validation-failed') }
+    const plan = fixture.organizationPlans
+      .map(objectValue)
+      .find((candidate) => candidate.plan_id === planPath[1])
+    if (!plan) return { status: 404, body: error('not-found') }
+    if (planNameTaken(fixture, name, String(plan.plan_id))) {
+      return { status: 409, body: error('conflict') }
+    }
+    const renamed = { ...plan, name }
+    fixture.organizationPlans = sortPlans(
+      fixture.organizationPlans.map((candidate) =>
+        objectValue(candidate).plan_id === plan.plan_id ? renamed : candidate,
+      ),
+    )
+    return { status: 200, body: renamed }
+  }
+  const planVersionsPath = /^\/studio\/v1\/organizations\/[^/]+\/plans\/([^/]+)\/versions$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && planVersionsPath) {
+    /*
+     * `payments.publish_plan_version`: whole pesos in COP, monthly or yearly, in person or
+     * remote. The price already on sale answers `200` unchanged; a new one retires it.
+     */
+    const body = objectValue(request.body)
+    const amount = body.amount_minor
+    if (
+      typeof amount !== 'number' ||
+      !Number.isInteger(amount) ||
+      amount < 100 ||
+      amount > 100_000_000_000 ||
+      amount % 100 !== 0 ||
+      body.currency_code !== 'COP' ||
+      (body.billing_period !== 'month' && body.billing_period !== 'year') ||
+      (body.delivery_mode !== 'in_person' && body.delivery_mode !== 'remote')
+    ) {
+      return { status: 422, body: error('validation-failed') }
+    }
+    const plan = fixture.organizationPlans
+      .map(objectValue)
+      .find((candidate) => candidate.plan_id === planVersionsPath[1])
+    if (!plan) return { status: 404, body: error('not-found') }
+    const current = plan.current_version === null ? null : objectValue(plan.current_version)
+    if (
+      current &&
+      current.amount_minor === amount &&
+      current.billing_period === body.billing_period &&
+      current.delivery_mode === body.delivery_mode
+    ) {
+      return { status: 200, body: plan }
+    }
+    const versions = Array.isArray(plan.versions) ? plan.versions.map(objectValue) : []
+    const sequence = fixture.organizationPlans
+      .map(objectValue)
+      .reduce(
+        (total, entry) => total + (Array.isArray(entry.versions) ? entry.versions.length : 0),
+        1,
+      )
+    const published = {
+      plan_version_id: `01991600-e100-7000-8000-${String(sequence).padStart(12, '0')}`,
+      version_number:
+        versions.reduce((top, entry) => Math.max(top, Number(entry.version_number)), 0) + 1,
+      amount_minor: amount,
+      currency_code: 'COP',
+      billing_period: body.billing_period,
+      delivery_mode: body.delivery_mode,
+      status: 'published',
+      published_at: '2026-11-11T15:00:00.000Z',
+      deprecated_at: null,
+    }
+    const next = {
+      ...plan,
+      status: 'published',
+      on_sale: true,
+      current_version: published,
+      versions: [
+        published,
+        ...versions.map((entry) =>
+          entry.status === 'published'
+            ? { ...entry, status: 'deprecated', deprecated_at: '2026-11-11T15:00:00.000Z' }
+            : entry,
+        ),
+      ],
+    }
+    fixture.organizationPlans = sortPlans(
+      fixture.organizationPlans.map((candidate) =>
+        objectValue(candidate).plan_id === plan.plan_id ? next : candidate,
+      ),
+    )
+    return { status: 201, body: next }
+  }
+  const deprecationPath =
+    /^\/studio\/v1\/organizations\/[^/]+\/plans\/([^/]+)\/versions\/([^/]+)\/deprecation$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && deprecationPath) {
+    /*
+     * `payments.deprecate_plan_version`: retiring the price on sale takes the plan off sale;
+     * retiring one already retired converges, and either way it answers the plan.
+     */
+    const plan = fixture.organizationPlans
+      .map(objectValue)
+      .find((candidate) => candidate.plan_id === deprecationPath[1])
+    const versions = plan && Array.isArray(plan.versions) ? plan.versions.map(objectValue) : []
+    if (!plan || !versions.some((entry) => entry.plan_version_id === deprecationPath[2])) {
+      return { status: 404, body: error('not-found') }
+    }
+    const retired = versions.map((entry) =>
+      entry.plan_version_id === deprecationPath[2] && entry.status === 'published'
+        ? { ...entry, status: 'deprecated', deprecated_at: '2026-11-11T15:00:00.000Z' }
+        : entry,
+    )
+    const current = plan.current_version === null ? null : objectValue(plan.current_version)
+    const stillOnSale = current !== null && current.plan_version_id !== deprecationPath[2]
+    const next = {
+      ...plan,
+      on_sale: stillOnSale,
+      current_version: stillOnSale ? current : null,
+      versions: retired,
+    }
+    fixture.organizationPlans = sortPlans(
+      fixture.organizationPlans.map((candidate) =>
+        objectValue(candidate).plan_id === plan.plan_id ? next : candidate,
+      ),
+    )
+    return { status: 200, body: next }
+  }
   /*
    * The three transitions answer the same shape and differ only in the state they leave
    * behind, so one handler reads the verb from the path. Writing the new state into the
@@ -3546,6 +3786,28 @@ function movementProblems(
     }
   }
   return problems
+}
+
+/** `OP-PAY-006`'s order: published plans first, then drafts, each by name. */
+function sortPlans(plans: unknown[]): unknown[] {
+  return plans
+    .map(objectValue)
+    .toSorted(
+      (left, right) =>
+        Number(left.status === 'draft') - Number(right.status === 'draft') ||
+        String(left.name).localeCompare(String(right.name), 'es'),
+    )
+}
+
+/** The unique index on a plan's name, without regard to case, leaving one plan out. */
+function planNameTaken(fixture: StudioApiFixture, name: string, exceptId?: string): boolean {
+  const wanted = name.toLocaleLowerCase('es-CO')
+  return fixture.organizationPlans
+    .map(objectValue)
+    .some(
+      (plan) =>
+        plan.plan_id !== exceptId && String(plan.name).toLocaleLowerCase('es-CO') === wanted,
+    )
 }
 
 /** Replaces one movement in the library, rather than mutating it, and returns it. */

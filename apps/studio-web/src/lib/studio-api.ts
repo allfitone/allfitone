@@ -125,6 +125,11 @@ export type AssignableOrganizationRoleCode = AllfitV1Schemas['AssignableOrganiza
 export type OrganizationSubscriptionPage = AllfitV1Schemas['OrganizationSubscriptionPage']
 export type OrganizationSubscription = AllfitV1Schemas['OrganizationSubscription']
 export type SubscriptionStatus = AllfitV1Schemas['SubscriptionStatus']
+export type OrganizationPlan = AllfitV1Schemas['StudioOrganizationPlan']
+export type OrganizationPlanPage = AllfitV1Schemas['StudioOrganizationPlanPage']
+export type PlanVersion = AllfitV1Schemas['StudioPlanVersion']
+export type PlanVersionPublish = AllfitV1Schemas['StudioPlanVersionPublish']
+export type PlanDeliveryMode = AllfitV1Schemas['PlanDeliveryMode']
 export type SubscriptionTransition = AllfitV1Schemas['SubscriptionTransition']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
@@ -803,6 +808,95 @@ export const studioApi = {
       },
     )
   },
+
+  /**
+   * OP-PAY-006. Every plan the organization sells, drafts included, published
+   * first and then by name. The whole team reads it: a price is nobody's
+   * personal data.
+   */
+  organizationPlans: (
+    organizationId: string,
+    limit: number,
+    signal?: AbortSignal,
+    cursor?: string,
+  ) => {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return request<OrganizationPlanPage>(
+      `/studio/v1/organizations/${organizationId}/plans?${query.toString()}`,
+      { cache: 'no-store', ...(signal ? { signal } : {}) },
+    )
+  },
+
+  /** OP-PAY-002. A plan with a name and no price; owner and admin only. */
+  createOrganizationPlan: (
+    organizationId: string,
+    body: { name: string },
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(`/studio/v1/organizations/${organizationId}/plans`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /** OP-PAY-003. A draft and a plan on sale are renamed alike; the last write wins. */
+  renameOrganizationPlan: (
+    organizationId: string,
+    planId: string,
+    body: { name: string },
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(`/studio/v1/organizations/${organizationId}/plans/${planId}`, {
+      method: 'PATCH',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * OP-PAY-004. Puts a price on sale and retires the previous one in the same command.
+   * The price already on sale answers `200` with the plan unchanged.
+   */
+  publishOrganizationPlanVersion: (
+    organizationId: string,
+    planId: string,
+    body: PlanVersionPublish,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(
+      `/studio/v1/organizations/${organizationId}/plans/${planId}/versions`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * OP-PAY-005. Takes one version off sale, without a body. Nobody subscribed to it is
+   * cancelled, suspended or moved; retiring a version already replaced changes nothing.
+   */
+  deprecateOrganizationPlanVersion: (
+    organizationId: string,
+    planId: string,
+    planVersionId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<OrganizationPlan>(
+      `/studio/v1/organizations/${organizationId}/plans/${planId}/versions/${planVersionId}/deprecation`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
 
   /*
    * The three transitions carry no body: the subscription is in the path and there is

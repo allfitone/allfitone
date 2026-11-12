@@ -121,5 +121,12 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/billing`) {
     return { title: 'Cobros' }
   }
+  if (pathname === `${basePath}/billing/plans/new`) {
+    return { title: 'Nuevo plan' }
+  }
+  // `new` is matched above, so it never reaches this as a plan id.
+  if (/^\/organizations\/[^/]+\/billing\/plans\/[^/]+$/.test(pathname)) {
+    return { title: 'Plan' }
+  }
   return { title: 'Studio' }
 }

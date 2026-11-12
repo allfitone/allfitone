@@ -78,6 +78,18 @@ describe('organization workspace navigation', () => {
     ).toEqual({ title: 'Movimiento' })
   })
 
+  test('resolves the new plan title, and a plan’s, without taking `new` for an id', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/billing/plans/new`, organizationId)).toEqual({
+      title: 'Nuevo plan',
+    })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/billing/plans/01991600-e000-7000-8000-000000000001`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Plan' })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',

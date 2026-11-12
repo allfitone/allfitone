@@ -24,6 +24,7 @@ import {
   type OrganizationMembershipPage,
   type OrganizationMembershipStatus,
   type OrganizationSubscription,
+  type OrganizationPlanPage,
   type OrganizationSubscriptionPage,
   type SubscriptionStatus,
   type ProgramPage,
@@ -140,6 +141,10 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions'] as const,
   organizationSubscriptions: (organizationId: string, status: SubscriptionFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions', { status, limit }] as const,
+  organizationPlansRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'plans'] as const,
+  organizationPlans: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'plans', { limit }] as const,
   clientCard: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
   clientTrainingProfile: (organizationId: string, personId: string) =>
@@ -900,6 +905,22 @@ export function organizationSubscriptionsQueryOptions(
         },
         signal,
       ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the plans. A gym sells a handful, so the screen reads them all
+ * rather than paging what nobody scrolls through; a plan page reads the same
+ * list to find its plan, since there is no read of one plan on its own.
+ */
+export function organizationPlansQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationPlans(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<OrganizationPlanPage> =>
+      studioApi.organizationPlans(organizationId, limit, signal, pageParam ?? undefined),
     initialPageParam: null as string | null,
     getNextPageParam: nextPageCursor,
     staleTime: STUDIO_TEAM_STALE_TIME_MS,

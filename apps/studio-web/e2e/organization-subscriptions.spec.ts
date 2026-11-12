@@ -161,6 +161,8 @@ test('filtering by state asks the server for that state', async ({ page }) => {
 /*
  * A coach with that client assigned reads the same answer as a stranger. The payment state
  * of a person is not a training fact, and the screen says why rather than only refusing.
+ * The page itself is no longer closed: its plans are the whole team's (HU-STUDIO-077), so
+ * what this role is refused is the subscriptions tab, and that is what is asserted.
  */
 test('a role without manage_billing is told why, and asks for nothing', async ({ page }) => {
   const fixture = createStudioApiFixture({
@@ -170,7 +172,8 @@ test('a role without manage_billing is told why, and asks for nothing', async ({
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await expect(page.getByText('No tienes acceso a los cobros')).toBeVisible()
+  await expect(page.getByText('Las suscripciones no son de tu rol')).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Suscripciones' })).toHaveCount(0)
   await expect(page.locator('[data-billing-page]')).toContainText('no es un dato de entrenamiento')
   expect(
     fixture.requests.filter(
