@@ -64,6 +64,14 @@ export interface StudioApiFixture {
    * refuses rather than answering zeros.
    */
   clientProgress: unknown
+  /**
+   * The programs this relationship gave her, newest first. An empty array is
+   * the page `OP-PLN-018` answers when nothing was assigned; `null` is its
+   * `403` `scope-required`, which is a refusal recorded and not an empty page.
+   */
+  relationshipAssignments: unknown[] | null
+  /** `stale` answers `422` to any request carrying a cursor, as a moved list does. */
+  assignmentsCursor: 'ok' | 'stale'
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -1290,6 +1298,225 @@ export const emptyClientProgress = {
   movements: [],
 }
 
+/*
+ * The programs this relationship gave her, in the order
+ * `planning.list_relationship_assignments` answers them:
+ * `order by assigned_at desc, id desc`. The screen must not re-sort, so this is
+ * the order it has to draw.
+ *
+ * Three programs, chosen so every branch of the screen has a case: a finite one
+ * still running and adjusted for her, an open-ended one whose calendar has only
+ * grown a week, and one that ended and that the gym no longer manages.
+ */
+const plannedSession = (
+  id: string,
+  title: string,
+  week: string,
+  day: number,
+  on: string,
+  status: string,
+  started = false,
+) => ({
+  id,
+  template_version_id: '019f4900-0000-7000-8000-00000000d001',
+  title,
+  week_starts_on: week,
+  program_day: day,
+  scheduled_on: on,
+  status,
+  started,
+  revision_number: 0,
+})
+
+export const relationshipAssignments = [
+  {
+    id: '019f4900-0000-7000-8000-00000000e001',
+    status: 'active',
+    program_version: {
+      id: '019f4900-0000-7000-8000-00000000f001',
+      program_id: '019f4900-0000-7000-8000-00000000f000',
+      version_number: 3,
+      title: 'Fuerza general · bloque de otoño',
+      repeats_forever: false,
+    },
+    starts_on: '2026-10-05',
+    timezone: 'America/Bogota',
+    assigned_at: '2026-10-02T14:20:00.000Z',
+    management: {
+      relationship_id: '01991600-7000-7000-8000-000000000101',
+      since: '2026-10-02T14:20:00.000Z',
+    },
+    sessions: [
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a001',
+        'Tren inferior',
+        '2026-10-05',
+        1,
+        '2026-10-05',
+        'completed',
+      ),
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a002',
+        'Tren superior',
+        '2026-10-05',
+        3,
+        '2026-10-07',
+        'completed',
+      ),
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a003',
+        'Full body',
+        '2026-10-05',
+        5,
+        '2026-10-09',
+        'cancelled',
+      ),
+      /* Started and not finished: the one session nobody can move any more. */
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a004',
+        'Tren inferior',
+        '2026-10-12',
+        1,
+        '2026-10-12',
+        'scheduled',
+        true,
+      ),
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a005',
+        'Tren superior',
+        '2026-10-12',
+        3,
+        '2026-10-14',
+        'scheduled',
+      ),
+      /*
+       * 156 characters, where `ck_session_template_versions_title` caps the
+       * column at 160: a coach can type this, so the register has to draw it.
+       * A comfortable title would let the column shares ship untested.
+       */
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a006',
+        'Movilidad de cadera y columna torácica con bandas, más core antiextensión y respiración diafragmática, para cerrar la semana sin cargar nada la espalda baja',
+        '2026-10-12',
+        5,
+        '2026-10-16',
+        'paused',
+      ),
+    ],
+    /*
+     * Ordered `planned_step_id, override_kind`, which is what the function
+     * writes — never by date. The most recent one is deliberately in the
+     * middle, so a screen that took the last element would name the wrong day.
+     */
+    adjustments: [
+      {
+        id: '019f4900-0000-7000-8000-00000000b001',
+        assignment_id: '019f4900-0000-7000-8000-00000000e001',
+        planned_step_id: '019f4900-0000-7000-8000-00000000c001',
+        kind: 'target_load',
+        value: 42.5,
+        unit_code: 'kg',
+        revised_at: '2026-10-08T16:00:00.000Z',
+      },
+      {
+        id: '019f4900-0000-7000-8000-00000000b002',
+        assignment_id: '019f4900-0000-7000-8000-00000000e001',
+        planned_step_id: '019f4900-0000-7000-8000-00000000c002',
+        kind: 'target_reps',
+        value: 8,
+        unit_code: null,
+        revised_at: '2026-10-19T11:30:00.000Z',
+      },
+      {
+        id: '019f4900-0000-7000-8000-00000000b003',
+        assignment_id: '019f4900-0000-7000-8000-00000000e001',
+        planned_step_id: '019f4900-0000-7000-8000-00000000c003',
+        kind: 'target_rpe',
+        value: 7,
+        unit_code: null,
+        revised_at: '2026-10-11T09:15:00.000Z',
+      },
+    ],
+  },
+  {
+    id: '019f4900-0000-7000-8000-00000000e002',
+    status: 'active',
+    program_version: {
+      id: '019f4900-0000-7000-8000-00000000f002',
+      program_id: '019f4900-0000-7000-8000-00000000f003',
+      version_number: 1,
+      title: 'Movilidad diaria',
+      repeats_forever: true,
+    },
+    starts_on: '2026-09-14',
+    timezone: 'America/Bogota',
+    assigned_at: '2026-09-13T10:00:00.000Z',
+    management: {
+      relationship_id: '01991600-7000-7000-8000-000000000101',
+      since: '2026-09-13T10:00:00.000Z',
+    },
+    /* One week planted, because that is all an open-ended version plants. */
+    sessions: [
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a011',
+        'Cadera y tobillo',
+        '2026-09-14',
+        1,
+        '2026-09-14',
+        'completed',
+      ),
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a012',
+        'Columna torácica',
+        '2026-09-14',
+        4,
+        '2026-09-17',
+        'scheduled',
+      ),
+    ],
+    adjustments: [],
+  },
+  {
+    id: '019f4900-0000-7000-8000-00000000e003',
+    status: 'ended',
+    program_version: {
+      id: '019f4900-0000-7000-8000-00000000f004',
+      program_id: '019f4900-0000-7000-8000-00000000f005',
+      version_number: 2,
+      title: 'Iniciación en sala',
+      repeats_forever: false,
+    },
+    starts_on: '2026-06-01',
+    timezone: 'America/Bogota',
+    assigned_at: '2026-05-28T13:45:00.000Z',
+    /* Nobody manages it any more: the plan is hers, and that is not the same
+       thing as the program having ended. */
+    management: null,
+    sessions: [
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a021',
+        'Máquinas guiadas',
+        '2026-06-01',
+        2,
+        '2026-06-02',
+        'completed',
+      ),
+      plannedSession(
+        '019f4900-0000-7000-8000-00000000a022',
+        'Peso libre',
+        '2026-06-01',
+        4,
+        '2026-06-04',
+        'completed',
+      ),
+    ],
+    adjustments: [],
+  },
+]
+
+/** Nothing assigned yet: an empty page, which is not a refusal. */
+export const noRelationshipAssignments: unknown[] = []
+
 /** An older version of the same permission: fewer fields, same person. */
 export const narrowTrainingProfile = {
   applied_scope: { code: 'relationship_training', version: 1 },
@@ -1832,6 +2059,8 @@ export function createStudioApiFixture(
     clientExecutions: structuredClone(clientExecutions),
     executionsCursor: 'ok',
     clientProgress: structuredClone(clientProgress),
+    relationshipAssignments: structuredClone(relationshipAssignments),
+    assignmentsCursor: 'ok',
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -3346,6 +3575,48 @@ function defaultResponse(
     // the gym has that person as a client.
     if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
     return { status: 200, body: fixture.clientCard }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/relationships\/[^/]+\/assignments$/.test(request.path)
+  ) {
+    // Nothing shared is the `403` that names the category, not an empty page:
+    // the route refuses before reading, and records the attempt.
+    if (fixture.relationshipAssignments === null) {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'read' },
+        },
+      }
+    }
+    const search = new URLSearchParams(request.search ?? '')
+    const cursor = search.get('cursor')
+    if (cursor && fixture.assignmentsCursor === 'stale') {
+      return { status: 422, body: error('invalid-cursor') }
+    }
+    /*
+     * Paged for real rather than handed over whole, for the same reason as the
+     * sessions: «Ver más» is the only way to a second page, and a fixture that
+     * answered everything at once would let it ship without ever being pressed.
+     */
+    const limit = Math.min(Math.max(Number(search.get('limit') ?? '25'), 1), 100)
+    const from = cursor ? Number(cursor.split('-').at(-1)) : 0
+    const slice = fixture.relationshipAssignments.slice(from, from + limit)
+    const hasMore = from + limit < fixture.relationshipAssignments.length
+    return {
+      status: 200,
+      body: {
+        data: slice,
+        page: {
+          next_cursor: hasMore ? `assignment-offset-${String(from + limit)}` : null,
+          has_more: hasMore,
+        },
+      },
+    }
   }
   if (
     request.method === 'GET' &&

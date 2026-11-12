@@ -251,7 +251,8 @@
 [data-client-card-screen],
 [data-client-profile-screen],
 [data-client-executions-screen],
-[data-client-progress-screen] {
+[data-client-progress-screen],
+[data-client-programs-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -432,6 +433,39 @@
   width: 28%;
 }
 
+/* Measured at the narrowest the table ever draws, its own 44rem floor: the day
+   asks for 105px, and the state for 149px — the widest badge, "Programada" at
+   117px, over the 71px of "Ya la empezó", plus 32px of cell padding. The note
+   sits under the badge rather than beside it, which is what keeps that column
+   at 149 instead of the 228 the two would take in a row; only a started session
+   carries it, so at most one row in the calendar is two lines tall.
+
+   The slack goes to the title, the only value whose length nobody chose. */
+[data-studio-register='client-program-sessions'] col:nth-child(1) {
+  width: 16%;
+}
+
+[data-studio-register='client-program-sessions'] col:nth-child(2) {
+  width: 61%;
+}
+
+[data-studio-register='client-program-sessions'] col:nth-child(3) {
+  width: 23%;
+}
+
+/* A title somebody typed at any length takes a second line rather than the
+   next column. The cell inherits `nowrap` from the Design System, which is
+   right for a date and wrong here — and `overflow-wrap` because a 160-character
+   title can hold a word with nowhere the browser would break it.
+
+   It stays inline. As an `inline-block` it still wraps, but it generates one
+   box, so `getClientRects()` reports a single line however many it draws and
+   the test that watches this column goes blind. */
+[data-studio-register='client-program-sessions'] [data-client-program-session-title] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------------- grids */
 
 [data-studio-choice-grid] {
@@ -593,7 +627,8 @@
 [data-version-details] dt,
 [data-client-profile-group-name],
 [data-client-execution-facts] dt,
-[data-client-progress-facts] dt {
+[data-client-progress-facts] dt,
+[data-client-program-facts] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -620,7 +655,8 @@
 [data-relationship-facts],
 [data-client-card-facts],
 [data-client-execution-facts],
-[data-client-progress-facts] {
+[data-client-progress-facts],
+[data-client-program-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -1472,7 +1508,8 @@
 [data-client-card-header-placeholder],
 [data-client-profile-header-placeholder],
 [data-client-executions-header-placeholder],
-[data-client-progress-header-placeholder] {
+[data-client-progress-header-placeholder],
+[data-client-programs-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
@@ -1482,7 +1519,8 @@
 [data-client-card-panel-placeholder],
 [data-client-profile-panel-placeholder],
 [data-client-executions-panel-placeholder],
-[data-client-progress-panel-placeholder] {
+[data-client-progress-panel-placeholder],
+[data-client-programs-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1692,6 +1730,113 @@
    notice did not, so the warning sat flush against the last session. */
 [data-client-executions-more],
 [data-client-executions-stale-cursor] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* One program per card, because a program is a whole object — its identity, how
+   it stands, and a calendar of its own. This is the one list on the client's
+   screens where a card per item is right rather than extravagant: the sessions
+   inside it are already a list, and hairlines between them would leave no way
+   to read where one program ends and the next begins. */
+[data-client-programs-list] {
+  display: grid;
+  gap: var(--afo-space-5);
+  min-width: 0;
+}
+
+/* A grid item never shrinks below its own content unless it is told to, and
+   the content here is a register that declares `min-width: 44rem`. Without
+   these the track grew to the table's demand, the list grew with it and the
+   whole screen — page header included — sat 372px wider than a phone, with the
+   register never finding out it did not fit. Every step from the item down to
+   the element the hook measures has to be allowed to be narrow. */
+[data-client-programs-list] > li,
+[data-client-program],
+[data-client-program-calendar] {
+  min-width: 0;
+}
+
+/* The title leads and the state sits beside it, wrapping under it where there
+   is no room rather than squeezing the title. */
+[data-client-program-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-program-title] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The calendar stands off the facts above it. Same air the card's doors take
+   from the facts they follow. */
+[data-client-program-calendar],
+[data-client-program-no-sessions] {
+  margin-block-start: var(--afo-space-4);
+}
+
+[data-client-program-no-sessions] {
+  margin-block-end: 0;
+  color: var(--afo-color-text-muted);
+}
+
+/* A session **as a card**, for the widths where three columns do not fit.
+   Scoped to the card list on purpose: the same attribute is on the table row,
+   so one selector serves both presentations in a test — and unscoped, this
+   `display: grid` would land on a `<tr>` and stack every cell onto its own
+   line. The progress screen learned this first. */
+[data-client-program-session-cards] {
+  display: grid;
+  gap: var(--afo-space-3);
+}
+
+[data-client-program-session-cards] [data-client-program-session] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-program-session-cards] > li:first-child [data-client-program-session] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-program-session-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-program-session-cards] [data-client-program-session-title] {
+  margin: 0;
+}
+
+/* The badge and the note read as one value, and the note drops under the badge
+   rather than widening the column that holds them. */
+[data-client-program-session-state] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-2);
+  min-width: 0;
+}
+
+[data-client-program-session-started] {
+  font-size: var(--afo-font-size-xs);
+  color: var(--afo-color-text-muted);
+}
+
+/* Whatever follows the list stands off it, pager and notice alike. */
+[data-client-programs-more],
+[data-client-programs-stale-cursor] {
   margin-block-start: var(--afo-space-4);
 }
 

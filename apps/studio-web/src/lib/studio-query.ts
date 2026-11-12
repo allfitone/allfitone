@@ -11,6 +11,8 @@ import {
   type AuthorizedExecutionPage,
   type AuthorizedExecutionSummary,
   type ProgressPeriod,
+  type RelationshipAssignment,
+  type RelationshipAssignmentPage,
   type CatalogActivityTypeList,
   type CatalogDisciplineList,
   type OrganizationMovement,
@@ -166,6 +168,16 @@ export const studioQueryKeys = {
     ] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
+  relationshipAssignments: (organizationId: string, relationshipId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'relationship',
+      relationshipId,
+      'assignments',
+      { limit },
+    ] as const,
   relationshipHistory: (organizationId: string, relationshipId: string, limit: number) =>
     [
       ...ROOT_KEY,
@@ -412,6 +424,52 @@ export function clientExecutionsQueryOptions(
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
+}
+
+/**
+ * Her programs from this relationship, paged. Uncached and never refetched on
+ * its own, like every read of her data: each answer is an access recorded in
+ * the same transaction and shown to her, so the window regaining focus must not
+ * write her one nobody asked for.
+ */
+export function relationshipAssignmentsQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.relationshipAssignments(organizationId, relationshipId, limit),
+    queryFn: ({ pageParam, signal }) =>
+      studioApi.relationshipAssignments(
+        organizationId,
+        relationshipId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/** Newest first, as the operation ordered them, and an assignment only once. */
+export function flattenAssignmentPages(
+  data: InfiniteData<RelationshipAssignmentPage, unknown> | undefined,
+): RelationshipAssignment[] {
+  if (!data) return []
+  const assignments: RelationshipAssignment[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const assignment of page.data) {
+      if (seen.has(assignment.id)) continue
+      seen.add(assignment.id)
+      assignments.push(assignment)
+    }
+  }
+  return assignments
 }
 
 /**
