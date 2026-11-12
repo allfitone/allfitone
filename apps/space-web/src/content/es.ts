@@ -220,7 +220,7 @@ export const es = {
         },
         {
           term: 'Si vuelves al plan gratuito',
-          value: 'No se borra nada. Conservas todo tu historial y lo sigues viendo.',
+          value: 'No se borra nada. Conservas todas tus sesiones y las sigues viendo.',
         },
       ],
     },

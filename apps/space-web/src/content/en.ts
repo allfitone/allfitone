@@ -209,7 +209,7 @@ export const en: Dictionary = {
         },
         {
           term: 'If you go back to the free plan',
-          value: 'Nothing is deleted. You keep your whole history and can still see it.',
+          value: 'Nothing is deleted. You keep all your sessions and can still see them.',
         },
       ],
     },
