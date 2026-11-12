@@ -66,10 +66,11 @@ export interface ExecutionWhen {
 }
 
 /**
- * The contract's `IanaTimeZone` generates as `string | 'UTC' | unknown` — an
- * `anyOf` of a const and a pattern collapses to `unknown` — so the type
- * protects nothing and the value is narrowed here instead. The fix belongs in
- * the OpenAPI, not in a cast, so this narrowing is the stopgap and not the cure.
+ * `unknown` on purpose, though the contract now types this `string`: the value
+ * crossed the network, so its declared type is a promise and not a fact. An
+ * empty string or a null reaches `Intl` as «the reader's zone», which moves the
+ * session to a different hour instead of failing — and a wrong hour is the one
+ * thing this screen exists to get right.
  */
 function zoneOf(timezone: unknown): string | null {
   return typeof timezone === 'string' && timezone.length > 0 ? timezone : null

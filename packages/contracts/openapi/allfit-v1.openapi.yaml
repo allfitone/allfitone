@@ -24235,12 +24235,14 @@ components:
       format: uuid
       pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
     IanaTimeZone:
+      # One pattern rather than an `anyOf` of a const and a pattern. The two
+      # accept exactly the same strings, but the `anyOf` generated as
+      # `string | 'UTC' | unknown`, which TypeScript collapses to `unknown` —
+      # so every consumer had to narrow a value the contract already described.
       type: string
       minLength: 3
       maxLength: 100
-      anyOf:
-        - const: UTC
-        - pattern: '^[A-Za-z_]+(?:/[A-Za-z0-9_+\-]+)+$'
+      pattern: '^(?:UTC|[A-Za-z_]+(?:/[A-Za-z0-9_+\-]+)+)$'
     CompletenessLevel:
       type: string
       enum: [partial, summary, detailed, sensor_enriched]
