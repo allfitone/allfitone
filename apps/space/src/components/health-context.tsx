@@ -4,6 +4,13 @@
  * area (`PF-E19c`), the day (`PF-E19e`) and one claim with its deletion (`PF-E20`,
  * `PF-E20b`).
  *
+ * **Drawn as the designs, built from the design system.** The list is a `ContentGroup`
+ * of `ContentRow`s with a glyph and a tag; the three types are option cards
+ * (`SelectableTile` with an icon and a caption); the area and the end are field
+ * `DisclosureButton`s; «Desde cuándo» is a row of compact `Chip`s; deleting starts at a
+ * `quietDanger` button. Where the design system did not draw what the designs ask, it
+ * grew the variant; nothing here is drawn by hand.
+ *
  * **A screen each, like the rest of the profile.** The form stays mounted while the area
  * and the day are chosen on their own screens, which hand the choice back through
  * `chooseArea` and `chooseDay`; a route parameter cannot return a value.
@@ -11,26 +18,34 @@
  * **Correcting changes the claim and keeps no versions** (ADR-052). The form starts from
  * the claim as it stands, and the detail reads it again whenever it shows.
  *
- * **Only a recovery has an end.** The form offers «Sé cuándo termina» for a recovery
- * alone; nobody knows when a pain will stop.
+ * **Only a recovery has an end.** «Sé cuándo termina» is offered for a recovery alone,
+ * and it is a `Switch`: turning it on shows the field for the end date at once.
  *
  * There is no read of one claim, so the detail and the correction find theirs in the list:
  * a person keeps a handful, and the list is already what she just saw.
  */
 
+import { type BadgeTone } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
+import { Chip } from '@allfitone/react-native/chip'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
+import { DisclosureButton } from '@allfitone/react-native/disclosure-button'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { RecordCard } from '@allfitone/react-native/record-card'
 import { Screen } from '@allfitone/react-native/screen'
+import { SelectableRow } from '@allfitone/react-native/selectable-row'
+import { SelectableTile } from '@allfitone/react-native/selectable-tile'
 import { Sheet } from '@allfitone/react-native/sheet'
+import { Switch } from '@allfitone/react-native/switch'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
 import { WheelPicker } from '@allfitone/react-native/wheel-picker'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState, type ReactNode } from 'react'
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   addDays,
@@ -43,12 +58,12 @@ import {
   claimCaption,
   claimInput,
   claimTitle,
+  dayLine,
   daysBetween,
   deletionNote,
   draftOf,
   EMPTY_DRAFT,
   fullDayLine,
-  dayLine,
   HEALTH_TYPES,
   healthSections,
   MAX_DESCRIPTION,
@@ -67,6 +82,7 @@ import {
   type HealthDraft,
   type HealthPage,
   type HealthType,
+  type SinceChoice,
 } from '../client/health-context'
 import {
   correctHealthContext,
@@ -100,6 +116,13 @@ const TYPE_ICON: Record<HealthType, IconName> = {
   pain: 'burn',
   limitation: 'error',
   recovery: 'recovery',
+}
+
+/** Each kind keeps one colour, on its glyph and on its tag, as the designs draw it. */
+const TYPE_TONE: Record<HealthType, BadgeTone> = {
+  pain: 'warning',
+  limitation: 'sport',
+  recovery: 'success',
 }
 
 function useClaims(sources: HealthSources) {
@@ -150,42 +173,19 @@ export function HealthListScreen({ sources }: { readonly sources: HealthSources 
         />
       </View>
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        <View
-          style={[
-            styles.protection,
-            {
-              borderColor: theme.color.status.danger,
-              backgroundColor: `${theme.color.status.danger}14`,
-            },
-          ]}
-        >
-          <View style={styles.inline}>
-            <FoundationIcon name="locked" size="xs" color={theme.color.status.danger} decorative />
-            <Text role="control" size="sm" color="danger">
-              Lo más protegido de tu perfil
-            </Text>
-          </View>
-          <Text role="body" size="xs" color="secondary">
-            Solo lo ve quien tenga el permiso de salud. No es historia clínica: no pedimos
-            diagnósticos ni documentos.
-          </Text>
-        </View>
+        <InlineAlert
+          tone="danger"
+          icon="locked"
+          title="Lo más protegido de tu perfil"
+          message="Solo lo ve quien tenga el permiso de salud. No es historia clínica: no pedimos diagnósticos ni documentos."
+        />
 
         {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
 
         {sections && claims?.length === 0 ? (
           <View style={[styles.empty, { borderColor: theme.color.border.subtle }]}>
-            <View
-              style={[styles.emptyIcon, { backgroundColor: theme.color.background.surfaceSubtle }]}
-            >
-              <FoundationIcon
-                name="heart"
-                size="md"
-                color={theme.color.icon.secondary}
-                decorative
-              />
-            </View>
-            <Text role="control" size="lg">
+            <FoundationIcon name="heart" size="md" color={theme.color.icon.secondary} decorative />
+            <Text role="control" size="md">
               Nada por ahora
             </Text>
             <Text role="body" size="sm" color="secondary" align="center">
@@ -200,7 +200,7 @@ export function HealthListScreen({ sources }: { readonly sources: HealthSources 
           <>
             <ClaimSection title="Activo" claims={sections.active} now={now} />
             <ClaimSection title="En recuperación" claims={sections.healing} now={now} />
-            <ClaimSection title="Ya terminó" claims={sections.ended} now={now} dimmed />
+            <ClaimSection title="Ya terminó" claims={sections.ended} now={now} ended />
           </>
         ) : null}
       </ScrollView>
@@ -212,79 +212,35 @@ function ClaimSection({
   title,
   claims,
   now,
-  dimmed,
+  ended,
 }: {
   readonly title: string
   readonly claims: readonly HealthClaim[]
   readonly now: Date
-  readonly dimmed?: boolean
+  readonly ended?: boolean
 }) {
-  const theme = useTheme()
   const router = useRouter()
   if (claims.length === 0) return null
   return (
     <View style={styles.section}>
-      <Text role="body" size="sm" color="secondary">
+      <Text role="control" size="xs" color="secondary">
         {title}
       </Text>
-      <View
-        style={[
-          styles.panel,
-          {
-            backgroundColor: theme.color.background.surface,
-            borderColor: theme.color.border.subtle,
-          },
-          dimmed && styles.dimmed,
-        ]}
-      >
-        {claims.map((claim, index) => (
-          <View key={claim.id}>
-            {index > 0 ? (
-              <View style={[styles.rule, { backgroundColor: theme.color.border.subtle }]} />
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`${claimTitle(claim)}, ${typeLabel(claim.context_type)}. ${claimCaption(claim, now)}`}
-              onPress={() => router.push(`/me/health/${claim.id}`)}
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-            >
-              <View
-                style={[styles.glyph, { backgroundColor: theme.color.background.surfaceMuted }]}
-              >
-                <FoundationIcon
-                  name={dimmed ? 'success' : TYPE_ICON[claim.context_type]}
-                  size="sm"
-                  color={theme.color.icon.accent}
-                  decorative
-                />
-              </View>
-              <View style={styles.grow}>
-                <View style={styles.inline}>
-                  <Text role="control" size="md">
-                    {claimTitle(claim)}
-                  </Text>
-                  {dimmed || !claim.body_area ? null : <TypeTag type={claim.context_type} />}
-                </View>
-                <Text role="body" size="xs" color="muted" numberOfLines={1}>
-                  {claimCaption(claim, now)}
-                </Text>
-              </View>
-              <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-            </Pressable>
-          </View>
+      <ContentGroup style={ended ? styles.ended : undefined}>
+        {claims.map((claim) => (
+          <ContentRow
+            key={claim.id}
+            name={claimTitle(claim)}
+            caption={claimCaption(claim, now)}
+            icon={ended ? 'success' : TYPE_ICON[claim.context_type]}
+            iconTone={ended ? 'neutral' : TYPE_TONE[claim.context_type]}
+            tagTone={TYPE_TONE[claim.context_type]}
+            {...(ended || !claim.body_area ? {} : { tag: typeLabel(claim.context_type) })}
+            tone="plain"
+            onPress={() => router.push(`/me/health/${claim.id}`)}
+          />
         ))}
-      </View>
-    </View>
-  )
-}
-
-function TypeTag({ type }: { readonly type: HealthType }) {
-  const theme = useTheme()
-  return (
-    <View style={[styles.tag, { borderColor: theme.color.accent.tonalBorder }]}>
-      <Text role="control" size="2xs" color="accent">
-        {typeLabel(type)}
-      </Text>
+      </ContentGroup>
     </View>
   )
 }
@@ -299,7 +255,6 @@ export function HealthFormScreen({
   readonly claimId?: string
 }) {
   const router = useRouter()
-  const theme = useTheme()
   const [draft, setDraft] = useState<HealthDraft | undefined>(claimId ? undefined : EMPTY_DRAFT)
   const [knowsEnd, setKnowsEnd] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -364,10 +319,19 @@ export function HealthFormScreen({
     }
   }
 
-  const sinceLabel = (choice: (typeof SINCE_CHOICES)[number]) =>
-    choice.choice === 'other' && shown.since === 'other' && shown.sinceDay
-      ? dayLine(shown.sinceDay, now)
-      : choice.label
+  const pickSince = (choice: SinceChoice) => {
+    if (choice !== 'other') {
+      update({ since: choice, sinceDay: null })
+      return
+    }
+    router.push({
+      pathname: '/me/health/date',
+      params: {
+        kind: 'since',
+        offset: String(daysBetween(now, shown.sinceDay ?? startOfDay(now))),
+      },
+    })
+  }
 
   return (
     <EditScreen
@@ -383,94 +347,37 @@ export function HealthFormScreen({
       canSave={draft !== undefined && canSaveDraft(effective, now)}
       onSave={() => void save()}
     >
-      <Field label="QUÉ ES">
-        <View style={styles.types}>
-          {HEALTH_TYPES.map(({ type, label, caption }) => {
-            const on = shown.type === type
-            return (
-              <Pressable
-                key={type}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: on }}
-                accessibilityLabel={`${label}: ${caption}`}
-                onPress={() => update({ type })}
-                style={[
-                  styles.typeCard,
-                  {
-                    borderColor: on ? theme.color.border.accent : theme.color.border.subtle,
-                    backgroundColor: on
-                      ? theme.color.accent.tonal
-                      : theme.color.background.surfaceSubtle,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.typeIcon,
-                    {
-                      backgroundColor: on
-                        ? theme.color.icon.accent
-                        : theme.color.background.surface,
-                    },
-                  ]}
-                >
-                  <FoundationIcon
-                    name={TYPE_ICON[type]}
-                    size="sm"
-                    color={on ? theme.color.accent.onAccent : theme.color.icon.secondary}
-                    decorative
-                  />
-                </View>
-                <Text
-                  role="control"
-                  size="xs"
-                  color={on ? 'accent' : 'primary'}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {label}
-                </Text>
-                <Text role="body" size="2xs" color="muted">
-                  {caption}
-                </Text>
-              </Pressable>
-            )
-          })}
+      <Field label="Qué es">
+        <View style={styles.row}>
+          {HEALTH_TYPES.map(({ type, label, caption }) => (
+            <SelectableTile
+              key={type}
+              name={label}
+              caption={caption}
+              icon={TYPE_ICON[type]}
+              choice="single"
+              selected={shown.type === type}
+              onPress={() => update({ type })}
+            />
+          ))}
         </View>
       </Field>
 
-      <Field label="ZONA" optional="· si aplica">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Zona: ${shown.area ? AREA_LABEL[shown.area] : 'ninguna'}. Cambiar`}
+      <Field label="Zona" hint="· si aplica">
+        <DisclosureButton
+          variant="field"
+          label="Zona"
+          value={shown.area ? AREA_LABEL[shown.area] : 'Ninguna en particular'}
+          icon="person"
+          active={shown.area !== null}
+          actionLabel="Cambiar"
           onPress={() =>
             router.push({ pathname: '/me/health/zone', params: { current: shown.area ?? '' } })
           }
-          style={[
-            styles.pick,
-            {
-              borderColor: theme.color.border.subtle,
-              backgroundColor: theme.color.background.surfaceSubtle,
-            },
-          ]}
-        >
-          <FoundationIcon name="person" size="sm" color={theme.color.icon.accent} decorative />
-          <Text
-            role="control"
-            size="md"
-            style={styles.grow}
-            color={shown.area ? 'primary' : 'muted'}
-          >
-            {shown.area ? AREA_LABEL[shown.area] : 'Ninguna en particular'}
-          </Text>
-          <Text role="control" size="xs" color="accent">
-            Cambiar
-          </Text>
-          <FoundationIcon name="next" size="xs" color={theme.color.icon.secondary} decorative />
-        </Pressable>
+        />
       </Field>
 
-      <Field label="CON TUS PALABRAS">
+      <Field label="Con tus palabras">
         <TextField
           label="Con tus palabras"
           hideLabel
@@ -485,26 +392,20 @@ export function HealthFormScreen({
         </Text>
       </Field>
 
-      <Field label="DESDE CUÁNDO">
-        <View style={styles.chips}>
-          {SINCE_CHOICES.map((choice) => (
-            <SinceChip
-              key={choice.choice}
-              label={sinceLabel(choice)}
-              selected={shown.since === choice.choice}
-              onPress={() => {
-                if (choice.choice !== 'other') {
-                  update({ since: choice.choice, sinceDay: null })
-                  return
-                }
-                router.push({
-                  pathname: '/me/health/date',
-                  params: {
-                    kind: 'since',
-                    offset: String(daysBetween(now, shown.sinceDay ?? startOfDay(now))),
-                  },
-                })
-              }}
+      <Field label="Desde cuándo">
+        <View style={styles.row}>
+          {SINCE_CHOICES.map(({ choice, label }) => (
+            <Chip
+              key={choice}
+              size="sm"
+              grow
+              label={
+                choice === 'other' && shown.since === 'other' && shown.sinceDay
+                  ? dayLine(shown.sinceDay, now)
+                  : label
+              }
+              selected={shown.since === choice}
+              onPress={() => pickSince(choice)}
             />
           ))}
         </View>
@@ -512,21 +413,15 @@ export function HealthFormScreen({
 
       {asksForEnd(shown) ? (
         <>
-          <View style={styles.switchRow}>
-            <Text role="control" size="md" style={styles.grow}>
-              Sé cuándo termina
-            </Text>
-            <Switch
-              value={knowsEnd}
-              onValueChange={setKnowsEnd}
-              accessibilityLabel="Sé cuándo termina"
-              trackColor={{ false: theme.color.background.surface, true: theme.color.icon.accent }}
-            />
-          </View>
+          <Switch label="Sé cuándo termina" value={knowsEnd} onChange={setKnowsEnd} />
           {knowsEnd ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Hasta: ${shown.until ? fullDayLine(shown.until) : 'sin elegir'}. Cambiar`}
+            <DisclosureButton
+              variant="field"
+              label="Hasta"
+              value={shown.until ? `Hasta el ${fullDayLine(shown.until)}` : 'Elige hasta cuándo'}
+              icon="calendar"
+              active={shown.until !== null}
+              actionLabel="Cambiar"
               onPress={() =>
                 router.push({
                   pathname: '/me/health/date',
@@ -536,34 +431,7 @@ export function HealthFormScreen({
                   },
                 })
               }
-              style={[
-                styles.pick,
-                {
-                  borderColor: theme.color.border.subtle,
-                  backgroundColor: theme.color.background.surfaceSubtle,
-                },
-              ]}
-            >
-              <FoundationIcon
-                name="calendar"
-                size="sm"
-                color={theme.color.icon.accent}
-                decorative
-              />
-              <Text role="body" size="sm" color="secondary">
-                Hasta
-              </Text>
-              <Text
-                role="control"
-                size="md"
-                align="right"
-                style={styles.grow}
-                color={shown.until ? 'primary' : 'muted'}
-              >
-                {shown.until ? fullDayLine(shown.until) : 'Elegir'}
-              </Text>
-              <FoundationIcon name="next" size="xs" color={theme.color.icon.secondary} decorative />
-            </Pressable>
+            />
           ) : null}
         </>
       ) : null}
@@ -573,64 +441,25 @@ export function HealthFormScreen({
   )
 }
 
-/** Four to a row, as the design draws them: the DS chip wraps a two-word label. */
-function SinceChip({
-  label,
-  selected,
-  onPress,
-}: {
-  readonly label: string
-  readonly selected: boolean
-  readonly onPress: () => void
-}) {
-  const theme = useTheme()
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={[
-        styles.sinceChip,
-        {
-          borderColor: selected ? theme.color.border.accent : theme.color.border.subtle,
-          backgroundColor: selected
-            ? theme.color.accent.tonal
-            : theme.color.background.surfaceSubtle,
-        },
-      ]}
-    >
-      <Text
-        role="control"
-        size="xs"
-        color={selected ? 'accent' : 'secondary'}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-      >
-        {label}
-      </Text>
-    </Pressable>
-  )
-}
-
+/** The design system's field label, the micro label, over what it names. */
 function Field({
   label,
-  optional,
+  hint,
   children,
 }: {
   readonly label: string
-  readonly optional?: string
+  readonly hint?: string
   readonly children: ReactNode
 }) {
   return (
     <View style={styles.field}>
       <View style={styles.inline}>
-        <Text role="label" size="xs" color="secondary">
+        <Text role="label" size="xs" color="secondary" uppercase>
           {label}
         </Text>
-        {optional ? (
+        {hint ? (
           <Text role="body" size="xs" color="muted">
-            {optional}
+            {hint}
           </Text>
         ) : null}
       </View>
@@ -643,7 +472,6 @@ function Field({
 
 export function HealthAreaScreen({ current }: { readonly current: HealthArea | null }) {
   const router = useRouter()
-  const theme = useTheme()
   const pick = (area: HealthArea | null) => {
     chooseArea(area)
     router.back()
@@ -658,59 +486,22 @@ export function HealthAreaScreen({ current }: { readonly current: HealthArea | n
     >
       {AREA_GROUPS.map((group) => (
         <View key={group.title} style={styles.section}>
-          <Text role="label" size="xs" color="secondary">
-            {group.title.toUpperCase()}
+          <Text role="label" size="xs" color="secondary" uppercase>
+            {group.title}
           </Text>
-          <View
-            style={[
-              styles.panel,
-              {
-                backgroundColor: theme.color.background.surface,
-                borderColor: theme.color.border.subtle,
-              },
-            ]}
-          >
-            {group.areas.map((area, index) => {
-              const on = current === area
-              return (
-                <View key={area}>
-                  {index > 0 ? (
-                    <View style={[styles.rule, { backgroundColor: theme.color.border.subtle }]} />
-                  ) : null}
-                  <Pressable
-                    accessibilityRole="radio"
-                    accessibilityState={{ selected: on }}
-                    onPress={() => pick(area)}
-                    style={({ pressed }) => [styles.areaRow, pressed && styles.pressed]}
-                  >
-                    <Text
-                      role="control"
-                      size="md"
-                      color={on ? 'accent' : 'primary'}
-                      style={styles.grow}
-                    >
-                      {AREA_LABEL[area]}
-                    </Text>
-                    {on ? (
-                      <FoundationIcon
-                        name="check"
-                        size="sm"
-                        color={theme.color.icon.accent}
-                        decorative
-                      />
-                    ) : null}
-                  </Pressable>
-                </View>
-              )
-            })}
+          <View>
+            {group.areas.map((area) => (
+              <SelectableRow
+                key={area}
+                name={AREA_LABEL[area]}
+                selected={current === area}
+                onPress={() => pick(area)}
+              />
+            ))}
           </View>
         </View>
       ))}
-      <Pressable accessibilityRole="button" onPress={() => pick(null)} style={styles.none}>
-        <Text role="control" size="sm" color="accent">
-          Ninguna en particular
-        </Text>
-      </Pressable>
+      <Button label="Ninguna en particular" variant="ghost" onPress={() => pick(null)} />
     </EditScreen>
   )
 }
@@ -777,7 +568,6 @@ export function HealthDetailScreen({
   readonly claimId: string
 }) {
   const router = useRouter()
-  const theme = useTheme()
   const { claims, unreadable } = useClaims(sources)
   const [asking, setAsking] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -808,68 +598,31 @@ export function HealthDetailScreen({
         {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
         {claims && !claim ? <InlineAlert message="Ese registro ya no está." /> : null}
         {claim ? (
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: theme.color.background.surface,
-                borderColor: theme.color.border.subtle,
-              },
+          <RecordCard
+            kind={{ label: typeLabel(claim.context_type), tone: TYPE_TONE[claim.context_type] }}
+            {...(claim.body_area ? { context: AREA_LABEL[claim.body_area] } : {})}
+            body={claim.description}
+            facts={[
+              { label: 'Desde', value: fullDayLine(new Date(claim.valid_from)) },
+              ...(claim.context_type === 'recovery' && claim.valid_to
+                ? [{ label: 'Hasta', value: fullDayLine(new Date(claim.valid_to)) }]
+                : []),
             ]}
-          >
-            <View style={styles.inline}>
-              <TypeTag type={claim.context_type} />
-              {claim.body_area ? (
-                <Text role="control" size="xs" color="secondary">
-                  {AREA_LABEL[claim.body_area]}
-                </Text>
-              ) : null}
-            </View>
-            <Text role="control" size="lg">
-              {claim.description}
-            </Text>
-            <View
-              style={[
-                styles.rule,
-                styles.flushRule,
-                { backgroundColor: theme.color.border.subtle },
-              ]}
-            />
-            <DetailLine label="Desde" value={fullDayLine(new Date(claim.valid_from))} />
-            {claim.context_type === 'recovery' && claim.valid_to ? (
-              <DetailLine label="Hasta" value={fullDayLine(new Date(claim.valid_to))} />
-            ) : null}
-            <View
-              style={[
-                styles.rule,
-                styles.flushRule,
-                { backgroundColor: theme.color.border.subtle },
-              ]}
-            />
-            <View style={[styles.origin, { backgroundColor: theme.color.background.surfaceMuted }]}>
-              <Text role="control" size="xs" color="secondary">
-                {claim.provenance === 'person_declared' ? 'Declarado por ti' : 'Observado'} ·{' '}
-                {dayLine(new Date(claim.recorded_at), now)}
-              </Text>
-            </View>
-          </View>
+            origin={`${claim.provenance === 'person_declared' ? 'Declarado por ti' : 'Observado'} · ${dayLine(new Date(claim.recorded_at), now)}`}
+          />
         ) : null}
-        {note ? <InlineAlert message={note} /> : null}
+        {note ? <InlineAlert message={note} tone="info" /> : null}
         {claim ? <FormNote text={`Corregirlo cambia este registro. ${PRIVACY_NOTE}`} /> : null}
       </ScrollView>
       {claim && claim.provenance === 'person_declared' ? (
         <View style={styles.footer}>
           <Button label="Corregir" onPress={() => router.push(`/me/health/${claimId}/edit`)} />
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            label="Eliminar este registro"
+            icon="remove"
+            variant="quietDanger"
             onPress={() => setAsking(true)}
-            style={({ pressed }) => [styles.remove, pressed && styles.pressed]}
-          >
-            <FoundationIcon name="remove" size="sm" color={theme.color.status.danger} decorative />
-            <Text role="control" size="sm" color="danger">
-              Eliminar este registro
-            </Text>
-          </Pressable>
+          />
         </View>
       ) : null}
 
@@ -892,24 +645,11 @@ export function HealthDetailScreen({
   )
 }
 
-function DetailLine({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <View style={styles.line}>
-      <Text role="body" size="sm" color="secondary" style={styles.grow}>
-        {label}
-      </Text>
-      <Text role="control" size="sm">
-        {value}
-      </Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   grow: { flex: 1 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pressed: { opacity: 0.7 },
-  dimmed: { opacity: 0.6 },
+  row: { flexDirection: 'row', gap: 8 },
+  ended: { opacity: 0.6 },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -918,7 +658,6 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   listContent: { gap: 18, paddingTop: 4, paddingBottom: 32 },
-  protection: { gap: 6, borderWidth: 1, borderRadius: 18, padding: 14 },
   empty: {
     alignItems: 'center',
     gap: 12,
@@ -927,74 +666,10 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     paddingHorizontal: 22,
   },
-  emptyIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   section: { gap: 8 },
-  panel: { borderRadius: 22, borderWidth: 1, overflow: 'hidden' },
-  rule: { height: 1, marginHorizontal: 16 },
-  flushRule: { marginHorizontal: 0 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  glyph: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tag: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   field: { gap: 8 },
-  types: { flexDirection: 'row', gap: 8 },
-  typeCard: { flex: 1, gap: 8, borderWidth: 1.5, borderRadius: 18, padding: 12 },
-  typeIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pick: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  chips: { flexDirection: 'row', gap: 6 },
-  sinceChip: {
-    flex: 1,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-  },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  areaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  none: { alignItems: 'center', paddingVertical: 8 },
   wheel: { gap: 18, paddingTop: 12 },
   detail: { gap: 16, paddingTop: 4, paddingBottom: 32 },
-  card: { gap: 14, borderWidth: 1, borderRadius: 22, padding: 18 },
-  line: { flexDirection: 'row', alignItems: 'center' },
-  origin: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   footer: { gap: 4, paddingTop: 12, paddingBottom: 8 },
-  remove: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    minHeight: 44,
-  },
   sheet: { gap: 12, paddingBottom: 8 },
 })
