@@ -12,6 +12,25 @@ function open(page: import('@playwright/test').Page, organizationId: string) {
   return page.goto(`/organizations/${organizationId}/billing`)
 }
 
+/** One subscription in each state, which is what HU-STUDIO-078 criterion 1 reads. */
+const everyState = [
+  activeSubscription,
+  {
+    ...activeSubscription,
+    subscription_id: '01991600-7000-7000-8000-000000000602',
+    person_name: 'Bruno Bedoya',
+    status: 'suspended',
+    suspended_at: '2026-10-18T09:00:00.000Z',
+  },
+  {
+    ...activeSubscription,
+    subscription_id: '01991600-7000-7000-8000-000000000603',
+    person_name: 'Carla Castro',
+    status: 'ended',
+    ended_at: '2026-10-19T09:00:00.000Z',
+  },
+]
+
 /** The same catalogue with `manage_billing` taken off whatever role the caller holds. */
 function withoutBilling() {
   return organizationRoleCatalog.map((role) =>
@@ -44,6 +63,82 @@ test('an owner reads who pays and what each one pays', async ({ page }) => {
   // Null until the gateway reports a charge, and a dash would read as "today".
   await expect(row).toContainText('Sin cobro reportado')
 })
+
+test('HU-078 c1: who is paying, who is paused and who ended, each said', async ({ page }) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: everyState,
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  const rows = page.locator('[data-billing-row]')
+  await expect(rows.filter({ hasText: 'Ana Álvarez' })).toContainText('Al día')
+  await expect(rows.filter({ hasText: 'Bruno Bedoya' })).toContainText('En pausa')
+  await expect(rows.filter({ hasText: 'Carla Castro' })).toContainText('Terminada')
+  // The plan and what it costs are two facts, so they read as two lines, not one word.
+  await expect(rows.first().locator('[data-billing-amount]')).toHaveCSS('display', 'block')
+})
+
+/*
+ * HU-078 criterion 3, pinned rather than read, as the authorizations register does: the
+ * day somebody adds a useful column carrying a session, a weight or a goal, this fails.
+ */
+test('HU-078 c3: the register carries payment columns and nothing else', async ({ page }) => {
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await expect(page.locator('[data-billing-row]').first()).toBeVisible()
+  // Compared lowercased: the Design System uppercases a header through CSS.
+  const headers = await page.locator('[data-billing-panel] thead th').allInnerTexts()
+  expect(headers.map((header) => header.toLocaleLowerCase('es'))).toEqual([
+    'persona',
+    'plan',
+    'estado',
+    'próximo cobro',
+    'acciones',
+  ])
+})
+
+test('HU-078 c3: on a phone the cards carry the same facts and no other', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await expect(page.locator('[data-billing-card]').first()).toBeVisible()
+  const facts = page.locator('[data-billing-card]').first().locator('dt')
+  const labels = await facts.allInnerTexts()
+  expect(labels.map((label) => label.toLocaleLowerCase('es'))).toEqual([
+    'plan',
+    'estado',
+    'próximo cobro',
+  ])
+})
+
+/*
+ * HU-078 criterion 2 with the two roles it names, rather than a catalogue without the
+ * capability: neither reaches the tab, and the screen never asks for the list.
+ */
+for (const role of ['coach', 'staff']) {
+  test(`HU-078 c2: ${role} never reaches who pays, even by asking`, async ({ page }) => {
+    const fixture = createStudioApiFixture({
+      memberships: [{ ...activeMembership, roles: [role] }],
+    })
+    await installStudioApiMock(page, fixture)
+    await open(page, activeMembership.organization_id)
+
+    await expect(page.getByText('Las suscripciones no son de tu rol')).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Suscripciones' })).toHaveCount(0)
+    await expect(page.locator('[data-billing-row]')).toHaveCount(0)
+    expect(
+      fixture.requests.filter(
+        (request) => request.method === 'GET' && request.path.endsWith('/subscriptions'),
+      ),
+    ).toHaveLength(0)
+  })
+}
 
 test('the screen says Allfit never holds the card', async ({ page }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })

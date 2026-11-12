@@ -3,6 +3,11 @@
 /**
  * Who pays the organization, and the three things it can do about it.
  *
+ * `HU-STUDIO-078`, criterion by criterion: (1) the state column and its filter; (2) the
+ * tab only `manage_billing` sees; (3) no training data, pinned by a test on the columns;
+ * (4) the first payment and why each one was suspended need Mercado Pago, and
+ * `OrganizationSubscription` has no field for either yet.
+ *
  * Two rules worth knowing before editing.
  *
  * **Pausing is not revoking.** The command opens a reversible cause and touches no

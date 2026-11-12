@@ -2040,7 +2040,8 @@
   font-weight: 700;
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) small {
+:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) small,
+[data-billing-amount] {
   display: block;
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-xs);
