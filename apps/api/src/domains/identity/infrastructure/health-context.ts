@@ -52,6 +52,20 @@ export function createHealthContextDatabase(): HealthContextDatabase {
         return result(rows, 'declare the claim')
       }),
 
+    correct: (input) =>
+      withinRequest(sql, input.requestId, async (transaction) => {
+        const rows = await transaction<CommandRow<HealthContextClaim>[]>`
+          select * from identity.correct_health_context(
+            ${PROVIDER}, ${input.issuer}, ${input.subject}, ${input.claimId}::uuid,
+            ${input.claim.context_type}, ${input.claim.description},
+            ${input.claim.body_area}::text, ${input.claim.valid_from}::timestamptz,
+            ${input.claim.valid_to}::timestamptz, ${input.idempotencyKey}::uuid,
+            ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        return result(rows, 'correct the claim')
+      }),
+
     delete: (input) =>
       withinRequest(sql, input.requestId, async (transaction) => {
         const rows = await transaction<CommandRow<HealthContextDeletion>[]>`

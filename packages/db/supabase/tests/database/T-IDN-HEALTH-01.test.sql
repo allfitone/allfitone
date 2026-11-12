@@ -246,11 +246,12 @@ select is(
   'and says it once, however many times the declaration is retried'
 );
 
+-- ADR-052: she corrects what she said (T-IDN-HEALTH-CORRECT-01); whose and whence never move.
 select throws_ok(
-  $$ update identity.health_context_claims set description = 'Ya no duele'
+  $$ update identity.health_context_claims set provenance = 'professional_observation'
      where id = '019b6000-0000-7000-8000-000000000501' $$,
   '55000', null,
-  'a declared claim is never rewritten: it is deleted or kept'
+  'a declared claim never changes its origin: what it says is corrected, not who said it'
 );
 
 select throws_ok(

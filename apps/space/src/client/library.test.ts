@@ -168,27 +168,27 @@ describe('filteredRoutines', () => {
   const all = [loose, used]
 
   test.each([
-    ['todas', ['loose', 'used']],
-    ['en-programa', ['used']],
-    ['sueltas', ['loose']],
+    ['all', ['loose', 'used']],
+    ['in-program', ['used']],
+    ['standalone', ['loose']],
   ] as Array<[RoutineFilter, string[]]>)('%s', (filter, expected) => {
     expect(filteredRoutines(all, filter).map((one) => one.template_id)).toEqual(expected)
   })
 
   test('counts every tab from the whole list, never from the open one', () => {
-    expect(routineCounts(all)).toEqual({ todas: 2, 'en-programa': 1, sueltas: 1 })
+    expect(routineCounts(all)).toEqual({ all: 2, 'in-program': 1, standalone: 1 })
   })
 })
 
 describe('emptyReason', () => {
   test('names what is missing, plainly', () => {
-    expect(emptyReason('todas')).toBe('No hay rutinas aún')
-    expect(emptyReason('en-programa')).toBe('No hay rutinas en programas aún')
+    expect(emptyReason('all')).toBe('No hay rutinas aún')
+    expect(emptyReason('in-program')).toBe('No hay rutinas en programas aún')
   })
 
   test('and drops the «aún» where nothing is pending', () => {
     // No tener rutinas sueltas no es algo por hacer: es que todas están colocadas.
-    expect(emptyReason('sueltas')).toBe('No hay rutinas sueltas')
+    expect(emptyReason('standalone')).toBe('No hay rutinas sueltas')
   })
 })
 
@@ -216,8 +216,8 @@ describe('discardWarning', () => {
 })
 
 describe('routineOfVersion', () => {
-  const empuje = routine({
-    template_id: 'empuje',
+  const push = routine({
+    template_id: 'push',
     template_version_id: 'v6',
     versions: ['v6', 'v5', 'v4'],
   })
@@ -225,24 +225,24 @@ describe('routineOfVersion', () => {
   test('finds the routine a week composed, even after it was republished', () => {
     // El defecto que esto arregla: la semana guarda v5, la rutina ya va por v6, y buscar
     // por «última versión» la perdía — el día se veía vacío en un programa donde está.
-    expect(routineOfVersion([empuje], 'v5')?.template_id).toBe('empuje')
+    expect(routineOfVersion([push], 'v5')?.template_id).toBe('push')
   })
 
   test('and still finds it by its newest', () => {
-    expect(routineOfVersion([empuje], 'v6')?.template_id).toBe('empuje')
+    expect(routineOfVersion([push], 'v6')?.template_id).toBe('push')
   })
 
   test('an empty day resolves to nothing rather than to the first routine', () => {
-    expect(routineOfVersion([empuje], null)).toBeUndefined()
+    expect(routineOfVersion([push], null)).toBeUndefined()
   })
 
   test('and a version of something else is nothing, not a near miss', () => {
-    expect(routineOfVersion([empuje], 'v9')).toBeUndefined()
+    expect(routineOfVersion([push], 'v9')).toBeUndefined()
   })
 
   test('says when the day is holding a version that is no longer the newest', () => {
-    expect(showsOlderVersion(empuje, 'v5')).toBe(true)
-    expect(showsOlderVersion(empuje, 'v6')).toBe(false)
+    expect(showsOlderVersion(push, 'v5')).toBe(true)
+    expect(showsOlderVersion(push, 'v6')).toBe(false)
   })
 })
 

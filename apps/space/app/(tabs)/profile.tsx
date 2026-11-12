@@ -215,8 +215,9 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
             icon="heart"
             title="Dolor y limitaciones"
             caption="Solo lo ve quien tenga ese permiso"
-            end="soon"
+            end="open"
             alert
+            onPress={() => router.push('/me/health')}
           />
         </ProfileGroup>
 

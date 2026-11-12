@@ -11,7 +11,7 @@ import type { MyProgram } from './programs'
 import type { MyRoutine } from './content'
 
 /** Las tres solapas de la biblioteca de rutinas. */
-export type RoutineFilter = 'todas' | 'en-programa' | 'sueltas'
+export type RoutineFilter = 'all' | 'in-program' | 'standalone'
 
 /** Indexado por `program_day`: 1 es lunes, 7 domingo, y el 0 no existe. */
 const DAYS = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] as const
@@ -96,8 +96,8 @@ export function filteredRoutines(
   routines: readonly MyRoutine[],
   filter: RoutineFilter,
 ): readonly MyRoutine[] {
-  if (filter === 'todas') return routines
-  const wanted = filter === 'en-programa'
+  if (filter === 'all') return routines
+  const wanted = filter === 'in-program'
   return routines.filter((routine) => routine.programs.length > 0 === wanted)
 }
 
@@ -109,7 +109,7 @@ export function filteredRoutines(
  */
 export function routineCounts(routines: readonly MyRoutine[]): Record<RoutineFilter, number> {
   const inProgram = routines.filter((routine) => routine.programs.length > 0).length
-  return { todas: routines.length, 'en-programa': inProgram, sueltas: routines.length - inProgram }
+  return { all: routines.length, 'in-program': inProgram, standalone: routines.length - inProgram }
 }
 
 /**
@@ -120,8 +120,8 @@ export function routineCounts(routines: readonly MyRoutine[]): Record<RoutineFil
  * nombrar lo que falta, que en las tres solapas es lo mismo con un matiz distinto.
  */
 export function emptyReason(filter: RoutineFilter): string {
-  if (filter === 'en-programa') return 'No hay rutinas en programas aún'
-  if (filter === 'sueltas') return 'No hay rutinas sueltas'
+  if (filter === 'in-program') return 'No hay rutinas en programas aún'
+  if (filter === 'standalone') return 'No hay rutinas sueltas'
   return 'No hay rutinas aún'
 }
 

@@ -6922,14 +6922,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     type: 'string',
     minLength: 3,
     maxLength: 100,
-    anyOf: [
-      {
-        const: 'UTC',
-      },
-      {
-        pattern: '^[A-Za-z_]+(?:/[A-Za-z0-9_+\\-]+)+$',
-      },
-    ],
+    pattern: '^(?:UTC|[A-Za-z_]+(?:/[A-Za-z0-9_+\\-]+)+)$',
   },
   IntervalResultReplace: {
     type: 'object',
