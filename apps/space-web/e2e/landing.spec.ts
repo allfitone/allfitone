@@ -18,6 +18,9 @@ const PAGES = [
   { path: '/en', heading: /BEAT/ },
   { path: '/es/waitlist', heading: /LOS PRIMEROS 100/ },
   { path: '/en/waitlist', heading: /THE FIRST 100/ },
+  // Opened without a token, an email link page shows its one public state.
+  { path: '/es/waitlist/leave', heading: 'Este enlace ya no sirve.' },
+  { path: '/en/waitlist/confirm', heading: 'This link no longer works.' },
 ]
 
 test.describe('language', () => {

@@ -231,7 +231,7 @@ export default async function Landing({ params }: LocaleParams) {
           </div>
         </section>
 
-        <section id="lista" className="section waitlist" aria-labelledby="waitlist-title">
+        <section id="waitlist" className="section waitlist" aria-labelledby="waitlist-title">
           <div className="wrap waitlist__grid">
             <div className="waitlist__copy">
               <Title id="waitlist-title" lines={copy.waitlist.title} tones={['solid', 'cyan']} />

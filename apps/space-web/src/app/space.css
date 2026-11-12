@@ -1875,6 +1875,76 @@ button.pill-link {
   }
 }
 
+/* ------------------------------------------------------- email link pages */
+
+/* What a waitlist email opens: the join panel alone, at the width of the form. */
+.link-page {
+  padding-block: 140px clamp(96px, 10vw, 144px);
+}
+
+.link-page__panel {
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.link-panel {
+  display: grid;
+  gap: 28px;
+}
+
+.link-panel .joined__body {
+  margin: 0;
+}
+
+.link-panel .join-form__submit {
+  margin-top: 24px;
+}
+
+.link-panel .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+}
+
+.link-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+}
+
+/* An unconfirmed address: the one thing on «mi link» that asks the person to act. */
+.link-notice {
+  padding: 20px 24px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--cyan) 6%, transparent);
+}
+
+.link-notice p {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
+.link-notice .link-notice__title {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Leaving deletes the sign-up for good: the one filled action that is not cyan. */
+.cta--danger {
+  background: var(--afo-color-feedback-danger-strong);
+  color: var(--text);
+}
+
+.cta--danger:hover {
+  background: var(--afo-color-feedback-danger);
+  box-shadow: 0 14px 40px -12px
+    color-mix(in srgb, var(--afo-color-feedback-danger) 60%, transparent);
+}
+
 /* ------------------------------------------------------------------ legal */
 
 .legal {

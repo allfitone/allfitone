@@ -80,3 +80,15 @@ export function pageMetadata(locale: Locale, path: string, { title, description 
     twitter: { card: 'summary_large_image', title, description, images: [image] },
   } satisfies Metadata
 }
+
+/**
+ * The pages a waitlist email opens. They are one person's, not the site's: kept out of
+ * search, and they send no `Referer` (next.config.ts sends the same as a header).
+ */
+export function privatePageMetadata(locale: Locale, path: string, words: PageWords) {
+  return {
+    ...pageMetadata(locale, path, words),
+    robots: { index: false, follow: false },
+    referrer: 'no-referrer',
+  } satisfies Metadata
+}

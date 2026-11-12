@@ -157,6 +157,12 @@ export const es = {
     progress: 'Llevas {count} de {goal} para {reward}.',
     progressDone: 'Llevas {count}: alcanzaste el último nivel.',
     reset: 'Usar otro correo',
+    errorEmailDisposable:
+      'Ese correo es desechable. Usa uno que revises: ahí te llega la confirmación.',
+    rateLimited: 'Hubo demasiados intentos desde esta conexión. Inténtalo de nuevo en una hora.',
+    listedTitle: 'Ya estabas en la lista, {name}.',
+    listedBody:
+      'Te escribimos de nuevo a {email}: ese correo trae tu link, o el enlace para confirmar si te falta.',
   },
   founding: {
     title: 'Founding Members',
@@ -231,6 +237,64 @@ export const es = {
         'No cuentan los correos desechables, los registros repetidos desde un mismo dispositivo o conexión, ni las invitaciones a ti mismo.',
         'Nada se sortea: los lugares se asignan por orden y los premios por el número de personas que invitas.',
       ],
+    },
+  },
+  // The pages the waitlist emails link to. Private: none of them is indexed.
+  linkPages: {
+    checking: 'Revisando tu enlace…',
+    failedTitle: 'No pudimos revisar tu enlace.',
+    failedBody: 'Inténtalo de nuevo en un momento. Si sigue igual, escríbenos a {email}.',
+    rateLimited: 'Hubo demasiados intentos desde esta conexión. Inténtalo de nuevo en una hora.',
+    retry: 'Intentar de nuevo',
+    home: 'Ir a Allfit Space',
+    confirm: {
+      meta: {
+        title: 'Confirma tu correo | Allfit Space',
+        description:
+          'Confirma tu correo para que tu lugar en la lista de espera de Allfit Space cuente.',
+      },
+      pending: 'Confirmando tu correo…',
+      confirmedTitle: 'Correo confirmado.',
+      confirmedBody:
+        'Tu lugar en la lista cuenta desde ahora. Te escribimos a este correo cuando abra Allfit Space.',
+      alreadyTitle: 'Tu correo ya estaba confirmado.',
+      alreadyBody: 'Tu lugar en la lista sigue contando. Te escribimos cuando abra Allfit Space.',
+    },
+    referrals: {
+      meta: {
+        title: 'Tu link | Allfit Space',
+        description: 'Tu código, tu link y cuántas personas se unieron con él.',
+      },
+      title: 'Tu link de Allfit Space',
+      body: 'Cada persona que se une con tu link y confirma su correo suma a tu contador.',
+      unconfirmedTitle: 'Te falta confirmar tu correo.',
+      unconfirmedBody:
+        'Busca el correo de Allfit Space en tu bandeja y abre el enlace: tu lugar en la lista cuenta desde ese momento.',
+      leave: 'Salir de la lista',
+    },
+    leave: {
+      meta: {
+        title: 'Salir de la lista | Allfit Space',
+        description: 'Sal de la lista de espera de Allfit Space y borra tus datos.',
+      },
+      title: '¿Seguro que quieres salir de la lista?',
+      body: 'Borramos tu nombre, tu correo y tu código. Pierdes tu lugar, y las personas que invitaste siguen en la lista pero dejan de contar para ti. No se puede deshacer.',
+      submit: 'Sí, salir de la lista',
+      pending: 'Saliendo…',
+      stay: 'Quedarme en la lista',
+      leftTitle: 'Saliste de la lista.',
+      leftBody:
+        'Borramos tus datos y todos tus enlaces dejaron de funcionar. Si cambias de opinión, puedes unirte de nuevo.',
+      join: 'Unirme de nuevo',
+    },
+    invalid: {
+      title: 'Este enlace ya no sirve.',
+      body: 'Puede estar incompleto, haber vencido o ser de alguien que salió de la lista. Escribe tu correo y, si está en la lista, te enviamos uno nuevo.',
+      emailEmpty: 'Escribe tu correo para recibir el enlace.',
+      submit: 'Enviarme un enlace nuevo',
+      sentTitle: 'Revisa tu correo.',
+      sentBody:
+        'Si {email} está en la lista, te llega un correo con un enlace nuevo en unos minutos.',
     },
   },
   nvidia: {

@@ -1,13 +1,15 @@
 /**
  * The waitlist form, on the landing and on its own page.
  *
- * `/api/waitlist` answers 501 until the backend exists (TECH-292..296), so the
- * joined state is reached by answering the request here with the shape the
- * form accepts. The 501 itself is tested too: it must read as a failure.
+ * The browser posts to this app's relay (`/api/waitlist/signups`), which forwards
+ * to the API from the server. The suite answers that request in the browser with
+ * the shapes the API documents (OP-WL-001), so it never needs the API; the relay
+ * itself is covered by `src/lib/waitlist-relay.test.ts`.
  */
 import { expect, test, type Page } from '@playwright/test'
 
-const JOINED = { code: 'KEVIN7QH', referrals: 3 }
+const SIGNUPS = '**/api/waitlist/signups'
+const JOINED = { status: 'joined', referral_code: 'KEVIN7QH', referrals: 3 }
 
 async function fill(page: Page, form = page.locator('form').first()) {
   await form.getByLabel('Tu nombre').fill('Kevin')
@@ -31,7 +33,7 @@ test.describe('the way in', () => {
 
   test('the landing has the form too, under its own section', async ({ page }) => {
     await page.goto('/es')
-    const section = page.locator('#lista')
+    const section = page.locator('#waitlist')
     await expect(section.getByRole('heading', { name: /PRIMEROS 100/ })).toBeVisible()
     await expect(section.getByRole('button', { name: 'Unirme a la lista' })).toBeVisible()
   })
@@ -73,18 +75,20 @@ test.describe('the form', () => {
     await expect(form.getByLabel('Tu correo')).toBeFocused()
   })
 
-  test('says what it sends, and a 501 reads as a failure with a way out', async ({ page }) => {
+  test('says what it sends, and a failure gives a way out', async ({ page }) => {
+    await page.route(SIGNUPS, (route) =>
+      route.fulfill({ status: 503, json: { error: 'unavailable' } }),
+    )
     await page.goto('/es/waitlist')
     const form = await fill(page)
-    const request = page.waitForRequest('**/api/waitlist')
+    const request = page.waitForRequest(SIGNUPS)
     await form.getByRole('button', { name: 'Unirme a la lista' }).click()
 
     expect((await request).postDataJSON()).toEqual({
       name: 'Kevin',
       email: 'kevin@correo.com',
+      language: 'es',
       consent: true,
-      referredBy: null,
-      locale: 'es',
     })
     const failure = form.getByRole('alert')
     await expect(failure).toContainText('No pudimos apuntarte.')
@@ -93,11 +97,35 @@ test.describe('the form', () => {
       'mailto:hello@allfit.one',
     )
   })
+
+  test('a disposable address is marked under the email field', async ({ page }) => {
+    await page.route(SIGNUPS, (route) =>
+      route.fulfill({ status: 422, json: { error: 'disposable-email' } }),
+    )
+    await page.goto('/es/waitlist')
+    const form = await fill(page)
+    await form.getByRole('button', { name: 'Unirme a la lista' }).click()
+
+    await expect(form.getByRole('alert')).toHaveText(/Ese correo es desechable/)
+    await expect(form.getByLabel('Tu correo')).toBeFocused()
+    await expect(form.getByLabel('Tu correo')).toHaveAttribute('aria-invalid', 'true')
+  })
+
+  test('too many attempts say when to try again', async ({ page }) => {
+    await page.route(SIGNUPS, (route) =>
+      route.fulfill({ status: 429, json: { error: 'rate-limited' } }),
+    )
+    await page.goto('/es/waitlist')
+    const form = await fill(page)
+    await form.getByRole('button', { name: 'Unirme a la lista' }).click()
+
+    await expect(form.getByRole('alert')).toHaveText(/Inténtalo de nuevo en una hora\./)
+  })
 })
 
 test.describe('joined', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/waitlist', (route) => route.fulfill({ json: JOINED }))
+    await page.route(SIGNUPS, (route) => route.fulfill({ status: 201, json: JOINED }))
   })
 
   test('shows the code, the link and the ways to share it', async ({ page }) => {
@@ -140,21 +168,39 @@ test.describe('joined', () => {
   })
 })
 
+test('an address already on the list gets its link by email, never on screen', async ({ page }) => {
+  await page.route(SIGNUPS, (route) =>
+    route.fulfill({ status: 202, json: { status: 'already_listed' } }),
+  )
+  await page.goto('/es/waitlist')
+  await (await fill(page)).getByRole('button', { name: 'Unirme a la lista' }).click()
+
+  await expect(page.getByText('Ya estabas en la lista, Kevin.')).toBeFocused()
+  await expect(page.getByText(/Te escribimos de nuevo a kevin@correo\.com/)).toBeVisible()
+  // Exact: the terms on the same page say «tu código» in a sentence.
+  await expect(page.getByText('Tu código', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /Compartir por WhatsApp/ })).toHaveCount(0)
+})
+
 test.describe('a shared link', () => {
   test('names the code the visitor joins with, and sends it', async ({ page }) => {
-    await page.route('**/api/waitlist', (route) => route.fulfill({ json: JOINED }))
+    await page.route(SIGNUPS, (route) => route.fulfill({ status: 201, json: JOINED }))
     await page.goto('/es/waitlist?ref=wal8ert')
     await expect(page.getByText('Te unes con el código WAL8ERT.')).toBeVisible()
 
-    const request = page.waitForRequest('**/api/waitlist')
+    const request = page.waitForRequest(SIGNUPS)
     await (await fill(page)).getByRole('button', { name: 'Unirme a la lista' }).click()
-    expect((await request).postDataJSON()).toMatchObject({ referredBy: 'WAL8ERT' })
+    expect((await request).postDataJSON()).toMatchObject({ referral_code: 'WAL8ERT' })
   })
 
   test('keeps the code when the visitor goes to the landing first', async ({ page }) => {
     await page.goto('/en/waitlist?ref=wal8ert')
+    // The page keeps the code once it runs in the browser; leaving before that keeps nothing.
+    await expect(page.getByText("You're joining with code WAL8ERT.")).toBeVisible()
     await page.goto('/es')
-    await expect(page.locator('#lista').getByText('Te unes con el código WAL8ERT.')).toBeVisible()
+    await expect(
+      page.locator('#waitlist').getByText('Te unes con el código WAL8ERT.'),
+    ).toBeVisible()
   })
 
   test('a code that is not one is ignored', async ({ page }) => {
@@ -163,8 +209,26 @@ test.describe('a shared link', () => {
   })
 })
 
-test('the endpoint is not built yet and says so', async ({ request }) => {
-  const response = await request.post('/api/waitlist', { data: {} })
-  expect(response.status()).toBe(501)
-  expect(await response.json()).toEqual({ error: 'waitlist-not-available' })
+test('a campaign link counts even when the person joins from another page', async ({ page }) => {
+  await page.route(SIGNUPS, (route) => route.fulfill({ status: 201, json: JOINED }))
+  await page.goto('/es?utm_source=instagram&utm_medium=story&utm_campaign=launch')
+  await expect(page.locator('#waitlist').getByRole('button')).toBeVisible()
+  await page.goto('/es/waitlist')
+
+  const request = page.waitForRequest(SIGNUPS)
+  await (await fill(page)).getByRole('button', { name: 'Unirme a la lista' }).click()
+  expect((await request).postDataJSON()).toMatchObject({
+    utm_source: 'instagram',
+    utm_medium: 'story',
+    utm_campaign: 'launch',
+  })
+})
+
+test('the relay answers nothing useful without its settings, and nothing for other paths', async ({
+  request,
+}) => {
+  const response = await request.post('/api/waitlist/signups', { data: {} })
+  expect(response.status()).toBe(503)
+  expect(await response.json()).toEqual({ error: 'unavailable' })
+  expect((await request.post('/api/waitlist/admin', { data: {} })).status()).toBe(404)
 })

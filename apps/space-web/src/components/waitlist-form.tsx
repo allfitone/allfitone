@@ -10,38 +10,36 @@
  * follow the page language. Every missing field is marked under itself, only
  * the first is announced, and it takes the keyboard. Joined, the form gives way
  * to the person's code, link and share actions (`WaitlistShare`), and the
- * confirmation takes focus so it is announced. «Usar otro correo» brings the
- * form back with the name kept.
+ * confirmation takes focus so it is announced. An address already on the list
+ * gets neither code nor counter on screen: they go to its inbox, which only its
+ * owner reads. «Usar otro correo» brings the form back with the name kept.
+ *
+ * A disposable address is marked under the email field; too many attempts from
+ * one connection, or any other failure, under the button.
  */
 
 import { FoundationIcon } from '@allfitone/react/icons'
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 
+import { around } from '@/components/text'
 import { WaitlistShare } from '@/components/waitlist-share'
 import type { Dictionary } from '@/content'
 import { legalUrl } from '@/lib/legal'
 import type { Locale } from '@/lib/locale'
-import { useReferralCode } from '@/lib/referral'
+import { useCampaign, useReferralCode } from '@/lib/referral'
 import { CONTACT_EMAIL } from '@/lib/site'
-import { isPlausibleEmail, joinWaitlist, type WaitlistJoined } from '@/lib/waitlist'
+import {
+  isPlausibleEmail,
+  joinWaitlist,
+  WaitlistRequestError,
+  type WaitlistJoinResult,
+} from '@/lib/waitlist'
 
-type Status = 'idle' | 'pending' | 'joined' | 'failed'
+type Status = 'idle' | 'pending' | 'joined' | 'failed' | 'rate-limited'
 type Field = 'name' | 'email' | 'consent'
 type Errors = Partial<Record<Field, string>>
 
 const FIELD_ORDER: readonly Field[] = ['name', 'email', 'consent']
-
-/** Splits «text {key} text» around one placeholder, so the middle can be markup. */
-function around(text: string, key: string, middle: ReactNode): ReactNode {
-  const [before = '', after = ''] = text.split(`{${key}}`)
-  return (
-    <>
-      {before}
-      {middle}
-      {after}
-    </>
-  )
-}
 
 export function WaitlistForm({
   locale,
@@ -55,12 +53,13 @@ export function WaitlistForm({
   newWindow: string
 }) {
   const referredBy = useReferralCode()
+  const campaign = useCampaign()
   const [status, setStatus] = useState<Status>('idle')
   const [errors, setErrors] = useState<Errors>({})
   const [announced, setAnnounced] = useState<Field | null>(null)
-  const [joined, setJoined] = useState<(WaitlistJoined & { name: string; email: string }) | null>(
-    null,
-  )
+  const [joined, setJoined] = useState<
+    (WaitlistJoinResult & { name: string; email: string }) | null
+  >(null)
   const [keptName, setKeptName] = useState('')
   const nameRef = useRef<HTMLInputElement>(null)
   const emailRef = useRef<HTMLInputElement>(null)
@@ -123,11 +122,26 @@ export function WaitlistForm({
     setAnnounced(null)
     setStatus('pending')
     try {
-      const result = await joinWaitlist({ name, email, consent: true, referredBy, locale })
+      const result = await joinWaitlist({
+        name,
+        email,
+        consent: true,
+        referredBy,
+        campaign,
+        locale,
+      })
       setJoined({ ...result, name, email })
       setStatus('joined')
-    } catch {
-      setStatus('failed')
+    } catch (error) {
+      const reason = error instanceof WaitlistRequestError ? error.reason : 'unavailable'
+      if (reason === 'disposable-email') {
+        focusNext.current = 'email'
+        setErrors({ email: copy.errorEmailDisposable })
+        setAnnounced('email')
+        setStatus('idle')
+        return
+      }
+      setStatus(reason === 'rate-limited' ? 'rate-limited' : 'failed')
     }
   }
 
@@ -140,24 +154,31 @@ export function WaitlistForm({
   }
 
   if (status === 'joined' && joined) {
+    const listed = joined.status === 'already_listed'
     return (
       <div className="joined">
         <div role="status">
           <p ref={joinedRef} tabIndex={-1} className="joined__title">
-            {copy.joinedTitle.replace('{name}', joined.name)}
+            {(listed ? copy.listedTitle : copy.joinedTitle).replace('{name}', joined.name)}
           </p>
           <p className="joined__body">
-            {around(copy.joinedBody, 'email', <strong>{joined.email}</strong>)}
+            {around(
+              listed ? copy.listedBody : copy.joinedBody,
+              'email',
+              <strong>{joined.email}</strong>,
+            )}
           </p>
         </div>
-        <WaitlistShare
-          locale={locale}
-          copy={copy}
-          rewards={rewards}
-          newWindow={newWindow}
-          code={joined.code}
-          referrals={joined.referrals}
-        />
+        {joined.status === 'joined' ? (
+          <WaitlistShare
+            locale={locale}
+            copy={copy}
+            rewards={rewards}
+            newWindow={newWindow}
+            code={joined.code}
+            referrals={joined.referrals}
+          />
+        ) : null}
         <button type="button" className="text-button" onClick={reset}>
           {copy.reset}
         </button>
@@ -166,6 +187,7 @@ export function WaitlistForm({
   }
 
   const pending = status === 'pending'
+  const failed = status === 'failed' || status === 'rate-limited'
   const describedBy = (field: Field) => (errors[field] ? errorId(field) : undefined)
 
   const fieldMessage = (field: Field) =>
@@ -279,9 +301,8 @@ export function WaitlistForm({
         className="cta join-form__submit"
         disabled={pending}
         aria-describedby={
-          [status === 'failed' ? failedId : null, referredBy ? referredId : null]
-            .filter(Boolean)
-            .join(' ') || undefined
+          [failed ? failedId : null, referredBy ? referredId : null].filter(Boolean).join(' ') ||
+          undefined
         }
       >
         {pending ? (
@@ -297,17 +318,19 @@ export function WaitlistForm({
         )}
       </button>
 
-      {status === 'failed' ? (
+      {failed ? (
         <p id={failedId} className="field__error" role="alert">
           <FoundationIcon name="error" size="sm" decorative />
           <span>
-            {around(
-              copy.failed,
-              'email',
-              <a className="consent__link" href={`mailto:${CONTACT_EMAIL}`}>
-                {CONTACT_EMAIL}
-              </a>,
-            )}
+            {status === 'rate-limited'
+              ? copy.rateLimited
+              : around(
+                  copy.failed,
+                  'email',
+                  <a className="consent__link" href={`mailto:${CONTACT_EMAIL}`}>
+                    {CONTACT_EMAIL}
+                  </a>,
+                )}
           </span>
         </p>
       ) : null}

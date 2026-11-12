@@ -147,6 +147,12 @@ export const en: Dictionary = {
     progress: '{count} of {goal} toward {reward}.',
     progressDone: '{count} so far: you reached the last level.',
     reset: 'Use another email',
+    errorEmailDisposable:
+      "That's a disposable address. Use one you check: your confirmation goes there.",
+    rateLimited: 'Too many attempts from this connection. Try again in an hour.',
+    listedTitle: 'You were already on the list, {name}.',
+    listedBody:
+      "We wrote to {email} again: that email has your link, or the link to confirm if you haven't yet.",
   },
   founding: {
     title: 'Founding Members',
@@ -220,6 +226,62 @@ export const en: Dictionary = {
         "Disposable emails, repeated sign-ups from the same device or connection, and inviting yourself don't count.",
         'Nothing is drawn by lot: places go by order and rewards by the number of people you invite.',
       ],
+    },
+  },
+  linkPages: {
+    checking: 'Checking your link…',
+    failedTitle: "We couldn't check your link.",
+    failedBody: 'Try again in a moment. If it keeps happening, write to us at {email}.',
+    rateLimited: 'Too many attempts from this connection. Try again in an hour.',
+    retry: 'Try again',
+    home: 'Go to Allfit Space',
+    confirm: {
+      meta: {
+        title: 'Confirm your email | Allfit Space',
+        description: 'Confirm your email so your place on the Allfit Space waitlist counts.',
+      },
+      pending: 'Confirming your email…',
+      confirmedTitle: 'Email confirmed.',
+      confirmedBody:
+        "Your place on the list counts from now. We'll write to this address when Allfit Space opens.",
+      alreadyTitle: 'Your email was already confirmed.',
+      alreadyBody:
+        "Your place on the list still counts. We'll write to you when Allfit Space opens.",
+    },
+    referrals: {
+      meta: {
+        title: 'Your link | Allfit Space',
+        description: 'Your code, your link and how many people joined with it.',
+      },
+      title: 'Your Allfit Space link',
+      body: 'Everyone who joins with your link and confirms their email adds to your count.',
+      unconfirmedTitle: 'Your email is not confirmed.',
+      unconfirmedBody:
+        'Find the Allfit Space email in your inbox and open its link: your place on the list counts from then.',
+      leave: 'Leave the list',
+    },
+    leave: {
+      meta: {
+        title: 'Leave the list | Allfit Space',
+        description: 'Leave the Allfit Space waitlist and delete your data.',
+      },
+      title: 'Are you sure you want to leave the list?',
+      body: 'We delete your name, your email and your code. You lose your place, and the people you invited stay on the list but stop counting for you. It cannot be undone.',
+      submit: 'Yes, leave the list',
+      pending: 'Leaving…',
+      stay: 'Stay on the list',
+      leftTitle: 'You left the list.',
+      leftBody:
+        'We deleted your data and every link we sent you stopped working. If you change your mind, you can join again.',
+      join: 'Join again',
+    },
+    invalid: {
+      title: 'This link no longer works.',
+      body: "It may be incomplete, expired, or belong to someone who left the list. Enter your email and, if it's on the list, we'll send you a new one.",
+      emailEmpty: 'Enter your email to get the link.',
+      submit: 'Send me a new link',
+      sentTitle: 'Check your email.',
+      sentBody: 'If {email} is on the list, an email with a new link reaches you within minutes.',
     },
   },
   nvidia: {

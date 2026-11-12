@@ -1,10 +1,14 @@
 import { useSyncExternalStore } from 'react'
 
-import { normalizeReferralCode, REFERRAL_PARAM } from './waitlist'
+import { campaignFrom, normalizeReferralCode, REFERRAL_PARAM, type Campaign } from './waitlist'
 
 const STORAGE_KEY = 'allfit-space.referral'
+const CAMPAIGN_KEY = 'allfit-space.campaign'
+const CAMPAIGN_PARAMS = ['utm_source', 'utm_medium', 'utm_campaign'] as const
+const NO_CAMPAIGN: Campaign = {}
 
 let visitCode: string | null | undefined
+let visitCampaign: Campaign | undefined
 
 /**
  * The code of whoever invited this visitor. It comes from the link they arrived
@@ -27,10 +31,40 @@ function readForVisit(): string | null {
   return visitCode
 }
 
+/**
+ * The campaign the visit came from (`utm_*`), kept the same way as the code: a
+ * campaign link usually opens the landing, and the person may join from the waitlist page.
+ */
+function readCampaignForVisit(): Campaign {
+  if (visitCampaign !== undefined) return visitCampaign
+  const fromLink = campaignFrom(new URLSearchParams(window.location.search))
+  const linked = Object.keys(fromLink).length > 0
+  try {
+    if (linked) {
+      const kept = new URLSearchParams(window.location.search)
+      for (const name of [...kept.keys()]) {
+        if (!(CAMPAIGN_PARAMS as readonly string[]).includes(name)) kept.delete(name)
+      }
+      window.sessionStorage.setItem(CAMPAIGN_KEY, kept.toString())
+    }
+    visitCampaign = linked
+      ? fromLink
+      : campaignFrom(new URLSearchParams(window.sessionStorage.getItem(CAMPAIGN_KEY) ?? ''))
+  } catch {
+    visitCampaign = fromLink
+  }
+  return visitCampaign
+}
+
 const noCode = () => null
+const noCampaign = () => NO_CAMPAIGN
 const noUpdates = () => () => undefined
 
 /** The server HTML has no code; the visit's code appears right after hydration. */
 export function useReferralCode(): string | null {
   return useSyncExternalStore(noUpdates, readForVisit, noCode)
+}
+
+export function useCampaign(): Campaign {
+  return useSyncExternalStore(noUpdates, readCampaignForVisit, noCampaign)
 }

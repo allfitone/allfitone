@@ -43,7 +43,7 @@ export default async function WaitlistPage({ params }: LocaleParams) {
   return (
     <>
       <Header locale={lang} copy={copy.nav} path={WAITLIST_PATH} sections={false} />
-      <main id="contenido" className="join">
+      <main id="content" className="join">
         <div className="wrap join__grid">
           <header className="join__intro">
             <Title as="h1" lines={page.title} tones={['solid', 'cyan', 'cyan']} reveal={false} />
@@ -83,7 +83,7 @@ export default async function WaitlistPage({ params }: LocaleParams) {
               <Rows rows={page.pro.rows} />
             </section>
 
-            <section id="condiciones" className="terms-block" aria-labelledby="terms-title">
+            <section id="terms" className="terms-block" aria-labelledby="terms-title">
               <h2 id="terms-title">{page.terms.title}</h2>
               <ul className="terms-block__list">
                 {page.terms.items.map((item) => (
