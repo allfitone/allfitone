@@ -553,7 +553,6 @@ function minutesLeft(expiresAt: string): number {
 /** `PF-E12`: the six digits from the new inbox. */
 export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
-  const theme = useTheme()
   const { identity, unreadable } = useIdentity(sources)
   const [pending, setPending] = useState<EmailChange | null | undefined>(undefined)
   const [code, setCode] = useState('')
@@ -701,33 +700,31 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
           />
           <FormNote text="Al confirmarlo, entras con el correo nuevo y cerramos tus otras sesiones. Avisaremos al correo anterior." />
           {notice ? <InlineAlert message={notice} tone="success" /> : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="¿No te llegó? Reenviar el código"
-            onPress={() => void resend()}
-            style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
-          >
+          <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">
               ¿No te llegó?
             </Text>
-            <Text role="control" size="sm" style={{ color: theme.color.icon.accent }}>
-              Reenviar
-            </Text>
-          </Pressable>
+            <Button
+              label="Reenviar"
+              variant="ghost"
+              size="sm"
+              accessibilityLabel="¿No te llegó? Reenviar el código"
+              onPress={() => void resend()}
+            />
+          </View>
           {/* A code sent to a mistyped address never arrives: this is the way out. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="¿Te equivocaste de correo? Usar otro"
-            onPress={() => router.replace('/me/email')}
-            style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
-          >
+          <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">
               ¿Te equivocaste de correo?
             </Text>
-            <Text role="control" size="sm" style={{ color: theme.color.icon.accent }}>
-              Usar otro
-            </Text>
-          </Pressable>
+            <Button
+              label="Usar otro"
+              variant="ghost"
+              size="sm"
+              accessibilityLabel="¿Te equivocaste de correo? Usar otro"
+              onPress={() => router.replace('/me/email')}
+            />
+          </View>
         </>
       ) : null}
     </EditScreen>
@@ -757,5 +754,5 @@ const styles = StyleSheet.create({
   empty: { paddingVertical: 16 },
   pressed: { opacity: 0.7 },
   current: { gap: 4, borderRadius: 18, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14 },
-  resend: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  resend: { flexDirection: 'row', alignItems: 'center' },
 })

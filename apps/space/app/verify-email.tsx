@@ -25,14 +25,13 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { CodeField } from '@allfitone/react-native/code-field'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError, register, unreachable, verifyRegistration } from '../src/client'
 import { storeSession } from '../src/client/session'
@@ -42,7 +41,6 @@ import { routeAfterAuthentication } from '../src/client/resume-route'
 const CODE_LENGTH = 6
 
 export default function VerifyEmail() {
-  const theme = useTheme()
   const router = useRouter()
   const { email = '', password = '' } = useLocalSearchParams<{
     email?: string
@@ -93,21 +91,13 @@ export default function VerifyEmail() {
 
   return (
     <Screen edges={['top', 'bottom']} dots>
-      <Pressable
-        accessibilityRole="button"
+      <IconButton
+        icon="back"
+        variant="plain"
         accessibilityLabel="Volver"
         onPress={() => router.back()}
-        hitSlop={8}
         style={styles.back}
-      >
-        <FoundationIcon
-          name="back"
-          color={theme.color.icon.primary}
-          size="lg"
-          strokeScale="compact"
-          decorative
-        />
-      </Pressable>
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -138,24 +128,11 @@ export default function VerifyEmail() {
             editable={!submitting}
           />
 
-          <View
-            style={[
-              styles.note,
-              {
-                backgroundColor: theme.color.accent.tonal,
-                borderColor: theme.color.accent.tonalBorder,
-                borderRadius: theme.semanticRadius.card,
-                padding: theme.semanticSpacing.cardInset,
-              },
-            ]}
-          >
-            <Text role="eyebrow" size="xs" color="accent">
-              Todavía no tienes Fitness ID
-            </Text>
-            <Text role="body" size="sm" color="secondary" style={styles.noteBody}>
-              Se activa cuando completes el registro. Crear la cuenta es solo el primer paso.
-            </Text>
-          </View>
+          <InlineAlert
+            tone="info"
+            title="Todavía no tienes Fitness ID"
+            message="Se activa cuando completes el registro. Crear la cuenta es solo el primer paso."
+          />
 
           {failure ? <InlineAlert message={failure} /> : null}
           {notice && !failure ? <InlineAlert message={notice} tone="success" /> : null}
@@ -172,31 +149,27 @@ export default function VerifyEmail() {
         </View>
       </ScrollView>
 
-      <Pressable
-        accessibilityRole="link"
-        disabled={submitting}
-        onPress={() => {
-          void resend()
-        }}
-        style={styles.link}
-      >
-        <Text role="body" size="sm" color="secondary" align="center">
-          ¿No te llegó?{' '}
-          <Text role="control" size="sm" color="accent">
-            Reenviar
-          </Text>
+      <View style={styles.link}>
+        <Text role="body" size="sm" color="secondary">
+          ¿No te llegó?
         </Text>
-      </Pressable>
+        <Button
+          label="Reenviar"
+          variant="ghost"
+          size="sm"
+          accessibilityLabel="¿No te llegó? Reenviar el código"
+          disabled={submitting}
+          onPress={() => {
+            void resend()
+          }}
+        />
+      </View>
     </Screen>
   )
 }
 
 const styles = StyleSheet.create({
   back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginLeft: -12,
   },
   scroll: {
@@ -214,18 +187,13 @@ const styles = StyleSheet.create({
     gap: 14,
     marginTop: 28,
   },
-  note: {
-    borderWidth: 1,
-    gap: 6,
-  },
-  noteBody: {
-    marginTop: 2,
-  },
   submit: {
     marginTop: 6,
   },
   link: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
 })
