@@ -47,7 +47,7 @@ const WORKER_SOURCE = import.meta.dir
  * notice, but no worker delivers them yet. Each joins the list with its consumer.
  */
 const DELIVERY_EVENT =
-  /^(organization\.(\w*invited|membership_resigned)|relationship\.(client_invited|professional_reassigned|substitution_proposed)|identity\.(account_recovery_requested|contact_changed|contact_verified)|execution\.correction_proposed|payments\.subscription_(suspended|reactivated|ended)|waitlist\.email_requested)\.v1$/
+  /^(organization\.(\w*invited|membership_resigned)|relationship\.(client_invited|professional_reassigned|substitution_proposed)|identity\.(account_recovery_requested|contact_changed|contact_verified|password_changed)|execution\.correction_proposed|payments\.subscription_(suspended|reactivated|ended)|waitlist\.email_requested)\.v1$/
 
 function enqueuedDeliveryEvents(): string[] {
   const found = new Set<string>()
@@ -80,6 +80,7 @@ describe('outbox delivery coverage', () => {
     expect(events).toContain('relationship.substitution_proposed.v1')
     expect(events).toContain('waitlist.email_requested.v1')
     expect(events).toContain('execution.correction_proposed.v1')
+    expect(events).toContain('identity.password_changed.v1')
   })
 
   test('and would notice an event the worker never mentions', () => {
