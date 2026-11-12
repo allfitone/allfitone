@@ -4,6 +4,7 @@ import {
   availableActions,
   canManageBilling,
   confirmationDescription,
+  confirmationDetails,
   formatAmount,
   formatPeriodEnd,
   personInitials,
@@ -73,15 +74,57 @@ describe('what the confirmation promises', () => {
    * reversible cause and revokes nothing, and a confirmation that implied otherwise would
    * describe an operation this platform deliberately does not have.
    */
-  test('pausing says what it leaves alone, not only what it stops', () => {
-    const text = confirmationDescription('suspend')
-    expect(text).toContain('No se le quita ningún permiso')
-    expect(text).toContain('el vínculo con la organización sigue igual')
-    expect(text).toContain('sin que la persona tenga que aceptar nada de nuevo')
+  function said(action: 'suspend' | 'reactivate' | 'end') {
+    return [confirmationDescription(action), ...confirmationDetails(action)].join(' ')
+  }
+
+  // HU-079 criteria 1 and 2: what pausing stops, and what it leaves alone.
+  test('pausing says what it stops and what it leaves alone', () => {
+    const text = said('suspend')
+    expect(text).toContain('no puede registrar ni cambiar nada')
+    expect(text).toContain('las sesiones futuras del programa que le asignaron quedan en pausa')
+    expect(text).toContain('no se le quita ningún permiso')
+    expect(text).toContain('su programa sigue asignado')
+    expect(text).toContain('la relación con la organización sigue igual')
   })
 
-  test('reactivating says no new acceptance is needed, and why', () => {
-    expect(confirmationDescription('reactivate')).toContain('nunca se le quitó nada')
+  test('pausing says she keeps her history and can train on her own', () => {
+    expect(said('suspend')).toContain(
+      'Conserva todo su historial y puede seguir entrenando por su cuenta.',
+    )
+  })
+
+  /*
+   * HU-079 criteria 4 to 7. Reactivating closes this one pause and recalculates from what
+   * is true now, so neither dialog may promise that everything comes back as it was.
+   */
+  test('reactivating restores nothing, and says what does come back', () => {
+    const text = said('reactivate')
+    expect(text).toContain('Levanta solo la pausa de este plan')
+    expect(text).toContain('No devuelve las cosas a como estaban')
+    expect(text).toContain(
+      'Vuelven las sesiones futuras que no se hayan iniciado ni cancelado, si la relación y la asignación siguen vigentes.',
+    )
+  })
+
+  test('reactivating says what changed during the pause stays changed', () => {
+    expect(said('reactivate')).toContain(
+      'Lo que cambió durante la pausa no vuelve: un permiso retirado, una relación terminada, una asignación cambiada o una sesión cancelada, iniciada o que ya pasó.',
+    )
+  })
+
+  test('no new acceptance only while the permission holds, and another block still pauses', () => {
+    const text = said('reactivate')
+    expect(text).toContain('mientras su permiso siga vigente')
+    expect(text).toContain('como la organización suspendida')
+  })
+
+  test('neither dialog promises that everything comes back as it was', () => {
+    for (const text of [said('suspend'), said('reactivate')]) {
+      expect(text).not.toContain('todo vuelve')
+      expect(text).not.toContain('como siempre')
+      expect(text).not.toContain('nunca se le quitó nada')
+    }
   })
 
   test('ending says it does not end the vínculo or retire the permisos', () => {
@@ -91,9 +134,9 @@ describe('what the confirmation promises', () => {
   })
 
   test('all three say the person is told', () => {
-    for (const action of ['suspend', 'reactivate', 'end'] as const) {
-      expect(confirmationDescription(action)).toContain('avisar por correo')
-    }
+    expect(said('suspend')).toContain('avisar por correo')
+    expect(said('reactivate')).toContain('avisar por correo')
+    expect(said('end')).toContain('avisar por correo')
   })
 })
 

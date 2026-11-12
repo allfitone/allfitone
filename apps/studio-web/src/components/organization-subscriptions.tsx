@@ -62,6 +62,7 @@ import {
   availableActions,
   canManageBilling,
   confirmationDescription,
+  confirmationDetails,
   confirmationTitle,
   formatAmount,
   formatPeriod,
@@ -351,6 +352,9 @@ export function OrganizationSubscriptions() {
                 </DialogTitle>
                 <DialogDescription>{confirmationDescription(pending.action)}</DialogDescription>
               </DialogHeader>
+              {confirmationDetails(pending.action).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
 
               {refusal ? (
                 <Alert variant="danger" live="assertive" data-billing-error>

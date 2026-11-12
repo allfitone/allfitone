@@ -174,17 +174,50 @@ test('pausing a plan moves it and never offers to pause it twice', async ({ page
  * will reasonably fear that it takes the client's data away, and will either avoid the
  * action or use it believing it does something the platform deliberately does not do.
  */
-test('the confirmation denies the permission fear and warns about the email', async ({ page }) => {
+test('HU-079: pausing says what it stops, what it leaves alone, and the email', async ({
+  page,
+}) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
   await page.locator('[data-billing-action="suspend"]').click()
 
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toContainText('No se le quita ningún permiso')
-  await expect(dialog).toContainText('el vínculo con la organización sigue igual')
-  await expect(dialog).toContainText('sin que la persona tenga que aceptar nada de nuevo')
+  // Criterion 2, what stops.
+  await expect(dialog).toContainText('no puede registrar ni cambiar nada')
+  await expect(dialog).toContainText('las sesiones futuras del programa que le asignaron')
+  // Criterion 1, what does not.
+  await expect(dialog).toContainText('no se le quita ningún permiso')
+  await expect(dialog).toContainText('su programa sigue asignado')
+  await expect(dialog).toContainText('la relación con la organización sigue igual')
+  // Criterion 3.
+  await expect(dialog).toContainText('puede seguir entrenando por su cuenta')
   await expect(dialog).toContainText('avisar por correo')
+  // Criterion 5: pausing must not promise that reactivating brings everything back.
+  await expect(dialog).not.toContainText('todo vuelve')
+})
+
+test('HU-079: reactivating restores nothing that changed, and says what comes back', async ({
+  page,
+}) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+  await page.locator('[data-billing-action="reactivate"]').click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('Levanta solo la pausa de este plan')
+  await expect(dialog).toContainText('No devuelve las cosas a como estaban')
+  await expect(dialog).toContainText('Lo que cambió durante la pausa no vuelve')
+  await expect(dialog).toContainText('Vuelven las sesiones futuras que no se hayan iniciado')
+  await expect(dialog).toContainText('mientras su permiso siga vigente')
+  await expect(dialog).not.toContainText('como siempre')
+  await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
+
+  await expect(page.locator('[data-billing-row]')).toContainText('Al día')
 })
 
 test('ending a plan says it does not end the vínculo, and leaves no action behind', async ({

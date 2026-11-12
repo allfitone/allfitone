@@ -2912,6 +2912,41 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No pudimos cargar los cobros')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/billing`, pause and reactivate · HU-079 ---
+  {
+    stories: 'HU-079 · what pausing stops, and what it leaves alone',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="suspend"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Lo que no cambia')
+    },
+  },
+  {
+    stories: 'HU-079 · what reactivating gives back, and what it does not',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="reactivate"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Lo que cambió durante la pausa')
+    },
+  },
+  {
+    stories: 'HU-079 · a pause with no cause to close',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+        subscriptionOutcome: 'no-cause',
+      }),
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="reactivate"]').click()
+      await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
+      await expect(page.locator('[data-billing-error]')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',
