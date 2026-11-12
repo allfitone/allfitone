@@ -82,19 +82,39 @@ async function fit(page: Page) {
  * The gap a container declares, and the gaps its children really stand apart.
  * Measured gaps may exceed the declared one — a child can carry its own margin
  * — but never fall short of it.
+ *
+ * Read under a poll, and the reason is not slowness. Every gap in this file is
+ * `var(--afo-space-N)`, a Design System token, and a `gap` whose variable has
+ * not resolved yet computes to `normal` — `Number.parseFloat('normal')` is
+ * `NaN`. On a loaded runner one measurement landed in that instant and the
+ * suite failed on `NaN`. No timeout would have helped: a plain `expect` over a
+ * number does not retry, so the measurement itself has to.
  */
-async function spacing(page: Page, selector: string) {
-  return page.locator(selector).evaluate((element) => {
-    const declared = Number.parseFloat(getComputedStyle(element).rowGap)
-    const gaps: number[] = []
-    let previousBottom: number | null = null
-    for (const child of Array.from(element.children)) {
-      const box = child.getBoundingClientRect()
-      if (previousBottom !== null) gaps.push(Math.round(box.top - previousBottom))
-      previousBottom = box.bottom
-    }
-    return { declared, gaps }
-  })
+async function spacing(page: Page, selector: string, name: string) {
+  const read = () =>
+    page.locator(selector).evaluate((element) => {
+      const declared = Number.parseFloat(getComputedStyle(element).rowGap)
+      const gaps: number[] = []
+      let previousBottom: number | null = null
+      for (const child of Array.from(element.children)) {
+        const box = child.getBoundingClientRect()
+        if (previousBottom !== null) gaps.push(Math.round(box.top - previousBottom))
+        previousBottom = box.bottom
+      }
+      return { declared, gaps }
+    })
+
+  let measured = { declared: Number.NaN, gaps: [] as number[] }
+  await expect
+    .poll(
+      async () => {
+        measured = await read()
+        return measured.declared
+      },
+      { message: `${name}: la separación declarada nunca llegó a ser un número` },
+    )
+    .toBeGreaterThan(0)
+  return measured
 }
 
 /*
@@ -172,7 +192,7 @@ test('T-REGISTER-04 a register stands its own parts apart', async ({ page }) => 
 
   for (const { name, path, section } of REGISTERS) {
     await open(page, path)
-    const medida = await spacing(page, section)
+    const medida = await spacing(page, section, name)
     expect(medida.declared, `${name}: la sección no declara separación`).toBeGreaterThan(0)
     for (const gap of medida.gaps) {
       expect(gap, `${name}: partes separadas por ${gap}px`).toBeGreaterThanOrEqual(
@@ -203,7 +223,7 @@ test('T-REGISTER-05 the cards a register falls back to are separated', async ({ 
     await expect(page.locator('table')).toHaveCount(0)
     if ((await page.locator(cards).count()) === 0) continue
 
-    const medida = await spacing(page, cards)
+    const medida = await spacing(page, cards, name)
     rulesChecked += 1
     expect(medida.declared, `${name}: la regla no declara separación`).toBeGreaterThan(0)
     for (const gap of medida.gaps) {
