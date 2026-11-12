@@ -132,6 +132,7 @@ export interface SectionDoor {
 const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
   { read: 'getAuthorizedClientTrainingProfile', label: 'Ver el perfil', segment: 'profile' },
   { read: 'listAuthorizedClientExecutions', label: 'Ver las sesiones', segment: 'executions' },
+  { read: 'getAuthorizedClientProgress', label: 'Ver el progreso', segment: 'progress' },
 ]
 
 /**
@@ -171,6 +172,11 @@ export function clientTrainingProfilePath(organizationId: string, personId: stri
 /** And her sessions, beside it. */
 export function clientExecutionsPath(organizationId: string, personId: string): string {
   return `${clientCardPath(organizationId, personId)}/executions`
+}
+
+/** And her progress, beside both. */
+export function clientProgressPath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/progress`
 }
 
 /** Where a person's card lives. One string, so the directory and the card agree. */

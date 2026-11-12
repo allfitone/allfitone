@@ -58,6 +58,12 @@ export interface StudioApiFixture {
   clientExecutions: unknown[]
   /** `stale` answers `422` to any request carrying a cursor, as a moved list does. */
   executionsCursor: 'ok' | 'stale'
+  /**
+   * How her training is going. `null` is the `403` `scope-required` the route
+   * answers when she shares neither category — with nothing to compute from, it
+   * refuses rather than answering zeros.
+   */
+  clientProgress: unknown
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -1061,6 +1067,158 @@ export const clientExecutions = [
   ...Array.from({ length: 25 }, (_, offset) => executedSession(offset + 5, (offset + 5) % 3 !== 0)),
 ]
 
+/*
+ * `OP-EXE-019`, written from `execution.read_client_progress`. Every null in
+ * here is a figure the server could not compute, and each one is a different
+ * rendering rule the screen has to get right.
+ */
+export const clientProgress = {
+  period: 'week',
+  sources: [
+    { code: 'relationship_training', version: 4 },
+    { code: 'prior_training_history', version: 2 },
+  ],
+  algorithm: { e1rm: 'epley', version: 1 },
+  periods: [
+    // Oldest first, as the operation answers them.
+    {
+      starts_on: '2026-09-07',
+      ends_before: '2026-09-14',
+      sessions: 2,
+      trained_seconds: 5400,
+      work_sets: 24,
+      volume_kg: 3120,
+      muscles: [
+        { code: 'legs', name: 'Piernas', sets: 10 },
+        { code: 'back', name: 'Espalda', sets: 8 },
+        { code: 'chest', name: 'Pecho', sets: 6 },
+      ],
+    },
+    /*
+     * A week of bodyweight work: nothing in it was weighed, so it has **no**
+     * volume. Drawing a zero here would say she lifted nothing in a week she
+     * trained three times.
+     */
+    {
+      starts_on: '2026-09-14',
+      ends_before: '2026-09-21',
+      sessions: 3,
+      trained_seconds: 7200,
+      work_sets: 31,
+      volume_kg: null,
+      muscles: [
+        { code: 'abs', name: 'Abdomen', sets: 16 },
+        { code: 'glutes', name: 'Glúteos', sets: 15 },
+      ],
+    },
+    // Five muscles, so the line counts the ones it does not name.
+    {
+      starts_on: '2026-09-21',
+      ends_before: '2026-09-28',
+      sessions: 4,
+      trained_seconds: 11_700,
+      work_sets: 48,
+      volume_kg: 7430.5,
+      muscles: [
+        { code: 'chest', name: 'Pecho', sets: 14 },
+        { code: 'back', name: 'Espalda', sets: 12 },
+        { code: 'legs', name: 'Piernas', sets: 11 },
+        { code: 'shoulders', name: 'Hombros', sets: 7 },
+        { code: 'arms', name: 'Brazos', sets: 4 },
+      ],
+    },
+    // A week she did not train. Zeros here are real: the server counted them.
+    {
+      starts_on: '2026-09-28',
+      ends_before: '2026-10-05',
+      sessions: 0,
+      trained_seconds: 0,
+      work_sets: 0,
+      volume_kg: null,
+      muscles: [],
+    },
+  ],
+  movements: [
+    /*
+     * Heaviest first, then by name with the unnamed one last — the order
+     * `order by ranked.best_kg desc, ranked.name nulls last` answers them in.
+     * The screen must not re-sort, so this is the order it has to draw.
+     */
+    {
+      movement_id: '018f6f8d-2b00-7a00-8000-000000000601',
+      name: 'Sentadilla trasera',
+      best_kg: 120,
+      previous_best_kg: 112.5,
+      change_kg: 7.5,
+      best_e1rm_kg: 142,
+      bests: [100, null, 112.5, 120],
+    },
+    /*
+     * A movement she named herself, at the length a person actually types.
+     * `ck_movements_name` caps nothing, so the name column has no width that
+     * always holds one — this is the row that proves it takes a second line
+     * instead of the column beside it.
+     */
+    {
+      movement_id: '018f6f8d-2b00-7a00-8000-000000000605',
+      name: 'Sentadilla búlgara con mancuernas y pausa de tres segundos abajo',
+      best_kg: 95,
+      previous_best_kg: 90,
+      change_kg: 5,
+      best_e1rm_kg: 108.2,
+      bests: [85, 90, 90, 95],
+    },
+    // It went down, which the screen has to show as plainly as going up.
+    {
+      movement_id: '018f6f8d-2b00-7a00-8000-000000000604',
+      name: 'Press de banca',
+      best_kg: 75,
+      previous_best_kg: 80,
+      change_kg: -5,
+      best_e1rm_kg: 86.3,
+      bests: [77.5, 80, 80, 75],
+    },
+    /*
+     * A movement only she can name: counted, so the row stays, and named as what
+     * it is rather than invented.
+     */
+    {
+      movement_id: '018f6f8d-2b00-7a00-8000-000000000602',
+      name: null,
+      best_kg: 60,
+      previous_best_kg: 60,
+      change_kg: 0,
+      best_e1rm_kg: 68,
+      bests: [null, 60, 60, 60],
+    },
+    // First period it appears in: nothing to compare against, and no estimate
+    // because no set was between one and twelve repetitions.
+    {
+      movement_id: '018f6f8d-2b00-7a00-8000-000000000603',
+      name: 'Plancha con lastre',
+      best_kg: 20,
+      previous_best_kg: null,
+      change_kg: null,
+      best_e1rm_kg: null,
+      bests: [null, null, null, 20],
+    },
+  ],
+}
+
+/** The same window with nothing trained in it: four periods of honest zeros. */
+export const emptyClientProgress = {
+  ...clientProgress,
+  periods: clientProgress.periods.map((entry) => ({
+    ...entry,
+    sessions: 0,
+    trained_seconds: 0,
+    work_sets: 0,
+    volume_kg: null,
+    muscles: [],
+  })),
+  movements: [],
+}
+
 /** An older version of the same permission: fewer fields, same person. */
 export const narrowTrainingProfile = {
   applied_scope: { code: 'relationship_training', version: 1 },
@@ -1602,6 +1760,7 @@ export function createStudioApiFixture(
     clientTrainingProfile: structuredClone(clientTrainingProfile),
     clientExecutions: structuredClone(clientExecutions),
     executionsCursor: 'ok',
+    clientProgress: structuredClone(clientProgress),
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -2846,6 +3005,44 @@ function defaultResponse(
       },
     }
     return { status: 201, body: fixture.relationshipState }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/progress$/.test(request.path)
+  ) {
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    // Nothing shared is the `403` that names the category, not a window of
+    // zeros: with nothing to compute from, the route refuses before reading.
+    if (fixture.clientProgress === null) {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'read' },
+        },
+      }
+    }
+    /*
+     * The three parameters are required, so a request missing one is the
+     * contract being broken by the screen rather than by a person — answered
+     * `400`, which is what makes that mistake visible instead of silent.
+     */
+    const params = new URLSearchParams(request.search ?? '')
+    const period = params.get('period')
+    const count = Number(params.get('count'))
+    if (!params.get('timezone') || (period !== 'week' && period !== 'month')) {
+      return { status: 400, body: error('bad-request') }
+    }
+    if (!Number.isInteger(count) || count < 1 || count > 12) {
+      return { status: 400, body: error('bad-request') }
+    }
+    // The period travels back, because the screen reads it from the answer.
+    return {
+      status: 200,
+      body: { ...(fixture.clientProgress as Record<string, unknown>), period },
+    }
   }
   if (
     request.method === 'GET' &&

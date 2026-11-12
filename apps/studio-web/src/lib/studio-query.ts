@@ -10,6 +10,7 @@ import {
   studioApi,
   type AuthorizedExecutionPage,
   type AuthorizedExecutionSummary,
+  type ProgressPeriod,
   type CatalogActivityTypeList,
   type CatalogDisciplineList,
   type OrganizationMovement,
@@ -144,6 +145,11 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
   clientTrainingProfile: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
+  clientProgress: (
+    organizationId: string,
+    personId: string,
+    query: { timezone: string; period: ProgressPeriod; count: number },
+  ) => [...ROOT_KEY, 'organization', organizationId, 'client-progress', personId, query] as const,
   clientExecutions: (organizationId: string, personId: string, limit: number) =>
     [
       ...ROOT_KEY,
@@ -339,6 +345,30 @@ export function clientTrainingProfileQueryOptions(organizationId: string, person
   return queryOptions({
     queryKey: studioQueryKeys.clientTrainingProfile(organizationId, personId),
     queryFn: ({ signal }) => studioApi.clientTrainingProfile(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * How her training is going, read under the same rules as the two screens beside
+ * it: `private-no-store`, never remembered, and never refetched on its own,
+ * because the answer is a read recorded for her to see.
+ *
+ * The zone is part of the key, not only of the request. It decides which week a
+ * session falls in, so the same person read from two zones is two answers — and
+ * one must not be served from the other's cache.
+ */
+export function clientProgressQueryOptions(
+  organizationId: string,
+  personId: string,
+  query: { timezone: string; period: ProgressPeriod; count: number },
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientProgress(organizationId, personId, query),
+    queryFn: ({ signal }) => studioApi.clientProgress(organizationId, personId, query, signal),
     staleTime: 0,
     gcTime: 0,
     refetchOnWindowFocus: false,

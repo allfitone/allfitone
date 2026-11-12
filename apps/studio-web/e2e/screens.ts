@@ -39,6 +39,7 @@ import {
   relationshipState,
   clientCard,
   clientCardWithoutSections,
+  emptyClientProgress,
   emptyTrainingProfile,
   narrowTrainingProfile,
   coveredClientCard,
@@ -140,6 +141,7 @@ const relationshipId = relationshipState.relationship_id
 const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
 const trainingProfilePath = `${clientCardPath}/profile`
 const executionsPath = `${clientCardPath}/executions`
+const progressPath = `${clientCardPath}/progress`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1547,6 +1549,71 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No encontramos estas sesiones')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/progress` · HU-056 ---
+  {
+    /*
+     * The fullest the screen gets: four weeks, one of them with no volume
+     * because nothing in it was weighed, one with nothing trained at all, and
+     * four movements — one going up, one unchanged, one with nothing to compare
+     * against, one going down, and one of them a movement only she can name.
+     */
+    stories: 'HU-056 · her weeks and her movements, with the figures that are missing',
+    path: progressPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-progress-period]')).toHaveCount(4)
+      await expect(page.getByText('Sin peso registrado').first()).toBeVisible()
+    },
+  },
+  {
+    // The same window grouped by month, which is a different question and a
+    // different read.
+    stories: 'HU-056 · the same window grouped by month',
+    path: progressPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Por mes' }).click()
+      await expect(page.getByRole('heading', { name: 'Mes a mes' })).toBeVisible()
+    },
+  },
+  {
+    // Nothing trained in the whole window, said once rather than drawn as a
+    // dozen rows of zeros.
+    stories: 'HU-056 · a window with no training in it',
+    path: progressPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientProgress: emptyClientProgress,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada que medir')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1 at its edge: nothing to compute from, so a refusal rather
+    // than a window of zeros.
+    stories: 'HU-056 · neither permission, so nothing to compute from',
+    path: progressPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientProgress: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó nada con lo que medir')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-056 · progress of a person the caller does not attend',
+    path: progressPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este progreso')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---

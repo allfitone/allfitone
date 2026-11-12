@@ -196,6 +196,7 @@ describe('the doors on each category', () => {
     expect(doors.get('relationship_training')?.map((door) => door.label)).toEqual([
       'Ver el perfil',
       'Ver las sesiones',
+      'Ver el progreso',
     ])
   })
 

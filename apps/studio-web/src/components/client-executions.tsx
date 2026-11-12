@@ -59,8 +59,8 @@ import {
   fulfilledOurPlan,
   levelLabel,
   originLabel,
-  readerTimeZone,
 } from '@/lib/client-executions'
+import { readerTimeZone } from '@/lib/reader-zone'
 import { StudioApiError, type AuthorizedExecutionSummary } from '@/lib/studio-api'
 import {
   clientExecutionsQueryOptions,

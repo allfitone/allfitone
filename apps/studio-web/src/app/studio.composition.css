@@ -249,7 +249,8 @@
 [data-relationship-history],
 [data-client-card-screen],
 [data-client-profile-screen],
-[data-client-executions-screen] {
+[data-client-executions-screen],
+[data-client-progress-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -412,6 +413,24 @@
   width: 18%;
 }
 
+/* Measured at the narrowest the table ever draws, 44rem: the name asks for
+   264px, the two figures for 78px and 86px, and "Maximo estimado" for 161px —
+   its header, not its value. The slack goes to the name, the only value whose
+   length nobody chose. Without shares the four even quarters gave the name
+   213px and it painted over the column beside it. */
+[data-studio-register='client-progress-movements'] col:nth-child(1) {
+  width: 44%;
+}
+
+[data-studio-register='client-progress-movements'] col:nth-child(2),
+[data-studio-register='client-progress-movements'] col:nth-child(3) {
+  width: 14%;
+}
+
+[data-studio-register='client-progress-movements'] col:nth-child(4) {
+  width: 28%;
+}
+
 /* ------------------------------------------------------------------- grids */
 
 [data-studio-choice-grid] {
@@ -572,7 +591,8 @@
 [data-credential-details] dt,
 [data-version-details] dt,
 [data-client-profile-group-name],
-[data-client-execution-facts] dt {
+[data-client-execution-facts] dt,
+[data-client-progress-facts] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -598,7 +618,8 @@
 [data-authorized-scope-facts],
 [data-relationship-facts],
 [data-client-card-facts],
-[data-client-execution-facts] {
+[data-client-execution-facts],
+[data-client-progress-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -661,7 +682,9 @@
 [data-role-capability-list],
 [data-client-card-section-list],
 [data-client-profile-group-list],
-[data-client-executions-list] {
+[data-client-executions-list],
+[data-client-progress-period-cards],
+[data-client-progress-movement-cards] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1447,7 +1470,8 @@
 [data-relationship-header-placeholder],
 [data-client-card-header-placeholder],
 [data-client-profile-header-placeholder],
-[data-client-executions-header-placeholder] {
+[data-client-executions-header-placeholder],
+[data-client-progress-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
@@ -1456,7 +1480,8 @@
 [data-relationship-card-placeholder],
 [data-client-card-panel-placeholder],
 [data-client-profile-panel-placeholder],
-[data-client-executions-panel-placeholder] {
+[data-client-executions-panel-placeholder],
+[data-client-progress-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1571,6 +1596,65 @@
   gap: 0;
 }
 
+/* A period or a movement **as a card**, for the widths where six columns do not
+   fit. Hairlines rather than boxes: the panel is already a card.
+   
+   Scoped to the card list on purpose. The same attribute is on the table row,
+   so that one selector serves both presentations in a test — and unscoped, this
+   `display: grid` landed on a `<tr>` and stacked every cell onto its own line. */
+[data-client-progress-period-cards] [data-client-progress-period],
+[data-client-progress-movement-cards] [data-client-progress-movement] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-progress-period-cards] > li:first-child [data-client-progress-period],
+[data-client-progress-movement-cards] > li:first-child [data-client-progress-movement] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-progress-movement-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-progress-period-name],
+[data-client-progress-movement-name] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A share cannot hold a name somebody typed at any length, so the longest one
+   takes a second line rather than the next column. The cell inherits
+   `nowrap` from the Design System, which is right for a figure and wrong here. */
+[data-client-progress-movement-name] {
+  white-space: normal;
+}
+
+[data-client-progress-period-name] {
+  margin: 0;
+  font-size: var(--afo-font-size-md);
+}
+
+/* The one movement whose name is hers alone reads as a description rather than
+   as a name, because that is what it is. */
+[data-client-progress-movement-name][data-unnamed] {
+  font-weight: var(--afo-font-weight-regular);
+  font-style: italic;
+  color: var(--afo-color-text-muted);
+}
+
+/* A missing figure is a sentence, not a number, so it is not read as one. */
+[data-client-progress-volume] {
+  overflow-wrap: anywhere;
+}
+
 /* One session: the hour leads, where it came from sits beside it, and the facts
    about it step down below. Separated by hairlines rather than boxed, because a
    card per session would make twenty-five boxes out of one list. */
@@ -1623,6 +1707,11 @@
 [data-client-profile-group]:first-child {
   padding-block-start: 0;
   border-block-start: none;
+}
+
+/* The doors stand off the facts they follow, the way a footer would have. */
+[data-client-card-doors] {
+  margin-block-start: var(--afo-space-4);
 }
 
 /* Drawn as the same label every other value on the product carries, so the

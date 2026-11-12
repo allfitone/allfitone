@@ -77,6 +77,11 @@ export type ClientDirectoryGroup = AllfitV1Schemas['ClientDirectoryGroup']
 export type AccessLevel = AllfitV1Schemas['AccessLevel']
 export type ClientTrainingProfile = AllfitV1Schemas['ClientTrainingProfile']
 export type AuthorizedExecutionPage = AllfitV1Schemas['AuthorizedExecutionPage']
+export type ClientProgress = AllfitV1Schemas['ClientProgress']
+export type ClientProgressPeriod = AllfitV1Schemas['ClientProgressPeriod']
+export type ClientProgressMovement = AllfitV1Schemas['ClientProgressMovement']
+export type SpacePeriodMuscle = AllfitV1Schemas['SpacePeriodMuscle']
+export type ProgressPeriod = 'week' | 'month'
 export type AuthorizedExecutionSummary = AllfitV1Schemas['AuthorizedExecutionSummary']
 export type CompletenessLevel = AllfitV1Schemas['CompletenessLevel']
 export type ClientProfileClaim = AllfitV1Schemas['ClientProfileClaim']
@@ -885,6 +890,32 @@ export const studioApi = {
     if (query.cursor) search.set('cursor', query.cursor)
     return request<AuthorizedExecutionPage>(
       `/studio/v1/organizations/${organizationId}/clients/${personId}/executions?${search}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    )
+  },
+
+  /**
+   * `OP-EXE-019`. How her training is going, computed when it is read from the
+   * sessions this caller may see. The three query parameters are required by the
+   * contract: the zone decides which week or month a session falls in, so the
+   * same sessions answer different periods under different zones.
+   */
+  clientProgress: (
+    organizationId: string,
+    personId: string,
+    query: { timezone: string; period: ProgressPeriod; count: number },
+    signal?: AbortSignal,
+  ) => {
+    const search = new URLSearchParams({
+      timezone: query.timezone,
+      period: query.period,
+      count: String(query.count),
+    })
+    return request<ClientProgress>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/progress?${search}`,
       {
         cache: 'no-store',
         ...(signal ? { signal } : {}),

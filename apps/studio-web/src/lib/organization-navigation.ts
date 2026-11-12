@@ -101,6 +101,9 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/executions$/.test(pathname)) {
     return { title: 'Sesiones ejecutadas' }
   }
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/progress$/.test(pathname)) {
+    return { title: 'Progreso' }
+  }
   /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
