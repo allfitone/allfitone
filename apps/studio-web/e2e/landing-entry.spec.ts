@@ -141,6 +141,22 @@ test.describe('privacy', () => {
   })
 })
 
+// Fragments are part of the address, so they are named in English like every route.
+test('every section link in the header lands on its section, named in English', async ({
+  page,
+}) => {
+  await installStudioApiMock(page, createStudioApiFixture({ signedOut: true }))
+  for (const path of ['/es', '/en']) {
+    await page.goto(path)
+    const hrefs = await page
+      .locator('header a[href^="#"]')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href')))
+    expect(hrefs).toEqual(['#how-it-works', '#privacy', '#modules'])
+    for (const href of hrefs) await expect(page.locator(`section${href ?? ''}`)).toHaveCount(1)
+    await expect(page.locator('main#content')).toHaveCount(1)
+  }
+})
+
 /**
  * Like the Space landing's footer: the company and the sibling product side by
  * side, then the three legal documents on www.allfit.one, every one of them in

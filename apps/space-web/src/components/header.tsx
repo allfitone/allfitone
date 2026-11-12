@@ -32,9 +32,9 @@ export function Header({
   const home = `/${locale}`
   const links = [
     { id: 'app', label: copy.features },
-    { id: 'programas', label: copy.programs },
-    { id: 'privacidad', label: copy.privacy },
-    { id: 'gimnasios', label: copy.gyms },
+    { id: 'programs', label: copy.programs },
+    { id: 'privacy', label: copy.privacy },
+    { id: 'gyms', label: copy.gyms },
   ]
   return (
     <SiteHeader>
