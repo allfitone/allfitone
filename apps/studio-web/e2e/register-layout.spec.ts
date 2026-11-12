@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import {
   activeMembership,
+  clientCard,
   coachedTeam,
   createStudioApiFixture,
   installStudioApiMock,
@@ -50,6 +51,21 @@ const REGISTERS = [
     path: `/organizations/${ORG}/clients/${relationshipState.relationship_id}`,
     section: '[data-relationship-state]',
     cards: '[data-relationship-grant-cards]',
+  },
+  /*
+   * The first register that is not the page but a panel inside a list of them,
+   * and the first to carry one table per item. It is here because its first
+   * version took the whole screen 372px past a phone: a grid item does not
+   * shrink below its content, and the content was a table demanding 44rem. The
+   * sweep below is what sees that at every width and both sidebar states.
+   */
+  {
+    name: 'programas asignados',
+    path: `/organizations/${ORG}/clients/people/${clientCard.person_id}/programs`,
+    section: '[data-client-programs-screen]',
+    /* One list per program, and the helper reads one element: the first panel
+       answers for all three, which the one rule that spaces them draws. */
+    cards: '[data-client-programs-list] > li:first-child [data-client-program-session-cards]',
   },
 ] as const
 
