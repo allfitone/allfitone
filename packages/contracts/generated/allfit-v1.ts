@@ -9474,7 +9474,7 @@ export interface components {
     UuidV4: string
     /** Format: uuid */
     UuidV7: string
-    IanaTimeZone: string | 'UTC' | unknown
+    IanaTimeZone: string
     /** @enum {string} */
     CompletenessLevel: 'partial' | 'summary' | 'detailed' | 'sensor_enriched'
     /** @enum {string} */
