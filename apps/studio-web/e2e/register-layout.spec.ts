@@ -16,37 +16,37 @@ const ORG = activeMembership.organization_id
  */
 const REGISTERS = [
   {
-    name: 'clientes',
+    name: 'clients',
     path: `/organizations/${ORG}/clients`,
     section: '[data-client-page]',
     cards: '[data-client-directory-card-list]',
   },
   {
-    name: 'cobros',
+    name: 'billing',
     path: `/organizations/${ORG}/billing`,
     section: '[data-billing-page]',
     cards: '[data-billing-card-list]',
   },
   {
-    name: 'integrantes',
+    name: 'team',
     path: `/organizations/${ORG}/team`,
     section: '[data-team-page]',
     cards: '[data-team-directory-card-list]',
   },
   {
-    name: 'invitaciones',
+    name: 'invitations',
     path: `/organizations/${ORG}/team/invitations`,
     section: '[data-team-page]',
     cards: '[data-team-directory-card-list]',
   },
   {
-    name: 'autorizaciones',
+    name: 'authorizations',
     path: `/organizations/${ORG}/clients/authorizations`,
     section: '[data-authorized-scope-page]',
     cards: '[data-authorized-scope-card-list]',
   },
   {
-    name: 'vínculo',
+    name: 'relationship',
     path: `/organizations/${ORG}/clients/${relationshipState.relationship_id}`,
     section: '[data-relationship-state]',
     cards: '[data-relationship-grant-cards]',
@@ -72,8 +72,8 @@ async function fit(page: Page) {
     const container = document.querySelector('[data-slot="table-container"]')
     if (!container) return null
     return {
-      necesita: Math.ceil(container.scrollWidth),
-      tiene: Math.floor(container.clientWidth),
+      needs: Math.ceil(container.scrollWidth),
+      has: Math.floor(container.clientWidth),
     }
   })
 }
@@ -142,12 +142,12 @@ for (const { name, path } of REGISTERS) {
           }
         }
 
-        const medida = await fit(page)
-        if (!medida) continue
+        const room = await fit(page)
+        if (!room) continue
         expect(
-          medida.necesita,
-          `${width}px (${sidebar}): la tabla pide ${medida.necesita} y tiene ${medida.tiene}`,
-        ).toBeLessThanOrEqual(medida.tiene)
+          room.needs,
+          `${width}px (${sidebar}): the table needs ${room.needs}px and has ${room.has}px`,
+        ).toBeLessThanOrEqual(room.has)
       }
     }
   })
@@ -192,11 +192,11 @@ test('T-REGISTER-04 a register stands its own parts apart', async ({ page }) => 
 
   for (const { name, path, section } of REGISTERS) {
     await open(page, path)
-    const medida = await spacing(page, section, name)
-    expect(medida.declared, `${name}: la sección no declara separación`).toBeGreaterThan(0)
-    for (const gap of medida.gaps) {
-      expect(gap, `${name}: partes separadas por ${gap}px`).toBeGreaterThanOrEqual(
-        Math.round(medida.declared),
+    const measured = await spacing(page, section, name)
+    expect(measured.declared, `${name}: the section declares no gap`).toBeGreaterThan(0)
+    for (const gap of measured.gaps) {
+      expect(gap, `${name}: parts ${gap}px apart`).toBeGreaterThanOrEqual(
+        Math.round(measured.declared),
       )
     }
   }
@@ -223,12 +223,12 @@ test('T-REGISTER-05 the cards a register falls back to are separated', async ({ 
     await expect(page.locator('table')).toHaveCount(0)
     if ((await page.locator(cards).count()) === 0) continue
 
-    const medida = await spacing(page, cards, name)
+    const measured = await spacing(page, cards, name)
     rulesChecked += 1
-    expect(medida.declared, `${name}: la regla no declara separación`).toBeGreaterThan(0)
-    for (const gap of medida.gaps) {
+    expect(measured.declared, `${name}: the rule declares no gap`).toBeGreaterThan(0)
+    for (const gap of measured.gaps) {
       pairsChecked += 1
-      expect(gap, `${name}: tarjetas separadas por ${gap}px`).toBe(Math.round(medida.declared))
+      expect(gap, `${name}: cards ${gap}px apart`).toBe(Math.round(measured.declared))
     }
   }
 
