@@ -496,23 +496,23 @@ function NutritionVisual({
 function BodyVisual({ on, free }: { readonly on: boolean; readonly free: boolean }) {
   const theme = useTheme()
   const rows = [
-    ['Cintura', '82 → 78 cm', '−4'],
-    ['Brazo', '31 → 33 cm', '+2'],
-    ['Peso', '64 → 62 kg', '−2'],
+    { code: 'waist', name: 'Cintura', change: '82 → 78 cm', delta: '−4' },
+    { code: 'arm', name: 'Brazo', change: '31 → 33 cm', delta: '+2' },
+    { code: 'weight', name: 'Peso', change: '64 → 62 kg', delta: '−2' },
   ] as const
   return (
     <View style={styles.bodyVisual}>
-      {rows.map(([name, change, delta], index) =>
+      {rows.map(({ code, name, change, delta }, index) =>
         on ? (
           <Animated.View
-            key={name}
+            key={code}
             entering={FadeInDown.delay(index * 140)
               .duration(420)
               .reduceMotion(ReduceMotion.System)}
             style={[
               styles.bodyRow,
               { backgroundColor: theme.color.background.surface },
-              free && name !== 'Peso' ? styles.dim : null,
+              free && code !== 'weight' ? styles.dim : null,
             ]}
           >
             <Text role="control" size="sm">
@@ -528,7 +528,7 @@ function BodyVisual({ on, free }: { readonly on: boolean; readonly free: boolean
             </View>
           </Animated.View>
         ) : (
-          <View key={name} style={styles.bodyRowSpace} />
+          <View key={code} style={styles.bodyRowSpace} />
         ),
       )}
     </View>
