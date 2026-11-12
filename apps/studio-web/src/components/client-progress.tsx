@@ -221,7 +221,7 @@ function PeriodsPanel({
           El volumen aparece solo cuando algo en el periodo se pesó; un periodo de peso corporal no
           tiene volumen, y no es cero.{' '}
           {zone
-            ? `Las ${period === 'week' ? 'semanas' : 'meses'} se calculan en la zona ${zone}.`
+            ? `${period === 'week' ? 'Las semanas' : 'Los meses'} se calculan en la zona ${zone}.`
             : 'Tu navegador no dice tu zona horaria, así que los periodos se calculan en UTC.'}
         </CardDescription>
       </CardHeader>

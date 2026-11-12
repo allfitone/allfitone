@@ -167,10 +167,23 @@ test('adds nothing up of its own', async ({ page }) => {
   await expect(page.getByText('y 2 más')).toBeVisible()
 })
 
-test('says in which zone the weeks were drawn, because that decides them', async ({ page }) => {
-  await page.goto(PROGRESS)
-  // The suite runs on Bogotá time, so that is the zone the periods were asked in.
-  await expect(page.getByText(/se calculan en la zona America\/Bogota/)).toBeVisible()
+/*
+ * The zone decides where a week starts, so the screen names the one it asked
+ * in. Which one that is belongs to the machine: this read the zone from
+ * wherever it ran, passed on a laptop in Bogotá and failed on a runner in UTC.
+ * Pinned here rather than inherited, the way the substitution suite pins it.
+ */
+test.describe('read from Bogotá', () => {
+  test.use({ timezoneId: 'America/Bogota' })
+
+  test('says in which zone the periods were drawn', async ({ page }) => {
+    await page.goto(PROGRESS)
+    await expect(page.getByText('Las semanas se calculan en la zona America/Bogota.')).toBeVisible()
+
+    // And the month view says it of months, with the article months take.
+    await page.getByRole('button', { name: 'Por mes' }).click()
+    await expect(page.getByText('Los meses se calculan en la zona America/Bogota.')).toBeVisible()
+  })
 })
 
 test('the month view is a different question, and asks the server again', async ({ page }) => {
