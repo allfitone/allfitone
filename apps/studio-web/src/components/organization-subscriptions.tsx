@@ -3,6 +3,11 @@
 /**
  * Who pays the organization, and the three things it can do about it.
  *
+ * `HU-STUDIO-078`, criterion by criterion: (1) the state column and its filter; (2) the
+ * tab only `manage_billing` sees; (3) no training data, pinned by a test on the columns;
+ * (4) the first payment and why each one was suspended need Mercado Pago, and
+ * `OrganizationSubscription` has no field for either yet.
+ *
  * Two rules worth knowing before editing.
  *
  * **Pausing is not revoking.** The command opens a reversible cause and touches no
@@ -57,6 +62,7 @@ import {
   availableActions,
   canManageBilling,
   confirmationDescription,
+  confirmationDetails,
   confirmationTitle,
   formatAmount,
   formatPeriod,
@@ -346,6 +352,9 @@ export function OrganizationSubscriptions() {
                 </DialogTitle>
                 <DialogDescription>{confirmationDescription(pending.action)}</DialogDescription>
               </DialogHeader>
+              {confirmationDetails(pending.action, pending.subscription.status).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
 
               {refusal ? (
                 <Alert variant="danger" live="assertive" data-billing-error>

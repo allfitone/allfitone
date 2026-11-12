@@ -25,6 +25,7 @@ import {
   STRENGTH_GLOBAL_MOVEMENT_ID,
   STRENGTH_OWN_MOVEMENT_ID,
   MONTHLY_PLAN_ID,
+  activeSubscription,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
@@ -274,6 +275,30 @@ const withoutActiveSpaces = () =>
   })
 
 const asCoach = () => createStudioApiFixture({ memberships: [secondActiveMembership] })
+
+// One subscription paying, one paused and one ended: every state HU-078 names.
+const withEverySubscriptionState = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: [
+      activeSubscription,
+      {
+        ...activeSubscription,
+        subscription_id: '01991600-7000-7000-8000-000000000602',
+        person_name: 'Bruno Bedoya',
+        status: 'suspended',
+        suspended_at: '2026-10-18T09:00:00.000Z',
+        current_period_end: '2026-11-01',
+      },
+      {
+        ...activeSubscription,
+        subscription_id: '01991600-7000-7000-8000-000000000603',
+        person_name: 'Carla Castro',
+        status: 'ended',
+        ended_at: '2026-10-19T09:00:00.000Z',
+      },
+    ],
+  })
 
 /** Holds one endpoint open so a pending stage can be audited before it resolves. */
 /**
@@ -2956,6 +2981,117 @@ export const SCREENS: Screen[] = [
       await page.getByRole('button', { name: 'Retirar este precio' }).click()
       await page.getByRole('button', { name: 'Retirar ahora' }).click()
       await expect(page.getByRole('alertdialog')).toContainText('No se retiró')
+    },
+  },
+  // --- `/organizations/[id]/billing`, subscriptions · HU-078 ---
+  {
+    stories: 'HU-078 · who pays, in each of the three states',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    settled: async (page) => {
+      await settledByHeading(page)
+      // Rows on a desktop, cards on a phone: the sweep runs both.
+      await expect(page.locator(':is([data-billing-row], [data-billing-card])')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-078 · who pays, on a phone',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-billing-card]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-078 · nobody pays here yet',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], organizationSubscriptions: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía nadie paga aquí')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-078 · a state nobody is in',
+    path: `${workspace}/billing`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Terminadas' }).click()
+      await expect(page.getByText('Ningún plan ha terminado')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-078 · who pays could not be read',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/subscriptions')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los cobros')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing`, pause and reactivate · HU-079 ---
+  {
+    stories: 'HU-079 · what pausing stops, and what it leaves alone',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="suspend"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Lo que no cambia')
+    },
+  },
+  {
+    stories: 'HU-079 · what reactivating gives back, and what it does not',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="reactivate"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Lo que cambió durante la pausa')
+    },
+  },
+  {
+    stories: 'HU-079 · a pause with no cause to close',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+        subscriptionOutcome: 'no-cause',
+      }),
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="reactivate"]').click()
+      await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
+      await expect(page.locator('[data-billing-error]')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing`, end a plan · HU-080 ---
+  {
+    stories: 'HU-080 · what ending closes, and what stays standing',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="end"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Sigue en pie la relación')
+    },
+  },
+  {
+    stories: 'HU-080 · ending a paused plan lifts the pause',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="end"]').nth(1).click()
+      await expect(page.getByRole('dialog')).toContainText('levanta la pausa')
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---

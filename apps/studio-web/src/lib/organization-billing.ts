@@ -63,17 +63,65 @@ export function confirmationTitle(action: SubscriptionAction, personName: string
 }
 
 /**
- * Each of these says what the action does **and** what it leaves alone, because what it
+ * Each dialog says what the action does **and** what it leaves alone, because what it
  * leaves alone is the part nobody would guess and the part that makes it safe to use.
+ *
+ * `HU-STUDIO-079` is mostly about what does not happen. Pausing opens one reversible
+ * cause; reactivating closes that cause and recalculates from what is true now, never
+ * from a snapshot (`OP-PAY-009`). So reactivating cannot promise that everything comes
+ * back: a permission she revoked, a relationship that ended or a session whose day passed
+ * during the pause stays as it is now.
+ *
+ * `HU-STUDIO-080` separates two bonds. Ending the plan closes the paying one and leaves
+ * the relationship standing (`OP-REL-008` ends that). It also closes the pause's cause,
+ * because a cause left open on an ended plan could never be closed by anything.
+ *
+ * Plain strings throughout: the dialog renders text, so markdown reaches the reader as
+ * asterisks.
  */
 export function confirmationDescription(action: SubscriptionAction): string {
-  if (action === 'suspend') {
-    return 'Sus sesiones futuras quedan en pausa y su profesional no podrá registrar cambios mientras siga pausado. No se le quita ningún permiso, no se desasigna a su profesional y el vínculo con la organización sigue igual: cuando reactives, todo vuelve sin que la persona tenga que aceptar nada de nuevo. Le vamos a avisar por correo.'
-  }
+  if (action === 'suspend') return 'Pausa este plan sin quitarle nada a la persona.'
   if (action === 'reactivate') {
-    return 'Vuelve a estar al día: sus sesiones se ven como siempre y su profesional puede registrar cambios otra vez. No hace falta que acepte nada, porque nunca se le quitó nada. Le vamos a avisar por correo.'
+    return 'Levanta solo la pausa de este plan. No devuelve las cosas a como estaban: el acceso se vuelve a calcular con lo que es cierto hoy.'
   }
-  return 'Deja de cobrarse y no se puede volver atrás; si vuelve, será un plan nuevo. **Terminar el cobro no termina el vínculo** ni retira los permisos que la persona dio: para eso hay acciones aparte. Le vamos a avisar por correo.'
+  return 'Cierra el cobro de este plan: deja de cobrarse y no se puede volver atrás. Si vuelve a pagar, será una suscripción nueva desde la app.'
+}
+
+const NOTICE = 'Le vamos a avisar por correo.'
+
+export function confirmationDetails(
+  action: SubscriptionAction,
+  status: SubscriptionStatus,
+): string[] {
+  if (action === 'suspend') {
+    return [
+      // HU-079 criterion 2, then 1, then 3; then HU-080 criterion 3.
+      'Lo que se pausa: su profesional sigue viendo lo que la persona comparte, pero no puede registrar ni cambiar nada, y las sesiones futuras del programa que le asignaron quedan en pausa.',
+      'Lo que no cambia: no se le quita ningún permiso, su programa sigue asignado y la relación con la organización sigue igual.',
+      'Conserva todo su historial y puede seguir entrenando por su cuenta.',
+      'La pausa dura hasta que la reactives o termines el plan: nunca se convierte sola en terminación.',
+      NOTICE,
+    ]
+  }
+  if (action === 'end') {
+    return [
+      'Sigue en pie la relación con la organización: terminar el plan no termina la relación, no retira los permisos que la persona dio y no borra su historial. Para terminar la relación hay otra acción, con sus propios efectos.',
+      ...(status === 'suspended'
+        ? [
+            'Como está en pausa, terminar también levanta la pausa: su profesional vuelve a poder registrar cambios, salvo que haya otro bloqueo.',
+          ]
+        : []),
+      'Queda registrado que lo decidiste tú: ningún proceso automático termina un plan.',
+      NOTICE,
+    ]
+  }
+  return [
+    // HU-079 criteria 7, 5 and 6.
+    'Vuelven las sesiones futuras que no se hayan iniciado ni cancelado, si la relación y la asignación siguen vigentes.',
+    'Lo que cambió durante la pausa no vuelve: un permiso retirado, una relación terminada, una asignación cambiada o una sesión cancelada, iniciada o que ya pasó.',
+    'No tiene que aceptar nada de nuevo mientras su permiso siga vigente. Si hay otro bloqueo, como la organización suspendida, su profesional sigue sin poder registrar cambios y esas sesiones siguen en pausa.',
+    NOTICE,
+  ]
 }
 
 export type BillingRefusal = 'conflict' | 'not-allowed' | 'gone' | 'unavailable'

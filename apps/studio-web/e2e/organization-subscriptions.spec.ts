@@ -12,6 +12,25 @@ function open(page: import('@playwright/test').Page, organizationId: string) {
   return page.goto(`/organizations/${organizationId}/billing`)
 }
 
+/** One subscription in each state, which is what HU-STUDIO-078 criterion 1 reads. */
+const everyState = [
+  activeSubscription,
+  {
+    ...activeSubscription,
+    subscription_id: '01991600-7000-7000-8000-000000000602',
+    person_name: 'Bruno Bedoya',
+    status: 'suspended',
+    suspended_at: '2026-10-18T09:00:00.000Z',
+  },
+  {
+    ...activeSubscription,
+    subscription_id: '01991600-7000-7000-8000-000000000603',
+    person_name: 'Carla Castro',
+    status: 'ended',
+    ended_at: '2026-10-19T09:00:00.000Z',
+  },
+]
+
 /** The same catalogue with `manage_billing` taken off whatever role the caller holds. */
 function withoutBilling() {
   return organizationRoleCatalog.map((role) =>
@@ -44,6 +63,82 @@ test('an owner reads who pays and what each one pays', async ({ page }) => {
   // Null until the gateway reports a charge, and a dash would read as "today".
   await expect(row).toContainText('Sin cobro reportado')
 })
+
+test('HU-078 c1: who is paying, who is paused and who ended, each said', async ({ page }) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: everyState,
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  const rows = page.locator('[data-billing-row]')
+  await expect(rows.filter({ hasText: 'Ana Álvarez' })).toContainText('Al día')
+  await expect(rows.filter({ hasText: 'Bruno Bedoya' })).toContainText('En pausa')
+  await expect(rows.filter({ hasText: 'Carla Castro' })).toContainText('Terminada')
+  // The plan and what it costs are two facts, so they read as two lines, not one word.
+  await expect(rows.first().locator('[data-billing-amount]')).toHaveCSS('display', 'block')
+})
+
+/*
+ * HU-078 criterion 3, pinned rather than read, as the authorizations register does: the
+ * day somebody adds a useful column carrying a session, a weight or a goal, this fails.
+ */
+test('HU-078 c3: the register carries payment columns and nothing else', async ({ page }) => {
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await expect(page.locator('[data-billing-row]').first()).toBeVisible()
+  // Compared lowercased: the Design System uppercases a header through CSS.
+  const headers = await page.locator('[data-billing-panel] thead th').allInnerTexts()
+  expect(headers.map((header) => header.toLocaleLowerCase('es'))).toEqual([
+    'persona',
+    'plan',
+    'estado',
+    'próximo cobro',
+    'acciones',
+  ])
+})
+
+test('HU-078 c3: on a phone the cards carry the same facts and no other', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await expect(page.locator('[data-billing-card]').first()).toBeVisible()
+  const facts = page.locator('[data-billing-card]').first().locator('dt')
+  const labels = await facts.allInnerTexts()
+  expect(labels.map((label) => label.toLocaleLowerCase('es'))).toEqual([
+    'plan',
+    'estado',
+    'próximo cobro',
+  ])
+})
+
+/*
+ * HU-078 criterion 2 with the two roles it names, rather than a catalogue without the
+ * capability: neither reaches the tab, and the screen never asks for the list.
+ */
+for (const role of ['coach', 'staff']) {
+  test(`HU-078 c2: ${role} never reaches who pays, even by asking`, async ({ page }) => {
+    const fixture = createStudioApiFixture({
+      memberships: [{ ...activeMembership, roles: [role] }],
+    })
+    await installStudioApiMock(page, fixture)
+    await open(page, activeMembership.organization_id)
+
+    await expect(page.getByText('Las suscripciones no son de tu rol')).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Suscripciones' })).toHaveCount(0)
+    await expect(page.locator('[data-billing-row]')).toHaveCount(0)
+    expect(
+      fixture.requests.filter(
+        (request) => request.method === 'GET' && request.path.endsWith('/subscriptions'),
+      ),
+    ).toHaveLength(0)
+  })
+}
 
 test('the screen says Allfit never holds the card', async ({ page }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
@@ -79,20 +174,53 @@ test('pausing a plan moves it and never offers to pause it twice', async ({ page
  * will reasonably fear that it takes the client's data away, and will either avoid the
  * action or use it believing it does something the platform deliberately does not do.
  */
-test('the confirmation denies the permission fear and warns about the email', async ({ page }) => {
+test('HU-079: pausing says what it stops, what it leaves alone, and the email', async ({
+  page,
+}) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
   await page.locator('[data-billing-action="suspend"]').click()
 
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toContainText('No se le quita ningún permiso')
-  await expect(dialog).toContainText('el vínculo con la organización sigue igual')
-  await expect(dialog).toContainText('sin que la persona tenga que aceptar nada de nuevo')
+  // Criterion 2, what stops.
+  await expect(dialog).toContainText('no puede registrar ni cambiar nada')
+  await expect(dialog).toContainText('las sesiones futuras del programa que le asignaron')
+  // Criterion 1, what does not.
+  await expect(dialog).toContainText('no se le quita ningún permiso')
+  await expect(dialog).toContainText('su programa sigue asignado')
+  await expect(dialog).toContainText('la relación con la organización sigue igual')
+  // Criterion 3.
+  await expect(dialog).toContainText('puede seguir entrenando por su cuenta')
   await expect(dialog).toContainText('avisar por correo')
+  // Criterion 5: pausing must not promise that reactivating brings everything back.
+  await expect(dialog).not.toContainText('todo vuelve')
 })
 
-test('ending a plan says it does not end the vínculo, and leaves no action behind', async ({
+test('HU-079: reactivating restores nothing that changed, and says what comes back', async ({
+  page,
+}) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+  await page.locator('[data-billing-action="reactivate"]').click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toContainText('Levanta solo la pausa de este plan')
+  await expect(dialog).toContainText('No devuelve las cosas a como estaban')
+  await expect(dialog).toContainText('Lo que cambió durante la pausa no vuelve')
+  await expect(dialog).toContainText('Vuelven las sesiones futuras que no se hayan iniciado')
+  await expect(dialog).toContainText('mientras su permiso siga vigente')
+  await expect(dialog).not.toContainText('como siempre')
+  await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
+
+  await expect(page.locator('[data-billing-row]')).toContainText('Al día')
+})
+
+test('HU-080: ending says what closes and what stays standing, and leaves no action', async ({
   page,
 }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
@@ -101,14 +229,42 @@ test('ending a plan says it does not end the vínculo, and leaves no action behi
 
   await page.locator('[data-billing-action="end"]').click()
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toContainText('no termina el vínculo')
-  await expect(dialog).toContainText('ni retira los permisos')
+  // Criterion 1: the paying bond closes, the relationship stays.
+  await expect(dialog).toContainText('Cierra el cobro de este plan')
+  await expect(dialog).toContainText('terminar el plan no termina la relación')
+  await expect(dialog).toContainText('Para terminar la relación hay otra acción')
+  // Criterion 2.
+  await expect(dialog).toContainText('Queda registrado que lo decidiste tú')
+  // The dialog renders text: markdown would reach the reader as asterisks.
+  await expect(dialog).not.toContainText('**')
+  await expect(dialog).not.toContainText('levanta la pausa')
   await page.getByRole('button', { name: 'Terminar y avisar' }).click()
 
   await expect(page.locator('[data-billing-row]')).toContainText('Terminada')
   // An ended subscription takes nothing. A disabled button would only invite the reader
   // to look for a reason that does not exist.
   await expect(page.locator('[data-billing-actions]')).toBeHidden()
+})
+
+test('HU-080: ending a paused plan says the pause lifts with it', async ({ page }) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await page.locator('[data-billing-action="end"]').click()
+  await expect(page.getByRole('dialog')).toContainText('terminar también levanta la pausa')
+})
+
+test('HU-080 c3: pausing says a pause never turns into an ending by itself', async ({ page }) => {
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await page.locator('[data-billing-action="suspend"]').click()
+  await expect(page.getByRole('dialog')).toContainText('nunca se convierte sola en terminación')
 })
 
 test('a reactivation with no open cause is not described as something to retry', async ({
