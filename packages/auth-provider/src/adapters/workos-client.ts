@@ -115,7 +115,12 @@ export interface WorkOSUserManagement {
   /** Marks the address verified. Does not authenticate; that is a second call. */
   verifyEmail(options: { code: string; userId: string }): Promise<unknown>
 
-  updateUser(options: { userId: string; email: string; emailVerified: boolean }): Promise<unknown>
+  updateUser(options: {
+    userId: string
+    email?: string
+    emailVerified?: boolean
+    password?: string
+  }): Promise<unknown>
 
   /** The SDK returns an AutoPaginatable; we only need the current page. */
   listSessions(userId: string): Promise<{ data: WorkOSSession[] }>

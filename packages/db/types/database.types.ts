@@ -2348,6 +2348,48 @@ export type Database = {
           },
         ]
       }
+      password_changes: {
+        Row: {
+          access_account_id: string
+          created_at: string
+          id: string
+          keep_session_id: string | null
+          outcome: string
+          person_id: string
+        }
+        Insert: {
+          access_account_id: string
+          created_at?: string
+          id: string
+          keep_session_id?: string | null
+          outcome: string
+          person_id: string
+        }
+        Update: {
+          access_account_id?: string
+          created_at?: string
+          id?: string
+          keep_session_id?: string | null
+          outcome?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_password_changes_account'
+            columns: ['access_account_id']
+            isOneToOne: false
+            referencedRelation: 'access_accounts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fk_password_changes_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       password_reset_receipts: {
         Row: {
           access_account_id: string | null
@@ -3602,6 +3644,28 @@ export type Database = {
           token_key_version: number
         }[]
       }
+      prepare_password_change: {
+        Args: {
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_subject: string
+        }
+        Returns: {
+          password_state: string
+          sign_in_email: string
+        }[]
+      }
+      prepare_password_change_notice: {
+        Args: { p_event_id: string }
+        Returns: {
+          change_id: string
+          keep_session: string
+          notice_state: string
+          sign_in_email: string
+          subject: string
+        }[]
+      }
       prepare_staff_invitation_delivery: {
         Args: { p_event_id: string }
         Returns: {
@@ -3797,6 +3861,20 @@ export type Database = {
           result: Json
         }[]
       }
+      record_password_change: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_keep_session_id: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+        }[]
+      }
       recover_backoffice_totp_factor: {
         Args: {
           p_approved_by_person_id: string
@@ -3805,6 +3883,10 @@ export type Database = {
           p_subject_person_id: string
         }
         Returns: string
+      }
+      reject_password_change: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: undefined
       }
       request_email_change: {
         Args: {

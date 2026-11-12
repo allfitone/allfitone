@@ -2,6 +2,7 @@ import { constantTimeBearerMatches, emailBrandAssetUrl } from '@allfitone/notifi
 import {
   createAccountRecoveryDeliveryFromEnv,
   createEmailChangeIdentityFromEnv,
+  createPasswordChangeIdentityFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
 } from '@allfitone/auth-provider'
 import { createObjectStoreFromEnv, type ObjectStore } from '@allfitone/object-store'
@@ -64,6 +65,10 @@ import {
 } from './media-disposals.js'
 import { createEmailSenderFromEnvironment } from './email.js'
 import { createEmailChangeBatchProcessor, createEmailChangeDatabase } from './email-change.js'
+import {
+  createPasswordChangeBatchProcessor,
+  createPasswordChangeDatabase,
+} from './password-change.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
@@ -397,6 +402,18 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         brandAssetUrl,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  // Off until the environment says so: the change is in force, and the sessions wait.
+  const passwordChangeEnabled =
+    deliveryEnabled && process.env.PASSWORD_CHANGE_DELIVERY_ENABLED === 'true'
+  const passwordChanges = passwordChangeEnabled
+    ? createPasswordChangeBatchProcessor({
+        queue,
+        database: createPasswordChangeDatabase(sql),
+        identity: createPasswordChangeIdentityFromEnv(),
+        email,
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   let store: ObjectStore | undefined
   const mediaDisposal = createMediaDisposalProcessor({
     database: createMediaDisposalDatabase(sql),
@@ -430,9 +447,9 @@ function processorsFromEnvironment(): WorkerJobProcessors {
       const client = await clientInvitations()
       /*
        * Reassignment and resignation notices, substitution questions, correction proposals,
-       * subscription notices and email changes ride the same job rather than a cron each:
-       * the same claim against the same outbox, and a separate schedule would be another
-       * thing to notice when it stops running.
+       * subscription notices, email and password changes ride the same job rather than a
+       * cron each: the same claim against the same outbox, and a separate schedule would be
+       * another thing to notice when it stops running.
        *
        * Summed by a fold and not by hand. With seven processors and four counters the
        * written-out version was twenty-four terms, and a sixth kind added to three of
@@ -448,6 +465,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await correctionProposals(),
         await subscriptionNotices(),
         await emailChanges(),
+        await passwordChanges(),
         await waitlistEmails(),
       ]
       return {

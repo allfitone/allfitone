@@ -1,11 +1,17 @@
 /** Identity module composition. */
 
 import { randomUUID } from 'node:crypto'
+import { createPasswordChangeIdentityFromEnv } from '@allfitone/auth-provider'
 import { createObjectStoreFromEnv } from '@allfitone/object-store'
 
 import { authProvider } from '../../platform/auth/index.js'
 import { createSharpSanitizer } from '../../platform/media/photo.js'
 import { createBodyPhotoService, type BodyPhotoService } from './application/body-photos.js'
+import {
+  createPasswordChangeService,
+  type PasswordChangeService,
+} from './application/password-change.js'
+import { createPasswordChangeDatabase } from './infrastructure/password-change.js'
 import { createBodyPhotoDatabase } from './infrastructure/body-photos.js'
 import {
   createStudioClientDataService,
@@ -116,6 +122,21 @@ export function spaceOwnProfileService(): OwnProfileService {
     requestId: () => randomUUID(),
   })
   return cachedOwnProfile
+}
+
+let cachedPasswordChange: PasswordChangeService | undefined
+
+export function spacePasswordChangeService(): PasswordChangeService {
+  if (cachedPasswordChange) return cachedPasswordChange
+  const issuer = process.env.WORKOS_ISSUER
+  if (!issuer) throw new Error('WORKOS_ISSUER is not set')
+  cachedPasswordChange = createPasswordChangeService({
+    database: createPasswordChangeDatabase(),
+    identity: createPasswordChangeIdentityFromEnv(),
+    issuer,
+    requestId: () => randomUUID(),
+  })
+  return cachedPasswordChange
 }
 
 let cachedBodyProgress: BodyProgressService | undefined

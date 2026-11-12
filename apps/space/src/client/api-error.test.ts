@@ -67,4 +67,33 @@ describe('apiErrorFrom', () => {
       'conflict',
     ])
   })
+
+  test('T-SPC-UNIT-PWD-01 a password change tells a wrong current password from a refused new one', async () => {
+    const wrong = await apiErrorFrom(
+      problem({ type: 'https://errors.allfit.invalid/wrong-password', status: 422 }, 422),
+    )
+    const weak = await apiErrorFrom(
+      problem({ type: 'https://errors.allfit.invalid/weak-password', status: 422 }, 422),
+    )
+    const other = await apiErrorFrom(
+      problem({ type: 'https://errors.allfit.invalid/validation-failed', status: 422 }, 422),
+    )
+
+    expect(wrong.failure).toBe('wrong-password')
+    expect(weak.failure).toBe('weak-password')
+    expect(other.failure).toBe('validation-failed')
+  })
+
+  test('T-SPC-UNIT-PWD-02 the legacy envelope and an unreadable 422 stay a plain refusal', async () => {
+    const legacy = await apiErrorFrom(problem({ error: { code: 'weak-password' } }, 422))
+    const unreadable = await apiErrorFrom(new Response('not json', { status: 422 }))
+
+    expect(legacy.failure).toBe('validation-failed')
+    expect(unreadable.failure).toBe('validation-failed')
+  })
+
+  test('T-SPC-UNIT-PWD-03 too many attempts is its own answer, not a dropped connection', async () => {
+    expect(failureFor(429)).toBe('rate-limited')
+    expect((await apiErrorFrom(problem({ status: 429 }, 429))).failure).toBe('rate-limited')
+  })
 })

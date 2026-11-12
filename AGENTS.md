@@ -328,6 +328,10 @@ effective value does not move until the external side confirms.
 Never write to an external provider inside an HTTP request that also writes to the
 database.
 
+One bounded exception: changing a password (`OP-IDN-066`, ADR-051 in `allfitone-docs`).
+The outbox would have to hold the password, so the request sets it in the provider and
+only then records the change, without it. Nothing else may follow this path.
+
 ---
 
 ## 9. Code style

@@ -42,6 +42,12 @@ export type ApiFailure =
   | 'guest-quota-exhausted'
   /** The gym is suspended and takes nobody new until it operates again (HU-BO-016). */
   | 'organization-not-operating'
+  /** The current password typed to change it is not the one in force (`OP-IDN-066`). */
+  | 'wrong-password'
+  /** The new password was refused: too common, or known from a breach (`OP-IDN-066`). */
+  | 'weak-password'
+  /** Too many attempts for now; asking again later works. */
+  | 'rate-limited'
 
 /** The `409`s a person can do something about, told apart by the code in the body. */
 const GYM_REFUSALS: readonly ApiFailure[] = ['guest-quota-exhausted', 'organization-not-operating']
@@ -56,6 +62,11 @@ export class ApiError extends Error {
   }
 }
 
+/** A screen with no words of its own for waiting says what it says for no connection. */
+export function unreachable(error: ApiError): boolean {
+  return error.failure === 'unavailable' || error.failure === 'rate-limited'
+}
+
 export function failureFor(status: number): ApiFailure {
   if (status === 400) return 'invalid-request'
   if (status === 401) return 'unauthenticated'
@@ -63,14 +74,20 @@ export function failureFor(status: number): ApiFailure {
   if (status === 404) return 'not-found'
   if (status === 409) return 'conflict'
   if (status === 422) return 'validation-failed'
+  if (status === 429) return 'rate-limited'
   return 'unavailable'
 }
 
 const PLAN_LIMIT = 'https://errors.allfit.invalid/plan-limit-reached'
+const PASSWORD_REFUSALS: Readonly<Record<string, ApiFailure>> = {
+  'https://errors.allfit.invalid/wrong-password': 'wrong-password',
+  'https://errors.allfit.invalid/weak-password': 'weak-password',
+}
 
-/** The error a refused response means, reading the body only for a plan limit or a gym. */
+/** The error a refused response means, reading the body only for a plan, a gym or a password. */
 export async function apiErrorFrom(response: Response): Promise<ApiError> {
   if (response.status === 409) return new ApiError(await gymRefusal(response))
+  if (response.status === 422) return new ApiError(await passwordRefusal(response))
   if (response.status !== 403) return new ApiError(failureFor(response.status))
   let body: unknown
   try {
@@ -96,4 +113,16 @@ async function gymRefusal(response: Response): Promise<ApiFailure> {
   const error = typeof body === 'object' && body !== null && 'error' in body ? body.error : null
   const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null
   return GYM_REFUSALS.find((failure) => failure === code) ?? 'conflict'
+}
+
+/** Only a problem whose type names one of the two password refusals is told apart. */
+async function passwordRefusal(response: Response): Promise<ApiFailure> {
+  let body: unknown
+  try {
+    body = await response.json()
+  } catch {
+    return 'validation-failed'
+  }
+  const type = typeof body === 'object' && body !== null && 'type' in body ? body.type : null
+  return (typeof type === 'string' ? PASSWORD_REFUSALS[type] : undefined) ?? 'validation-failed'
 }

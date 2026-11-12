@@ -15921,6 +15921,26 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  SpacePasswordChange: {
+    type: 'object',
+    additionalProperties: false,
+    description:
+      'The new password follows the sign-up policy and differs from the current one. Neither is ever stored by Allfit.',
+    required: ['current_password', 'new_password'],
+    properties: {
+      current_password: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 256,
+      },
+      new_password: {
+        type: 'string',
+        minLength: 8,
+        maxLength: 256,
+        pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,256}$',
+      },
+    },
+  },
   SpacePasswordResetCreate: {
     type: 'object',
     additionalProperties: false,

@@ -134,21 +134,30 @@ export function createEmailChangeIdentity(
         throw emailChangeFailure(error)
       }
     },
-    async revokeOtherSessions(subject, keep) {
-      let sessions: { data: { id: string }[] }
-      try {
-        sessions = await userManagement.listSessions(subject)
-      } catch (error) {
-        throw emailChangeFailure(error)
-      }
-      for (const session of sessions.data.filter((one) => one.id !== keep)) {
-        try {
-          await userManagement.revokeSession({ sessionId: session.id })
-        } catch (error) {
-          if (statusOf(error) !== 404) throw emailChangeFailure(error)
-        }
-      }
-    },
+    revokeOtherSessions: (subject, keep) =>
+      revokeEverySessionBut(userManagement, subject, keep, emailChangeFailure),
+  }
+}
+
+/** The SDK revokes one session at a time; one already gone is not a failure. */
+async function revokeEverySessionBut(
+  userManagement: Pick<WorkOSUserManagement, 'listSessions' | 'revokeSession'>,
+  subject: string,
+  keep: string,
+  failure: (error: unknown) => AuthError,
+): Promise<void> {
+  let sessions: { data: { id: string }[] }
+  try {
+    sessions = await userManagement.listSessions(subject)
+  } catch (error) {
+    throw failure(error)
+  }
+  for (const session of sessions.data.filter((one) => one.id !== keep)) {
+    try {
+      await userManagement.revokeSession({ sessionId: session.id })
+    } catch (error) {
+      if (statusOf(error) !== 404) throw failure(error)
+    }
   }
 }
 
@@ -161,6 +170,113 @@ function emailChangeFailure(error: unknown): AuthError {
   return new AuthError(
     'provider_unavailable',
     `email change failed with status ${status ?? 'none'}`,
+  )
+}
+
+/**
+ * The calls of a password change (TECH-325, `OP-IDN-066`), under Space's Application.
+ *
+ * ADR-051: the API checks the current password and sets the new one inside the request,
+ * because the outbox would have to hold the password. WorkOS has no call that only checks
+ * one, so the check is a sign-in, and the session it opens is named so it can be closed.
+ * The worker closes every other session afterwards.
+ *
+ * Failures carry a status and never what was typed.
+ */
+export interface PasswordChangeIdentity {
+  checkPassword(email: string, password: string): Promise<{ sessionId: string }>
+  setPassword(subject: string, password: string): Promise<void>
+  revokeSession(sessionId: string): Promise<void>
+  revokeOtherSessions(subject: string, keep: string): Promise<void>
+}
+
+export function createPasswordChangeIdentityFromEnv(
+  env: ProviderEnv = process.env,
+): PasswordChangeIdentity {
+  const clientId = required(env, 'WORKOS_CLIENT_ID_SPACE')
+  const client = new WorkOS({ apiKey: required(env, 'WORKOS_API_KEY_SPACE') })
+  return createPasswordChangeIdentity(client.userManagement, clientId)
+}
+
+export function createPasswordChangeIdentity(
+  userManagement: Pick<
+    WorkOSUserManagement,
+    'authenticateWithPassword' | 'updateUser' | 'listSessions' | 'revokeSession'
+  >,
+  clientId: string,
+): PasswordChangeIdentity {
+  return {
+    async checkPassword(email, password) {
+      let accessToken: string
+      try {
+        ;({ accessToken } = await userManagement.authenticateWithPassword({
+          email,
+          password,
+          clientId,
+        }))
+      } catch (error) {
+        throw passwordCheckFailure(error)
+      }
+      const sessionId = sessionOf(accessToken)
+      if (!sessionId)
+        throw new AuthError('provider_unavailable', 'password check without a session')
+      return { sessionId }
+    },
+    async setPassword(subject, password) {
+      try {
+        await userManagement.updateUser({ userId: subject, password })
+      } catch (error) {
+        throw passwordSetFailure(error)
+      }
+    },
+    async revokeSession(sessionId) {
+      try {
+        await userManagement.revokeSession({ sessionId })
+      } catch (error) {
+        if (statusOf(error) !== 404) throw passwordSetFailure(error)
+      }
+    },
+    revokeOtherSessions: (subject, keep) =>
+      revokeEverySessionBut(userManagement, subject, keep, passwordSetFailure),
+  }
+}
+
+/**
+ * The `sid` of a token WorkOS just handed over on a server-to-server call. It names a
+ * session to close and authorizes nothing, so it is read rather than verified.
+ */
+function sessionOf(accessToken: string): string | undefined {
+  try {
+    const claims: unknown = JSON.parse(
+      Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf8'),
+    )
+    if (typeof claims !== 'object' || claims === null || !('sid' in claims)) return undefined
+    return typeof claims.sid === 'string' && claims.sid !== '' ? claims.sid : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// WorkOS answers a wrong password with a 400; a throttle or an outage might pass.
+function passwordCheckFailure(error: unknown): AuthError {
+  const status = statusOf(error)
+  if (status !== undefined && status >= 400 && status < 500 && status !== 429) {
+    return new AuthError('invalid_credentials', `password check refused with status ${status}`)
+  }
+  return new AuthError(
+    'provider_unavailable',
+    `password check failed with status ${status ?? 'none'}`,
+  )
+}
+
+function passwordSetFailure(error: unknown): AuthError {
+  const status = statusOf(error)
+  if (status === 400 || status === 422) {
+    return new AuthError('weak_password', `password refused with status ${status}`)
+  }
+  return new AuthError(
+    'provider_unavailable',
+    `password change failed with status ${status ?? 'none'}`,
   )
 }
 

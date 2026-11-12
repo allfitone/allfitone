@@ -35,7 +35,7 @@ const RADIUS = (RING - STROKE) / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 const ARC = 0.3
 
-function Ring({ done }: { readonly done: boolean }) {
+export function Ring({ done }: { readonly done: boolean }) {
   const theme = useTheme()
   const reduceMotion = useReducedMotion()
   const turn = useSharedValue(0)
