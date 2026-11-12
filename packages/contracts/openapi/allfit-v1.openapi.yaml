@@ -160,6 +160,11 @@ x-allfit-error-catalog:
       The operation needs a verified professional credential of a kind, in force, and
       the actor has none (STUDIO-64): proposing nutrition goals needs
       `nutrition_professional`. Staff verify credentials in Backoffice.
+  - code: wrong-password
+    status: 422
+    description: >-
+      The current password typed to change it is not the one in force (OP-IDN-066).
+      Counted: five in an hour make the next attempt `rate-limited`.
   - code: service-paused
     status: 409
     description: >-
@@ -3449,6 +3454,56 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '422':
           $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/me/password:
+    post:
+      tags: [Space Identity]
+      operationId: changeSpacePassword
+      x-allfit-operation: OP-IDN-066
+      x-allfit-cache: no-store
+      summary: Change my password
+      description: >-
+        HU-SP-005 (TECH-325, ADR-051). The current password is checked and the new one
+        set in WorkOS inside the request; nothing derived from either is stored, logged
+        or hashed into the idempotency receipt. Answers 204 once WorkOS took it: the
+        worker then closes every other session, keeping this one, and emails a notice to
+        the sign-in address. A wrong current password is 422 `wrong-password` and is
+        counted; a new password WorkOS refuses is 422 `weak-password`; five wrong ones in
+        an hour make the next attempt 429 `rate-limited` without asking WorkOS. A replay
+        with the same key answers 204 without asking WorkOS again.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpacePasswordChange'
+      responses:
+        '204':
+          description: The password changed; the other sessions close in the background
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
@@ -21894,6 +21949,23 @@ components:
           type: string
           format: date-time
           description: When the code stops working; meaningless once applying.
+    SpacePasswordChange:
+      type: object
+      additionalProperties: false
+      description: >-
+        The new password follows the sign-up policy and differs from the current one.
+        Neither is ever stored by Allfit.
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+          maxLength: 256
+        new_password:
+          type: string
+          minLength: 8
+          maxLength: 256
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9]).{8,256}$'
     SpaceContactVerification:
       type: object
       additionalProperties: false

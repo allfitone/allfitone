@@ -1363,6 +1363,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/me/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Change my password
+     * @description HU-SP-005 (TECH-325, ADR-051). The current password is checked and the new one set in WorkOS inside the request; nothing derived from either is stored, logged or hashed into the idempotency receipt. Answers 204 once WorkOS took it: the worker then closes every other session, keeping this one, and emails a notice to the sign-in address. A wrong current password is 422 `wrong-password` and is counted; a new password WorkOS refuses is 422 `weak-password`; five wrong ones in an hour make the next attempt 429 `rate-limited` without asking WorkOS. A replay with the same key answers 204 without asking WorkOS again.
+     */
+    post: operations['changeSpacePassword']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/profile': {
     parameters: {
       query?: never
@@ -8461,6 +8481,11 @@ export interface components {
        * @description When the code stops working; meaningless once applying.
        */
       expires_at: string
+    }
+    /** @description The new password follows the sign-up policy and differs from the current one. Neither is ever stored by Allfit. */
+    SpacePasswordChange: {
+      current_password: string
+      new_password: string
     }
     SpaceContactVerification: {
       code: string
@@ -16108,6 +16133,42 @@ export interface operations {
       409: components['responses']['Conflict']
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  changeSpacePassword: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpacePasswordChange']
+      }
+    }
+    responses: {
+      /** @description The password changed; the other sessions close in the background */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      429: components['responses']['RateLimited']
       503: components['responses']['UpstreamUnavailable']
     }
   }

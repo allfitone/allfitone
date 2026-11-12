@@ -1038,6 +1038,14 @@ export const allfitV1ContractManifest = {
       security: ['bearerAuth'],
     },
     {
+      method: 'POST',
+      path: '/space/v1/me/password',
+      operationId: 'changeSpacePassword',
+      allfitOperation: 'OP-IDN-066',
+      responses: ['204', '400', '401', '403', '415', '422', '429', '503'],
+      security: ['bearerAuth'],
+    },
+    {
       method: 'GET',
       path: '/space/v1/my-content',
       operationId: 'listMyContent',
