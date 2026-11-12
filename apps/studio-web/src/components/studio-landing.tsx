@@ -329,9 +329,9 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           <ProductLockup product="studio" surface="light" title="Allfit Studio" />
         </SiteHeaderHome>
         <SiteHeaderNav aria-label={copy.nav.label}>
-          <SiteHeaderLink href="#como-funciona">{copy.nav.how}</SiteHeaderLink>
-          <SiteHeaderLink href="#privacidad">{copy.nav.privacy}</SiteHeaderLink>
-          <SiteHeaderLink href="#modulos">{copy.nav.modules}</SiteHeaderLink>
+          <SiteHeaderLink href="#how-it-works">{copy.nav.how}</SiteHeaderLink>
+          <SiteHeaderLink href="#privacy">{copy.nav.privacy}</SiteHeaderLink>
+          <SiteHeaderLink href="#modules">{copy.nav.modules}</SiteHeaderLink>
         </SiteHeaderNav>
         <SiteHeaderActions>
           <SiteLanguageSwitch aria-label={copy.nav.language}>
@@ -362,7 +362,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
         </SiteHeaderActions>
       </SiteHeader>
 
-      <main id="contenido" data-studio-landing>
+      <main id="content" data-studio-landing>
         <section data-studio-hero aria-labelledby="studio-landing-title">
           <SiteContainer data-studio-hero-grid>
             <div data-studio-hero-copy>
@@ -438,7 +438,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           </SiteContainer>
         </section>
 
-        <section id="como-funciona" data-studio-section aria-labelledby="studio-landing-how">
+        <section id="how-it-works" data-studio-section aria-labelledby="studio-landing-how">
           <SiteContainer>
             <div data-studio-section-head>
               <Title id="studio-landing-how" lines={copy.how.title} />
@@ -458,7 +458,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
         </section>
 
         <section
-          id="privacidad"
+          id="privacy"
           data-studio-section
           data-studio-band
           data-afo-theme="dark"
@@ -494,7 +494,7 @@ export function StudioLanding({ locale, copy }: { locale: Locale; copy: Dictiona
           </SiteContainer>
         </section>
 
-        <section id="modulos" data-studio-section aria-labelledby="studio-landing-modules">
+        <section id="modules" data-studio-section aria-labelledby="studio-landing-modules">
           <SiteContainer>
             <div data-studio-section-head data-split="true">
               <Title id="studio-landing-modules" lines={copy.modules.title} />

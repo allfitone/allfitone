@@ -47,7 +47,7 @@ export default async function Landing({ params }: LocaleParams) {
   return (
     <>
       <Header locale={lang} copy={copy.nav} />
-      <main id="contenido">
+      <main id="content">
         <section className="hero" aria-labelledby="hero-title">
           <div className="wrap hero__grid">
             <div className="hero__copy">
@@ -110,7 +110,7 @@ export default async function Landing({ params }: LocaleParams) {
           </div>
         </section>
 
-        <section id="programas" className="section" aria-labelledby="programs-title">
+        <section id="programs" className="section" aria-labelledby="programs-title">
           <div className="wrap">
             <div className="section__head section__head--split">
               <Title id="programs-title" lines={copy.programs.title} />
@@ -151,7 +151,7 @@ export default async function Landing({ params }: LocaleParams) {
           </div>
         </section>
 
-        <section id="privacidad" className="section" aria-labelledby="privacy-title">
+        <section id="privacy" className="section" aria-labelledby="privacy-title">
           <div className="wrap">
             <div className="privacy__top">
               <div className="privacy__copy">
@@ -180,7 +180,7 @@ export default async function Landing({ params }: LocaleParams) {
 
         <Records copy={copy.records} />
 
-        <section id="gimnasios" className="section" aria-labelledby="pro-title">
+        <section id="gyms" className="section" aria-labelledby="pro-title">
           <div className="wrap">
             <div className="pro" data-reveal="">
               <div className="pro__copy">

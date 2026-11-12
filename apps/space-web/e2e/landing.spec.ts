@@ -55,6 +55,22 @@ test('the stores read as coming soon while there is no link', async ({ page }) =
   await expect(page.getByRole('link', { name: /App Store|Google Play/ })).toHaveCount(0)
 })
 
+// Fragments are part of the address, so they are named in English like every route.
+test('every section link in the header lands on its section, named in English', async ({
+  page,
+}) => {
+  for (const path of ['/es', '/en']) {
+    await page.goto(path)
+    const hrefs = await page
+      .locator('header a[href^="#"]')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href')))
+    expect(hrefs).toEqual(['#app', '#programs', '#privacy', '#gyms'])
+    for (const href of hrefs) await expect(page.locator(`section${href ?? ''}`)).toHaveCount(1)
+    await expect(page.locator('a.skip')).toHaveAttribute('href', '#content')
+    await expect(page.locator('main#content')).toHaveCount(1)
+  }
+})
+
 test('the share story moves only when the visitor picks a step', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/es')
