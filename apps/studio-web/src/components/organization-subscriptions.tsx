@@ -352,7 +352,7 @@ export function OrganizationSubscriptions() {
                 </DialogTitle>
                 <DialogDescription>{confirmationDescription(pending.action)}</DialogDescription>
               </DialogHeader>
-              {confirmationDetails(pending.action).map((line) => (
+              {confirmationDetails(pending.action, pending.subscription.status).map((line) => (
                 <p key={line}>{line}</p>
               ))}
 

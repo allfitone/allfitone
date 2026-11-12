@@ -74,8 +74,11 @@ describe('what the confirmation promises', () => {
    * reversible cause and revokes nothing, and a confirmation that implied otherwise would
    * describe an operation this platform deliberately does not have.
    */
-  function said(action: 'suspend' | 'reactivate' | 'end') {
-    return [confirmationDescription(action), ...confirmationDetails(action)].join(' ')
+  function said(
+    action: 'suspend' | 'reactivate' | 'end',
+    status: 'active' | 'suspended' = action === 'reactivate' ? 'suspended' : 'active',
+  ) {
+    return [confirmationDescription(action), ...confirmationDetails(action, status)].join(' ')
   }
 
   // HU-079 criteria 1 and 2: what pausing stops, and what it leaves alone.
@@ -127,10 +130,37 @@ describe('what the confirmation promises', () => {
     }
   })
 
-  test('ending says it does not end the vínculo or retire the permisos', () => {
-    const text = confirmationDescription('end')
-    expect(text).toContain('no termina el vínculo')
-    expect(text).toContain('ni retira los permisos')
+  // HU-080 criterion 1: what closes, and what stays standing, told apart.
+  test('ending says what closes and what stays standing', () => {
+    expect(confirmationDescription('end')).toContain('Cierra el cobro de este plan')
+    const text = said('end')
+    expect(text).toContain('Sigue en pie la relación con la organización')
+    expect(text).toContain('terminar el plan no termina la relación')
+    expect(text).toContain('no retira los permisos que la persona dio')
+    expect(text).toContain('Para terminar la relación hay otra acción')
+  })
+
+  test('ending says a person decided it, never a process', () => {
+    expect(said('end')).toContain('Queda registrado que lo decidiste tú')
+  })
+
+  // Ending closes the pause's cause too: left open, nothing could ever close it.
+  test('ending a paused plan says the pause lifts with it, and only then', () => {
+    expect(said('end', 'suspended')).toContain('terminar también levanta la pausa')
+    expect(said('end', 'active')).not.toContain('levanta la pausa')
+  })
+
+  // HU-080 criterion 3, said where it matters: when somebody pauses.
+  test('pausing says a pause never turns into an ending by itself', () => {
+    expect(said('suspend')).toContain('nunca se convierte sola en terminación')
+  })
+
+  test('no dialog shows markdown a reader would see as asterisks', () => {
+    for (const action of ['suspend', 'reactivate', 'end'] as const) {
+      for (const status of ['active', 'suspended'] as const) {
+        expect(said(action, status)).not.toContain('**')
+      }
+    }
   })
 
   test('all three say the person is told', () => {

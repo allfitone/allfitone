@@ -220,7 +220,7 @@ test('HU-079: reactivating restores nothing that changed, and says what comes ba
   await expect(page.locator('[data-billing-row]')).toContainText('Al día')
 })
 
-test('ending a plan says it does not end the vínculo, and leaves no action behind', async ({
+test('HU-080: ending says what closes and what stays standing, and leaves no action', async ({
   page,
 }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
@@ -229,14 +229,42 @@ test('ending a plan says it does not end the vínculo, and leaves no action behi
 
   await page.locator('[data-billing-action="end"]').click()
   const dialog = page.getByRole('dialog')
-  await expect(dialog).toContainText('no termina el vínculo')
-  await expect(dialog).toContainText('ni retira los permisos')
+  // Criterion 1: the paying bond closes, the relationship stays.
+  await expect(dialog).toContainText('Cierra el cobro de este plan')
+  await expect(dialog).toContainText('terminar el plan no termina la relación')
+  await expect(dialog).toContainText('Para terminar la relación hay otra acción')
+  // Criterion 2.
+  await expect(dialog).toContainText('Queda registrado que lo decidiste tú')
+  // The dialog renders text: markdown would reach the reader as asterisks.
+  await expect(dialog).not.toContainText('**')
+  await expect(dialog).not.toContainText('levanta la pausa')
   await page.getByRole('button', { name: 'Terminar y avisar' }).click()
 
   await expect(page.locator('[data-billing-row]')).toContainText('Terminada')
   // An ended subscription takes nothing. A disabled button would only invite the reader
   // to look for a reason that does not exist.
   await expect(page.locator('[data-billing-actions]')).toBeHidden()
+})
+
+test('HU-080: ending a paused plan says the pause lifts with it', async ({ page }) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await page.locator('[data-billing-action="end"]').click()
+  await expect(page.getByRole('dialog')).toContainText('terminar también levanta la pausa')
+})
+
+test('HU-080 c3: pausing says a pause never turns into an ending by itself', async ({ page }) => {
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  await page.locator('[data-billing-action="suspend"]').click()
+  await expect(page.getByRole('dialog')).toContainText('nunca se convierte sola en terminación')
 })
 
 test('a reactivation with no open cause is not described as something to retry', async ({

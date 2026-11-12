@@ -2947,6 +2947,26 @@ export const SCREENS: Screen[] = [
       await expect(page.locator('[data-billing-error]')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/billing`, end a plan · HU-080 ---
+  {
+    stories: 'HU-080 · what ending closes, and what stays standing',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="end"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Sigue en pie la relación')
+    },
+  },
+  {
+    stories: 'HU-080 · ending a paused plan lifts the pause',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="end"]').nth(1).click()
+      await expect(page.getByRole('dialog')).toContainText('levanta la pausa')
+    },
+  },
   // --- `/organizations/[id]/organization` · HU-011 ---
   {
     stories: 'HU-011 · the organization and its sites',
