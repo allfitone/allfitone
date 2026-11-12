@@ -23,7 +23,6 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { CodeField } from '@allfitone/react-native/code-field'
-import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
@@ -31,15 +30,8 @@ import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError } from '../client'
 import {
@@ -70,6 +62,7 @@ import {
   requestEmailChange,
   verifyEmailChange,
 } from '../client/profile-transport'
+import { EditHeader, EditScreen } from './edit-screen'
 import { EmailChangeProgress } from './email-change-progress'
 import { FormNote } from './fitness-profile-ui'
 
@@ -131,63 +124,6 @@ function useIdentity(sources: IdentitySources) {
     }
   }, [sources])
   return { identity, unreadable }
-}
-
-function Header({ title }: { readonly title: string }) {
-  const router = useRouter()
-  return (
-    <View style={styles.header}>
-      <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
-      <Text role="control" size="xl" accessibilityRole="header">
-        {title}
-      </Text>
-    </View>
-  )
-}
-
-function EditScreen({
-  title,
-  subtitle,
-  failure,
-  saving,
-  onSave,
-  saveLabel = 'Guardar',
-  children,
-}: {
-  readonly title: string
-  readonly subtitle: string
-  readonly failure: string | undefined
-  readonly saving: boolean
-  readonly onSave: (() => void) | undefined
-  readonly saveLabel?: string
-  readonly children: ReactNode
-}) {
-  return (
-    <Screen edges={['top', 'bottom']}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.grow}
-      >
-        <Header title={title} />
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text role="body" size="sm" color="secondary">
-            {subtitle}
-          </Text>
-          {children}
-          {failure ? <InlineAlert message={failure} /> : null}
-        </ScrollView>
-        {onSave ? (
-          <View style={styles.footer}>
-            <Button label={saveLabel} loading={saving} onPress={onSave} />
-          </View>
-        ) : null}
-      </KeyboardAvoidingView>
-    </Screen>
-  )
 }
 
 /** `PF-E7` and `PF-E8`: the name, or the username, each alone. */
@@ -461,7 +397,7 @@ export function CountryCodeScreen() {
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <Header title="Indicativo del país" />
+      <EditHeader title="Indicativo del país" />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -726,7 +662,7 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
   if (shown) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <Header title="Revisa tu correo" />
+        <EditHeader title="Revisa tu correo" />
         <EmailChangeProgress
           address={shown}
           done={applied !== undefined}
@@ -800,9 +736,7 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
 
 const styles = StyleSheet.create({
   grow: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 6, paddingBottom: 12 },
   content: { gap: 18, paddingTop: 4, paddingBottom: 32 },
-  footer: { paddingTop: 12, paddingBottom: 8 },
   phone: { gap: 8 },
   phoneRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   code: {

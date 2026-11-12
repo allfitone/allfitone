@@ -47,7 +47,6 @@ import { Button } from '@allfitone/react-native/button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
@@ -66,16 +65,12 @@ import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import {
   canSubmitExperience,
-  chooseLevel,
   EXPERIENCE_LEVELS,
-  experienceStops,
-  NOT_A_LABEL_BODY,
-  NOT_A_LABEL_TITLE,
   PICK_A_LEVEL,
   readLevel,
   type TrainingExperience,
 } from '../../src/client/experience-form'
-import { LevelStopRow } from '../../src/components/level-stop'
+import { ExperiencePicker } from '../../src/components/experience-picker'
 
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
@@ -88,7 +83,6 @@ export default function OnboardingExperience() {
   const router = useRouter()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
 
-  const theme = useTheme()
   const [level, setLevel] = useState<TrainingExperience | undefined>(undefined)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -182,37 +176,12 @@ export default function OnboardingExperience() {
           </Text>
         </Animated.View>
 
-        {/* El recorrido entero, frío, desde el primer fotograma. Si apareciera al
-            elegir, la escala sólo la vería quien ya decidió. */}
-        <View style={styles.track}>
-          {experienceStops(level).map((stop, index) => (
-            <LevelStopRow
-              key={stop.entry.level}
-              stop={stop}
-              pressable={pressable}
-              onPress={() => setLevel((current) => chooseLevel(current, stop.entry.level))}
-              {...(entering && entrances[index + 1] ? { entering: entrances[index + 1] } : {})}
-            />
-          ))}
-        </View>
-
-        {/* Fixed rather than revealed: it is what someone worried about being
-            labelled needs before answering, not after. Con filete a la izquierda: deja
-            de ser letra pequeña al pie y pasa a ser una frase sostenida por algo, que
-            es lo que hace que se lea antes de contestar y no después. */}
-        <Animated.View
-          {...(entering && entrances[EXPERIENCE_LEVELS.length + 1]
-            ? { entering: entrances[EXPERIENCE_LEVELS.length + 1] }
-            : {})}
-          style={[styles.notice, { borderLeftColor: theme.color.accent.tonalBorder }]}
-        >
-          <Text role="body" size="xs" color="muted">
-            <Text role="body" size="xs" color="secondary">
-              {NOT_A_LABEL_TITLE}
-            </Text>
-            {NOT_A_LABEL_BODY}
-          </Text>
-        </Animated.View>
+        <ExperiencePicker
+          level={level}
+          onChoose={setLevel}
+          pressable={pressable}
+          entering={entering ? entrances.slice(1) : undefined}
+        />
       </ScrollView>
 
       {/* Outside the scroll so the button sits in the same place on every step of
@@ -247,13 +216,6 @@ const styles = StyleSheet.create({
   // cuando el texto del sistema lo estira. Sin esto el recorrido no se reparte.
   scrollContent: { paddingBottom: 4, flexGrow: 1 },
   lede: { marginTop: 9, marginBottom: 18 },
-  // Crece con lo que lleva dentro, y no al revés: ver `stopSlot` en `level-stop`.
-  track: { flexGrow: 1, marginBottom: 4 },
-  notice: {
-    marginTop: 2,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-  },
   footer: { paddingTop: 4, paddingBottom: FOOTER_LIFT },
   alert: { marginTop: 12 },
   cta: { marginTop: 10 },

@@ -1,5 +1,5 @@
 /**
- * The pieces «Perfil fitness» (`PF-3b`), its edit sheets and «Identidad y acceso»
+ * The pieces «Perfil fitness» (`PF-3b`), its edit screens and «Identidad y acceso»
  * (`PF-2c`) are built from, as approved in pen.dev for TECH-43.
  *
  * **A datum is three lines**: what it is, what it says, and where it came from. The
@@ -12,7 +12,6 @@
  */
 
 import { FoundationIcon } from '@allfitone/react-native/icons'
-import { IconButton } from '@allfitone/react-native/icon-button'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { Children, type ReactNode } from 'react'
@@ -94,17 +93,17 @@ export function FitnessDatum({
       style={({ pressed }) => [styles.datum, pressed && styles.pressed]}
     >
       <View style={styles.grow}>
-        <Text role="body" size="sm" color="secondary">
+        <Text role="body" size="xs" color="secondary">
           {title}
         </Text>
-        <Text role="control" size="lg" color={answered ? 'primary' : 'muted'}>
+        <Text role="control" size="md" color={answered ? 'primary' : 'muted'}>
           {value ?? 'Sin responder'}
         </Text>
         <View style={styles.origin}>
           {answered && provenance ? (
             <OriginPill label={provenance} />
           ) : (
-            <Text role="control" size="sm" color="accent">
+            <Text role="control" size="xs" color="accent">
               Responder
             </Text>
           )}
@@ -123,89 +122,6 @@ export function FitnessDatum({
         </View>
       </View>
       <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-    </Pressable>
-  )
-}
-
-/** The head of an edit sheet: the question in display type, what it is for, and a way out. */
-export function EditSheetHeader({
-  title,
-  subtitle,
-  onClose,
-}: {
-  readonly title: string
-  readonly subtitle: string
-  readonly onClose: () => void
-}) {
-  return (
-    <View style={styles.sheetHead}>
-      <View style={styles.grow}>
-        <Text role="display" size="2xl" uppercase accessibilityRole="header">
-          {title}
-        </Text>
-        <Text role="body" size="sm" color="secondary">
-          {subtitle}
-        </Text>
-      </View>
-      <IconButton
-        icon="close"
-        size="sm"
-        variant="plain"
-        accessibilityLabel="Cerrar"
-        onPress={onClose}
-      />
-    </View>
-  )
-}
-
-/** One answer in a sheet: a name, what it means, and a radio or a tick at the end. */
-export function ChoiceRow({
-  name,
-  detail,
-  selected,
-  multiple,
-  onPress,
-}: {
-  readonly name: string
-  readonly detail?: string | undefined
-  readonly selected: boolean
-  readonly multiple?: boolean
-  readonly onPress: () => void
-}) {
-  const theme = useTheme()
-  return (
-    <Pressable
-      accessibilityRole={multiple ? 'checkbox' : 'radio'}
-      accessibilityLabel={name}
-      {...(detail === undefined ? {} : { accessibilityHint: detail })}
-      accessibilityState={multiple ? { checked: selected } : { selected }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.choice,
-        {
-          backgroundColor: selected
-            ? theme.color.accent.tonal
-            : theme.color.background.surfaceMuted,
-          borderColor: selected ? theme.color.border.accent : theme.color.border.subtle,
-        },
-        pressed && styles.pressed,
-      ]}
-    >
-      <View style={styles.grow}>
-        <Text role="control" size="md">
-          {name}
-        </Text>
-        {detail ? (
-          <Text role="body" size="sm" color="secondary">
-            {detail}
-          </Text>
-        ) : null}
-      </View>
-      {selected ? (
-        <FoundationIcon name="success" size="sm" color={theme.color.icon.accent} decorative />
-      ) : (
-        <View style={[styles.radio, { borderColor: theme.color.border.strong }]} />
-      )}
     </Pressable>
   )
 }
@@ -237,22 +153,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  grow: { flex: 1, gap: 4 },
-  origin: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
-  pill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  pressed: { opacity: 0.7 },
-  sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  choice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5 },
+  grow: { flex: 1, gap: 3 },
+  origin: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
+  pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  pressed: { opacity: 0.7 },
   note: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14 },
 })
