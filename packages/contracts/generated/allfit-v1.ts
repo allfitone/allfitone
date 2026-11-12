@@ -5598,7 +5598,11 @@ export interface paths {
       cookie?: never
     }
     get?: never
-    put?: never
+    /**
+     * Correct one of my health context claims
+     * @description TECH-326, ADR-052. The claim is corrected in place: type, description, area and dates are replaced and the earlier wording is not kept; something new is a new claim. Its id, provenance and recorded instant never change. Same validations as declaring. Someone else's claim and one that does not exist both answer 404. Under a legal hold over the person's health data, or while the claim's deletion waits, the answer is 409 and nothing changes.
+     */
+    put: operations['correctSpaceHealthContext']
     post?: never
     /**
      * Delete one of my health context claims
@@ -23986,6 +23990,47 @@ export interface operations {
       403: components['responses']['Forbidden']
       409: components['responses']['Conflict']
       410: components['responses']['CommandEffectDisposed']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceHealthContext: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        claimId: components['schemas']['UuidV7']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HealthContextClaimCreate']
+      }
+    }
+    responses: {
+      /** @description The claim as it now stands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HealthContextClaim']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']

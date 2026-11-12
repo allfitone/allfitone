@@ -14170,6 +14170,63 @@ paths:
           $ref: '#/components/responses/UpstreamUnavailable'
 
   /space/v1/health-context/{claimId}:
+    put:
+      tags: [Space Identity]
+      operationId: correctSpaceHealthContext
+      x-allfit-operation: OP-IDN-067
+      x-allfit-cache: no-store
+      summary: Correct one of my health context claims
+      description: >-
+        TECH-326, ADR-052. The claim is corrected in place: type, description, area and
+        dates are replaced and the earlier wording is not kept; something new is a new
+        claim. Its id, provenance and recorded instant never change. Same validations as
+        declaring. Someone else's claim and one that does not exist both answer 404. Under
+        a legal hold over the person's health data, or while the claim's deletion waits,
+        the answer is 409 and nothing changes.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: claimId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UuidV7'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthContextClaimCreate'
+      responses:
+        '200':
+          description: The claim as it now stands
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthContextClaim'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
     delete:
       tags: [Space Identity]
       operationId: deleteSpaceHealthContext

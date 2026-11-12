@@ -2888,6 +2888,26 @@ export type Database = {
         }
         Returns: undefined
       }
+      correct_health_context: {
+        Args: {
+          p_body_area: string
+          p_claim_id: string
+          p_command_id: string
+          p_context_type: string
+          p_description: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+          p_valid_from: string
+          p_valid_to: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       correct_own_biological_sex: {
         Args: {
           p_command_id: string

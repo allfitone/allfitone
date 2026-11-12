@@ -998,6 +998,14 @@ export const allfitV1ContractManifest = {
       security: ['bearerAuth'],
     },
     {
+      method: 'PUT',
+      path: '/space/v1/health-context/{claimId}',
+      operationId: 'correctSpaceHealthContext',
+      allfitOperation: 'OP-IDN-067',
+      responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['bearerAuth'],
+    },
+    {
       method: 'GET',
       path: '/space/v1/history/months/{month}',
       operationId: 'getMyHistoryMonth',
