@@ -1,7 +1,7 @@
 {
   "format": "allfitone-brand-assets",
   "schemaVersion": 1,
-  "brandVersion": "0.4.0",
+  "brandVersion": "0.4.1",
   "managedFiles": [
     "README.md",
     "manifest.json",
