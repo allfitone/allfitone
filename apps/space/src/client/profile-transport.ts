@@ -101,6 +101,22 @@ export function requestEmailChange(email: string): Promise<EmailChange> {
   )
 }
 
+/**
+ * `OP-IDN-066`: the current password and the new one, and nothing comes back. The other
+ * sessions close in the background; this one stays.
+ */
+export async function changePassword(current: string, next: string): Promise<void> {
+  const headers = command()
+  await authenticated((token) =>
+    authorizedPost<undefined>(
+      '/space/v1/me/password',
+      headers,
+      { current_password: current, new_password: next },
+      token,
+    ),
+  )
+}
+
 /** The code from the new inbox; the change is then applied in the background. */
 export function verifyEmailChange(code: string): Promise<{ outcome: 'applying' }> {
   const headers = command()

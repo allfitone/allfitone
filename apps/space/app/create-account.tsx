@@ -54,6 +54,7 @@ function messageFor(cause: unknown): string {
       // rather than that it is short.
       return 'Esa contraseña es demasiado fácil de adivinar. Cámbiale algunas letras o alárgala.'
     case 'unavailable':
+    case 'rate-limited':
       return 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
     default:
       return 'Revisa el correo y la contraseña.'

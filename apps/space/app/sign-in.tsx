@@ -32,7 +32,7 @@ import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
-import { ApiError, signIn } from '../src/client'
+import { ApiError, signIn, unreachable } from '../src/client'
 import { storeSession } from '../src/client/session'
 import { createSpaceOnboardingFlow } from '../src/client/onboarding-transport'
 import { routeAfterAuthentication } from '../src/client/resume-route'
@@ -63,9 +63,7 @@ export default function SignIn() {
       await storeSession({ ...session, email: trimmed })
       router.replace(await routeAfterAuthentication(() => createSpaceOnboardingFlow().resume()))
     } catch (cause) {
-      setFailure(
-        cause instanceof ApiError && cause.failure === 'unavailable' ? UNREACHABLE : FAILURE,
-      )
+      setFailure(cause instanceof ApiError && unreachable(cause) ? UNREACHABLE : FAILURE)
     } finally {
       setSubmitting(false)
     }

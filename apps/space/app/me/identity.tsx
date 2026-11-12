@@ -12,7 +12,7 @@
  * with no verification state to show. **The email changes with a code** (`HU-SP-076`,
  * `HU-SP-077`): while one is awaited the row says «Verificación pendiente» and leads to
  * the code; while WorkOS takes the address it says so and leads nowhere. Changing the
- * password (`HU-SP-005`) is not built yet, so that row says «Pronto».
+ * password (`HU-SP-005`, TECH-325) opens its own screen.
  */
 
 import { IconButton } from '@allfitone/react-native/icon-button'
@@ -213,7 +213,7 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
                   label="Contraseña"
                   value="••••••••••"
                   caption="Al cambiarla se cierran tus otras sesiones."
-                  soon
+                  onEdit={() => router.push('/me/password')}
                 />
               </Panel>
             </View>
@@ -254,7 +254,6 @@ function IdentityRow({
   value,
   caption,
   state,
-  soon,
   onEdit,
 }: {
   readonly icon: IconName
@@ -262,7 +261,6 @@ function IdentityRow({
   readonly value: string
   readonly caption?: string
   readonly state?: RowChip
-  readonly soon?: boolean
   readonly onEdit?: () => void
 }) {
   const theme = useTheme()
@@ -319,10 +317,6 @@ function IdentityRow({
       </View>
       {onEdit ? (
         <FoundationIcon name="edit" size="sm" color={theme.color.icon.accent} decorative />
-      ) : soon ? (
-        <Text role="control" size="2xs" color="muted">
-          Pronto
-        </Text>
       ) : null}
     </>
   )
@@ -330,13 +324,7 @@ function IdentityRow({
     return (
       <View
         accessible
-        accessibilityLabel={[
-          label,
-          value,
-          STATE_LABEL[state ?? 'missing'],
-          caption,
-          soon && 'Pronto',
-        ]
+        accessibilityLabel={[label, value, STATE_LABEL[state ?? 'missing'], caption]
           .filter(Boolean)
           .join('. ')}
         style={styles.row}
