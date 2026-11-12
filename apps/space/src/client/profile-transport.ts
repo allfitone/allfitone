@@ -20,6 +20,7 @@ import type {
   OwnName,
   SpaceIdentity,
 } from './fitness-profile'
+import type { HealthClaim, HealthClaimInput, HealthDeletion, HealthPage } from './health-context'
 import { authorizedGet, authorizedPost, authorizedSend } from './index'
 import type { BiologicalSex, FocusArea } from './onboarding'
 import { authenticated } from './session'
@@ -125,6 +126,43 @@ export function verifyEmailChange(code: string): Promise<{ outcome: 'applying' }
       '/space/v1/me/contact/verification',
       headers,
       { code },
+      token,
+    ),
+  )
+}
+
+/** `OP-IDN-049`: every claim she declared, the most recent start first. */
+export function listHealthContext(): Promise<HealthPage> {
+  return authenticated((token) =>
+    authorizedGet<HealthPage>('/space/v1/health-context?limit=200', token),
+  )
+}
+
+/** `OP-IDN-008`: the command id is the claim's id, so a retry never declares it twice. */
+export function declareHealthContext(input: HealthClaimInput): Promise<HealthClaim> {
+  const headers = command()
+  return authenticated((token) =>
+    authorizedPost<HealthClaim>('/space/v1/health-context', headers, input, token),
+  )
+}
+
+/** `OP-IDN-067`: in place, keeping no earlier wording (ADR-052). */
+export function correctHealthContext(id: string, input: HealthClaimInput): Promise<HealthClaim> {
+  const headers = command()
+  return authenticated((token) =>
+    authorizedSend<HealthClaim>('PUT', `/space/v1/health-context/${id}`, headers, input, token),
+  )
+}
+
+/** `OP-IDN-050`: gone now, or kept by a legal hold, which the answer says. */
+export function deleteHealthContext(id: string): Promise<HealthDeletion> {
+  const headers = command()
+  return authenticated((token) =>
+    authorizedSend<HealthDeletion>(
+      'DELETE',
+      `/space/v1/health-context/${id}`,
+      headers,
+      undefined,
       token,
     ),
   )
