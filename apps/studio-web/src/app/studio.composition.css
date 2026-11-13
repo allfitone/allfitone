@@ -243,7 +243,7 @@
 /* Wider than the gap inside a session, so each one reads as its own group. */
 [data-program-sessions],
 [data-category-register],
-[data-organization-overview],
+[data-today-panel],
 [data-organization-details],
 [data-profile-presentation],
 [data-account-map],
@@ -535,8 +535,7 @@
 [data-team-role-badges],
 [data-ready-confirmations],
 [data-team-section-navigation],
-[data-overview-team-roles],
-[data-overview-orientation-roles],
+[data-today-row-marks],
 [data-membership-roles],
 [data-role-disclosure],
 [data-content-disclosure],
@@ -566,7 +565,7 @@
 [data-client-identity],
 [data-billing-person],
 [data-authorized-scope-person],
-[data-overview-team-identity] {
+[data-today-row] {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -678,14 +677,13 @@
 
    No width of its own any more: the canvas is now the width this panel had
    asked for, so the exception it used to carry is the rule. */
-[data-organization-overview] {
+[data-today-panel] {
   grid-template-columns: minmax(0, 1fr);
 }
 
 /* The strip sizes to its stats. Stretched across the canvas, a single count
    floated alone in the middle of 1400px. Both axes are set because these sit
-   in a grid on the overview and in a flex column on the account page. */
-[data-overview-signals],
+   in a flex column on the account page and in a grid elsewhere. */
 [data-organization-signals],
 [data-profile-signals] {
   justify-self: start;
@@ -696,22 +694,21 @@
 
 /* Two or more stats take the canvas, so the strip's right edge lines up with
    the cards below it instead of stopping 576px short of them. The cap above
-   still applies to a lone stat — a staff member who reads the directory but not
-   the invitation register sees one count, and one number centred in 1024px is
-   what the cap was put there to prevent. */
-[data-overview-signals][data-signals-multiple],
+   still applies to a lone stat, and one number centred in 1024px is what the
+   cap was put there to prevent. */
 [data-organization-signals][data-signals-multiple],
 [data-profile-signals][data-signals-multiple] {
   min-width: 100%;
 }
 
-[data-overview-signals-placeholder] {
-  height: 4.5rem;
-  width: min(100%, 24rem);
+/* Two notices, which is what a coach who also administers usually has waiting.
+   A placeholder per notice, not one per row: the count inside each is exactly
+   what has not arrived yet. */
+[data-today-notice-placeholder] {
+  height: 9rem;
 }
 
-[data-overview-attention-list],
-[data-overview-team-list],
+[data-today-rows],
 [data-organization-site-list],
 [data-team-directory-card-list],
 [data-client-directory-card-list],
@@ -739,8 +736,6 @@
   gap: var(--afo-space-3);
 }
 
-[data-overview-attention-list] > li,
-[data-overview-team-list] > li,
 [data-organization-site-list] > li,
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
@@ -754,12 +749,11 @@
   gap: var(--afo-space-3);
 }
 
-[data-overview-attention-contact],
+[data-today-row-subject],
 [data-organization-site-identity],
 [data-relationship-substitution-identity],
 [data-relationship-grant-identity],
 [data-relationship-history-what],
-[data-overview-team-identity],
 [data-historical-case-relationship] {
   min-width: 0;
   flex: 1;
@@ -806,13 +800,72 @@
   }
 }
 
-[data-overview-attention-expiry] {
+/* Why the row is here, kept out of the subject's way. A masked contact or a
+   long name takes the leftover width; this keeps its own words whole. */
+[data-today-row-detail] {
   flex: none;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
 }
 
-[data-overview-team-placeholder] {
-  display: grid;
+/* A masked contact is one unbroken token — `b***@ejemplo.test` has nowhere the
+   browser will break it — so without this it paints out of its cell and over
+   whatever sits beside it, the same way the client directory found. */
+[data-today-row-subject] {
+  overflow-wrap: anywhere;
+}
+
+/* A row that leads somewhere still reads as a row, not as a link in a
+   paragraph: the Design System underlines anchors, and five underlined names
+   in a list made the list look like a menu. */
+[data-today-row-link] {
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-today-row-link]:hover [data-today-row-subject],
+[data-today-row-link]:focus-visible [data-today-row-subject] {
+  text-decoration: underline;
+}
+
+/* The count is the first thing the reader is after, so it sits with the title
+   rather than under it. Tabular figures keep 7 and 12 the same width down a
+   column of notices. */
+[data-today-notice-count] {
+  color: var(--afo-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What the notice covers beyond the five rows above it. Set apart from the last
+   row by the gap the list uses, and quieter than a row, because it is a
+   remainder and not another item. */
+[data-today-remainder] {
+  display: block;
+  margin-block-start: var(--afo-space-3);
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* How the team stands, which the contract calls a state: it never makes the day
+   non-empty. A hairline and a line of text, not a sixth card — the page keeps
+   one rank for what waits on somebody and a quieter one for how things are. */
+[data-today-state] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--afo-space-3);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-today-state-figure] {
+  min-width: 0;
+  color: var(--afo-color-text-muted);
+}
+
+[data-today-state-detail]::before {
+  content: ' · ';
 }
 
 /* CardContent pads sideways only, so the badge row and the sentence under it
@@ -1229,12 +1282,11 @@
   /* Stacked, an item's own lines have to sit closer together than the gap to
      the next item. At one rhythm for both, two invitations of two lines each
      read as four invitations of one. Inner 4px, outer 20px. */
-  [data-overview-attention-list],
-  [data-overview-team-list] {
+  [data-today-rows] {
     gap: var(--afo-space-5);
   }
 
-  [data-overview-attention-list] > li {
+  [data-today-row] {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--afo-space-1);
@@ -1258,29 +1310,11 @@
     flex-direction: column;
   }
 
-  /* The avatar belongs beside the name, not stranded on a line of its own.
-     `start`, not `center`: the avatar now labels a block of three lines, and
-     centring floats it to the middle of that block, away from the name. */
-  [data-overview-team-list] > li {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: var(--afo-space-2) var(--afo-space-3);
-  }
-
-  /* Column two, not the whole row. Spanning both columns put the roles under
-     the avatar, on a left edge nothing else in the row shares, so the badge
-     that says who a person is read as belonging to no one. */
-  [data-overview-team-list] > li > [data-overview-team-roles] {
-    grid-column: 2;
-  }
-
-  /* Name over date, not name beside date. Side by side at 320px a two-word
-     name broke mid-word and took its row to 137px next to neighbours of 79. */
-  [data-overview-team-identity] {
+  /* The figure and the way in stack, in that order. Side by side at 320px the
+     button took half the line and the sentence about the team broke mid-word. */
+  [data-today-state] {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--afo-space-1);
   }
 }
 

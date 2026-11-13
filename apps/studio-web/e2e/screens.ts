@@ -50,6 +50,8 @@ import {
   coveredClientCard,
   formerClientCard,
   secondActiveMembership,
+  studioTodayCoach,
+  studioTodayEmpty,
   terminatedMembership,
   terminatedTeamMember,
   closedHistoricalCase,
@@ -102,14 +104,18 @@ async function settledByHeading(page: Page): Promise<void> {
 }
 
 /**
- * The overview renders whatever it was given, so an h1 is no evidence that the
- * load it was meant to carry arrived. The invitations register was swept
- * against its own failure state for exactly this reason: it had a heading.
+ * The panel renders whatever it was given, so an h1 is no evidence that the one
+ * read it exists for arrived — the `h1` is the organization's name, in the
+ * shell, and it is there before anything is asked. The invitations register was
+ * swept against its own failure state for exactly this reason: it had a
+ * heading.
+ *
+ * Six cards and not seven: the team is a state, rendered as a line.
  */
-async function settledByLoadedOverview(page: Page): Promise<void> {
+async function settledByToday(page: Page): Promise<void> {
   await settledByHeading(page)
-  await expect(page.getByRole('heading', { name: 'Requiere atención' })).toBeVisible()
-  await expect(page.locator('[data-overview-team-list] > li')).toHaveCount(5)
+  await expect(page.getByRole('heading', { name: /Personas sin profesional/ })).toBeVisible()
+  await expect(page.locator('[data-today-notice]')).toHaveCount(6)
 }
 
 /** Arranges a screen and waits until it is really on the page. */
@@ -389,59 +395,6 @@ const withIssuedInvitations = () =>
                 issuedInvitation('decidida', 'completed', '2026-09-18T00:00:00.000Z'),
                 issuedInvitation('revocada', 'revoked', '2026-09-15T00:00:00.000Z'),
                 issuedInvitation('vencida', 'expired', '2026-08-30T00:00:00.000Z'),
-              ],
-              page: { next_cursor: null },
-            },
-          }
-        : undefined,
-  })
-
-const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-
-const overviewMember = (id: string, display_name: string, joined_at: string, roles: string[]) => ({
-  membership_id: id,
-  display_name,
-  status: 'active',
-  joined_at,
-  ended_at: null,
-  roles,
-})
-
-/**
- * A workspace with something in it. The default fixture gives the overview one
- * active member and a 500 on the invitations GET, so the three sweeps had only
- * ever seen the emptiest version of the first screen a person lands on: no
- * "Requiere atención" card at all, and a recent-team list of one row that
- * cannot show what five rows do to a phone.
- */
-const withOverviewLoad = () =>
-  createStudioApiFixture({
-    memberships: [activeMembership, secondActiveMembership, terminatedMembership],
-    organizationMemberships: [
-      overviewMember('ov-1', 'Alejandro Rangel Buitrago', '2026-09-07T00:00:00.000Z', [
-        'owner',
-        'admin',
-      ]),
-      overviewMember('ov-2', 'María Fernanda Quintero', '2026-09-05T00:00:00.000Z', ['admin']),
-      overviewMember('ov-3', 'Jo Li', '2026-08-30T00:00:00.000Z', ['coach']),
-      overviewMember('ov-4', 'Bartholomew Featherstonehaugh', '2026-08-21T00:00:00.000Z', [
-        'staff',
-        'coach',
-      ]),
-      overviewMember('ov-5', 'Camila Torres', '2026-07-14T00:00:00.000Z', ['staff']),
-    ],
-    intercept: (request) =>
-      request.method === 'GET' && /\/invitations(\?|$)/.test(request.path)
-        ? {
-            status: 200,
-            body: {
-              // Relative, not fixed: the attention card only appears for a
-              // pending invitation expiring within seven days of now, so a
-              // literal date would quietly stop rendering the card it exists
-              // to cover on the day it passed.
-              data: [
-                issuedInvitation('proxima', 'pending', inDays(2)),
-                issuedInvitation('siguiente', 'pending', inDays(4)),
               ],
               page: { next_cursor: null },
             },
@@ -965,50 +918,102 @@ export const SCREENS: Screen[] = [
     },
   },
 
-  // --- `/organizations/[id]` · the workspace and the states that replace it ---
-  { stories: 'HU-004 / HU-006 · workspace and memberships', path: workspace, fixture: memberOfTwo },
+  // --- `/organizations/[id]` · HU-081 what needs attention today ---
   {
-    stories: 'HU-004 · workspace with a team and invitations to attend',
+    stories: 'HU-004 / HU-006 · workspace and memberships',
     path: workspace,
-    fixture: withOverviewLoad,
-    settled: settledByLoadedOverview,
+    fixture: memberOfTwo,
+    settled: settledByToday,
   },
   {
-    // The recent-team row stacks below 640px, and a single-member workspace
-    // cannot show whether five stacked rows still read as five people.
-    stories: 'HU-004 · workspace with a team and invitations on a phone',
+    /*
+     * Every notice a role can carry, at once — which is also the only arrangement
+     * that shows the three things the panel gets wrong on its own: two notices
+     * that count more than they list, a masked contact long enough to paint out
+     * of its cell, and a role code this app has no word for.
+     */
+    stories: 'HU-081 · everything that needs attention today',
     path: workspace,
-    fixture: withOverviewLoad,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByToday,
+  },
+  {
+    // Six notices stacked below 640px, where each row puts its subject over its
+    // reason. One notice cannot show whether the rhythm still holds a row
+    // together and apart from the next.
+    stories: 'HU-081 · everything that needs attention today, on a phone',
+    path: workspace,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
-    settled: settledByLoadedOverview,
+    settled: settledByToday,
   },
   {
-    // A coach reads neither the directory nor the invitation register, so the
-    // overview has nothing to count and orientation is the honest content.
-    stories: 'HU-018 · orientation for a role that reads nothing',
+    /*
+     * A coach resolves one thing, so one notice arrives and the other six are
+     * absent — not empty. This is the fourth criterion, and the only screen here
+     * that proves the panel asks no role of its own: nothing but the server's
+     * answer decides what it draws.
+     */
+    stories: 'HU-081 · a coach, for whom six of the seven notices are absent',
     path: `/organizations/${secondActiveMembership.organization_id}`,
-    fixture: () => createStudioApiFixture({ memberships: [secondActiveMembership] }),
-  },
-  {
-    // The workspace of someone whose organization is still only them.
-    stories: 'HU-004 · workspace with nobody else in the team',
-    path: workspace,
     fixture: () =>
-      createStudioApiFixture({ memberships: [activeMembership], organizationMemberships: [] }),
+      createStudioApiFixture({
+        memberships: [secondActiveMembership],
+        today: {
+          ...studioTodayCoach,
+          organization_id: secondActiveMembership.organization_id,
+        },
+      }),
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('Trabajas en solitario por ahora')).toBeVisible()
+      await expect(page.getByRole('heading', { name: /Tus clientes esta semana/ })).toBeVisible()
+      await expect(page.locator('[data-today-notice]')).toHaveCount(1)
     },
   },
   {
-    // The overview counts two registers. It reports the outage only when it has
-    // neither, which is why both reads fail here rather than one.
-    stories: 'HU-004 · the workspace could not read its own registers',
+    // Nothing waiting is said rather than left blank, and the team line is
+    // still under it: `team` is a state and never makes the day non-empty, so a
+    // panel that counted its own cards to decide this would get it wrong here.
+    stories: 'HU-081 · nothing waiting, which is said rather than left blank',
     path: workspace,
-    fixture: failingFor([activeMembership], /\/organizations\/[^/]+\/(memberships|invitations)$/),
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        today: { ...studioTodayEmpty, organization_id: activeMembership.organization_id },
+      }),
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('No pudimos cargar el estado de tu organización')).toBeVisible()
+      await expect(page.getByText('Nada espera por ti ahora')).toBeVisible()
+    },
+  },
+  {
+    // A membership that no longer reads this organization at all. The copy
+    // offers no way to ask again, because this screen grants nothing.
+    stories: 'HU-081 · a membership that may no longer read the organization',
+    path: workspace,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership], today: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No puedes ver el estado de esta organización')).toBeVisible()
+      /*
+       * The seventh criterion as an absence: a refusal must never turn into an
+       * action to ask for the permission again. Scope decisions happen inside
+       * accepting a new relationship and nowhere else, so there is nothing here
+       * to press — and an absence only stays true if something checks it.
+       */
+      await expect(page.getByRole('button', { name: /solicitar|permiso|pedir/i })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: /solicitar|permiso|pedir/i })).toHaveCount(0)
+    },
+  },
+  {
+    // The one read this screen makes, failing. One register, not two: the panel
+    // is a single answer now, so there is no half-loaded version of it.
+    stories: 'HU-081 · the panel could not be read',
+    path: workspace,
+    fixture: failingFor([activeMembership], /\/organizations\/[^/]+\/today$/),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar lo que necesita tu atención')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients` · HU-024 ---

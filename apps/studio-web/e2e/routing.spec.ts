@@ -6,6 +6,7 @@ import {
   error,
   installStudioApiMock,
   secondActiveMembership,
+  studioTodayEmpty,
   terminatedMembership,
 } from './studio-api-mock'
 
@@ -68,6 +69,7 @@ test('finishes a new organization in a dedicated ready step before entering the 
 }) => {
   const createdOrganizationId = '01991600-5000-7000-8000-000000000001'
   const fixture = createStudioApiFixture({
+    today: { ...studioTodayEmpty, organization_id: createdOrganizationId },
     intercept: (request, currentFixture) => {
       if (request.method !== 'POST' || request.path !== '/studio/v1/organizations') {
         return undefined
@@ -109,12 +111,13 @@ test('finishes a new organization in a dedicated ready step before entering the 
   await page.getByRole('button', { name: 'Entrar al workspace' }).click()
   await expect(page).toHaveURL(`/organizations/${createdOrganizationId}`)
   // The workspace opens on the organization's own state, not on a second copy
-  // of the "your space is ready" message the person just dismissed.
-  await expect(page.getByRole('heading', { name: 'Equipo reciente' })).toBeVisible()
+  // of the "your space is ready" message the person just dismissed. Nothing
+  // waits in an organization created a moment ago, and the panel says so.
+  await expect(page.getByText('Nada espera por ti ahora')).toBeVisible()
   await expect(page.getByText('Studio está listo para operar')).toHaveCount(0)
   // A new organization has exactly one member, so the singular is the first
   // count its owner ever reads. The plural cases are unit-tested.
-  await expect(page.getByText('Integrante activo', { exact: true })).toBeVisible()
+  await expect(page.getByText('integrante con rol vigente')).toBeVisible()
 
   await page.goto(`/organizations/${createdOrganizationId}/ready`)
   await expect(page.getByRole('heading', { name: 'Tu espacio está listo.' })).toHaveCount(0)
@@ -365,7 +368,9 @@ test('routes one active membership directly and ignores terminated history', asy
   await page.goto('/app')
 
   await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}`)
-  await expect(page.getByRole('heading', { name: 'Equipo reciente' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: /Personas sin profesional asignado/ }),
+  ).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Inicio', level: 1 })).toBeVisible()
   await expect(
     page.locator('[data-sidebar-organization]').getByText(activeMembership.display_name, {

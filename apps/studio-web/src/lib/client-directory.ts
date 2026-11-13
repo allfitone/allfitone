@@ -162,6 +162,47 @@ export function clientEntryPath(
   reader: { organizationId: string; everyClient: boolean },
 ): string {
   return reader.everyClient
-    ? `/organizations/${reader.organizationId}/clients/${entry.relationship_id}`
+    ? relationshipPath(reader.organizationId, entry.relationship_id)
     : clientCardPath(reader.organizationId, entry.person_id)
+}
+
+/**
+ * Every value the directory's filter can take: the contract's groups, plus
+ * "all" for the screen's own default.
+ *
+ * `Record<ClientFilter, true>` is load-bearing — a group the contract adds and
+ * this table forgets would stop the build here rather than silently become an
+ * unreachable filter.
+ */
+const FILTER_VALUES: Readonly<Record<ClientFilter, true>> = {
+  all: true,
+  active: true,
+  invited: true,
+  terminated: true,
+}
+
+/**
+ * The filter a URL asked for.
+ *
+ * The notice of unanswered client invitations on the landing opens this screen
+ * narrowed, because the operation it names carries `status=invited` and a link
+ * that dropped it would promise a narrowed list and deliver every client.
+ *
+ * A query string is anybody's to type, so anything else means "every client"
+ * rather than travelling into a request the API answers `422`.
+ */
+export function clientFilterFromQuery(status: string | string[] | undefined): ClientFilter {
+  if (typeof status !== 'string' || !Object.hasOwn(FILTER_VALUES, status)) return 'all'
+  return status as ClientFilter
+}
+
+/**
+ * Where a link itself lives, keyed by the relationship and not by the person.
+ *
+ * One string, because two screens now reach it: this directory, and the panel
+ * of what needs attention today, whose notices about an unassigned link or a
+ * termination request are resolved on exactly this screen.
+ */
+export function relationshipPath(organizationId: string, relationshipId: string): string {
+  return `/organizations/${organizationId}/clients/${relationshipId}`
 }

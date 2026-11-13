@@ -67,7 +67,12 @@ const FILTERS: ReadonlyArray<{ value: ClientFilter; label: string }> = [
   { value: 'terminated', label: 'Finalizados' },
 ]
 
-export function ClientDirectoryList() {
+/**
+ * `initialFilter` is the group the URL asked for. The page remounts this list
+ * when that changes, so state may seed from it once and the toggle below stays
+ * local and instant.
+ */
+export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?: ClientFilter }) {
   const { current } = useOrganizationContext()
   const { compact, measuredRef } = useCompactTable<HTMLElement>()
   const queryClient = useQueryClient()
@@ -75,7 +80,7 @@ export function ClientDirectoryList() {
   const canView = canViewClientDirectory(current.roles, rolesQuery.data?.items)
   const everyClient = seesEveryClient(current.roles, rolesQuery.data?.items)
   const canInvite = canInviteClients(current.roles, rolesQuery.data?.items)
-  const [filter, setFilter] = useState<ClientFilter>('all')
+  const [filter, setFilter] = useState<ClientFilter>(initialFilter)
   const [searchBox, setSearchBox] = useState('')
   /*
    * The box keeps what was typed while the invitations filter is on, so
