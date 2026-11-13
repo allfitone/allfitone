@@ -157,6 +157,15 @@ export const studioQueryKeys = {
     personId: string,
     query: { timezone: string; period: ProgressPeriod; count: number },
   ) => [...ROOT_KEY, 'organization', organizationId, 'client-progress', personId, query] as const,
+  clientExecution: (organizationId: string, personId: string, executionId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-execution',
+      personId,
+      executionId,
+    ] as const,
   clientExecutions: (organizationId: string, personId: string, limit: number) =>
     [
       ...ROOT_KEY,
@@ -479,6 +488,28 @@ export function flattenAssignmentPages(
     }
   }
   return assignments
+}
+
+/**
+ * One of her sessions in full. Never cached and never refetched on its own, for
+ * the same reason as the rest of her card's reads: every answer is an access
+ * recorded in the same transaction and shown to her, so the window regaining
+ * focus must not write her one nobody asked for.
+ */
+export function clientExecutionQueryOptions(
+  organizationId: string,
+  personId: string,
+  executionId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientExecution(organizationId, personId, executionId),
+    queryFn: ({ signal }) =>
+      studioApi.clientExecution(organizationId, personId, executionId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
 }
 
 /**

@@ -101,6 +101,13 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/executions$/.test(pathname)) {
     return { title: 'Sesiones ejecutadas' }
   }
+  /*
+   * "Resultado" and not "Sesión": the register above already lists sessions,
+   * and what this screen adds is what she recorded in one of them.
+   */
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/executions\/[^/]+$/.test(pathname)) {
+    return { title: 'Resultado de la sesión' }
+  }
   if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/progress$/.test(pathname)) {
     return { title: 'Progreso' }
   }

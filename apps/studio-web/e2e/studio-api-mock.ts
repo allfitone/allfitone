@@ -58,6 +58,15 @@ export interface StudioApiFixture {
   clientExecutions: unknown[]
   /** `stale` answers `422` to any request carrying a cursor, as a moved list does. */
   executionsCursor: 'ok' | 'stale'
+  /** One of her sessions in full, as `OP-EXE-018` answers it. */
+  clientExecutionDetail: unknown
+  /**
+   * Which answer the detail gives. `not-found` is the one `404` that stands for
+   * six different reasons — hidden, unfinished, annulled, another
+   * relationship's, another person's or none at all — and `scope-required` the
+   * `403` she gets only while she shares neither training category.
+   */
+  executionDetailOutcome: 'ok' | 'not-found' | 'scope-required'
   /**
    * How her training is going. `null` is the `403` `scope-required` the route
    * answers when she shares neither category — with nothing to compute from, it
@@ -1187,6 +1196,147 @@ export const clientExecutions = [
 ]
 
 /*
+ * One session in full, as `OP-EXE-018` answers it: two blocks, two families of
+ * results and the notes on it. It carries no heart rate, pain, body weight or
+ * capture device, because the operation never does — their absence here is the
+ * contract and not a gap the screen has to fill.
+ */
+export const clientExecutionDetail = {
+  ...clientExecutions[0],
+  segments: [
+    { position: 1, activity_type_code: 'strength_training' },
+    { position: 2, activity_type_code: 'mobility' },
+  ],
+  strength_sets: [
+    {
+      segment_position: 1,
+      order: 1,
+      movement_id: '019f4900-0000-7000-8000-00000000c601',
+      movement_name: 'Sentadilla trasera',
+      achieved_reps: 8,
+      load: { value: 80, unit: 'kg' },
+      rpe: 8,
+    },
+    {
+      segment_position: 1,
+      order: 2,
+      movement_id: '019f4900-0000-7000-8000-00000000c601',
+      movement_name: 'Sentadilla trasera',
+      achieved_reps: 6,
+      load: { value: 85, unit: 'kg' },
+      rpe: 9,
+    },
+    /* Reps and nothing else: the two absent parts are skipped, never filled. */
+    {
+      segment_position: 1,
+      order: 3,
+      movement_id: '019f4900-0000-7000-8000-00000000c602',
+      movement_name: 'Plancha con lastre',
+      achieved_reps: 1,
+      load: null,
+      rpe: null,
+    },
+  ],
+  endurance_laps: [],
+  interval_results: [],
+  round_results: [],
+  mobility_results: [
+    {
+      segment_position: 2,
+      sequence_position: 1,
+      movement_id: '019f4900-0000-7000-8000-00000000c701',
+      movement_name: 'Apertura de cadera',
+      side: 'right',
+      hold_duration_seconds: 45,
+      completed_repetitions: 3,
+    },
+    {
+      segment_position: 2,
+      sequence_position: 2,
+      movement_id: '019f4900-0000-7000-8000-00000000c702',
+      movement_name: 'Movilidad torácica',
+      side: 'both',
+      hold_duration_seconds: 30,
+      completed_repetitions: null,
+    },
+  ],
+  observations: [
+    {
+      id: '019f4900-0000-7000-8000-00000000d801',
+      execution_id: clientExecutions[0]?.id,
+      category: 'relationship_training',
+      provenance: 'professional',
+      content: 'Mantuvo la profundidad en las dos primeras series y la perdió en la tercera.',
+      revision_number: 0,
+      created_at: '2026-07-28T13:00:00.000Z',
+      revised_at: '2026-07-28T13:00:00.000Z',
+      author_name: 'Diana Entrante',
+      authored_by_me: false,
+    },
+    {
+      id: '019f4900-0000-7000-8000-00000000d802',
+      execution_id: clientExecutions[0]?.id,
+      category: 'relationship_training',
+      provenance: 'professional',
+      content: 'Le subí la carga para la próxima semana.',
+      revision_number: 2,
+      created_at: '2026-07-28T14:30:00.000Z',
+      revised_at: '2026-07-29T09:00:00.000Z',
+      author_name: 'Camila Titular',
+      authored_by_me: true,
+    },
+  ],
+}
+
+/**
+ * A run: laps and nothing else. The four families it recorded nothing in are
+ * drawn nowhere, which is the rule this fixture exists to prove.
+ */
+export const enduranceExecutionDetail = {
+  ...clientExecutionDetail,
+  activity_type_code: 'running',
+  activity_type_name: 'Carrera',
+  discipline_code: 'endurance',
+  origin: 'prior',
+  planned_session_id: null,
+  applied_scope: { code: 'prior_training_history', version: 2 },
+  segments: [],
+  strength_sets: [],
+  mobility_results: [],
+  endurance_laps: [
+    {
+      segment_position: null,
+      lap_number: 1,
+      distance: { value: 1, unit: 'km' },
+      duration_seconds: 258,
+    },
+    {
+      segment_position: null,
+      lap_number: 2,
+      distance: { value: 1, unit: 'km' },
+      duration_seconds: 246,
+    },
+    /* A lap nothing timed stays untimed rather than reading as zero seconds. */
+    {
+      segment_position: null,
+      lap_number: 3,
+      distance: { value: 1, unit: 'km' },
+      duration_seconds: null,
+    },
+  ],
+  observations: [],
+}
+
+/** Finished, and with nothing saved in any family. Said once, not five times. */
+export const emptyExecutionDetail = {
+  ...clientExecutionDetail,
+  segments: [],
+  strength_sets: [],
+  mobility_results: [],
+  observations: [],
+}
+
+/*
  * `OP-EXE-019`, written from `execution.read_client_progress`. Every null in
  * here is a figure the server could not compute, and each one is a different
  * rendering rule the screen has to get right.
@@ -2098,6 +2248,8 @@ export function createStudioApiFixture(
     clientTrainingProfile: structuredClone(clientTrainingProfile),
     clientExecutions: structuredClone(clientExecutions),
     executionsCursor: 'ok',
+    clientExecutionDetail: structuredClone(clientExecutionDetail),
+    executionDetailOutcome: 'ok',
     clientProgress: structuredClone(clientProgress),
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
@@ -3558,6 +3710,32 @@ function defaultResponse(
       status: 200,
       body: { ...(fixture.clientProgress as Record<string, unknown>), period },
     }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/executions\/[^/]+$/.test(request.path)
+  ) {
+    if (fixture.executionDetailOutcome === 'scope-required') {
+      // Only while she shares neither training category; everything else is a 404.
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'read' },
+        },
+      }
+    }
+    /*
+     * One answer for six reasons, exactly as in production: a fixture that told
+     * them apart would let a screen be built on a difference the API never
+     * reports, and the difference it would leak is about her.
+     */
+    if (fixture.executionDetailOutcome === 'not-found' || fixture.clientCard === null) {
+      return { status: 404, body: error('not-found') }
+    }
+    return { status: 200, body: fixture.clientExecutionDetail }
   }
   if (
     request.method === 'GET' &&
