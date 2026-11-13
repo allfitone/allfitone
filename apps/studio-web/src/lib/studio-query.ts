@@ -168,6 +168,15 @@ export const studioQueryKeys = {
     ] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
+  relationshipAssignmentsRoot: (organizationId: string, relationshipId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'relationship',
+      relationshipId,
+      'assignments',
+    ] as const,
   relationshipAssignments: (organizationId: string, relationshipId: string, limit: number) =>
     [
       ...ROOT_KEY,

@@ -29,23 +29,23 @@
  *   Only `coach` holds it, so an owner or admin inviting sees no program block.
  */
 
-import type { OfferableScope, OrganizationRole, Program } from './studio-api'
+import type { OfferableScope, OrganizationRole } from './studio-api'
 
 const ASSIGN_PROGRAMS = 'assign_programs'
 
 /** The scope the program cannot start without. */
+/*
+ * Both of these moved to shared modules once a second screen needed them, and
+ * are re-exported here so this module stays the one place the invitation's
+ * program rules are read from.
+ */
+export { todayIn } from './calendar-day'
+export { proposableVersions, type ProposableVersion } from './program-versions'
+
 export const TRAINING_SCOPE = 'relationship_training'
 
 /** Everything else stays at `read`; this one is raised only while proposing. */
 export const CONTRIBUTE = 'contribute' as const
-
-export interface ProposableVersion {
-  version_id: string
-  program_id: string
-  title: string
-  version_number: number
-  session_count: number
-}
 
 export interface ProgramDraft {
   /** Empty means no program is being proposed. */
@@ -83,26 +83,6 @@ export function trainingScopeOffered(catalog: readonly OfferableScope[]): boolea
  * The same set the function will accept: a published version of a program that
  * is not archived. A deprecated version is a retired one and is left out.
  */
-export function proposableVersions(programs: readonly Program[]): ProposableVersion[] {
-  return programs
-    .filter((program) => program.status !== 'archived')
-    .flatMap((program) =>
-      program.versions
-        .filter((version) => version.status === 'published')
-        .map((version) => ({
-          version_id: version.id,
-          program_id: program.id,
-          title: version.title,
-          version_number: version.version_number,
-          session_count: version.session_count,
-        })),
-    )
-    .toSorted(
-      (left, right) =>
-        left.title.localeCompare(right.title, 'es') || right.version_number - left.version_number,
-    )
-}
-
 export function isProposing(draft: ProgramDraft): boolean {
   return draft.versionId !== ''
 }
@@ -125,26 +105,6 @@ export function validateProgramDraft(draft: ProgramDraft, todayInZone: string): 
     errors.startsOn = 'Esa fecha ya pasó. Elige hoy o un día posterior.'
   }
   return errors
-}
-
-/**
- * `yyyy-mm-dd` in the given zone, which is what the server compares against.
- *
- * `relationship-substitution.ts` has a local-date version of this, and the two
- * agree in production because the zone this screen sends is the browser's own.
- * It is duplicated rather than imported on purpose: a feature module importing
- * another feature module is the coupling that makes a later move break both.
- * When a third caller appears, both should move to a shared date module.
- */
-export function todayIn(timeZone: string, now: Date = new Date()): string {
-  // `en-CA` is the locale that formats a date as `yyyy-mm-dd`, so no manual
-  // padding or month arithmetic is involved.
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now)
 }
 
 /**

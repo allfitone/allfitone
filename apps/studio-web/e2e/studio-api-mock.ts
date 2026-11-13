@@ -72,6 +72,20 @@ export interface StudioApiFixture {
   relationshipAssignments: unknown[] | null
   /** `stale` answers `422` to any request carrying a cursor, as a moved list does. */
   assignmentsCursor: 'ok' | 'stale'
+  /**
+   * Which answer `OP-PLN-010` gives. `created` and `overlaps` are the two
+   * successes — an overlap warns and never blocks — and the rest are the
+   * refusals the function can raise, including its three distinct `422` codes.
+   */
+  assignOutcome:
+    | 'created'
+    | 'overlaps'
+    | 'scope-required'
+    | 'forbidden'
+    | 'service-paused'
+    | 'program-version'
+    | 'starts-on'
+    | 'timezone'
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -556,6 +570,32 @@ export const publishedProgram = {
       published_at: '2026-08-02T14:00:00.000Z',
       session_count: 10,
       deprecated_template_version_ids: [],
+    },
+  ],
+}
+
+/**
+ * The other assignable one: no end, and it keeps a template that was retired
+ * after publication. Both facts are said under the picker, and neither blocks.
+ */
+export const openEndedProgram = {
+  id: '01991600-9000-7000-8000-000000000004',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  status: 'published',
+  author_person_id: '01991600-7000-7000-8000-000000000002',
+  draft: null,
+  versions: [
+    {
+      id: '01991600-9000-7000-8000-000000000041',
+      program_id: '01991600-9000-7000-8000-000000000004',
+      version_number: 1,
+      status: 'published',
+      title: 'Movilidad diaria',
+      repeats_forever: true,
+      sessions: [],
+      published_at: '2026-09-14T10:00:00.000Z',
+      session_count: 3,
+      deprecated_template_version_ids: ['01991600-9000-7000-8000-0000000000f1'],
     },
   ],
 }
@@ -2061,6 +2101,7 @@ export function createStudioApiFixture(
     clientProgress: structuredClone(clientProgress),
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
+    assignOutcome: 'created',
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -2077,7 +2118,12 @@ export function createStudioApiFixture(
     membershipTerminationOutcome: 'terminated',
     membershipResignationOutcome: 'resigned',
     // Copies: drafts are editable now, and a save must not reach the next test.
-    organizationPrograms: structuredClone([publishedProgram, archivedProgram, draftedProgram]),
+    organizationPrograms: structuredClone([
+      publishedProgram,
+      openEndedProgram,
+      archivedProgram,
+      draftedProgram,
+    ]),
     organizationSessionTemplates: structuredClone([
       publishedTemplate,
       unpublishedTemplate,
@@ -3615,6 +3661,110 @@ function defaultResponse(
           next_cursor: hasMore ? `assignment-offset-${String(from + limit)}` : null,
           has_more: hasMore,
         },
+      },
+    }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/relationships\/[^/]+\/assignments$/.test(request.path)
+  ) {
+    const outcome = fixture.assignOutcome
+    if (outcome === 'scope-required') {
+      // She shares her training only to read, so the command refuses and names
+      // the level it would take.
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'forbidden') return { status: 403, body: error('forbidden') }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'program-version' || outcome === 'starts-on' || outcome === 'timezone') {
+      /*
+       * The three refusals that all arrive as `validation-failed`: only the
+       * issue code tells them apart, which is exactly what the screen has to
+       * read. The paths are the ones `validationPath` maps in the API.
+       */
+      const paths: Record<string, string> = {
+        'program-version': '/program_version_id',
+        'starts-on': '/starts_on',
+        timezone: '/timezone',
+      }
+      return {
+        status: 422,
+        body: {
+          type: 'https://errors.allfit.invalid/validation-failed',
+          title: 'Request violates its closed schema or business validation',
+          status: 422,
+          request_id: 'studio-e2e-assign-refused',
+          errors: [{ code: outcome, path: paths[outcome] }],
+        },
+      }
+    }
+
+    const body = (request.body ?? {}) as Record<string, unknown>
+    const versionId = String(body['program_version_id'] ?? '')
+    const startsOn = String(body['starts_on'] ?? '')
+    const version = (fixture.organizationPrograms as { versions?: unknown[] }[])
+      .flatMap((program) => program.versions ?? [])
+      .find((candidate) => (candidate as { id?: string }).id === versionId) as
+      Record<string, unknown> | undefined
+    /*
+     * The version's own session count either way, and the two mean different
+     * things: for a finite version it is the whole program, planted at once;
+     * for an open-ended one it is the week that was planted first. The number
+     * happens to be the same field because a version describes one cycle.
+     */
+    const planted = Number(version?.['session_count'] ?? 1)
+    const assignmentId = '01991600-e000-7000-8000-0000000000a1'
+
+    /* The list has to show it afterwards, which is what makes the test real. */
+    if (Array.isArray(fixture.relationshipAssignments)) {
+      fixture.relationshipAssignments = [
+        {
+          id: assignmentId,
+          status: 'active',
+          program_version: {
+            id: versionId,
+            program_id: String(version?.['program_id'] ?? ''),
+            version_number: Number(version?.['version_number'] ?? 1),
+            title: String(version?.['title'] ?? 'Programa'),
+            repeats_forever: version?.['repeats_forever'] === true,
+          },
+          starts_on: startsOn,
+          timezone: 'America/Bogota',
+          assigned_at: '2026-11-13T15:00:00.000Z',
+          management: {
+            relationship_id: '01991600-7000-7000-8000-000000000101',
+            since: '2026-11-13T15:00:00.000Z',
+          },
+          sessions: [],
+          adjustments: [],
+        },
+        ...fixture.relationshipAssignments,
+      ]
+    }
+
+    return {
+      status: 201,
+      body: {
+        id: assignmentId,
+        status: 'active',
+        origin_relationship_id: '01991600-7000-7000-8000-000000000101',
+        program_version_id: versionId,
+        starts_on: startsOn,
+        timezone: 'America/Bogota',
+        management: {
+          relationship_id: '01991600-7000-7000-8000-000000000101',
+          since: '2026-11-13T15:00:00.000Z',
+        },
+        planned_sessions_created: planted,
+        schedule_overlaps: outcome === 'overlaps',
       },
     }
   }

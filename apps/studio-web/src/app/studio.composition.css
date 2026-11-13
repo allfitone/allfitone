@@ -1840,6 +1840,22 @@
   margin-block-start: var(--afo-space-4);
 }
 
+/* The form that gives her a program. A grid child that holds a select and a
+   date input, so it is allowed to be narrower than its widest control. */
+[data-client-program-assignment] {
+  min-width: 0;
+}
+
+/* What came of pressing the button stands off the form it came from. */
+[data-client-program-assignment-outcome] {
+  margin-block-start: var(--afo-space-4);
+}
+
+[data-client-program-assignment-loading] {
+  margin: 0;
+  color: var(--afo-color-text-muted);
+}
+
 /* One attribute: its name, then the claims in force for it. Hairlines rather
    than boxes — the panel is already a card, and a card per attribute would make
    eight boxes out of one list. */

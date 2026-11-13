@@ -56,10 +56,16 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
+import { ClientProgramAssignment } from './client-program-assignment'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
 import { clientCardPath } from '@/lib/client-card'
+import {
+  assignPermission,
+  assignPermissionNote,
+  plantedZone,
+} from '@/lib/client-program-assignment'
 import {
   adjustmentsLine,
   assignmentIsRunning,
@@ -76,6 +82,7 @@ import {
   type RelationshipAssignment,
   type RelationshipAssignmentSession,
 } from '@/lib/studio-api'
+import { readerTimeZone } from '@/lib/reader-zone'
 import {
   clientCardQueryOptions,
   flattenAssignmentPages,
@@ -124,6 +131,13 @@ export function ClientProgramsScreen() {
   if (!query.data) return <FailureState onRetry={() => void query.refetch()} />
 
   const assignments = flattenAssignmentPages(query.data)
+  /*
+   * Criterion 1, decided before the server is asked: the level she granted is
+   * on her card, so a coach who may only read is told which permission is
+   * missing instead of being offered a button that would be refused.
+   */
+  const permission = assignPermission(card.sections)
+  const her = plantedZone(assignments, readerTimeZone())
   /*
    * A cursor the server will not read again, which is what it answers when the
    * list moved under the reader. Starting over is the only honest recovery.
@@ -218,6 +232,20 @@ export function ClientProgramsScreen() {
             </div>
           ) : null}
         </>
+      )}
+
+      {permission === 'granted' ? (
+        <ClientProgramAssignment
+          organizationId={organizationId}
+          relationshipId={card.relationship.id}
+          zone={her.zone}
+          zoneIsHers={her.fromHer}
+        />
+      ) : (
+        <Alert variant="warning" live="polite" data-client-programs-cannot-assign>
+          <AlertTitle>No le puedes asignar un programa</AlertTitle>
+          <AlertDescription>{assignPermissionNote(permission)}</AlertDescription>
+        </Alert>
       )}
     </div>
   )

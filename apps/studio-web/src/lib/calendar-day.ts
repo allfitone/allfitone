@@ -19,3 +19,23 @@ export function formatCalendarDay(value: string): string {
   if (!year || !month || !day) return value
   return DATE_FORMATTER.format(new Date(year, month - 1, day))
 }
+
+/**
+ * `yyyy-mm-dd` in the given zone, which is what the server compares a start
+ * date against.
+ *
+ * Moved here from `invitation-program.ts` when a third caller appeared, which
+ * is what that module's own note said to do. The three are the client
+ * invitation, which proposes a program, the assignment, which gives one, and
+ * the substitution's local-date variant below it.
+ */
+export function todayIn(timeZone: string, now: Date = new Date()): string {
+  // `en-CA` is the locale that formats a date as `yyyy-mm-dd`, so no manual
+  // padding or month arithmetic is involved.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
+}
