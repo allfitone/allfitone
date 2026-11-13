@@ -228,4 +228,22 @@ describe('organization workspace navigation', () => {
       { title: 'Ficha' },
     )
   })
+
+  test('the historical access cases, and opening one, have their own titles', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/historical-access-cases`, organizationId)).toEqual({
+      title: 'Casos de historial',
+    })
+    expect(
+      resolveWorkspaceRoute(`${basePath}/historical-access-cases/new`, organizationId),
+    ).toEqual({ title: 'Abrir un caso' })
+  })
+
+  test('reading through a case is titled by what it reads, without taking `new` for a case', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/historical-access-cases/01991600-7000-7000-8000-0000000000c1`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Historial congelado' })
+  })
 })

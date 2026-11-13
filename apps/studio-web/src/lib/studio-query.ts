@@ -39,6 +39,11 @@ import {
   type StudioMe,
   type TeamInvitationPage,
   type TeamInvitationStatus,
+  type HistoricalAccessCase,
+  type HistoricalAccessCasePage,
+  type FrozenBodyProgressPage,
+  type FrozenExecutionPage,
+  type FrozenNutritionGoalVersionPage,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -210,6 +215,25 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'invitations'] as const,
   organizationInvitations: (organizationId: string, status: InvitationFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'invitations', { status, limit }] as const,
+  historicalAccessCasesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'historical-access-cases'] as const,
+  historicalAccessCases: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'historical-access-cases', { limit }] as const,
+  historicalRead: (
+    organizationId: string,
+    relationshipId: string,
+    caseId: string,
+    read: 'relationship' | 'executions' | 'body-progress' | 'goal-versions',
+    limit: number,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'historical-relationship',
+      relationshipId,
+      { caseId, read, limit },
+    ] as const,
 } as const
 
 export function createStudioQueryClient(): QueryClient {
@@ -1069,4 +1093,172 @@ export function flattenSubscriptionPages(
     }
   }
   return subscriptions
+}
+
+/*
+ * The cases are metadata about an exception, not her data, so they cache like the
+ * team does. They change on their own when a deadline passes, which is why they
+ * never sit longer than the team stale time.
+ */
+export function historicalAccessCasesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalAccessCases(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<HistoricalAccessCasePage> =>
+      studioApi.historicalAccessCases(
+        organizationId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function flattenHistoricalCasePages(
+  data: InfiniteData<HistoricalAccessCasePage, unknown> | undefined,
+): HistoricalAccessCase[] {
+  if (!data) return []
+  const cases: HistoricalAccessCase[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const entry of page.data) {
+      if (seen.has(entry.id)) continue
+      seen.add(entry.id)
+      cases.push(entry)
+    }
+  }
+  return cases
+}
+
+/*
+ * Reads through a case. Every answer is an access recorded against her, with the
+ * case it went through, so none is cached, retried on focus or refetched on its own:
+ * the screen asks on arrival and when somebody presses for more.
+ */
+const HISTORICAL_READ = {
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const
+
+export function historicalRelationshipQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'relationship',
+      1,
+    ),
+    queryFn: ({ signal }) =>
+      studioApi.historicalRelationship(organizationId, relationshipId, caseId, signal),
+    ...HISTORICAL_READ,
+  })
+}
+
+export function frozenExecutionsQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'executions',
+      limit,
+    ),
+    queryFn: ({ pageParam, signal }): Promise<FrozenExecutionPage> =>
+      studioApi.frozenExecutions(
+        organizationId,
+        relationshipId,
+        caseId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    ...HISTORICAL_READ,
+  })
+}
+
+export function frozenBodyProgressQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'body-progress',
+      limit,
+    ),
+    queryFn: ({ pageParam, signal }): Promise<FrozenBodyProgressPage> =>
+      studioApi.frozenBodyProgress(
+        organizationId,
+        relationshipId,
+        caseId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    ...HISTORICAL_READ,
+  })
+}
+
+export function frozenGoalVersionsQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'goal-versions',
+      limit,
+    ),
+    queryFn: ({ pageParam, signal }): Promise<FrozenNutritionGoalVersionPage> =>
+      studioApi.frozenGoalVersions(
+        organizationId,
+        relationshipId,
+        caseId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    ...HISTORICAL_READ,
+  })
+}
+
+/** Newest first, as the read ordered them, and each item once. */
+export function flattenById<T extends { id: string }>(
+  data: InfiniteData<{ data: T[] }, unknown> | undefined,
+): T[] {
+  if (!data) return []
+  const items: T[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const item of page.data) {
+      if (seen.has(item.id)) continue
+      seen.add(item.id)
+      items.push(item)
+    }
+  }
+  return items
 }

@@ -135,7 +135,8 @@
 [data-card-footer-actions],
 [data-billing-actions],
 [data-profile-form-actions],
-[data-client-card-doors] {
+[data-client-card-doors],
+[data-historical-case-actions] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -253,7 +254,10 @@
 [data-client-executions-screen],
 [data-client-progress-screen],
 [data-client-programs-screen],
-[data-client-execution-detail-screen] {
+[data-client-execution-detail-screen],
+[data-historical-cases-screen],
+[data-historical-reading],
+[data-historical-case-refusal] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -629,7 +633,8 @@
 [data-client-profile-group-name],
 [data-client-execution-facts] dt,
 [data-client-progress-facts] dt,
-[data-client-program-facts] dt {
+[data-client-program-facts] dt,
+[data-historical-case-facts] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -645,7 +650,8 @@
 /* CardContent pads sideways and nothing else, so the action sat against the
    last fact. The gap belongs to Studio's own element, not to the component. */
 [data-team-member-card] [data-team-invitation-actions],
-[data-billing-card] [data-billing-actions] {
+[data-billing-card] [data-billing-actions],
+[data-historical-case-actions] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -657,7 +663,8 @@
 [data-client-card-facts],
 [data-client-execution-facts],
 [data-client-progress-facts],
-[data-client-program-facts] {
+[data-client-program-facts],
+[data-historical-case-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -722,7 +729,12 @@
 [data-client-profile-group-list],
 [data-client-executions-list],
 [data-client-progress-period-cards],
-[data-client-progress-movement-cards] {
+[data-client-progress-movement-cards],
+[data-historical-cases-list],
+[data-historical-case-picker],
+[data-historical-case-picker-results],
+[data-historical-entries],
+[data-historical-goal-targets] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -733,7 +745,9 @@
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
 [data-movement-picker-results] > li,
-[data-role-capability-list] > li {
+[data-role-capability-list] > li,
+[data-historical-case-picker-results] > li,
+[data-historical-case-chosen] {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -745,7 +759,8 @@
 [data-relationship-substitution-identity],
 [data-relationship-grant-identity],
 [data-relationship-history-what],
-[data-overview-team-identity] {
+[data-overview-team-identity],
+[data-historical-case-relationship] {
   min-width: 0;
   flex: 1;
 }
@@ -1722,19 +1737,25 @@
 /* One session: the hour leads, where it came from sits beside it, and the facts
    about it step down below. Separated by hairlines rather than boxed, because a
    card per session would make twenty-five boxes out of one list. */
-[data-client-execution] {
+[data-client-execution],
+[data-historical-case],
+[data-historical-entry] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
   border-block-start: 1px solid var(--afo-color-border);
 }
 
-[data-client-executions-list] > li:first-child [data-client-execution] {
+[data-client-executions-list] > li:first-child [data-client-execution],
+[data-historical-cases-list] > li:first-child [data-historical-case],
+[data-historical-entries] > li:first-child [data-historical-entry] {
   padding-block-start: 0;
   border-block-start: none;
 }
 
-[data-client-execution-head] {
+[data-client-execution-head],
+[data-historical-case-head],
+[data-historical-entry-head] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1742,19 +1763,27 @@
   min-width: 0;
 }
 
-[data-client-execution-when] {
+[data-client-execution-when],
+[data-historical-case-person],
+[data-historical-entry-title] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-[data-client-execution-what] {
+[data-client-execution-what],
+[data-historical-case-window],
+[data-historical-entry-line],
+[data-historical-case-reason] {
   margin: 0;
 }
 
 /* Whatever follows the list stands off it. The pager had this air and the
    notice did not, so the warning sat flush against the last session. */
 [data-client-executions-more],
-[data-client-executions-stale-cursor] {
+[data-client-executions-stale-cursor],
+[data-historical-cases-more],
+[data-historical-entries-more],
+[data-historical-reading-record] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -1923,6 +1952,12 @@
 /* What came of pressing the button stands off the form it came from. */
 [data-client-program-assignment-outcome] {
   margin-block-start: var(--afo-space-4);
+}
+
+/* The register's live region sits above the cases and is empty until a close
+   lands; only then does it take room, so the first case is not pushed down. */
+[data-historical-cases-outcome]:not(:empty) {
+  margin-block-end: var(--afo-space-4);
 }
 
 [data-client-program-assignment-loading] {
@@ -2358,13 +2393,25 @@
   gap: var(--afo-space-3);
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) strong {
+:is(
+    [data-studio-sheet-head],
+    [data-studio-object-person],
+    [data-studio-object-heading],
+    [data-historical-case-relationship]
+  )
+  strong {
   display: block;
   font-size: var(--afo-font-size-sm);
   font-weight: 700;
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) small,
+:is(
+    [data-studio-sheet-head],
+    [data-studio-object-person],
+    [data-studio-object-heading],
+    [data-historical-case-relationship]
+  )
+  small,
 [data-billing-amount] {
   display: block;
   color: var(--afo-color-text-muted);

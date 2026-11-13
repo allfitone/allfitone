@@ -52,6 +52,10 @@ import {
   secondActiveMembership,
   terminatedMembership,
   terminatedTeamMember,
+  closedHistoricalCase,
+  endedRelationshipHistory,
+  expiredHistoricalCase,
+  openHistoricalCase,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -279,6 +283,57 @@ const withoutActiveSpaces = () =>
   })
 
 const asCoach = () => createStudioApiFixture({ memberships: [secondActiveMembership] })
+
+// Bruno's relationship ended, with the coach who held him at the cut: HU-061's form.
+const withEndedRelationship = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    relationshipHistory: structuredClone(endedRelationshipHistory),
+  })
+
+// The three states a case can be in, the expired one being the deadline at work.
+const withEveryCaseState = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    historicalCases: structuredClone([
+      openHistoricalCase,
+      expiredHistoricalCase,
+      closedHistoricalCase,
+    ]),
+  })
+
+// Reading through a case: the case in the path, the relationship it names in the query.
+const readingPath = (caseId: string) =>
+  `${workspace}/historical-access-cases/${caseId}?relationship=${openHistoricalCase.relationship_id}`
+
+/** HU-062 is on the page once every section it draws has answered. */
+const settledReading = (sections: number) => async (page: Page) => {
+  await settledByHeading(page)
+  await expect(page.locator('[data-historical-reading-section]')).toHaveCount(sections)
+  await expect(page.locator('[data-historical-reading-placeholder]')).toHaveCount(0)
+}
+
+/** HU-063's question, asked of the one open case. */
+const openCloseDialog = async (page: Page) => {
+  await page
+    .locator('[data-historical-case][data-historical-case-state="open"]')
+    .getByRole('button', { name: 'Cerrar el caso' })
+    .click()
+  await expect(page.getByRole('alertdialog')).toContainText('Un caso cerrado no se reabre')
+}
+
+/** Answers HU-061's form and sends it, then waits for what the screen says back. */
+const fillAndOpenCase = (said: string) => async (page: Page) => {
+  await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
+  await page.getByRole('radio', { name: 'A ti' }).check()
+  await page.getByRole('radio', { name: 'Disputa del servicio' }).check()
+  await page.getByLabel('Referencia del caso').fill('RAD-2026-114')
+  await page.getByLabel('Justificación').fill('Reclamo formal por el cobro de octubre.')
+  await page.getByLabel('Duración').click()
+  await page.getByRole('option', { name: '4 horas', exact: true }).click()
+  await page.getByRole('button', { name: 'Abrir el caso' }).click()
+  await expect(page.locator(said)).toBeVisible()
+}
 
 // One subscription paying, one paused and one ended: every state HU-078 names.
 const withEverySubscriptionState = () =>
@@ -3953,6 +4008,270 @@ export const SCREENS: Screen[] = [
     setup: endedSession('inactivity'),
     settled: async (page) => {
       await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases` · HU-061 ---
+  {
+    stories: 'HU-061 · the cases, open, expired and closed',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-061 · the cases, on a phone',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-061 · no case opened yet',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEndedRelationship,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no se ha abierto ningún caso')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a coach no case names',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No tienes casos')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · the cases could not be read',
+    path: `${workspace}/historical-access-cases`,
+    fixture: failingFor([activeMembership], /\/historical-access-cases$/),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los casos')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · opening a case',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
+      await expect(page.getByRole('radio', { name: 'Diana Entrante' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · opening a case, on a phone',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case-picker-results] li')).toHaveCount(1)
+    },
+  },
+  {
+    stories: 'HU-061 · what the form still needs',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Abrir el caso' }).click()
+      await expect(page.getByText('Elige cuántas horas dura el caso.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a case refused, with both causes',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () => {
+      const fixture = withEndedRelationship()
+      fixture.historicalOpenOutcome = 'conflict'
+      return fixture
+    },
+    reveal: fillAndOpenCase('[data-historical-case-error]'),
+  },
+  {
+    stories: 'HU-061 · signing in again before opening',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () => {
+      const fixture = withEndedRelationship()
+      fixture.historicalOpenOutcome = 'reauthenticate'
+      return fixture
+    },
+    viewport: MOBILE,
+    reveal: fillAndOpenCase('[data-historical-case-reauthenticate]'),
+  },
+  {
+    stories: 'HU-061 · the form brought back after signing in again',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    setup: async (page) => {
+      await page.addInitScript((organizationId) => {
+        sessionStorage.setItem(
+          'allfit-historical-case-draft:v1',
+          JSON.stringify({
+            organizationId,
+            savedAt: Date.now(),
+            draft: {
+              relationship: {
+                id: '01991600-7000-7000-8000-000000000102',
+                name: 'Bruno Bello',
+                endedAt: '2025-06-30T22:41:19.204Z',
+              },
+              authorized: null,
+              purpose: 'legal_or_regulatory_obligation',
+              reference: 'OF-2026-0042',
+              justification: 'Requerimiento de la Superintendencia.',
+              hours: 6,
+            },
+          }),
+        )
+      }, activeMembership.organization_id)
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case-restored]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a role that opens no case',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await expect(page.getByText('Tu rol no abre casos')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases/[caseId]` · HU-062 ---
+  {
+    stories: 'HU-062 · her history up to the cut',
+    path: readingPath(openHistoricalCase.id),
+    fixture: withEveryCaseState,
+    settled: settledReading(3),
+  },
+  {
+    stories: 'HU-062 · her history, on a phone',
+    path: readingPath(openHistoricalCase.id),
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: settledReading(3),
+  },
+  {
+    stories: 'HU-062 · a refused read, drawn as nothing',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.frozenRefused = ['body-progress']
+      fixture.frozenGoalVersions = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledReading(3)(page)
+      await expect(page.locator('[data-historical-reading-nothing]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-062 · signing in again before reading',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.historicalReadOutcome = 'reauthenticate'
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-reading-reauthenticate]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-062 · a case that no longer serves',
+    path: readingPath(expiredHistoricalCase.id),
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-reading-gone]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-062 · the history could not be opened',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.intercept = (request) =>
+        /\/historical-relationships\/[^/]+$/.test(request.path)
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos abrir el historial')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases`, closing · HU-063 ---
+  {
+    stories: 'HU-063 · closing a case: what stays, and that it never reopens',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    reveal: openCloseDialog,
+  },
+  {
+    stories: 'HU-063 · closing a case, on a phone',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    reveal: openCloseDialog,
+  },
+  {
+    stories: 'HU-063 · a close refused inside the dialog',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.historicalCloseOutcome = 'forbidden'
+      return fixture
+    },
+    reveal: async (page) => {
+      await openCloseDialog(page)
+      await page.getByRole('button', { name: 'Cerrar ahora' }).click()
+      await expect(page.locator('[data-historical-case-close-error]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-063 · a case just closed',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    reveal: async (page) => {
+      await openCloseDialog(page)
+      await page.getByRole('button', { name: 'Cerrar ahora' }).click()
+      await expect(page.locator('[data-historical-cases-outcome]')).toContainText('Cerraste')
+    },
+  },
+  {
+    stories: 'HU-063 · closed for her, or for the member it named',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        historicalCases: [
+          { ...closedHistoricalCase, closed_reason: 'grant_revoked', closed_by: null },
+          {
+            ...closedHistoricalCase,
+            id: '01991600-7000-7000-8000-0000000000c4',
+            closed_reason: 'membership_ineligible',
+            closed_by: null,
+          },
+        ],
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('dejó de poder recibirlo')).toBeVisible()
     },
   },
 ]
