@@ -59,11 +59,18 @@ test('a coach is offered the published versions, and only those', async ({ page 
 
   await programSelect(page).click()
 
-  // One published version of a live program. The deprecated sibling and the
-  // archived program's published version are both absent.
+  /*
+   * Every published version of a live program, and nothing else: the
+   * deprecated sibling of the first and the archived program's published
+   * version are both absent. **Both absences name their program in full**, and
+   * that is the point: a bare «Movilidad» matched the offerable «Movilidad
+   * diaria» and a bare «v1» matched its version number, so each of the two
+   * passed for the wrong reason until a second offerable program existed.
+   */
   await expect(page.getByRole('option', { name: /Bloque de fuerza · v2/ })).toBeVisible()
-  await expect(page.getByRole('option', { name: /v1/ })).toHaveCount(0)
-  await expect(page.getByRole('option', { name: /Movilidad/ })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: /Movilidad diaria · v1/ })).toBeVisible()
+  await expect(page.getByRole('option', { name: /Bloque de fuerza · v1/ })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: /Movilidad para principiantes/ })).toHaveCount(0)
 })
 
 /*

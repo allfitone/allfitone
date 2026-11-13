@@ -1702,6 +1702,63 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos estos programas')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---
+  {
+    // The form that gives her a program, under her list. Two versions to pick
+    // from, so the select has something to open.
+    stories: 'HU-046 · asignarle un programa',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Asignarle un programa' })).toBeVisible()
+    },
+  },
+  {
+    // What assigning does, before the click. The longest dialog in Studio.
+    stories: 'HU-046 · lo que pasa al asignar',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('combobox', { name: 'Programa' }).click()
+      await page.getByRole('option', { name: /Bloque de fuerza/ }).click()
+      await page.locator('#client-program-start').fill('2026-12-01')
+      await page.getByRole('button', { name: 'Asignar el programa' }).click()
+      await expect(page.getByText('Toda su agenda queda sembrada ahora mismo')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: she shared her training only to read, so there is no form.
+    stories: 'HU-046 · autorizó su entrenamiento solo para leerlo',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: {
+          ...clientCard,
+          sections: clientCard.sections.map((section) =>
+            section.scope_code === 'relationship_training'
+              ? { ...section, access_level: 'read' }
+              : section,
+          ),
+        },
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('solo para leerlo')).toBeVisible()
+    },
+  },
+  {
+    // The gym has published nothing, which is fixed in the content section.
+    stories: 'HU-046 · todavía no hay ninguna versión publicada',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], organizationPrograms: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay ninguna versión publicada')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---
   {
     // The timeline with every kind in it, including the handover whose two

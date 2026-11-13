@@ -43,6 +43,8 @@ export type ClientInvitation = AllfitV1Schemas['ClientInvitation']
 export type Program = AllfitV1Schemas['Program']
 export type ProgramPage = AllfitV1Schemas['ProgramPage']
 export type ProgramVersion = AllfitV1Schemas['ProgramVersion']
+export type ProgramAssignmentCreate = AllfitV1Schemas['ProgramAssignmentCreate']
+export type ProgramAssignment = AllfitV1Schemas['ProgramAssignment']
 export type ProgramCreate = AllfitV1Schemas['ProgramCreate']
 export type ProgramDraft = AllfitV1Schemas['ProgramDraft']
 export type ProgramDraftContent = AllfitV1Schemas['ProgramDraftContent']
@@ -1019,6 +1021,35 @@ export const studioApi = {
       },
     )
   },
+
+  /**
+   * `OP-PLN-010`. Gives her a published version of one of this organization's
+   * programs through the relationship, and plants its calendar in the same
+   * transaction (ADR-032): a finite version whole, an open-ended one its first
+   * week.
+   *
+   * Needs `relationship_training` at `contribute`, so `read` answers 403
+   * `scope-required`; staff and administrators who do not coach her answer 403
+   * `forbidden`, and a paused service 409. Three different `422` cases arrive
+   * as issues: the version cannot be assigned, the day already passed in her
+   * zone, or no zone is known for her.
+   */
+  assignProgramVersion: (
+    organizationId: string,
+    relationshipId: string,
+    body: ProgramAssignmentCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProgramAssignment>(
+      `/studio/v1/organizations/${organizationId}/relationships/${relationshipId}/assignments`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
 
   /**
    * `OP-EXE-019`. How her training is going, computed when it is read from the
