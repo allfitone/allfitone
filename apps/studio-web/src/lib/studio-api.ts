@@ -141,6 +141,23 @@ export type PlanVersion = AllfitV1Schemas['StudioPlanVersion']
 export type PlanVersionPublish = AllfitV1Schemas['StudioPlanVersionPublish']
 export type PlanDeliveryMode = AllfitV1Schemas['PlanDeliveryMode']
 export type SubscriptionTransition = AllfitV1Schemas['SubscriptionTransition']
+export type HistoricalAccessPurpose = AllfitV1Schemas['HistoricalAccessPurpose']
+export type HistoricalAccessCase = AllfitV1Schemas['HistoricalAccessCase']
+export type HistoricalAccessCasePage = AllfitV1Schemas['HistoricalAccessCasePage']
+export type HistoricalAccessCaseCreate = AllfitV1Schemas['HistoricalAccessCaseCreate']
+export type HistoricalCaseMember = AllfitV1Schemas['HistoricalCaseMember']
+export type HistoricalRelationship = AllfitV1Schemas['HistoricalRelationship']
+export type FrozenExecutionSummary = AllfitV1Schemas['FrozenExecutionSummary']
+export type FrozenExecutionPage = AllfitV1Schemas['FrozenExecutionPage']
+export type FrozenBodyProgressPage = AllfitV1Schemas['FrozenBodyProgressPage']
+export type ClientBodyProgressRecord = AllfitV1Schemas['ClientBodyProgressRecord']
+export type BodyProgressMetricCode = AllfitV1Schemas['BodyProgressMetricCode']
+export type BodyProgressUnitCode = AllfitV1Schemas['BodyProgressUnitCode']
+export type FrozenNutritionGoalVersion = AllfitV1Schemas['FrozenNutritionGoalVersion']
+export type FrozenNutritionGoalVersionPage = AllfitV1Schemas['FrozenNutritionGoalVersionPage']
+export type ClientNutritionGoalTarget = AllfitV1Schemas['ClientNutritionGoalTarget']
+export type ClientNutritionGoalDecision = AllfitV1Schemas['ClientNutritionGoalDecision']
+export type NutrientCode = AllfitV1Schemas['NutrientCode']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -1094,6 +1111,139 @@ export const studioApi = {
     )
   },
 
+  /**
+   * `OP-PRV-025`. Every case of the organization for `manage_historical_access`,
+   * only the ones that authorize the caller for anybody else. Newest first; a case
+   * whose time ran out reads `expired` before anyone closes it.
+   */
+  historicalAccessCases: (
+    organizationId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) => {
+    const search = new URLSearchParams({ limit: String(query.limit) })
+    if (query.cursor) search.set('cursor', query.cursor)
+    return request<HistoricalAccessCasePage>(
+      `/studio/v1/organizations/${organizationId}/historical-access-cases?${search}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    )
+  },
+
+  /**
+   * `OP-PRV-018`. Needs a sign-in at most ten minutes old: 403
+   * `reauthentication-required` otherwise. 409 is either nothing left frozen or an
+   * equal case already open; 422 a member who cannot hold the case.
+   */
+  openHistoricalAccessCase: (
+    organizationId: string,
+    body: HistoricalAccessCaseCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<HistoricalAccessCase>(
+      `/studio/v1/organizations/${organizationId}/historical-access-cases`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PRV-019`. No body and no recent sign-in. It converges: a closed case answers
+   * as it stands, and one whose time ran out closes as expired.
+   */
+  closeHistoricalAccessCase: (
+    organizationId: string,
+    caseId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<HistoricalAccessCase>(
+      `/studio/v1/organizations/${organizationId}/historical-access-cases/${caseId}/closure`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PRV-020`. The relationship as the case froze it: whose it was, the cut,
+   * the case, and the categories that stayed readable. Only the member the case
+   * names, while it is open, with a sign-in at most ten minutes old; anything
+   * else reads 404 and is recorded against her.
+   */
+  historicalRelationship: (
+    organizationId: string,
+    relationshipId: string,
+    caseId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<HistoricalRelationship>(
+      `/studio/v1/organizations/${organizationId}/historical-relationships/${relationshipId}`,
+      {
+        cache: 'no-store',
+        headers: historicalCaseHeaders(caseId),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /** `OP-PRV-020`. Her sessions by the cut, newest first; empty with no training frozen. */
+  frozenExecutions: (
+    organizationId: string,
+    relationshipId: string,
+    caseId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<FrozenExecutionPage>(
+      `/studio/v1/organizations/${organizationId}/historical-relationships/${relationshipId}/executions?${pageSearch(query)}`,
+      {
+        cache: 'no-store',
+        headers: historicalCaseHeaders(caseId),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /** `OP-PRV-020`. Her measurements by the cut; 403 `scope-required` when not frozen. */
+  frozenBodyProgress: (
+    organizationId: string,
+    relationshipId: string,
+    caseId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<FrozenBodyProgressPage>(
+      `/studio/v1/organizations/${organizationId}/historical-relationships/${relationshipId}/body-progress?${pageSearch(query)}`,
+      {
+        cache: 'no-store',
+        headers: historicalCaseHeaders(caseId),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /** `OP-NUT-011`. What this relationship proposed by the cut, as it stood then. */
+  frozenGoalVersions: (
+    organizationId: string,
+    relationshipId: string,
+    caseId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<FrozenNutritionGoalVersionPage>(
+      `/studio/v1/organizations/${organizationId}/historical-relationships/${relationshipId}/nutrition/goal-versions?${pageSearch(query)}`,
+      {
+        cache: 'no-store',
+        headers: historicalCaseHeaders(caseId),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
   offerableScopes: (signal?: AbortSignal) =>
     request<OfferableScopeCatalog>('/studio/v1/offerable-scopes', {
       cache: 'no-store',
@@ -1537,6 +1687,17 @@ function commandHeaders(command: CommandHeaders): HeadersInit {
     'Idempotency-Key': command.idempotencyKey,
     'Command-Id': command.commandId,
   }
+}
+
+/* Every read through a case names it: the access record says which case it went through. */
+function historicalCaseHeaders(caseId: string): HeadersInit {
+  return { 'X-Historical-Access-Case': caseId }
+}
+
+function pageSearch(query: { limit: number; cursor?: string }): URLSearchParams {
+  const search = new URLSearchParams({ limit: String(query.limit) })
+  if (query.cursor) search.set('cursor', query.cursor)
+  return search
 }
 
 function errorCode(value: unknown): string | undefined {

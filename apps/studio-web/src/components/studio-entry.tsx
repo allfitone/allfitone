@@ -15,6 +15,7 @@ import { LoadingStage, StudioFrame } from './studio-frame'
 import { useAnnouncedWait } from '@/lib/announced-wait'
 import { resolveMembershipDestination } from '@/lib/membership-routing'
 import { readPendingInvitationToken } from '@/lib/invitation-token'
+import { returnBelongsTo, takeReturn } from '@/lib/historical-return'
 import { studioSessionConfirmedEnded } from '@/lib/session-activity'
 import {
   StudioApiError,
@@ -53,6 +54,18 @@ export function StudioEntry() {
     ) => {
       const memberships = suppliedMemberships ?? (await studioApi.memberships()).items
       entryContext.storeMemberships(memberships)
+      // A historical access case asked for a fresh sign-in; this brings the person back to it.
+      const back = takeReturn(Date.now())
+      if (
+        back &&
+        returnBelongsTo(
+          back,
+          memberships.map((membership) => membership.organization_id),
+        )
+      ) {
+        router.replace(back)
+        return
+      }
       const destination = resolveMembershipDestination(memberships)
       if (destination.kind === 'organization') {
         router.replace(`/organizations/${destination.organizationId}`)
