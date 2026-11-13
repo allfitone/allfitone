@@ -1724,6 +1724,70 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    /*
+     * The dialog that stops a program, open. Swept because a dialog is the one
+     * surface a sweep misses by default: nothing on the page behind it says it
+     * exists, and it carries the two sentences the story turns on.
+     */
+    stories: 'HU-050 · the dialog that stops a program the organization manages',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .getByRole('button', { name: 'Cancelar este programa' })
+        .click()
+      await expect(page.locator('[data-client-program-cancel-dialog]')).toBeVisible()
+    },
+  },
+  {
+    // A program after it was stopped: the card stays, its state changed, and the
+    // sentence that says how many sessions stopped sits where the button was.
+    stories: 'HU-050 · a program after it was stopped',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      const program = page.locator('[data-client-program]').first()
+      await program.getByRole('button', { name: 'Cancelar este programa' }).click()
+      await page.getByRole('button', { name: 'Cancelar ahora' }).click()
+      await expect(program.locator('[data-client-program-cancel-outcome]')).toHaveText(
+        'Cancelado. Se detuvo 1 sesión futura.',
+      )
+    },
+  },
+  {
+    // The refusal a paused service answers, over the dialog that stays open.
+    stories: 'HU-050 · a paused service refuses the cancellation',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        cancelAssignmentOutcome: 'service-paused',
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .getByRole('button', { name: 'Cancelar este programa' })
+        .click()
+      await page.getByRole('button', { name: 'Cancelar ahora' }).click()
+      await expect(page.locator('[data-client-program-cancel-error]')).toBeVisible()
+    },
+  },
+  {
     stories: 'HU-047 · nothing assigned to her yet',
     path: programsPath,
     fixture: () =>

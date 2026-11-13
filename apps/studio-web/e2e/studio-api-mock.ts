@@ -100,6 +100,19 @@ export interface StudioApiFixture {
     | 'program-version'
     | 'starts-on'
     | 'timezone'
+  /**
+   * Which answer `OP-PLN-014` gives. `cancelled` is the success, and it is the
+   * only one that writes: the simulator stops the stoppable sessions and
+   * closes the assignment, so the re-read after it shows what the command did.
+   */
+  cancelAssignmentOutcome:
+    | 'cancelled'
+    | 'scope-required'
+    | 'forbidden'
+    | 'service-paused'
+    | 'conflict'
+    | 'not-found'
+    | 'unavailable'
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -2659,6 +2672,7 @@ export function createStudioApiFixture(
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
     assignOutcome: 'created',
+    cancelAssignmentOutcome: 'cancelled',
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -4260,6 +4274,66 @@ function defaultResponse(
           next_cursor: hasMore ? `assignment-offset-${String(from + limit)}` : null,
           has_more: hasMore,
         },
+      },
+    }
+  }
+  const cancellation =
+    /^\/studio\/v1\/organizations\/[^/]+\/assignments\/([^/]+)\/cancellation$/.exec(request.path)
+  if (request.method === 'POST' && cancellation) {
+    const outcome = fixture.cancelAssignmentOutcome
+    if (outcome === 'scope-required') {
+      // Everybody needs the training grant at `contribute`; `read` refuses here
+      // and names the level it would take.
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'forbidden') return { status: 403, body: error('forbidden') }
+    // Both 409 causes answer the same way, which is why the screen's sentence
+    // names both: a paused service, and a program we no longer manage.
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'conflict') return { status: 409, body: error('conflict') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+
+    const assignments = fixture.relationshipAssignments ?? []
+    const target = assignments.find((entry) => objectValue(entry)['id'] === cancellation[1])
+    if (!target) return { status: 404, body: error('not-found') }
+
+    /*
+     * The simulator stops the sessions that can be stopped — scheduled and not
+     * started — rather than comparing a date to the clock. The command's own
+     * rule is "from today on", but a fixture dated against `Date.now()` would
+     * answer differently as the suite ages, and a fixture dated in the past
+     * would always answer nothing. See the note on dates in the repo's AGENTS.
+     */
+    const assignment = objectValue(target)
+    const sessions = Array.isArray(assignment['sessions']) ? assignment['sessions'] : []
+    let stopped = 0
+    for (const entry of sessions) {
+      const session = objectValue(entry)
+      if (session['status'] !== 'scheduled' || session['started'] === true) continue
+      session['status'] = 'cancelled'
+      stopped += 1
+    }
+    assignment['status'] = 'cancelled'
+    assignment['management'] = null
+
+    return {
+      status: 200,
+      body: {
+        id: cancellation[1],
+        status: 'cancelled',
+        cancelled_at: '2026-11-13T20:00:00.000Z',
+        sessions_cancelled: stopped,
       },
     }
   }

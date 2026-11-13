@@ -131,6 +131,7 @@ export type RelationshipSubstitutionTermination =
 export type RelationshipAssignmentPage = AllfitV1Schemas['RelationshipAssignmentPage']
 export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
 export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
+export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -1121,6 +1122,36 @@ export const studioApi = {
         method: 'POST',
         headers: commandHeaders(command),
         body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PLN-014`. Stops a program the organization still manages: the
+   * assignment ends, its management period closes as cancelled, and the
+   * sessions from today on that nobody started are cancelled with it. What she
+   * trained and the sessions already past stay.
+   *
+   * No body — the assignment in the path is the whole request. Cancelling again
+   * answers the same cancellation, so a retry cannot stop a second thing.
+   *
+   * Needs `relationship_training` at `contribute` from everybody, so `read`
+   * answers 403 `scope-required`; staff answer 403 `forbidden`. A paused
+   * service answers 409 `service-paused`, which is resolved by reactivating it
+   * or ending the relationship and never program by program, and a program the
+   * organization no longer manages answers 409 `conflict`.
+   */
+  cancelProgramAssignment: (
+    organizationId: string,
+    assignmentId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<AssignmentCancellation>(
+      `/studio/v1/organizations/${organizationId}/assignments/${assignmentId}/cancellation`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
         ...(signal ? { signal } : {}),
       },
     ),

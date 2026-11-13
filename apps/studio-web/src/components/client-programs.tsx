@@ -57,6 +57,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
 import { ClientProgramAssignment } from './client-program-assignment'
+import { ClientProgramCancellation } from './client-program-cancellation'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
@@ -65,6 +66,7 @@ import {
   assignPermission,
   assignPermissionNote,
   plantedZone,
+  type AssignPermission,
 } from '@/lib/client-program-assignment'
 import {
   adjustmentsLine,
@@ -192,7 +194,12 @@ export function ClientProgramsScreen() {
           <ul data-client-programs-list>
             {assignments.map((assignment) => (
               <li key={assignment.id}>
-                <AssignmentPanel assignment={assignment} />
+                <AssignmentPanel
+                  assignment={assignment}
+                  organizationId={organizationId}
+                  relationshipId={card.relationship.id}
+                  permission={permission}
+                />
               </li>
             ))}
           </ul>
@@ -257,7 +264,17 @@ export function ClientProgramsScreen() {
  * The hook that decides between the table and the cards watches one register,
  * so it is instantiated here, inside the panel, rather than once for the screen.
  */
-function AssignmentPanel({ assignment }: { assignment: RelationshipAssignment }) {
+function AssignmentPanel({
+  assignment,
+  organizationId,
+  relationshipId,
+  permission,
+}: {
+  assignment: RelationshipAssignment
+  organizationId: string
+  relationshipId: string
+  permission: AssignPermission
+}) {
   const { compact, measuredRef } = useCompactTable<HTMLDivElement>()
   const sessions = assignment.sessions
   const span = spanLine(assignment)
@@ -367,6 +384,15 @@ function AssignmentPanel({ assignment }: { assignment: RelationshipAssignment })
             )}
           </div>
         )}
+
+        {/* Last in the card, after the calendar it stops: the reader sees what
+            is about to be detained before the way to detain it. */}
+        <ClientProgramCancellation
+          assignment={assignment}
+          organizationId={organizationId}
+          relationshipId={relationshipId}
+          permission={permission}
+        />
       </CardContent>
     </Card>
   )
