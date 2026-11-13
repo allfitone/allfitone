@@ -4,6 +4,7 @@ import {
   canSearchWithin,
   canViewClientDirectory,
   clientEntryPath,
+  clientFilterFromQuery,
   clientInitials,
   directoryEntryId,
   directoryEntryLabel,
@@ -199,5 +200,31 @@ describe('where the directory search is offered', () => {
     expect(canSearchWithin('all')).toBe(true)
     expect(canSearchWithin('active')).toBe(true)
     expect(canSearchWithin('terminated')).toBe(true)
+  })
+})
+
+describe('the group a URL asks the directory to open on', () => {
+  test('honours each group the contract defines', () => {
+    expect(clientFilterFromQuery('invited')).toBe('invited')
+    expect(clientFilterFromQuery('active')).toBe('active')
+    expect(clientFilterFromQuery('terminated')).toBe('terminated')
+  })
+
+  test('falls back to every client when the URL asks for nothing', () => {
+    expect(clientFilterFromQuery(undefined)).toBe('all')
+  })
+
+  /*
+   * A query string is anybody to type. An unknown value must not travel into
+   * the request, which the API answers 422.
+   */
+  test('falls back rather than trusting a value the API would refuse', () => {
+    expect(clientFilterFromQuery('pending')).toBe('all')
+    expect(clientFilterFromQuery('')).toBe('all')
+    expect(clientFilterFromQuery('toString')).toBe('all')
+  })
+
+  test('falls back when the parameter is repeated, which makes it an array', () => {
+    expect(clientFilterFromQuery(['invited', 'active'])).toBe('all')
   })
 })

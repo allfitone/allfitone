@@ -38,6 +38,11 @@ export interface StudioApiFixture {
   guestQuota: StudioGuestQuotaBody | null
   authorizedScopes: unknown[]
   /**
+   * What `OP-REL-020` answers this caller. `null` is its `403` — a membership
+   * that no longer lets them read the organization at all.
+   */
+  today: unknown
+  /**
    * The card of the person `activeClient` names. `null` is the `404`
    * `OP-REL-019` answers for a person who does not exist and for one the
    * caller does not attend — the same answer for both, on purpose.
@@ -2458,6 +2463,176 @@ export const organizationWithoutSites = {
   sites: [],
 }
 
+/**
+ * `OP-REL-020`: what needs this caller's attention today.
+ *
+ * The fullest useful case — an owner who also coaches, so every notice a role
+ * can carry is present and the panel has to order and word seven different
+ * things at once.
+ *
+ * Three values here are deliberately awkward, because each one broke something
+ * the first time. Two notices count more than they list, which is what the
+ * contract does and what the remainder line has to say. One contact is the long
+ * masked address that paints out of its cell without `overflow-wrap`. And
+ * `by_role` carries a `physiotherapist`, a code this app has no word for: the
+ * role catalogue is the server's, so the panel must read the code back rather
+ * than a blank.
+ */
+export const studioToday = {
+  organization_id: activeMembership.organization_id,
+  generated_at: '2026-11-13T19:00:00.000Z',
+  empty: false,
+  notices: {
+    client_invitations: {
+      count: 7,
+      awaiting: 5,
+      lapsed: 2,
+      items: [
+        {
+          invitation_id: '01991600-7000-7000-8000-000000000301',
+          contact: 'c***@correo-institucional-muy-largo.example.test',
+          state: 'awaiting',
+          created_at: '2026-11-09T19:33:58.640Z',
+          expires_at: '2026-11-16T19:33:58.640Z',
+        },
+        {
+          invitation_id: '01991600-7000-7000-8000-000000000302',
+          contact: 'b***@ejemplo.test',
+          state: 'lapsed',
+          created_at: '2026-10-28T14:02:11.000Z',
+          expires_at: '2026-11-04T14:02:11.000Z',
+        },
+      ],
+      link: { operation_id: 'listStudioOrganizationClients', query: { status: 'invited' } },
+    },
+    unassigned_relationships: {
+      count: 2,
+      items: [
+        {
+          relationship_id: activeClient.relationship_id,
+          person_id: activeClient.person_id,
+          display_name: activeClient.display_name,
+          started_at: '2026-11-11T16:40:00.000Z',
+        },
+        {
+          relationship_id: '01991600-7000-7000-8000-000000000111',
+          person_id: '01991600-7000-7000-8000-000000000211',
+          display_name: 'Bartholomew Featherstonehaugh',
+          started_at: '2026-11-10T09:05:00.000Z',
+        },
+      ],
+      link: { operation_id: 'assignRelationshipHolder', query: {} },
+    },
+    termination_requests: {
+      count: 1,
+      items: [
+        {
+          request_id: '01991600-7000-7000-8000-000000000401',
+          relationship_id: '01991600-7000-7000-8000-000000000112',
+          person_id: '01991600-7000-7000-8000-000000000212',
+          display_name: 'Jo Li',
+          requested_at: '2026-11-12T11:20:00.000Z',
+        },
+      ],
+      link: { operation_id: 'terminateRelationship', query: {} },
+    },
+    team_invitations: {
+      count: 1,
+      awaiting: 1,
+      lapsed: 0,
+      items: [
+        {
+          invitation_id: '01991600-7000-7000-8000-000000000501',
+          contact: 'n***@ejemplo.test',
+          state: 'awaiting',
+          created_at: '2026-11-11T08:00:00.000Z',
+          expires_at: '2026-11-18T08:00:00.000Z',
+          proposed_role_code: 'coach',
+        },
+      ],
+      link: { operation_id: 'listStudioTeamInvitations', query: {} },
+    },
+    new_relationships: {
+      count: 3,
+      items: [
+        {
+          relationship_id: '01991600-7000-7000-8000-000000000113',
+          person_id: '01991600-7000-7000-8000-000000000213',
+          display_name: 'Camila Torres',
+          started_at: '2026-11-12T15:00:00.000Z',
+        },
+        {
+          relationship_id: '01991600-7000-7000-8000-000000000114',
+          person_id: '01991600-7000-7000-8000-000000000214',
+          display_name: 'María Fernanda Quintero',
+          started_at: '2026-11-08T10:30:00.000Z',
+        },
+      ],
+      link: { operation_id: 'listStudioOrganizationClients', query: { status: 'active' } },
+    },
+    training: {
+      count: 6,
+      items: [
+        {
+          person_id: activeClient.person_id,
+          display_name: activeClient.display_name,
+          relationship_id: activeClient.relationship_id,
+          closed_week: { week_starts_on: '2026-11-02', planned: 5, not_logged: 3 },
+          recent_results: { count: 0, last_ended_at: null },
+        },
+        {
+          person_id: '01991600-7000-7000-8000-000000000215',
+          display_name: 'Alejandro Rangel Buitrago',
+          relationship_id: '01991600-7000-7000-8000-000000000115',
+          closed_week: null,
+          recent_results: { count: 2, last_ended_at: '2026-11-12T22:15:00.000Z' },
+        },
+      ],
+      link: { operation_id: 'getStudioClientCard', query: {} },
+    },
+    team: {
+      count: 12,
+      by_role: [
+        { role_code: 'coach', count: 8 },
+        { role_code: 'admin', count: 2 },
+        { role_code: 'owner', count: 1 },
+        { role_code: 'physiotherapist', count: 1 },
+      ],
+      link: { operation_id: 'listStudioOrganizationMemberships', query: {} },
+    },
+  },
+}
+
+/**
+ * Nothing waits — and the team notice is still here, because the contract says
+ * `team` is a state and never makes the day non-empty. A panel that counted its
+ * own cards to decide this would get it wrong on exactly this answer.
+ */
+export const studioTodayEmpty = {
+  organization_id: activeMembership.organization_id,
+  generated_at: '2026-11-13T19:00:00.000Z',
+  empty: true,
+  notices: {
+    team: {
+      count: 1,
+      by_role: [{ role_code: 'owner', count: 1 }],
+      link: { operation_id: 'listStudioOrganizationMemberships', query: {} },
+    },
+  },
+}
+
+/**
+ * A coach, who resolves one thing and reads neither the directory nor the
+ * registers. What her roles do not allow is absent, not empty — which is the
+ * whole of the story's fourth criterion, and only the server can answer it.
+ */
+export const studioTodayCoach = {
+  organization_id: activeMembership.organization_id,
+  generated_at: '2026-11-13T19:00:00.000Z',
+  empty: false,
+  notices: { training: studioToday.notices.training },
+}
+
 export function createStudioApiFixture(
   overrides: Partial<StudioApiFixture> = {},
 ): StudioApiFixture {
@@ -2473,6 +2648,7 @@ export function createStudioApiFixture(
     organizationClients: [activeClient, pendingClientInvitation, terminatedClient],
     guestQuota: null,
     authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
+    today: structuredClone(studioToday),
     clientCard: structuredClone(clientCard),
     clientTrainingProfile: structuredClone(clientTrainingProfile),
     clientExecutions: structuredClone(clientExecutions),
@@ -2669,6 +2845,13 @@ function defaultResponse(
         )
       : fixture.organizationMemberships
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/today$/.test(request.path)
+  ) {
+    if (fixture.today === null) return { status: 403, body: error('forbidden') }
+    return { status: 200, body: fixture.today }
   }
   if (
     request.method === 'GET' &&

@@ -104,6 +104,13 @@ export type FormerClientCard = AllfitV1Schemas['StudioFormerClientCard']
 export type ClientCardSection = AllfitV1Schemas['StudioClientCardSection']
 export type ClientCardWithdrawal = AllfitV1Schemas['StudioClientCardWithdrawal']
 export type ClientLossReason = AllfitV1Schemas['StudioClientLossReason']
+export type StudioToday = AllfitV1Schemas['StudioToday']
+export type TodayLink = AllfitV1Schemas['StudioTodayLink']
+export type TodayInvitations = AllfitV1Schemas['StudioTodayInvitations']
+export type TodayRelationships = AllfitV1Schemas['StudioTodayRelationships']
+export type TodayTerminationRequests = AllfitV1Schemas['StudioTodayTerminationRequests']
+export type TodayTeam = AllfitV1Schemas['StudioTodayTeam']
+export type TodayTraining = AllfitV1Schemas['StudioTodayTraining']
 export type ScopeCode = AllfitV1Schemas['ScopeCode']
 export type RelationshipState = AllfitV1Schemas['RelationshipState']
 export type RelationshipHistoryPage = AllfitV1Schemas['RelationshipHistoryPage']
@@ -980,6 +987,22 @@ export const studioApi = {
    */
   clientCard: (organizationId: string, personId: string, signal?: AbortSignal) =>
     request<ClientCard>(`/studio/v1/organizations/${organizationId}/clients/${personId}`, {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
+   * `OP-REL-020`. One notice per thing this caller's roles let her resolve, and
+   * none for what they do not.
+   *
+   * **Asking is a read of somebody else's data.** Working out the training
+   * notice evaluates every client she attends and records each one in that
+   * person's access log, shown or not — so this answer costs one visible line
+   * per client, every time it is requested. That is why nothing may ask for it
+   * on a timer, on focus or on a hunch; see `todayQueryOptions`.
+   */
+  today: (organizationId: string, signal?: AbortSignal) =>
+    request<StudioToday>(`/studio/v1/organizations/${organizationId}/today`, {
       cache: 'no-store',
       ...(signal ? { signal } : {}),
     }),

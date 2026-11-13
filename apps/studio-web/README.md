@@ -50,3 +50,16 @@ leaving the tab and coming back would write her an access the professional never
 asked for — a log of the window's focus rather than of anybody's intent. The
 authorized training profile (`OP-IDN-018`) is the first of these; the same
 applies to every `clients/{personId}/…` read that follows it.
+
+The landing panel of what needs attention today (`OP-REL-020`) belongs to that
+strictest class without being a read of one person: working out its training
+notice evaluates every client the caller attends and records each one in that
+person's access log, shown or not. So the panel asks once, when somebody arrives
+at the screen, and nothing else may ask for it — no timer, no focus, no
+prefetch.
+
+Its query key is the one in this app that deliberately sits outside
+`organization/{orgId}`. `invalidateQueries` matches by prefix, and the
+organization profile and site forms invalidate that prefix whole when they save,
+which would have turned saving a site address into a read of every client.
+`studio-query.test.ts` holds that key where it is.
