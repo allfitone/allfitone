@@ -6,7 +6,7 @@ export const en: Dictionary = {
   meta: {
     title: 'Allfit Space | Training and nutrition app',
     description:
-      'Training and nutrition app: your programme, every set and what you eat in one place. Your history goes with you, and your data is yours.',
+      "Training and nutrition app: follow a programme for your goal, beat last time's sets and track your meals against your target. Free.",
     shareImageAlt: 'An athlete sets up a deadlift with a loaded barbell in a dimly lit gym.',
   },
   nav: {
@@ -26,8 +26,8 @@ export const en: Dictionary = {
     download: 'Get it on',
   },
   hero: {
-    lines: ['YOUR HISTORY', 'GOES', 'WITH YOU.'],
-    lead: "Your programme, every set and what you eat, in one app. If you change gyms, you don't start from scratch.",
+    lines: ['BEAT', 'YOUR LAST', 'SESSION.'],
+    lead: 'A programme for your goal, every set logged and what you eat against your target. All in one app, so your next session beats this one.',
     todayAlt: "Allfit Space Today screen: the day's Pull session and the week at a glance.",
     programAlt: 'Upper and lower programme detail: 10 weeks, 4 days a week and its sessions.',
   },
@@ -36,8 +36,8 @@ export const en: Dictionary = {
     cards: [
       {
         title: 'YOUR WEEK, AT A GLANCE',
-        text: "What's on today, how far into the week you are and everything you've already trained.",
-        alt: 'Today screen with the weekly summary and the session history.',
+        text: "What's on today and how far into the week you are.",
+        alt: "Today screen with the weekly summary and the sessions you've done.",
       },
       {
         title: 'EVERY SET COUNTS',
@@ -105,7 +105,7 @@ export const en: Dictionary = {
   pro: {
     title: ['DOES YOUR GYM', 'USE ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
     text: "The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail, and you don't pay for it while you stay with that gym.",
-    alt: 'Athlete with headphones focusing before training at the gym.',
+    alt: 'Athlete doing a biceps curl with a dumbbell in each hand.',
   },
   studio: {
     title: 'Do you run a gym or coach others?',
@@ -113,7 +113,7 @@ export const en: Dictionary = {
     cta: 'Discover Allfit Studio',
   },
   closing: {
-    title: ['CHANGE GYMS,', 'NOT APPS.'],
+    title: ['EVERY WEEK,', 'A LITTLE MORE.'],
   },
   nvidia: {
     member: 'Allfit One is a member of NVIDIA Inception.',

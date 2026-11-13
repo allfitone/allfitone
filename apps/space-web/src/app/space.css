@@ -1105,12 +1105,15 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   overflow: clip;
 }
 
+/* The card is wider than the photo at every size, so only the height is cropped:
+   6% keeps the head clear from the 2.2:1 tablet band to the near-square phone. */
 .pro__photo img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: 50% 6%;
 }
 
 .pro__photo::before {
