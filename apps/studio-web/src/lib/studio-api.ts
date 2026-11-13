@@ -166,6 +166,10 @@ export type FrozenNutritionGoalVersionPage = AllfitV1Schemas['FrozenNutritionGoa
 export type ClientNutritionGoalTarget = AllfitV1Schemas['ClientNutritionGoalTarget']
 export type ClientNutritionGoalDecision = AllfitV1Schemas['ClientNutritionGoalDecision']
 export type NutrientCode = AllfitV1Schemas['NutrientCode']
+export type ClientHealthContextPage = AllfitV1Schemas['ClientHealthContextPage']
+export type ClientHealthContextClaim = AllfitV1Schemas['ClientHealthContextClaim']
+export type HealthContextType = AllfitV1Schemas['HealthContextType']
+export type HealthContextBodyArea = AllfitV1Schemas['HealthContextBodyArea']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -1274,6 +1278,25 @@ export const studioApi = {
       {
         cache: 'no-store',
         headers: historicalCaseHeaders(caseId),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-IDN-020`. The pains, limitations and recoveries she declared, newest
+   * first, including what no longer holds. 404 for anybody who does not attend
+   * her; 403 `scope-required` with nothing shared, recorded like a read.
+   */
+  clientHealthContext: (
+    organizationId: string,
+    personId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ClientHealthContextPage>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/health-context?${pageSearch(query)}`,
+      {
+        cache: 'no-store',
         ...(signal ? { signal } : {}),
       },
     ),

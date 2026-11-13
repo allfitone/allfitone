@@ -6,6 +6,7 @@ import {
   categorySummary,
   clientCardPath,
   clientExecutionsPath,
+  clientHealthContextPath,
   clientProgramsPath,
   clientTrainingProfilePath,
   doorsBySection,
@@ -203,12 +204,34 @@ describe('the doors on each category', () => {
     ])
   })
 
-  test('a read with no screen yet is no door, rather than one that leads nowhere', () => {
+  /*
+   * A meal photo is read one by one inside the meals screen; it is not a place
+   * to go. Its category is drawn on the card with no button, never with one
+   * that leads nowhere.
+   */
+  test('a read that is not a screen is no door, rather than one that leads nowhere', () => {
+    const doors = doorsBySection(
+      [sectionFor('nutrition_media', ['getAuthorizedClientNutritionMealPhoto'])],
+      reader,
+    )
+    expect(doors.has('nutrition_media')).toBe(false)
+  })
+
+  test('her health context opens its own screen, beside the card', () => {
     const doors = doorsBySection(
       [sectionFor('health_context', ['listAuthorizedClientHealthContext'])],
       reader,
     )
-    expect(doors.has('health_context')).toBe(false)
+    expect(doors.get('health_context')).toEqual([
+      {
+        read: 'listAuthorizedClientHealthContext',
+        label: 'Ver el contexto de salud',
+        href: '/organizations/019a0000-org/clients/people/019a0000-person/health-context',
+      },
+    ])
+    expect(clientHealthContextPath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/health-context',
+    )
   })
 
   /*

@@ -56,6 +56,7 @@ import {
   endedRelationshipHistory,
   expiredHistoricalCase,
   openHistoricalCase,
+  narrowHealthContext,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -4272,6 +4273,60 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('dejó de poder recibirlo')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/health-context` · HU-053 ---
+  {
+    // Every section at once: what affects her today, a recovery and what ended.
+    stories: 'HU-053 · her health context, sorted by what holds today',
+    path: `${clientCardPath}/health-context`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-health-section]')).toHaveCount(3)
+    },
+  },
+  {
+    // A version that carries the type and the dates only: shorter rows, nothing filled in.
+    stories: 'HU-053 · a version that leaves out her words, the area and the origin',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientHealthContext: narrowHealthContext,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-health-claim]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-053 · the category shared with nothing in it',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientHealthContext: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-053 · without the health permission in force',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientHealthContext: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-053 · a health context the caller does not attend',
+    path: `${clientCardPath}/health-context`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este contexto de salud')).toBeVisible()
     },
   },
 ]

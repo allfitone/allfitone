@@ -44,6 +44,7 @@ import {
   type FrozenBodyProgressPage,
   type FrozenExecutionPage,
   type FrozenNutritionGoalVersionPage,
+  type ClientHealthContextPage,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -233,6 +234,15 @@ export const studioQueryKeys = {
       'historical-relationship',
       relationshipId,
       { caseId, read, limit },
+    ] as const,
+  clientHealthContext: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-health-context',
+      personId,
+      { limit },
     ] as const,
 } as const
 
@@ -1261,4 +1271,32 @@ export function flattenById<T extends { id: string }>(
     }
   }
   return items
+}
+
+/**
+ * Her health context, newest first, a page at a time, read under the rules of
+ * the training screens beside it: `private-no-store`, never remembered, and
+ * never refetched on its own, because every page is a read recorded for her.
+ */
+export function clientHealthContextQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientHealthContext(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientHealthContextPage> =>
+      studioApi.clientHealthContext(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
 }

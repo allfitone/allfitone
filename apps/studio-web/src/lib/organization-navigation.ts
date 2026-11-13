@@ -155,5 +155,8 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/historical-access-cases\/[^/]+$/.test(pathname)) {
     return { title: 'Historial congelado' }
   }
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/health-context$/.test(pathname)) {
+    return { title: 'Contexto de salud' }
+  }
   return { title: 'Studio' }
 }

@@ -247,6 +247,8 @@ export interface StudioApiFixture {
   frozenRefused: Array<'executions' | 'body-progress' | 'goal-versions'>
   /** What `OP-PRV-019` answers: the case closed, a role that cannot, or no such case. */
   historicalCloseOutcome: 'closed' | 'forbidden' | 'gone'
+  /** `OP-IDN-020`. Her claims, newest first; null is the 403 of nothing shared. */
+  clientHealthContext: unknown[] | null
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -2458,6 +2460,64 @@ export const organizationWithoutSites = {
   sites: [],
 }
 
+/**
+ * `OP-IDN-020`, written from `identity.read_client_health_context`: one claim of
+ * each kind the screen sorts. A pain and a limitation in force — the limitation
+ * with no area, as she may declare it — a recovery whose end is still ahead, and
+ * a pain that ended, which still arrives because a past injury matters.
+ *
+ * Midday in UTC, so no zone a browser runs in moves any of them to another day.
+ */
+export const clientHealthContext = [
+  {
+    id: '01991600-7000-7000-8000-000000000301',
+    context_type: 'pain',
+    description: 'Me duele al bajar escaleras',
+    body_area: 'knee',
+    provenance: 'person_declared',
+    valid_from: '2026-09-14T15:00:00.000Z',
+    valid_to: null,
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000302',
+    context_type: 'limitation',
+    description: 'No puede cargar peso por encima de la cabeza',
+    body_area: null,
+    provenance: 'professional_observation',
+    valid_from: '2026-08-02T15:00:00.000Z',
+    valid_to: null,
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000303',
+    context_type: 'recovery',
+    description: 'Cirugía de manguito rotador',
+    body_area: 'shoulder',
+    provenance: 'person_declared',
+    valid_from: '2026-06-20T15:00:00.000Z',
+    valid_to: '2027-03-31T15:00:00.000Z',
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000304',
+    context_type: 'pain',
+    description: 'Lumbalgia después de una carrera',
+    body_area: 'lower_back',
+    provenance: 'person_declared',
+    valid_from: '2026-04-03T15:00:00.000Z',
+    valid_to: '2026-05-10T15:00:00.000Z',
+  },
+]
+
+/**
+ * The same claims under a version that carries only the type and the dates: no
+ * description, no area, no origin. Nothing of that may be described as missing.
+ */
+export const narrowHealthContext = clientHealthContext.map((claim) => ({
+  ...claim,
+  description: null,
+  body_area: null,
+  provenance: null,
+}))
+
 export function createStudioApiFixture(
   overrides: Partial<StudioApiFixture> = {},
 ): StudioApiFixture {
@@ -2571,6 +2631,7 @@ export function createStudioApiFixture(
     historicalReadOutcome: 'ok',
     frozenRefused: [],
     historicalCloseOutcome: 'closed',
+    clientHealthContext: structuredClone(clientHealthContext),
     ...overrides,
   }
 }
@@ -4395,6 +4456,35 @@ function defaultResponse(
                 version: 1,
               },
             }),
+        data: all.slice(from, from + limit),
+        page: { next_cursor: next, has_more: next !== null },
+      },
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/health-context$/.test(request.path)
+  ) {
+    // Not attending her is the same 404 as a person who does not exist.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    if (fixture.clientHealthContext === null) {
+      return {
+        status: 403,
+        body: problem('scope-required', 403, {
+          required_scope: { code: 'health_context', level: 'read' },
+        }),
+      }
+    }
+    const search = new URLSearchParams(request.search ?? '')
+    const limit = Number(search.get('limit') ?? '25')
+    const from = Number(search.get('cursor') ?? '0')
+    const all = fixture.clientHealthContext
+    const next = from + limit < all.length ? String(from + limit) : null
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        applied_scope: { code: 'health_context', version: 2 },
         data: all.slice(from, from + limit),
         page: { next_cursor: next, has_more: next !== null },
       },

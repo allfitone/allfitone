@@ -257,7 +257,8 @@
 [data-client-execution-detail-screen],
 [data-historical-cases-screen],
 [data-historical-reading],
-[data-historical-case-refusal] {
+[data-historical-case-refusal],
+[data-client-health-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -634,7 +635,8 @@
 [data-client-execution-facts] dt,
 [data-client-progress-facts] dt,
 [data-client-program-facts] dt,
-[data-historical-case-facts] dt {
+[data-historical-case-facts] dt,
+[data-client-health-section-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -734,7 +736,8 @@
 [data-historical-case-picker],
 [data-historical-case-picker-results],
 [data-historical-entries],
-[data-historical-goal-targets] {
+[data-historical-goal-targets],
+[data-client-health-section-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1458,7 +1461,8 @@
    the row, and inline it ran straight into the name with nothing between. */
 [data-organization-site-identity],
 [data-relationship-substitution-identity],
-[data-relationship-grant-identity] {
+[data-relationship-grant-identity],
+[data-client-health-claim] {
   display: grid;
   gap: var(--afo-space-1);
 }
@@ -1526,7 +1530,8 @@
 [data-client-executions-header-placeholder],
 [data-client-progress-header-placeholder],
 [data-client-programs-header-placeholder],
-[data-client-execution-detail-header-placeholder] {
+[data-client-execution-detail-header-placeholder],
+[data-client-health-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
@@ -1538,7 +1543,8 @@
 [data-client-executions-panel-placeholder],
 [data-client-progress-panel-placeholder],
 [data-client-programs-panel-placeholder],
-[data-client-execution-detail-panel-placeholder] {
+[data-client-execution-detail-panel-placeholder],
+[data-client-health-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1765,7 +1771,9 @@
 
 [data-client-execution-when],
 [data-historical-case-person],
-[data-historical-entry-title] {
+[data-historical-entry-title],
+[data-client-health-claim-heading],
+[data-client-health-claim-description] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1773,7 +1781,9 @@
 [data-client-execution-what],
 [data-historical-case-window],
 [data-historical-entry-line],
-[data-historical-case-reason] {
+[data-historical-case-reason],
+[data-client-health-claim-description],
+[data-client-health-claim-meta] {
   margin: 0;
 }
 
@@ -1783,7 +1793,9 @@
 [data-client-executions-stale-cursor],
 [data-historical-cases-more],
 [data-historical-entries-more],
-[data-historical-reading-record] {
+[data-historical-reading-record],
+[data-client-health-more],
+[data-client-health-more-failure] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -1968,14 +1980,16 @@
 /* One attribute: its name, then the claims in force for it. Hairlines rather
    than boxes — the panel is already a card, and a card per attribute would make
    eight boxes out of one list. */
-[data-client-profile-group] {
+[data-client-profile-group],
+[data-client-health-section] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
   border-block-start: 1px solid var(--afo-color-border);
 }
 
-[data-client-profile-group]:first-child {
+[data-client-profile-group]:first-child,
+[data-client-health-section]:first-child {
   padding-block-start: 0;
   border-block-start: none;
 }
@@ -1988,7 +2002,8 @@
 /* Drawn as the same label every other value on the product carries, so the
    hierarchy here is the claim's value and not its name. Its own rule only
    places the badge that explains why more than one line follows. */
-[data-client-profile-group-name] {
+[data-client-profile-group-name],
+[data-client-health-section-name] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1996,7 +2011,8 @@
   margin: 0;
 }
 
-[data-client-profile-claims] {
+[data-client-profile-claims],
+[data-client-health-claims] {
   display: grid;
   gap: var(--afo-space-3);
   margin: 0;
@@ -2021,7 +2037,8 @@
 
 [data-client-profile-origin],
 [data-client-profile-since],
-[data-client-profile-unreadable] {
+[data-client-profile-unreadable],
+[data-client-health-claim-meta] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }
