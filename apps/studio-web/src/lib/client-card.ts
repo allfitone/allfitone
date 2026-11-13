@@ -181,6 +181,18 @@ export function clientProgressPath(organizationId: string, personId: string): st
 }
 
 /**
+ * One of those sessions, in full. A child of the sessions list rather than of
+ * the card: it is reached from a row, and the row is what says which one.
+ */
+export function clientExecutionPath(
+  organizationId: string,
+  personId: string,
+  executionId: string,
+): string {
+  return `${clientExecutionsPath(organizationId, personId)}/${executionId}`
+}
+
+/**
  * And the programs this relationship gave her, beside the other three.
  *
  * The operation behind it is the only one of the card's reads keyed by the

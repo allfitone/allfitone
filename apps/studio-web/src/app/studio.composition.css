@@ -254,6 +254,7 @@
 [data-client-executions-screen],
 [data-client-progress-screen],
 [data-client-programs-screen],
+[data-client-execution-detail-screen],
 [data-historical-cases-screen],
 [data-historical-reading],
 [data-historical-case-refusal] {
@@ -1524,7 +1525,8 @@
 [data-client-profile-header-placeholder],
 [data-client-executions-header-placeholder],
 [data-client-progress-header-placeholder],
-[data-client-programs-header-placeholder] {
+[data-client-programs-header-placeholder],
+[data-client-execution-detail-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
@@ -1535,7 +1537,8 @@
 [data-client-profile-panel-placeholder],
 [data-client-executions-panel-placeholder],
 [data-client-progress-panel-placeholder],
-[data-client-programs-panel-placeholder] {
+[data-client-programs-panel-placeholder],
+[data-client-execution-detail-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1613,6 +1616,28 @@
 }
 
 [data-client-reference]:hover {
+  text-decoration-color: currentcolor;
+}
+
+/*
+ * The hour that opens a session, in her list. Same mechanism as
+ * `data-client-reference` above and the same correct token — with no rule at
+ * all it rendered as the browser's blue underlined link, which reads as a
+ * reference to somewhere else rather than as the row opening.
+ *
+ * It keeps the row's own size and weight, because the hour is the row's title:
+ * what changes is that it is underlined, and the underline darkens when
+ * pointed at. Deliberately not folded into the `data-client-open` rule, which
+ * still carries the token that does not exist — that one is STUDIO-157.
+ */
+[data-client-execution-open] {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--afo-color-border-default);
+  text-underline-offset: 3px;
+}
+
+[data-client-execution-open]:hover {
   text-decoration-color: currentcolor;
 }
 
@@ -1867,6 +1892,55 @@
 [data-client-programs-more],
 [data-client-programs-stale-cursor] {
   margin-block-start: var(--afo-space-4);
+}
+
+/* One session in full: its results by family, and the notes on it. Hairlines
+   between rows rather than a card each, because a session can hold twenty. */
+[data-client-execution-result-list],
+[data-client-execution-observation-list] {
+  display: grid;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-execution-result],
+[data-client-execution-observation] {
+  display: grid;
+  gap: var(--afo-space-2);
+  min-width: 0;
+  padding-block-start: var(--afo-space-3);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-execution-result-list] > li:first-child [data-client-execution-result],
+[data-client-execution-observation-list] > li:first-child [data-client-execution-observation] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-execution-summary-head],
+[data-client-execution-result-head],
+[data-client-execution-observation-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+/* A movement name is typed by somebody, so it wraps rather than pushing the
+   badge beside it off the row. */
+[data-client-execution-result-name],
+[data-client-execution-observation-author] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-execution-result-detail],
+[data-client-execution-observation-content] {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* The form that gives her a program. A grid child that holds a select and a

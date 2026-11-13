@@ -197,6 +197,17 @@ describe('organization workspace navigation', () => {
     ).toEqual({ title: 'Sesiones ejecutadas' })
   })
 
+  test('one session opened in full is titled by what it adds', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    const executionId = '01991600-4000-7000-8000-0000000000bb'
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/clients/people/${personId}/executions/${executionId}`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Resultado de la sesión' })
+  })
+
   test('her progress is titled by what it is', () => {
     const personId = '01991600-3000-7000-8000-0000000000aa'
     expect(

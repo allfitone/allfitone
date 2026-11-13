@@ -52,7 +52,7 @@ import { useParams } from 'next/navigation'
 
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
-import { clientCardPath } from '@/lib/client-card'
+import { clientCardPath, clientExecutionPath } from '@/lib/client-card'
 import {
   executionLength,
   executionWhen,
@@ -160,7 +160,15 @@ export function ClientExecutionsScreen() {
               <ul data-client-executions-list>
                 {sessions.map((session) => (
                   <li key={session.id}>
-                    <ExecutionRow session={session} reader={reader} />
+                    <ExecutionRow
+                      session={session}
+                      reader={reader}
+                      href={clientExecutionPath(
+                        current.organization_id,
+                        params.personId,
+                        session.id,
+                      )}
+                    />
                   </li>
                 ))}
               </ul>
@@ -216,9 +224,12 @@ export function ClientExecutionsScreen() {
 function ExecutionRow({
   session,
   reader,
+  href,
 }: {
   session: AuthorizedExecutionSummary
   reader: string | null
+  /** Where the session opens in full: `HU-STUDIO-055`. */
+  href: string
 }) {
   const when = executionWhen(session, reader)
   const length = executionLength(session)
@@ -227,7 +238,13 @@ function ExecutionRow({
   return (
     <article data-client-execution>
       <div data-client-execution-head>
-        <strong data-client-execution-when>{when.line}</strong>
+        {/* The row's lead is what opens it, so the clickable thing is the one
+            that identifies the session. Until HU-055 no row led anywhere. */}
+        <strong data-client-execution-when>
+          <Link href={href} data-client-execution-open>
+            {when.line}
+          </Link>
+        </strong>
         <Badge variant={ours ? 'success' : 'secondary'} data-client-execution-origin>
           {originLabel(session.origin)}
         </Badge>

@@ -20,6 +20,8 @@ import {
   activeTeamMember,
   coachedTeam,
   createStudioApiFixture,
+  emptyExecutionDetail,
+  enduranceExecutionDetail,
   draftedProgram,
   programVersionOne,
   STRENGTH_GLOBAL_MOVEMENT_ID,
@@ -40,6 +42,7 @@ import {
   holderMembership,
   relationshipState,
   clientCard,
+  clientExecutions,
   clientCardWithoutSections,
   emptyClientProgress,
   emptyTrainingProfile,
@@ -149,6 +152,7 @@ const trainingProfilePath = `${clientCardPath}/profile`
 const executionsPath = `${clientCardPath}/executions`
 const progressPath = `${clientCardPath}/progress`
 const programsPath = `${clientCardPath}/programs`
+const executionDetailPath = `${executionsPath}/${clientExecutions[0]?.id ?? ''}`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1755,6 +1759,73 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No encontramos estos programas')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-055 ---
+  {
+    // One session in full: two blocks, two families of results, and the notes
+    // on it. The richest single screen the client's card leads to.
+    stories: 'HU-055 · el resultado de una sesión',
+    path: executionDetailPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('8 repeticiones · 80 kg · RPE 8')).toBeVisible()
+    },
+  },
+  {
+    // A run: one family, and the four it recorded nothing in drawn nowhere.
+    stories: 'HU-055 · una sesión de carrera, con una sola familia',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientExecutionDetail: enduranceExecutionDetail,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Vuelta 1')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: nothing saved, and the two readings cannot be told apart.
+    stories: 'HU-055 · una sesión sin resultados guardados',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientExecutionDetail: emptyExecutionDetail,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay resultados guardados en esta sesión')).toBeVisible()
+    },
+  },
+  {
+    // The one 404 that stands for six reasons and names none.
+    stories: 'HU-055 · una sesión que no se puede abrir',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        executionDetailOutcome: 'not-found',
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta sesión')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-055 · no comparte ninguna de las dos categorías',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        executionDetailOutcome: 'scope-required',
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---

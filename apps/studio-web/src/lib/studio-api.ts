@@ -85,6 +85,14 @@ export type ClientProgressMovement = AllfitV1Schemas['ClientProgressMovement']
 export type SpacePeriodMuscle = AllfitV1Schemas['SpacePeriodMuscle']
 export type ProgressPeriod = 'week' | 'month'
 export type AuthorizedExecutionSummary = AllfitV1Schemas['AuthorizedExecutionSummary']
+export type AuthorizedExecution = AllfitV1Schemas['AuthorizedExecution']
+export type ExecutionDetailSegment = AllfitV1Schemas['ExecutionDetailSegment']
+export type ExecutionDetailStrengthSet = AllfitV1Schemas['ExecutionDetailStrengthSet']
+export type ExecutionDetailEnduranceLap = AllfitV1Schemas['ExecutionDetailEnduranceLap']
+export type ExecutionDetailIntervalResult = AllfitV1Schemas['ExecutionDetailIntervalResult']
+export type ExecutionDetailRoundResult = AllfitV1Schemas['ExecutionDetailRoundResult']
+export type ExecutionDetailMobilityResult = AllfitV1Schemas['ExecutionDetailMobilityResult']
+export type ProfessionalObservation = AllfitV1Schemas['ProfessionalObservation']
 export type CompletenessLevel = AllfitV1Schemas['CompletenessLevel']
 export type ClientProfileClaim = AllfitV1Schemas['ClientProfileClaim']
 export type ClientBiologicalSex = AllfitV1Schemas['ClientBiologicalSex']
@@ -1012,6 +1020,32 @@ export const studioApi = {
       },
     )
   },
+
+  /**
+   * `OP-EXE-018`. One of her sessions with what was recorded in it: sets, laps,
+   * intervals, rounds and holds, plus what this relationship's coaches noted.
+   *
+   * **It never carries heart rate, pain, body weight or the capture device.**
+   * Pain and weight are read through their own categories, so their absence
+   * here is the contract and not a gap to fill.
+   *
+   * `403` only when she shares neither training category; every other reason a
+   * coach may not see a session — hidden, unfinished, annulled, another
+   * relationship's, another person's, or none at all — is the same `404`.
+   */
+  clientExecution: (
+    organizationId: string,
+    personId: string,
+    executionId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<AuthorizedExecution>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/executions/${executionId}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
 
   /**
    * `OP-PLN-018`. The programs this relationship gave her, newest first, each
