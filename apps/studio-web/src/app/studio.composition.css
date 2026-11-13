@@ -252,7 +252,10 @@
 [data-client-profile-screen],
 [data-client-executions-screen],
 [data-client-progress-screen],
-[data-client-programs-screen] {
+[data-client-programs-screen],
+[data-historical-cases-screen],
+[data-historical-reading],
+[data-historical-case-refusal] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -645,7 +648,8 @@
 /* CardContent pads sideways and nothing else, so the action sat against the
    last fact. The gap belongs to Studio's own element, not to the component. */
 [data-team-member-card] [data-team-invitation-actions],
-[data-billing-card] [data-billing-actions] {
+[data-billing-card] [data-billing-actions],
+[data-historical-case-actions] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -726,7 +730,9 @@
 [data-client-progress-movement-cards],
 [data-historical-cases-list],
 [data-historical-case-picker],
-[data-historical-case-picker-results] {
+[data-historical-case-picker-results],
+[data-historical-entries],
+[data-historical-goal-targets] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1706,7 +1712,8 @@
    about it step down below. Separated by hairlines rather than boxed, because a
    card per session would make twenty-five boxes out of one list. */
 [data-client-execution],
-[data-historical-case] {
+[data-historical-case],
+[data-historical-entry] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
@@ -1714,13 +1721,15 @@
 }
 
 [data-client-executions-list] > li:first-child [data-client-execution],
-[data-historical-cases-list] > li:first-child [data-historical-case] {
+[data-historical-cases-list] > li:first-child [data-historical-case],
+[data-historical-entries] > li:first-child [data-historical-entry] {
   padding-block-start: 0;
   border-block-start: none;
 }
 
 [data-client-execution-head],
-[data-historical-case-head] {
+[data-historical-case-head],
+[data-historical-entry-head] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1729,13 +1738,15 @@
 }
 
 [data-client-execution-when],
-[data-historical-case-person] {
+[data-historical-case-person],
+[data-historical-entry-title] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 [data-client-execution-what],
-[data-historical-case-window] {
+[data-historical-case-window],
+[data-historical-entry-line] {
   margin: 0;
 }
 
@@ -1743,7 +1754,9 @@
    notice did not, so the warning sat flush against the last session. */
 [data-client-executions-more],
 [data-client-executions-stale-cursor],
-[data-historical-cases-more] {
+[data-historical-cases-more],
+[data-historical-entries-more],
+[data-historical-reading-record] {
   margin-block-start: var(--afo-space-4);
 }
 

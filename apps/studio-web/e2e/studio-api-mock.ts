@@ -223,6 +223,19 @@ export interface StudioApiFixture {
    * apart; `ineligible` is the member the case names no longer qualifying.
    */
   historicalOpenOutcome: 'opened' | 'reauthenticate' | 'conflict' | 'ineligible'
+  /**
+   * What `OP-PRV-020` answers for the relationship. Its `case` is replaced by the
+   * case the request names, which must be open and name the member signed in;
+   * anything else is the 404 the API answers for every reason.
+   */
+  historicalRelationship: Record<string, unknown>
+  frozenExecutions: unknown[]
+  frozenBodyProgress: unknown[]
+  frozenGoalVersions: unknown[]
+  /** `reauthenticate` is every read through a case finding the sign-in too old. */
+  historicalReadOutcome: 'ok' | 'reauthenticate'
+  /** Reads that answer 403 `scope-required`, by the last segment of their path. */
+  frozenRefused: Array<'executions' | 'body-progress' | 'goal-versions'>
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -1866,6 +1879,104 @@ export const closedHistoricalCase = {
   closed_by: openHistoricalCase.opened_by,
 }
 
+/**
+ * Bruno's relationship as a case reads it. Five categories stayed frozen, and two
+ * of them have no historical read: health context must never become a section.
+ */
+export const frozenRelationship = {
+  relationship: {
+    id: terminatedClient.relationship_id,
+    person: openHistoricalCase.person,
+    ended_at: terminatedClient.ended_at,
+  },
+  case: openHistoricalCase,
+  scopes: [
+    'relationship_training',
+    'prior_training_history',
+    'body_progress',
+    'health_context',
+    'nutrition_guidance',
+  ].map((code) => ({ code, version: 1, frozen_at: terminatedClient.ended_at })),
+}
+
+export const frozenExecutions = [
+  {
+    id: '01991600-7000-7000-8000-0000000000e1',
+    started_at: '2025-06-27T11:00:00.000Z',
+    ended_at: '2025-06-27T12:05:00.000Z',
+    timezone: 'America/Bogota',
+    activity_type_code: 'strength_training',
+    activity_type_name: 'Fuerza',
+    discipline_code: 'strength',
+    achieved_level: 'detailed',
+    origin: 'relationship',
+    applied_scope: { code: 'relationship_training', version: 1 },
+  },
+  {
+    id: '01991600-7000-7000-8000-0000000000e2',
+    started_at: '2025-06-20T23:30:00.000Z',
+    ended_at: null,
+    timezone: 'America/Bogota',
+    activity_type_code: 'running',
+    activity_type_name: 'Carrera',
+    discipline_code: 'endurance',
+    achieved_level: null,
+    origin: 'prior',
+    applied_scope: { code: 'prior_training_history', version: 1 },
+  },
+]
+
+export const frozenBodyProgress = [
+  {
+    id: '01991600-7000-7000-8000-0000000000f1',
+    metric_code: 'body_weight',
+    value: 72.5,
+    unit_code: 'kg',
+    original_value: 159.8,
+    original_unit_code: 'lb',
+    measured_on: '2025-06-02',
+  },
+  {
+    id: '01991600-7000-7000-8000-0000000000f2',
+    metric_code: 'waist',
+    value: null,
+    unit_code: null,
+    original_value: null,
+    original_unit_code: null,
+    measured_on: '2025-05-15',
+  },
+]
+
+export const frozenGoalVersions = [
+  {
+    id: '01991600-7000-7000-8000-0000000000a1',
+    status_at_cut: 'accepted',
+    rationale: 'Subir la proteína para sostener el bloque de fuerza.',
+    author: { kind: 'professional', person_id: null },
+    targets: [
+      {
+        nutrient_code: 'protein',
+        mode: 'minimum',
+        minimum: 120,
+        maximum: null,
+        exact: null,
+        unit: 'g',
+      },
+      {
+        nutrient_code: 'energy',
+        mode: 'exact',
+        minimum: null,
+        maximum: null,
+        exact: 2100,
+        unit: 'kcal',
+      },
+    ],
+    created_at: '2025-05-02T15:00:00.000Z',
+    activated_at: '2025-05-03T09:00:00.000Z',
+    decision: { decision: 'accepted', decided_at: '2025-05-03T09:00:00.000Z' },
+  },
+]
+
 /* A long masked contact, because that is the value with nowhere to break. */
 export const pendingClientInvitation = {
   kind: 'invitation',
@@ -2299,6 +2410,12 @@ export function createStudioApiFixture(
     requests: [],
     historicalCases: [],
     historicalOpenOutcome: 'opened',
+    historicalRelationship: structuredClone(frozenRelationship),
+    frozenExecutions: structuredClone(frozenExecutions),
+    frozenBodyProgress: structuredClone(frozenBodyProgress),
+    frozenGoalVersions: structuredClone(frozenGoalVersions),
+    historicalReadOutcome: 'ok',
+    frozenRefused: [],
     ...overrides,
   }
 }
@@ -3994,6 +4111,78 @@ function defaultResponse(
     fixture.historicalCases = [opened, ...fixture.historicalCases]
     return { status: 201, headers: { 'Cache-Control': 'no-store' }, body: opened }
   }
+  const frozenRead =
+    /^\/studio\/v1\/organizations\/[^/]+\/historical-relationships\/([^/]+)(?:\/(executions|body-progress|nutrition\/goal-versions))?$/.exec(
+      request.path,
+    )
+  if (request.method === 'GET' && frozenRead) {
+    // Only the open case the request names, over this relationship, for the member
+    // it authorizes. Every other reason is the same 404, as the API answers it.
+    const me = objectValue(fixture.memberships[0]).membership_id
+    const through = fixture.historicalCases
+      .map(objectValue)
+      .find(
+        (entry) =>
+          entry.id === request.headers['x-historical-access-case'] &&
+          entry.relationship_id === frozenRead[1] &&
+          entry.status === 'open' &&
+          objectValue(entry.authorized).membership_id === me,
+      )
+    if (fixture.historicalReadOutcome === 'reauthenticate') {
+      return { status: 403, body: problem('reauthentication-required', 403) }
+    }
+    if (!through) return { status: 404, body: problem('not-found', 404) }
+    const read = frozenRead[2]
+    if (!read) {
+      return {
+        status: 200,
+        headers: { 'Cache-Control': 'private, no-store' },
+        body: { ...fixture.historicalRelationship, case: through },
+      }
+    }
+    const kind =
+      read === 'executions'
+        ? 'executions'
+        : read === 'body-progress'
+          ? 'body-progress'
+          : 'goal-versions'
+    if (kind !== 'executions' && fixture.frozenRefused.includes(kind)) {
+      const code = kind === 'body-progress' ? 'body_progress' : 'nutrition_guidance'
+      return {
+        status: 403,
+        body: problem('scope-required', 403, { required_scope: { code } }),
+      }
+    }
+    // With no training category frozen, sessions answer an empty page, not a 403.
+    const all =
+      kind === 'executions'
+        ? fixture.frozenRefused.includes('executions')
+          ? []
+          : fixture.frozenExecutions
+        : kind === 'body-progress'
+          ? fixture.frozenBodyProgress
+          : fixture.frozenGoalVersions
+    const search = new URLSearchParams(request.search ?? '')
+    const limit = Number(search.get('limit') ?? '25')
+    const from = Number(search.get('cursor') ?? '0')
+    const next = from + limit < all.length ? String(from + limit) : null
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        ...(kind === 'executions'
+          ? {}
+          : {
+              applied_scope: {
+                code: kind === 'body-progress' ? 'body_progress' : 'nutrition_guidance',
+                version: 1,
+              },
+            }),
+        data: all.slice(from, from + limit),
+        page: { next_cursor: next, has_more: next !== null },
+      },
+    }
+  }
   if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/memberships\/[^/]+\/roles$/.test(request.path)
@@ -4774,7 +4963,7 @@ async function fulfill(route: Route, response: MockResponse): Promise<void> {
       // header missing here is refused at preflight, so the failure looks like
       // broken client code rather than a stale fixture.
       'Access-Control-Allow-Headers':
-        'Content-Type, Idempotency-Key, Command-Id, If-Match, If-None-Match',
+        'Content-Type, Idempotency-Key, Command-Id, If-Match, If-None-Match, X-Historical-Access-Case',
       // DELETE was missing while no Studio command used one. `OP-ORG-008`
       // revokes a role with it, and the list the API actually sends
       // (`surfaces.ts`) has always included it.

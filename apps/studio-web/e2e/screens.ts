@@ -298,6 +298,17 @@ const withEveryCaseState = () =>
     ]),
   })
 
+// Reading through a case: the case in the path, the relationship it names in the query.
+const readingPath = (caseId: string) =>
+  `${workspace}/historical-access-cases/${caseId}?relationship=${openHistoricalCase.relationship_id}`
+
+/** HU-062 is on the page once every section it draws has answered. */
+const settledReading = (sections: number) => async (page: Page) => {
+  await settledByHeading(page)
+  await expect(page.locator('[data-historical-reading-section]')).toHaveCount(sections)
+  await expect(page.locator('[data-historical-reading-placeholder]')).toHaveCount(0)
+}
+
 /** Answers HU-061's form and sends it, then waits for what the screen says back. */
 const fillAndOpenCase = (said: string) => async (page: Page) => {
   await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
@@ -4055,6 +4066,73 @@ export const SCREENS: Screen[] = [
       createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
     settled: async (page) => {
       await expect(page.getByText('Tu rol no abre casos')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases/[caseId]` · HU-062 ---
+  {
+    stories: 'HU-062 · her history up to the cut',
+    path: readingPath(openHistoricalCase.id),
+    fixture: withEveryCaseState,
+    settled: settledReading(3),
+  },
+  {
+    stories: 'HU-062 · her history, on a phone',
+    path: readingPath(openHistoricalCase.id),
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: settledReading(3),
+  },
+  {
+    stories: 'HU-062 · a refused read, drawn as nothing',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.frozenRefused = ['body-progress']
+      fixture.frozenGoalVersions = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledReading(3)(page)
+      await expect(page.locator('[data-historical-reading-nothing]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-062 · signing in again before reading',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.historicalReadOutcome = 'reauthenticate'
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-reading-reauthenticate]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-062 · a case that no longer serves',
+    path: readingPath(expiredHistoricalCase.id),
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-reading-gone]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-062 · the history could not be opened',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.intercept = (request) =>
+        /\/historical-relationships\/[^/]+$/.test(request.path)
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos abrir el historial')).toBeVisible()
     },
   },
 ]

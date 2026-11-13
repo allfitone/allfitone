@@ -32,7 +32,9 @@ const RETURN_TTL_MS = 15 * 60 * 1000
 const DRAFT_TTL_MS = 30 * 60 * 1000
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
-const RETURN_PATH = new RegExp(`^/organizations/(${UUID})/historical-access-cases(?:/new)?$`)
+const RETURN_PATH = new RegExp(
+  `^/organizations/(${UUID})/historical-access-cases(?:/new|/${UUID}\\?relationship=${UUID})?$`,
+)
 
 export function reauthenticationUrl(apiUrl: string): string {
   return `${apiUrl}/studio/v1/auth/start?reauthenticate=true`

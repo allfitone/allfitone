@@ -1,0 +1,212 @@
+/**
+ * Reading a relationship the organization ended, through an open case:
+ * `HU-STUDIO-062`.
+ *
+ * `OP-PRV-020` and `OP-NUT-011` decide what exists. This module decides only
+ * what the screen draws and the words it uses, under one rule the story puts
+ * last and the design follows first:
+ *
+ * **What does not exist and what is not authorized look the same** (criterion
+ * 8). The screen never says why something is missing — no «sin autorizar», no
+ * lock, no empty section for a category nobody can read. It is the same rule as
+ * the client card: what is not there is not there.
+ *
+ * So a section is drawn only for a frozen category that has a historical read
+ * (criterion 2): the sessions, for either training category; her measurements;
+ * and the goals this relationship proposed. Health context, photos, intake and
+ * the current profile have no historical route in V1, and they are left out
+ * rather than drawn empty. A read that answers `scope-required` reads like a
+ * read that found nothing, because to her they are the same: nothing is shown.
+ *
+ * **Nothing after the cut** (criterion 1) is the server's filter; the screen
+ * says where the cut is, so the reader knows the history stops there.
+ *
+ * **The nutrient and metric names are written here on purpose.** Space has the
+ * same words (`apps/space/src/client/nutrition.ts` and `body.ts`), and an app may
+ * not import another app. They are copied deliberately and should converge into a
+ * package the day a third surface needs them.
+ */
+import type {
+  BodyProgressMetricCode,
+  BodyProgressUnitCode,
+  ClientBodyProgressRecord,
+  ClientNutritionGoalDecision,
+  ClientNutritionGoalTarget,
+  FrozenNutritionGoalVersion,
+  HistoricalRelationship,
+  NutrientCode,
+  ScopeCode,
+} from './studio-api'
+
+export type HistoricalSection = 'sessions' | 'body' | 'nutrition'
+
+const SECTION_SCOPES: readonly [HistoricalSection, readonly ScopeCode[]][] = [
+  ['sessions', ['relationship_training', 'prior_training_history']],
+  ['body', ['body_progress']],
+  ['nutrition', ['nutrition_guidance']],
+]
+
+export function historicalSections(
+  scopes: readonly Pick<HistoricalRelationship['scopes'][number], 'code'>[],
+): HistoricalSection[] {
+  const frozen = new Set(scopes.map((scope) => scope.code))
+  return SECTION_SCOPES.filter(([, codes]) => codes.some((code) => frozen.has(code))).map(
+    ([section]) => section,
+  )
+}
+
+const MOMENT = { dateStyle: 'medium', timeStyle: 'short' } as const
+
+export function cutLine(cutAt: string): string {
+  return `Hasta el corte: ${new Intl.DateTimeFormat('es-CO', MOMENT).format(new Date(cutAt))}`
+}
+
+const METRICS: Record<BodyProgressMetricCode, string> = {
+  body_weight: 'Peso',
+  body_height: 'Estatura',
+  muscle_mass: 'Masa muscular',
+  body_fat: 'Grasa corporal',
+  waist: 'Cintura',
+  hip: 'Cadera',
+  chest: 'Pecho',
+  arm: 'Brazo',
+  thigh: 'Muslo',
+}
+
+export function metricLabel(code: BodyProgressMetricCode): string {
+  return METRICS[code]
+}
+
+const UNITS: Record<BodyProgressUnitCode, string> = {
+  kg: 'kg',
+  lb: 'lb',
+  m: 'm',
+  cm: 'cm',
+  in: 'in',
+  percent: '%',
+}
+
+function figure(value: number): string {
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(value)
+}
+
+function amount(value: number | null, unit: BodyProgressUnitCode | null): string | null {
+  if (value === null) return null
+  return unit ? `${figure(value)} ${UNITS[unit]}` : figure(value)
+}
+
+/**
+ * The canonical value, and what she typed when it was another unit. A field the
+ * frozen version does not keep comes back null and is left out.
+ */
+export function measurementLine(record: ClientBodyProgressRecord): string | null {
+  const canonical = amount(record.value, record.unit_code)
+  const typed = amount(record.original_value, record.original_unit_code)
+  if (canonical && typed) return `${canonical} (registró ${typed})`
+  return canonical ?? typed
+}
+
+/** A calendar day, read as one: in UTC, so no zone moves it to the day before. */
+export function measuredOnLine(day: string): string {
+  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'UTC' }).format(
+    new Date(`${day}T00:00:00Z`),
+  )
+}
+
+const GOAL_STATUS: Record<NonNullable<FrozenNutritionGoalVersion['status_at_cut']>, string> = {
+  proposed: 'Propuesto',
+  accepted: 'Aceptado',
+  rejected: 'Rechazado',
+  superseded: 'Reemplazado',
+  cancelled: 'Cancelado',
+}
+
+export function goalStatusLabel(
+  status: FrozenNutritionGoalVersion['status_at_cut'],
+): string | null {
+  return status ? GOAL_STATUS[status] : null
+}
+
+const NUTRIENTS: Record<NutrientCode, string> = {
+  energy: 'Energía',
+  protein: 'Proteína',
+  carbohydrates: 'Carbohidratos',
+  fat: 'Grasa',
+  fiber: 'Fibra',
+  water: 'Agua',
+  saturated_fat: 'Grasas saturadas',
+  trans_fat: 'Grasas trans',
+  cholesterol: 'Colesterol',
+  sodium: 'Sodio',
+  sugars: 'Azúcares',
+  vitamin_a: 'Vitamina A',
+  vitamin_c: 'Vitamina C',
+  vitamin_d: 'Vitamina D',
+  vitamin_e: 'Vitamina E',
+  vitamin_k: 'Vitamina K',
+  thiamin: 'Vitamina B1',
+  riboflavin: 'Vitamina B2',
+  niacin: 'Vitamina B3',
+  pantothenic_acid: 'Vitamina B5',
+  vitamin_b6: 'Vitamina B6',
+  vitamin_b12: 'Vitamina B12',
+  folate: 'Folato',
+  calcium: 'Calcio',
+  iron: 'Hierro',
+  magnesium: 'Magnesio',
+  phosphorus: 'Fósforo',
+  potassium: 'Potasio',
+  zinc: 'Zinc',
+  selenium: 'Selenio',
+  copper: 'Cobre',
+}
+
+export function nutrientName(code: NutrientCode): string {
+  return NUTRIENTS[code]
+}
+
+function withUnit(value: number, unit: ClientNutritionGoalTarget['unit']): string {
+  return unit ? `${figure(value)} ${unit}` : figure(value)
+}
+
+function targetAmount(target: ClientNutritionGoalTarget): string | null {
+  const { mode, minimum, maximum, exact, unit } = target
+  if (mode === 'range' && minimum !== null && maximum !== null) {
+    return `entre ${figure(minimum)} y ${withUnit(maximum, unit)}`
+  }
+  if (mode === 'minimum' && minimum !== null) return `al menos ${withUnit(minimum, unit)}`
+  if (mode === 'maximum' && maximum !== null) return `hasta ${withUnit(maximum, unit)}`
+  if (mode === 'exact' && exact !== null) return withUnit(exact, unit)
+  return null
+}
+
+/** One target as it was set, or null when the frozen version keeps none of it. */
+export function targetLine(target: ClientNutritionGoalTarget): string | null {
+  const name = target.nutrient_code ? nutrientName(target.nutrient_code) : null
+  const value = targetAmount(target)
+  if (name && value) return `${name}: ${value}`
+  return name ?? value
+}
+
+export function decisionLine(decision: ClientNutritionGoalDecision | null): string | null {
+  if (!decision) return null
+  const day = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(
+    new Date(decision.decided_at),
+  )
+  return decision.decision === 'accepted' ? `Lo aceptó el ${day}` : `Lo rechazó el ${day}`
+}
+
+export type ReadFailure = 'reauthenticate' | 'nothing' | 'gone' | 'retry'
+
+/**
+ * What a read through the case can answer besides its data. `nothing` is drawn
+ * exactly like an empty section; `gone` is the case no longer serving — closed,
+ * expired, revoked by her or no longer this member's — which the API answers the
+ * same way for every reason.
+ */
+export function readFailure(status: number, code: string): ReadFailure {
+  if (status === 403 && code === 'reauthentication-required') return 'reauthenticate'
+  if (status === 403 && code === 'scope-required') return 'nothing'
+  if (status === 403 || status === 404) return 'gone'
+  return 'retry'
+}

@@ -136,7 +136,11 @@ export function HistoricalAccessCasesScreen() {
             <ul data-historical-cases-list>
               {cases.map((entry) => (
                 <li key={entry.id}>
-                  <CaseRow entry={entry} myMembershipId={current.membership_id} />
+                  <CaseRow
+                    entry={entry}
+                    myMembershipId={current.membership_id}
+                    casesPath={casesPath}
+                  />
                 </li>
               ))}
             </ul>
@@ -164,9 +168,11 @@ export function HistoricalAccessCasesScreen() {
 function CaseRow({
   entry,
   myMembershipId,
+  casesPath,
 }: {
   entry: HistoricalAccessCase
   myMembershipId: string
+  casesPath: string
 }) {
   const state = caseState(entry)
   const mine = entry.authorized.membership_id === myMembershipId
@@ -191,6 +197,19 @@ function CaseRow({
         <dt>Relación</dt>
         <dd>{endedOnLine(entry.cut_at)}</dd>
       </dl>
+      {/* HU-062: only the member the case names reads, and only while it is open. */}
+      {state === 'open' && mine ? (
+        <div data-historical-case-actions>
+          <Link
+            href={`${casesPath}/${entry.id}?relationship=${entry.relationship_id}`}
+            data-slot="button"
+            data-variant="outline"
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Consultar el historial
+          </Link>
+        </div>
+      ) : null}
     </article>
   )
 }

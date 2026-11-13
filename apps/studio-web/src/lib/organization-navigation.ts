@@ -144,5 +144,9 @@ export function resolveWorkspaceRoute(
   if (pathname === `${basePath}/historical-access-cases/new`) {
     return { title: 'Abrir un caso' }
   }
+  // `new` is matched above, so it never reaches this as a case id.
+  if (/^\/organizations\/[^/]+\/historical-access-cases\/[^/]+$/.test(pathname)) {
+    return { title: 'Historial congelado' }
+  }
   return { title: 'Studio' }
 }

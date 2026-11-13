@@ -57,6 +57,14 @@ describe('coming back to the page after signing in again', () => {
     expect(takeReturn(NOW + MINUTE, store)).toBeUndefined()
   })
 
+  test('returns to the history a case was reading', () => {
+    const store = memory()
+    const path = `/organizations/${ORG}/historical-access-cases/${OTHER_ORG}?relationship=${ORG}`
+    rememberReturn(path, NOW, store)
+    expect(takeReturn(NOW, store)).toBe(path)
+    expect(returnBelongsTo(path, [ORG])).toBe(true)
+  })
+
   test('returns to the list as well', () => {
     const store = memory()
     rememberReturn(`/organizations/${ORG}/historical-access-cases`, NOW, store)
@@ -70,6 +78,7 @@ describe('coming back to the page after signing in again', () => {
       `/organizations/${ORG}/billing`,
       `/organizations/${ORG}/historical-access-cases/new/../../billing`,
       '/organizations/not-a-uuid/historical-access-cases',
+      `/organizations/${ORG}/historical-access-cases/${ORG}?relationship=${ORG}&next=//evil`,
     ]) {
       const store = memory()
       store.setItem('allfit-historical-return:v1', JSON.stringify({ path, savedAt: NOW }))
