@@ -135,7 +135,8 @@
 [data-card-footer-actions],
 [data-billing-actions],
 [data-profile-form-actions],
-[data-client-card-doors] {
+[data-client-card-doors],
+[data-historical-case-actions] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1746,7 +1747,8 @@
 
 [data-client-execution-what],
 [data-historical-case-window],
-[data-historical-entry-line] {
+[data-historical-entry-line],
+[data-historical-case-reason] {
   margin: 0;
 }
 
@@ -1876,6 +1878,12 @@
 /* What came of pressing the button stands off the form it came from. */
 [data-client-program-assignment-outcome] {
   margin-block-start: var(--afo-space-4);
+}
+
+/* The register's live region sits above the cases and is empty until a close
+   lands; only then does it take room, so the first case is not pushed down. */
+[data-historical-cases-outcome]:not(:empty) {
+  margin-block-end: var(--afo-space-4);
 }
 
 [data-client-program-assignment-loading] {

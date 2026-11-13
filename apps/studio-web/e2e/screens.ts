@@ -309,6 +309,15 @@ const settledReading = (sections: number) => async (page: Page) => {
   await expect(page.locator('[data-historical-reading-placeholder]')).toHaveCount(0)
 }
 
+/** HU-063's question, asked of the one open case. */
+const openCloseDialog = async (page: Page) => {
+  await page
+    .locator('[data-historical-case][data-historical-case-state="open"]')
+    .getByRole('button', { name: 'Cerrar el caso' })
+    .click()
+  await expect(page.getByRole('alertdialog')).toContainText('Un caso cerrado no se reabre')
+}
+
 /** Answers HU-061's form and sends it, then waits for what the screen says back. */
 const fillAndOpenCase = (said: string) => async (page: Page) => {
   await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
@@ -4133,6 +4142,65 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No pudimos abrir el historial')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases`, closing · HU-063 ---
+  {
+    stories: 'HU-063 · closing a case: what stays, and that it never reopens',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    reveal: openCloseDialog,
+  },
+  {
+    stories: 'HU-063 · closing a case, on a phone',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    reveal: openCloseDialog,
+  },
+  {
+    stories: 'HU-063 · a close refused inside the dialog',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.historicalCloseOutcome = 'forbidden'
+      return fixture
+    },
+    reveal: async (page) => {
+      await openCloseDialog(page)
+      await page.getByRole('button', { name: 'Cerrar ahora' }).click()
+      await expect(page.locator('[data-historical-case-close-error]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-063 · a case just closed',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    reveal: async (page) => {
+      await openCloseDialog(page)
+      await page.getByRole('button', { name: 'Cerrar ahora' }).click()
+      await expect(page.locator('[data-historical-cases-outcome]')).toContainText('Cerraste')
+    },
+  },
+  {
+    stories: 'HU-063 · closed for her, or for the member it named',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        historicalCases: [
+          { ...closedHistoricalCase, closed_reason: 'grant_revoked', closed_by: null },
+          {
+            ...closedHistoricalCase,
+            id: '01991600-7000-7000-8000-0000000000c4',
+            closed_reason: 'membership_ineligible',
+            closed_by: null,
+          },
+        ],
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('dejó de poder recibirlo')).toBeVisible()
     },
   },
 ]

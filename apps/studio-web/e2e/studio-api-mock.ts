@@ -236,6 +236,8 @@ export interface StudioApiFixture {
   historicalReadOutcome: 'ok' | 'reauthenticate'
   /** Reads that answer 403 `scope-required`, by the last segment of their path. */
   frozenRefused: Array<'executions' | 'body-progress' | 'goal-versions'>
+  /** What `OP-PRV-019` answers: the case closed, a role that cannot, or no such case. */
+  historicalCloseOutcome: 'closed' | 'forbidden' | 'gone'
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -2416,6 +2418,7 @@ export function createStudioApiFixture(
     frozenGoalVersions: structuredClone(frozenGoalVersions),
     historicalReadOutcome: 'ok',
     frozenRefused: [],
+    historicalCloseOutcome: 'closed',
     ...overrides,
   }
 }
@@ -4110,6 +4113,42 @@ function defaultResponse(
     }
     fixture.historicalCases = [opened, ...fixture.historicalCases]
     return { status: 201, headers: { 'Cache-Control': 'no-store' }, body: opened }
+  }
+  const closure =
+    /^\/studio\/v1\/organizations\/[^/]+\/historical-access-cases\/([^/]+)\/closure$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && closure) {
+    if (fixture.historicalCloseOutcome === 'forbidden') {
+      return { status: 403, body: problem('forbidden', 403) }
+    }
+    const index = fixture.historicalCases.findIndex((entry) => objectValue(entry).id === closure[1])
+    const entry = objectValue(fixture.historicalCases[index])
+    if (fixture.historicalCloseOutcome === 'gone' || index < 0) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    // It converges: a closed case answers as it stands, an expired one closes as expired.
+    const closed =
+      entry.status === 'closed'
+        ? entry
+        : {
+            ...entry,
+            status: 'closed',
+            closed_at: entry.status === 'expired' ? entry.expires_at : new Date().toISOString(),
+            closed_reason: entry.status === 'expired' ? 'expired' : 'closed_by_manager',
+            closed_by:
+              entry.status === 'expired'
+                ? null
+                : {
+                    membership_id: objectValue(fixture.memberships[0]).membership_id,
+                    given_name: 'Ada',
+                    family_name: 'Lovelace',
+                  },
+          }
+    fixture.historicalCases = fixture.historicalCases.map((candidate, at) =>
+      at === index ? closed : candidate,
+    )
+    return { status: 200, headers: { 'Cache-Control': 'no-store' }, body: closed }
   }
   const frozenRead =
     /^\/studio\/v1\/organizations\/[^/]+\/historical-relationships\/([^/]+)(?:\/(executions|body-progress|nutrition\/goal-versions))?$/.exec(

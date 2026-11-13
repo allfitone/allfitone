@@ -1154,6 +1154,25 @@ export const studioApi = {
     ),
 
   /**
+   * `OP-PRV-019`. No body and no recent sign-in. It converges: a closed case answers
+   * as it stands, and one whose time ran out closes as expired.
+   */
+  closeHistoricalAccessCase: (
+    organizationId: string,
+    caseId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<HistoricalAccessCase>(
+      `/studio/v1/organizations/${organizationId}/historical-access-cases/${caseId}/closure`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
    * `OP-PRV-020`. The relationship as the case froze it: whose it was, the cut,
    * the case, and the categories that stayed readable. Only the member the case
    * names, while it is open, with a sign-in at most ten minutes old; anything
