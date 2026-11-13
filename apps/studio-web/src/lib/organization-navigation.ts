@@ -158,5 +158,9 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/health-context$/.test(pathname)) {
     return { title: 'Contexto de salud' }
   }
+  // "Corporal" because "Progreso" already titles her training progress, one door away.
+  if (/^\/organizations\/[^/]+\/clients\/people\/[^/]+\/body-progress$/.test(pathname)) {
+    return { title: 'Progreso corporal' }
+  }
   return { title: 'Studio' }
 }

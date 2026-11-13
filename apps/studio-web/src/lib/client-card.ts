@@ -139,6 +139,12 @@ const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
     label: 'Ver el contexto de salud',
     segment: 'health-context',
   },
+  // Her photos are the second read of this screen, so they open no door of their own.
+  {
+    read: 'listAuthorizedClientBodyProgress',
+    label: 'Ver el progreso corporal',
+    segment: 'body-progress',
+  },
 ]
 
 /**
@@ -217,4 +223,9 @@ export function clientCardPath(organizationId: string, personId: string): string
 /** Her health context, beside the training screens: a category of its own. */
 export function clientHealthContextPath(organizationId: string, personId: string): string {
   return `${clientCardPath(organizationId, personId)}/health-context`
+}
+
+/** Her measurements and the photos she shows this gym: one category, one screen. */
+export function clientBodyProgressPath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/body-progress`
 }

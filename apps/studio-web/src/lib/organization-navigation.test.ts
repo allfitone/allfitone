@@ -256,4 +256,11 @@ describe('organization workspace navigation', () => {
       ),
     ).toEqual({ title: 'Contexto de salud' })
   })
+
+  test('her body progress is titled apart from her training progress', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/body-progress`, organizationId),
+    ).toEqual({ title: 'Progreso corporal' })
+  })
 })

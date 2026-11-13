@@ -46,15 +46,13 @@ import type { ReactNode } from 'react'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { executionLength, executionWhen, levelLabel, originLabel } from '@/lib/client-executions'
+import { measuredOnLine, measurementLine, metricLabel } from '@/lib/body-measurements'
 import { caseWindowLine, memberName, purposeLabel } from '@/lib/historical-access'
 import {
   cutLine,
   decisionLine,
   goalStatusLabel,
   historicalSections,
-  measuredOnLine,
-  measurementLine,
-  metricLabel,
   readFailure,
   targetLine,
   type HistoricalSection,

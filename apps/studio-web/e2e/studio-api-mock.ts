@@ -16,6 +16,8 @@ export interface MockResponse {
   status: number
   body?: unknown
   headers?: Record<string, string>
+  /** A binary answer, such as an image the API streams; sent as is, never as JSON. */
+  bytes?: Buffer
 }
 
 export interface StudioGuestQuotaBody {
@@ -249,6 +251,12 @@ export interface StudioApiFixture {
   historicalCloseOutcome: 'closed' | 'forbidden' | 'gone'
   /** `OP-IDN-020`. Her claims, newest first; null is the 403 of nothing shared. */
   clientHealthContext: unknown[] | null
+  /** `OP-IDN-019`. Her measurements, newest day first; null is the 403 of nothing shared. */
+  clientBodyProgress: unknown[] | null
+  /** `OP-IDN-059`. The photos she shows this gym, newest first. */
+  clientBodyPhotos: unknown[]
+  /** What `OP-IDN-060` answers for any photo: its bytes, the one 404, or a dropped connection. */
+  bodyPhotoOutcome: 'shown' | 'unavailable' | 'failure'
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -2518,6 +2526,121 @@ export const narrowHealthContext = clientHealthContext.map((claim) => ({
   provenance: null,
 }))
 
+/**
+ * The same person, sharing her body progress as well. A card of its own rather
+ * than a change to `clientCard`, whose withdrawal of that category other suites
+ * read: here she shares it again, so it is not withdrawn.
+ */
+export const bodySharingClientCard = {
+  ...clientCard,
+  sections: [
+    ...clientCard.sections,
+    {
+      scope_code: 'body_progress',
+      scope_version: 3,
+      access_level: 'read',
+      granted_at: '2026-02-01T10:00:00.000Z',
+      reads: ['listAuthorizedClientBodyProgress', 'listAuthorizedClientBodyPhotos'],
+    },
+  ],
+  withdrawn: [],
+}
+
+/**
+ * `OP-IDN-019`, written from `identity.read_client_body_progress`: three days, the
+ * newest with two measurements, one typed in pounds and kept in kilograms.
+ */
+export const clientBodyProgress = [
+  {
+    id: '01991600-7000-7000-8000-000000000401',
+    metric_code: 'body_weight',
+    value: 72.5,
+    unit_code: 'kg',
+    original_value: 159.8,
+    original_unit_code: 'lb',
+    measured_on: '2026-09-14',
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000402',
+    metric_code: 'waist',
+    value: 81,
+    unit_code: 'cm',
+    original_value: null,
+    original_unit_code: null,
+    measured_on: '2026-09-14',
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000403',
+    metric_code: 'body_weight',
+    value: 74,
+    unit_code: 'kg',
+    original_value: null,
+    original_unit_code: null,
+    measured_on: '2026-08-01',
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000404',
+    metric_code: 'body_fat',
+    value: 24,
+    unit_code: 'percent',
+    original_value: null,
+    original_unit_code: null,
+    measured_on: '2026-08-01',
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000405',
+    metric_code: 'body_height',
+    value: 1.68,
+    unit_code: 'm',
+    original_value: null,
+    original_unit_code: null,
+    measured_on: '2026-06-20',
+  },
+]
+
+/** `OP-IDN-059`: a day each, and when she chose to show it — another day. */
+export const clientBodyPhotos = [
+  {
+    id: '01991600-7000-7000-8000-000000000501',
+    taken_on: '2026-09-14',
+    shared_at: '2026-09-20T15:00:00.000Z',
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000502',
+    taken_on: '2026-06-20',
+    shared_at: '2026-06-21T15:00:00.000Z',
+  },
+]
+
+/**
+ * A real JPEG, 120 by 160, so a test sees an image decode rather than a broken
+ * icon. A plain gradient: nothing in it is anybody's body.
+ */
+export const bodyPhotoJpeg = Buffer.from(
+  [
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdC',
+    'IFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAA',
+    'AADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlk',
+    'ZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAA',
+    'ABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAA',
+    'AAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAA',
+    'AABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEA',
+    'AAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAA',
+    'ACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDABALDA4MChAODQ4SERAT',
+    'GCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARES',
+    'EhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2Nj',
+    'Y2NjY2P/wAARCACgAHgDASIAAhEBAxEB/8QAGAABAQEBAQAAAAAAAAAAAAAAAQACBAX/xAAVEAEB',
+    'AAAAAAAAAAAAAAAAAAAAEf/EABcBAQEBAQAAAAAAAAAAAAAAAAABAgT/xAAUEQEAAAAAAAAAAAAA',
+    'AAAAAAAA/9oADAMBAAIRAxEAPwD26qzVW3MaKKKBqrNVA0UUUGqKKKBqrNVA0UUUDUzUI6KqzVRT',
+    'RRRQaooooGiiqgaKKKIaqzVQNFFFBqpmoHRRRRRTRRRRGqKKKBqrNVA0UUUGqKKKBoooqjVTNQOi',
+    'iiioGqs1UDRRRQNVFFA0UUVRqiiigaqzVQNTNQOiiiioGqs1VQ0UUUGqKKKBqrNVA0UUUDVWaqBq',
+    'ZqB0UUUUGqKKKBooooNUUUUDVWaqBooooGqiigamagdFFFFBqiiigaKKqBooooGqiigaKKKDVFFF',
+    'UNTNQOiiiqoGiiigaqzVQNFFFUaooooGiiig1RRRQNTNQOiqs1VA0UUVQ1VmqgaKKKDVFFFA1Vmq',
+    'gaKKKI1UxUDoqrNVFNFFFBqiiigaqzVRDRRRQNVZqoGiiigamagf/9k=',
+  ].join(''),
+  'base64',
+)
+
 export function createStudioApiFixture(
   overrides: Partial<StudioApiFixture> = {},
 ): StudioApiFixture {
@@ -2632,6 +2755,9 @@ export function createStudioApiFixture(
     frozenRefused: [],
     historicalCloseOutcome: 'closed',
     clientHealthContext: structuredClone(clientHealthContext),
+    clientBodyProgress: structuredClone(clientBodyProgress),
+    clientBodyPhotos: structuredClone(clientBodyPhotos),
+    bodyPhotoOutcome: 'shown',
     ...overrides,
   }
 }
@@ -4491,6 +4617,60 @@ function defaultResponse(
     }
   }
   if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/body-(progress|photos)$/.test(
+      request.path,
+    )
+  ) {
+    // Both reads belong to one category: not attending her is 404 for both, and
+    // nothing shared is the same 403 for both.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    if (fixture.clientBodyProgress === null) {
+      return {
+        status: 403,
+        body: problem('scope-required', 403, {
+          required_scope: { code: 'body_progress', level: 'read' },
+        }),
+      }
+    }
+    const photos = request.path.endsWith('/body-photos')
+    const all = photos ? fixture.clientBodyPhotos : fixture.clientBodyProgress
+    const search = new URLSearchParams(request.search ?? '')
+    const limit = Number(search.get('limit') ?? '25')
+    const from = Number(search.get('cursor') ?? '0')
+    const next = from + limit < all.length ? String(from + limit) : null
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        applied_scope: { code: 'body_progress', version: 3 },
+        data: all.slice(from, from + limit),
+        page: { next_cursor: next, has_more: next !== null },
+      },
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/body-photos\/[^/]+\/content$/.test(
+      request.path,
+    )
+  ) {
+    // Anything short of a photo she shows is the one 404, whatever the reason.
+    const photoId = request.path.split('/').at(-2)
+    const shown = fixture.clientBodyPhotos.some((photo) => objectValue(photo)['id'] === photoId)
+    if (fixture.bodyPhotoOutcome === 'failure') {
+      return { status: 503, body: problem('upstream-unavailable', 503) }
+    }
+    if (fixture.clientCard === null || fixture.bodyPhotoOutcome === 'unavailable' || !shown) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' },
+      bytes: bodyPhotoJpeg,
+    }
+  }
+  if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/memberships\/[^/]+\/roles$/.test(request.path)
   ) {
@@ -5262,7 +5442,7 @@ async function fulfill(route: Route, response: MockResponse): Promise<void> {
   const hasBody = response.body !== undefined
   await route.fulfill({
     status: response.status,
-    body: hasBody ? JSON.stringify(response.body) : '',
+    body: response.bytes ?? (hasBody ? JSON.stringify(response.body) : ''),
     headers: {
       'Access-Control-Allow-Origin': STUDIO_ORIGIN,
       'Access-Control-Allow-Credentials': 'true',

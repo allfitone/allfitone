@@ -5,6 +5,7 @@ import {
   categoryName,
   categorySummary,
   clientCardPath,
+  clientBodyProgressPath,
   clientExecutionsPath,
   clientHealthContextPath,
   clientProgramsPath,
@@ -231,6 +232,32 @@ describe('the doors on each category', () => {
     ])
     expect(clientHealthContextPath('019a0000-org', '019a0000-person')).toBe(
       '/organizations/019a0000-org/clients/people/019a0000-person/health-context',
+    )
+  })
+
+  /*
+   * Her measurements and her photos are two reads of one category, shown on one
+   * screen. One door, never a second one for the photos.
+   */
+  test('her body progress is one door for its two reads', () => {
+    const doors = doorsBySection(
+      [
+        sectionFor('body_progress', [
+          'listAuthorizedClientBodyProgress',
+          'listAuthorizedClientBodyPhotos',
+        ]),
+      ],
+      reader,
+    )
+    expect(doors.get('body_progress')).toEqual([
+      {
+        read: 'listAuthorizedClientBodyProgress',
+        label: 'Ver el progreso corporal',
+        href: '/organizations/019a0000-org/clients/people/019a0000-person/body-progress',
+      },
+    ])
+    expect(clientBodyProgressPath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/body-progress',
     )
   })
 

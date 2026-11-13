@@ -170,6 +170,9 @@ export type ClientHealthContextPage = AllfitV1Schemas['ClientHealthContextPage']
 export type ClientHealthContextClaim = AllfitV1Schemas['ClientHealthContextClaim']
 export type HealthContextType = AllfitV1Schemas['HealthContextType']
 export type HealthContextBodyArea = AllfitV1Schemas['HealthContextBodyArea']
+export type ClientBodyProgressPage = AllfitV1Schemas['ClientBodyProgressPage']
+export type ClientBodyPhotoPage = AllfitV1Schemas['ClientBodyPhotoPage']
+export type ClientBodyPhoto = AllfitV1Schemas['ClientBodyPhoto']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -1301,6 +1304,60 @@ export const studioApi = {
       },
     ),
 
+  /**
+   * `OP-IDN-019`. Her measurements, newest day first, under `body_progress`.
+   * 404 for anybody who does not attend her; 403 `scope-required` with nothing
+   * shared.
+   */
+  clientBodyProgress: (
+    organizationId: string,
+    personId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ClientBodyProgressPage>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/body-progress?${pageSearch(query)}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-IDN-059`. The photos she chose to show this relationship, newest first,
+   * and only while her `body_progress` version includes photos. Each is a day
+   * and when she showed it; never where it is kept.
+   */
+  clientBodyPhotos: (
+    organizationId: string,
+    personId: string,
+    query: { limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ClientBodyPhotoPage>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/body-photos?${pageSearch(query)}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-IDN-060`. One body photo, streamed through the API after rechecking
+   * everything, and recorded whether it is allowed or not. Anything short of a
+   * photo she shows is 404.
+   */
+  clientBodyPhotoContent: (
+    organizationId: string,
+    personId: string,
+    photoId: string,
+    signal?: AbortSignal,
+  ) =>
+    requestImage(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/body-photos/${photoId}/content`,
+      signal,
+    ),
+
   offerableScopes: (signal?: AbortSignal) =>
     request<OfferableScopeCatalog>('/studio/v1/offerable-scopes', {
       cache: 'no-store',
@@ -1769,4 +1826,19 @@ function errorDetail(value: unknown): string | undefined {
   const error = value.error
   if (!error || typeof error !== 'object' || !('detail' in error)) return undefined
   return typeof error.detail === 'string' ? error.detail : undefined
+}
+
+/**
+ * An image the API streams after rechecking the reader's grant, as bytes rather
+ * than an address. The route checks `Origin`, which only a request made here
+ * carries; an `<img src>` would be refused, and would also leave a link behind.
+ */
+async function requestImage(path: string, signal?: AbortSignal): Promise<Blob> {
+  const response = await fetchApi(path, {
+    cache: 'no-store',
+    headers: { Accept: 'image/jpeg' },
+    ...(signal ? { signal } : {}),
+  })
+  if (!response.ok) throw await responseError(response)
+  return response.blob()
 }
