@@ -1844,6 +1844,15 @@
   min-width: 0;
 }
 
+/* The way to stop the program, under the calendar it stops.
+
+   16px, which is the gap the card already puts between its facts and its
+   calendar — measured, not chosen: the block has no margin of its own and sat
+   flush against the table, so the button read as part of the last row. */
+[data-client-program-cancel] {
+  margin-block-start: var(--afo-space-4);
+}
+
 /* The title leads and the state sits beside it, wrapping under it where there
    is no room rather than squeezing the title. */
 [data-client-program-head] {
