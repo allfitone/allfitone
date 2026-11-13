@@ -39,6 +39,8 @@ import {
   type StudioMe,
   type TeamInvitationPage,
   type TeamInvitationStatus,
+  type HistoricalAccessCase,
+  type HistoricalAccessCasePage,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -201,6 +203,10 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'invitations'] as const,
   organizationInvitations: (organizationId: string, status: InvitationFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'invitations', { status, limit }] as const,
+  historicalAccessCasesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'historical-access-cases'] as const,
+  historicalAccessCases: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'historical-access-cases', { limit }] as const,
 } as const
 
 export function createStudioQueryClient(): QueryClient {
@@ -1038,4 +1044,40 @@ export function flattenSubscriptionPages(
     }
   }
   return subscriptions
+}
+
+/*
+ * The cases are metadata about an exception, not her data, so they cache like the
+ * team does. They change on their own when a deadline passes, which is why they
+ * never sit longer than the team stale time.
+ */
+export function historicalAccessCasesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalAccessCases(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<HistoricalAccessCasePage> =>
+      studioApi.historicalAccessCases(
+        organizationId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function flattenHistoricalCasePages(
+  data: InfiniteData<HistoricalAccessCasePage, unknown> | undefined,
+): HistoricalAccessCase[] {
+  if (!data) return []
+  const cases: HistoricalAccessCase[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const entry of page.data) {
+      if (seen.has(entry.id)) continue
+      seen.add(entry.id)
+      cases.push(entry)
+    }
+  }
+  return cases
 }

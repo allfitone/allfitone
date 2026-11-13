@@ -83,6 +83,8 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
   const contentActive = pathname.startsWith(contentHref)
   const billingHref = `${basePath}/billing`
   const billingActive = pathname.startsWith(billingHref)
+  const casesHref = `${basePath}/historical-access-cases`
+  const casesActive = pathname.startsWith(casesHref)
 
   function closeMobileNavigation() {
     setOpenMobile(false)
@@ -243,6 +245,18 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                 >
                   <FoundationIcon name="business" decorative />
                   <span>Cobros</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* Shown to everybody: a coach reads the cases that name them, and only
+                  `manage_historical_access` opens one, which the screen decides. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href={casesHref} onClick={closeMobileNavigation} />}
+                  isActive={casesActive}
+                  aria-current={casesActive ? 'page' : undefined}
+                >
+                  <FoundationIcon name="permissions" decorative />
+                  <span>Casos de historial</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

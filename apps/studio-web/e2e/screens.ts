@@ -49,6 +49,10 @@ import {
   secondActiveMembership,
   terminatedMembership,
   terminatedTeamMember,
+  closedHistoricalCase,
+  endedRelationshipHistory,
+  expiredHistoricalCase,
+  openHistoricalCase,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -275,6 +279,37 @@ const withoutActiveSpaces = () =>
   })
 
 const asCoach = () => createStudioApiFixture({ memberships: [secondActiveMembership] })
+
+// Bruno's relationship ended, with the coach who held him at the cut: HU-061's form.
+const withEndedRelationship = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    relationshipHistory: structuredClone(endedRelationshipHistory),
+  })
+
+// The three states a case can be in, the expired one being the deadline at work.
+const withEveryCaseState = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    historicalCases: structuredClone([
+      openHistoricalCase,
+      expiredHistoricalCase,
+      closedHistoricalCase,
+    ]),
+  })
+
+/** Answers HU-061's form and sends it, then waits for what the screen says back. */
+const fillAndOpenCase = (said: string) => async (page: Page) => {
+  await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
+  await page.getByRole('radio', { name: 'A ti' }).check()
+  await page.getByRole('radio', { name: 'Disputa del servicio' }).check()
+  await page.getByLabel('Referencia del caso').fill('RAD-2026-114')
+  await page.getByLabel('Justificación').fill('Reclamo formal por el cobro de octubre.')
+  await page.getByLabel('Duración').click()
+  await page.getByRole('option', { name: '4 horas', exact: true }).click()
+  await page.getByRole('button', { name: 'Abrir el caso' }).click()
+  await expect(page.locator(said)).toBeVisible()
+}
 
 // One subscription paying, one paused and one ended: every state HU-078 names.
 const withEverySubscriptionState = () =>
@@ -3882,6 +3917,144 @@ export const SCREENS: Screen[] = [
     setup: endedSession('inactivity'),
     settled: async (page) => {
       await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases` · HU-061 ---
+  {
+    stories: 'HU-061 · the cases, open, expired and closed',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-061 · the cases, on a phone',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-061 · no case opened yet',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEndedRelationship,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no se ha abierto ningún caso')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a coach no case names',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No tienes casos')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · the cases could not be read',
+    path: `${workspace}/historical-access-cases`,
+    fixture: failingFor([activeMembership], /\/historical-access-cases$/),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los casos')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · opening a case',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
+      await expect(page.getByRole('radio', { name: 'Diana Entrante' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · opening a case, on a phone',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case-picker-results] li')).toHaveCount(1)
+    },
+  },
+  {
+    stories: 'HU-061 · what the form still needs',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Abrir el caso' }).click()
+      await expect(page.getByText('Elige cuántas horas dura el caso.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a case refused, with both causes',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () => {
+      const fixture = withEndedRelationship()
+      fixture.historicalOpenOutcome = 'conflict'
+      return fixture
+    },
+    reveal: fillAndOpenCase('[data-historical-case-error]'),
+  },
+  {
+    stories: 'HU-061 · signing in again before opening',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () => {
+      const fixture = withEndedRelationship()
+      fixture.historicalOpenOutcome = 'reauthenticate'
+      return fixture
+    },
+    viewport: MOBILE,
+    reveal: fillAndOpenCase('[data-historical-case-reauthenticate]'),
+  },
+  {
+    stories: 'HU-061 · the form brought back after signing in again',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    setup: async (page) => {
+      await page.addInitScript((organizationId) => {
+        sessionStorage.setItem(
+          'allfit-historical-case-draft:v1',
+          JSON.stringify({
+            organizationId,
+            savedAt: Date.now(),
+            draft: {
+              relationship: {
+                id: '01991600-7000-7000-8000-000000000102',
+                name: 'Bruno Bello',
+                endedAt: '2025-06-30T22:41:19.204Z',
+              },
+              authorized: null,
+              purpose: 'legal_or_regulatory_obligation',
+              reference: 'OF-2026-0042',
+              justification: 'Requerimiento de la Superintendencia.',
+              hours: 6,
+            },
+          }),
+        )
+      }, activeMembership.organization_id)
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case-restored]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a role that opens no case',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await expect(page.getByText('Tu rol no abre casos')).toBeVisible()
     },
   },
 ]

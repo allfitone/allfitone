@@ -217,4 +217,13 @@ describe('organization workspace navigation', () => {
       { title: 'Ficha' },
     )
   })
+
+  test('the historical access cases, and opening one, have their own titles', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/historical-access-cases`, organizationId)).toEqual({
+      title: 'Casos de historial',
+    })
+    expect(
+      resolveWorkspaceRoute(`${basePath}/historical-access-cases/new`, organizationId),
+    ).toEqual({ title: 'Abrir un caso' })
+  })
 })

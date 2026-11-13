@@ -138,5 +138,11 @@ export function resolveWorkspaceRoute(
   if (/^\/organizations\/[^/]+\/billing\/plans\/[^/]+$/.test(pathname)) {
     return { title: 'Plan' }
   }
+  if (pathname === `${basePath}/historical-access-cases`) {
+    return { title: 'Casos de historial' }
+  }
+  if (pathname === `${basePath}/historical-access-cases/new`) {
+    return { title: 'Abrir un caso' }
+  }
   return { title: 'Studio' }
 }

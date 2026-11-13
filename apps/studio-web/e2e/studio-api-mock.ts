@@ -215,6 +215,14 @@ export interface StudioApiFixture {
   credentialTypes: Array<{ code: string; name: string; description: string | null }>
   signedOut: boolean
   requests: MockRequest[]
+  /** The organization's historical access cases, newest first, as `OP-PRV-025` lists them. */
+  historicalCases: unknown[]
+  /**
+   * What `OP-PRV-018` answers. `reauthenticate` is a sign-in older than ten
+   * minutes; `conflict` is either cause of the 409, which the API does not tell
+   * apart; `ineligible` is the member the case names no longer qualifying.
+   */
+  historicalOpenOutcome: 'opened' | 'reauthenticate' | 'conflict' | 'ineligible'
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -1750,6 +1758,114 @@ export const terminatedClient = {
   ended_at: '2025-06-30T22:41:19.204Z',
 }
 
+/**
+ * Bruno's relationship as its history tells it, for the historical access case.
+ * Ending a relationship closes the holder at the same instant, so his coach's
+ * `holder_ended` shares the cut — the event a case reads to offer that coach. The
+ * coach before her ended earlier, and must never be offered.
+ */
+export const formerHolderMembershipId = '01991600-1000-7000-8000-0000000000d1'
+
+export const endedRelationshipHistory = [
+  {
+    type: 'relationship_ended',
+    occurred_at: terminatedClient.ended_at,
+    source_id: terminatedClient.relationship_id,
+    detail: { ended_by_kind: 'person', declared_by_us: false, reason: null },
+  },
+  {
+    type: 'holder_ended',
+    occurred_at: terminatedClient.ended_at,
+    source_id: '01991600-7000-7000-8000-000000000311',
+    detail: {
+      assignment_id: '01991600-7000-7000-8000-000000000311',
+      membership_id: formerHolderMembershipId,
+      professional_person_id: '01991600-7000-7000-8000-000000000211',
+      display_name: 'Diana Entrante',
+    },
+  },
+  {
+    type: 'holder_assigned',
+    occurred_at: '2025-02-01T09:00:00.000Z',
+    source_id: '01991600-7000-7000-8000-000000000311',
+    detail: {
+      assignment_id: '01991600-7000-7000-8000-000000000311',
+      membership_id: formerHolderMembershipId,
+      professional_person_id: '01991600-7000-7000-8000-000000000211',
+      display_name: 'Diana Entrante',
+    },
+  },
+  {
+    type: 'holder_ended',
+    occurred_at: '2025-02-01T09:00:00.000Z',
+    source_id: '01991600-7000-7000-8000-000000000310',
+    detail: {
+      assignment_id: '01991600-7000-7000-8000-000000000310',
+      membership_id: '01991600-1000-7000-8000-0000000000d0',
+      professional_person_id: '01991600-7000-7000-8000-000000000210',
+      display_name: 'Camilo Saliente',
+    },
+  },
+]
+
+/** A case over Bruno's ended relationship that authorizes the owner signed in. */
+export const openHistoricalCase = {
+  id: '01991600-7000-7000-8000-0000000000c1',
+  organization_id: '01991600-1000-7000-8000-000000000002',
+  relationship_id: terminatedClient.relationship_id,
+  person: { id: terminatedClient.person_id, given_name: 'Bruno', family_name: 'Bello' },
+  cut_at: terminatedClient.ended_at,
+  authorized: {
+    membership_id: '01991600-1000-7000-8000-000000000001',
+    given_name: 'Ada',
+    family_name: 'Lovelace',
+  },
+  opened_by: {
+    membership_id: '01991600-1000-7000-8000-000000000001',
+    given_name: 'Ada',
+    family_name: 'Lovelace',
+  },
+  purpose: 'service_dispute',
+  case_reference: 'RAD-2026-114',
+  justification: 'Reclamo formal por el cobro de octubre.',
+  status: 'open',
+  opened_at: '2026-11-12T14:00:00.000Z',
+  expires_at: '2099-11-12T18:00:00.000Z',
+  closed_at: null,
+  closed_reason: null,
+  closed_by: null,
+}
+
+/** Its time ran out and nobody closed it: the deadline doing its job. */
+export const expiredHistoricalCase = {
+  ...openHistoricalCase,
+  id: '01991600-7000-7000-8000-0000000000c2',
+  purpose: 'legal_or_regulatory_obligation',
+  case_reference: 'OF-2026-0042',
+  status: 'expired',
+  opened_at: '2026-11-01T08:00:00.000Z',
+  expires_at: '2026-11-01T10:00:00.000Z',
+}
+
+/** Closed by hand, and authorizing the coach who held Bruno when it ended. */
+export const closedHistoricalCase = {
+  ...openHistoricalCase,
+  id: '01991600-7000-7000-8000-0000000000c3',
+  purpose: 'customer_support_request',
+  case_reference: 'SOP-7781',
+  authorized: {
+    membership_id: formerHolderMembershipId,
+    given_name: 'Diana',
+    family_name: 'Entrante',
+  },
+  status: 'closed',
+  opened_at: '2026-10-20T08:00:00.000Z',
+  expires_at: '2026-10-20T12:00:00.000Z',
+  closed_at: '2026-10-20T09:30:00.000Z',
+  closed_reason: 'closed_by_manager',
+  closed_by: openHistoricalCase.opened_by,
+}
+
 /* A long masked contact, because that is the value with nowhere to break. */
 export const pendingClientInvitation = {
   kind: 'invitation',
@@ -2181,6 +2297,8 @@ export function createStudioApiFixture(
     ],
     signedOut: false,
     requests: [],
+    historicalCases: [],
+    historicalOpenOutcome: 'opened',
     ...overrides,
   }
 }
@@ -3800,6 +3918,81 @@ function defaultResponse(
       status: 200,
       body: { data: slice, page: { next_cursor: next, has_more: next !== null } },
     }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/historical-access-cases$/.test(request.path)
+  ) {
+    const search = new URLSearchParams(request.search ?? '')
+    const limit = Number(search.get('limit') ?? '25')
+    const from = Number(search.get('cursor') ?? '0')
+    const slice = fixture.historicalCases.slice(from, from + limit)
+    const next = from + limit < fixture.historicalCases.length ? String(from + limit) : null
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: { data: slice, page: { next_cursor: next, has_more: next !== null } },
+    }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/historical-access-cases$/.test(request.path)
+  ) {
+    // RFC 9457 answers, as `studio-historical-access.ts` sends them.
+    if (fixture.historicalOpenOutcome === 'reauthenticate') {
+      return { status: 403, body: problem('reauthentication-required', 403) }
+    }
+    if (fixture.historicalOpenOutcome === 'conflict') {
+      return { status: 409, body: problem('conflict', 409) }
+    }
+    if (fixture.historicalOpenOutcome === 'ineligible') {
+      return { status: 422, body: problem('validation-failed', 422) }
+    }
+    const body = objectValue(request.body)
+    const relationship = fixture.organizationClients
+      .map(objectValue)
+      .find((entry) => entry.relationship_id === body.relationship_id)
+    if (!relationship || relationship.relationship_status !== 'terminated') {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    const [given = '', ...family] = String(relationship.display_name).split(' ')
+    const me = objectValue(fixture.memberships[0]).membership_id
+    const holder = fixture.relationshipHistory
+      .map(objectValue)
+      .map((event) => objectValue(event.detail))
+      .find((detail) => detail.membership_id === body.authorized_membership_id)
+    const [holderGiven = '', ...holderFamily] = String(holder?.display_name ?? '').split(' ')
+    const opener = { membership_id: me, given_name: 'Ada', family_name: 'Lovelace' }
+    const openedAt = new Date()
+    const opened = {
+      id: `01991600-7000-7000-8000-${String(900000000000 + fixture.historicalCases.length)}`,
+      organization_id: request.path.split('/')[4],
+      relationship_id: body.relationship_id,
+      person: { id: relationship.person_id, given_name: given, family_name: family.join(' ') },
+      cut_at: relationship.ended_at,
+      authorized:
+        body.authorized_membership_id === me
+          ? opener
+          : {
+              membership_id: body.authorized_membership_id,
+              given_name: holderGiven,
+              family_name: holderFamily.join(' '),
+            },
+      opened_by: opener,
+      purpose: body.purpose,
+      case_reference: body.case_reference,
+      justification: body.justification,
+      status: 'open',
+      opened_at: openedAt.toISOString(),
+      expires_at: new Date(
+        openedAt.getTime() + Number(body.duration_hours) * 3600 * 1000,
+      ).toISOString(),
+      closed_at: null,
+      closed_reason: null,
+      closed_by: null,
+    }
+    fixture.historicalCases = [opened, ...fixture.historicalCases]
+    return { status: 201, headers: { 'Cache-Control': 'no-store' }, body: opened }
   }
   if (
     request.method === 'POST' &&

@@ -628,7 +628,8 @@
 [data-client-profile-group-name],
 [data-client-execution-facts] dt,
 [data-client-progress-facts] dt,
-[data-client-program-facts] dt {
+[data-client-program-facts] dt,
+[data-historical-case-facts] dt {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -656,7 +657,8 @@
 [data-client-card-facts],
 [data-client-execution-facts],
 [data-client-progress-facts],
-[data-client-program-facts] {
+[data-client-program-facts],
+[data-historical-case-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -721,7 +723,10 @@
 [data-client-profile-group-list],
 [data-client-executions-list],
 [data-client-progress-period-cards],
-[data-client-progress-movement-cards] {
+[data-client-progress-movement-cards],
+[data-historical-cases-list],
+[data-historical-case-picker],
+[data-historical-case-picker-results] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -732,7 +737,9 @@
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
 [data-movement-picker-results] > li,
-[data-role-capability-list] > li {
+[data-role-capability-list] > li,
+[data-historical-case-picker-results] > li,
+[data-historical-case-chosen] {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -744,7 +751,8 @@
 [data-relationship-substitution-identity],
 [data-relationship-grant-identity],
 [data-relationship-history-what],
-[data-overview-team-identity] {
+[data-overview-team-identity],
+[data-historical-case-relationship] {
   min-width: 0;
   flex: 1;
 }
@@ -1697,19 +1705,22 @@
 /* One session: the hour leads, where it came from sits beside it, and the facts
    about it step down below. Separated by hairlines rather than boxed, because a
    card per session would make twenty-five boxes out of one list. */
-[data-client-execution] {
+[data-client-execution],
+[data-historical-case] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
   border-block-start: 1px solid var(--afo-color-border);
 }
 
-[data-client-executions-list] > li:first-child [data-client-execution] {
+[data-client-executions-list] > li:first-child [data-client-execution],
+[data-historical-cases-list] > li:first-child [data-historical-case] {
   padding-block-start: 0;
   border-block-start: none;
 }
 
-[data-client-execution-head] {
+[data-client-execution-head],
+[data-historical-case-head] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1717,19 +1728,22 @@
   min-width: 0;
 }
 
-[data-client-execution-when] {
+[data-client-execution-when],
+[data-historical-case-person] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-[data-client-execution-what] {
+[data-client-execution-what],
+[data-historical-case-window] {
   margin: 0;
 }
 
 /* Whatever follows the list stands off it. The pager had this air and the
    notice did not, so the warning sat flush against the last session. */
 [data-client-executions-more],
-[data-client-executions-stale-cursor] {
+[data-client-executions-stale-cursor],
+[data-historical-cases-more] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -2284,13 +2298,25 @@
   gap: var(--afo-space-3);
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) strong {
+:is(
+    [data-studio-sheet-head],
+    [data-studio-object-person],
+    [data-studio-object-heading],
+    [data-historical-case-relationship]
+  )
+  strong {
   display: block;
   font-size: var(--afo-font-size-sm);
   font-weight: 700;
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) small,
+:is(
+    [data-studio-sheet-head],
+    [data-studio-object-person],
+    [data-studio-object-heading],
+    [data-historical-case-relationship]
+  )
+  small,
 [data-billing-amount] {
   display: block;
   color: var(--afo-color-text-muted);
