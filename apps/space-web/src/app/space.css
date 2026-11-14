@@ -74,6 +74,11 @@ p {
   border-radius: 6px;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--cyan) 32%, transparent);
+  color: var(--text);
+}
+
 .wrap {
   width: min(1296px, 100% - 2 * var(--gutter));
   margin-inline: auto;
@@ -324,13 +329,33 @@ a.store:active {
 }
 
 .hero .lead,
-.hero .stores {
+.hero__actions {
   animation: fade-up 1s var(--ease) both;
   animation-delay: 0.65s;
 }
 
-.hero .stores {
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
   animation-delay: 0.78s;
+}
+
+/* On a phone the action takes its own row, as wide as the two stores under it. */
+@media (max-width: 640px) {
+  .hero__actions > .cta {
+    flex-basis: 100%;
+  }
+
+  .hero__actions .stores {
+    flex: 1 1 100%;
+  }
+
+  .hero__actions .store {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 .hero__phones {
@@ -558,18 +583,6 @@ a.store:active {
   margin: 0;
   color: var(--text-soft);
   font-size: 14px;
-}
-
-.program__badge {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: var(--cyan);
-  color: var(--on-cyan);
-  font-size: 12px;
-  font-weight: 800;
 }
 
 /* On narrow screens the row runs to the screen's edges, so the next card peeking
@@ -1069,6 +1082,96 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   box-shadow: inset 0 0 0 1.5px var(--cyan);
 }
 
+/* ----------------------------------------------------------------- invite */
+
+/* Close under the records, as in the owner's proposal; the gyms section brings its own space. */
+.invite-section {
+  padding-top: clamp(48px, 6vw, 80px);
+}
+
+.invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 32px 48px;
+  padding: clamp(28px, 4vw, 48px);
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  border-radius: var(--card-radius);
+  background: var(--panel);
+}
+
+.invite__copy {
+  display: grid;
+  flex: 1 1 320px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.invite__copy .display {
+  font-size: clamp(34px, 3.4vw, 48px);
+}
+
+.invite__copy p {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--text-soft);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.invite .levels {
+  flex: 2 1 520px;
+}
+
+/* The referral levels, shared by the invite band and the waitlist page. */
+.levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.levels__item {
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--panel-raised);
+}
+
+.levels__count {
+  margin: 0;
+  color: var(--cyan);
+  font-family: var(--font-display), sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 0.92;
+}
+
+.levels__unit {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-soft);
+  font-family: var(--font-body), sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.levels__reward {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* With the unit under the count, a hairline keeps the reward its own line. */
+.levels__item:has(.levels__unit) .levels__reward {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
 /* -------------------------------------------------------------- pro, gyms */
 
 .pro {
@@ -1246,6 +1349,670 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   padding-block: 120px;
 }
 
+/* --------------------------------------------------------------- actions */
+
+/* The page's one filled action: joining the waitlist, and sharing once joined.
+   `.pill-link` is its outlined partner. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--cyan);
+  color: var(--on-cyan);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform 0.3s var(--ease),
+    box-shadow 0.3s var(--ease),
+    background-color 0.3s var(--ease);
+}
+
+.cta:hover {
+  background: var(--cyan-light);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px -12px color-mix(in srgb, var(--cyan) 60%, transparent);
+}
+
+.cta:active {
+  transform: scale(0.98);
+}
+
+.cta:disabled {
+  cursor: progress;
+  transform: none;
+  box-shadow: none;
+}
+
+button.pill-link {
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* The header's action, from the width where it fits beside the lockup and the
+   language switch; below that the hero's action is the first thing on screen. */
+.header-join {
+  display: none;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--cyan);
+  color: var(--on-cyan);
+  font-size: 15px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.3s var(--ease);
+}
+
+.header-join:hover {
+  background: var(--cyan-light);
+}
+
+@media (min-width: 640px) {
+  .header-join {
+    display: inline-flex;
+  }
+}
+
+.text-button {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 4px;
+  cursor: pointer;
+  transition:
+    color 0.2s var(--ease),
+    text-decoration-color 0.2s var(--ease);
+}
+
+.text-button:hover {
+  color: var(--text);
+  text-decoration-color: currentColor;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+/* -------------------------------------------------------------- waitlist */
+
+.waitlist__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+  align-items: start;
+  gap: clamp(48px, 7vw, 120px);
+}
+
+.waitlist__copy {
+  display: grid;
+  gap: 28px;
+}
+
+@media (max-width: 1080px) {
+  .waitlist__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The form's ground: one panel, the same deep ink and hairline as the Pro card. */
+.join-panel {
+  padding: clamp(28px, 4vw, 44px);
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  background: var(--bg-deep);
+}
+
+/* Once joined, the confirmation is the panel's heading. */
+.join-panel:has(.joined) .join-panel__title {
+  display: none;
+}
+
+.join-panel__title {
+  margin: 0 0 28px;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.join-form {
+  display: grid;
+}
+
+.join-form__fields {
+  display: grid;
+  gap: 20px;
+}
+
+.field__label {
+  display: block;
+  margin: 0 0 10px;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.field__input {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  caret-color: var(--cyan);
+  transition: border-color 0.2s var(--ease);
+}
+
+.field__input:hover {
+  border-color: color-mix(in srgb, var(--text) 34%, transparent);
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-color: var(--cyan);
+}
+
+.field__input[aria-invalid='true'] {
+  border-color: var(--afo-color-text-danger);
+}
+
+.field__input[readonly] {
+  color: var(--text-soft);
+}
+
+.field__error {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--afo-color-text-danger);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.field__error svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.consent {
+  margin-top: 24px;
+}
+
+.consent__label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--text-soft);
+  font-size: 15px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.consent__box {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+}
+
+.consent__box input {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 1.5px solid color-mix(in srgb, var(--text) 44%, transparent);
+  border-radius: 6px;
+  background: var(--panel);
+  appearance: none;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.consent__box input:hover {
+  border-color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.consent__box input:checked {
+  border-color: var(--cyan);
+  background: var(--cyan);
+}
+
+.consent__box input[aria-invalid='true'] {
+  border-color: var(--afo-color-text-danger);
+}
+
+.consent__box input:disabled {
+  cursor: progress;
+}
+
+.consent__mark {
+  position: absolute;
+  color: var(--on-cyan);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.5);
+  transition:
+    opacity 0.14s ease,
+    transform 0.22s var(--ease);
+}
+
+.consent__box input:checked + .consent__mark {
+  opacity: 1;
+  transform: none;
+}
+
+.consent .field__error {
+  margin-left: 34px;
+}
+
+.consent__link {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--text) 44%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.16s ease;
+}
+
+.consent__link:hover {
+  text-decoration-color: currentColor;
+}
+
+.join-form__referred {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 0;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.join-form__referred strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.join-form__submit {
+  width: 100%;
+  margin-top: 32px;
+}
+
+/* ------------------------------------------------------- joined and share */
+
+.joined {
+  display: grid;
+  gap: 32px;
+}
+
+.joined__title {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(30px, 3.2vw, 40px);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+  text-wrap: balance;
+  outline: none;
+}
+
+.joined__body {
+  margin: 12px 0 0;
+  color: var(--text-soft);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.joined__body strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.joined .text-button {
+  justify-self: start;
+}
+
+.share {
+  display: grid;
+  gap: 28px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+
+/* The code is the thing a person reads aloud, so it is set like the page's titles. */
+.share__code {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(48px, 5.5vw, 72px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.share__link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+/* On a phone the link takes the whole row and the copy action drops under it. */
+.share__link-text {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.share__copy {
+  flex: none;
+  min-height: 48px;
+  padding: 0 20px;
+}
+
+.share__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.share__actions > * {
+  flex: 1 1 auto;
+}
+
+.share__count {
+  display: grid;
+  gap: 6px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.share__count-total {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.share__count-rule {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------- waitlist page */
+
+.join {
+  padding-block: 140px clamp(96px, 10vw, 144px);
+}
+
+.join__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 480px);
+  column-gap: clamp(48px, 7vw, 120px);
+  align-items: start;
+}
+
+.join__intro {
+  display: grid;
+  gap: 32px;
+}
+
+/* Two lines that must not break: «LOS PRIMEROS 100 SON» is the longest, at 8.03em.
+   Beside the form the column is about 83vw − 495px wide, so the size follows it. */
+.join__intro .display {
+  font-size: clamp(32px, 10.3vw, 112px);
+}
+
+@media (min-width: 1081px) {
+  .join__intro .display {
+    font-size: min(10vw - 60px, 84px);
+  }
+}
+
+.join__intro .line > span {
+  animation: rise 1.2s var(--ease) both;
+  animation-delay: calc(0.1s + var(--l, 0) * 0.12s);
+}
+
+.join__form {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  position: sticky;
+  top: 112px;
+}
+
+/* The one place to act on the page carries the cyan edge, as the landing's invite band does. */
+.join__form .join-panel {
+  border-color: color-mix(in srgb, var(--cyan) 30%, transparent);
+}
+
+.join__details {
+  margin-top: clamp(72px, 9vw, 120px);
+}
+
+.terms-block {
+  padding-block: clamp(40px, 5vw, 64px);
+  border-top: 1px solid var(--line);
+}
+
+.terms-block:last-child {
+  padding-bottom: 0;
+}
+
+.terms-block h2 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(32px, 3.4vw, 44px);
+  font-weight: 800;
+  line-height: 0.95;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.terms-block > p {
+  max-width: 58ch;
+  margin: 20px 0 0;
+  color: var(--text-soft);
+  line-height: 1.7;
+}
+
+.terms-block__rows {
+  margin: 24px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.terms-block__rows > div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 8px 32px;
+  padding-block: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.terms-block__rows > div:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.terms-block__rows dt {
+  color: var(--text-soft);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.terms-block__rows dd {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.terms-block .levels {
+  margin-top: 28px;
+}
+
+.terms-block > .terms-block__note {
+  margin-top: 24px;
+  font-size: 15px;
+}
+
+.terms-block__list {
+  max-width: 62ch;
+  margin: 24px 0 0;
+  padding-left: 20px;
+  color: var(--text-soft);
+  line-height: 1.7;
+}
+
+.terms-block__list li {
+  padding-left: 4px;
+}
+
+.terms-block__list li + li {
+  margin-top: 12px;
+}
+
+.terms-block__list li::marker {
+  color: var(--cyan);
+}
+
+@media (max-width: 1080px) {
+  .join {
+    padding-top: 120px;
+  }
+
+  .join__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .join__form {
+    grid-column: auto;
+    grid-row: auto;
+    position: static;
+    margin-top: 48px;
+  }
+}
+
+@media (max-width: 640px) {
+  .terms-block__rows > div {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ------------------------------------------------------- email link pages */
+
+/* What a waitlist email opens: the join panel alone, at the width of the form. */
+.link-page {
+  padding-block: 140px clamp(96px, 10vw, 144px);
+}
+
+.link-page__panel {
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.link-panel {
+  display: grid;
+  gap: 28px;
+}
+
+.link-panel .joined__body {
+  margin: 0;
+}
+
+.link-panel .join-form__submit {
+  margin-top: 24px;
+}
+
+.link-panel .text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+}
+
+.link-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+}
+
+/* An unconfirmed address: the one thing on «mi link» that asks the person to act. */
+.link-notice {
+  padding: 20px 24px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--cyan) 6%, transparent);
+}
+
+.link-notice p {
+  margin: 0;
+  color: var(--text-soft);
+  line-height: 1.6;
+}
+
+.link-notice .link-notice__title {
+  margin-bottom: 6px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Leaving deletes the sign-up for good: the one filled action that is not cyan. */
+.cta--danger {
+  background: var(--afo-color-feedback-danger-strong);
+  color: var(--text);
+}
+
+.cta--danger:hover {
+  background: var(--afo-color-feedback-danger);
+  box-shadow: 0 14px 40px -12px
+    color-mix(in srgb, var(--afo-color-feedback-danger) 60%, transparent);
+}
+
 /* ------------------------------------------------------------------ legal */
 
 .legal {
@@ -1331,6 +2098,12 @@ html[data-motion='on'] .privacy__stage[data-reveal].is-in {
   from {
     opacity: 0;
     transform: translate3d(0, 24px, 0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
   }
 }
 

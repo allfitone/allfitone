@@ -16,6 +16,11 @@ const VIEWPORTS = [
 const PAGES = [
   { path: '/es', heading: /SUPERA/ },
   { path: '/en', heading: /BEAT/ },
+  { path: '/es/waitlist', heading: /LOS PRIMEROS 100/ },
+  { path: '/en/waitlist', heading: /THE FIRST 100/ },
+  // Opened without a token, an email link page shows its one public state.
+  { path: '/es/waitlist/leave', heading: 'Este enlace ya no sirve.' },
+  { path: '/en/waitlist/confirm', heading: 'This link no longer works.' },
 ]
 
 test.describe('language', () => {
@@ -165,13 +170,17 @@ test.describe('search engines', () => {
     })
   })
 
-  test('robots.txt and the sitemap point at the landing only', async ({ request }) => {
+  test('robots.txt and the sitemap point at the landing and the waitlist only', async ({
+    request,
+  }) => {
     const robots = await (await request.get('/robots.txt')).text()
     expect(robots).toContain(`Sitemap: ${SITE}/sitemap.xml`)
 
     const sitemap = await (await request.get('/sitemap.xml')).text()
     expect(sitemap).toContain(`<loc>${SITE}/es</loc>`)
     expect(sitemap).toContain(`<loc>${SITE}/en</loc>`)
+    expect(sitemap).toContain(`<loc>${SITE}/es/waitlist</loc>`)
+    expect(sitemap).toContain(`<loc>${SITE}/en/waitlist</loc>`)
     expect(sitemap).toContain(`hreflang="x-default" href="${SITE}"`)
     expect(sitemap).not.toContain('/privacy')
     expect(sitemap).not.toContain('/terms')

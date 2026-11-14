@@ -27,6 +27,19 @@ const nextConfig: NextConfig = {
       ]),
     ]
   },
+  // The pages the waitlist emails open hold a person's token: out of search, and no
+  // `Referer` for any link they lead to. Their metadata says the same in the HTML.
+  async headers() {
+    return [
+      {
+        source: '/:locale(es|en)/waitlist/:page(confirm|referrals|leave)',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+        ],
+      },
+    ]
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     // Programme covers and the Pro photo have dark gradients that 75 smears.

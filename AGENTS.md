@@ -88,7 +88,7 @@ apps/
   studio-web/     Client of /studio/v1
   backoffice-web/ Client of /backoffice/v1
   space/          Expo · client of /space/v1
-  space-web/      Public landing of Allfit Space · no API client
+  space-web/      Public landing of Allfit Space · waitlist relay to /space/v1
 packages/
   auth-provider/  Port and adapter for the identity provider
   queue/          Port and adapter for the job queue

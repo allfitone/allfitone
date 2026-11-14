@@ -2,29 +2,39 @@
  * The Space landing, in the order the story is told: what the app is (hero),
  * what using it looks like (from the first set to the last bite), where to
  * start (programmes), why it is safe (your data is yours), what you get to show
- * (every record counts), what it costs (Pro, included if your gym uses Allfit
- * Studio) and the close. Every screen shown is a real capture of the app.
+ * (every record counts), what it costs (Pro, included when a gym or coach
+ * pays for Allfit Studio; its free plan does not), the waitlist and the close.
+ * Every screen shown is a real capture of the app.
+ *
+ * The app is not in the stores yet, so the page converts to the waitlist: the
+ * hero's and the header's actions open the waitlist page, where the offer and
+ * its terms are, and the landing keeps its own form near the end, with nothing
+ * under it but the privacy policy beside the authorization.
  *
  * Motion is spent once per section: the hero enters on load, each title rises
  * out of its masks, and one main object follows it (the feature cards, the
- * programme cards, the sharing screen, the Pro card). Leads, pillars, links and
- * the store buttons stay still. There is no marquee, progress bar, pointer
- * light, parallax or glow; do not add them back.
+ * programme cards, the sharing screen, the Pro card). Leads, pillars, links,
+ * the store buttons and the form stay still. There is no marquee, progress bar,
+ * pointer light, parallax or glow; do not add them back.
  */
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ExternalIcon } from '@allfitone/react/icons'
+import { ExternalIcon, FoundationIcon } from '@allfitone/react/icons'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { Phone } from '@/components/phone'
 import { Records } from '@/components/records'
+import { ReferralLevels } from '@/components/referral-levels'
 import { Stores } from '@/components/stores'
 import { Title } from '@/components/title'
+import { WaitlistForm } from '@/components/waitlist-form'
 import { dictionaryFor } from '@/content'
 import type { LocaleParams } from '@/lib/route'
 import { isLocale } from '@/lib/locale'
+import { WAITLIST_PATH } from '@/lib/waitlist'
 
 const FEATURE_SCREENS = [
   '/images/screens/hoy-historial.webp',
@@ -60,7 +70,13 @@ export default async function Landing({ params }: LocaleParams) {
                 reveal={false}
               />
               <p className="lead">{copy.hero.lead}</p>
-              <Stores copy={copy.stores} />
+              <div className="hero__actions">
+                <Link className="cta" href={`/${lang}${WAITLIST_PATH}`}>
+                  {copy.hero.join}
+                  <FoundationIcon name="forward" size="sm" decorative />
+                </Link>
+                <Stores copy={copy.stores} />
+              </div>
             </div>
             <div className="hero__phones">
               <div className="hero__phone hero__phone--back">
@@ -140,9 +156,6 @@ export default async function Landing({ params }: LocaleParams) {
                       />
                     ) : null}
                   </div>
-                  {index === 0 ? (
-                    <span className="program__badge">{copy.programs.suggested}</span>
-                  ) : null}
                   <h3>{program.name}</h3>
                   <p>{program.meta}</p>
                 </li>
@@ -180,11 +193,33 @@ export default async function Landing({ params }: LocaleParams) {
 
         <Records copy={copy.records} />
 
+        <section className="invite-section" aria-labelledby="invite-title">
+          <div className="wrap">
+            <div className="invite" data-reveal="">
+              <div className="invite__copy">
+                <Title
+                  id="invite-title"
+                  lines={copy.invite.title}
+                  highlight={copy.invite.highlight}
+                  reveal={false}
+                />
+                <p>{copy.invite.text}</p>
+              </div>
+              <ReferralLevels rewards={copy.invite.rewards} openEnded />
+            </div>
+          </div>
+        </section>
+
         <section id="gyms" className="section" aria-labelledby="pro-title">
           <div className="wrap">
             <div className="pro" data-reveal="">
               <div className="pro__copy">
-                <Title id="pro-title" lines={copy.pro.title} reveal={false} />
+                <Title
+                  id="pro-title"
+                  lines={copy.pro.title}
+                  highlight={copy.pro.highlight}
+                  reveal={false}
+                />
                 <p className="lead">{copy.pro.text}</p>
               </div>
               <div className="pro__photo">
@@ -212,6 +247,18 @@ export default async function Landing({ params }: LocaleParams) {
                 <ExternalIcon size="sm" decorative />
                 <span className="sr-only"> {copy.footer.newWindow}</span>
               </a>
+            </div>
+          </div>
+        </section>
+
+        <section id="waitlist" className="section waitlist" aria-labelledby="waitlist-title">
+          <div className="wrap waitlist__grid">
+            <div className="waitlist__copy">
+              <Title id="waitlist-title" lines={copy.waitlist.title} tones={['solid', 'cyan']} />
+              <p className="lead">{copy.waitlist.lead}</p>
+            </div>
+            <div className="join-panel">
+              <WaitlistForm locale={lang} copy={copy.form} newWindow={copy.footer.newWindow} />
             </div>
           </div>
         </section>

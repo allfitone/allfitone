@@ -12,11 +12,14 @@ import Link from 'next/link'
 
 import type { Dictionary } from '@/content'
 import { LOCALES, type Locale } from '@/lib/locale'
+import { WAITLIST_PATH } from '@/lib/waitlist'
 
 /**
  * The site header shared with studio.allfit.one, from the Design System. It
  * reads as Space because the document is `data-afo-theme="dark"`; this file
- * only supplies Space's lockup, sections and language routes.
+ * only supplies Space's lockup, sections, the waitlist action and the language
+ * routes. The waitlist page passes `sections={false}`: it has neither the
+ * landing's sections nor a reason to link to itself.
  */
 export function Header({
   locale,
@@ -51,6 +54,11 @@ export function Header({
         </SiteHeaderNav>
       ) : null}
       <SiteHeaderActions>
+        {sections ? (
+          <Link className="header-join" href={`/${locale}${WAITLIST_PATH}`}>
+            {copy.join}
+          </Link>
+        ) : null}
         {/* Keeps the visitor on the same page in the other language. */}
         <SiteLanguageSwitch aria-label={copy.language}>
           {LOCALES.map((option) => (
