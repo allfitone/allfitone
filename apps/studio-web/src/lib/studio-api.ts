@@ -1491,6 +1491,22 @@ export const studioApi = {
       },
     ),
 
+  /**
+   * `OP-NUT-013`. One meal photo, streamed through the API after rechecking her
+   * meals and her meal photos, and recorded every time. Anything short of a photo
+   * she shares is 404.
+   */
+  clientNutritionMealPhoto: (
+    organizationId: string,
+    personId: string,
+    mealId: string,
+    signal?: AbortSignal,
+  ) =>
+    requestImage(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/nutrition/meals/${mealId}/photo`,
+      signal,
+    ),
+
   offerableScopes: (signal?: AbortSignal) =>
     request<OfferableScopeCatalog>('/studio/v1/offerable-scopes', {
       cache: 'no-store',

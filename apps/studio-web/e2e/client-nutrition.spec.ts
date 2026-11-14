@@ -118,8 +118,9 @@ test('with her meal photos shared, a meal says whether it has one', async ({ pag
   await open(page)
   const meals = page.locator('[data-client-nutrition-meal]')
   await expect(meals).toHaveCount(4)
-  await expect(meals.nth(0).locator('[data-client-nutrition-meal-photo]')).toHaveText('Con foto')
+  await expect(meals.nth(0).getByRole('button', { name: 'Ver la foto' })).toBeVisible()
   await expect(meals.nth(1).locator('[data-client-nutrition-meal-photo]')).toHaveText('Sin foto')
+  await expect(meals.nth(1).getByRole('button', { name: 'Ver la foto' })).toHaveCount(0)
 })
 
 test('without her meal photos shared, no meal says anything about a photo', async ({ page }) => {
@@ -127,7 +128,8 @@ test('without her meal photos shared, no meal says anything about a photo', asyn
 
   await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
   await expect(page.locator('[data-client-nutrition-meal-photo]')).toHaveCount(0)
-  await expect(page.getByText(/Sin foto|Con foto/)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Ver la foto' })).toHaveCount(0)
+  await expect(page.getByText(/Sin foto|Con foto|Cada foto se pide/)).toHaveCount(0)
 })
 
 /*
@@ -373,4 +375,143 @@ test('is opened from the meals section of the card, by one door', async ({ page 
   await door.click()
   await expect(page).toHaveURL(new RegExp(`${PERSON}/nutrition$`))
   await expect(page.getByRole('heading', { level: 1, name: 'Comidas' })).toBeVisible()
+})
+
+// --- HU-STUDIO-072 · the photo of a meal ---
+
+/** Every request for one meal photo's bytes, as the API would see them. */
+function mealPhotoReads(page: Page): string[] {
+  const asked: string[] = []
+  page.on('request', (request) => {
+    const { pathname } = new URL(request.url())
+    if (pathname.startsWith('/studio/v1/') && /\/nutrition\/meals\/[^/]+\/photo$/.test(pathname)) {
+      asked.push(pathname)
+    }
+  })
+  return asked
+}
+
+/*
+ * The rule the photo is built around. Opening the screen asks for no image;
+ * opening a photo asks for that one; a repaint does not ask again; another photo
+ * replaces the first rather than joining it.
+ */
+test('asks for a meal photo only when it is opened, one at a time', async ({ page }) => {
+  const asked = mealPhotoReads(page)
+  await open(page)
+  await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+  expect(asked).toEqual([])
+
+  await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+  const image = page.getByRole('img', {
+    name: 'Foto de la comida: Cena del martes, 28 de julio de 2026',
+  })
+  await expect(image).toBeVisible()
+  // Decoded, not a broken icon.
+  expect(await image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(120)
+  expect(asked).toHaveLength(1)
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event('focus'))
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(image).toBeVisible()
+  expect(asked).toHaveLength(1)
+
+  await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+  await expect(
+    page.getByRole('img', { name: 'Foto de la comida: Desayuno del martes, 28 de julio de 2026' }),
+  ).toBeVisible()
+  await expect(page.locator('[data-authorized-photo-image]')).toHaveCount(1)
+  expect(asked).toHaveLength(2)
+})
+
+/*
+ * Criterion 4: each view is recorded on its own. Closing and opening the same
+ * photo again is honestly a second view, so it is asked for again.
+ */
+test('opening the same photo again is another view, asked for again', async ({ page }) => {
+  const asked = mealPhotoReads(page)
+  await open(page)
+  const dinner = page.locator('[data-client-nutrition-meal]').first()
+
+  await dinner.getByRole('button', { name: 'Ver la foto' }).click()
+  await expect(dinner.locator('[data-authorized-photo-image]')).toBeVisible()
+  await dinner.getByRole('button', { name: 'Ocultar la foto' }).click()
+  await expect(dinner.locator('[data-authorized-photo-image]')).toHaveCount(0)
+  await dinner.getByRole('button', { name: 'Ver la foto' }).click()
+  await expect(dinner.locator('[data-authorized-photo-image]')).toBeVisible()
+
+  expect(asked).toHaveLength(2)
+  expect(new Set(asked).size).toBe(1)
+})
+
+/*
+ * Criterion 2 is met by having no link at all. The image is drawn from bytes
+ * held in this tab, and closing it releases them: nothing on the page points at
+ * the API or at a store, and nothing is left to open later.
+ */
+test('leaves no link to the meal photo, and forgets it when closed', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+
+  const image = page.locator('[data-authorized-photo-image]')
+  await expect(image).toBeVisible()
+  const source = (await image.getAttribute('src')) ?? ''
+  expect(source).toMatch(/^blob:/)
+  await expect(page.locator('a[href*="/photo"], img[src*="/photo"]')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Ocultar la foto' }).click()
+  await expect(image).toHaveCount(0)
+  const stillThere = await page.evaluate(async (url) => {
+    try {
+      await fetch(url)
+      return true
+    } catch {
+      return false
+    }
+  }, source)
+  expect(stillThere).toBe(false)
+})
+
+/*
+ * Criterion 5: a photo gone, a revoked permission, an ended relationship and an
+ * expired credential are one 404. One sentence for the four, and no retry.
+ */
+test('a meal photo it cannot show says one thing, whatever the reason', async ({ page }) => {
+  await open(page, { mealPhotoOutcome: 'unavailable' })
+  await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+
+  await expect(page.getByText('No podemos mostrar esta foto')).toBeVisible()
+  await expect(page.getByText('Desde aquí no se puede saber por qué.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
+  await expect(page.locator('[data-authorized-photo-image]')).toHaveCount(0)
+})
+
+/*
+ * A dropped connection is retried only when somebody presses the button: each
+ * attempt is a line in her log, so nothing tries again on its own.
+ */
+test('a meal photo that failed to load is tried again only when asked', async ({ page }) => {
+  const asked = mealPhotoReads(page)
+  await open(page, { mealPhotoOutcome: 'failure' })
+  await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+
+  await expect(page.getByText('No pudimos cargar la foto')).toBeVisible()
+  expect(asked).toHaveLength(1)
+  await page.getByRole('button', { name: 'Reintentar' }).click()
+  await expect(page.getByText('No pudimos cargar la foto')).toBeVisible()
+  expect(asked).toHaveLength(2)
+})
+
+// Another range is another list: a photo open on the old one is closed, not kept.
+test('asking for other days closes the photo that was open', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+  await expect(page.locator('[data-authorized-photo-image]')).toBeVisible()
+
+  await page.getByLabel('Desde').fill('2026-07-20')
+  await page.getByRole('button', { name: 'Consultar' }).click()
+  await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+  await expect(page.locator('[data-authorized-photo-image]')).toHaveCount(0)
 })

@@ -5,6 +5,7 @@ import {
   mealDays,
   mealItemRows,
   mealPhoto,
+  mealPhotoAlt,
   mealTimeLine,
   mealTitle,
   nutritionDayHeading,
@@ -113,6 +114,16 @@ describe('a meal, in the fields her version shares', () => {
     expect(mealPhoto(meal({ has_photo: true }))).toBe('attached')
     expect(mealPhoto(meal({ has_photo: false }))).toBe('none')
     expect(mealPhoto(meal({ has_photo: null }))).toBeNull()
+  })
+
+  // The photo is named by its meal and her day, so a screen reader hears which one opened.
+  test('its photo is named by the meal and the day of hers it belongs to', () => {
+    expect(mealPhotoAlt(meal({ meal_type: 'dinner' }))).toBe(
+      'Foto de la comida: Cena del martes, 28 de julio de 2026',
+    )
+    expect(mealPhotoAlt(meal({ meal_type: null }))).toBe(
+      'Foto de la comida del martes, 28 de julio de 2026',
+    )
   })
 })
 

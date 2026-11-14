@@ -297,6 +297,8 @@ export interface StudioApiFixture {
   nutritionPhotoScope: { code: string; version: number } | null
   /** `OP-NUT-010` adds her meals up; false is a version that shares no nutrients. */
   nutritionTotalsShared: boolean
+  /** What `OP-NUT-013` answers for any meal photo: its bytes, the one 404, or a dropped connection. */
+  mealPhotoOutcome: 'shown' | 'unavailable' | 'failure'
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -3149,6 +3151,7 @@ export function createStudioApiFixture(
     clientNutritionMeals: structuredClone(clientNutritionMeals),
     nutritionPhotoScope: { code: 'nutrition_media', version: 1 },
     nutritionTotalsShared: true,
+    mealPhotoOutcome: 'shown',
     ...overrides,
   }
 }
@@ -5250,6 +5253,35 @@ function defaultResponse(
         applied_scope: { code: 'nutrition_intake', version: 2 },
         data: dailySummaries(fixture.clientNutritionMeals, range, fixture.nutritionTotalsShared),
       },
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/meals\/[^/]+\/photo$/.test(
+      request.path,
+    )
+  ) {
+    // Anything short of a photo she shares is the one 404, whatever the reason.
+    const mealId = request.path.split('/').at(-2)
+    const withPhoto = (fixture.clientNutritionMeals ?? []).some((meal) => {
+      const value = objectValue(meal)
+      return value['id'] === mealId && value['has_photo'] === true
+    })
+    if (fixture.mealPhotoOutcome === 'failure') {
+      return { status: 503, body: problem('upstream-unavailable', 503) }
+    }
+    if (
+      fixture.clientCard === null ||
+      fixture.nutritionPhotoScope === null ||
+      fixture.mealPhotoOutcome === 'unavailable' ||
+      !withPhoto
+    ) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' },
+      bytes: bodyPhotoJpeg,
     }
   }
   if (

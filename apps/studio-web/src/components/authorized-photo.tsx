@@ -2,8 +2,8 @@
 
 /**
  * One photo a client shares, drawn while somebody has it open: her body photos
- * (`HU-STUDIO-052`) and, next, the photo of a meal (`HU-STUDIO-072`). Why the
- * image is bytes from the API and never an address is in `authorized-photo.ts`.
+ * (`HU-STUDIO-052`) and the photo of a meal (`HU-STUDIO-072`). Why the image is
+ * bytes from the API and never an address is in `authorized-photo.ts`.
  *
  * The caller owns the read and mounts this only while the photo is open, so
  * opening it is the request and closing it drops the bytes. The address it

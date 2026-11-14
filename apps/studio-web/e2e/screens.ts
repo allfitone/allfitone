@@ -4630,6 +4630,30 @@ export const SCREENS: Screen[] = [
       await expect(page.locator('[data-client-nutrition-summary-failure]')).toBeVisible()
     },
   },
+  // --- the same screen, the photo of a meal · HU-072 ---
+  {
+    stories: 'HU-072 · one meal photo open',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: pinNutritionClock,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.locator('[data-authorized-photo-image]')).toBeVisible()
+    },
+  },
+  {
+    // The one answer for a photo gone, a revoked permission or an ended relationship.
+    stories: 'HU-072 · a meal photo it cannot show',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], mealPhotoOutcome: 'unavailable' }),
+    viewport: MOBILE,
+    setup: pinNutritionClock,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.getByText('No podemos mostrar esta foto')).toBeVisible()
+    },
+  },
 ]
 
 /** The nutrition screens read the last seven days, so the sweep pins which days those are. */

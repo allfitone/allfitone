@@ -216,3 +216,16 @@ export function summaryDays(days: readonly ClientNutritionDailySummary[]): reado
   }
   return shown
 }
+
+/**
+ * `HU-STUDIO-072`. What a meal's photo is called: its meal and the day of hers
+ * it belongs to, so a screen reader hears which one opened. Never a file name:
+ * the photo has none here, only bytes the API streamed.
+ */
+export function mealPhotoAlt(meal: Pick<ClientNutritionMeal, 'meal_type' | 'local_date'>): string {
+  const index = dayIndex(meal.local_date)
+  const day = index === null ? meal.local_date : DAY_HEADING.format(new Date(index * DAY_MS))
+  return meal.meal_type
+    ? `Foto de la comida: ${MEALS[meal.meal_type]} del ${day}`
+    : `Foto de la comida del ${day}`
+}

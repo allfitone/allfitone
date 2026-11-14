@@ -21,6 +21,12 @@
  *
  * **Never cached** (criterion 5): each range is read when asked for and dropped
  * when left. The rules of what is drawn are in `client-nutrition.ts`.
+ *
+ * **A meal photo is opened, never shown in passing** (`HU-STUDIO-072`). It needs
+ * her meal photos as well, and each view is a line she reads, so a meal offers
+ * «Ver la foto» and the image is asked for when pressed, one at a time, with no
+ * thumbnails. The bytes come from the API and are drawn from memory, so there is
+ * never a link that keeps working afterwards — see `authorized-photo.ts`.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -48,6 +54,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Fragment, useId, useState, type ReactNode } from 'react'
 
+import { PhotoFrame } from './authorized-photo'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
@@ -57,6 +64,7 @@ import {
   mealDays,
   mealItemRows,
   mealPhoto,
+  mealPhotoAlt,
   mealTimeLine,
   mealTitle,
   nutritionDayHeading,
@@ -69,6 +77,7 @@ import {
 } from '@/lib/client-nutrition'
 import type { ClientNutritionMeal } from '@/lib/studio-api'
 import {
+  clientNutritionMealPhotoQueryOptions,
   clientNutritionMealsQueryOptions,
   clientNutritionSummariesQueryOptions,
   flattenById,
@@ -89,6 +98,8 @@ export function ClientNutritionScreen() {
   const summaries = useQuery(
     clientNutritionSummariesQueryOptions(organizationId, params.personId, range),
   )
+  // One photo open at a time: opening another closes, and forgets, the first.
+  const [openPhoto, setOpenPhoto] = useState<string | null>(null)
   const cardPath = clientCardPath(organizationId, params.personId)
   const directoryPath = `/organizations/${organizationId}/clients`
 
@@ -133,7 +144,13 @@ export function ClientNutritionScreen() {
         }
       />
 
-      <RangeForm range={range} onApply={setRange} />
+      <RangeForm
+        range={range}
+        onApply={(next) => {
+          setOpenPhoto(null)
+          setRange(next)
+        }}
+      />
 
       {meals.isPending || summaries.isPending ? (
         <div data-client-nutrition-loading>
@@ -216,7 +233,17 @@ export function ClientNutritionScreen() {
               days={days}
               version={first.applied_scope.version}
               timed={timed}
+              photos={first.photo_scope !== null}
               more={<MoreControl query={meals} label="Ver más comidas" />}
+              renderMeal={(meal) => (
+                <MealEntry
+                  meal={meal}
+                  open={openPhoto === meal.id}
+                  onToggle={() => setOpenPhoto(openPhoto === meal.id ? null : meal.id)}
+                  organizationId={organizationId}
+                  personId={params.personId}
+                />
+              )}
             />
           ) : null}
         </>
@@ -229,12 +256,16 @@ function MealsCard({
   days,
   version,
   timed,
+  photos,
   more,
+  renderMeal,
 }: {
   days: readonly MealDay[]
   version: number
   timed: boolean
+  photos: boolean
   more: ReactNode
+  renderMeal: (meal: ClientNutritionMeal) => ReactNode
 }) {
   return (
     <Card data-client-nutrition-meals>
@@ -246,6 +277,9 @@ function MealsCard({
           Versión {String(version)} del permiso de registro de comidas. Un dato que esa versión no
           incluye no aparece.
           {timed ? ' Las horas son las de su zona horaria.' : null}
+          {photos
+            ? ' Cada foto se pide al abrirla, y cada vez que la abres queda registrado y ella lo puede ver.'
+            : null}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -255,9 +289,7 @@ function MealsCard({
               <h3 data-client-nutrition-day-name>{nutritionDayHeading(day.day)}</h3>
               <ul data-client-nutrition-meal-list>
                 {day.meals.map((meal) => (
-                  <li key={meal.id}>
-                    <MealEntry meal={meal} />
-                  </li>
+                  <li key={meal.id}>{renderMeal(meal)}</li>
                 ))}
               </ul>
             </section>
@@ -341,7 +373,19 @@ function RangeForm({
   )
 }
 
-function MealEntry({ meal }: { meal: ClientNutritionMeal }) {
+function MealEntry({
+  meal,
+  open,
+  onToggle,
+  organizationId,
+  personId,
+}: {
+  meal: ClientNutritionMeal
+  open: boolean
+  onToggle: () => void
+  organizationId: string
+  personId: string
+}) {
   const time = mealTimeLine(meal)
   const photo = mealPhoto(meal)
   const rows = mealItemRows(meal.items)
@@ -353,12 +397,22 @@ function MealEntry({ meal }: { meal: ClientNutritionMeal }) {
           {time ? <span data-client-nutrition-meal-time>{time}</span> : null}
         </div>
         {/* Null draws nothing: it means she shares no photos, not that there is none. */}
-        {photo ? (
-          <span data-client-nutrition-meal-photo={photo}>
-            {photo === 'attached' ? 'Con foto' : 'Sin foto'}
-          </span>
+        {photo === 'attached' ? (
+          <Button size="sm" variant="outline" aria-expanded={open} onClick={onToggle}>
+            {open ? 'Ocultar la foto' : 'Ver la foto'}
+          </Button>
+        ) : photo === 'none' ? (
+          <span data-client-nutrition-meal-photo>Sin foto</span>
         ) : null}
       </div>
+      {open ? (
+        <MealPhotoViewer
+          organizationId={organizationId}
+          personId={personId}
+          mealId={meal.id}
+          alt={mealPhotoAlt(meal)}
+        />
+      ) : null}
       {meal.note ? <p data-client-nutrition-meal-note>{meal.note}</p> : null}
       {rows.length > 0 ? (
         <ul data-client-nutrition-item-list>
@@ -373,6 +427,36 @@ function MealEntry({ meal }: { meal: ClientNutritionMeal }) {
         </ul>
       ) : null}
     </article>
+  )
+}
+
+/**
+ * `HU-STUDIO-072`. Mounted only while open: mounting it is the request, and
+ * unmounting forgets the bytes. Both permissions are rechecked by the API on
+ * every request, so a photo revoked meanwhile answers the one 404.
+ */
+function MealPhotoViewer({
+  organizationId,
+  personId,
+  mealId,
+  alt,
+}: {
+  organizationId: string
+  personId: string
+  mealId: string
+  alt: string
+}) {
+  const query = useQuery(clientNutritionMealPhotoQueryOptions(organizationId, personId, mealId))
+  return (
+    <div data-client-nutrition-meal-photo-view>
+      <PhotoFrame
+        isPending={query.isPending}
+        error={query.error}
+        data={query.data}
+        onRetry={() => void query.refetch()}
+        alt={alt}
+      />
+    </div>
   )
 }
 

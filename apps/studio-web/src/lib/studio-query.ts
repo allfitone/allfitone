@@ -306,6 +306,15 @@ export const studioQueryKeys = {
       personId,
       { from: range.from, to: range.to },
     ] as const,
+  clientNutritionMealPhoto: (organizationId: string, personId: string, mealId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-meal-photo',
+      personId,
+      mealId,
+    ] as const,
 } as const
 
 export function createStudioQueryClient(): QueryClient {
@@ -1518,6 +1527,29 @@ export function clientNutritionSummariesQueryOptions(
       ),
     staleTime: 0,
     gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One meal photo, asked for only while somebody has it open, under the same
+ * rules as a body photo: each request is a view she reads, recorded on its own.
+ * No retry of its own, held while open and dropped when closed, so opening it
+ * again is honestly another view.
+ */
+export function clientNutritionMealPhotoQueryOptions(
+  organizationId: string,
+  personId: string,
+  mealId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientNutritionMealPhoto(organizationId, personId, mealId),
+    queryFn: ({ signal }) =>
+      studioApi.clientNutritionMealPhoto(organizationId, personId, mealId, signal),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
