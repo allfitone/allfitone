@@ -269,7 +269,7 @@ module "services" {
       environment = {
         WORKER_PORT    = "8090"
         EMAIL_PROVIDER = "ses"
-        EMAIL_FROM     = "Allfit One <${local.email_sender}>"
+        EMAIL_FROM     = "Allfit One Team <${local.email_sender}>"
         # A switch, not a credential: closing the other sessions after a password change.
         PASSWORD_CHANGE_DELIVERY_ENABLED = "true"
       }
