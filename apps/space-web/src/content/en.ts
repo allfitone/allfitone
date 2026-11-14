@@ -103,6 +103,16 @@ export const en: Dictionary = {
       published: 'Shared to your story',
     },
   },
+  invite: {
+    title: ['INVITE FRIENDS,', 'EARN PRO.'],
+    text: 'Every friend who joins with your code and uses the app counts, whether they pay or not.',
+    rewards: {
+      5: '1 month of Pro',
+      15: '2 months of Pro',
+      30: '3 months of Pro',
+      100: '1 year of Pro + merch',
+    },
+  },
   pro: {
     title: ['DOES YOUR GYM', 'PAY FOR ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
     text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym or your coach has a paid Allfit Studio plan, Pro is included while you stay with them.',

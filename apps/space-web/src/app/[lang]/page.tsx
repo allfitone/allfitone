@@ -33,7 +33,7 @@ import { WaitlistForm } from '@/components/waitlist-form'
 import { dictionaryFor } from '@/content'
 import type { LocaleParams } from '@/lib/route'
 import { isLocale } from '@/lib/locale'
-import { WAITLIST_PATH } from '@/lib/waitlist'
+import { REFERRAL_LEVELS, WAITLIST_PATH } from '@/lib/waitlist'
 
 const FEATURE_SCREENS = [
   '/images/screens/hoy-historial.webp',
@@ -191,6 +191,32 @@ export default async function Landing({ params }: LocaleParams) {
         </section>
 
         <Records copy={copy.records} />
+
+        <section className="invite-section" aria-labelledby="invite-title">
+          <div className="wrap">
+            <div className="invite" data-reveal="">
+              <div className="invite__copy">
+                <Title
+                  id="invite-title"
+                  lines={copy.invite.title}
+                  tones={['solid', 'cyan']}
+                  reveal={false}
+                />
+                <p>{copy.invite.text}</p>
+              </div>
+              <ul className="invite__levels" role="list">
+                {REFERRAL_LEVELS.map((level, index) => (
+                  <li key={level} className="invite__level">
+                    <p className="invite__count">
+                      {index === REFERRAL_LEVELS.length - 1 ? `${String(level)}+` : level}
+                    </p>
+                    <p className="invite__reward">{copy.invite.rewards[level]}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
 
         <section id="gyms" className="section" aria-labelledby="pro-title">
           <div className="wrap">
