@@ -5,8 +5,8 @@
  * Joining has no idempotency key: the mailbox is the key. These run the calls the way the
  * API does, through the same driver and with real concurrent transactions, because both
  * rules are races by nature. Two requests for one mailbox must leave one sign-up, and five
- * friends signing up from one connection in the same second must not all slip under the
- * ceiling of three.
+ * sign-ups from one phone in the same second must count once for their inviter. Friends
+ * on one shared connection all count: the connection is a signal for review, not a rule.
  */
 
 import { afterAll, describe, expect, test } from 'bun:test'
@@ -83,8 +83,26 @@ describe('T-WL-IDEM-01 joining at the same instant', () => {
     expect(count).toBe(1)
   })
 
-  test('five sign-ups for one inviter from one connection at once: three count', async () => {
+  test('five sign-ups for one inviter from one phone at once: one counts', async () => {
     const inviter = await join(address('inviter'))
+    if (!inviter.referral_code) throw new Error('the inviter got no code')
+    const device = randomBytes(32)
+
+    await Promise.all(
+      ['p1', 'p2', 'p3', 'p4', 'p5'].map((alias) =>
+        join(address(alias), { inviterCode: inviter.referral_code ?? '', device }),
+      ),
+    )
+
+    const rows = await sql<Array<{ discard_reason: string | null }>>`
+      select discard_reason from waitlist.signups
+      where canonical_email like ${`p_@${RUN}.example.com`}`
+    const reasons = rows.map((row) => row.discard_reason ?? 'counts').sort()
+    expect(reasons).toEqual(['counts', 'same_device', 'same_device', 'same_device', 'same_device'])
+  })
+
+  test('five friends for one inviter on one connection at once: all five count', async () => {
+    const inviter = await join(address('host'))
     if (!inviter.referral_code) throw new Error('the inviter got no code')
     const connection = randomBytes(32)
 
@@ -97,7 +115,6 @@ describe('T-WL-IDEM-01 joining at the same instant', () => {
     const rows = await sql<Array<{ discard_reason: string | null }>>`
       select discard_reason from waitlist.signups
       where canonical_email like ${`f_@${RUN}.example.com`}`
-    const reasons = rows.map((row) => row.discard_reason ?? 'counts').sort()
-    expect(reasons).toEqual(['connection_cap', 'connection_cap', 'counts', 'counts', 'counts'])
+    expect(rows.map((row) => row.discard_reason ?? 'counts')).toEqual(Array(5).fill('counts'))
   })
 })
