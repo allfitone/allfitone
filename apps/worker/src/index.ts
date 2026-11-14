@@ -42,6 +42,7 @@ import {
 } from './waitlist-emails.js'
 import {
   createWaitlistTeamNoticeBatchProcessor,
+  createWaitlistTeamNoticeDatabase,
   waitlistTeamChannelFromEnvironment,
 } from './waitlist-team-notices.js'
 import {
@@ -445,6 +446,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
   // Not an email, so no delivery switch: the team's channel address is what turns it on.
   const waitlistTeamNotices = createWaitlistTeamNoticeBatchProcessor({
     queue,
+    database: createWaitlistTeamNoticeDatabase(sql),
     channel: waitlistTeamChannelFromEnvironment(process.env),
   })
   cachedProcessors = {

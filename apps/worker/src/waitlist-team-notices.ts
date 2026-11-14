@@ -3,12 +3,17 @@
  * ADR-050).
  *
  * `waitlist.signup_confirmed.v1` is enqueued once per sign-up, in the transaction that
- * confirms its address. This posts one notice about it to the team's channel.
+ * confirms its address. This posts one notice about it to the founders' private channel.
  *
- * **The notice names nobody.** The event carries the channel the person arrived through,
- * the language, whether the sign-up counts for somebody who invited it and the list's
- * total. The team's channel belongs to a third party, so no name and no address ever
- * reach it, and this needs nothing from the database to write the notice.
+ * **The notice names the person.** The owner decided in November 2026 that the founders
+ * read who joined, so the notice carries the name and the address. The event holds
+ * neither: `waitlist.prepare_team_notice` reads them when the notice is written, and
+ * answers `skipped` for somebody who left in between, who is then never announced.
+ * Nothing here logs a name or an address.
+ *
+ * **What the channel holds is outside the list's deletion.** A person who leaves is
+ * deleted from the database at once, but a notice already posted stays in the channel
+ * for as long as the channel's own retention keeps it. That is set in Slack, not here.
  *
  * **The channel is optional, and never stops the emails.** This rides the same job as
  * every email delivery. Without an address, or with one that is not a Slack webhook,
@@ -25,6 +30,7 @@ import {
   type TeamNotice,
 } from '@allfitone/notifications'
 import type { Queue, QueueMessage } from '@allfitone/queue'
+import type postgres from 'postgres'
 
 import { mapWithConcurrency } from './invitations.js'
 
@@ -37,8 +43,25 @@ export interface WaitlistTeamNoticeBatchResult {
   skipped: number
 }
 
+export interface WaitlistTeamNoticeDelivery {
+  state: 'ready' | 'skipped'
+  name?: string
+  email?: string
+  /** The `utm_source` of the link the person arrived through, when it had one. */
+  source?: string
+  language?: 'es' | 'en'
+  referred?: boolean
+  confirmedTotal?: number
+}
+
+export interface WaitlistTeamNoticeDatabase {
+  prepare(eventId: string): Promise<WaitlistTeamNoticeDelivery>
+}
+
 interface ConfirmedSignup {
-  source: string | null
+  name: string
+  email: string
+  source: string | undefined
   language: 'es' | 'en'
   referred: boolean
   confirmedTotal: number
@@ -79,11 +102,43 @@ export function waitlistTeamChannelFromEnvironment(
   }
 }
 
+export function createWaitlistTeamNoticeDatabase(sql: postgres.Sql): WaitlistTeamNoticeDatabase {
+  return {
+    async prepare(eventId) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.actor_kind', 'worker', true)`
+        const [row] = await transaction<
+          Array<{
+            delivery_state: WaitlistTeamNoticeDelivery['state']
+            person_name: string | null
+            person_email: string | null
+            utm_source: string | null
+            language: 'es' | 'en' | null
+            referred: boolean | null
+            confirmed_total: number | null
+          }>
+        >`select * from waitlist.prepare_team_notice(${eventId}::uuid)`
+        if (!row) throw new Error('PostgreSQL did not prepare the waitlist team notice')
+        return {
+          state: row.delivery_state,
+          ...(row.person_name ? { name: row.person_name } : {}),
+          ...(row.person_email ? { email: row.person_email } : {}),
+          ...(row.utm_source ? { source: row.utm_source } : {}),
+          ...(row.language ? { language: row.language } : {}),
+          ...(row.referred === null ? {} : { referred: row.referred }),
+          ...(row.confirmed_total === null ? {} : { confirmedTotal: row.confirmed_total }),
+        }
+      })
+    },
+  }
+}
+
 export function createWaitlistTeamNoticeBatchProcessor(dependencies: {
   queue: Queue
+  database: WaitlistTeamNoticeDatabase
   channel?: TeamChannel | undefined
 }) {
-  const { queue, channel } = dependencies
+  const { queue, database, channel } = dependencies
 
   return async function processWaitlistTeamNoticeBatch(): Promise<WaitlistTeamNoticeBatchResult> {
     if (!channel) return { claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 }
@@ -94,16 +149,21 @@ export function createWaitlistTeamNoticeBatchProcessor(dependencies: {
       claimed: messages.length,
       delivered: results.filter((outcome) => outcome === 'delivered').length,
       deadOrDelayed: results.filter((outcome) => outcome === 'failed').length,
-      skipped: 0,
+      skipped: results.filter((outcome) => outcome === 'skipped').length,
     }
   }
 
   async function deliver(
     channel: TeamChannel,
     message: QueueMessage,
-  ): Promise<'delivered' | 'failed'> {
+  ): Promise<'delivered' | 'failed' | 'skipped'> {
     try {
-      const confirmed = confirmedSignup(message.payload)
+      const delivery = await database.prepare(message.id)
+      if (delivery.state !== 'ready') {
+        await queue.ack(message.id)
+        return 'skipped'
+      }
+      const confirmed = confirmedSignup(delivery)
       if (!confirmed) {
         await queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
@@ -122,28 +182,26 @@ export function createWaitlistTeamNoticeBatchProcessor(dependencies: {
   }
 }
 
-function confirmedSignup(payload: unknown): ConfirmedSignup | undefined {
-  if (typeof payload !== 'object' || payload === null) return undefined
-  const { utm_source, language, referred, confirmed_total } = payload as Record<string, unknown>
-  if (utm_source !== null && typeof utm_source !== 'string') return undefined
-  if (language !== 'es' && language !== 'en') return undefined
-  if (typeof referred !== 'boolean') return undefined
-  if (typeof confirmed_total !== 'number' || !Number.isInteger(confirmed_total)) return undefined
-  if (confirmed_total < 1) return undefined
-  return { source: utm_source, language, referred, confirmedTotal: confirmed_total }
+function confirmedSignup(delivery: WaitlistTeamNoticeDelivery): ConfirmedSignup | undefined {
+  const { name, email, source, language, referred, confirmedTotal } = delivery
+  if (!name || !email || !language || referred === undefined) return undefined
+  if (confirmedTotal === undefined || !Number.isInteger(confirmedTotal) || confirmedTotal < 1) {
+    return undefined
+  }
+  return { name, email, source, language, referred, confirmedTotal }
 }
 
-/** The team reads Spanish. The channel name came from a link anybody can write. */
+/** The team reads Spanish. The name is the person's own, as she wrote it when she joined. */
 export function waitlistTeamNotice(confirmed: ConfirmedSignup): TeamNotice {
-  const source = channelName(confirmed.source)
   const total = WHOLE_NUMBER.format(confirmed.confirmedTotal)
   const counted = confirmed.confirmedTotal === 1 ? 'confirmada' : 'confirmadas'
   return {
-    summary: `Nueva persona en la lista de espera de Allfit Space · ${total} ${counted}`,
-    title: 'Nueva persona en la lista de espera',
+    summary: `${confirmed.name} se unió a la lista de espera de Allfit Space · ${total} ${counted}`,
+    title: `${confirmed.name} se unió a la lista de espera`,
     origin: 'Allfit Space · Confirmó su correo',
     facts: [
-      { label: 'Canal', value: source },
+      { label: 'Correo', value: confirmed.email },
+      { label: 'Canal', value: channelName(confirmed.source) },
       { label: 'Idioma', value: LANGUAGE_NAMES[confirmed.language] },
       { label: 'Cómo llegó', value: confirmed.referred ? 'Invitada por alguien' : 'Por su cuenta' },
       { label: 'Confirmadas en la lista', value: total },
@@ -152,7 +210,7 @@ export function waitlistTeamNotice(confirmed: ConfirmedSignup): TeamNotice {
 }
 
 /** «instagram» in a link is Instagram to the reader; no link at all is a direct visit. */
-function channelName(source: string | null): string {
+function channelName(source: string | undefined): string {
   const typed = source?.replace(/[\s\p{Cc}]+/gu, ' ').trim()
   if (!typed) return 'Directo'
   const known = CHANNEL_NAMES.get(typed.toLowerCase())
