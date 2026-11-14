@@ -105,8 +105,8 @@ export const en: Dictionary = {
     },
   },
   pro: {
-    title: ['DOES YOUR GYM', 'USE ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
-    text: "The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail, and you don't pay for it while you stay with that gym.",
+    title: ['DOES YOUR GYM', 'PAY FOR ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
+    text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym or your coach has a paid Allfit Studio plan, Pro is included while you stay with them.',
     alt: 'Athlete doing a biceps curl with a dumbbell in each hand.',
   },
   studio: {
@@ -205,8 +205,9 @@ export const en: Dictionary = {
       text: 'Allfit Space is free. Allfit Pro is its optional subscription: unlimited programmes and all your progress in detail.',
       rows: [
         {
-          term: 'If your gym uses Allfit Studio',
-          value: "Allfit Pro is included, and you don't pay for it while you stay with that gym.",
+          term: 'If your gym pays for Allfit Studio',
+          value:
+            "If your gym or your coach has a paid Allfit Studio plan, Allfit Pro is included while you stay with them. Studio's free plan doesn't include it.",
         },
         {
           term: 'Your data',

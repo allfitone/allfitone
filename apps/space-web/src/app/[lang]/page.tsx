@@ -2,9 +2,9 @@
  * The Space landing, in the order the story is told: what the app is (hero),
  * what using it looks like (from the first set to the last bite), where to
  * start (programmes), why it is safe (your data is yours), what you get to show
- * (every record counts), what it costs (Pro, included if your gym uses Allfit
- * Studio), the waitlist and the close. Every screen shown is a real capture of
- * the app.
+ * (every record counts), what it costs (Pro, included when a gym or coach
+ * pays for Allfit Studio; its free plan does not), the waitlist and the close.
+ * Every screen shown is a real capture of the app.
  *
  * The app is not in the stores yet, so the page converts to the waitlist: the
  * hero's and the header's actions open the waitlist page, where the offer and

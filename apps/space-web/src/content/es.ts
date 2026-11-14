@@ -111,8 +111,8 @@ export const es = {
     },
   },
   pro: {
-    title: ['¿TU GIMNASIO USA', 'ALLFIT STUDIO?', 'PRO VA INCLUIDO.'],
-    text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle, y no lo pagas mientras sigas con ese gimnasio.',
+    title: ['¿TU GIMNASIO PAGA', 'ALLFIT STUDIO?', 'PRO VA INCLUIDO.'],
+    text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle. Si tu gimnasio o tu entrenador tiene un plan pago de Allfit Studio, Pro va incluido mientras sigas con ellos.',
     alt: 'Atleta haciendo curl de bíceps con una mancuerna en cada mano.',
   },
   studio: {
@@ -216,8 +216,9 @@ export const es = {
       text: 'Allfit Space es gratis. Allfit Pro es su suscripción opcional: programas ilimitados y todo tu progreso en detalle.',
       rows: [
         {
-          term: 'Si tu gimnasio usa Allfit Studio',
-          value: 'Allfit Pro va incluido, y no lo pagas mientras sigas con ese gimnasio.',
+          term: 'Si tu gimnasio paga Allfit Studio',
+          value:
+            'Si tu gimnasio o tu entrenador tiene un plan pago de Allfit Studio, Allfit Pro va incluido mientras sigas con ellos. El plan gratis de Studio no lo incluye.',
         },
         {
           term: 'Tus datos',
