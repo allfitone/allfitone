@@ -27,13 +27,14 @@ import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { Phone } from '@/components/phone'
 import { Records } from '@/components/records'
+import { ReferralLevels } from '@/components/referral-levels'
 import { Stores } from '@/components/stores'
 import { Title } from '@/components/title'
 import { WaitlistForm } from '@/components/waitlist-form'
 import { dictionaryFor } from '@/content'
 import type { LocaleParams } from '@/lib/route'
 import { isLocale } from '@/lib/locale'
-import { REFERRAL_LEVELS, WAITLIST_PATH } from '@/lib/waitlist'
+import { WAITLIST_PATH } from '@/lib/waitlist'
 
 const FEATURE_SCREENS = [
   '/images/screens/hoy-historial.webp',
@@ -204,16 +205,7 @@ export default async function Landing({ params }: LocaleParams) {
                 />
                 <p>{copy.invite.text}</p>
               </div>
-              <ul className="invite__levels" role="list">
-                {REFERRAL_LEVELS.map((level, index) => (
-                  <li key={level} className="invite__level">
-                    <p className="invite__count">
-                      {index === REFERRAL_LEVELS.length - 1 ? `${String(level)}+` : level}
-                    </p>
-                    <p className="invite__reward">{copy.invite.rewards[level]}</p>
-                  </li>
-                ))}
-              </ul>
+              <ReferralLevels rewards={copy.invite.rewards} openEnded />
             </div>
           </div>
         </section>

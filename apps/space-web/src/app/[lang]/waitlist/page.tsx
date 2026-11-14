@@ -7,7 +7,9 @@
  *
  * The title rises once, on load, the page's one moment of motion. The context
  * is a document: sentence-case headings, hairlines and term–value rows, with no
- * cards, numbers or labels above headings.
+ * cards or labels above headings. The one exception is the referral levels,
+ * drawn as the landing's tiles so the table reads the same on both pages; the
+ * form's panel takes the cyan edge, since it is the one place to act.
  */
 
 import type { Metadata } from 'next'
@@ -15,13 +17,14 @@ import { notFound } from 'next/navigation'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
+import { ReferralLevels } from '@/components/referral-levels'
 import { Title } from '@/components/title'
 import { WaitlistForm } from '@/components/waitlist-form'
 import { dictionaryFor } from '@/content'
 import type { LocaleParams } from '@/lib/route'
 import { isLocale } from '@/lib/locale'
 import { pageMetadata } from '@/lib/site'
-import { REFERRAL_LEVELS, WAITLIST_PATH } from '@/lib/waitlist'
+import { WAITLIST_PATH } from '@/lib/waitlist'
 
 export async function generateMetadata({ params }: LocaleParams): Promise<Metadata> {
   const { lang } = await params
@@ -35,10 +38,8 @@ export default async function WaitlistPage({ params }: LocaleParams) {
   if (!isLocale(lang)) notFound()
   const copy = dictionaryFor(lang)
   const page = copy.waitlistPage
-  const levels = REFERRAL_LEVELS.map((level) => ({
-    term: copy.referrals.people.replace('{count}', String(level)),
-    value: copy.referrals.rewards[level],
-  }))
+  // «{count} referidos activos»: the tile sets the count apart, so the unit goes alone.
+  const referralUnit = copy.referrals.people.replace('{count}', '').trim()
 
   return (
     <>
@@ -68,7 +69,7 @@ export default async function WaitlistPage({ params }: LocaleParams) {
             <section className="terms-block" aria-labelledby="referrals-title">
               <h2 id="referrals-title">{copy.referrals.title}</h2>
               <p>{copy.referrals.text}</p>
-              <Rows rows={levels} />
+              <ReferralLevels rewards={copy.referrals.rewards} unit={referralUnit} />
               <p className="terms-block__note">{copy.referrals.note}</p>
             </section>
 
