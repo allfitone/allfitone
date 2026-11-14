@@ -56,7 +56,6 @@ export const en: Dictionary = {
   programs: {
     title: ['A PROGRAMME', 'FOR YOUR GOAL.'],
     lead: "Tell it what you want to achieve and how much you've trained, and the app suggests where to start. Strength, hypertrophy, running or getting moving again.",
-    suggested: 'Suggested for you',
     items: [
       { name: 'UPPER AND LOWER', meta: '4 days · 10 weeks' },
       { name: 'BASIC STRENGTH', meta: '3 days · 8 weeks' },

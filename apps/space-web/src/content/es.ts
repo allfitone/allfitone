@@ -62,7 +62,6 @@ export const es = {
   programs: {
     title: ['UN PROGRAMA', 'PARA TU OBJETIVO.'],
     lead: 'Le cuentas qué quieres lograr y cuánto has entrenado, y la app te propone por dónde empezar. Fuerza, hipertrofia, carrera o volver a moverte.',
-    suggested: 'Sugerido para ti',
     items: [
       { name: 'TORSO Y PIERNA', meta: '4 días · 10 semanas' },
       { name: 'FUERZA BÁSICA', meta: '3 días · 8 semanas' },

@@ -155,9 +155,6 @@ export default async function Landing({ params }: LocaleParams) {
                       />
                     ) : null}
                   </div>
-                  {index === 0 ? (
-                    <span className="program__badge">{copy.programs.suggested}</span>
-                  ) : null}
                   <h3>{program.name}</h3>
                   <p>{program.meta}</p>
                 </li>

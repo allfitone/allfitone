@@ -580,18 +580,6 @@ a.store:active {
   font-size: 14px;
 }
 
-.program__badge {
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: var(--cyan);
-  color: var(--on-cyan);
-  font-size: 12px;
-  font-weight: 800;
-}
-
 /* On narrow screens the row runs to the screen's edges, so the next card peeking
    in shows that it scrolls. */
 @media (max-width: 1080px) {
