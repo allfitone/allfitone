@@ -65,7 +65,7 @@ test('T-WRK-WL-07 a confirmed sign-up is told to the team in one notice that nam
       title: 'Nueva persona en la lista de espera',
       origin: 'Allfit Space · Confirmó su correo',
       facts: [
-        { label: 'Canal', value: 'instagram' },
+        { label: 'Canal', value: 'Instagram' },
         { label: 'Idioma', value: 'Español' },
         { label: 'Cómo llegó', value: 'Invitada por alguien' },
         { label: 'Confirmadas en la lista', value: '41' },
@@ -97,11 +97,40 @@ test('T-WRK-WL-08 the notice reads each fact as the team says it', async () => {
     { label: 'Confirmadas en la lista', value: '1' },
   ])
   // A channel from a link stays on one line, and thousands are grouped as in Colombia.
-  expect(posted[1]?.facts[0]).toEqual({ label: 'Canal', value: 'tiktok Canal: falso' })
+  expect(posted[1]?.facts[0]).toEqual({ label: 'Canal', value: 'Tiktok Canal: falso' })
   expect(posted[1]?.facts[3]).toEqual({ label: 'Confirmadas en la lista', value: '1.240' })
   expect(posted[1]?.summary).toBe(
     'Nueva persona en la lista de espera de Allfit Space · 1.240 confirmadas',
   )
+})
+
+test('T-WRK-WL-13 the channel is written the way its name is written', async () => {
+  const written: Array<[string | null, string]> = [
+    ['instagram', 'Instagram'],
+    ['INSTAGRAM', 'Instagram'],
+    [' Instagram ', 'Instagram'],
+    ['tiktok', 'TikTok'],
+    ['TIKTOK', 'TikTok'],
+    ['whatsapp', 'WhatsApp'],
+    ['youtube', 'YouTube'],
+    ['linkedin', 'LinkedIn'],
+    ['facebook', 'Facebook'],
+    ['embajador-william', 'Embajador-william'],
+    ['ñandú', 'Ñandú'],
+    ['x', 'X'],
+    // A name every object answers to is still just a channel somebody typed.
+    ['constructor', 'Constructor'],
+    ['   ', 'Directo'],
+    [null, 'Directo'],
+  ]
+  const posted: TeamNotice[] = []
+
+  await createWaitlistTeamNoticeBatchProcessor({
+    queue: queue(written.map(([utm_source]) => ({ ...CONFIRMED, utm_source }))),
+    channel: channel(posted),
+  })()
+
+  expect(posted.map((notice) => notice.facts[0]?.value)).toEqual(written.map(([, name]) => name))
 })
 
 test('T-WRK-WL-09 an event without what the notice needs is dead, not retried', async () => {

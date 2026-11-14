@@ -46,6 +46,23 @@ interface ConfirmedSignup {
 
 const LANGUAGE_NAMES = { es: 'Español', en: 'Inglés' } as const
 const WHOLE_NUMBER = new Intl.NumberFormat('es-CO')
+// However a link spells them, these read as their own names. Anything else gets a capital.
+const CHANNEL_NAMES = new Map(
+  Object.entries({
+    instagram: 'Instagram',
+    facebook: 'Facebook',
+    tiktok: 'TikTok',
+    whatsapp: 'WhatsApp',
+    youtube: 'YouTube',
+    linkedin: 'LinkedIn',
+    telegram: 'Telegram',
+    threads: 'Threads',
+    strava: 'Strava',
+    google: 'Google',
+    twitter: 'Twitter',
+    x: 'X',
+  }),
+)
 
 /** The channel the environment names, or none: a wrong address must not stop the worker. */
 export function waitlistTeamChannelFromEnvironment(
@@ -118,7 +135,7 @@ function confirmedSignup(payload: unknown): ConfirmedSignup | undefined {
 
 /** The team reads Spanish. The channel name came from a link anybody can write. */
 export function waitlistTeamNotice(confirmed: ConfirmedSignup): TeamNotice {
-  const source = confirmed.source?.replace(/[\s\p{Cc}]+/gu, ' ').trim() || 'Directo'
+  const source = channelName(confirmed.source)
   const total = WHOLE_NUMBER.format(confirmed.confirmedTotal)
   const counted = confirmed.confirmedTotal === 1 ? 'confirmada' : 'confirmadas'
   return {
@@ -132,4 +149,14 @@ export function waitlistTeamNotice(confirmed: ConfirmedSignup): TeamNotice {
       { label: 'Confirmadas en la lista', value: total },
     ],
   }
+}
+
+/** «instagram» in a link is Instagram to the reader; no link at all is a direct visit. */
+function channelName(source: string | null): string {
+  const typed = source?.replace(/[\s\p{Cc}]+/gu, ' ').trim()
+  if (!typed) return 'Directo'
+  const known = CHANNEL_NAMES.get(typed.toLowerCase())
+  if (known) return known
+  const [first = '', ...rest] = typed
+  return first.toLocaleUpperCase('es') + rest.join('')
 }
