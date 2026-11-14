@@ -250,7 +250,7 @@ export const es = {
       title: 'Condiciones',
       items: [
         'Founding Members son las primeras 100 personas que se unen a la lista de espera y confirman su correo. Su número, del #001 al #100, sigue el orden en que lo confirman.',
-        'Para conservarlo, crea tu cuenta en Allfit Space con el mismo correo durante la beta cerrada o en los 7 días siguientes al lanzamiento. Si no, tu lugar pasa a la siguiente persona de la lista.',
+        'Tu número queda reservado desde que confirmas tu correo. Para activarlo, crea tu cuenta en Allfit Space con el mismo correo durante la beta cerrada o en los 7 días siguientes al lanzamiento. Si no la creas en ese plazo, tu número pasa a la siguiente persona de la lista.',
         'El precio de fundador aplica al plan mensual de Allfit Pro si te suscribes en los 6 meses siguientes al lanzamiento, y se mantiene mientras no canceles, aunque el precio suba. Si cancelas, lo pierdes; un pago fallido mientras la tienda lo reintenta no cuenta como cancelación.',
         'El estatus es personal y no se transfiere. Solo se pierde si borras tu cuenta o por fraude comprobado.',
         'Una persona que invitas suma a tu contador cuando se une con tu link o tu código y confirma su correo. Para los premios cuenta cuando está activa: crea su cuenta en Allfit Space después del lanzamiento, con el mismo correo, y registra al menos 3 entrenamientos o comidas en sus primeros 14 días. Cuenta una sola vez.',
