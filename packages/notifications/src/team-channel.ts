@@ -40,8 +40,9 @@ const SLACK_WEBHOOK_PREFIX = 'https://hooks.slack.com/'
 const POST_TIMEOUT_MS = 10_000
 /** Allfit One's cyan, `--afo-color-brand-cyan` in the Design System. */
 const BRAND_COLOR = '#55EFFB'
-// Slack refuses a section with more than ten fields.
+// Slack refuses a section with more than ten fields, and a header past 150 characters.
 const MAX_FACTS = 10
+const MAX_TITLE_LENGTH = 150
 
 export function createSlackTeamChannel(
   webhookUrl: string,
@@ -89,7 +90,7 @@ function slackMessage(notice: TeamNotice): unknown {
         blocks: [
           {
             type: 'header',
-            text: { type: 'plain_text', text: escapeSlackText(notice.title), emoji: false },
+            text: { type: 'plain_text', text: headerText(notice.title), emoji: false },
           },
           { type: 'context', elements: [{ type: 'mrkdwn', text: escapeSlackText(notice.origin) }] },
           {
@@ -107,4 +108,11 @@ function slackMessage(notice: TeamNotice): unknown {
 
 function escapeSlackText(text: string): string {
   return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+}
+
+/** Cut before escaping, so the limit never splits an escaped character in two. */
+function headerText(title: string): string {
+  let text = [...title].slice(0, MAX_TITLE_LENGTH).join('')
+  while (escapeSlackText(text).length > MAX_TITLE_LENGTH) text = [...text].slice(0, -1).join('')
+  return escapeSlackText(text)
 }

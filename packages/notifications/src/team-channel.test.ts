@@ -102,6 +102,21 @@ test('a notice with more facts than Slack takes keeps the first ten', async () =
   expect(fields.at(-1)?.text).toBe('*Dato 10*\nx')
 })
 
+test('a title longer than Slack takes is cut to fit, never refused', async () => {
+  const calls: Array<[string, RequestInit | undefined]> = []
+
+  await createSlackTeamChannel(WEBHOOK, answering(200, calls)).post({
+    ...NOTICE,
+    title: `${'a'.repeat(148)}&&&`,
+  })
+
+  const { attachments } = sent(calls) as {
+    attachments: Array<{ blocks: Array<{ text?: { text: string } }> }>
+  }
+  // 148 letters and no half of an escaped «&».
+  expect(attachments[0]?.blocks[0]?.text?.text).toBe('a'.repeat(148))
+})
+
 test('an address that is not a Slack webhook is refused before any post', () => {
   for (const address of ['', 'https://example.com/hook', 'http://hooks.slack.com/services/T/B/x']) {
     expect(() => createSlackTeamChannel(address, answering(200))).toThrow(
