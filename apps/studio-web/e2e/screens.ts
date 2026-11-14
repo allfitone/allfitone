@@ -1725,6 +1725,61 @@ export const SCREENS: Screen[] = [
   },
   {
     /*
+     * The dialog that moves a session, open, with the clock pinned inside the
+     * week the movable session lives in. Without pinning, the fixture's weeks
+     * are behind today and no day is a control at all — which is correct
+     * behaviour and shows nothing.
+     */
+    stories: 'HU-048 · the dialog that moves a session to another day of its week',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: async (page) => {
+      await page.clock.setFixedTime(new Date('2026-10-13T15:00:00.000Z'))
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .locator('[data-client-session-move]')
+        .click()
+      await expect(page.locator('[data-client-session-move-week]')).toBeVisible()
+    },
+  },
+  {
+    // The refusal that is not an error: somebody moved it meanwhile, and the
+    // answer carries the day it is on now. Swept because it is the one alert in
+    // Studio that reports a day rather than a failure.
+    stories: 'HU-048 · a session that moved while the dialog was open',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        rescheduleOutcome: 'stale-draft',
+      }),
+    setup: async (page) => {
+      await page.clock.setFixedTime(new Date('2026-10-13T15:00:00.000Z'))
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .locator('[data-client-session-move]')
+        .click()
+      await page.locator('[data-client-session-move-week] button').nth(5).click()
+      await page.getByRole('button', { name: 'Mover a ese día' }).click()
+      await expect(page.locator('[data-client-session-move-error]')).toBeVisible()
+    },
+  },
+  {
+    /*
      * The dialog that stops a program, open. Swept because a dialog is the one
      * surface a sweep misses by default: nothing on the page behind it says it
      * exists, and it carries the two sentences the story turns on.

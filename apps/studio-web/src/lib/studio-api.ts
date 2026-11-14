@@ -132,6 +132,7 @@ export type RelationshipAssignmentPage = AllfitV1Schemas['RelationshipAssignment
 export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
 export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
 export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
+export type PlannedSessionReschedule = AllfitV1Schemas['PlannedSessionReschedule']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -1152,6 +1153,39 @@ export const studioApi = {
       {
         method: 'POST',
         headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PLN-012`. Moves one session of a managed program to another day of its
+   * own calendar week. **Only the day changes**: the routine, its targets and
+   * the week it belongs to stay, and the move is kept with who made it.
+   *
+   * The caller sends the `revision_number` she read as `expected_revision`; a
+   * session that moved meanwhile answers 409 `stale-draft` **with the current
+   * session in `current_state`**, so the screen can show it rather than lose
+   * either version. A session she started, one that is not scheduled, and one
+   * of a program the organization no longer manages all answer 409 `conflict`,
+   * and a paused service 409 `service-paused`.
+   *
+   * Needs `relationship_training` at `contribute`, so `read` answers 403
+   * `scope-required`. Moving a session to the day it is already on changes
+   * nothing.
+   */
+  reschedulePlannedSession: (
+    organizationId: string,
+    plannedSessionId: string,
+    body: PlannedSessionReschedule,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<RelationshipAssignmentSession>(
+      `/studio/v1/organizations/${organizationId}/planned-sessions/${plannedSessionId}`,
+      {
+        method: 'PATCH',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
         ...(signal ? { signal } : {}),
       },
     ),
