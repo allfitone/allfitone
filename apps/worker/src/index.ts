@@ -41,6 +41,10 @@ import {
   createWaitlistEmailDeliveryDatabase,
 } from './waitlist-emails.js'
 import {
+  createWaitlistTeamNoticeBatchProcessor,
+  waitlistTeamChannelFromEnvironment,
+} from './waitlist-team-notices.js'
+import {
   createBackofficeAuthBatchProcessor,
   createBackofficeAuthCleanupDatabase,
   type BackofficeAuthBatchResult,
@@ -438,6 +442,11 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         brandAssetUrl,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  // Not an email, so no delivery switch: the team's channel address is what turns it on.
+  const waitlistTeamNotices = createWaitlistTeamNoticeBatchProcessor({
+    queue,
+    channel: waitlistTeamChannelFromEnvironment(process.env),
+  })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
     // team batch already runs for every pending invitation whatever it proposes.
@@ -447,9 +456,9 @@ function processorsFromEnvironment(): WorkerJobProcessors {
       const client = await clientInvitations()
       /*
        * Reassignment and resignation notices, substitution questions, correction proposals,
-       * subscription notices, email and password changes ride the same job rather than a
-       * cron each: the same claim against the same outbox, and a separate schedule would be
-       * another thing to notice when it stops running.
+       * subscription notices, email and password changes and the team's waitlist notices
+       * ride the same job rather than a cron each: the same claim against the same outbox,
+       * and a separate schedule would be another thing to notice when it stops running.
        *
        * Summed by a fold and not by hand. With seven processors and four counters the
        * written-out version was twenty-four terms, and a sixth kind added to three of
@@ -467,6 +476,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await emailChanges(),
         await passwordChanges(),
         await waitlistEmails(),
+        await waitlistTeamNotices(),
       ]
       return {
         ...batches.reduce(
