@@ -20,6 +20,7 @@ import {
   installStudioApiMock,
   professionalCredential,
   professionalProfile,
+  studioTodayEmpty,
 } from './studio-api-mock'
 
 const INVITATION_ID = '01991600-7000-7000-8000-000000000101'
@@ -111,22 +112,24 @@ test('an empty invitation register says so instead of showing rows', async ({ pa
   expect(fixture.requests.some((request) => request.path === invitationsPath)).toBe(true)
 })
 
-test('an organization with no team yet says so instead of inventing members', async ({ page }) => {
+/**
+ * `empty` is the server's word, and the panel must take it rather than count
+ * its own cards: the contract says `team` is a state and never makes the day
+ * non-empty, so the honest answer here has a team line **and** the message that
+ * nothing waits. A screen that inferred emptiness from what it had drawn would
+ * show the line and swallow the message.
+ */
+test('a day with nothing waiting says so, with the team still under it', async ({ page }) => {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership],
-    intercept: (request) =>
-      request.method === 'GET' &&
-      (request.path === membershipsPath || request.path === invitationsPath)
-        ? emptyPage
-        : undefined,
+    today: { ...studioTodayEmpty, organization_id: activeMembership.organization_id },
   })
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${activeMembership.organization_id}`)
 
-  await expect(page.getByText('Trabajas en solitario por ahora')).toBeVisible()
-  await expect(page.getByText('Cuando alguien acepte una invitación aparecerá aquí.')).toBeVisible()
-  await expect(page.locator('[data-overview-team-list] li')).toHaveCount(0)
-  await expect(page.locator('[data-overview-attention-list] li')).toHaveCount(0)
+  await expect(page.getByText('Nada espera por ti ahora')).toBeVisible()
+  await expect(page.getByText('integrante con rol vigente')).toBeVisible()
+  await expect(page.locator('[data-today-notice]')).toHaveCount(0)
 })
 
 /**

@@ -38,6 +38,22 @@ describe('Studio query keys', () => {
     )
   })
 
+  /*
+   * Asking for what needs attention today evaluates every client the caller
+   * attends and writes a line in each of their access logs. `invalidateQueries`
+   * matches by prefix, and three screens invalidate `organization(<id>)` whole
+   * when they save, so a `today` key below that prefix would turn saving a site
+   * address into a read of every client. Tidying it back under there is the
+   * mistake this test exists to stop.
+   */
+  test('keeps today outside the organization prefix, where no broad invalidation reaches it', () => {
+    const organization = studioQueryKeys.organization('org-a')
+    const today = studioQueryKeys.today('org-a')
+
+    expect(today.slice(0, organization.length)).not.toEqual([...organization])
+    expect(studioQueryKeys.today('org-a')).not.toEqual(studioQueryKeys.today('org-b'))
+  })
+
   test('keeps profile and catalog keys free of session identifiers', () => {
     expect(studioQueryKeys.me()).toEqual(['studio', 'me'])
     expect(studioQueryKeys.professionalSpecialties()).toEqual([

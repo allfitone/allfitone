@@ -17,6 +17,18 @@ export function organizationRoleLabel(role: OrganizationRoleCode): string {
   return ROLE_LABELS[role]
 }
 
+/**
+ * What to call a role code that may not be one of the four above.
+ *
+ * The role catalogue belongs to the server, and codes that travel inside a
+ * projection — the team summary of what needs attention today — arrive as plain
+ * strings from it. A code this app has no word for means the catalogue grew, so
+ * it reads as itself instead of as a blank.
+ */
+export function organizationRoleName(code: string): string {
+  return ROLE_LABELS[code as OrganizationRoleCode] ?? code
+}
+
 export function memberInitials(displayName: string): string {
   return displayName
     .trim()

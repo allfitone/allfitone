@@ -158,6 +158,17 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'plans', { limit }] as const,
   clientCard: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
+  /*
+   * Deliberately not under `organization/<id>`, which every other key here is.
+   *
+   * `invalidateQueries` matches by prefix, and three screens invalidate
+   * `organization(<id>)` whole when they save — the profile and the two site
+   * forms. A `today` key below that prefix would be refetched by saving an
+   * address, and refetching this one writes a line in the access log of every
+   * client the caller attends. Out of the prefix, nothing can reach it by
+   * accident; whoever wants it refreshed has to name it.
+   */
+  today: (organizationId: string) => [...ROOT_KEY, 'today', organizationId] as const,
   clientTrainingProfile: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
   clientProgress: (
@@ -416,6 +427,35 @@ export function clientCardQueryOptions(organizationId: string, personId: string)
     queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
     staleTime: 0,
     gcTime: 0,
+  })
+}
+
+/**
+ * The landing panel of what needs attention today, read under the strictest
+ * rules in this file — and here they are not a preference but the only honest
+ * way to ask.
+ *
+ * `OP-REL-020` answers `private-no-store`, so nothing may be remembered. More
+ * than that: working out the training notice evaluates every client the caller
+ * attends and **records each one in that person's own access log, shown or
+ * not**. Each request therefore costs one line, visible to each of those
+ * people, in a register they read to see who looked at their data.
+ *
+ * So this read happens when somebody arrives at the screen, and otherwise never.
+ * Alt-tabbing back, a reconnecting laptop or a polite thirty-second refresh
+ * would each write that line again and turn the register into a log of a
+ * window's focus rather than of anybody's intent. `gcTime: 0` makes arriving
+ * ask again instead of painting a remembered answer, which is also what the
+ * screen needs: a notice resolved two minutes ago must not still be on it.
+ */
+export function todayQueryOptions(organizationId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.today(organizationId),
+    queryFn: ({ signal }) => studioApi.today(organizationId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }
 

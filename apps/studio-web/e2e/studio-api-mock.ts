@@ -40,6 +40,11 @@ export interface StudioApiFixture {
   guestQuota: StudioGuestQuotaBody | null
   authorizedScopes: unknown[]
   /**
+   * What `OP-REL-020` answers this caller. `null` is its `403` — a membership
+   * that no longer lets them read the organization at all.
+   */
+  today: unknown
+  /**
    * The card of the person `activeClient` names. `null` is the `404`
    * `OP-REL-019` answers for a person who does not exist and for one the
    * caller does not attend — the same answer for both, on purpose.
@@ -97,6 +102,35 @@ export interface StudioApiFixture {
     | 'program-version'
     | 'starts-on'
     | 'timezone'
+  /**
+   * Which answer `OP-PLN-014` gives. `cancelled` is the success, and it is the
+   * only one that writes: the simulator stops the stoppable sessions and
+   * closes the assignment, so the re-read after it shows what the command did.
+   */
+  cancelAssignmentOutcome:
+    | 'cancelled'
+    | 'scope-required'
+    | 'forbidden'
+    | 'service-paused'
+    | 'conflict'
+    | 'not-found'
+    | 'unavailable'
+  /**
+   * Which answer `OP-PLN-012` gives. `moved` is the success and the only one
+   * that writes: the simulator puts the session on the day it was sent and
+   * bumps its revision, so the re-read shows it where it went. `stale-draft`
+   * answers the 409 that **carries the current session**, which is what lets the
+   * screen show the other version instead of losing either.
+   */
+  rescheduleOutcome:
+    | 'moved'
+    | 'stale-draft'
+    | 'conflict'
+    | 'service-paused'
+    | 'scope-required'
+    | 'invalid-day'
+    | 'not-found'
+    | 'unavailable'
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -2641,6 +2675,176 @@ export const bodyPhotoJpeg = Buffer.from(
   'base64',
 )
 
+/**
+ * `OP-REL-020`: what needs this caller's attention today.
+ *
+ * The fullest useful case — an owner who also coaches, so every notice a role
+ * can carry is present and the panel has to order and word seven different
+ * things at once.
+ *
+ * Three values here are deliberately awkward, because each one broke something
+ * the first time. Two notices count more than they list, which is what the
+ * contract does and what the remainder line has to say. One contact is the long
+ * masked address that paints out of its cell without `overflow-wrap`. And
+ * `by_role` carries a `physiotherapist`, a code this app has no word for: the
+ * role catalogue is the server's, so the panel must read the code back rather
+ * than a blank.
+ */
+export const studioToday = {
+  organization_id: activeMembership.organization_id,
+  generated_at: '2026-11-13T19:00:00.000Z',
+  empty: false,
+  notices: {
+    client_invitations: {
+      count: 7,
+      awaiting: 5,
+      lapsed: 2,
+      items: [
+        {
+          invitation_id: '01991600-7000-7000-8000-000000000301',
+          contact: 'c***@correo-institucional-muy-largo.example.test',
+          state: 'awaiting',
+          created_at: '2026-11-09T19:33:58.640Z',
+          expires_at: '2026-11-16T19:33:58.640Z',
+        },
+        {
+          invitation_id: '01991600-7000-7000-8000-000000000302',
+          contact: 'b***@ejemplo.test',
+          state: 'lapsed',
+          created_at: '2026-10-28T14:02:11.000Z',
+          expires_at: '2026-11-04T14:02:11.000Z',
+        },
+      ],
+      link: { operation_id: 'listStudioOrganizationClients', query: { status: 'invited' } },
+    },
+    unassigned_relationships: {
+      count: 2,
+      items: [
+        {
+          relationship_id: activeClient.relationship_id,
+          person_id: activeClient.person_id,
+          display_name: activeClient.display_name,
+          started_at: '2026-11-11T16:40:00.000Z',
+        },
+        {
+          relationship_id: '01991600-7000-7000-8000-000000000111',
+          person_id: '01991600-7000-7000-8000-000000000211',
+          display_name: 'Bartholomew Featherstonehaugh',
+          started_at: '2026-11-10T09:05:00.000Z',
+        },
+      ],
+      link: { operation_id: 'assignRelationshipHolder', query: {} },
+    },
+    termination_requests: {
+      count: 1,
+      items: [
+        {
+          request_id: '01991600-7000-7000-8000-000000000401',
+          relationship_id: '01991600-7000-7000-8000-000000000112',
+          person_id: '01991600-7000-7000-8000-000000000212',
+          display_name: 'Jo Li',
+          requested_at: '2026-11-12T11:20:00.000Z',
+        },
+      ],
+      link: { operation_id: 'terminateRelationship', query: {} },
+    },
+    team_invitations: {
+      count: 1,
+      awaiting: 1,
+      lapsed: 0,
+      items: [
+        {
+          invitation_id: '01991600-7000-7000-8000-000000000501',
+          contact: 'n***@ejemplo.test',
+          state: 'awaiting',
+          created_at: '2026-11-11T08:00:00.000Z',
+          expires_at: '2026-11-18T08:00:00.000Z',
+          proposed_role_code: 'coach',
+        },
+      ],
+      link: { operation_id: 'listStudioTeamInvitations', query: {} },
+    },
+    new_relationships: {
+      count: 3,
+      items: [
+        {
+          relationship_id: '01991600-7000-7000-8000-000000000113',
+          person_id: '01991600-7000-7000-8000-000000000213',
+          display_name: 'Camila Torres',
+          started_at: '2026-11-12T15:00:00.000Z',
+        },
+        {
+          relationship_id: '01991600-7000-7000-8000-000000000114',
+          person_id: '01991600-7000-7000-8000-000000000214',
+          display_name: 'María Fernanda Quintero',
+          started_at: '2026-11-08T10:30:00.000Z',
+        },
+      ],
+      link: { operation_id: 'listStudioOrganizationClients', query: { status: 'active' } },
+    },
+    training: {
+      count: 6,
+      items: [
+        {
+          person_id: activeClient.person_id,
+          display_name: activeClient.display_name,
+          relationship_id: activeClient.relationship_id,
+          closed_week: { week_starts_on: '2026-11-02', planned: 5, not_logged: 3 },
+          recent_results: { count: 0, last_ended_at: null },
+        },
+        {
+          person_id: '01991600-7000-7000-8000-000000000215',
+          display_name: 'Alejandro Rangel Buitrago',
+          relationship_id: '01991600-7000-7000-8000-000000000115',
+          closed_week: null,
+          recent_results: { count: 2, last_ended_at: '2026-11-12T22:15:00.000Z' },
+        },
+      ],
+      link: { operation_id: 'getStudioClientCard', query: {} },
+    },
+    team: {
+      count: 12,
+      by_role: [
+        { role_code: 'coach', count: 8 },
+        { role_code: 'admin', count: 2 },
+        { role_code: 'owner', count: 1 },
+        { role_code: 'physiotherapist', count: 1 },
+      ],
+      link: { operation_id: 'listStudioOrganizationMemberships', query: {} },
+    },
+  },
+}
+
+/**
+ * Nothing waits — and the team notice is still here, because the contract says
+ * `team` is a state and never makes the day non-empty. A panel that counted its
+ * own cards to decide this would get it wrong on exactly this answer.
+ */
+export const studioTodayEmpty = {
+  organization_id: activeMembership.organization_id,
+  generated_at: '2026-11-13T19:00:00.000Z',
+  empty: true,
+  notices: {
+    team: {
+      count: 1,
+      by_role: [{ role_code: 'owner', count: 1 }],
+      link: { operation_id: 'listStudioOrganizationMemberships', query: {} },
+    },
+  },
+}
+
+/**
+ * A coach, who resolves one thing and reads neither the directory nor the
+ * registers. What her roles do not allow is absent, not empty — which is the
+ * whole of the story's fourth criterion, and only the server can answer it.
+ */
+export const studioTodayCoach = {
+  organization_id: activeMembership.organization_id,
+  generated_at: '2026-11-13T19:00:00.000Z',
+  empty: false,
+  notices: { training: studioToday.notices.training },
+}
+
 export function createStudioApiFixture(
   overrides: Partial<StudioApiFixture> = {},
 ): StudioApiFixture {
@@ -2656,6 +2860,7 @@ export function createStudioApiFixture(
     organizationClients: [activeClient, pendingClientInvitation, terminatedClient],
     guestQuota: null,
     authorizedScopes: [grantedHealthContext, withdrawnBodyProgress],
+    today: structuredClone(studioToday),
     clientCard: structuredClone(clientCard),
     clientTrainingProfile: structuredClone(clientTrainingProfile),
     clientExecutions: structuredClone(clientExecutions),
@@ -2666,6 +2871,8 @@ export function createStudioApiFixture(
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
     assignOutcome: 'created',
+    cancelAssignmentOutcome: 'cancelled',
+    rescheduleOutcome: 'moved',
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -2856,6 +3063,13 @@ function defaultResponse(
         )
       : fixture.organizationMemberships
     return { status: 200, body: { data, page: { has_more: false, next_cursor: null } } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/today$/.test(request.path)
+  ) {
+    if (fixture.today === null) return { status: 403, body: error('forbidden') }
+    return { status: 200, body: fixture.today }
   }
   if (
     request.method === 'GET' &&
@@ -4267,6 +4481,123 @@ function defaultResponse(
       },
     }
   }
+  const plannedSession = /^\/studio\/v1\/organizations\/[^/]+\/planned-sessions\/([^/]+)$/.exec(
+    request.path,
+  )
+  if (request.method === 'PATCH' && plannedSession) {
+    const outcome = fixture.rescheduleOutcome
+    if (outcome === 'scope-required') {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'conflict') return { status: 409, body: error('conflict') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    if (outcome === 'invalid-day') {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'scheduled-on', path: '/scheduled_on' }],
+        }),
+      }
+    }
+
+    const assignments = fixture.relationshipAssignments ?? []
+    let found: Record<string, unknown> | undefined
+    for (const entry of assignments) {
+      const sessions = objectValue(entry)['sessions']
+      if (!Array.isArray(sessions)) continue
+      for (const candidate of sessions) {
+        if (objectValue(candidate)['id'] === plannedSession[1]) found = objectValue(candidate)
+      }
+    }
+    if (!found) return { status: 404, body: error('not-found') }
+
+    /*
+     * The 409 that is not an error: somebody moved it meanwhile, and the answer
+     * hands back the session as it stands. One day later than where it is, so
+     * the screen has something different to show.
+     */
+    if (outcome === 'stale-draft') {
+      const moved = { ...found, scheduled_on: nextDay(String(found['scheduled_on'])) }
+      return { status: 409, body: problem('stale-draft', 409, { current_state: moved }) }
+    }
+
+    const sent = objectValue(request.body)
+    found['scheduled_on'] = String(sent['scheduled_on'] ?? found['scheduled_on'])
+    found['revision_number'] = Number(found['revision_number'] ?? 0) + 1
+    return { status: 200, body: { ...found } }
+  }
+  const cancellation =
+    /^\/studio\/v1\/organizations\/[^/]+\/assignments\/([^/]+)\/cancellation$/.exec(request.path)
+  if (request.method === 'POST' && cancellation) {
+    const outcome = fixture.cancelAssignmentOutcome
+    if (outcome === 'scope-required') {
+      // Everybody needs the training grant at `contribute`; `read` refuses here
+      // and names the level it would take.
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'forbidden') return { status: 403, body: error('forbidden') }
+    // Both 409 causes answer the same way, which is why the screen's sentence
+    // names both: a paused service, and a program we no longer manage.
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'conflict') return { status: 409, body: error('conflict') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+
+    const assignments = fixture.relationshipAssignments ?? []
+    const target = assignments.find((entry) => objectValue(entry)['id'] === cancellation[1])
+    if (!target) return { status: 404, body: error('not-found') }
+
+    /*
+     * The simulator stops the sessions that can be stopped — scheduled and not
+     * started — rather than comparing a date to the clock. The command's own
+     * rule is "from today on", but a fixture dated against `Date.now()` would
+     * answer differently as the suite ages, and a fixture dated in the past
+     * would always answer nothing. See the note on dates in the repo's AGENTS.
+     */
+    const assignment = objectValue(target)
+    const sessions = Array.isArray(assignment['sessions']) ? assignment['sessions'] : []
+    let stopped = 0
+    for (const entry of sessions) {
+      const session = objectValue(entry)
+      if (session['status'] !== 'scheduled' || session['started'] === true) continue
+      session['status'] = 'cancelled'
+      stopped += 1
+    }
+    assignment['status'] = 'cancelled'
+    assignment['management'] = null
+
+    return {
+      status: 200,
+      body: {
+        id: cancellation[1],
+        status: 'cancelled',
+        cancelled_at: '2026-11-13T20:00:00.000Z',
+        sessions_cancelled: stopped,
+      },
+    }
+  }
   if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/relationships\/[^/]+\/assignments$/.test(request.path)
@@ -5459,6 +5790,13 @@ async function fulfill(route: Route, response: MockResponse): Promise<void> {
       ...response.headers,
     },
   })
+}
+
+/** The calendar day after this one, built in UTC so it never shifts a zone. */
+function nextDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+  const stepped = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (date ?? 1) + 1))
+  return stepped.toISOString().slice(0, 10)
 }
 
 function objectValue(value: unknown): Record<string, unknown> {

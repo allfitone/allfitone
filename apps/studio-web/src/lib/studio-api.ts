@@ -104,6 +104,13 @@ export type FormerClientCard = AllfitV1Schemas['StudioFormerClientCard']
 export type ClientCardSection = AllfitV1Schemas['StudioClientCardSection']
 export type ClientCardWithdrawal = AllfitV1Schemas['StudioClientCardWithdrawal']
 export type ClientLossReason = AllfitV1Schemas['StudioClientLossReason']
+export type StudioToday = AllfitV1Schemas['StudioToday']
+export type TodayLink = AllfitV1Schemas['StudioTodayLink']
+export type TodayInvitations = AllfitV1Schemas['StudioTodayInvitations']
+export type TodayRelationships = AllfitV1Schemas['StudioTodayRelationships']
+export type TodayTerminationRequests = AllfitV1Schemas['StudioTodayTerminationRequests']
+export type TodayTeam = AllfitV1Schemas['StudioTodayTeam']
+export type TodayTraining = AllfitV1Schemas['StudioTodayTraining']
 export type ScopeCode = AllfitV1Schemas['ScopeCode']
 export type RelationshipState = AllfitV1Schemas['RelationshipState']
 export type RelationshipHistoryPage = AllfitV1Schemas['RelationshipHistoryPage']
@@ -124,6 +131,8 @@ export type RelationshipSubstitutionTermination =
 export type RelationshipAssignmentPage = AllfitV1Schemas['RelationshipAssignmentPage']
 export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
 export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
+export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
+export type PlannedSessionReschedule = AllfitV1Schemas['PlannedSessionReschedule']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -992,6 +1001,22 @@ export const studioApi = {
     }),
 
   /**
+   * `OP-REL-020`. One notice per thing this caller's roles let her resolve, and
+   * none for what they do not.
+   *
+   * **Asking is a read of somebody else's data.** Working out the training
+   * notice evaluates every client she attends and records each one in that
+   * person's access log, shown or not — so this answer costs one visible line
+   * per client, every time it is requested. That is why nothing may ask for it
+   * on a timer, on focus or on a hunch; see `todayQueryOptions`.
+   */
+  today: (organizationId: string, signal?: AbortSignal) =>
+    request<StudioToday>(`/studio/v1/organizations/${organizationId}/today`, {
+      cache: 'no-store',
+      ...(signal ? { signal } : {}),
+    }),
+
+  /**
    * `OP-IDN-018`. The training claims she shares with this caller, each with
    * where it came from. 404 for anybody who does not attend her; 403 when she
    * shares nothing, and that refusal is recorded like a read.
@@ -1103,6 +1128,69 @@ export const studioApi = {
       `/studio/v1/organizations/${organizationId}/relationships/${relationshipId}/assignments`,
       {
         method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PLN-014`. Stops a program the organization still manages: the
+   * assignment ends, its management period closes as cancelled, and the
+   * sessions from today on that nobody started are cancelled with it. What she
+   * trained and the sessions already past stay.
+   *
+   * No body — the assignment in the path is the whole request. Cancelling again
+   * answers the same cancellation, so a retry cannot stop a second thing.
+   *
+   * Needs `relationship_training` at `contribute` from everybody, so `read`
+   * answers 403 `scope-required`; staff answer 403 `forbidden`. A paused
+   * service answers 409 `service-paused`, which is resolved by reactivating it
+   * or ending the relationship and never program by program, and a program the
+   * organization no longer manages answers 409 `conflict`.
+   */
+  cancelProgramAssignment: (
+    organizationId: string,
+    assignmentId: string,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<AssignmentCancellation>(
+      `/studio/v1/organizations/${organizationId}/assignments/${assignmentId}/cancellation`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PLN-012`. Moves one session of a managed program to another day of its
+   * own calendar week. **Only the day changes**: the routine, its targets and
+   * the week it belongs to stay, and the move is kept with who made it.
+   *
+   * The caller sends the `revision_number` she read as `expected_revision`; a
+   * session that moved meanwhile answers 409 `stale-draft` **with the current
+   * session in `current_state`**, so the screen can show it rather than lose
+   * either version. A session she started, one that is not scheduled, and one
+   * of a program the organization no longer manages all answer 409 `conflict`,
+   * and a paused service 409 `service-paused`.
+   *
+   * Needs `relationship_training` at `contribute`, so `read` answers 403
+   * `scope-required`. Moving a session to the day it is already on changes
+   * nothing.
+   */
+  reschedulePlannedSession: (
+    organizationId: string,
+    plannedSessionId: string,
+    body: PlannedSessionReschedule,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<RelationshipAssignmentSession>(
+      `/studio/v1/organizations/${organizationId}/planned-sessions/${plannedSessionId}`,
+      {
+        method: 'PATCH',
         headers: commandHeaders(command),
         body: JSON.stringify(body),
         ...(signal ? { signal } : {}),
