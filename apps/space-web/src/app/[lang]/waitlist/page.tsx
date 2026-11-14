@@ -55,12 +55,7 @@ export default async function WaitlistPage({ params }: LocaleParams) {
               <h2 id="join-title" className="join-panel__title">
                 {page.joinTitle}
               </h2>
-              <WaitlistForm
-                locale={lang}
-                copy={copy.form}
-                rewards={copy.referrals.rewards}
-                newWindow={copy.footer.newWindow}
-              />
+              <WaitlistForm locale={lang} copy={copy.form} newWindow={copy.footer.newWindow} />
             </div>
           </section>
 

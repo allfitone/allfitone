@@ -287,9 +287,8 @@ export function ReferralsLink({
   locale,
   copy,
   form,
-  rewards,
   newWindow,
-}: PageProps & { rewards: Dictionary['referrals']['rewards']; newWindow: string }) {
+}: PageProps & { newWindow: string }) {
   const token = useLinkToken('private')
   const [state, setState] = useState<ReferralsState>('loading')
   const [attempt, setAttempt] = useState(0)
@@ -328,7 +327,6 @@ export function ReferralsLink({
       <WaitlistShare
         locale={locale}
         copy={form}
-        rewards={rewards}
         newWindow={newWindow}
         code={state.code}
         referrals={state.referrals}

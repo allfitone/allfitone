@@ -144,8 +144,9 @@ export const en: Dictionary = {
     share: 'Share',
     shareMessage:
       "I joined the waitlist for Allfit Space, Allfit One's training and nutrition app. Join with my link: {link}",
-    progress: '{count} of {goal} toward {reward}.',
-    progressDone: '{count} so far: you reached the last level.',
+    registered: 'Signed up with your link: {count}.',
+    rewardRule:
+      'Allfit Pro rewards count active referrals: from launch, they create an account and log 3 workouts or meals in their first 14 days.',
     reset: 'Use another email',
     errorEmailDisposable:
       "That's a disposable address. Use one you check: your confirmation goes there.",
@@ -163,8 +164,13 @@ export const en: Dictionary = {
           'From #001 to #100, in the order you confirm your email. It stays on your Allfit Space profile.',
       },
       {
+        term: 'Early access',
+        value: 'You get into Allfit Space before launch, in a closed beta.',
+      },
+      {
         term: 'Allfit Pro',
-        value: 'Always at the launch price, as long as your subscription stays active.',
+        value:
+          "The founder price on the monthly plan, for life as long as you don't cancel. It's yours if you subscribe within 6 months of launch.",
       },
       {
         term: 'The team',
@@ -175,15 +181,15 @@ export const en: Dictionary = {
   },
   referrals: {
     title: 'Invite friends, earn Allfit Pro',
-    text: 'When you join you get a link of your own. Everyone who joins through it, confirms their email and creates an Allfit Space account counts toward your level.',
-    people: '{count} people',
+    text: 'When you join you get a link of your own. Everyone who joins through it counts toward your level once active: they create an Allfit Space account after launch and log 3 workouts or meals in their first 14 days.',
+    people: '{count} active referrals',
     rewards: {
       5: '1 month of Allfit Pro',
       15: '2 months of Allfit Pro',
       30: '3 months of Allfit Pro',
       100: '1 year of Allfit Pro and Allfit One merch',
     },
-    note: 'Every level you reach adds its reward: with 30 people you get 6 months of Allfit Pro.',
+    note: 'Every level you reach adds its reward: with 30 active referrals you get 6 months of Allfit Pro.',
   },
   waitlistPage: {
     meta: {
@@ -205,11 +211,12 @@ export const en: Dictionary = {
         {
           term: 'Your data',
           value:
-            'Controlling it is never paid for. Deciding what you share and with whom, seeing who accessed it, taking your history with you or deleting it is free on every plan.',
+            'Controlling it is never paid for. Deciding what you share and with whom is free on every plan.',
         },
         {
           term: 'If you go back to the free plan',
-          value: 'Nothing is deleted. You keep all your sessions and can still see them.',
+          value:
+            'Nothing is deleted. On the free plan you see your last month; with Allfit Pro you see it all again.',
         },
       ],
     },
@@ -217,14 +224,14 @@ export const en: Dictionary = {
       title: 'Terms',
       items: [
         'Founding Members are the first 100 people who join the waitlist and confirm their email. Their number, from #001 to #100, follows the order in which they confirm it.',
-        'To keep it, create your Allfit Space account with the same email within 7 days of its opening. Otherwise, your place passes to the next person on the list.',
-        'The Allfit Pro launch price stays yours while your subscription is active, even if the price goes up.',
+        'To keep it, create your Allfit Space account with the same email during the closed beta or within 7 days of launch. Otherwise, your place passes to the next person on the list.',
+        "The founder price applies to the monthly Allfit Pro plan if you subscribe within 6 months of launch, and stays yours while you don't cancel, even if the price goes up. If you cancel, you lose it; a failed payment while the store retries it is not a cancellation.",
         "The status is personal and can't be transferred. You only lose it if you delete your account or for proven fraud.",
-        'Someone you invite counts toward your total when they join with your link or code and confirm their email. For the Allfit Pro rewards, they must also create their Allfit Space account when it opens.',
-        "Levels add up: you get the reward for every level you reach. Thirty people are 1 + 2 + 3 = 6 months of Allfit Pro. Being a Founding Member doesn't stop you from earning them.",
+        'Someone you invite counts toward your total when they join with your link or code and confirm their email. For rewards they count once active: they create their Allfit Space account after launch, with the same email, and log at least 3 workouts or meals in their first 14 days. Each person counts once.',
+        "Levels add up: you get the reward for every level you reach. Thirty active referrals are 1 + 2 + 3 = 6 months of Allfit Pro. Being a Founding Member doesn't stop you from earning them.",
         'Months of Allfit Pro arrive as an App Store or Google Play offer code. When they end, the subscription renews automatically unless you cancel it in the store first.',
-        "Disposable emails, repeated sign-ups from the same device or connection, and inviting yourself don't count.",
-        'Nothing is drawn by lot: places go by order and rewards by the number of people you invite.',
+        "Disposable emails, repeated sign-ups from the same device, and inviting yourself don't count.",
+        'Nothing is drawn by lot: places go by order and rewards by the number of active referrals.',
       ],
     },
   },

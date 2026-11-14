@@ -4,8 +4,9 @@
  * What a person gets once they join: their code, set large so it can be read
  * aloud, their link with a copy action, WhatsApp as the main way to share it
  * (with the message prefilled) and, where the device has one, its own share
- * sheet. Below, the counter: how many people joined through them and how many
- * the next level takes, drawn as the set marks of the app's session screen.
+ * sheet. Below, the count: how many people signed up through them, and what
+ * makes a referral count for rewards. A sign-up is not progress toward a level
+ * (launch strategy v1.2): the steps return with the active count, TECH-334.
  */
 
 import { FoundationIcon } from '@allfitone/react/icons'
@@ -13,31 +14,21 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 
 import type { Dictionary } from '@/content'
 import type { Locale } from '@/lib/locale'
-import {
-  nextReferralLevel,
-  reachedReferralLevel,
-  referralLink,
-  whatsappShareUrl,
-} from '@/lib/waitlist'
+import { referralLink, whatsappShareUrl } from '@/lib/waitlist'
 
 const noUpdates = () => () => undefined
 const canShareNatively = () => typeof navigator.share === 'function'
 const cannotShare = () => false
 
-/** Above this many steps to the next level, the counter draws one bar instead of marks. */
-const MAX_MARKS = 15
-
 export function WaitlistShare({
   locale,
   copy,
-  rewards,
   newWindow,
   code,
   referrals,
 }: {
   locale: Locale
   copy: Dictionary['form']
-  rewards: Dictionary['referrals']['rewards']
   newWindow: string
   code: string
   referrals: number
@@ -72,18 +63,6 @@ export function WaitlistShare({
       // Closing the share sheet rejects; there is nothing to recover.
     }
   }
-
-  const next = nextReferralLevel(referrals)
-  const floor = reachedReferralLevel(referrals)
-  const steps = next === null ? 0 : next - floor
-  const done = next === null ? 0 : referrals - floor
-  const progress =
-    next === null
-      ? copy.progressDone.replace('{count}', String(referrals))
-      : copy.progress
-          .replace('{count}', String(referrals))
-          .replace('{goal}', String(next))
-          .replace('{reward}', rewards[next])
 
   return (
     <div className="share">
@@ -135,25 +114,11 @@ export function WaitlistShare({
         ) : null}
       </div>
 
-      <div className="progress">
-        {steps > 0 ? (
-          steps <= MAX_MARKS ? (
-            <span className="progress__marks" aria-hidden="true">
-              {Array.from({ length: steps }, (_, index) => (
-                <span
-                  key={index}
-                  className="progress__mark"
-                  data-done={index < done ? '' : undefined}
-                />
-              ))}
-            </span>
-          ) : (
-            <span className="progress__bar" aria-hidden="true">
-              <span style={{ width: `${String((done / steps) * 100)}%` }} />
-            </span>
-          )
-        ) : null}
-        <p className="progress__text">{progress}</p>
+      <div className="share__count">
+        <p className="share__count-total">
+          {copy.registered.replace('{count}', String(referrals))}
+        </p>
+        <p className="share__count-rule">{copy.rewardRule}</p>
       </div>
     </div>
   )

@@ -143,7 +143,8 @@ test.describe('joined', () => {
       /^https:\/\/wa\.me\/\?text=.*https%3A%2F%2Fspace\.allfit\.one%2Fes%2Fwaitlist%3Fref%3DKEVIN7QH$/,
     )
     await expect(whatsapp).toHaveAttribute('target', '_blank')
-    await expect(page.getByText('Llevas 3 de 5 para 1 mes de Allfit Pro.')).toBeVisible()
+    await expect(page.getByText('Registrados con tu link: 3.')).toBeVisible()
+    await expect(page.getByText('Para los premios de Allfit Pro cuentan los activos')).toBeVisible()
   })
 
   test('copies the whole link', async ({ page, context }) => {

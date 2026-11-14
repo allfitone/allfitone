@@ -1,12 +1,13 @@
 /**
  * The Allfit Space waitlist, as the owner's launch strategy sets it (internal
- * document «Estrategia de lanzamiento de Allfit Space», v1.0, November 2026):
+ * document «Estrategia de lanzamiento de Allfit Space», v1.2, 13 November 2026):
  *
  * - The first 100 people who join and confirm their email are its Founding
  *   Members, numbered #001 to #100 in the order they confirm.
- * - Everyone gets a link and a code of their own. People who join through them
- *   count toward the referral levels below. Levels add up: the person gets the
- *   reward of every level they reach (owner's decision of 10 November 2026, ADR-050).
+ * - Everyone gets a link and a code of their own. The people who join through
+ *   them count toward the referral levels below once active after launch: an
+ *   account and 3 workouts or meals in their first 14 days. Levels add up: the
+ *   person gets the reward of every level they reach (ADR-050).
  *
  * The rules that need a database (the confirmation email, the numbering, which
  * referrals count) belong to the API. This module only holds what the page
@@ -40,16 +41,6 @@ export const WAITLIST_ENDPOINT = '/api/waitlist'
 /** Referral levels, keyed by the number of people it takes. The copy uses the same keys. */
 export const REFERRAL_LEVELS = [5, 15, 30, 100] as const
 export type ReferralLevel = (typeof REFERRAL_LEVELS)[number]
-
-/** The next level a person can reach with `referrals` people, or `null` past the last one. */
-export function nextReferralLevel(referrals: number): ReferralLevel | null {
-  return REFERRAL_LEVELS.find((level) => level > referrals) ?? null
-}
-
-/** The highest level already reached, or 0 before the first one. */
-export function reachedReferralLevel(referrals: number): ReferralLevel | 0 {
-  return [...REFERRAL_LEVELS].reverse().find((level) => level <= referrals) ?? 0
-}
 
 /** The query parameter a referral link carries: `/es/waitlist?ref=KEVIN7QH`. */
 export const REFERRAL_PARAM = 'ref'

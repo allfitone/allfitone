@@ -4,11 +4,9 @@ import {
   campaignFrom,
   failureOf,
   isPlausibleEmail,
-  nextReferralLevel,
   normalizeReferralCode,
   parseJoin,
   parseLink,
-  reachedReferralLevel,
   referralLink,
   tokenFromFragment,
   whatsappShareUrl,
@@ -32,22 +30,6 @@ describe('referral codes', () => {
     expect(whatsappShareUrl('Únete: https://x.y/?ref=A1B2')).toBe(
       'https://wa.me/?text=%C3%9Anete%3A%20https%3A%2F%2Fx.y%2F%3Fref%3DA1B2',
     )
-  })
-})
-
-describe('referral levels', () => {
-  test('the next level is the first one above the count, and none past the last', () => {
-    expect(nextReferralLevel(0)).toBe(5)
-    expect(nextReferralLevel(5)).toBe(15)
-    expect(nextReferralLevel(29)).toBe(30)
-    expect(nextReferralLevel(100)).toBeNull()
-  })
-
-  test('the reached level is the highest one at or below the count', () => {
-    expect(reachedReferralLevel(4)).toBe(0)
-    expect(reachedReferralLevel(5)).toBe(5)
-    expect(reachedReferralLevel(42)).toBe(30)
-    expect(reachedReferralLevel(250)).toBe(100)
   })
 })
 

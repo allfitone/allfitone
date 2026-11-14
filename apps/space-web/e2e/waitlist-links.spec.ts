@@ -85,14 +85,14 @@ test.describe('the confirmation link', () => {
 })
 
 test.describe('«mi link»', () => {
-  test('shows the code, the link and how far the next level is', async ({ page }) => {
+  test('shows the code, the link and how many signed up with it', async ({ page }) => {
     const requests = await answer(page, 'link-reads', 200, LINK)
     await page.goto(`/es/waitlist/referrals#token=${TOKEN}`)
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu link de Allfit Space')
     await expect(page.getByText('KEVIN7QH', { exact: true })).toBeVisible()
     await expect(page.getByText('space.allfit.one/es/waitlist?ref=KEVIN7QH')).toBeVisible()
-    await expect(page.getByText('Llevas 7 de 15 para 2 meses de Allfit Pro.')).toBeVisible()
+    await expect(page.getByText('Registrados con tu link: 7.')).toBeVisible()
     await expect(page.getByText('Te falta confirmar tu correo.')).toHaveCount(0)
     expect(requests.map((request) => request.postDataJSON() as unknown)).toEqual([{ token: TOKEN }])
   })

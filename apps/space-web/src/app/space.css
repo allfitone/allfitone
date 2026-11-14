@@ -1677,51 +1677,26 @@ button.pill-link {
   flex: 1 1 auto;
 }
 
-.progress {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
+.share__count {
+  display: grid;
+  gap: 6px;
   padding-top: 24px;
   border-top: 1px solid var(--line);
 }
 
-.progress__marks {
-  display: flex;
-  flex: none;
-  gap: 4px;
-}
-
-.progress__mark {
-  width: 20px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--line-strong);
-}
-
-.progress__mark[data-done] {
-  background: var(--cyan);
-}
-
-.progress__bar {
-  display: block;
-  width: 128px;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--line-strong);
-}
-
-.progress__bar > span {
-  display: block;
-  height: 100%;
-  background: var(--cyan);
-}
-
-.progress__text {
+.share__count-total {
   margin: 0;
-  color: var(--text-soft);
+  color: var(--text);
   font-size: 15px;
+  font-weight: 600;
+}
+
+.share__count-rule {
+  margin: 0;
+  max-width: 52ch;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 /* ---------------------------------------------------------- waitlist page */
