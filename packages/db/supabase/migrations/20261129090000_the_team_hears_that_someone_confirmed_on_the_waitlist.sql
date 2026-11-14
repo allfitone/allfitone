@@ -4,12 +4,18 @@
 -- becomes a real person on the list, so it is the one worth telling the team about: a
 -- form filled with an address nobody opens is not news. `waitlist.confirm` now enqueues
 -- `waitlist.signup_confirmed.v1` in the transaction that confirms, and the worker posts
--- it to the team's channel.
+-- a notice to the founders' private channel.
 --
--- **The event names nobody.** Its payload carries the channel the person arrived through
--- (`utm_source`), the language, whether the sign-up counts for somebody who invited it,
--- and how many confirmed sign-ups the list holds with this one. No name and no address:
--- the channel belongs to a third party, and it learns nothing about the person.
+-- **The event names nobody; the notice does.** The owner decided in November 2026 that
+-- the founders read who joined: the notice carries the person's name and address. The
+-- outbox still holds neither. Its payload is one number, how many confirmed sign-ups the
+-- list held with this one, and the worker asks for the rest when it writes the notice,
+-- through `waitlist.prepare_team_notice`.
+--
+-- **Someone who left is never announced.** The function reads the sign-up as it is when
+-- the notice is written. If the person left in between, it answers `skipped` and nothing
+-- about them leaves the platform. What the channel already holds is outside the list's
+-- deletion: the channel's own retention decides how long a notice lives there.
 --
 -- **Once per sign-up.** A confirmation link confirms once; used again it answers
 -- `already_confirmed` and enqueues nothing.
@@ -25,7 +31,7 @@ set search_path = pg_catalog
 as $function$
 declare
   target waitlist.signup_tokens%rowtype;
-  confirmed waitlist.signups%rowtype;
+  confirmed_id uuid;
   observed_at timestamptz := clock_timestamp();
 begin
   if octet_length(p_token_hash) is distinct from 32
@@ -66,17 +72,13 @@ begin
   set confirmed_at = observed_at
   where signup.id = target.signup_id
     and signup.confirmed_at is null
-  returning signup.* into confirmed;
+  returning signup.id into confirmed_id;
 
   -- Only the confirmation that changed the sign-up is news for the team.
-  if confirmed.id is not null then
+  if confirmed_id is not null then
     perform system.enqueue_outbox_event(
-      'waitlist_signup', confirmed.id, 'waitlist.signup_confirmed.v1',
+      'waitlist_signup', confirmed_id, 'waitlist.signup_confirmed.v1',
       jsonb_build_object(
-        'utm_source', confirmed.utm_source,
-        'language', confirmed.language,
-        'referred', confirmed.invited_by_signup_id is not null
-          and confirmed.discard_reason is null,
         'confirmed_total', (
           select count(*)
           from waitlist.signups as signup
@@ -89,3 +91,60 @@ begin
   return query select 'confirmed'::text;
 end
 $function$;
+
+-- ---------------------------------------------------------------------------
+-- Delivery — what the worker needs to write the team's notice
+-- ---------------------------------------------------------------------------
+
+create function waitlist.prepare_team_notice(p_event_id uuid)
+returns table (
+  delivery_state text,
+  person_name text,
+  person_email text,
+  utm_source text,
+  language text,
+  referred boolean,
+  confirmed_total integer
+)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  event system.outbox_events%rowtype;
+  target waitlist.signups%rowtype;
+begin
+  if access_control.actor_kind() <> 'worker' then
+    raise exception 'worker actor required' using errcode = '42501';
+  end if;
+
+  select outbox.* into event
+  from system.outbox_events as outbox
+  where outbox.id = p_event_id
+    and outbox.event_type = 'waitlist.signup_confirmed.v1';
+
+  select signup.* into target
+  from waitlist.signups as signup
+  where signup.id = event.aggregate_id;
+
+  -- The person left before the team was told: nothing about them is announced.
+  if target.id is null then
+    return query select 'skipped'::text, null::text, null::text, null::text, null::text,
+                        null::boolean, null::integer;
+    return;
+  end if;
+
+  return query select
+    'ready'::text,
+    target.name,
+    target.email::text,
+    target.utm_source,
+    target.language,
+    target.invited_by_signup_id is not null and target.discard_reason is null,
+    (event.payload ->> 'confirmed_total')::integer;
+end
+$function$;
+
+alter function waitlist.prepare_team_notice(uuid) owner to allfit_owner;
+revoke all on function waitlist.prepare_team_notice(uuid) from public;
+grant execute on function waitlist.prepare_team_notice(uuid) to allfit_api;

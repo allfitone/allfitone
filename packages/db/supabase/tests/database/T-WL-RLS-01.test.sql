@@ -2,12 +2,12 @@
 -- invariants 3 and 4).
 --
 -- A sign-up belongs to somebody with no account, so no row policy could admit an actor.
--- The runtime role holds no privilege on the tables and executes only the four entry
+-- The runtime role holds no privilege on the tables and executes only the five entry
 -- points; the helpers that write tokens or count attempts are not its to call.
 
 begin;
 
-select plan(7);
+select plan(9);
 
 select ok(
   not has_table_privilege('allfit_api', 'waitlist.signups', 'SELECT')
@@ -34,8 +34,9 @@ select ok(
     and has_function_privilege(
       'allfit_api', 'waitlist.request_email(text,bytea,uuid,bytea,uuid,bytea,smallint)', 'EXECUTE'
     )
-    and has_function_privilege('allfit_api', 'waitlist.prepare_email_delivery(uuid)', 'EXECUTE'),
-  'the runtime role executes the four entry points'
+    and has_function_privilege('allfit_api', 'waitlist.prepare_email_delivery(uuid)', 'EXECUTE')
+    and has_function_privilege('allfit_api', 'waitlist.prepare_team_notice(uuid)', 'EXECUTE'),
+  'the runtime role executes the five entry points'
 );
 
 select ok(
@@ -76,6 +77,15 @@ select throws_ok(
   'an actor that is not the worker cannot ask what an email carries'
 );
 
+select throws_ok(
+  $$ select * from waitlist.prepare_team_notice(
+    (select '019d1000-0000-7000-8000-000000000009'::uuid)
+  ) $$,
+  '42501',
+  'worker actor required',
+  'nor who confirmed, which the team''s notice carries'
+);
+
 select set_config('app.actor_kind', 'worker', true);
 select is(
   (select delivery_state from waitlist.prepare_email_delivery(
@@ -83,6 +93,13 @@ select is(
    )),
   'skipped',
   'the worker can, and an event that does not exist is skipped'
+);
+select is(
+  (select delivery_state from waitlist.prepare_team_notice(
+     '019d1000-0000-7000-8000-000000000009'::uuid
+   )),
+  'skipped',
+  'and the same holds for the team''s notice'
 );
 
 reset role;
