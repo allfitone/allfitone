@@ -104,8 +104,8 @@ export const en: Dictionary = {
     },
   },
   invite: {
-    title: ['INVITE FRIENDS,', 'EARN ALLFIT PRO.'],
-    highlight: 'ALLFIT PRO',
+    title: ['INVITE FRIENDS,', 'EARN PRO.'],
+    highlight: 'PRO',
     text: 'Every friend who joins with your code and uses the app counts, whether they pay or not.',
     rewards: {
       5: '1 month of Pro',
