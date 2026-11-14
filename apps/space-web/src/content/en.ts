@@ -237,7 +237,7 @@ export const en: Dictionary = {
       title: 'Terms',
       items: [
         'Founding Members are the first 100 people who join the waitlist and confirm their email. Their number, from #001 to #100, follows the order in which they confirm it.',
-        'To keep it, create your Allfit Space account with the same email during the closed beta or within 7 days of launch. Otherwise, your place passes to the next person on the list.',
+        "Your number is reserved from the moment you confirm your email. To activate it, create your Allfit Space account with the same email during the closed beta or within 7 days of launch. If you don't create it in that time, your number passes to the next person on the list.",
         "The founder price applies to the monthly Allfit Pro plan if you subscribe within 6 months of launch, and stays yours while you don't cancel, even if the price goes up. If you cancel, you lose it; a failed payment while the store retries it is not a cancellation.",
         "The status is personal and can't be transferred. You only lose it if you delete your account or for proven fraud.",
         'Someone you invite counts toward your total when they join with your link or code and confirm their email. For rewards they count once active: they create their Allfit Space account after launch, with the same email, and log at least 3 workouts or meals in their first 14 days. Each person counts once.',
