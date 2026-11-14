@@ -8,7 +8,6 @@ import type { Queue } from '@allfitone/queue'
 
 import {
   createWaitlistTeamNoticeBatchProcessor,
-  waitlistTeamChannelFromEnvironment,
   type WaitlistTeamNoticeDelivery,
 } from './waitlist-team-notices.js'
 
@@ -210,36 +209,6 @@ test('T-WRK-WL-11 without a channel nothing is claimed, so the events wait', asy
   })
 
   expect(claims).toEqual([])
-})
-
-test('T-WRK-WL-12 the environment gives a channel only for a Slack webhook address', () => {
-  const logged: unknown[][] = []
-  const original = console.error
-  console.error = (...parts: unknown[]) => {
-    logged.push(parts)
-  }
-  try {
-    expect(waitlistTeamChannelFromEnvironment({})).toBeUndefined()
-    expect(waitlistTeamChannelFromEnvironment({ SLACK_WAITLIST_WEBHOOK_URL: '' })).toBeUndefined()
-    expect(logged).toEqual([])
-
-    expect(
-      waitlistTeamChannelFromEnvironment({
-        SLACK_WAITLIST_WEBHOOK_URL: 'https://example.com/hooks/secret-part',
-      }),
-    ).toBeUndefined()
-    // A wrong address is reported without printing it.
-    expect(logged).toHaveLength(1)
-    expect(JSON.stringify(logged)).not.toContain('secret-part')
-
-    expect(
-      waitlistTeamChannelFromEnvironment({
-        SLACK_WAITLIST_WEBHOOK_URL: 'https://hooks.slack.com/services/T000/B000/secret',
-      }),
-    ).toBeDefined()
-  } finally {
-    console.error = original
-  }
 })
 
 test('T-WRK-WL-13 the channel is written the way its name is written', async () => {

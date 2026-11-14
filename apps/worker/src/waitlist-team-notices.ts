@@ -16,8 +16,8 @@
  * for as long as the channel's own retention keeps it. That is set in Slack, not here.
  *
  * **The channel is optional, and never stops the emails.** This rides the same job as
- * every email delivery. Without an address, or with one that is not a Slack webhook,
- * the events wait unclaimed and everything else is delivered as usual.
+ * every email delivery. Without the founders' channel (`founders-channel.ts`) the events
+ * wait unclaimed and everything else is delivered as usual.
  *
  * Delivery is at-least-once: an event whose acknowledgement is lost is posted again.
  * A repeated notice in the channel costs less than a missed one.
@@ -25,7 +25,6 @@
 
 import {
   NotificationDeliveryError,
-  createSlackTeamChannel,
   type TeamChannel,
   type TeamNotice,
 } from '@allfitone/notifications'
@@ -86,21 +85,6 @@ const CHANNEL_NAMES = new Map(
     x: 'X',
   }),
 )
-
-/** The channel the environment names, or none: a wrong address must not stop the worker. */
-export function waitlistTeamChannelFromEnvironment(
-  environment: NodeJS.ProcessEnv = process.env,
-): TeamChannel | undefined {
-  const address = environment.SLACK_WAITLIST_WEBHOOK_URL
-  if (!address) return undefined
-  try {
-    return createSlackTeamChannel(address)
-  } catch {
-    // The address is a credential: say that it is wrong, never what it is.
-    console.error('[worker-outbox] SLACK_WAITLIST_WEBHOOK_URL is not a Slack incoming webhook')
-    return undefined
-  }
-}
 
 export function createWaitlistTeamNoticeDatabase(sql: postgres.Sql): WaitlistTeamNoticeDatabase {
   return {

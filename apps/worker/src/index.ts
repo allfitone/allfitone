@@ -43,7 +43,6 @@ import {
 import {
   createWaitlistTeamNoticeBatchProcessor,
   createWaitlistTeamNoticeDatabase,
-  waitlistTeamChannelFromEnvironment,
 } from './waitlist-team-notices.js'
 import {
   createBackofficeAuthBatchProcessor,
@@ -69,6 +68,7 @@ import {
   type MediaDisposalResult,
 } from './media-disposals.js'
 import { createEmailSenderFromEnvironment } from './email.js'
+import { foundersChannelFromEnvironment } from './founders-channel.js'
 import { createEmailChangeBatchProcessor, createEmailChangeDatabase } from './email-change.js'
 import {
   createPasswordChangeBatchProcessor,
@@ -443,11 +443,11 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         brandAssetUrl,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
-  // Not an email, so no delivery switch: the team's channel address is what turns it on.
+  // Not an email, so no delivery switch: the founders' channel address is what turns it on.
   const waitlistTeamNotices = createWaitlistTeamNoticeBatchProcessor({
     queue,
     database: createWaitlistTeamNoticeDatabase(sql),
-    channel: waitlistTeamChannelFromEnvironment(process.env),
+    channel: foundersChannelFromEnvironment(process.env),
   })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
