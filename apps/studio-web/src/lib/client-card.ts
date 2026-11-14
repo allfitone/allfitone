@@ -145,6 +145,7 @@ const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
     label: 'Ver el progreso corporal',
     segment: 'body-progress',
   },
+  // Her daily totals are read on this screen too, above the meals: no door of their own.
   { read: 'listAuthorizedClientNutritionMeals', label: 'Ver sus comidas', segment: 'nutrition' },
 ]
 

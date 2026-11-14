@@ -639,7 +639,8 @@
 [data-historical-case-facts] dt,
 [data-client-health-section-name],
 [data-client-body-day-name],
-[data-client-nutrition-day-name] {
+[data-client-nutrition-day-name],
+[data-client-nutrition-summary-day-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -670,7 +671,8 @@
 [data-client-progress-facts],
 [data-client-program-facts],
 [data-historical-case-facts],
-[data-client-body-facts] {
+[data-client-body-facts],
+[data-client-nutrition-totals] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -743,7 +745,8 @@
 [data-client-body-day-list],
 [data-client-body-photo-view],
 [data-client-nutrition-range],
-[data-client-nutrition-day-list] {
+[data-client-nutrition-day-list],
+[data-client-nutrition-summary-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -2099,7 +2102,8 @@
 [data-client-profile-group],
 [data-client-health-section],
 [data-client-body-day],
-[data-client-nutrition-day] {
+[data-client-nutrition-day],
+[data-client-nutrition-summary-day] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
@@ -2109,7 +2113,8 @@
 [data-client-profile-group]:first-child,
 [data-client-health-section]:first-child,
 [data-client-body-day]:first-child,
-[data-client-nutrition-day]:first-child {
+[data-client-nutrition-day]:first-child,
+[data-client-nutrition-summary-day]:first-child {
   padding-block-start: 0;
   border-block-start: none;
 }
@@ -2125,7 +2130,8 @@
 [data-client-profile-group-name],
 [data-client-health-section-name],
 [data-client-body-day-name],
-[data-client-nutrition-day-name] {
+[data-client-nutrition-day-name],
+[data-client-nutrition-summary-day-name] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2169,7 +2175,8 @@
 [data-client-nutrition-meal-time],
 [data-client-nutrition-meal-photo],
 [data-client-nutrition-item-nutrients],
-[data-client-nutrition-range-note] {
+[data-client-nutrition-range-note],
+[data-client-nutrition-summary-meals] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }

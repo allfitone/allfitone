@@ -48,6 +48,7 @@ import {
   type ClientBodyPhotoPage,
   type ClientBodyProgressPage,
   type ClientNutritionMealPage,
+  type ClientNutritionDailySummaryPage,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -291,6 +292,19 @@ export const studioQueryKeys = {
       'client-nutrition-meals',
       personId,
       { from: range.from, to: range.to, limit },
+    ] as const,
+  clientNutritionSummaries: (
+    organizationId: string,
+    personId: string,
+    range: { from: string; to: string },
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-summaries',
+      personId,
+      { from: range.from, to: range.to },
     ] as const,
 } as const
 
@@ -1477,6 +1491,31 @@ export function clientNutritionMealsQueryOptions(
       ),
     initialPageParam: null as string | null,
     getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her days added up, for the same range as her meals and under the same rules:
+ * never remembered, never refetched on its own. One answer covers the range.
+ */
+export function clientNutritionSummariesQueryOptions(
+  organizationId: string,
+  personId: string,
+  range: { from: string; to: string },
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientNutritionSummaries(organizationId, personId, range),
+    queryFn: ({ signal }): Promise<ClientNutritionDailySummaryPage> =>
+      studioApi.clientNutritionDailySummaries(
+        organizationId,
+        personId,
+        { from: range.from, to: range.to },
+        signal,
+      ),
     staleTime: 0,
     gcTime: 0,
     refetchOnWindowFocus: false,

@@ -4600,6 +4600,36 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos este registro de comidas')).toBeVisible()
     },
   },
+  // --- the same screen, its days added up · HU-069 ---
+  {
+    // A version without nutrients: each day keeps its count, and no total is drawn.
+    stories: 'HU-069 · her days counted, with the totals withheld',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], nutritionTotalsShared: false }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-summary-day]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-069 · totals that could not be added up, above her meals',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [holderMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/nutrition/daily-summaries')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-summary-failure]')).toBeVisible()
+    },
+  },
 ]
 
 /** The nutrition screens read the last seven days, so the sweep pins which days those are. */

@@ -295,6 +295,8 @@ export interface StudioApiFixture {
   clientNutritionMeals: unknown[] | null
   /** The `nutrition_media` version; null is no photos shared, and every `has_photo` null. */
   nutritionPhotoScope: { code: string; version: number } | null
+  /** `OP-NUT-010` adds her meals up; false is a version that shares no nutrients. */
+  nutritionTotalsShared: boolean
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -3146,6 +3148,7 @@ export function createStudioApiFixture(
     bodyPhotoOutcome: 'shown',
     clientNutritionMeals: structuredClone(clientNutritionMeals),
     nutritionPhotoScope: { code: 'nutrition_media', version: 1 },
+    nutritionTotalsShared: true,
     ...overrides,
   }
 }
@@ -5223,6 +5226,33 @@ function defaultResponse(
     }
   }
   if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/daily-summaries$/.test(
+      request.path,
+    )
+  ) {
+    // The same category as her meals: the same 404 and the same 403.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    if (fixture.clientNutritionMeals === null) {
+      return {
+        status: 403,
+        body: problem('scope-required', 403, {
+          required_scope: { code: 'nutrition_intake', level: 'read' },
+        }),
+      }
+    }
+    const range = nutritionRange(new URLSearchParams(request.search ?? ''))
+    if (!range) return { status: 422, body: problem('validation-failed', 422) }
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        applied_scope: { code: 'nutrition_intake', version: 2 },
+        data: dailySummaries(fixture.clientNutritionMeals, range, fixture.nutritionTotalsShared),
+      },
+    }
+  }
+  if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/memberships\/[^/]+\/roles$/.test(request.path)
   ) {
@@ -6034,6 +6064,49 @@ function nutritionRange(search: URLSearchParams): { from: string; to: string } |
   const end = Date.parse(`${to}T00:00:00.000Z`)
   if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null
   return (end - start) / 86_400_000 < 31 ? { from, to } : null
+}
+
+/**
+ * Every day of the range, oldest first, added up from her meals the way
+ * `nutrition.read_client_daily_summaries` does: a day with nothing has a zero
+ * count and no totals, the totals come in code order, and a version without
+ * nutrients sends none at all.
+ */
+function dailySummaries(
+  meals: unknown[],
+  range: { from: string; to: string },
+  totalsShared: boolean,
+): unknown[] {
+  const days: unknown[] = []
+  for (
+    let at = Date.parse(`${range.from}T00:00:00.000Z`);
+    at <= Date.parse(`${range.to}T00:00:00.000Z`);
+    at += 86_400_000
+  ) {
+    const day = new Date(at).toISOString().slice(0, 10)
+    const eaten = meals.map(objectValue).filter((meal) => meal['local_date'] === day)
+    const totals = new Map<string, { value: number; unit: unknown }>()
+    for (const meal of eaten) {
+      for (const item of Array.isArray(meal['items']) ? meal['items'] : []) {
+        const nutrients = objectValue(item)['nutrients']
+        for (const nutrient of Array.isArray(nutrients) ? nutrients : []) {
+          const { nutrient_code: code, value, unit } = objectValue(nutrient)
+          const before = totals.get(String(code))?.value ?? 0
+          totals.set(String(code), { value: before + Number(value), unit })
+        }
+      }
+    }
+    days.push({
+      local_date: day,
+      meal_count: eaten.length,
+      nutrient_totals: totalsShared
+        ? [...totals.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([code, total]) => ({ nutrient_code: code, value: total.value, unit: total.unit }))
+        : null,
+    })
+  }
+  return days
 }
 
 /**

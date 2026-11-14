@@ -187,6 +187,8 @@ export type MealType = AllfitV1Schemas['MealType']
 export type ClientNutritionMealPage = AllfitV1Schemas['ClientNutritionMealPage']
 export type ClientNutritionMeal = AllfitV1Schemas['ClientNutritionMeal']
 export type ClientNutritionMealItem = AllfitV1Schemas['ClientNutritionMealItem']
+export type ClientNutritionDailySummaryPage = AllfitV1Schemas['ClientNutritionDailySummaryPage']
+export type ClientNutritionDailySummary = AllfitV1Schemas['ClientNutritionDailySummary']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -1464,6 +1466,25 @@ export const studioApi = {
   ) =>
     request<ClientNutritionMealPage>(
       `/studio/v1/organizations/${organizationId}/clients/${personId}/nutrition/meals?${rangeSearch(query)}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-NUT-010`. Every day between two of hers, oldest first, with how many
+   * meals she recorded and what they add up to, added only from what she shares.
+   * A day with nothing has no totals, and a version without nutrients has none.
+   */
+  clientNutritionDailySummaries: (
+    organizationId: string,
+    personId: string,
+    query: { from: string; to: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ClientNutritionDailySummaryPage>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/nutrition/daily-summaries?${rangeSearch(query)}`,
       {
         cache: 'no-store',
         ...(signal ? { signal } : {}),

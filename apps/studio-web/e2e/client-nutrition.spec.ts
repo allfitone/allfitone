@@ -34,16 +34,20 @@ async function open(page: Page, overrides: Partial<StudioApiFixture> = {}) {
   await page.goto(NUTRITION)
 }
 
-/** Every read of her meals, with the days it asked for. */
-function mealReads(page: Page): string[] {
+/** Every read of one of her nutrition lists, with the days it asked for. */
+function readsOf(page: Page, list: 'meals' | 'daily-summaries'): string[] {
   const asked: string[] = []
   page.on('request', (request) => {
     const url = new URL(request.url())
-    if (url.pathname.startsWith('/studio/v1/') && url.pathname.endsWith('/nutrition/meals')) {
+    if (url.pathname.startsWith('/studio/v1/') && url.pathname.endsWith(`/nutrition/${list}`)) {
       asked.push(`${url.searchParams.get('from')}..${url.searchParams.get('to')}`)
     }
   })
   return asked
+}
+
+function mealReads(page: Page): string[] {
+  return readsOf(page, 'meals')
 }
 
 test('shows her last seven days of meals, by her day, with what she ate', async ({ page }) => {
@@ -85,6 +89,8 @@ test('without the meals permission it shows nothing, and says what is missing', 
 
   await expect(page.getByText('No te autorizó su registro de comidas')).toBeVisible()
   await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(0)
+  // Criterion 4 of the totals: with the permission gone, they go too.
+  await expect(page.locator('[data-client-nutrition-summary]')).toHaveCount(0)
   await expect(page.locator('[data-client-nutrition-range]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Reintentar' })).toHaveCount(0)
 })
@@ -229,6 +235,7 @@ test('a dropped connection is retried when somebody asks', async ({ page }) => {
  */
 test('asks once on arrival and never again on its own', async ({ page }) => {
   const asked = mealReads(page)
+  const added = readsOf(page, 'daily-summaries')
   await open(page)
   await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
 
@@ -239,6 +246,103 @@ test('asks once on arrival and never again on its own', async ({ page }) => {
   })
   await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
   expect(asked).toHaveLength(1)
+  expect(added).toHaveLength(1)
+})
+
+// --- HU-STUDIO-069 · her days, added up ---
+
+test('adds up each of her days above her meals, newest first, energy first', async ({ page }) => {
+  await open(page)
+
+  const summary = page.locator('[data-client-nutrition-summary]')
+  await expect(summary.getByRole('heading', { name: 'Por día' })).toBeVisible()
+  // Seven days were read; only the two with a meal are drawn.
+  await expect(page.locator('[data-client-nutrition-summary-day-name]')).toHaveText([
+    'Martes, 28 de julio de 2026',
+    'Lunes, 27 de julio de 2026',
+  ])
+  const busiest = page.locator('[data-client-nutrition-summary-day]').first()
+  await expect(busiest.locator('[data-client-nutrition-summary-meals]')).toHaveText('3 comidas')
+  await expect(busiest.locator('dt')).toHaveText(['Energía', 'Proteína', 'Carbohidratos', 'Grasa'])
+  await expect(busiest.locator('dd')).toHaveText(['1.580 kcal', '80 g', '70 g', '22 g'])
+  await expect(
+    page
+      .locator('[data-client-nutrition-summary-day]')
+      .nth(1)
+      .locator('[data-client-nutrition-summary-meals]'),
+  ).toHaveText('1 comida')
+
+  const order = await page
+    .locator('[data-client-nutrition-summary], [data-client-nutrition-meals]')
+    .evaluateAll((cards) => cards.map((card) => card.hasAttribute('data-client-nutrition-summary')))
+  expect(order).toEqual([true, false])
+})
+
+/*
+ * A day with nothing comes with a zero count and no totals. Drawn, it would read
+ * as «she did not eat»; a gap may be a day she did not record or one she keeps
+ * to herself, so it is left out and the card says why once.
+ */
+test('a day with no meals is not drawn, and nothing is drawn as zero', async ({ page }) => {
+  await open(page)
+
+  await expect(page.locator('[data-client-nutrition-summary-day]')).toHaveCount(2)
+  await expect(page.getByText(/(^|\s)0 (comidas|kcal|g)\b/)).toHaveCount(0)
+  await expect(page.getByText(/uno que no registró o uno que prefirió no mostrar/)).toBeVisible()
+})
+
+/*
+ * A version that shares no nutrients sends no totals, so a total never reveals
+ * what it hides. The count of meals stays; no nutrient is drawn for the day.
+ */
+test('a version without nutrients keeps the count and draws no total', async ({ page }) => {
+  await open(page, { nutritionTotalsShared: false })
+
+  await expect(page.locator('[data-client-nutrition-summary-day]')).toHaveCount(2)
+  await expect(page.locator('[data-client-nutrition-summary-meals]').first()).toHaveText(
+    '3 comidas',
+  )
+  await expect(page.locator('[data-client-nutrition-totals]')).toHaveCount(0)
+})
+
+// Criterion 2: one range for both, so the totals always add up the meals below.
+test('asks for her totals with the same days as her meals, and only when asked', async ({
+  page,
+}) => {
+  const added = readsOf(page, 'daily-summaries')
+  await open(page)
+  await expect(page.locator('[data-client-nutrition-summary-day]')).toHaveCount(2)
+  expect(added).toEqual(['2026-07-23..2026-07-29'])
+
+  await page.getByLabel('Desde').fill('2026-07-01')
+  await page.getByLabel('Hasta').fill('2026-07-15')
+  expect(added).toHaveLength(1)
+  await page.getByRole('button', { name: 'Consultar' }).click()
+
+  await expect(page.locator('[data-client-nutrition-summary-day-name]')).toHaveText([
+    'Viernes, 10 de julio de 2026',
+  ])
+  expect(added).toEqual(['2026-07-23..2026-07-29', '2026-07-01..2026-07-15'])
+})
+
+test('totals that fail to load leave her meals, and are retried when asked', async ({ page }) => {
+  // Studio retries a 503 once on its own; the button appears after that one.
+  let failures = 2
+  await open(page, {
+    intercept: (request) => {
+      if (!request.path.endsWith('/nutrition/daily-summaries') || failures === 0) return undefined
+      failures -= 1
+      return { status: 503, body: { error: { code: 'upstream-unavailable' } } }
+    },
+  })
+
+  await expect(page.getByText('No pudimos sumar sus días')).toBeVisible()
+  await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+  await page
+    .locator('[data-client-nutrition-summary]')
+    .getByRole('button', { name: 'Reintentar' })
+    .click()
+  await expect(page.locator('[data-client-nutrition-summary-day]')).toHaveCount(2)
 })
 
 /*

@@ -4,6 +4,12 @@
  * `HU-STUDIO-068`. The meals a client shares with the coach who attends her, so
  * he can follow what she eats with what she actually recorded.
  *
+ * **Two reads, one screen** (`HU-STUDIO-069`). `nutrition_intake` names her
+ * meals and her daily totals, and the card offers one door, so both are read
+ * here for the same range: the days added up above, the meals they add up below.
+ * There is no chart: a line or a bar draws a day with nothing as zero, and a gap
+ * may be a day she did not record or one she keeps to herself.
+ *
  * **One range, chosen by pressing.** The screen opens on her last seven days and
  * asks again only when somebody presses «Consultar»: every read is recorded for
  * her, so typing a date must not write her a line per keystroke. A range is at
@@ -37,10 +43,10 @@ import { Field, FieldError, FieldLabel } from '@allfitone/react/components/field
 import { Input } from '@allfitone/react/components/input'
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { FoundationIcon } from '@allfitone/react/icons'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useId, useState } from 'react'
+import { Fragment, useId, useState, type ReactNode } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
@@ -56,12 +62,15 @@ import {
   nutritionDayHeading,
   rangeProblem,
   rangeProblemText,
+  summaryDays,
+  type MealDay,
   type NutritionRange,
   type RangeProblem,
 } from '@/lib/client-nutrition'
 import type { ClientNutritionMeal } from '@/lib/studio-api'
 import {
   clientNutritionMealsQueryOptions,
+  clientNutritionSummariesQueryOptions,
   flattenById,
   isStudioForbidden,
   isStudioNotFound,
@@ -77,14 +86,25 @@ export function ClientNutritionScreen() {
   const meals = useInfiniteQuery(
     clientNutritionMealsQueryOptions(organizationId, params.personId, range, MEALS_PAGE),
   )
+  const summaries = useQuery(
+    clientNutritionSummariesQueryOptions(organizationId, params.personId, range),
+  )
   const cardPath = clientCardPath(organizationId, params.personId)
   const directoryPath = `/organizations/${organizationId}/clients`
 
-  if (isStudioForbidden(meals.error)) return <ScopeRequiredState cardPath={cardPath} />
-  if (isStudioNotFound(meals.error)) return <UnreachableState directoryPath={directoryPath} />
+  // Both reads belong to one category, so a refusal of either is the category's.
+  if (isStudioForbidden(meals.error) || isStudioForbidden(summaries.error)) {
+    return <ScopeRequiredState cardPath={cardPath} />
+  }
+  if (isStudioNotFound(meals.error) || isStudioNotFound(summaries.error)) {
+    return <UnreachableState directoryPath={directoryPath} />
+  }
 
   const first = meals.data?.pages[0]
   const days = mealDays(flattenById(meals.data))
+  const totals = summaryDays(summaries.data?.data ?? [])
+  const summariesFailed = summaries.isError
+  const nothing = days.length === 0 && totals.length === 0 && !summariesFailed
   const timed = days.some((day) => day.meals.some((meal) => meal.timezone !== null))
 
   return (
@@ -115,13 +135,18 @@ export function ClientNutritionScreen() {
 
       <RangeForm range={range} onApply={setRange} />
 
-      {meals.isPending ? (
+      {meals.isPending || summaries.isPending ? (
         <div data-client-nutrition-loading>
           <Skeleton data-client-nutrition-panel-placeholder />
         </div>
       ) : !first ? (
-        <FailureState onRetry={() => void meals.refetch()} />
-      ) : days.length === 0 ? (
+        <FailureState
+          onRetry={() => {
+            void meals.refetch()
+            if (summariesFailed) void summaries.refetch()
+          }}
+        />
+      ) : nothing ? (
         <Empty data-client-nutrition-nothing>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -136,37 +161,111 @@ export function ClientNutritionScreen() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <Card data-client-nutrition-meals>
-          <CardHeader>
-            <CardTitle role="heading" aria-level={2}>
-              Comidas
-            </CardTitle>
-            <CardDescription>
-              Versión {String(first.applied_scope.version)} del permiso de registro de comidas. Un
-              dato que esa versión no incluye no aparece.
-              {timed ? ' Las horas son las de su zona horaria.' : null}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div data-client-nutrition-day-list>
-              {days.map((day) => (
-                <section key={day.day} data-client-nutrition-day>
-                  <h3 data-client-nutrition-day-name>{nutritionDayHeading(day.day)}</h3>
-                  <ul data-client-nutrition-meal-list>
-                    {day.meals.map((meal) => (
-                      <li key={meal.id}>
-                        <MealEntry meal={meal} />
-                      </li>
+        <>
+          {totals.length > 0 || summariesFailed ? (
+            <Card data-client-nutrition-summary>
+              <CardHeader>
+                <CardTitle role="heading" aria-level={2}>
+                  Por día
+                </CardTitle>
+                {/* Why a day is missing, said once, rather than a zero drawn for it. */}
+                <CardDescription>
+                  Lo que suman sus comidas de cada día, contado solo con lo que su permiso te deja
+                  ver. Un día sin comidas no aparece: puede ser uno que no registró o uno que
+                  prefirió no mostrar, y desde aquí no se distingue.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {summariesFailed ? (
+                  <Alert variant="danger" live="polite" data-client-nutrition-summary-failure>
+                    <AlertTitle>No pudimos sumar sus días</AlertTitle>
+                    <AlertDescription>La conexión falló de forma temporal.</AlertDescription>
+                    <AlertAction>
+                      <Button size="sm" variant="outline" onClick={() => void summaries.refetch()}>
+                        Reintentar
+                      </Button>
+                    </AlertAction>
+                  </Alert>
+                ) : (
+                  <div data-client-nutrition-summary-list>
+                    {totals.map((day) => (
+                      <section key={day.day} data-client-nutrition-summary-day>
+                        <h3 data-client-nutrition-summary-day-name>
+                          {nutritionDayHeading(day.day)}
+                        </h3>
+                        <span data-client-nutrition-summary-meals>{day.meals}</span>
+                        {day.totals.length > 0 ? (
+                          <dl data-client-nutrition-totals>
+                            {day.totals.map((total) => (
+                              <Fragment key={total.name}>
+                                <dt>{total.name}</dt>
+                                <dd>{total.amount}</dd>
+                              </Fragment>
+                            ))}
+                          </dl>
+                        ) : null}
+                      </section>
                     ))}
-                  </ul>
-                </section>
-              ))}
-            </div>
-            <MoreControl query={meals} label="Ver más comidas" />
-          </CardContent>
-        </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+          {days.length > 0 ? (
+            <MealsCard
+              days={days}
+              version={first.applied_scope.version}
+              timed={timed}
+              more={<MoreControl query={meals} label="Ver más comidas" />}
+            />
+          ) : null}
+        </>
       )}
     </div>
+  )
+}
+
+function MealsCard({
+  days,
+  version,
+  timed,
+  more,
+}: {
+  days: readonly MealDay[]
+  version: number
+  timed: boolean
+  more: ReactNode
+}) {
+  return (
+    <Card data-client-nutrition-meals>
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2}>
+          Comidas
+        </CardTitle>
+        <CardDescription>
+          Versión {String(version)} del permiso de registro de comidas. Un dato que esa versión no
+          incluye no aparece.
+          {timed ? ' Las horas son las de su zona horaria.' : null}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div data-client-nutrition-day-list>
+          {days.map((day) => (
+            <section key={day.day} data-client-nutrition-day>
+              <h3 data-client-nutrition-day-name>{nutritionDayHeading(day.day)}</h3>
+              <ul data-client-nutrition-meal-list>
+                {day.meals.map((meal) => (
+                  <li key={meal.id}>
+                    <MealEntry meal={meal} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+        {more}
+      </CardContent>
+    </Card>
   )
 }
 

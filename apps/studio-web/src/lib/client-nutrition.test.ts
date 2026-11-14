@@ -10,8 +10,13 @@ import {
   nutritionDayHeading,
   rangeProblem,
   rangeProblemText,
+  summaryDays,
 } from './client-nutrition'
-import type { ClientNutritionMeal, ClientNutritionMealItem } from './studio-api'
+import type {
+  ClientNutritionDailySummary,
+  ClientNutritionMeal,
+  ClientNutritionMealItem,
+} from './studio-api'
 
 function meal(overrides: Partial<ClientNutritionMeal> = {}): ClientNutritionMeal {
   return {
@@ -182,5 +187,64 @@ describe('her meals, by the day she ate them', () => {
   // Her day, not the reader's: a calendar day read as midnight UTC would slip back.
   test('each day is named as the calendar day it was', () => {
     expect(nutritionDayHeading('2026-07-28')).toBe('Martes, 28 de julio de 2026')
+  })
+})
+
+describe('her days, added up', () => {
+  function summary(
+    overrides: Partial<ClientNutritionDailySummary> = {},
+  ): ClientNutritionDailySummary {
+    return { local_date: '2026-07-28', meal_count: 3, nutrient_totals: [], ...overrides }
+  }
+
+  test('newest first, like her meals below them, each with what it adds up to', () => {
+    const days = summaryDays([
+      summary({
+        local_date: '2026-07-27',
+        meal_count: 1,
+        nutrient_totals: [{ nutrient_code: 'energy', value: 95, unit: 'kcal' }],
+      }),
+      summary({
+        local_date: '2026-07-28',
+        nutrient_totals: [
+          { nutrient_code: 'protein', value: 80, unit: 'g' },
+          { nutrient_code: 'energy', value: 1580, unit: 'kcal' },
+        ],
+      }),
+    ])
+    expect(days.map((day) => day.day)).toEqual(['2026-07-28', '2026-07-27'])
+    expect(days[0]?.meals).toBe('3 comidas')
+    expect(days[0]?.totals).toEqual([
+      { name: 'Energía', amount: '1.580 kcal' },
+      { name: 'Proteína', amount: '80 g' },
+    ])
+    expect(days[1]?.meals).toBe('1 comida')
+  })
+
+  /*
+   * A day with no meals is not drawn: «0 comidas» reads as «she did not eat»,
+   * and a gap may be a day she did not record or one she keeps to herself.
+   */
+  test('a day with no meals is no day at all, not a zero', () => {
+    const days = summaryDays([
+      summary({ local_date: '2026-07-26', meal_count: 0, nutrient_totals: [] }),
+      summary({ local_date: '2026-07-28' }),
+    ])
+    expect(days.map((day) => day.day)).toEqual(['2026-07-28'])
+  })
+
+  // Null when her version shares no day of a meal: nothing can be said about it.
+  test('a day whose count is withheld is not drawn either', () => {
+    expect(summaryDays([summary({ meal_count: null, nutrient_totals: null })])).toEqual([])
+  })
+
+  /*
+   * Null totals are a version that shares no nutrients, so a total never reveals
+   * what it hides. The count stays; no total is drawn as zero.
+   */
+  test('totals withheld leave the count and no total', () => {
+    const [day] = summaryDays([summary({ nutrient_totals: null })])
+    expect(day?.meals).toBe('3 comidas')
+    expect(day?.totals).toEqual([])
   })
 })

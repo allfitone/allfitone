@@ -1,9 +1,10 @@
 /**
  * What a client eats, as the coach who attends her reads it: her meals
- * (`HU-STUDIO-068`).
+ * (`HU-STUDIO-068`) and each of her days added up (`HU-STUDIO-069`).
  *
- * `OP-NUT-009` decides what exists. This module decides the days asked for and
- * the words a meal is drawn with, under the rule every client screen follows:
+ * `OP-NUT-009` and `OP-NUT-010` decide what exists, and add it up after applying
+ * what she shares. This module decides the days asked for and the words a meal
+ * and a day are drawn with, under the rule every client screen follows:
  *
  * **A field her version does not share is null, and is left out.** Never «sin
  * registrar», never a zero: either would claim the field exists and is empty,
@@ -17,7 +18,12 @@
  * on purpose, as the nutrient names are in `nutrients.ts`.
  */
 import { inNutrientOrder, nutrientAmount, nutrientName } from './nutrients'
-import type { ClientNutritionMeal, ClientNutritionMealItem, MealType } from './studio-api'
+import type {
+  ClientNutritionDailySummary,
+  ClientNutritionMeal,
+  ClientNutritionMealItem,
+  MealType,
+} from './studio-api'
 
 export interface NutritionRange {
   readonly from: string
@@ -174,4 +180,39 @@ export function nutritionDayHeading(day: string): string {
   if (index === null) return day
   const text = DAY_HEADING.format(new Date(index * DAY_MS))
   return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+export interface NutrientTotal {
+  readonly name: string
+  readonly amount: string
+}
+
+export interface SummaryDay {
+  readonly day: string
+  readonly meals: string
+  readonly totals: readonly NutrientTotal[]
+}
+
+/**
+ * `HU-STUDIO-069`. Each of her days that has a meal, newest first like the meals
+ * below, with what it adds up to. The API sends every day of the range; a day
+ * with no meals is left out rather than drawn as «0 comidas», which would read as
+ * «she did not eat» — a gap may be a day she did not record or one she keeps to
+ * herself, and the screen cannot tell which. A count withheld says nothing, so
+ * its day is left out too; totals withheld leave the count alone.
+ */
+export function summaryDays(days: readonly ClientNutritionDailySummary[]): readonly SummaryDay[] {
+  const shown: SummaryDay[] = []
+  for (const day of days) {
+    if (day.meal_count === null || day.meal_count === 0) continue
+    shown.unshift({
+      day: day.local_date,
+      meals: day.meal_count === 1 ? '1 comida' : `${day.meal_count} comidas`,
+      totals: inNutrientOrder(day.nutrient_totals ?? []).map((total) => ({
+        name: nutrientName(total.nutrient_code),
+        amount: nutrientAmount(total),
+      })),
+    })
+  }
+  return shown
 }
