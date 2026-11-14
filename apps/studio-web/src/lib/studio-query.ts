@@ -44,6 +44,9 @@ import {
   type FrozenBodyProgressPage,
   type FrozenExecutionPage,
   type FrozenNutritionGoalVersionPage,
+  type ClientHealthContextPage,
+  type ClientBodyPhotoPage,
+  type ClientBodyProgressPage,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -245,6 +248,35 @@ export const studioQueryKeys = {
       relationshipId,
       { caseId, read, limit },
     ] as const,
+  clientHealthContext: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-health-context',
+      personId,
+      { limit },
+    ] as const,
+  clientBodyProgress: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-body-progress',
+      personId,
+      { limit },
+    ] as const,
+  clientBodyPhotos: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-body-photos',
+      personId,
+      { limit },
+    ] as const,
+  clientBodyPhoto: (organizationId: string, personId: string, photoId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-body-photo', personId, photoId] as const,
 } as const
 
 export function createStudioQueryClient(): QueryClient {
@@ -1301,4 +1333,109 @@ export function flattenById<T extends { id: string }>(
     }
   }
   return items
+}
+
+/**
+ * Her health context, newest first, a page at a time, read under the rules of
+ * the training screens beside it: `private-no-store`, never remembered, and
+ * never refetched on its own, because every page is a read recorded for her.
+ */
+export function clientHealthContextQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientHealthContext(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientHealthContextPage> =>
+      studioApi.clientHealthContext(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her measurements, and the photos she shows this gym, under the same rules as
+ * every other read of hers: never remembered, never refetched on its own.
+ */
+export function clientBodyProgressQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientBodyProgress(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientBodyProgressPage> =>
+      studioApi.clientBodyProgress(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+export function clientBodyPhotosQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientBodyPhotos(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientBodyPhotoPage> =>
+      studioApi.clientBodyPhotos(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One photo, asked for only while somebody has it open.
+ *
+ * **Each request is an access she reads**, so this one is stricter than the
+ * reads around it. No retry, not even the client's default one for a failed
+ * connection: a second attempt is a second line in her log, and only a person
+ * pressing a button may cause it. Held while open (`staleTime: Infinity`), so
+ * a repaint never asks again; dropped when closed (`gcTime: 0`), so the bytes do
+ * not outlive the view, and opening it again is honestly another view.
+ */
+export function clientBodyPhotoQueryOptions(
+  organizationId: string,
+  personId: string,
+  photoId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientBodyPhoto(organizationId, personId, photoId),
+    queryFn: ({ signal }) =>
+      studioApi.clientBodyPhotoContent(organizationId, personId, photoId, signal),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
 }

@@ -58,6 +58,7 @@ import {
   endedRelationshipHistory,
   expiredHistoricalCase,
   openHistoricalCase,
+  narrowHealthContext,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -4396,6 +4397,124 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('dejó de poder recibirlo')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/health-context` · HU-053 ---
+  {
+    // Every section at once: what affects her today, a recovery and what ended.
+    stories: 'HU-053 · her health context, sorted by what holds today',
+    path: `${clientCardPath}/health-context`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-health-section]')).toHaveCount(3)
+    },
+  },
+  {
+    // A version that carries the type and the dates only: shorter rows, nothing filled in.
+    stories: 'HU-053 · a version that leaves out her words, the area and the origin',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientHealthContext: narrowHealthContext,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-health-claim]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-053 · the category shared with nothing in it',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientHealthContext: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-053 · without the health permission in force',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientHealthContext: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-053 · a health context the caller does not attend',
+    path: `${clientCardPath}/health-context`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este contexto de salud')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/body-progress` · HU-052 ---
+  {
+    // Three days of measurements and two photos, none of them open yet.
+    stories: 'HU-052 · her measurements by day, and the photos she shows',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-body-photo]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-052 · one photo open',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.locator('[data-authorized-photo-image]')).toBeVisible()
+    },
+  },
+  {
+    // The one answer for a photo gone, a revoked permission or an ended relationship.
+    stories: 'HU-052 · a photo it cannot show',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], bodyPhotoOutcome: 'unavailable' }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.getByText('No podemos mostrar esta foto')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-052 · the category shared with nothing in it',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientBodyProgress: [],
+        clientBodyPhotos: [],
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su progreso corporal')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-052 · without the body permission in force',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientBodyProgress: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su progreso corporal')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-052 · a body progress the caller does not attend',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este progreso corporal')).toBeVisible()
     },
   },
 ]

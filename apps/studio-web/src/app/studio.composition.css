@@ -257,7 +257,9 @@
 [data-client-execution-detail-screen],
 [data-historical-cases-screen],
 [data-historical-reading],
-[data-historical-case-refusal] {
+[data-historical-case-refusal],
+[data-client-health-screen],
+[data-client-body-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -633,7 +635,9 @@
 [data-client-execution-facts] dt,
 [data-client-progress-facts] dt,
 [data-client-program-facts] dt,
-[data-historical-case-facts] dt {
+[data-historical-case-facts] dt,
+[data-client-health-section-name],
+[data-client-body-day-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -663,7 +667,8 @@
 [data-client-execution-facts],
 [data-client-progress-facts],
 [data-client-program-facts],
-[data-historical-case-facts] {
+[data-historical-case-facts],
+[data-client-body-facts] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -731,7 +736,10 @@
 [data-historical-case-picker],
 [data-historical-case-picker-results],
 [data-historical-entries],
-[data-historical-goal-targets] {
+[data-historical-goal-targets],
+[data-client-health-section-list],
+[data-client-body-day-list],
+[data-client-body-photo-view] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1492,7 +1500,9 @@
    the row, and inline it ran straight into the name with nothing between. */
 [data-organization-site-identity],
 [data-relationship-substitution-identity],
-[data-relationship-grant-identity] {
+[data-relationship-grant-identity],
+[data-client-health-claim],
+[data-client-body-photo-identity] {
   display: grid;
   gap: var(--afo-space-1);
 }
@@ -1560,7 +1570,9 @@
 [data-client-executions-header-placeholder],
 [data-client-progress-header-placeholder],
 [data-client-programs-header-placeholder],
-[data-client-execution-detail-header-placeholder] {
+[data-client-execution-detail-header-placeholder],
+[data-client-health-header-placeholder],
+[data-client-body-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
@@ -1572,7 +1584,10 @@
 [data-client-executions-panel-placeholder],
 [data-client-progress-panel-placeholder],
 [data-client-programs-panel-placeholder],
-[data-client-execution-detail-panel-placeholder] {
+[data-client-execution-detail-panel-placeholder],
+[data-client-health-panel-placeholder],
+[data-client-body-panel-placeholder],
+[data-authorized-photo-placeholder] {
   height: 12rem;
 }
 
@@ -1773,7 +1788,8 @@
    card per session would make twenty-five boxes out of one list. */
 [data-client-execution],
 [data-historical-case],
-[data-historical-entry] {
+[data-historical-entry],
+[data-client-body-photo] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
@@ -1782,14 +1798,16 @@
 
 [data-client-executions-list] > li:first-child [data-client-execution],
 [data-historical-cases-list] > li:first-child [data-historical-case],
-[data-historical-entries] > li:first-child [data-historical-entry] {
+[data-historical-entries] > li:first-child [data-historical-entry],
+[data-client-body-photo-list] > li:first-child [data-client-body-photo] {
   padding-block-start: 0;
   border-block-start: none;
 }
 
 [data-client-execution-head],
 [data-historical-case-head],
-[data-historical-entry-head] {
+[data-historical-entry-head],
+[data-client-body-photo-head] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1799,7 +1817,10 @@
 
 [data-client-execution-when],
 [data-historical-case-person],
-[data-historical-entry-title] {
+[data-historical-entry-title],
+[data-client-body-photo-title],
+[data-client-health-claim-heading],
+[data-client-health-claim-description] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1807,7 +1828,9 @@
 [data-client-execution-what],
 [data-historical-case-window],
 [data-historical-entry-line],
-[data-historical-case-reason] {
+[data-historical-case-reason],
+[data-client-health-claim-description],
+[data-client-health-claim-meta] {
   margin: 0;
 }
 
@@ -1817,7 +1840,11 @@
 [data-client-executions-stale-cursor],
 [data-historical-cases-more],
 [data-historical-entries-more],
-[data-historical-reading-record] {
+[data-historical-reading-record],
+[data-client-health-more],
+[data-client-health-more-failure],
+[data-client-body-more],
+[data-client-body-more-failure] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -2052,14 +2079,18 @@
 /* One attribute: its name, then the claims in force for it. Hairlines rather
    than boxes — the panel is already a card, and a card per attribute would make
    eight boxes out of one list. */
-[data-client-profile-group] {
+[data-client-profile-group],
+[data-client-health-section],
+[data-client-body-day] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
   border-block-start: 1px solid var(--afo-color-border);
 }
 
-[data-client-profile-group]:first-child {
+[data-client-profile-group]:first-child,
+[data-client-health-section]:first-child,
+[data-client-body-day]:first-child {
   padding-block-start: 0;
   border-block-start: none;
 }
@@ -2072,7 +2103,9 @@
 /* Drawn as the same label every other value on the product carries, so the
    hierarchy here is the claim's value and not its name. Its own rule only
    places the badge that explains why more than one line follows. */
-[data-client-profile-group-name] {
+[data-client-profile-group-name],
+[data-client-health-section-name],
+[data-client-body-day-name] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2080,7 +2113,9 @@
   margin: 0;
 }
 
-[data-client-profile-claims] {
+[data-client-profile-claims],
+[data-client-health-claims],
+[data-client-body-photo-list] {
   display: grid;
   gap: var(--afo-space-3);
   margin: 0;
@@ -2105,7 +2140,9 @@
 
 [data-client-profile-origin],
 [data-client-profile-since],
-[data-client-profile-unreadable] {
+[data-client-profile-unreadable],
+[data-client-health-claim-meta],
+[data-client-body-photo-shared] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }
@@ -3379,4 +3416,14 @@
   [data-studio-space] {
     padding: var(--afo-space-6);
   }
+}
+
+/* A photo she shows, drawn from bytes in memory while it is open. Its own rule
+   because no other screen draws an image: never wider than a phone's column, and
+   its own height, so a portrait is not stretched into the card's width. */
+[data-authorized-photo-image] {
+  display: block;
+  max-inline-size: min(100%, 22rem);
+  block-size: auto;
+  border-radius: var(--afo-radius-md);
 }

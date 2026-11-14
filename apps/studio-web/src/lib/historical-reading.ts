@@ -21,15 +21,13 @@
  * **Nothing after the cut** (criterion 1) is the server's filter; the screen
  * says where the cut is, so the reader knows the history stops there.
  *
- * **The nutrient and metric names are written here on purpose.** Space has the
- * same words (`apps/space/src/client/nutrition.ts` and `body.ts`), and an app may
- * not import another app. They are copied deliberately and should converge into a
- * package the day a third surface needs them.
+ * **The nutrient names are written here on purpose.** Space has the same words
+ * (`apps/space/src/client/nutrition.ts`), and an app may not import another app.
+ * They are copied deliberately and should converge into a package the day a third
+ * surface needs them. The measurements read the way the live screen reads them,
+ * in `body-measurements.ts`.
  */
 import type {
-  BodyProgressMetricCode,
-  BodyProgressUnitCode,
-  ClientBodyProgressRecord,
   ClientNutritionGoalDecision,
   ClientNutritionGoalTarget,
   FrozenNutritionGoalVersion,
@@ -61,56 +59,8 @@ export function cutLine(cutAt: string): string {
   return `Hasta el corte: ${new Intl.DateTimeFormat('es-CO', MOMENT).format(new Date(cutAt))}`
 }
 
-const METRICS: Record<BodyProgressMetricCode, string> = {
-  body_weight: 'Peso',
-  body_height: 'Estatura',
-  muscle_mass: 'Masa muscular',
-  body_fat: 'Grasa corporal',
-  waist: 'Cintura',
-  hip: 'Cadera',
-  chest: 'Pecho',
-  arm: 'Brazo',
-  thigh: 'Muslo',
-}
-
-export function metricLabel(code: BodyProgressMetricCode): string {
-  return METRICS[code]
-}
-
-const UNITS: Record<BodyProgressUnitCode, string> = {
-  kg: 'kg',
-  lb: 'lb',
-  m: 'm',
-  cm: 'cm',
-  in: 'in',
-  percent: '%',
-}
-
 function figure(value: number): string {
   return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(value)
-}
-
-function amount(value: number | null, unit: BodyProgressUnitCode | null): string | null {
-  if (value === null) return null
-  return unit ? `${figure(value)} ${UNITS[unit]}` : figure(value)
-}
-
-/**
- * The canonical value, and what she typed when it was another unit. A field the
- * frozen version does not keep comes back null and is left out.
- */
-export function measurementLine(record: ClientBodyProgressRecord): string | null {
-  const canonical = amount(record.value, record.unit_code)
-  const typed = amount(record.original_value, record.original_unit_code)
-  if (canonical && typed) return `${canonical} (registró ${typed})`
-  return canonical ?? typed
-}
-
-/** A calendar day, read as one: in UTC, so no zone moves it to the day before. */
-export function measuredOnLine(day: string): string {
-  return new Intl.DateTimeFormat('es-CO', { dateStyle: 'long', timeZone: 'UTC' }).format(
-    new Date(`${day}T00:00:00Z`),
-  )
 }
 
 const GOAL_STATUS: Record<NonNullable<FrozenNutritionGoalVersion['status_at_cut']>, string> = {

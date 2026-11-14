@@ -5,30 +5,14 @@ import {
   decisionLine,
   goalStatusLabel,
   historicalSections,
-  measuredOnLine,
-  measurementLine,
-  metricLabel,
   nutrientName,
   readFailure,
   targetLine,
 } from './historical-reading'
-import type { ClientBodyProgressRecord, ClientNutritionGoalTarget, ScopeCode } from './studio-api'
+import type { ClientNutritionGoalTarget, ScopeCode } from './studio-api'
 
 function frozen(...codes: ScopeCode[]) {
   return codes.map((code) => ({ code, version: 1, frozen_at: '2025-06-30T22:41:19.204Z' }))
-}
-
-function record(overrides: Partial<ClientBodyProgressRecord> = {}): ClientBodyProgressRecord {
-  return {
-    id: 'record-1',
-    metric_code: 'body_weight',
-    value: 72.5,
-    unit_code: 'kg',
-    original_value: null,
-    original_unit_code: null,
-    measured_on: '2025-06-02',
-    ...overrides,
-  }
 }
 
 function target(overrides: Partial<ClientNutritionGoalTarget> = {}): ClientNutritionGoalTarget {
@@ -69,36 +53,6 @@ describe('HU-062 criterion 2: only what has a historical read is drawn', () => {
 describe('HU-062 criterion 1: nothing after the cut exists', () => {
   test('says the instant of the cut', () => {
     expect(cutLine('2025-06-30T22:41:19.204Z')).toStartWith('Hasta el corte: ')
-  })
-})
-
-describe('her measurements, in the fields the frozen version keeps', () => {
-  test('names each metric', () => {
-    expect(metricLabel('body_weight')).toBe('Peso')
-    expect(metricLabel('body_fat')).toBe('Grasa corporal')
-    expect(metricLabel('thigh')).toBe('Muslo')
-  })
-
-  test('says the value in its unit', () => {
-    expect(measurementLine(record())).toBe('72,5 kg')
-    expect(
-      measurementLine(record({ metric_code: 'body_fat', value: 18, unit_code: 'percent' })),
-    ).toBe('18 %')
-  })
-
-  test('adds what she typed when it was another unit', () => {
-    expect(
-      measurementLine(record({ value: 72.5, original_value: 159.8, original_unit_code: 'lb' })),
-    ).toBe('72,5 kg (registró 159,8 lb)')
-  })
-
-  test('a value the frozen version does not keep is left out, not explained', () => {
-    expect(measurementLine(record({ value: null, unit_code: null }))).toBeNull()
-  })
-
-  test('the day she measured, as the calendar day it was', () => {
-    expect(measuredOnLine('2025-06-02')).toContain('2025')
-    expect(measuredOnLine('2025-06-02')).not.toContain('1/06')
   })
 })
 
