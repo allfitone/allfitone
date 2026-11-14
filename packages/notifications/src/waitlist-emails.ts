@@ -23,10 +23,10 @@
  *
  * These are the first emails in two languages: the one the person joined in.
  *
- * The referral levels and their rewards repeat the ones `apps/space-web` shows
- * (`src/lib/waitlist.ts` and its dictionaries), on purpose: a package cannot import an
- * app, and the API that counts will hold its own copy. If the levels change, all three
- * change together.
+ * The count is people who signed up with the link and confirmed. It is not progress
+ * toward a reward: under the launch strategy v1.2 a referral earns rewards only once
+ * active after launch (TECH-301), and the email says so under the count. Registered
+ * and active side by side, with the steps to the next level, arrive with TECH-334.
  */
 
 import {
@@ -43,7 +43,7 @@ export interface WaitlistReferralStatus {
   code: string
   /** The public link they share. It opens the waitlist page with their code. */
   referralUrl: string
-  /** People who joined through them and confirmed their email. */
+  /** People who signed up through them and confirmed their email. */
   referrals: number
   /** The private «mi link» page. Its token is a bearer credential. */
   referralsPageUrl: string
@@ -58,23 +58,11 @@ interface WaitlistRecipient extends WaitlistReferralStatus {
   brandAssetUrl: string
 }
 
-const REFERRAL_LEVELS = [5, 15, 30, 100] as const
-type ReferralLevel = (typeof REFERRAL_LEVELS)[number]
-
-/** Up to this many steps to the next level, the count is drawn as marks; past it, as one bar. */
-const MAX_MARKS = 15
-
 const WORDS = {
   es: {
-    rewards: {
-      5: '1 mes de Allfit Pro',
-      15: '2 meses de Allfit Pro',
-      30: '3 meses de Allfit Pro',
-      100: '1 año de Allfit Pro y merch de Allfit One',
-    },
-    progress: (count: number, goal: number, reward: string) =>
-      `Llevas ${count} de ${goal} para ${reward}.`,
-    progressDone: (count: number) => `Llevas ${count}: alcanzaste el último nivel.`,
+    registered: (count: number) => `Registrados con tu link: ${count}.`,
+    rewardRule:
+      'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
     codeLabel: 'TU CÓDIGO',
     linkLabel: 'TU LINK',
     referralsLabel: 'TUS REFERIDOS',
@@ -90,7 +78,7 @@ const WORDS = {
       lead: 'Así guardamos tu lugar en la lista de espera de Allfit Space. Tu lugar cuenta desde que confirmas, y las primeras 100 personas en confirmar son Founding Members.',
       action: 'Confirmar mi correo',
       expires: (date: string) => `El enlace vence el ${date}.`,
-      note: 'Cada persona que se une con tu link y confirma su correo suma a tus referidos. «Ver mis referidos» abre tu página con el contador al día; ese enlace es solo tuyo, no lo compartas.',
+      note: 'Cada persona que se une con tu link y confirma su correo suma a tus registrados. «Ver mis referidos» abre tu página con el contador al día; ese enlace es solo tuyo, no lo compartas.',
       footerQuestion: '¿No te uniste tú?',
       footer: 'Ignora este correo: sin confirmar, esta dirección no cuenta en la lista de espera.',
     },
@@ -111,15 +99,9 @@ const WORDS = {
     },
   },
   en: {
-    rewards: {
-      5: '1 month of Allfit Pro',
-      15: '2 months of Allfit Pro',
-      30: '3 months of Allfit Pro',
-      100: '1 year of Allfit Pro and Allfit One merch',
-    },
-    progress: (count: number, goal: number, reward: string) =>
-      `${count} of ${goal} toward ${reward}.`,
-    progressDone: (count: number) => `${count} so far: you reached the last level.`,
+    registered: (count: number) => `Signed up with your link: ${count}.`,
+    rewardRule:
+      'Allfit Pro rewards count active referrals: from launch, they create an account and log 3 workouts or meals in their first 14 days.',
     codeLabel: 'YOUR CODE',
     linkLabel: 'YOUR LINK',
     referralsLabel: 'YOUR REFERRALS',
@@ -134,7 +116,7 @@ const WORDS = {
       lead: 'That keeps your place on the Allfit Space waitlist. Your place counts from the moment you confirm, and the first 100 people to confirm are Founding Members.',
       action: 'Confirm my email',
       expires: (date: string) => `The link expires on ${date}.`,
-      note: 'Everyone who joins with your link and confirms their email adds to your referrals. “See my referrals” opens your page with your count up to date; that link is yours alone, so don’t share it.',
+      note: 'Everyone who joins with your link and confirms their email adds to your sign-ups. “See my referrals” opens your page with your count up to date; that link is yours alone, so don’t share it.',
       footerQuestion: 'Didn’t sign up?',
       footer: 'Ignore this email: without confirming, this address doesn’t count on the waitlist.',
     },
@@ -253,7 +235,8 @@ function referralLines(input: WaitlistRecipient): string {
   return [
     `${words.text.code}: ${input.code}`,
     `${words.text.link}: ${input.referralUrl}`,
-    progressSentence(input.referrals, input.language),
+    words.registered(input.referrals),
+    words.rewardRule,
     `${words.text.privatePage}: ${input.referralsPageUrl}`,
   ].join('\n')
 }
@@ -278,52 +261,9 @@ function referralRows(
     },
     {
       label: words.referralsLabel,
-      html: `${progressMarks(input.referrals)}<p style="margin:0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${c.textOnInverse};">${escapeHtml(progressSentence(input.referrals, input.language))}</p>${privateLink}`,
+      html: `<p style="margin:0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${c.textOnInverse};">${escapeHtml(words.registered(input.referrals))}</p><p style="margin:8px 0 0;font-family:${BODY_FONT};font-size:14px;font-weight:400;line-height:1.5;color:${c.textOnInverseMuted};">${escapeHtml(words.rewardRule)}</p>${privateLink}`,
     },
   ]
-}
-
-function progressSentence(referrals: number, language: EmailLanguage): string {
-  const words = WORDS[language]
-  const next = nextReferralLevel(referrals)
-  return next === null
-    ? words.progressDone(referrals)
-    : words.progress(referrals, next, words.rewards[next])
-}
-
-/**
- * The steps from the last level reached to the next one, as the waitlist page draws them:
- * a mark per person, cyan once they count. Table cells, because Outlook draws nothing else.
- */
-function progressMarks(referrals: number): string {
-  const c = EMAIL_COLOR
-  const next = nextReferralLevel(referrals)
-  if (next === null) return ''
-  const floor = reachedReferralLevel(referrals)
-  const steps = next - floor
-  const done = referrals - floor
-  const cell = (width: number, color: string) =>
-    `<td width="${width}" height="6" bgcolor="${color}" style="width:${width}px;height:6px;background-color:${color};border-radius:999px;font-size:0;line-height:0;">&nbsp;</td>`
-  const gap = '<td width="4" style="width:4px;font-size:0;line-height:0;">&nbsp;</td>'
-  if (steps > MAX_MARKS) {
-    const filled = Math.round((128 * done) / steps)
-    // One track with the done part laid in it, so the two ends stay round.
-    return `<table role="presentation" width="128" cellpadding="0" cellspacing="0" border="0" bgcolor="${c.trackOnInverse}" style="width:128px;margin:0 0 12px;background-color:${c.trackOnInverse};border-radius:999px;border-collapse:separate;"><tr>${filled > 0 ? cell(filled, c.action) : ''}<td height="6" style="height:6px;font-size:0;line-height:0;">&nbsp;</td></tr></table>`
-  }
-  // Narrower past ten, so fifteen marks still fit a phone.
-  const width = steps <= 10 ? 20 : 12
-  const marks = Array.from({ length: steps }, (_, index) =>
-    cell(width, index < done ? c.action : c.trackOnInverse),
-  ).join(gap)
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;border-collapse:separate;"><tr>${marks}</tr></table>`
-}
-
-function nextReferralLevel(referrals: number): ReferralLevel | null {
-  return REFERRAL_LEVELS.find((level) => level > referrals) ?? null
-}
-
-function reachedReferralLevel(referrals: number): ReferralLevel | 0 {
-  return [...REFERRAL_LEVELS].reverse().find((level) => level <= referrals) ?? 0
 }
 
 function formatExpiry(expiresAt: Date, language: EmailLanguage): string {

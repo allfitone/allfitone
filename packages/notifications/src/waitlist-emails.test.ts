@@ -40,7 +40,7 @@ describe('waitlist confirmation email', () => {
     expect(readable(html)).toContain('LAURA7K')
     // Shown without the scheme, and breaking before the query so the code stays whole.
     expect(readable(html)).toContain('space.allfit.one/es/waitlist<wbr>?ref=LAURA7K')
-    expect(readable(html)).toContain('Llevas 0 de 5 para 1 mes de Allfit Pro.')
+    expect(readable(html)).toContain('Registrados con tu link: 0.')
     expect(readable(html)).toContain('Ver mis referidos')
     expect(readable(html)).toContain('¿No te uniste tú?')
     expect(readable(html)).not.toContain('¿No esperabas esta invitación?')
@@ -64,9 +64,9 @@ describe('waitlist confirmation email', () => {
     expect(readable(html)).toContain('Confirm my email')
     expect(readable(html)).toContain('The link expires on 16 November 2026.')
     expect(readable(html)).toContain('YOUR CODE')
-    expect(readable(html)).toContain('0 of 5 toward 1 month of Allfit Pro.')
+    expect(readable(html)).toContain('Signed up with your link: 0.')
     expect(readable(html)).toContain('See my referrals')
-    expect(readable(html)).not.toContain('Llevas')
+    expect(readable(html)).not.toContain('Registrados')
     expect(readable(html)).not.toContain('VÁLIDA')
   })
 
@@ -110,7 +110,7 @@ describe('waitlist link email', () => {
     expect(subject).toBe('Tu link de la lista de espera de Allfit Space')
     expect(readable(html)).toContain('Este es tu link, Laura')
     expect(readable(html)).toContain('ya estaba en la lista de espera de Allfit Space')
-    expect(readable(html)).toContain('Llevas 3 de 5 para 1 mes de Allfit Pro.')
+    expect(readable(html)).toContain('Registrados con tu link: 3.')
     expect(readable(html)).toContain(`href="${BASE.referralsPageUrl}"`)
     expect(readable(html)).toContain('¿No pediste este correo?')
     expect(readable(html)).not.toContain('Confirmar mi correo')
@@ -122,33 +122,34 @@ describe('waitlist link email', () => {
 
     expect(subject).toBe('Your Allfit Space waitlist link')
     expect(readable(html)).toContain('<html lang="en">')
-    expect(readable(html)).toContain('3 of 5 toward 1 month of Allfit Pro.')
+    expect(readable(html)).toContain('Signed up with your link: 3.')
     expect(readable(html)).toContain('Didn’t ask for this?')
   })
 })
 
 describe('waitlist referral count', () => {
-  test('names the next level and its reward, and the last one once reached', () => {
-    const count = (referrals: number) =>
-      readable(renderWaitlistLinkEmail({ ...BASE, referrals, language: 'es' }).html)
+  // Rewards need referrals active after launch (TECH-301), so a sign-up is never progress.
+  test('counts the sign-ups and says what makes a referral count for rewards', () => {
+    const email = (referrals: number) =>
+      renderWaitlistLinkEmail({ ...BASE, referrals, language: 'es' })
 
-    expect(count(5)).toContain('Llevas 5 de 15 para 2 meses de Allfit Pro.')
-    expect(count(29)).toContain('Llevas 29 de 30 para 3 meses de Allfit Pro.')
-    expect(count(30)).toContain('Llevas 30 de 100 para 1 año de Allfit Pro y merch de Allfit One.')
-    expect(count(140)).toContain('Llevas 140: alcanzaste el último nivel.')
+    for (const referrals of [5, 30, 140]) {
+      const { text, html } = email(referrals)
+      expect(readable(html)).toContain(`Registrados con tu link: ${String(referrals)}.`)
+      expect(text).toContain(`Registrados con tu link: ${String(referrals)}.`)
+      expect(readable(html)).toContain(
+        'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
+      )
+      expect(text).toContain('Para los premios de Allfit Pro cuentan los activos')
+    }
   })
 
-  test('draws a mark per step to the next level, and one bar when the steps are too many', () => {
-    const marks = (referrals: number) =>
-      renderWaitlistLinkEmail({ ...BASE, referrals, language: 'es' }).html.match(
-        /height="6" bgcolor/g,
-      )?.length ?? 0
+  test('draws no steps toward a level, since nobody is active before launch', () => {
+    const { html } = renderWaitlistLinkEmail({ ...BASE, referrals: 3, language: 'es' })
 
-    expect(marks(3)).toBe(5)
-    expect(marks(20)).toBe(15)
-    // From 30 to 100 is seventy steps: a track with the done part laid in it.
-    expect(marks(30)).toBe(0)
-    expect(marks(140)).toBe(0)
+    expect(html).not.toMatch(/height="6" bgcolor/)
+    expect(readable(html)).not.toContain('Llevas')
+    expect(readable(html)).not.toContain('1 mes de Allfit Pro')
   })
 })
 
@@ -157,7 +158,7 @@ describe('waitlist emails keep names whole', () => {
     const { html } = renderWaitlistLinkEmail({ ...BASE, referrals: 3, language: 'en' })
 
     expect(html).toContain('the Allfit&nbsp;Space waitlist')
-    expect(html).toContain('1 month of Allfit&nbsp;Pro.')
+    expect(html).toContain('Allfit&nbsp;Pro rewards count active referrals')
     expect(html).not.toContain('Allfit Space waitlist, so')
   })
 })

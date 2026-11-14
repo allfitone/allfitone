@@ -25,7 +25,6 @@ export const EMAIL_COLOR = {
   textOnInverse: '#F2FBFC', // light text.inverse
   textOnInverseMuted: '#9DB4BC', // dark text.secondary
   action: '#55EFFB', // action.primary
-  trackOnInverse: '#5A707A', // dark border.default, the empty marks of a progress row
   onAction: '#06282B', // action.onPrimary
 } as const
 
