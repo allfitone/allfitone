@@ -259,7 +259,8 @@
 [data-historical-reading],
 [data-historical-case-refusal],
 [data-client-health-screen],
-[data-client-body-screen] {
+[data-client-body-screen],
+[data-client-nutrition-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -637,7 +638,9 @@
 [data-client-program-facts] dt,
 [data-historical-case-facts] dt,
 [data-client-health-section-name],
-[data-client-body-day-name] {
+[data-client-body-day-name],
+[data-client-nutrition-day-name],
+[data-client-nutrition-summary-day-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -668,7 +671,8 @@
 [data-client-progress-facts],
 [data-client-program-facts],
 [data-historical-case-facts],
-[data-client-body-facts] {
+[data-client-body-facts],
+[data-client-nutrition-totals] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -739,7 +743,11 @@
 [data-historical-goal-targets],
 [data-client-health-section-list],
 [data-client-body-day-list],
-[data-client-body-photo-view] {
+[data-client-body-photo-view],
+[data-client-nutrition-meal-photo-view],
+[data-client-nutrition-range],
+[data-client-nutrition-day-list],
+[data-client-nutrition-summary-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1215,6 +1223,7 @@
   [data-studio-field-grid],
   [data-profile-field-grid],
   [data-relationship-substitution-dates],
+  [data-client-nutrition-range-dates],
   [data-membership-context-grid],
   [data-credential-grid],
   [data-team-invitation-summary],
@@ -1502,7 +1511,8 @@
 [data-relationship-substitution-identity],
 [data-relationship-grant-identity],
 [data-client-health-claim],
-[data-client-body-photo-identity] {
+[data-client-body-photo-identity],
+[data-client-nutrition-item] {
   display: grid;
   gap: var(--afo-space-1);
 }
@@ -1587,7 +1597,8 @@
 [data-client-execution-detail-panel-placeholder],
 [data-client-health-panel-placeholder],
 [data-client-body-panel-placeholder],
-[data-authorized-photo-placeholder] {
+[data-authorized-photo-placeholder],
+[data-client-nutrition-panel-placeholder] {
   height: 12rem;
 }
 
@@ -1789,7 +1800,8 @@
 [data-client-execution],
 [data-historical-case],
 [data-historical-entry],
-[data-client-body-photo] {
+[data-client-body-photo],
+[data-client-nutrition-meal] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
@@ -1799,7 +1811,8 @@
 [data-client-executions-list] > li:first-child [data-client-execution],
 [data-historical-cases-list] > li:first-child [data-historical-case],
 [data-historical-entries] > li:first-child [data-historical-entry],
-[data-client-body-photo-list] > li:first-child [data-client-body-photo] {
+[data-client-body-photo-list] > li:first-child [data-client-body-photo],
+[data-client-nutrition-meal-list] > li:first-child [data-client-nutrition-meal] {
   padding-block-start: 0;
   border-block-start: none;
 }
@@ -1807,7 +1820,9 @@
 [data-client-execution-head],
 [data-historical-case-head],
 [data-historical-entry-head],
-[data-client-body-photo-head] {
+[data-client-body-photo-head],
+[data-client-nutrition-meal-head],
+[data-client-nutrition-range-actions] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1820,7 +1835,10 @@
 [data-historical-entry-title],
 [data-client-body-photo-title],
 [data-client-health-claim-heading],
-[data-client-health-claim-description] {
+[data-client-health-claim-description],
+[data-client-nutrition-meal-title],
+[data-client-nutrition-meal-note],
+[data-client-nutrition-item-line] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1830,7 +1848,8 @@
 [data-historical-entry-line],
 [data-historical-case-reason],
 [data-client-health-claim-description],
-[data-client-health-claim-meta] {
+[data-client-health-claim-meta],
+[data-client-nutrition-meal-note] {
   margin: 0;
 }
 
@@ -1844,7 +1863,9 @@
 [data-client-health-more],
 [data-client-health-more-failure],
 [data-client-body-more],
-[data-client-body-more-failure] {
+[data-client-body-more-failure],
+[data-client-nutrition-more],
+[data-client-nutrition-more-failure] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -2081,7 +2102,9 @@
    eight boxes out of one list. */
 [data-client-profile-group],
 [data-client-health-section],
-[data-client-body-day] {
+[data-client-body-day],
+[data-client-nutrition-day],
+[data-client-nutrition-summary-day] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
@@ -2090,7 +2113,9 @@
 
 [data-client-profile-group]:first-child,
 [data-client-health-section]:first-child,
-[data-client-body-day]:first-child {
+[data-client-body-day]:first-child,
+[data-client-nutrition-day]:first-child,
+[data-client-nutrition-summary-day]:first-child {
   padding-block-start: 0;
   border-block-start: none;
 }
@@ -2105,7 +2130,9 @@
    places the badge that explains why more than one line follows. */
 [data-client-profile-group-name],
 [data-client-health-section-name],
-[data-client-body-day-name] {
+[data-client-body-day-name],
+[data-client-nutrition-day-name],
+[data-client-nutrition-summary-day-name] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2115,7 +2142,9 @@
 
 [data-client-profile-claims],
 [data-client-health-claims],
-[data-client-body-photo-list] {
+[data-client-body-photo-list],
+[data-client-nutrition-meal-list],
+[data-client-nutrition-item-list] {
   display: grid;
   gap: var(--afo-space-3);
   margin: 0;
@@ -2125,7 +2154,8 @@
 
 /* The value leads; where it came from and since when step down beside it, and
    wrap under it when the line runs out. */
-[data-client-profile-claim] {
+[data-client-profile-claim],
+[data-client-nutrition-meal-identity] {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -2142,7 +2172,12 @@
 [data-client-profile-since],
 [data-client-profile-unreadable],
 [data-client-health-claim-meta],
-[data-client-body-photo-shared] {
+[data-client-body-photo-shared],
+[data-client-nutrition-meal-time],
+[data-client-nutrition-meal-photo],
+[data-client-nutrition-item-nutrients],
+[data-client-nutrition-range-note],
+[data-client-nutrition-summary-meals] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }
@@ -2257,7 +2292,8 @@
    `[data-relationship-substitution-window]` for the sentence that states a
    cover's days, and a grid rule under that name turned the sentence into two
    columns. */
-[data-relationship-substitution-dates] {
+[data-relationship-substitution-dates],
+[data-client-nutrition-range-dates] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--afo-space-4);
@@ -3426,4 +3462,10 @@
   max-inline-size: min(100%, 22rem);
   block-size: auto;
   border-radius: var(--afo-radius-md);
+}
+
+/* The days asked for. Stretched across the canvas, two dates became two fields a
+   screen wide; the cap keeps each one the size of a date. */
+[data-client-nutrition-range] {
+  max-inline-size: min(100%, 32rem);
 }

@@ -47,6 +47,8 @@ import {
   type ClientHealthContextPage,
   type ClientBodyPhotoPage,
   type ClientBodyProgressPage,
+  type ClientNutritionMealPage,
+  type ClientNutritionDailySummaryPage,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -277,6 +279,42 @@ export const studioQueryKeys = {
     ] as const,
   clientBodyPhoto: (organizationId: string, personId: string, photoId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-body-photo', personId, photoId] as const,
+  clientNutritionMeals: (
+    organizationId: string,
+    personId: string,
+    range: { from: string; to: string },
+    limit: number,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-meals',
+      personId,
+      { from: range.from, to: range.to, limit },
+    ] as const,
+  clientNutritionSummaries: (
+    organizationId: string,
+    personId: string,
+    range: { from: string; to: string },
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-summaries',
+      personId,
+      { from: range.from, to: range.to },
+    ] as const,
+  clientNutritionMealPhoto: (organizationId: string, personId: string, mealId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-meal-photo',
+      personId,
+      mealId,
+    ] as const,
 } as const
 
 export function createStudioQueryClient(): QueryClient {
@@ -1432,6 +1470,83 @@ export function clientBodyPhotoQueryOptions(
     queryKey: studioQueryKeys.clientBodyPhoto(organizationId, personId, photoId),
     queryFn: ({ signal }) =>
       studioApi.clientBodyPhotoContent(organizationId, personId, photoId, signal),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her meals between two of her days, a page at a time, under the rules of every
+ * read of hers: never remembered, never refetched on its own. Another range is
+ * another read, asked for only when somebody asks for it.
+ */
+export function clientNutritionMealsQueryOptions(
+  organizationId: string,
+  personId: string,
+  range: { from: string; to: string },
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientNutritionMeals(organizationId, personId, range, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientNutritionMealPage> =>
+      studioApi.clientNutritionMeals(
+        organizationId,
+        personId,
+        { from: range.from, to: range.to, limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her days added up, for the same range as her meals and under the same rules:
+ * never remembered, never refetched on its own. One answer covers the range.
+ */
+export function clientNutritionSummariesQueryOptions(
+  organizationId: string,
+  personId: string,
+  range: { from: string; to: string },
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientNutritionSummaries(organizationId, personId, range),
+    queryFn: ({ signal }): Promise<ClientNutritionDailySummaryPage> =>
+      studioApi.clientNutritionDailySummaries(
+        organizationId,
+        personId,
+        { from: range.from, to: range.to },
+        signal,
+      ),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One meal photo, asked for only while somebody has it open, under the same
+ * rules as a body photo: each request is a view she reads, recorded on its own.
+ * No retry of its own, held while open and dropped when closed, so opening it
+ * again is honestly another view.
+ */
+export function clientNutritionMealPhotoQueryOptions(
+  organizationId: string,
+  personId: string,
+  mealId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientNutritionMealPhoto(organizationId, personId, mealId),
+    queryFn: ({ signal }) =>
+      studioApi.clientNutritionMealPhoto(organizationId, personId, mealId, signal),
     staleTime: Infinity,
     gcTime: 0,
     retry: false,

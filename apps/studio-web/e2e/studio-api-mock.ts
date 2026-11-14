@@ -291,6 +291,14 @@ export interface StudioApiFixture {
   clientBodyPhotos: unknown[]
   /** What `OP-IDN-060` answers for any photo: its bytes, the one 404, or a dropped connection. */
   bodyPhotoOutcome: 'shown' | 'unavailable' | 'failure'
+  /** `OP-NUT-009`. Her meals, newest first, filtered by the range asked; null is the 403. */
+  clientNutritionMeals: unknown[] | null
+  /** The `nutrition_media` version; null is no photos shared, and every `has_photo` null. */
+  nutritionPhotoScope: { code: string; version: number } | null
+  /** `OP-NUT-010` adds her meals up; false is a version that shares no nutrients. */
+  nutritionTotalsShared: boolean
+  /** What `OP-NUT-013` answers for any meal photo: its bytes, the one 404, or a dropped connection. */
+  mealPhotoOutcome: 'shown' | 'unavailable' | 'failure'
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -2676,6 +2684,181 @@ export const bodyPhotoJpeg = Buffer.from(
 )
 
 /**
+ * The same person, sharing what she eats and its photos. A card of its own, for
+ * the same reason as `bodySharingClientCard`: the card other suites read stays.
+ */
+export const nutritionSharingClientCard = {
+  ...clientCard,
+  sections: [
+    ...clientCard.sections,
+    {
+      scope_code: 'nutrition_intake',
+      scope_version: 2,
+      access_level: 'read',
+      granted_at: '2026-03-01T10:00:00.000Z',
+      reads: ['listAuthorizedClientNutritionMeals', 'listAuthorizedClientNutritionDailySummaries'],
+    },
+    {
+      scope_code: 'nutrition_media',
+      scope_version: 1,
+      access_level: 'read',
+      granted_at: '2026-03-01T10:00:00.000Z',
+      reads: ['getAuthorizedClientNutritionMealPhoto'],
+    },
+  ],
+}
+
+/**
+ * The day the nutrition suites pin the clock to, in the morning in Bogotá and in
+ * UTC alike, so the last seven days are 23 to 29 July wherever the suite runs.
+ */
+export const NUTRITION_TODAY = '2026-07-29T15:00:00.000Z'
+
+/**
+ * `OP-NUT-009`, written from `nutrition.client_meal_json`: three meals on her
+ * 28 July, one on the 27th, and one on the 10th, outside the last seven days.
+ * A dinner at 19:45 in Bogotá is already the 29th in UTC, and still her 28th.
+ */
+export const clientNutritionMeals = [
+  {
+    id: '01991600-7000-7000-8000-000000000601',
+    occurred_at: '2026-07-29T00:45:00.000Z',
+    local_date: '2026-07-28',
+    timezone: 'America/Bogota',
+    meal_type: 'dinner',
+    note: null,
+    has_photo: true,
+    items: [
+      {
+        position: 1,
+        name: 'Salmón con verduras',
+        quantity: 280,
+        quantity_unit: 'g',
+        serving: '1 plato',
+        origin: 'catalog',
+        nutrients: [
+          { nutrient_code: 'fat', value: 22, unit: 'g' },
+          { nutrient_code: 'energy', value: 460, unit: 'kcal' },
+          { nutrient_code: 'protein', value: 38, unit: 'g' },
+        ],
+      },
+    ],
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000602',
+    occurred_at: '2026-07-28T17:30:00.000Z',
+    local_date: '2026-07-28',
+    timezone: 'America/Bogota',
+    meal_type: 'lunch',
+    note: 'Con prisa, entre dos reuniones',
+    has_photo: false,
+    items: [
+      {
+        position: 1,
+        name: 'Pollo con arroz',
+        quantity: 320,
+        quantity_unit: 'g',
+        serving: null,
+        origin: 'typed',
+        nutrients: [
+          { nutrient_code: 'carbohydrates', value: 70, unit: 'g' },
+          { nutrient_code: 'energy', value: 620, unit: 'kcal' },
+          { nutrient_code: 'protein', value: 42, unit: 'g' },
+        ],
+      },
+      {
+        position: 2,
+        name: 'Jugo de naranja',
+        quantity: 240,
+        quantity_unit: 'g',
+        serving: '1 vaso',
+        origin: 'catalog',
+        nutrients: [{ nutrient_code: 'energy', value: 110, unit: 'kcal' }],
+      },
+    ],
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000603',
+    occurred_at: '2026-07-28T12:10:00.000Z',
+    local_date: '2026-07-28',
+    timezone: 'America/Bogota',
+    meal_type: 'breakfast',
+    note: null,
+    has_photo: true,
+    items: [
+      {
+        position: 1,
+        name: 'Avena con banano',
+        quantity: 120,
+        quantity_unit: 'g',
+        serving: '1 ½ tazas',
+        origin: 'photo',
+        nutrients: [{ nutrient_code: 'energy', value: 390, unit: 'kcal' }],
+      },
+    ],
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000604',
+    occurred_at: '2026-07-27T21:00:00.000Z',
+    local_date: '2026-07-27',
+    timezone: 'America/Bogota',
+    meal_type: 'snack',
+    note: null,
+    has_photo: true,
+    items: [
+      {
+        position: 1,
+        name: 'Manzana',
+        quantity: 180,
+        quantity_unit: 'g',
+        serving: '1 unidad',
+        origin: 'catalog',
+        nutrients: [{ nutrient_code: 'energy', value: 95, unit: 'kcal' }],
+      },
+    ],
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000605',
+    occurred_at: '2026-07-11T01:30:00.000Z',
+    local_date: '2026-07-10',
+    timezone: 'America/Bogota',
+    meal_type: 'other',
+    note: null,
+    has_photo: false,
+    items: [
+      {
+        position: 1,
+        name: 'Arepa con queso',
+        quantity: 150,
+        quantity_unit: 'g',
+        serving: null,
+        origin: 'typed',
+        nutrients: [{ nutrient_code: 'energy', value: 330, unit: 'kcal' }],
+      },
+    ],
+  },
+]
+
+/**
+ * A version that shares the day and the foods' names only: no zone, no type, no
+ * note, no amounts and no nutrients. The rows are shorter and nothing is filled in.
+ */
+export const narrowNutritionMeals = clientNutritionMeals.map((meal) => ({
+  ...meal,
+  timezone: null,
+  meal_type: null,
+  note: null,
+  items: meal.items.map((item) => ({
+    ...item,
+    quantity: null,
+    quantity_unit: null,
+    serving: null,
+    origin: null,
+    nutrients: null,
+  })),
+}))
+
+/**
  * `OP-REL-020`: what needs this caller's attention today.
  *
  * The fullest useful case — an owner who also coaches, so every notice a role
@@ -2965,6 +3148,10 @@ export function createStudioApiFixture(
     clientBodyProgress: structuredClone(clientBodyProgress),
     clientBodyPhotos: structuredClone(clientBodyPhotos),
     bodyPhotoOutcome: 'shown',
+    clientNutritionMeals: structuredClone(clientNutritionMeals),
+    nutritionPhotoScope: { code: 'nutrition_media', version: 1 },
+    nutritionTotalsShared: true,
+    mealPhotoOutcome: 'shown',
     ...overrides,
   }
 }
@@ -5002,6 +5189,102 @@ function defaultResponse(
     }
   }
   if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/meals$/.test(request.path)
+  ) {
+    // Not attending her is 404, the owner and admins included.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    if (fixture.clientNutritionMeals === null) {
+      return {
+        status: 403,
+        body: problem('scope-required', 403, {
+          required_scope: { code: 'nutrition_intake', level: 'read' },
+        }),
+      }
+    }
+    const search = new URLSearchParams(request.search ?? '')
+    const range = nutritionRange(search)
+    if (!range) return { status: 422, body: problem('validation-failed', 422) }
+    const inRange = fixture.clientNutritionMeals.filter((meal) => {
+      const day = String(objectValue(meal)['local_date'])
+      return day >= range.from && day <= range.to
+    })
+    // Without her photos shared, no meal says whether it has one.
+    const photoScope = fixture.nutritionPhotoScope
+    const all = photoScope
+      ? inRange
+      : inRange.map((meal) => ({ ...objectValue(meal), has_photo: null }))
+    const limit = Number(search.get('limit') ?? '25')
+    const from = Number(search.get('cursor') ?? '0')
+    const next = from + limit < all.length ? String(from + limit) : null
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        applied_scope: { code: 'nutrition_intake', version: 2 },
+        photo_scope: photoScope,
+        data: all.slice(from, from + limit),
+        page: { next_cursor: next, has_more: next !== null },
+      },
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/daily-summaries$/.test(
+      request.path,
+    )
+  ) {
+    // The same category as her meals: the same 404 and the same 403.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    if (fixture.clientNutritionMeals === null) {
+      return {
+        status: 403,
+        body: problem('scope-required', 403, {
+          required_scope: { code: 'nutrition_intake', level: 'read' },
+        }),
+      }
+    }
+    const range = nutritionRange(new URLSearchParams(request.search ?? ''))
+    if (!range) return { status: 422, body: problem('validation-failed', 422) }
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        applied_scope: { code: 'nutrition_intake', version: 2 },
+        data: dailySummaries(fixture.clientNutritionMeals, range, fixture.nutritionTotalsShared),
+      },
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/meals\/[^/]+\/photo$/.test(
+      request.path,
+    )
+  ) {
+    // Anything short of a photo she shares is the one 404, whatever the reason.
+    const mealId = request.path.split('/').at(-2)
+    const withPhoto = (fixture.clientNutritionMeals ?? []).some((meal) => {
+      const value = objectValue(meal)
+      return value['id'] === mealId && value['has_photo'] === true
+    })
+    if (fixture.mealPhotoOutcome === 'failure') {
+      return { status: 503, body: problem('upstream-unavailable', 503) }
+    }
+    if (
+      fixture.clientCard === null ||
+      fixture.nutritionPhotoScope === null ||
+      fixture.mealPhotoOutcome === 'unavailable' ||
+      !withPhoto
+    ) {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    return {
+      status: 200,
+      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' },
+      bytes: bodyPhotoJpeg,
+    }
+  }
+  if (
     request.method === 'POST' &&
     /^\/studio\/v1\/organizations\/[^/]+\/memberships\/[^/]+\/roles$/.test(request.path)
   ) {
@@ -5803,6 +6086,59 @@ function objectValue(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+}
+
+/* Her days, both ends included and at most thirty-one, as the nutrition reads hold them. */
+function nutritionRange(search: URLSearchParams): { from: string; to: string } | null {
+  const from = search.get('from') ?? ''
+  const to = search.get('to') ?? ''
+  const start = Date.parse(`${from}T00:00:00.000Z`)
+  const end = Date.parse(`${to}T00:00:00.000Z`)
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null
+  return (end - start) / 86_400_000 < 31 ? { from, to } : null
+}
+
+/**
+ * Every day of the range, oldest first, added up from her meals the way
+ * `nutrition.read_client_daily_summaries` does: a day with nothing has a zero
+ * count and no totals, the totals come in code order, and a version without
+ * nutrients sends none at all.
+ */
+function dailySummaries(
+  meals: unknown[],
+  range: { from: string; to: string },
+  totalsShared: boolean,
+): unknown[] {
+  const days: unknown[] = []
+  for (
+    let at = Date.parse(`${range.from}T00:00:00.000Z`);
+    at <= Date.parse(`${range.to}T00:00:00.000Z`);
+    at += 86_400_000
+  ) {
+    const day = new Date(at).toISOString().slice(0, 10)
+    const eaten = meals.map(objectValue).filter((meal) => meal['local_date'] === day)
+    const totals = new Map<string, { value: number; unit: unknown }>()
+    for (const meal of eaten) {
+      for (const item of Array.isArray(meal['items']) ? meal['items'] : []) {
+        const nutrients = objectValue(item)['nutrients']
+        for (const nutrient of Array.isArray(nutrients) ? nutrients : []) {
+          const { nutrient_code: code, value, unit } = objectValue(nutrient)
+          const before = totals.get(String(code))?.value ?? 0
+          totals.set(String(code), { value: before + Number(value), unit })
+        }
+      }
+    }
+    days.push({
+      local_date: day,
+      meal_count: eaten.length,
+      nutrient_totals: totalsShared
+        ? [...totals.entries()]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([code, total]) => ({ nutrient_code: code, value: total.value, unit: total.unit }))
+        : null,
+    })
+  }
+  return days
 }
 
 /**

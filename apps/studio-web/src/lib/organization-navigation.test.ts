@@ -263,4 +263,11 @@ describe('organization workspace navigation', () => {
       resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/body-progress`, organizationId),
     ).toEqual({ title: 'Progreso corporal' })
   })
+
+  test('what she eats is titled by her meals, under the card', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/nutrition`, organizationId),
+    ).toEqual({ title: 'Comidas' })
+  })
 })

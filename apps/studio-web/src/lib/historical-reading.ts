@@ -21,18 +21,16 @@
  * **Nothing after the cut** (criterion 1) is the server's filter; the screen
  * says where the cut is, so the reader knows the history stops there.
  *
- * **The nutrient names are written here on purpose.** Space has the same words
- * (`apps/space/src/client/nutrition.ts`), and an app may not import another app.
- * They are copied deliberately and should converge into a package the day a third
- * surface needs them. The measurements read the way the live screen reads them,
- * in `body-measurements.ts`.
+ * The measurements read the way the live screen reads them, in
+ * `body-measurements.ts`, and a nutrient the way her meals name it, in
+ * `nutrients.ts`.
  */
+import { nutrientName } from './nutrients'
 import type {
   ClientNutritionGoalDecision,
   ClientNutritionGoalTarget,
   FrozenNutritionGoalVersion,
   HistoricalRelationship,
-  NutrientCode,
   ScopeCode,
 } from './studio-api'
 
@@ -75,44 +73,6 @@ export function goalStatusLabel(
   status: FrozenNutritionGoalVersion['status_at_cut'],
 ): string | null {
   return status ? GOAL_STATUS[status] : null
-}
-
-const NUTRIENTS: Record<NutrientCode, string> = {
-  energy: 'Energía',
-  protein: 'Proteína',
-  carbohydrates: 'Carbohidratos',
-  fat: 'Grasa',
-  fiber: 'Fibra',
-  water: 'Agua',
-  saturated_fat: 'Grasas saturadas',
-  trans_fat: 'Grasas trans',
-  cholesterol: 'Colesterol',
-  sodium: 'Sodio',
-  sugars: 'Azúcares',
-  vitamin_a: 'Vitamina A',
-  vitamin_c: 'Vitamina C',
-  vitamin_d: 'Vitamina D',
-  vitamin_e: 'Vitamina E',
-  vitamin_k: 'Vitamina K',
-  thiamin: 'Vitamina B1',
-  riboflavin: 'Vitamina B2',
-  niacin: 'Vitamina B3',
-  pantothenic_acid: 'Vitamina B5',
-  vitamin_b6: 'Vitamina B6',
-  vitamin_b12: 'Vitamina B12',
-  folate: 'Folato',
-  calcium: 'Calcio',
-  iron: 'Hierro',
-  magnesium: 'Magnesio',
-  phosphorus: 'Fósforo',
-  potassium: 'Potasio',
-  zinc: 'Zinc',
-  selenium: 'Selenio',
-  copper: 'Cobre',
-}
-
-export function nutrientName(code: NutrientCode): string {
-  return NUTRIENTS[code]
 }
 
 function withUnit(value: number, unit: ClientNutritionGoalTarget['unit']): string {
