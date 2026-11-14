@@ -8,6 +8,7 @@ import {
   clientBodyProgressPath,
   clientExecutionsPath,
   clientHealthContextPath,
+  clientNutritionPath,
   clientProgramsPath,
   clientTrainingProfilePath,
   doorsBySection,
@@ -258,6 +259,32 @@ describe('the doors on each category', () => {
     ])
     expect(clientBodyProgressPath('019a0000-org', '019a0000-person')).toBe(
       '/organizations/019a0000-org/clients/people/019a0000-person/body-progress',
+    )
+  })
+
+  /*
+   * Her meals and her daily totals are two reads of one category, shown on one
+   * screen. One door, never a second one for the totals.
+   */
+  test('what she eats is one door for its two reads', () => {
+    const doors = doorsBySection(
+      [
+        sectionFor('nutrition_intake', [
+          'listAuthorizedClientNutritionMeals',
+          'listAuthorizedClientNutritionDailySummaries',
+        ]),
+      ],
+      reader,
+    )
+    expect(doors.get('nutrition_intake')).toEqual([
+      {
+        read: 'listAuthorizedClientNutritionMeals',
+        label: 'Ver sus comidas',
+        href: '/organizations/019a0000-org/clients/people/019a0000-person/nutrition',
+      },
+    ])
+    expect(clientNutritionPath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/nutrition',
     )
   })
 

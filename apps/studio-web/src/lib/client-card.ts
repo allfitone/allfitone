@@ -145,6 +145,7 @@ const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
     label: 'Ver el progreso corporal',
     segment: 'body-progress',
   },
+  { read: 'listAuthorizedClientNutritionMeals', label: 'Ver sus comidas', segment: 'nutrition' },
 ]
 
 /**
@@ -228,4 +229,9 @@ export function clientHealthContextPath(organizationId: string, personId: string
 /** Her measurements and the photos she shows this gym: one category, one screen. */
 export function clientBodyProgressPath(organizationId: string, personId: string): string {
   return `${clientCardPath(organizationId, personId)}/body-progress`
+}
+
+/** What she eats: her meals, and each day's totals beside them. */
+export function clientNutritionPath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/nutrition`
 }

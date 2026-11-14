@@ -59,6 +59,8 @@ import {
   expiredHistoricalCase,
   openHistoricalCase,
   narrowHealthContext,
+  NUTRITION_TODAY,
+  narrowNutritionMeals,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -4517,4 +4519,90 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos este progreso corporal')).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/clients/people/[personId]/nutrition` · HU-068 ---
+  {
+    // Her last seven days, pinned so they hold the fixture's meals: two days, four meals.
+    stories: 'HU-068 · her meals of the last seven days, by her day',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-068 · her meals, on a phone',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    viewport: MOBILE,
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+    },
+  },
+  {
+    // The day and the foods' names only: shorter meals, nothing filled in.
+    stories: 'HU-068 · a version that leaves out the type, the hour and the amounts',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientNutritionMeals: narrowNutritionMeals,
+      }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-068 · a range the form refuses before reading',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: pinNutritionClock,
+    reveal: async (page) => {
+      await page.getByLabel('Desde').fill('2026-06-01')
+      await page.getByRole('button', { name: 'Consultar' }).click()
+      await expect(page.locator('[data-client-nutrition-range-error]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-068 · days with nothing to show',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientNutritionMeals: [] }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay comidas suyas que podamos mostrarte')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-068 · without the meals permission in force',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientNutritionMeals: null }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su registro de comidas')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-068 · meals the caller does not attend',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este registro de comidas')).toBeVisible()
+    },
+  },
 ]
+
+/** The nutrition screens read the last seven days, so the sweep pins which days those are. */
+async function pinNutritionClock(page: Page): Promise<void> {
+  await page.clock.setFixedTime(new Date(NUTRITION_TODAY))
+}

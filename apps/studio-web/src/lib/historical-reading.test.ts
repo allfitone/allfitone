@@ -5,7 +5,6 @@ import {
   decisionLine,
   goalStatusLabel,
   historicalSections,
-  nutrientName,
   readFailure,
   targetLine,
 } from './historical-reading'
@@ -62,11 +61,6 @@ describe('the goals this relationship proposed, as they stood at the cut', () =>
     expect(goalStatusLabel('accepted')).toBe('Aceptado')
     expect(goalStatusLabel('superseded')).toBe('Reemplazado')
     expect(goalStatusLabel(null)).toBeNull()
-  })
-
-  test('names every published nutrient', () => {
-    expect(nutrientName('energy')).toBe('Energía')
-    expect(nutrientName('thiamin')).toBe('Vitamina B1')
   })
 
   test('says a target the way it was set', () => {

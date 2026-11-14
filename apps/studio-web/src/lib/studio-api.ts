@@ -182,6 +182,11 @@ export type HealthContextBodyArea = AllfitV1Schemas['HealthContextBodyArea']
 export type ClientBodyProgressPage = AllfitV1Schemas['ClientBodyProgressPage']
 export type ClientBodyPhotoPage = AllfitV1Schemas['ClientBodyPhotoPage']
 export type ClientBodyPhoto = AllfitV1Schemas['ClientBodyPhoto']
+export type NutrientValue = AllfitV1Schemas['NutrientValue']
+export type MealType = AllfitV1Schemas['MealType']
+export type ClientNutritionMealPage = AllfitV1Schemas['ClientNutritionMealPage']
+export type ClientNutritionMeal = AllfitV1Schemas['ClientNutritionMeal']
+export type ClientNutritionMealItem = AllfitV1Schemas['ClientNutritionMealItem']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -1446,6 +1451,25 @@ export const studioApi = {
       signal,
     ),
 
+  /**
+   * `OP-NUT-009`. Her meals between two of her days, at most thirty-one, newest
+   * first, under `nutrition_intake`. 404 for anybody who does not attend her,
+   * the owner and admins included; 403 `scope-required` with nothing shared.
+   */
+  clientNutritionMeals: (
+    organizationId: string,
+    personId: string,
+    query: { from: string; to: string; limit: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    request<ClientNutritionMealPage>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/nutrition/meals?${rangeSearch(query)}`,
+      {
+        cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
   offerableScopes: (signal?: AbortSignal) =>
     request<OfferableScopeCatalog>('/studio/v1/offerable-scopes', {
       cache: 'no-store',
@@ -1929,4 +1953,17 @@ async function requestImage(path: string, signal?: AbortSignal): Promise<Blob> {
   })
   if (!response.ok) throw await responseError(response)
   return response.blob()
+}
+
+/* Her days travel with every nutrition read: both ends included, at most thirty-one. */
+function rangeSearch(query: {
+  from: string
+  to: string
+  limit?: number
+  cursor?: string
+}): URLSearchParams {
+  const search = new URLSearchParams({ from: query.from, to: query.to })
+  if (query.limit !== undefined) search.set('limit', String(query.limit))
+  if (query.cursor) search.set('cursor', query.cursor)
+  return search
 }
