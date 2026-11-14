@@ -46,7 +46,7 @@ export default async function WaitlistPage({ params }: LocaleParams) {
       <main id="content" className="join">
         <div className="wrap join__grid">
           <header className="join__intro">
-            <Title as="h1" lines={page.title} tones={['solid', 'cyan', 'cyan']} reveal={false} />
+            <Title as="h1" lines={page.title} highlight={page.highlight} reveal={false} />
             <p className="lead">{page.lead}</p>
           </header>
 

@@ -208,7 +208,8 @@ export const en: Dictionary = {
       description:
         'Join the Allfit Space waitlist: the first 100 people to confirm their email become Founding Members, and everyone you invite brings you closer to months of Allfit Pro.',
     },
-    title: ['THE FIRST 100', 'ARE FOUNDING', 'MEMBERS.'],
+    title: ['THE FIRST 100 ARE', 'FOUNDING MEMBERS.'],
+    highlight: 'FOUNDING MEMBERS',
     lead: "Join the waitlist and we'll let you know when Allfit Space opens. If you're among the first 100 people to confirm their email, you join as a Founding Member. And everyone who joins through your link brings you closer to months of Allfit Pro.",
     joinTitle: 'Join the waitlist',
     pro: {

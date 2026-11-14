@@ -1773,14 +1773,15 @@ button.pill-link {
   gap: 32px;
 }
 
-/* Three lines in a column beside the form: «LOS PRIMEROS 100» is the longest. */
+/* Two lines that must not break: «LOS PRIMEROS 100 SON» is the longest, at 8.03em.
+   Beside the form the column is about 83vw − 495px wide, so the size follows it. */
 .join__intro .display {
-  font-size: clamp(44px, 12.5vw, 112px);
+  font-size: clamp(32px, 10.3vw, 112px);
 }
 
 @media (min-width: 1081px) {
   .join__intro .display {
-    font-size: min(7.4vw, 112px);
+    font-size: min(10vw - 60px, 84px);
   }
 }
 

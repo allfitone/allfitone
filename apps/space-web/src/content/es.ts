@@ -221,7 +221,8 @@ export const es = {
       description:
         'Únete a la lista de espera de Allfit Space: las primeras 100 personas que confirmen su correo serán Founding Members, y cada persona que invites te acerca a meses de Allfit Pro.',
     },
-    title: ['LOS PRIMEROS 100', 'SON FOUNDING', 'MEMBERS.'],
+    title: ['LOS PRIMEROS 100 SON', 'FOUNDING MEMBERS.'],
+    highlight: 'FOUNDING MEMBERS',
     lead: 'Únete a la lista de espera y te avisamos cuando abra Allfit Space. Si estás entre las primeras 100 personas que confirman su correo, entras como Founding Member. Y cada persona que se une con tu link te acerca a meses de Allfit Pro.',
     joinTitle: 'Únete a la lista de espera',
     pro: {
