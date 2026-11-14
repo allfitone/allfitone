@@ -3,7 +3,7 @@
  * ADR-050).
  *
  * `waitlist.signup_confirmed.v1` is enqueued once per sign-up, in the transaction that
- * confirms its address. This posts one line about it to the team's channel.
+ * confirms its address. This posts one notice about it to the team's channel.
  *
  * **The notice names nobody.** The event carries the channel the person arrived through,
  * the language, whether the sign-up counts for somebody who invited it and the list's
@@ -15,13 +15,14 @@
  * the events wait unclaimed and everything else is delivered as usual.
  *
  * Delivery is at-least-once: an event whose acknowledgement is lost is posted again.
- * A repeated line in the channel costs less than a missed one.
+ * A repeated notice in the channel costs less than a missed one.
  */
 
 import {
   NotificationDeliveryError,
   createSlackTeamChannel,
   type TeamChannel,
+  type TeamNotice,
 } from '@allfitone/notifications'
 import type { Queue, QueueMessage } from '@allfitone/queue'
 
@@ -43,7 +44,8 @@ interface ConfirmedSignup {
   confirmedTotal: number
 }
 
-const LANGUAGE_NAMES = { es: 'español', en: 'inglés' } as const
+const LANGUAGE_NAMES = { es: 'Español', en: 'Inglés' } as const
+const WHOLE_NUMBER = new Intl.NumberFormat('es-CO')
 
 /** The channel the environment names, or none: a wrong address must not stop the worker. */
 export function waitlistTeamChannelFromEnvironment(
@@ -115,15 +117,19 @@ function confirmedSignup(payload: unknown): ConfirmedSignup | undefined {
 }
 
 /** The team reads Spanish. The channel name came from a link anybody can write. */
-export function waitlistTeamNotice(confirmed: ConfirmedSignup): string {
-  const source = confirmed.source?.replace(/[\s\p{Cc}]+/gu, ' ').trim() || 'directo'
-  return [
-    'Nueva inscripción confirmada en la lista de espera de Allfit Space',
-    [
-      `Canal: ${source}`,
-      `Idioma: ${LANGUAGE_NAMES[confirmed.language]}`,
-      `Invitada por alguien: ${confirmed.referred ? 'sí' : 'no'}`,
-      `Confirmadas: ${confirmed.confirmedTotal}`,
-    ].join(' · '),
-  ].join('\n')
+export function waitlistTeamNotice(confirmed: ConfirmedSignup): TeamNotice {
+  const source = confirmed.source?.replace(/[\s\p{Cc}]+/gu, ' ').trim() || 'Directo'
+  const total = WHOLE_NUMBER.format(confirmed.confirmedTotal)
+  const counted = confirmed.confirmedTotal === 1 ? 'confirmada' : 'confirmadas'
+  return {
+    summary: `Nueva persona en la lista de espera de Allfit Space · ${total} ${counted}`,
+    title: 'Nueva persona en la lista de espera',
+    origin: 'Allfit Space · Confirmó su correo',
+    facts: [
+      { label: 'Canal', value: source },
+      { label: 'Idioma', value: LANGUAGE_NAMES[confirmed.language] },
+      { label: 'Cómo llegó', value: confirmed.referred ? 'Invitada por alguien' : 'Por su cuenta' },
+      { label: 'Confirmadas en la lista', value: total },
+    ],
+  }
 }
