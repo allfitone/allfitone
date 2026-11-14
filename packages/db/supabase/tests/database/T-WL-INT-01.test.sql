@@ -150,13 +150,16 @@ select is(
   (select string_agg(coalesce(discard_reason, 'counts'), ',' order by created_at)
    from waitlist.signups
    where canonical_email in ('elena@example.com', 'fabio@example.com', 'gina@example.com', 'hugo@example.com')),
-  'counts,counts,counts,connection_cap',
-  'the fourth sign-up for one inviter from one connection within a day does not count'
+  'counts,counts,counts,counts',
+  'friends on one shared connection all count for their inviter, however many join'
 );
 
 select pg_temp.joins(10, 'Irene', 'irene@example.com', pg_temp.code_of('carla@example.com'), 3, 15);
-select is(pg_temp.discard_of('irene@example.com'), null,
-  'the same connection still counts for a different inviter');
+select is(
+  (select count(*)::integer from waitlist.signups where connection_hash = pg_temp.h(100003)),
+  5,
+  'each sign-up keeps the connection it came from, so the team can review a shared one'
+);
 
 select pg_temp.joins(11, 'Julia', 'julia@example.com', 'NOSUCHCODE', 5, 16);
 select is(
