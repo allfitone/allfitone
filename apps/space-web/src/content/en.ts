@@ -104,7 +104,8 @@ export const en: Dictionary = {
     },
   },
   invite: {
-    title: { invite: 'INVITE FRIENDS,', earn: 'EARN', product: 'ALLFIT PRO.' },
+    title: ['INVITE FRIENDS,', 'EARN ALLFIT PRO.'],
+    highlight: 'ALLFIT PRO',
     text: 'Every friend who joins with your code and uses the app counts, whether they pay or not.',
     rewards: {
       5: '1 month of Pro',
@@ -115,6 +116,7 @@ export const en: Dictionary = {
   },
   pro: {
     title: ['DOES YOUR GYM', 'PAY FOR ALLFIT STUDIO?', 'PRO IS INCLUDED.'],
+    highlight: 'ALLFIT STUDIO',
     text: 'The app is free. Allfit Pro gives you unlimited programmes and all your progress in detail. If your gym or your coach has a paid Allfit Studio plan, Pro is included while you stay with them.',
     alt: 'Athlete doing a biceps curl with a dumbbell in each hand.',
   },

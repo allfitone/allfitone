@@ -112,7 +112,8 @@ export const es = {
   // The referral levels as the landing shows them, keyed by `REFERRAL_LEVELS`; the
   // waitlist page carries the full rule.
   invite: {
-    title: { invite: 'INVITA AMIGOS,', earn: 'GANA', product: 'ALLFIT PRO.' },
+    title: ['INVITA AMIGOS,', 'GANA ALLFIT PRO.'],
+    highlight: 'ALLFIT PRO',
     text: 'Cada amigo que entra con tu código y usa la app suma, pague o no.',
     rewards: {
       5: '1 mes de Pro',
@@ -123,6 +124,7 @@ export const es = {
   },
   pro: {
     title: ['¿TU GIMNASIO PAGA', 'ALLFIT STUDIO?', 'PRO VA INCLUIDO.'],
+    highlight: 'ALLFIT STUDIO',
     text: 'La app es gratis. Allfit Pro te da programas ilimitados y todo tu progreso en detalle. Si tu gimnasio o tu entrenador tiene un plan pago de Allfit Studio, Pro va incluido mientras sigas con ellos.',
     alt: 'Atleta haciendo curl de bíceps con una mancuerna en cada mano.',
   },

@@ -4,12 +4,26 @@ export type Tone = 'solid' | 'ghost' | 'cyan'
 
 const TONE_CLASS: Record<Tone, string> = { solid: '', ghost: ' tone-ghost', cyan: ' tone-cyan' }
 
+/** A product name inside a line takes the cyan alone, without its line's punctuation. */
+function withHighlight(line: string, highlight: string | undefined) {
+  const at = highlight ? line.indexOf(highlight) : -1
+  if (!highlight || at < 0) return line
+  return (
+    <>
+      {line.slice(0, at)}
+      <span className="tone-cyan">{highlight}</span>
+      {line.slice(at + highlight.length)}
+    </>
+  )
+}
+
 /** A big display title whose lines rise one after the other out of a mask. */
 export function Title({
   as: Tag = 'h2',
   id,
   lines,
   tones = [],
+  highlight,
   size = 'lg',
   reveal = true,
 }: {
@@ -17,6 +31,7 @@ export function Title({
   id?: string
   lines: readonly string[]
   tones?: readonly Tone[]
+  highlight?: string
   size?: 'xl' | 'lg'
   reveal?: boolean
 }) {
@@ -28,7 +43,7 @@ export function Title({
           className={`line${TONE_CLASS[tones[index] ?? 'solid']}`}
           style={{ '--l': index }}
         >
-          <span>{line}</span>
+          <span>{withHighlight(line, highlight)}</span>
         </span>
       ))}
     </Tag>
