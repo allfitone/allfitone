@@ -196,12 +196,18 @@ export default async function Landing({ params }: LocaleParams) {
           <div className="wrap">
             <div className="invite" data-reveal="">
               <div className="invite__copy">
-                <Title
-                  id="invite-title"
-                  lines={copy.invite.title}
-                  tones={['solid', 'cyan']}
-                  reveal={false}
-                />
+                {/* Only the product name takes the cyan, so the line is drawn here, not by Title. */}
+                <h2 id="invite-title" className="display">
+                  <span className="line">
+                    <span>{copy.invite.title.invite}</span>
+                  </span>
+                  <span className="line">
+                    <span>
+                      {copy.invite.title.earn}{' '}
+                      <span className="tone-cyan">{copy.invite.title.product}</span>
+                    </span>
+                  </span>
+                </h2>
                 <p>{copy.invite.text}</p>
               </div>
               <ul className="invite__levels" role="list">

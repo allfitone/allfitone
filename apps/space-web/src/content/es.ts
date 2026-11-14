@@ -112,7 +112,7 @@ export const es = {
   // The referral levels as the landing shows them, keyed by `REFERRAL_LEVELS`; the
   // waitlist page carries the full rule.
   invite: {
-    title: ['INVITA AMIGOS,', 'GANA PRO.'],
+    title: { invite: 'INVITA AMIGOS,', earn: 'GANA', product: 'ALLFIT PRO.' },
     text: 'Cada amigo que entra con tu código y usa la app suma, pague o no.',
     rewards: {
       5: '1 mes de Pro',
