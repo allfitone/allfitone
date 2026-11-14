@@ -113,6 +113,22 @@ export interface StudioApiFixture {
     | 'conflict'
     | 'not-found'
     | 'unavailable'
+  /**
+   * Which answer `OP-PLN-012` gives. `moved` is the success and the only one
+   * that writes: the simulator puts the session on the day it was sent and
+   * bumps its revision, so the re-read shows it where it went. `stale-draft`
+   * answers the 409 that **carries the current session**, which is what lets the
+   * screen show the other version instead of losing either.
+   */
+  rescheduleOutcome:
+    | 'moved'
+    | 'stale-draft'
+    | 'conflict'
+    | 'service-paused'
+    | 'scope-required'
+    | 'invalid-day'
+    | 'not-found'
+    | 'unavailable'
   relationshipState: unknown
   relationshipHistory: unknown[]
   assignmentOutcome: 'created' | 'taken' | 'forbidden'
@@ -2673,6 +2689,7 @@ export function createStudioApiFixture(
     assignmentsCursor: 'ok',
     assignOutcome: 'created',
     cancelAssignmentOutcome: 'cancelled',
+    rescheduleOutcome: 'moved',
     relationshipState: structuredClone(relationshipState),
     relationshipHistory: structuredClone(relationshipHistory),
     assignmentOutcome: 'created',
@@ -4277,6 +4294,63 @@ function defaultResponse(
       },
     }
   }
+  const plannedSession = /^\/studio\/v1\/organizations\/[^/]+\/planned-sessions\/([^/]+)$/.exec(
+    request.path,
+  )
+  if (request.method === 'PATCH' && plannedSession) {
+    const outcome = fixture.rescheduleOutcome
+    if (outcome === 'scope-required') {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'conflict') return { status: 409, body: error('conflict') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    if (outcome === 'invalid-day') {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'scheduled-on', path: '/scheduled_on' }],
+        }),
+      }
+    }
+
+    const assignments = fixture.relationshipAssignments ?? []
+    let found: Record<string, unknown> | undefined
+    for (const entry of assignments) {
+      const sessions = objectValue(entry)['sessions']
+      if (!Array.isArray(sessions)) continue
+      for (const candidate of sessions) {
+        if (objectValue(candidate)['id'] === plannedSession[1]) found = objectValue(candidate)
+      }
+    }
+    if (!found) return { status: 404, body: error('not-found') }
+
+    /*
+     * The 409 that is not an error: somebody moved it meanwhile, and the answer
+     * hands back the session as it stands. One day later than where it is, so
+     * the screen has something different to show.
+     */
+    if (outcome === 'stale-draft') {
+      const moved = { ...found, scheduled_on: nextDay(String(found['scheduled_on'])) }
+      return { status: 409, body: problem('stale-draft', 409, { current_state: moved }) }
+    }
+
+    const sent = objectValue(request.body)
+    found['scheduled_on'] = String(sent['scheduled_on'] ?? found['scheduled_on'])
+    found['revision_number'] = Number(found['revision_number'] ?? 0) + 1
+    return { status: 200, body: { ...found } }
+  }
   const cancellation =
     /^\/studio\/v1\/organizations\/[^/]+\/assignments\/([^/]+)\/cancellation$/.exec(request.path)
   if (request.method === 'POST' && cancellation) {
@@ -5446,6 +5520,13 @@ async function fulfill(route: Route, response: MockResponse): Promise<void> {
       ...response.headers,
     },
   })
+}
+
+/** The calendar day after this one, built in UTC so it never shifts a zone. */
+function nextDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number)
+  const stepped = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (date ?? 1) + 1))
+  return stepped.toISOString().slice(0, 10)
 }
 
 function objectValue(value: unknown): Record<string, unknown> {

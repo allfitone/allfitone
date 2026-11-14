@@ -1844,6 +1844,47 @@
   min-width: 0;
 }
 
+/* The day of a session that can be moved, which is the control that moves it.
+   No fourth column: this register is measured at eight widths, and a column
+   would widen the table it already struggles to fit.
+
+   Same treatment the executions list settled on for the row that opens, and for
+   the same reason: as the Design System's `link` it rendered accented and
+   underlined, which reads as a reference to somewhere else rather than as this
+   row's own day. It keeps the row's size and weight — in the cards the `strong`
+   around it is the card's title — and the underline darkens when pointed at.
+   The padding and height of a button are what have to go: inside a table cell
+   they pushed the row 14px taller than the ones that cannot move. */
+[data-client-session-move] {
+  /* Measured against the plain day beside it, not guessed: as the Design
+     System's `link` the control kept `inline-flex`, a 44px minimum height, a
+     transparent 1px border, a pill radius and — the part that shows — a
+     shadow. The variant asks for `shadow-none` and the base rule wins. */
+  display: inline;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--afo-color-border-default);
+  text-underline-offset: 3px;
+}
+
+[data-client-session-move]:hover {
+  text-decoration-color: currentcolor;
+}
+
+/* Seven days wrap rather than scroll: at 390px a row of seven never fits, and a
+   sideways scroll inside a dialog is a control nobody finds. */
+[data-client-session-move-week] {
+  flex-wrap: wrap;
+}
+
 /* The way to stop the program, under the calendar it stops.
 
    16px, which is the gap the card already puts between its facts and its

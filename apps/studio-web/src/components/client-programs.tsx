@@ -58,6 +58,7 @@ import { useParams } from 'next/navigation'
 
 import { ClientProgramAssignment } from './client-program-assignment'
 import { ClientProgramCancellation } from './client-program-cancellation'
+import { ClientSessionReschedule } from './client-session-reschedule'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
@@ -340,7 +341,13 @@ function AssignmentPanel({
               <ul data-client-program-session-cards>
                 {sessions.map((session) => (
                   <li key={session.id}>
-                    <SessionCard session={session} />
+                    <SessionCard
+                      session={session}
+                      assignment={assignment}
+                      organizationId={organizationId}
+                      relationshipId={relationshipId}
+                      permission={permission}
+                    />
                   </li>
                 ))}
               </ul>
@@ -366,7 +373,13 @@ function AssignmentPanel({
                   {sessions.map((session) => (
                     <TableRow key={session.id} data-client-program-session>
                       <TableCell data-client-program-session-day>
-                        {formatCalendarDay(session.scheduled_on)}
+                        <ClientSessionReschedule
+                          session={session}
+                          assignment={assignment}
+                          organizationId={organizationId}
+                          relationshipId={relationshipId}
+                          permission={permission}
+                        />
                       </TableCell>
                       <TableCell>
                         {/* The title is its own element rather than the cell's
@@ -398,11 +411,31 @@ function AssignmentPanel({
   )
 }
 
-function SessionCard({ session }: { session: RelationshipAssignmentSession }) {
+function SessionCard({
+  session,
+  assignment,
+  organizationId,
+  relationshipId,
+  permission,
+}: {
+  session: RelationshipAssignmentSession
+  assignment: RelationshipAssignment
+  organizationId: string
+  relationshipId: string
+  permission: AssignPermission
+}) {
   return (
     <article data-client-program-session>
       <div data-client-program-session-head>
-        <strong data-client-program-session-day>{formatCalendarDay(session.scheduled_on)}</strong>
+        <strong data-client-program-session-day>
+          <ClientSessionReschedule
+            session={session}
+            assignment={assignment}
+            organizationId={organizationId}
+            relationshipId={relationshipId}
+            permission={permission}
+          />
+        </strong>
         <SessionState session={session} />
       </div>
       <p data-client-program-session-title>{session.title}</p>
