@@ -1,5 +1,5 @@
 /**
- * Reviewing the waitlist: `OP-WL-011` and `OP-WL-012` (`HU-BO-035`).
+ * Reviewing the waitlist: `OP-WL-011`, `OP-WL-012` and `OP-WL-016` (`HU-BO-035`).
  *
  * No authorization branch here: the commercial duty and the Backoffice session are
  * resolved inside each call's own transaction. What this layer adds is the page: it
@@ -10,11 +10,12 @@
 import {
   encodeWaitlistCursor,
   type BackofficeWaitlistFraudMark,
+  type BackofficeWaitlistFraudWithdrawal,
   type BackofficeWaitlistTotals,
-  type WaitlistFraudMarkResult,
   type WaitlistReviewCommand,
   type WaitlistReviewDatabase,
   type WaitlistReviewer,
+  type WaitlistSignupCommandResult,
   type WaitlistSignupPage,
   type WaitlistSignupQuery,
 } from '../domain/review.js'
@@ -25,7 +26,14 @@ export interface WaitlistReviewService {
   markAsFraud(
     reviewer: WaitlistReviewer,
     input: WaitlistReviewCommand & { signupId: string; mark: BackofficeWaitlistFraudMark },
-  ): Promise<WaitlistFraudMarkResult>
+  ): Promise<WaitlistSignupCommandResult>
+  withdrawFraudMark(
+    reviewer: WaitlistReviewer,
+    input: WaitlistReviewCommand & {
+      signupId: string
+      withdrawal: BackofficeWaitlistFraudWithdrawal
+    },
+  ): Promise<WaitlistSignupCommandResult>
 }
 
 export function createWaitlistReviewService(
@@ -43,5 +51,6 @@ export function createWaitlistReviewService(
     },
     totals: (reviewer, requestId) => database.totals({ ...reviewer, requestId }),
     markAsFraud: (reviewer, input) => database.markAsFraud({ ...reviewer, ...input }),
+    withdrawFraudMark: (reviewer, input) => database.withdrawFraudMark({ ...reviewer, ...input }),
   }
 }

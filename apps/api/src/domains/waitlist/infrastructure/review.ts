@@ -59,6 +59,19 @@ export function createWaitlistReviewDatabase(): WaitlistReviewDatabase {
         if (!row) throw new Error('PostgreSQL did not mark the waitlist sign-up')
         return { resource: row.result, replayed: row.replayed }
       }),
+
+    withdrawFraudMark: (input) =>
+      asSupport(sql, input.actorPersonId, input.requestId, async (transaction) => {
+        const [row] = await transaction<CommandRow[]>`
+          select * from waitlist.withdraw_fraud_mark(
+            ${input.actorPersonId}::uuid, ${input.actorSessionId}::uuid,
+            ${input.signupId}::uuid, ${input.withdrawal.reason}::text,
+            ${input.idempotencyKey}::uuid, ${input.commandId}::uuid, ${input.requestHash}
+          )
+        `
+        if (!row) throw new Error('PostgreSQL did not take the fraud mark back')
+        return { resource: row.result, replayed: row.replayed }
+      }),
   }
 }
 

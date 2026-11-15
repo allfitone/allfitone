@@ -1,8 +1,9 @@
 /**
- * The waitlist as the team reviews it: `OP-WL-011` and `OP-WL-012` (`HU-BO-035`).
+ * The waitlist as the team reviews it: `OP-WL-011`, `OP-WL-012` and `OP-WL-016`
+ * (`HU-BO-035`).
  *
- * The rules — who may review, what a fraud mark changes, who takes a freed number —
- * live in PostgreSQL. What is here is the shape of the question and of the command, so a
+ * The rules — who may review, what a fraud mark changes, what taking it back returns,
+ * who takes a freed number — live in PostgreSQL. What is here is the shape of the question and of the command, so a
  * request that cannot be read is answered before it reaches the database.
  *
  * A page is cut by the identifier of its last sign-up alone: identifiers are UUIDv7, so
@@ -14,6 +15,7 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 export type BackofficeWaitlistSignup = AllfitV1Schemas['BackofficeWaitlistSignup']
 export type BackofficeWaitlistTotals = AllfitV1Schemas['BackofficeWaitlistTotals']
 export type BackofficeWaitlistFraudMark = AllfitV1Schemas['BackofficeWaitlistFraudMark']
+export type BackofficeWaitlistFraudWithdrawal = AllfitV1Schemas['BackofficeWaitlistFraudWithdrawal']
 
 export const WAITLIST_SIGNUP_FILTERS = [
   'confirmed',
@@ -59,7 +61,8 @@ export interface WaitlistReviewCommand {
   requestHash: Uint8Array
 }
 
-export interface WaitlistFraudMarkResult {
+/** What a command over one sign-up answers: the sign-up as it now reads. */
+export interface WaitlistSignupCommandResult {
   resource: BackofficeWaitlistSignup
   replayed: boolean
 }
@@ -71,7 +74,14 @@ export interface WaitlistReviewDatabase {
   markAsFraud(
     input: WaitlistReviewer &
       WaitlistReviewCommand & { signupId: string; mark: BackofficeWaitlistFraudMark },
-  ): Promise<WaitlistFraudMarkResult>
+  ): Promise<WaitlistSignupCommandResult>
+  withdrawFraudMark(
+    input: WaitlistReviewer &
+      WaitlistReviewCommand & {
+        signupId: string
+        withdrawal: BackofficeWaitlistFraudWithdrawal
+      },
+  ): Promise<WaitlistSignupCommandResult>
 }
 
 export function encodeWaitlistCursor(lastSignupId: string): string {
@@ -102,7 +112,10 @@ function hasControlCharacter(value: string): boolean {
   })
 }
 
-/** The reason trimmed, or undefined when it is not one line of 4 to 200 characters. */
+/**
+ * The reason of a mark or of its withdrawal, trimmed. Undefined when it is not one line
+ * of 4 to 200 characters.
+ */
 export function fraudReason(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()

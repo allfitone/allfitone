@@ -1,14 +1,14 @@
 /**
  * `T-WL-API-02` — the Backoffice waitlist routes against the contract (`OP-WL-011`,
- * `OP-WL-012`; `HU-BO-035`).
+ * `OP-WL-012`, `OP-WL-016`; `HU-BO-035`).
  *
  * The assertions that carry weight:
  *
  * - **A question that cannot be read is refused, never widened.** A one-letter search,
  *   an unknown filter or a cursor this API did not issue answers 400 and the service is
  *   never called.
- * - **A fraud mark carries a reason and nothing else**, and a body that says anything
- *   more is refused before anybody is asked who is acting.
+ * - **A fraud mark carries a reason and nothing else, and so does taking it back**,
+ *   and a body that says anything more is refused before anybody is asked who is acting.
  * - **Without a Backoffice session nothing is read.** Who holds the commercial duty is
  *   PostgreSQL's answer (`T-WL-RLS-02`); what is proved here is that its refusal reaches
  *   the caller as 403 and not as a list.
@@ -35,6 +35,7 @@ const SIGNUP_ID = '019ab000-0000-7000-8000-000000000901'
 const IDEMPOTENCY_KEY = 'd1000000-0000-4000-8000-000000000001'
 const COMMAND_ID = '019ab000-0000-7000-8000-000000000501'
 const REASON = 'Correos en serie desde un mismo equipo'
+const WITHDRAWAL_REASON = 'La persona escribió y es real'
 
 const signup: AllfitV1Schemas['BackofficeWaitlistSignup'] = {
   id: SIGNUP_ID,
@@ -49,6 +50,7 @@ const signup: AllfitV1Schemas['BackofficeWaitlistSignup'] = {
   invited_by: { name: 'Ana Ruiz', referral_code: 'ANAR2Q7M' },
   discard_reason: null,
   fraud: null,
+  fraud_withdrawal: null,
   referrals: 3,
   referrals_sharing_connection: 2,
 }
@@ -57,7 +59,17 @@ const marked: AllfitV1Schemas['BackofficeWaitlistSignup'] = {
   ...signup,
   founding_number: null,
   discard_reason: 'fraud',
-  fraud: { reason: REASON, marked_at: '2026-11-14T16:00:00.000Z' },
+  fraud: {
+    reason: REASON,
+    marked_at: '2026-11-14T16:00:00.000Z',
+    previous_discard_reason: null,
+  },
+}
+
+const unmarked: AllfitV1Schemas['BackofficeWaitlistSignup'] = {
+  ...signup,
+  founding_number: null,
+  fraud_withdrawal: { reason: WITHDRAWAL_REASON, withdrawn_at: '2026-11-14T17:00:00.000Z' },
 }
 
 const totals: AllfitV1Schemas['BackofficeWaitlistTotals'] = {
@@ -76,9 +88,19 @@ interface Calls {
   list: Array<{ reviewer: unknown; query: WaitlistSignupQuery }>
   totals: unknown[]
   markAsFraud: Array<{ reviewer: unknown; signupId: string; mark: unknown; hash: string }>
+  withdrawFraudMark: Array<{
+    reviewer: unknown
+    signupId: string
+    withdrawal: unknown
+    hash: string
+  }>
 }
 
-let calls: Calls = { list: [], totals: [], markAsFraud: [] }
+function noCalls(): Calls {
+  return { list: [], totals: [], markAsFraud: [], withdrawFraudMark: [] }
+}
+
+let calls: Calls = noCalls()
 
 function reviewService(
   overrides: Partial<WaitlistReviewService> = {},
@@ -105,6 +127,15 @@ function reviewService(
         hash: Buffer.from(input.requestHash).toString('hex'),
       })
       return Promise.resolve({ resource: marked, replayed })
+    },
+    withdrawFraudMark: (reviewer, input) => {
+      calls.withdrawFraudMark.push({
+        reviewer,
+        signupId: input.signupId,
+        withdrawal: input.withdrawal,
+        hash: Buffer.from(input.requestHash).toString('hex'),
+      })
+      return Promise.resolve({ resource: unmarked, replayed })
     },
     ...overrides,
   }
@@ -136,6 +167,7 @@ function post(
   body: string | undefined,
   overrides: Record<string, string | null> = {},
   signupId: string = SIGNUP_ID,
+  action: 'fraud' | 'fraud/withdrawal' = 'fraud',
 ): Request {
   const headers = new Headers({
     origin: ORIGIN,
@@ -148,11 +180,18 @@ function post(
     if (value === null) headers.delete(name)
     else headers.set(name, value)
   }
-  return new Request(`https://api.example.test/backoffice/v1/waitlist/signups/${signupId}/fraud`, {
-    method: 'POST',
-    headers,
-    ...(body === undefined ? {} : { body }),
-  })
+  return new Request(
+    `https://api.example.test/backoffice/v1/waitlist/signups/${signupId}/${action}`,
+    { method: 'POST', headers, ...(body === undefined ? {} : { body }) },
+  )
+}
+
+function withdraw(
+  body: string | undefined,
+  overrides: Record<string, string | null> = {},
+  signupId: string = SIGNUP_ID,
+): Request {
+  return post(body, overrides, signupId, 'fraud/withdrawal')
 }
 
 function databaseError(code: string): Error {
@@ -164,7 +203,7 @@ function colonPath(path: string): string {
 }
 
 beforeEach(() => {
-  calls = { list: [], totals: [], markAsFraud: [] }
+  calls = noCalls()
   process.env.BACKOFFICE_WEB_URL = ORIGIN
   process.env.STUDIO_WEB_URL = 'https://studio.example.test'
   process.env.API_PUBLIC_URL = 'https://api.example.test'
@@ -181,7 +220,7 @@ describe('T-WL-API-02 the routes and the contract', () => {
       .map((route) => `${route.method} /backoffice/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(3)
+    expect(contract).toHaveLength(4)
     expect(mounted).toEqual(contract)
   })
 
@@ -197,6 +236,7 @@ describe('T-WL-API-02 the routes and the contract', () => {
         'GET /backoffice/v1/waitlist/signups',
         'GET /backoffice/v1/waitlist/totals',
         'POST /backoffice/v1/waitlist/signups/:signupId/fraud',
+        'POST /backoffice/v1/waitlist/signups/:signupId/fraud/withdrawal',
       ]),
     )
   })
@@ -494,6 +534,145 @@ describe('T-WL-API-02 marking fraud (OP-WL-012)', () => {
     const review = reviewService({ markAsFraud: () => Promise.reject(databaseError('40001')) })
 
     const response = await routes(review).request(post(JSON.stringify({ reason: REASON })))
+
+    expect(response.status).toBe(409)
+    expect(response.headers.get('retry-after')).toBe('1')
+  })
+})
+
+describe('T-WL-API-02 taking a fraud mark back (OP-WL-016)', () => {
+  test('takes it back with the reason trimmed and answers the sign-up as it now reads', async () => {
+    const response = await routes().request(
+      withdraw(JSON.stringify({ reason: `  ${WITHDRAWAL_REASON} ` })),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('idempotent-replay')).toBeNull()
+    expect(await response.json()).toEqual(unmarked)
+    expect(calls.markAsFraud).toHaveLength(0)
+    expect(calls.withdrawFraudMark).toHaveLength(1)
+    expect(calls.withdrawFraudMark[0]).toMatchObject({
+      reviewer: { actorPersonId: ACTOR_PERSON_ID, actorSessionId: ACTOR_SESSION_ID },
+      signupId: SIGNUP_ID,
+      withdrawal: { reason: WITHDRAWAL_REASON },
+    })
+  })
+
+  test('a repeated command says it is a replay', async () => {
+    const response = await routes(reviewService({}, true)).request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON })),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('idempotent-replay')).toBe('true')
+  })
+
+  test('the request hash tells a withdrawal from a mark with the same words', async () => {
+    await routes().request(post(JSON.stringify({ reason: REASON })))
+    await routes().request(withdraw(JSON.stringify({ reason: REASON })))
+    await routes().request(withdraw(JSON.stringify({ reason: `  ${REASON}  ` })))
+
+    const [taken, spaced] = calls.withdrawFraudMark.map((call) => call.hash)
+    expect(taken).toHaveLength(64)
+    expect(taken).not.toBe(calls.markAsFraud[0]?.hash)
+    expect(spaced).toBe(taken)
+  })
+
+  test.each([
+    ['no reason', {}],
+    ['a blank reason', { reason: '    ' }],
+    ['a reason too short to say anything', { reason: 'no' }],
+    ['a reason past two hundred characters', { reason: 'a'.repeat(201) }],
+    ['a reason over several lines', { reason: 'Escribió\ny es real' }],
+    ['a reason that is not text', { reason: 42 }],
+    ['a field nobody defined', { reason: WITHDRAWAL_REASON, founding_number: 2 }],
+    ['a list', [WITHDRAWAL_REASON]],
+  ])('a body with %s is a validation problem and takes nothing back', async (_name, body) => {
+    const response = await routes().request(withdraw(JSON.stringify(body)))
+
+    expect(response.status).toBe(422)
+    expect(calls.withdrawFraudMark).toHaveLength(0)
+  })
+
+  test('a body of another media type is refused', async () => {
+    const response = await routes().request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON }), { 'content-type': 'text/plain' }),
+    )
+
+    expect(response.status).toBe(415)
+    expect(calls.withdrawFraudMark).toHaveLength(0)
+  })
+
+  test('a command from another origin is refused', async () => {
+    const response = await routes().request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON }), {
+        origin: 'https://elsewhere.example.test',
+      }),
+    )
+
+    expect(response.status).toBe(403)
+    expect(calls.withdrawFraudMark).toHaveLength(0)
+  })
+
+  test.each([
+    ['without an idempotency key', { 'idempotency-key': null }],
+    ['with a key that is not a UUIDv4', { 'idempotency-key': COMMAND_ID }],
+    ['without a command identifier', { 'command-id': null }],
+    ['with a command identifier that is not a UUIDv7', { 'command-id': IDEMPOTENCY_KEY }],
+  ])('a command %s is refused', async (_name, headers) => {
+    const response = await routes().request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON }), headers),
+    )
+
+    expect(response.status).toBe(400)
+    expect(calls.withdrawFraudMark).toHaveLength(0)
+  })
+
+  test('a sign-up identifier that is not one is refused', async () => {
+    const response = await routes().request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON }), {}, 'not-a-signup'),
+    )
+
+    expect(response.status).toBe(400)
+    expect(calls.withdrawFraudMark).toHaveLength(0)
+  })
+
+  test('without a session cookie nothing is taken back', async () => {
+    const response = await routes().request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON }), { cookie: null }),
+    )
+
+    expect(response.status).toBe(401)
+    expect(calls.withdrawFraudMark).toHaveLength(0)
+  })
+
+  test.each([
+    ['a person without the commercial duty', '42501', 403],
+    ['a sign-up that is not on the list', 'P0002', 404],
+    ['a sign-up that is not marked', '55000', 409],
+    ['a key used for another request', '23505', 409],
+    ['a reason the database refuses', '22023', 422],
+  ])('%s answers its own status', async (_name, sqlState, status) => {
+    const review = reviewService({
+      withdrawFraudMark: () => Promise.reject(databaseError(sqlState)),
+    })
+
+    const response = await routes(review).request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON })),
+    )
+
+    expect(response.status).toBe(status)
+  })
+
+  test('a command still in progress says when to try again', async () => {
+    const review = reviewService({
+      withdrawFraudMark: () => Promise.reject(databaseError('40001')),
+    })
+
+    const response = await routes(review).request(
+      withdraw(JSON.stringify({ reason: WITHDRAWAL_REASON })),
+    )
 
     expect(response.status).toBe(409)
     expect(response.headers.get('retry-after')).toBe('1')

@@ -1,16 +1,16 @@
 /**
- * Backoffice waitlist routes: `OP-WL-011` and `OP-WL-012` (`HU-BO-035`).
+ * Backoffice waitlist routes: `OP-WL-011`, `OP-WL-012` and `OP-WL-016` (`HU-BO-035`).
  *
  * The handler shapes and rejects; it decides nothing. The commercial duty, AAL2, what a
- * fraud mark changes and who takes a freed Founding Member number are resolved inside
- * each call's own transaction.
+ * fraud mark changes, what taking it back returns and who takes a freed Founding Member
+ * number are resolved inside each call's own transaction.
  *
  * Every filter that cannot be read is answered 400 rather than dropped. Dropping a
  * one-letter search or an unknown filter would widen the question into "show me
  * everything", and a malformed cursor silently restarting at the first page would make
  * a caller think it had reached the end.
  *
- * The fraud body carries `reason` and nothing else.
+ * The body of a fraud mark, and of its withdrawal, carries `reason` and nothing else.
  */
 
 import { createHash, randomUUID } from 'node:crypto'
@@ -34,7 +34,6 @@ import {
   WAITLIST_SIGNUP_FILTERS,
   decodeWaitlistCursor,
   fraudReason,
-  type BackofficeWaitlistFraudMark,
   type WaitlistSignupFilter,
   type WaitlistSignupQuery,
 } from '../domain/review.js'
@@ -112,7 +111,7 @@ export function backofficeWaitlistRoutes(
     const body = await commandBody(c, origin)
     if (body instanceof Response) return body
     if (!UUID.test(signupId)) return problem(c, 'invalid-request')
-    const mark = fraudMark(body)
+    const mark = reasonBody(body)
     if (!mark) return problem(c, 'validation-failed')
     const command = commandContext(c, mark)
     if (!command) return problem(c, 'invalid-request')
@@ -122,6 +121,29 @@ export function backofficeWaitlistRoutes(
       const result = await review().markAsFraud(
         { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
         { ...command, signupId, mark },
+      )
+      if (result.replayed) c.header('Idempotent-Replay', 'true')
+      return c.json(result.resource)
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
+  routes.post('/waitlist/signups/:signupId/fraud/withdrawal', async (c) => {
+    const signupId = c.req.param('signupId')
+    const body = await commandBody(c, origin)
+    if (body instanceof Response) return body
+    if (!UUID.test(signupId)) return problem(c, 'invalid-request')
+    const withdrawal = reasonBody(body)
+    if (!withdrawal) return problem(c, 'validation-failed')
+    const command = commandContext(c, withdrawal)
+    if (!command) return problem(c, 'invalid-request')
+    try {
+      const actor = await backofficeActor(c, sessions())
+      if (actor instanceof Response) return actor
+      const result = await review().withdrawFraudMark(
+        { actorPersonId: actor.personId, actorSessionId: actor.sessionId },
+        { ...command, signupId, withdrawal },
       )
       if (result.replayed) c.header('Idempotent-Replay', 'true')
       return c.json(result.resource)
@@ -176,7 +198,7 @@ function signupQuery(c: Context): WaitlistSignupQuery | undefined {
  * The shape is checked here to answer 422 instead of a database error. The database
  * checks it again and is the authority.
  */
-function fraudMark(body: unknown): BackofficeWaitlistFraudMark | undefined {
+function reasonBody(body: unknown): { reason: string } | undefined {
   if (!isObject(body) || Object.keys(body).some((key) => key !== 'reason')) return undefined
   const reason = fraudReason(body['reason'])
   return reason === undefined ? undefined : { reason }
@@ -258,7 +280,7 @@ function databaseErrorCode(error: unknown): ApiErrorCode | undefined {
   if (sqlState === '42501') return 'forbidden'
   if (sqlState === 'P0002') return 'not-found'
   if (sqlState === '22023' || sqlState === '23514') return 'validation-failed'
-  // 55000 is a sign-up already marked; 23505 an idempotency key reused for another request.
+  // 55000 is a mark already made, or none to take back; 23505 a key reused for another request.
   if (sqlState === '55000' || sqlState === '23505') return 'conflict'
   if (sqlState === '40001') return 'idempotency-in-progress'
   return undefined

@@ -1,6 +1,7 @@
 /**
  * `T-WL-UNIT-02` — what reviewing the waitlist does before the database (`OP-WL-011`,
- * `OP-WL-012`): cutting a page, the cursor that resumes it, and the reason of a mark.
+ * `OP-WL-012`, `OP-WL-016`): cutting a page, the cursor that resumes it, and the reason
+ * of a mark or of its withdrawal.
  */
 
 import { describe, expect, test } from 'bun:test'
@@ -35,6 +36,7 @@ function signup(n: number): BackofficeWaitlistSignup {
     invited_by: null,
     discard_reason: null,
     fraud: null,
+    fraud_withdrawal: null,
     referrals: 0,
     referrals_sharing_connection: 0,
   }
@@ -51,6 +53,7 @@ function setup(total: number) {
     },
     totals: () => Promise.reject(new Error('not asked here')),
     markAsFraud: () => Promise.reject(new Error('not asked here')),
+    withdrawFraudMark: () => Promise.reject(new Error('not asked here')),
   }
   return { asked, service: createWaitlistReviewService(database) }
 }
