@@ -62,8 +62,8 @@ select is(
   (select array_agg(parameter order by parameter)
    from unnest(proargnames) as parameter
    where parameter !~ '^p_'),
-  array['confirmed', 'language', 'outcome', 'referral_code', 'referrals'],
-  'and what it returns names nobody the person invited'
+  array['confirmed', 'founding_number', 'language', 'outcome', 'referral_code', 'referrals'],
+  'and what it returns is the person''s own, and names nobody they invited'
 ) from pg_proc where oid = 'waitlist.read_my_link(bytea,bytea)'::regprocedure;
 
 -- ---------------------------------------------------------------------------

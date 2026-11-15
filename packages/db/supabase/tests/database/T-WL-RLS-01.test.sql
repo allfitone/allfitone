@@ -2,12 +2,12 @@
 -- invariants 3 and 4).
 --
 -- A sign-up belongs to somebody with no account, so no row policy could admit an actor.
--- The runtime role holds no privilege on the tables and executes only the five entry
+-- The runtime role holds no privilege on the tables and executes only the six entry
 -- points; the helpers that write tokens or count attempts are not its to call.
 
 begin;
 
-select plan(9);
+select plan(11);
 
 select ok(
   not has_table_privilege('allfit_api', 'waitlist.signups', 'SELECT')
@@ -35,8 +35,9 @@ select ok(
       'allfit_api', 'waitlist.request_email(text,bytea,uuid,bytea,uuid,bytea,smallint)', 'EXECUTE'
     )
     and has_function_privilege('allfit_api', 'waitlist.prepare_email_delivery(uuid)', 'EXECUTE')
-    and has_function_privilege('allfit_api', 'waitlist.prepare_team_notice(uuid)', 'EXECUTE'),
-  'the runtime role executes the five entry points'
+    and has_function_privilege('allfit_api', 'waitlist.prepare_team_notice(uuid)', 'EXECUTE')
+    and has_function_privilege('allfit_api', 'waitlist.prepare_founding_email(uuid)', 'EXECUTE'),
+  'the runtime role executes the six entry points'
 );
 
 select ok(
@@ -47,7 +48,8 @@ select ok(
       'allfit_api', 'waitlist.consume_rate_window(text,bytea,interval,integer)', 'EXECUTE'
     )
     and not has_function_privilege('allfit_api', 'waitlist.referral_count(uuid)', 'EXECUTE')
-    and not has_function_privilege('allfit_api', 'waitlist.new_referral_code()', 'EXECUTE'),
+    and not has_function_privilege('allfit_api', 'waitlist.new_referral_code()', 'EXECUTE')
+    and not has_function_privilege('allfit_api', 'waitlist.fill_founding_numbers()', 'EXECUTE'),
   'and none of the helpers behind them'
 );
 
@@ -86,6 +88,15 @@ select throws_ok(
   'nor who confirmed, which the team''s notice carries'
 );
 
+select throws_ok(
+  $$ select * from waitlist.prepare_founding_email(
+    (select '019d1000-0000-7000-8000-000000000009'::uuid)
+  ) $$,
+  '42501',
+  'worker actor required',
+  'nor who holds a Founding Member number'
+);
+
 select set_config('app.actor_kind', 'worker', true);
 select is(
   (select delivery_state from waitlist.prepare_email_delivery(
@@ -100,6 +111,13 @@ select is(
    )),
   'skipped',
   'and the same holds for the team''s notice'
+);
+select is(
+  (select delivery_state from waitlist.prepare_founding_email(
+     '019d1000-0000-7000-8000-000000000009'::uuid
+   )),
+  'skipped',
+  'and for the Founding Member email'
 );
 
 reset role;
