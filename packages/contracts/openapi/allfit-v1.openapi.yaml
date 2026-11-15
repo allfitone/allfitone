@@ -16735,6 +16735,7 @@ components:
         - discard_reason
         - fraud
         - fraud_withdrawal
+        - has_space_account
         - referrals
         - referrals_sharing_connection
       properties:
@@ -16817,6 +16818,11 @@ components:
           description: >-
             How many of its referrals joined from this sign-up's own connection, or
             from the same connection as another of them. A signal, not a discard.
+        has_space_account:
+          type: boolean
+          description: >-
+            Whether the sign-up is linked to an Allfit Space account. Always false
+            until `OP-WL-006` links them.
     BackofficeWaitlistSignupPage:
       type: object
       additionalProperties: false

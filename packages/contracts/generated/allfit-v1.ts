@@ -6218,6 +6218,8 @@ export interface components {
       referrals: number
       /** @description How many of its referrals joined from this sign-up's own connection, or from the same connection as another of them. A signal, not a discard. */
       referrals_sharing_connection: number
+      /** @description Whether the sign-up is linked to an Allfit Space account. Always false until `OP-WL-006` links them. */
+      has_space_account: boolean
     }
     BackofficeWaitlistSignupPage: {
       data: components['schemas']['BackofficeWaitlistSignup'][]
