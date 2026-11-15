@@ -25,6 +25,7 @@
 
 import {
   NotificationDeliveryError,
+  foundingNumberLabel,
   type TeamChannel,
   type TeamNotice,
 } from '@allfitone/notifications'
@@ -51,6 +52,8 @@ export interface WaitlistTeamNoticeDelivery {
   language?: 'es' | 'en'
   referred?: boolean
   confirmedTotal?: number
+  /** The Founding Member number the sign-up holds, when it holds one. */
+  foundingNumber?: number
 }
 
 export interface WaitlistTeamNoticeDatabase {
@@ -64,6 +67,7 @@ interface ConfirmedSignup {
   language: 'es' | 'en'
   referred: boolean
   confirmedTotal: number
+  foundingNumber: number | undefined
 }
 
 const LANGUAGE_NAMES = { es: 'Español', en: 'Inglés' } as const
@@ -100,6 +104,8 @@ export function createWaitlistTeamNoticeDatabase(sql: postgres.Sql): WaitlistTea
             language: 'es' | 'en' | null
             referred: boolean | null
             confirmed_total: number | null
+            // Absent until the migration that adds it is deployed.
+            founding_number?: number | null
           }>
         >`select * from waitlist.prepare_team_notice(${eventId}::uuid)`
         if (!row) throw new Error('PostgreSQL did not prepare the waitlist team notice')
@@ -111,6 +117,9 @@ export function createWaitlistTeamNoticeDatabase(sql: postgres.Sql): WaitlistTea
           ...(row.language ? { language: row.language } : {}),
           ...(row.referred === null ? {} : { referred: row.referred }),
           ...(row.confirmed_total === null ? {} : { confirmedTotal: row.confirmed_total }),
+          ...(typeof row.founding_number === 'number'
+            ? { foundingNumber: row.founding_number }
+            : {}),
         }
       })
     },
@@ -167,12 +176,12 @@ export function createWaitlistTeamNoticeBatchProcessor(dependencies: {
 }
 
 function confirmedSignup(delivery: WaitlistTeamNoticeDelivery): ConfirmedSignup | undefined {
-  const { name, email, source, language, referred, confirmedTotal } = delivery
+  const { name, email, source, language, referred, confirmedTotal, foundingNumber } = delivery
   if (!name || !email || !language || referred === undefined) return undefined
   if (confirmedTotal === undefined || !Number.isInteger(confirmedTotal) || confirmedTotal < 1) {
     return undefined
   }
-  return { name, email, source, language, referred, confirmedTotal }
+  return { name, email, source, language, referred, confirmedTotal, foundingNumber }
 }
 
 /** The team reads Spanish. The name is the person's own, as she wrote it when she joined. */
@@ -189,6 +198,9 @@ export function waitlistTeamNotice(confirmed: ConfirmedSignup): TeamNotice {
       { label: 'Idioma', value: LANGUAGE_NAMES[confirmed.language] },
       { label: 'Cómo llegó', value: confirmed.referred ? 'Invitada por alguien' : 'Por su cuenta' },
       { label: 'Confirmadas en la lista', value: total },
+      ...(confirmed.foundingNumber === undefined
+        ? []
+        : [{ label: 'Founding Member', value: foundingNumberLabel(confirmed.foundingNumber) }]),
     ],
   }
 }

@@ -145,6 +145,15 @@ test('T-WRK-WL-08 the notice reads each fact as the team says it', async () => {
   )
 })
 
+test('T-WRK-WL-22 the notice says which Founding Member number the person took', async () => {
+  const posted: TeamNotice[] = []
+
+  await processor([confirmed({ foundingNumber: 37 }), confirmed()], { posted })()
+
+  expect(posted[0]?.facts).toContainEqual({ label: 'Founding Member', value: '#037' })
+  expect(posted[1]?.facts.map((fact) => fact.label)).not.toContain('Founding Member')
+})
+
 test('T-WRK-WL-09 a projection without what the notice needs is dead, not retried', async () => {
   const broken = [
     without('name'),
