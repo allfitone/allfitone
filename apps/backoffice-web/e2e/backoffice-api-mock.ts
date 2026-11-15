@@ -607,6 +607,7 @@ export interface WaitlistSignupFixture {
   } | null
   fraud_withdrawal: { reason: string; withdrawn_at: string } | null
   referrals_sharing_connection: number
+  has_space_account: boolean
 }
 
 let waitlistSequence = 0
@@ -633,6 +634,7 @@ export function waitlistSignup(
     fraud: null,
     fraud_withdrawal: null,
     referrals_sharing_connection: 0,
+    has_space_account: false,
     ...overrides,
   }
 }
@@ -2998,6 +3000,7 @@ function waitlistProjection(row: WaitlistSignupFixture, all: WaitlistSignupFixtu
         candidate.discard_reason === null,
     ).length,
     referrals_sharing_connection: row.referrals_sharing_connection,
+    has_space_account: row.has_space_account,
   }
 }
 

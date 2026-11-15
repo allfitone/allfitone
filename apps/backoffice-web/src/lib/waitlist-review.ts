@@ -133,6 +133,11 @@ export function referralsLabel(count: number): string {
   return count === 1 ? '1 referido' : `${count} referidos`
 }
 
+/** Whether the sign-up already has its Allfit Space account, as the column says it. */
+export function accountLabel(signup: WaitlistSignup): string {
+  return signup.has_space_account ? 'Sí' : 'No'
+}
+
 /** Undefined when nothing is shared, so the screen draws no signal at all. */
 export function sharedConnectionLabel(count: number): string | undefined {
   if (count <= 0) return undefined

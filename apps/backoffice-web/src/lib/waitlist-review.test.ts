@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  accountLabel,
   channelLabel,
   discardDetail,
   discardLabel,
@@ -43,6 +44,7 @@ function signup(overrides: Partial<WaitlistSignup> = {}): WaitlistSignup {
     fraud_withdrawal: null,
     referrals: 0,
     referrals_sharing_connection: 0,
+    has_space_account: false,
     ...overrides,
   }
 }
@@ -95,6 +97,11 @@ describe('what a sign-up reads as', () => {
     expect(sharedConnectionLabel(0)).toBeUndefined()
     expect(sharedConnectionLabel(1)).toBe('1 comparte conexión')
     expect(sharedConnectionLabel(3)).toBe('3 comparten conexión')
+  })
+
+  test('whether a sign-up has an account reads as a word, not as a boolean', () => {
+    expect(accountLabel(signup())).toBe('No')
+    expect(accountLabel(signup({ has_space_account: true }))).toBe('Sí')
   })
 })
 

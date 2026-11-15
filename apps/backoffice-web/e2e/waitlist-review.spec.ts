@@ -266,6 +266,22 @@ test('says there are more and loads them', async ({ context, page }) => {
   await expect(page.getByRole('button', { name: 'Ver más inscripciones' })).toHaveCount(0)
 })
 
+test('each sign-up says whether it already has its account', async ({ context, page }) => {
+  const signups = list()
+  const elena = signups.find((signup) => signup.name === 'Elena Mora')
+  if (!elena) throw new Error('the list changed')
+  elena.has_space_account = true
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), waitlist: { signups } }),
+  )
+  await page.goto(PATH)
+
+  await expect(page.getByRole('columnheader', { name: 'Con cuenta' })).toBeVisible()
+  await expect(row(page, 'Bruno Díaz').locator('[data-waitlist-account]')).toHaveText('No')
+  await expect(row(page, 'Elena Mora').locator('[data-waitlist-account]')).toHaveText('Sí')
+})
+
 test('marking fraud says what it will do, asks for the reason and reads the list again', async ({
   context,
   page,

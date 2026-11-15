@@ -562,8 +562,10 @@
   max-width: 100%;
 }
 
-[data-waitlist-body] > [data-slot='table-container'],
-[data-waitlist-body] > [data-slot='alert'],
+[data-waitlist-body] > .waitlist-signups,
+[data-waitlist-body] > .waitlist-channels,
+[data-waitlist-body] > [data-waitlist-answer],
+[data-waitlist-body] > [data-waitlist-append-failure],
 [data-waitlist-figures] {
   width: 100%;
 }
@@ -627,9 +629,15 @@
   min-width: 0;
 }
 
-[data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell'] {
+[data-waitlist-review] [data-waitlist-signups] [data-label] {
   white-space: normal;
   vertical-align: top;
+}
+
+/* A two-word heading takes two lines before it costs the review its room. */
+[data-waitlist-review] [data-waitlist-signups] [data-waitlist-head] {
+  white-space: normal;
+  vertical-align: bottom;
 }
 
 [data-waitlist-instant] {
@@ -659,7 +667,7 @@
   min-width: 13rem;
 }
 
-[data-waitlist-person] > span:not([data-slot]),
+[data-waitlist-email],
 [data-waitlist-confirmed],
 [data-waitlist-inviter],
 [data-waitlist-discard-detail],
@@ -688,7 +696,7 @@
 }
 
 /* The action sits apart from whatever the row says above it. */
-[data-waitlist-stack] > * ~ [data-slot='button'] {
+[data-waitlist-stack] > * ~ [data-waitlist-action] {
   margin-block-start: 6px;
 }
 
@@ -710,7 +718,7 @@
 
 /* Too narrow for six columns: each sign-up becomes a block that names its own
    fields, so nothing is reached by scrolling sideways. */
-@container waitlist (max-width: 1000px) {
+@container waitlist (max-width: 1040px) {
   [data-waitlist-filter-row] {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -736,7 +744,7 @@
     padding: 16px;
   }
 
-  [data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell'] {
+  [data-waitlist-review] [data-waitlist-signups] [data-label] {
     display: grid;
     grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
     gap: 12px;
@@ -745,7 +753,7 @@
     text-align: start;
   }
 
-  [data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell']::before {
+  [data-waitlist-review] [data-waitlist-signups] [data-label]::before {
     content: attr(data-label);
     font-family: var(--afo-font-family-body, inherit);
     font-size: var(--afo-font-size-sm);
@@ -776,12 +784,11 @@
 
 /* A phone: the label goes above its value, which then has the whole line. */
 @container waitlist (max-width: 520px) {
-  [data-waitlist-review] [data-waitlist-channels] [data-slot='table-head'],
-  [data-waitlist-review] [data-waitlist-channels] [data-slot='table-cell'] {
+  [data-waitlist-review] [data-waitlist-channels] [data-waitlist-channel-cell] {
     padding-inline: 10px;
   }
 
-  [data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell'] {
+  [data-waitlist-review] [data-waitlist-signups] [data-label] {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
   }

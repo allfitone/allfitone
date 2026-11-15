@@ -76,6 +76,7 @@ import {
   MAX_FRAUD_REASON,
   SHARED_CONNECTION_MEANING,
   WAITLIST_FILTERS,
+  accountLabel,
   channelLabel,
   channelMeaning,
   discardDetail,
@@ -455,14 +456,21 @@ export function WaitlistReview() {
             </Alert>
 
             {signups.length > 0 ? (
-              <Table scrollAreaLabel="Inscripciones en la lista de espera" data-waitlist-signups>
+              <Table
+                scrollAreaLabel="Inscripciones en la lista de espera"
+                containerClassName="waitlist-signups"
+                data-waitlist-signups
+              >
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Persona</TableHead>
-                    <TableHead>Se inscribió</TableHead>
-                    <TableHead>Canal</TableHead>
-                    <TableHead align="end">Referidos válidos</TableHead>
-                    <TableHead>Revisión</TableHead>
+                    <TableHead data-waitlist-head>Persona</TableHead>
+                    <TableHead data-waitlist-head>Se inscribió</TableHead>
+                    <TableHead data-waitlist-head>Canal</TableHead>
+                    <TableHead data-waitlist-head>Con cuenta</TableHead>
+                    <TableHead align="end" data-waitlist-head>
+                      Referidos válidos
+                    </TableHead>
+                    <TableHead data-waitlist-head>Revisión</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -480,7 +488,7 @@ export function WaitlistReview() {
             ) : null}
 
             {appendFailure ? (
-              <Alert live="assertive" variant="danger">
+              <Alert live="assertive" variant="danger" data-waitlist-append-failure>
                 <AlertTitle>No se pudieron cargar más inscripciones</AlertTitle>
                 <AlertDescription>{appendFailure}</AlertDescription>
               </Alert>
@@ -605,9 +613,13 @@ function WaitlistTotalsCard({ totals }: { totals: WaitlistTotals }) {
           >
             <TableHeader>
               <TableRow>
-                <TableHead>Canal</TableHead>
-                <TableHead align="end">Inscritos</TableHead>
-                <TableHead align="end">Confirmaron</TableHead>
+                <TableHead data-waitlist-channel-cell>Canal</TableHead>
+                <TableHead align="end" data-waitlist-channel-cell>
+                  Inscritos
+                </TableHead>
+                <TableHead align="end" data-waitlist-channel-cell>
+                  Confirmaron
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -616,13 +628,13 @@ function WaitlistTotalsCard({ totals }: { totals: WaitlistTotals }) {
                   key={`${row.channel.kind}:${row.channel.source ?? ''}`}
                   data-waitlist-channel={row.channel.kind}
                 >
-                  <TableCell title={channelMeaning(row.channel)}>
+                  <TableCell title={channelMeaning(row.channel)} data-waitlist-channel-cell>
                     {channelLabel(row.channel)}
                   </TableCell>
-                  <TableCell align="end" numeric>
+                  <TableCell align="end" numeric data-waitlist-channel-cell>
                     {row.signups}
                   </TableCell>
-                  <TableCell align="end" numeric>
+                  <TableCell align="end" numeric data-waitlist-channel-cell>
                     {row.confirmed}
                   </TableCell>
                 </TableRow>
@@ -647,6 +659,7 @@ function SignupRow({
   disabled: boolean
 }) {
   const shared = sharedConnectionLabel(signup.referrals_sharing_connection)
+  const at = signup.email.lastIndexOf('@')
   const founding = foundingLabel(signup.founding_number)
   const detail = signup.discard_reason ? discardDetail(signup.discard_reason) : undefined
   return (
@@ -654,7 +667,12 @@ function SignupRow({
       <TableCell data-label="Persona" data-waitlist-cell="person">
         <div data-waitlist-person>
           <strong>{signup.name}</strong>
-          <span>{signup.email}</span>
+          {/* A long address breaks after the @, not in the middle of a word. */}
+          <span data-waitlist-email>
+            {signup.email.slice(0, at + 1)}
+            <wbr />
+            {signup.email.slice(at + 1)}
+          </span>
           <code title="Código de referido">{signup.referral_code}</code>
           {founding ? (
             <Badge variant="info" data-waitlist-founding>
@@ -686,6 +704,9 @@ function SignupRow({
             </span>
           ) : null}
         </div>
+      </TableCell>
+      <TableCell data-label="Con cuenta">
+        <span data-waitlist-account>{accountLabel(signup)}</span>
       </TableCell>
       <TableCell data-label="Referidos válidos" align="end" numeric>
         <div data-waitlist-stack data-align="end">
@@ -719,6 +740,7 @@ function SignupRow({
                 size="sm"
                 variant="outline"
                 disabled={disabled}
+                data-waitlist-action
                 aria-label={`Quitar la marca de fraude de la inscripción de ${signup.name}`}
                 onClick={onWithdraw}
               >
@@ -740,6 +762,7 @@ function SignupRow({
                 size="sm"
                 variant="outline"
                 disabled={disabled}
+                data-waitlist-action
                 aria-label={`Marcar como fraude la inscripción de ${signup.name}`}
                 onClick={onMark}
               >
