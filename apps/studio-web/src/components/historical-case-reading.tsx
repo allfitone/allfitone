@@ -50,15 +50,14 @@ import { measuredOnLine, measurementLine, metricLabel } from '@/lib/body-measure
 import { caseWindowLine, memberName, purposeLabel } from '@/lib/historical-access'
 import {
   cutLine,
-  decisionLine,
   goalStatusLabel,
   historicalSections,
   readFailure,
-  targetLine,
   type HistoricalSection,
   type ReadFailure,
 } from '@/lib/historical-reading'
 import { reauthenticationUrl, rememberReturn } from '@/lib/historical-return'
+import { decisionLine, proposedLine, targetLines } from '@/lib/nutrition-goals'
 import { readerTimeZone } from '@/lib/reader-zone'
 import {
   StudioApiError,
@@ -401,18 +400,12 @@ function FrozenGoals({ target }: { target: Target }) {
 
 function GoalEntry({ goal }: { goal: FrozenNutritionGoalVersion }) {
   const status = goalStatusLabel(goal.status_at_cut)
-  const targets = goal.targets.flatMap((target) => {
-    const line = targetLine(target)
-    return line ? [line] : []
-  })
+  const targets = targetLines(goal.targets)
   const decision = decisionLine(goal.decision)
-  const proposed = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(
-    new Date(goal.created_at),
-  )
   return (
     <article data-historical-entry>
       <div data-historical-entry-head>
-        <strong data-historical-entry-title>Propuesto el {proposed}</strong>
+        <strong data-historical-entry-title>{proposedLine(goal.created_at)}</strong>
         {status ? <Badge variant="secondary">{status}</Badge> : null}
       </div>
       {goal.rationale ? <p data-historical-entry-line>{goal.rationale}</p> : null}

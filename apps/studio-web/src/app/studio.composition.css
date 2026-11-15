@@ -260,7 +260,8 @@
 [data-historical-case-refusal],
 [data-client-health-screen],
 [data-client-body-screen],
-[data-client-nutrition-screen] {
+[data-client-nutrition-screen],
+[data-client-nutrition-goals-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -1101,7 +1102,8 @@
   top: var(--afo-space-5);
 }
 
-[data-trajectory-body] {
+[data-trajectory-body],
+[data-goal-proposal-form] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -1512,7 +1514,8 @@
 [data-relationship-grant-identity],
 [data-client-health-claim],
 [data-client-body-photo-identity],
-[data-client-nutrition-item] {
+[data-client-nutrition-item],
+[data-client-nutrition-goal-targets] {
   display: grid;
   gap: var(--afo-space-1);
 }
@@ -1598,7 +1601,8 @@
 [data-client-health-panel-placeholder],
 [data-client-body-panel-placeholder],
 [data-authorized-photo-placeholder],
-[data-client-nutrition-panel-placeholder] {
+[data-client-nutrition-panel-placeholder],
+[data-client-nutrition-goals-placeholder] {
   height: 12rem;
 }
 
@@ -1801,7 +1805,8 @@
 [data-historical-case],
 [data-historical-entry],
 [data-client-body-photo],
-[data-client-nutrition-meal] {
+[data-client-nutrition-meal],
+[data-client-nutrition-goal] {
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
@@ -1812,7 +1817,8 @@
 [data-historical-cases-list] > li:first-child [data-historical-case],
 [data-historical-entries] > li:first-child [data-historical-entry],
 [data-client-body-photo-list] > li:first-child [data-client-body-photo],
-[data-client-nutrition-meal-list] > li:first-child [data-client-nutrition-meal] {
+[data-client-nutrition-meal-list] > li:first-child [data-client-nutrition-meal],
+[data-client-nutrition-goal-list] > li:first-child [data-client-nutrition-goal] {
   padding-block-start: 0;
   border-block-start: none;
 }
@@ -1822,7 +1828,9 @@
 [data-historical-entry-head],
 [data-client-body-photo-head],
 [data-client-nutrition-meal-head],
-[data-client-nutrition-range-actions] {
+[data-client-nutrition-range-actions],
+[data-client-nutrition-goal-head],
+[data-goal-proposal-controls] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1838,7 +1846,9 @@
 [data-client-health-claim-description],
 [data-client-nutrition-meal-title],
 [data-client-nutrition-meal-note],
-[data-client-nutrition-item-line] {
+[data-client-nutrition-item-line],
+[data-client-nutrition-goal-title],
+[data-client-nutrition-goal-rationale] {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1849,7 +1859,10 @@
 [data-historical-case-reason],
 [data-client-health-claim-description],
 [data-client-health-claim-meta],
-[data-client-nutrition-meal-note] {
+[data-client-nutrition-meal-note],
+[data-client-nutrition-goal-rationale],
+[data-client-nutrition-goal-decision],
+[data-client-nutrition-goals-none] {
   margin: 0;
 }
 
@@ -1865,7 +1878,9 @@
 [data-client-body-more],
 [data-client-body-more-failure],
 [data-client-nutrition-more],
-[data-client-nutrition-more-failure] {
+[data-client-nutrition-more-failure],
+[data-client-nutrition-goals-more],
+[data-client-nutrition-goals-more-failure] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -2144,7 +2159,8 @@
 [data-client-health-claims],
 [data-client-body-photo-list],
 [data-client-nutrition-meal-list],
-[data-client-nutrition-item-list] {
+[data-client-nutrition-item-list],
+[data-client-nutrition-goal-list] {
   display: grid;
   gap: var(--afo-space-3);
   margin: 0;
@@ -2177,7 +2193,10 @@
 [data-client-nutrition-meal-photo],
 [data-client-nutrition-item-nutrients],
 [data-client-nutrition-range-note],
-[data-client-nutrition-summary-meals] {
+[data-client-nutrition-summary-meals],
+[data-client-nutrition-goal-decision],
+[data-goal-proposal-unit],
+[data-goal-proposal-joiner] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }
@@ -3468,4 +3487,15 @@
    screen wide; the cap keeps each one the size of a date. */
 [data-client-nutrition-range] {
   max-inline-size: min(100%, 32rem);
+}
+
+/* A target is a short number beside its kind. At full width each row took three
+   lines, and the six rows ran past the dialog twice; the select keeps one width
+   so changing the kind does not move the values beside it. */
+[data-goal-proposal-mode] {
+  inline-size: 9rem;
+}
+
+[data-goal-proposal-amount] {
+  inline-size: 6rem;
 }

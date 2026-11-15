@@ -49,6 +49,7 @@ import {
   type ClientBodyProgressPage,
   type ClientNutritionMealPage,
   type ClientNutritionDailySummaryPage,
+  type ClientNutritionGoalHistory,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -314,6 +315,18 @@ export const studioQueryKeys = {
       'client-nutrition-meal-photo',
       personId,
       mealId,
+    ] as const,
+  /* Without the limit: a proposal refreshes every page size of her goals at once. */
+  clientNutritionGoalsRoot: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-nutrition-goals', personId] as const,
+  clientNutritionGoals: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-goals',
+      personId,
+      { limit },
     ] as const,
 } as const
 
@@ -1550,6 +1563,34 @@ export function clientNutritionMealPhotoQueryOptions(
     staleTime: Infinity,
     gcTime: 0,
     retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * What this relationship proposed her and the goal she follows now, a page at a
+ * time, under the rules of every read of hers: never remembered, never refetched
+ * on its own. Her active goal travels with every page; the first one is read.
+ */
+export function clientNutritionGoalsQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientNutritionGoals(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientNutritionGoalHistory> =>
+      studioApi.clientNutritionGoalVersions(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })

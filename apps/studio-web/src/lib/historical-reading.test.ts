@@ -1,29 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  cutLine,
-  decisionLine,
-  goalStatusLabel,
-  historicalSections,
-  readFailure,
-  targetLine,
-} from './historical-reading'
-import type { ClientNutritionGoalTarget, ScopeCode } from './studio-api'
+import { cutLine, goalStatusLabel, historicalSections, readFailure } from './historical-reading'
+import type { ScopeCode } from './studio-api'
 
 function frozen(...codes: ScopeCode[]) {
   return codes.map((code) => ({ code, version: 1, frozen_at: '2025-06-30T22:41:19.204Z' }))
-}
-
-function target(overrides: Partial<ClientNutritionGoalTarget> = {}): ClientNutritionGoalTarget {
-  return {
-    nutrient_code: 'protein',
-    mode: 'minimum',
-    minimum: 120,
-    maximum: null,
-    exact: null,
-    unit: 'g',
-    ...overrides,
-  }
 }
 
 describe('HU-062 criterion 2: only what has a historical read is drawn', () => {
@@ -61,45 +42,6 @@ describe('the goals this relationship proposed, as they stood at the cut', () =>
     expect(goalStatusLabel('accepted')).toBe('Aceptado')
     expect(goalStatusLabel('superseded')).toBe('Reemplazado')
     expect(goalStatusLabel(null)).toBeNull()
-  })
-
-  test('says a target the way it was set', () => {
-    expect(targetLine(target())).toBe('Proteína: al menos 120 g')
-    expect(targetLine(target({ mode: 'maximum', minimum: null, maximum: 70 }))).toBe(
-      'Proteína: hasta 70 g',
-    )
-    expect(targetLine(target({ mode: 'range', minimum: 200, maximum: 250 }))).toBe(
-      'Proteína: entre 200 y 250 g',
-    )
-    expect(
-      targetLine(
-        target({
-          nutrient_code: 'energy',
-          mode: 'exact',
-          minimum: null,
-          exact: 2100,
-          unit: 'kcal',
-        }),
-      ),
-    ).toBe('Energía: 2.100 kcal')
-  })
-
-  test('a target with nothing readable is left out', () => {
-    expect(
-      targetLine(
-        target({ nutrient_code: null, mode: null, minimum: null, maximum: null, unit: null }),
-      ),
-    ).toBeNull()
-  })
-
-  test('says what she decided, and when', () => {
-    expect(decisionLine({ decision: 'accepted', decided_at: '2025-05-10T15:00:00Z' })).toStartWith(
-      'Lo aceptó el ',
-    )
-    expect(decisionLine({ decision: 'rejected', decided_at: '2025-05-10T15:00:00Z' })).toStartWith(
-      'Lo rechazó el ',
-    )
-    expect(decisionLine(null)).toBeNull()
   })
 })
 

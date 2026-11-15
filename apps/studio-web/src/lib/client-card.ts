@@ -147,6 +147,11 @@ const DOORS: readonly { read: CardRead; label: string; segment: string }[] = [
   },
   // Her daily totals are read on this screen too, above the meals: no door of their own.
   { read: 'listAuthorizedClientNutritionMeals', label: 'Ver sus comidas', segment: 'nutrition' },
+  {
+    read: 'listAuthorizedClientNutritionGoalVersions',
+    label: 'Ver sus objetivos',
+    segment: 'nutrition-goals',
+  },
 ]
 
 /**
@@ -235,4 +240,9 @@ export function clientBodyProgressPath(organizationId: string, personId: string)
 /** What she eats: her meals, and each day's totals beside them. */
 export function clientNutritionPath(organizationId: string, personId: string): string {
   return `${clientCardPath(organizationId, personId)}/nutrition`
+}
+
+/** The goals this relationship proposed her: a category apart from her meals. */
+export function clientNutritionGoalsPath(organizationId: string, personId: string): string {
+  return `${clientCardPath(organizationId, personId)}/nutrition-goals`
 }
