@@ -36,9 +36,9 @@ export type WaitlistOperation = (typeof WAITLIST_OPERATIONS)[number]
 
 /**
  * The privacy policy a person authorizes by joining: the text on www.allfit.one that
- * describes the waitlist, as of 10 November 2026. Change it whenever that text changes.
+ * describes the waitlist, as of 15 November 2026. Change it whenever that text changes.
  */
-export const PRIVACY_POLICY_VERSION = '2026-11-10'
+export const PRIVACY_POLICY_VERSION = '2026-11-15'
 
 export const DEVICE_COOKIE = 'allfit_space_device'
 /** Long enough to outlast the waitlist, which closes when Allfit Space opens. */
