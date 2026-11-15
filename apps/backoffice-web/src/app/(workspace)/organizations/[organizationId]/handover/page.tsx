@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { OrganizationHandover } from '@/components/organization-handover'
 
 export const metadata: Metadata = {
-  title: 'Entrega del gimnasio · Allfit Backoffice',
+  title: 'Entrega del gimnasio | Allfit Backoffice',
 }
 
 export default async function OrganizationHandoverPage({

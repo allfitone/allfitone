@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { SupportPeopleSearch } from '@/components/support-people-search'
 
 export const metadata: Metadata = {
-  title: 'Personas · Allfit Backoffice',
+  title: 'Personas | Allfit Backoffice',
 }
 
 export default function SupportPeoplePage() {

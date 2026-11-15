@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { SupportPersonCard } from '@/components/support-person-card'
 
 export const metadata: Metadata = {
-  title: 'Estado operativo · Allfit Backoffice',
+  title: 'Estado operativo | Allfit Backoffice',
 }
 
 export default async function SupportPersonPage({

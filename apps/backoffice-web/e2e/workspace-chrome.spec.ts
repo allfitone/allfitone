@@ -90,7 +90,7 @@ test('the Backoffice asks its operators nothing about analytics', async ({ conte
 test('lights one navigation entry, the one the screen is', async ({ context, page }) => {
   await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
   await page.goto('/catalogue/result-contracts')
-  await expect(page).toHaveTitle('Reglas de resultados · Allfit Backoffice')
+  await expect(page).toHaveTitle('Reglas de resultados | Allfit Backoffice')
 
   // The library marks the lit entry with a bare `data-active` attribute.
   const active = page.locator('[data-backoffice-sidebar] a[data-active]:not([data-active="false"])')
