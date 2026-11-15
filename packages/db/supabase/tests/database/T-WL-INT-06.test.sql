@@ -153,7 +153,8 @@ select is(
   jsonb_build_object(
     'name', 'Bruno Díaz', 'email', 'p2@example.com', 'language', 'es', 'founding_number', 2,
     'channel', jsonb_build_object('kind', 'source', 'source', 'instagram'),
-    'discard_reason', null, 'fraud', null, 'referrals', 0, 'referrals_sharing_connection', 0
+    'discard_reason', null, 'fraud', null, 'fraud_withdrawal', null, 'referrals', 0,
+    'referrals_sharing_connection', 0
   ),
   'a sign-up reads with its name, its email, its number and the source its link named'
 );

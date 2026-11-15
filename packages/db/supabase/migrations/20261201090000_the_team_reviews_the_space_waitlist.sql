@@ -1,5 +1,6 @@
--- The team reviews the Allfit Space waitlist in the Backoffice, and marks a sign-up as
--- fraud (`OP-WL-011`, `OP-WL-012`; HU-BO-035; ADR-050, decisions 3 and 5).
+-- The team reviews the Allfit Space waitlist in the Backoffice, marks a sign-up as fraud
+-- and takes that mark back (`OP-WL-011`, `OP-WL-012`, `OP-WL-016`; HU-BO-035; ADR-050,
+-- decisions 3 and 5).
 --
 -- **Who.** A person of the team with the `manage_platform_commercial` duty, in a
 -- Backoffice session at AAL2. The duty is checked here, in every function, and the
@@ -11,11 +12,17 @@
 -- the connection and the device never leave the database: the answer says only how many
 -- of a sign-up's referrals share a connection, which is the signal ADR-050 asks for.
 --
--- **Marking fraud is recorded, and it is not undone here.** The sign-up stops counting
--- for whoever invited it, and it gives up its Founding Member number, which goes to the
--- next sign-up in line with its email. The record keeps the reason, the number released
--- and the duty assignment, and it names the sign-up by its identifier alone, so it holds
--- no personal data once the sign-up is deleted.
+-- **Marking fraud is recorded.** The sign-up stops counting for whoever invited it, and
+-- it gives up its Founding Member number, which goes to the next sign-up in line with its
+-- email. The record keeps the reason, the number released and the duty assignment, and it
+-- names the sign-up by its identifier alone, so it holds no personal data once the
+-- sign-up is deleted.
+--
+-- **So is taking the mark back.** A mark can be a mistake, so the team withdraws it with
+-- a reason. The sign-up returns to what it was before the mark, with two limits: the
+-- number it gave up is somebody else's by then, so it waits in line for the next one
+-- free; and if its device came to count for the same inviter in the meantime, it returns
+-- as a repeated device rather than counting twice.
 --
 -- **Not here:** whether a sign-up already has an Allfit Space account. Linking is
 -- `OP-WL-006` (`TECH-299`), and nothing links yet.
@@ -42,7 +49,9 @@ create table waitlist.signup_events (
   constraint fk_signup_events_actor foreign key (actor_person_id) references identity.people (id) on delete restrict,
   constraint fk_signup_events_duty foreign key (actor_duty_assignment_id) references support.platform_duty_assignments (id) on delete restrict,
   constraint ck_signup_events_event_type check (
-    event_type in ('waitlist.signup_marked_as_fraud.v1')
+    event_type in (
+      'waitlist.signup_marked_as_fraud.v1', 'waitlist.signup_fraud_mark_withdrawn.v1'
+    )
   ),
   constraint ck_signup_events_reason check (
     reason = btrim(reason) and char_length(reason) between 4 and 200 and reason !~ '[[:cntrl:]]'
@@ -51,13 +60,18 @@ create table waitlist.signup_events (
     previous_discard_reason is null
     or previous_discard_reason in ('self_referral', 'same_device')
   ),
-  constraint ck_signup_events_released_number check (released_founding_number between 1 and 100)
+  constraint ck_signup_events_released_number check (released_founding_number between 1 and 100),
+  constraint ck_signup_events_withdrawal_releases_nothing check (
+    event_type <> 'waitlist.signup_fraud_mark_withdrawn.v1' or released_founding_number is null
+  )
 );
 
--- A sign-up is marked once.
-create unique index uidx_signup_events_fraud
-  on waitlist.signup_events (signup_id)
-  where event_type = 'waitlist.signup_marked_as_fraud.v1';
+-- A sign-up is marked, unmarked and marked again: its latest event says where it stands.
+create index idx_signup_events_signup
+  on waitlist.signup_events (signup_id, occurred_at);
+
+comment on column waitlist.signup_events.previous_discard_reason is
+  'Why the sign-up did not count before a mark; what it returns to when the mark is withdrawn.';
 
 alter table waitlist.signup_events owner to allfit_owner;
 alter table waitlist.signup_events enable row level security;
@@ -170,11 +184,27 @@ as $function$
       where inviter.id = signup.invited_by_signup_id
     ),
     'discard_reason', signup.discard_reason,
+    -- The mark that stands, or the withdrawal of the last one: never both.
     'fraud', (
-      select jsonb_build_object('reason', event.reason, 'marked_at', event.occurred_at)
+      select jsonb_build_object(
+        'reason', event.reason, 'marked_at', event.occurred_at,
+        'previous_discard_reason', event.previous_discard_reason
+      )
       from waitlist.signup_events as event
       where event.signup_id = signup.id
         and event.event_type = 'waitlist.signup_marked_as_fraud.v1'
+        and signup.discard_reason = 'fraud'
+      order by event.occurred_at desc, event.id desc
+      limit 1
+    ),
+    'fraud_withdrawal', (
+      select jsonb_build_object('reason', event.reason, 'withdrawn_at', event.occurred_at)
+      from waitlist.signup_events as event
+      where event.signup_id = signup.id
+        and event.event_type = 'waitlist.signup_fraud_mark_withdrawn.v1'
+        and signup.discard_reason is distinct from 'fraud'
+      order by event.occurred_at desc, event.id desc
+      limit 1
     ),
     'referrals', waitlist.referral_count(signup.id),
     -- Referrals whose connection is this sign-up's own, or another referral's.
@@ -469,6 +499,109 @@ end
 $function$;
 
 -- ---------------------------------------------------------------------------
+-- OP-WL-016 — take a fraud mark back
+-- ---------------------------------------------------------------------------
+
+create function waitlist.withdraw_fraud_mark(
+  p_actor_person_id uuid,
+  p_actor_session_id uuid,
+  p_signup_id uuid,
+  p_reason text,
+  p_idempotency_key uuid,
+  p_command_id uuid,
+  p_request_hash bytea
+)
+returns table (result jsonb, replayed boolean)
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+declare
+  duty_id uuid;
+  receipt record;
+  target waitlist.signups%rowtype;
+  restored text;
+  reason text := btrim(p_reason);
+begin
+  duty_id := waitlist.require_waitlist_reviewer(p_actor_person_id, p_actor_session_id);
+
+  if reason is null or char_length(reason) < 4 or char_length(reason) > 200
+     or reason ~ '[[:cntrl:]]' then
+    raise exception 'a fraud mark is taken back with a reason' using errcode = '22023';
+  end if;
+
+  -- Locked before its state is read, so two people acting at once leave one record.
+  select signup.* into target
+  from waitlist.signups as signup
+  where signup.id = p_signup_id
+  for update;
+  if target.id is null then
+    raise exception 'waitlist sign-up not found' using errcode = 'P0002';
+  end if;
+
+  select * into receipt
+  from system.begin_idempotency(
+    p_actor_person_id, 'backoffice'::system.command_surface, 'backoffice',
+    'OP-WL-016', p_idempotency_key, p_command_id, p_request_hash
+  );
+  if not receipt.claimed then
+    if receipt.aggregate_id is null then
+      raise exception 'idempotent fraud mark withdrawal not found' using errcode = '40001';
+    end if;
+    return query select waitlist.backoffice_signup_projection(receipt.aggregate_id), true;
+    return;
+  end if;
+
+  if target.discard_reason is distinct from 'fraud' then
+    raise exception 'the sign-up is not marked as fraud' using errcode = '55000';
+  end if;
+
+  select event.previous_discard_reason into restored
+  from waitlist.signup_events as event
+  where event.signup_id = p_signup_id
+    and event.event_type = 'waitlist.signup_marked_as_fraud.v1'
+  order by event.occurred_at desc, event.id desc
+  limit 1;
+
+  -- A device counts once for an inviter: another sign-up may have taken its place since.
+  if restored is null and target.invited_by_signup_id is not null
+     and target.device_hash is not null and exists (
+       select 1
+       from waitlist.signups as counted
+       where counted.invited_by_signup_id = target.invited_by_signup_id
+         and counted.id <> target.id
+         and counted.discard_reason is null
+         and counted.device_hash = target.device_hash
+     ) then
+    restored := 'same_device';
+  end if;
+
+  update waitlist.signups
+  set discard_reason = restored
+  where id = p_signup_id;
+
+  insert into waitlist.signup_events (
+    signup_id, event_type, reason, previous_discard_reason, actor_person_id,
+    actor_duty_assignment_id
+  ) values (
+    p_signup_id, 'waitlist.signup_fraud_mark_withdrawn.v1', reason, restored,
+    p_actor_person_id, duty_id
+  );
+
+  -- Back in line for a number, where its confirmation puts it. Its old one is not kept.
+  if target.confirmed_at is not null then
+    perform waitlist.fill_founding_numbers();
+  end if;
+
+  perform system.finish_idempotency(
+    receipt.receipt_id, 200::smallint, 'waitlist-signup-fraud-mark-withdrawn',
+    'waitlist_signup', p_signup_id
+  );
+  return query select waitlist.backoffice_signup_projection(p_signup_id), false;
+end
+$function$;
+
+-- ---------------------------------------------------------------------------
 -- Grants
 -- ---------------------------------------------------------------------------
 
@@ -481,6 +614,8 @@ alter function waitlist.list_backoffice_signups(uuid, uuid, text, text, integer,
 alter function waitlist.read_backoffice_totals(uuid, uuid) owner to allfit_owner;
 alter function waitlist.mark_signup_as_fraud(uuid, uuid, uuid, text, uuid, uuid, bytea)
   owner to allfit_owner;
+alter function waitlist.withdraw_fraud_mark(uuid, uuid, uuid, text, uuid, uuid, bytea)
+  owner to allfit_owner;
 
 revoke all on function waitlist.reject_signup_event_rewrite() from public, allfit_api;
 revoke all on function waitlist.require_waitlist_reviewer(uuid, uuid) from public, allfit_api;
@@ -491,9 +626,13 @@ revoke all on function waitlist.list_backoffice_signups(uuid, uuid, text, text, 
 revoke all on function waitlist.read_backoffice_totals(uuid, uuid) from public;
 revoke all on function waitlist.mark_signup_as_fraud(uuid, uuid, uuid, text, uuid, uuid, bytea)
   from public;
+revoke all on function waitlist.withdraw_fraud_mark(uuid, uuid, uuid, text, uuid, uuid, bytea)
+  from public;
 
 grant execute on function waitlist.list_backoffice_signups(uuid, uuid, text, text, integer, uuid)
   to allfit_api;
 grant execute on function waitlist.read_backoffice_totals(uuid, uuid) to allfit_api;
 grant execute on function waitlist.mark_signup_as_fraud(uuid, uuid, uuid, text, uuid, uuid, bytea)
+  to allfit_api;
+grant execute on function waitlist.withdraw_fraud_mark(uuid, uuid, uuid, text, uuid, uuid, bytea)
   to allfit_api;
