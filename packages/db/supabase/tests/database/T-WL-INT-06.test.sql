@@ -154,9 +154,9 @@ select is(
     'name', 'Bruno Díaz', 'email', 'p2@example.com', 'language', 'es', 'founding_number', 2,
     'channel', jsonb_build_object('kind', 'source', 'source', 'instagram'),
     'discard_reason', null, 'fraud', null, 'fraud_withdrawal', null, 'referrals', 0,
-    'referrals_sharing_connection', 0
+    'referrals_sharing_connection', 0, 'has_space_account', false
   ),
-  'a sign-up reads with its name, its email, its number and the source its link named'
+  'a sign-up reads with its name, its email, its number, the source its link named, and no account yet'
 );
 select is(
   pg_temp.row_of(2) -> 'invited_by',

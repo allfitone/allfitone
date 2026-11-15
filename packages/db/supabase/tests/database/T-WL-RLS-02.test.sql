@@ -250,7 +250,8 @@ select is(
   )) as key),
   array[
     'channel', 'confirmed_at', 'discard_reason', 'email', 'founding_number', 'fraud',
-    'fraud_withdrawal', 'id', 'invited_by', 'joined_at', 'language', 'name',
+    'fraud_withdrawal', 'has_space_account', 'id', 'invited_by', 'joined_at', 'language',
+    'name',
     'referral_code', 'referrals', 'referrals_sharing_connection'
   ],
   'and what it reads of a sign-up holds no hash of the connection or the device'

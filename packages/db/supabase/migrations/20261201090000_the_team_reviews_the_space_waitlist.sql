@@ -24,8 +24,9 @@
 -- free; and if its device came to count for the same inviter in the meantime, it returns
 -- as a repeated device rather than counting twice.
 --
--- **Not here:** whether a sign-up already has an Allfit Space account. Linking is
--- `OP-WL-006` (`TECH-299`), and nothing links yet.
+-- **«Has an account» is always no for now.** Linking a sign-up to its Allfit Space
+-- account is `OP-WL-006` (`TECH-299`) and nothing links yet. The owner asked for the
+-- column to be on the screen already, so the answer carries it as false until then.
 
 set lock_timeout = '5s';
 set statement_timeout = '60s';
@@ -215,6 +216,8 @@ as $function$
       order by event.occurred_at desc, event.id desc
       limit 1
     ),
+    -- Nothing links a sign-up to an account until `OP-WL-006`; that operation sets this.
+    'has_space_account', false,
     'referrals', waitlist.referral_count(signup.id),
     -- Referrals whose connection is this sign-up's own, or another referral's.
     'referrals_sharing_connection', (
