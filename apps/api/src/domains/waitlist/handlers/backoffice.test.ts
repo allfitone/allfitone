@@ -53,6 +53,7 @@ const signup: AllfitV1Schemas['BackofficeWaitlistSignup'] = {
   fraud_withdrawal: null,
   referrals: 3,
   referrals_sharing_connection: 2,
+  has_space_account: false,
 }
 
 const marked: AllfitV1Schemas['BackofficeWaitlistSignup'] = {

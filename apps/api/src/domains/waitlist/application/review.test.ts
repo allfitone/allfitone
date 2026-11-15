@@ -39,6 +39,7 @@ function signup(n: number): BackofficeWaitlistSignup {
     fraud_withdrawal: null,
     referrals: 0,
     referrals_sharing_connection: 0,
+    has_space_account: false,
   }
 }
 
