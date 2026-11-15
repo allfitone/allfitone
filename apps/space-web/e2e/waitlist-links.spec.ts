@@ -46,6 +46,23 @@ test.describe('the confirmation link', () => {
     expect(requests).toHaveLength(1)
   })
 
+  test('one of the first hundred reads their number and how to activate it', async ({ page }) => {
+    await answer(page, 'confirmations', 200, { status: 'confirmed', founding_number: 37 })
+    await page.goto(`/es/waitlist/confirm#token=${TOKEN}`)
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Eres Founding Member #037.')
+    await expect(page.getByText(/tu número queda reservado/)).toBeVisible()
+    await expect(page.getByText(/en los 7 días siguientes al lanzamiento/)).toBeVisible()
+  })
+
+  test('a Founding Member who opens the link again still reads their number', async ({ page }) => {
+    await answer(page, 'confirmations', 200, { status: 'already_confirmed', founding_number: 4 })
+    await page.goto(`/en/waitlist/confirm#token=${TOKEN}`)
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('You’re Founding Member #004.')
+    await expect(page.getByText(/was already confirmed/)).toBeVisible()
+  })
+
   test('an address confirmed before says so, and a refresh still finds the token', async ({
     page,
   }) => {
@@ -95,6 +112,22 @@ test.describe('«mi link»', () => {
     await expect(page.getByText('Registrados con tu link: 7.')).toBeVisible()
     await expect(page.getByText('Te falta confirmar tu correo.')).toHaveCount(0)
     expect(requests.map((request) => request.postDataJSON() as unknown)).toEqual([{ token: TOKEN }])
+  })
+
+  test('a Founding Member sees their number above their code', async ({ page }) => {
+    await answer(page, 'link-reads', 200, { ...LINK, founding_number: 37 })
+    await page.goto(`/es/waitlist/referrals#token=${TOKEN}`)
+
+    await expect(page.getByLabel('Founding Member')).toHaveText('#037')
+    await expect(page.getByText('KEVIN7QH', { exact: true })).toBeVisible()
+  })
+
+  test('somebody without a number sees no mention of one', async ({ page }) => {
+    await answer(page, 'link-reads', 200, LINK)
+    await page.goto(`/es/waitlist/referrals#token=${TOKEN}`)
+
+    await expect(page.getByText('KEVIN7QH', { exact: true })).toBeVisible()
+    await expect(page.getByText('Founding Member')).toHaveCount(0)
   })
 
   test('an unconfirmed address is reminded to confirm', async ({ page }) => {

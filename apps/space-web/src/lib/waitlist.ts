@@ -115,6 +115,14 @@ export interface WaitlistLink {
   code: string
   referrals: number
   confirmed: boolean
+  /** Their Founding Member number, 1 to 100, when they hold one. */
+  foundingNumber: number | null
+}
+
+/** What confirming answers: whether it confirmed now or before, and the number held. */
+export interface WaitlistConfirmation {
+  status: 'confirmed' | 'already_confirmed'
+  foundingNumber: number | null
 }
 
 /** Why a request failed, as far as a page can act on it. */
@@ -133,6 +141,21 @@ const isCount = (value: unknown): value is number =>
 const fieldsOf = (body: unknown): Record<string, unknown> =>
   typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}
 
+/** One of the hundred numbers, or `null` for anything else the answer carries there. */
+function foundingNumberOf(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 100
+    ? value
+    : null
+}
+
+/**
+ * «#037»: three digits. The emails write it the same way (`packages/notifications`),
+ * a copy kept on purpose: that package is server code this page cannot load.
+ */
+export function foundingNumberLabel(value: number): string {
+  return `#${String(value).padStart(3, '0')}`
+}
+
 /** Reads joining's answer, refusing anything that is not one of its two shapes. */
 export function parseJoin(body: unknown): WaitlistJoinResult {
   const { status, referral_code: code, referrals } = fieldsOf(body)
@@ -144,12 +167,21 @@ export function parseJoin(body: unknown): WaitlistJoinResult {
 
 /** Reads a private link's answer, refusing anything without a code and a count. */
 export function parseLink(body: unknown): WaitlistLink {
-  const { referral_code: code, referrals, confirmed } = fieldsOf(body)
+  const { referral_code: code, referrals, confirmed, founding_number: founding } = fieldsOf(body)
   const valid = normalizeReferralCode(code)
   if (!valid || !isCount(referrals) || typeof confirmed !== 'boolean') {
     throw new WaitlistRequestError('unavailable')
   }
-  return { code: valid, referrals, confirmed }
+  return { code: valid, referrals, confirmed, foundingNumber: foundingNumberOf(founding) }
+}
+
+/** Reads confirming's answer, refusing anything that is not one of its two outcomes. */
+export function parseConfirmation(body: unknown): WaitlistConfirmation {
+  const { status, founding_number: founding } = fieldsOf(body)
+  if (status !== 'confirmed' && status !== 'already_confirmed') {
+    throw new WaitlistRequestError('unavailable')
+  }
+  return { status, foundingNumber: foundingNumberOf(founding) }
 }
 
 /** The failure a page shows for an answer it did not expect. */
@@ -207,13 +239,10 @@ export async function requestWaitlistEmail(email: string): Promise<void> {
 /** Confirms the email a confirmation link was sent to; `invalid` for a link that is not one. */
 export async function confirmWaitlistEmail(
   token: string,
-): Promise<'confirmed' | 'already_confirmed' | 'invalid'> {
+): Promise<WaitlistConfirmation | 'invalid'> {
   const { status, body } = await post('confirmations', { token })
   if (status === 404) return 'invalid'
-  const outcome = fieldsOf(body).status
-  if (status === 200 && (outcome === 'confirmed' || outcome === 'already_confirmed')) {
-    return outcome
-  }
+  if (status === 200) return parseConfirmation(body)
   throw failureOf(status, body)
 }
 

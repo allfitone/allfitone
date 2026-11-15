@@ -26,6 +26,7 @@ import type { Locale } from '@/lib/locale'
 import { CONTACT_EMAIL } from '@/lib/site'
 import {
   confirmWaitlistEmail,
+  foundingNumberLabel,
   isPlausibleEmail,
   LEAVE_PATH,
   leaveWaitlist,
@@ -34,6 +35,7 @@ import {
   requestWaitlistEmail,
   WAITLIST_PATH,
   WaitlistRequestError,
+  type WaitlistConfirmation,
   type WaitlistFailureReason,
   type WaitlistLink,
 } from '@/lib/waitlist'
@@ -237,7 +239,7 @@ function useOncePerAttempt(
   }, [token, attempt, send])
 }
 
-type ConfirmState = 'pending' | 'confirmed' | 'already_confirmed' | 'invalid' | Failed
+type ConfirmState = 'pending' | 'invalid' | WaitlistConfirmation | Failed
 
 export function ConfirmEmail({ locale, copy, form }: PageProps) {
   const token = useLinkToken('confirmation')
@@ -266,12 +268,24 @@ export function ConfirmEmail({ locale, copy, form }: PageProps) {
     )
   }
 
-  const confirmed = state === 'confirmed'
+  const confirmed = state.status === 'confirmed'
+  // One of the hundred: the number is the news, whether the link was opened before or not.
+  const founding = state.foundingNumber === null ? null : foundingNumberLabel(state.foundingNumber)
+  const title = founding
+    ? copy.confirm.foundingTitle.replace('{number}', founding)
+    : confirmed
+      ? copy.confirm.confirmedTitle
+      : copy.confirm.alreadyTitle
+  const body = founding
+    ? confirmed
+      ? copy.confirm.foundingBody
+      : copy.confirm.foundingAlreadyBody
+    : confirmed
+      ? copy.confirm.confirmedBody
+      : copy.confirm.alreadyBody
   return (
-    <Panel title={confirmed ? copy.confirm.confirmedTitle : copy.confirm.alreadyTitle}>
-      <p className="joined__body">
-        {confirmed ? copy.confirm.confirmedBody : copy.confirm.alreadyBody}
-      </p>
+    <Panel title={title}>
+      <p className="joined__body">{body}</p>
       <div className="link-panel__actions">
         <Link className="pill-link" href={`/${locale}`}>
           {copy.home}
@@ -292,6 +306,7 @@ export function ReferralsLink({
   const token = useLinkToken('private')
   const [state, setState] = useState<ReferralsState>('loading')
   const [attempt, setAttempt] = useState(0)
+  const foundingId = useId()
   const send = useRef((value: string) => {
     readWaitlistLink(value).then(setState, (error: unknown) => {
       setState({ failed: reasonOf(error) })
@@ -322,6 +337,16 @@ export function ReferralsLink({
         <div className="link-notice" role="note">
           <p className="link-notice__title">{copy.referrals.unconfirmedTitle}</p>
           <p>{copy.referrals.unconfirmedBody}</p>
+        </div>
+      )}
+      {state.foundingNumber === null ? null : (
+        <div className="founding-number">
+          <p className="field__label" id={foundingId}>
+            {copy.referrals.foundingLabel}
+          </p>
+          <p className="founding-number__value" aria-labelledby={foundingId}>
+            {foundingNumberLabel(state.foundingNumber)}
+          </p>
         </div>
       )}
       <WaitlistShare
