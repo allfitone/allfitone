@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { BillingFollowUp } from '@/components/billing-follow-up'
 
 export const metadata: Metadata = {
-  title: 'Cobros por seguir · Allfit Backoffice',
+  title: 'Cobros por seguir | Allfit Backoffice',
 }
 
 export default function BillingFollowUpPage() {

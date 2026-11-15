@@ -70,7 +70,7 @@ import {
   backofficePlatformAccessRoutes,
   backofficeSupportMetadataRoutes,
 } from './domains/support/index.js'
-import { spaceWaitlistRoutes } from './domains/waitlist/index.js'
+import { backofficeWaitlistRoutes, spaceWaitlistRoutes } from './domains/waitlist/index.js'
 import { clientTelemetryConfigRoutes } from './platform/telemetry/client-config.js'
 
 export function mountSurfaces(app: Hono): void {
@@ -166,6 +166,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/backoffice/v1/catalog', backofficeCatalogReadRoutes())
   app.route('/backoffice/v1', backofficeOrganizationRoutes())
   app.route('/backoffice/v1', backofficePlatformPlanRoutes())
+  app.route('/backoffice/v1', backofficeWaitlistRoutes())
 
   // Space reads the global catalogue here with a bearer token. A web product reads
   // it on its own surface, because its session cookie never travels to this path.

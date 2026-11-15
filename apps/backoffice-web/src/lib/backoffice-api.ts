@@ -33,6 +33,9 @@ export type BackofficeOrganizationFile = AllfitV1Schemas['BackofficeOrganization
 export type OrganizationHandoverCreate = AllfitV1Schemas['OrganizationHandoverCreate']
 export type OrganizationGuestQuota = AllfitV1Schemas['OrganizationGuestQuota']
 export type OrganizationGuestQuotaDecision = AllfitV1Schemas['OrganizationGuestQuotaDecision']
+export type BackofficeWaitlistSignup = AllfitV1Schemas['BackofficeWaitlistSignup']
+export type BackofficeWaitlistSignupPage = AllfitV1Schemas['BackofficeWaitlistSignupPage']
+export type BackofficeWaitlistTotals = AllfitV1Schemas['BackofficeWaitlistTotals']
 export type BackofficeClientInvitation = AllfitV1Schemas['BackofficeClientInvitation']
 export type BackofficeClientInvitationList = AllfitV1Schemas['BackofficeClientInvitationList']
 export type BackofficeClientInvitationResend = AllfitV1Schemas['BackofficeClientInvitationResend']
@@ -607,6 +610,38 @@ export const backofficeApi = {
         headers: commandHeaders(command),
         body: JSON.stringify(decision),
       },
+    ),
+
+  waitlistSignups: (
+    filters: {
+      q?: string | undefined
+      filter?: string | undefined
+      cursor?: string | undefined
+    } = {},
+    signal?: AbortSignal,
+  ) =>
+    requestJson<BackofficeWaitlistSignupPage>(
+      `/backoffice/v1/waitlist/signups${query(filters)}`,
+      signal ? { signal } : {},
+    ),
+
+  waitlistTotals: (signal?: AbortSignal) =>
+    requestJson<BackofficeWaitlistTotals>(
+      '/backoffice/v1/waitlist/totals',
+      signal ? { signal } : {},
+    ),
+
+  markWaitlistSignupAsFraud: (signupId: string, reason: string, command: BackofficeCommand) =>
+    requestJson<BackofficeWaitlistSignup>(`/backoffice/v1/waitlist/signups/${signupId}/fraud`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify({ reason }),
+    }),
+
+  withdrawWaitlistFraudMark: (signupId: string, reason: string, command: BackofficeCommand) =>
+    requestJson<BackofficeWaitlistSignup>(
+      `/backoffice/v1/waitlist/signups/${signupId}/fraud/withdrawal`,
+      { method: 'POST', headers: commandHeaders(command), body: JSON.stringify({ reason }) },
     ),
 
   cancelOrganizationHandover: (organizationId: string, command: BackofficeCommand) =>
