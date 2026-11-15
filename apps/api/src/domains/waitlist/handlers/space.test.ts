@@ -57,7 +57,7 @@ function setup(overrides: Partial<WaitlistService> = {}, environment = ENVIRONME
     },
     confirm: async (token, visitor) => {
       calls.confirm.push({ token, visitor })
-      return 'confirmed'
+      return { outcome: 'confirmed' }
     },
     requestEmail: async (email, visitor) => {
       calls.requestEmail.push({ email, visitor })
@@ -249,16 +249,31 @@ describe('T-WL-API-01 confirming (OP-WL-002)', () => {
     expect(calls.confirm[0]?.token).toBe(TOKEN)
   })
 
-  test('confirming again says so', async () => {
-    const { post } = setup({ confirm: async () => 'already_confirmed' })
+  test('one of the first hundred learns the number they took', async () => {
+    const { post } = setup({
+      confirm: async () => ({ outcome: 'confirmed', foundingNumber: 37 }),
+    })
 
     const response = await post('/waitlist/confirmations', { token: TOKEN })
 
-    expect(await response.json()).toEqual({ status: 'already_confirmed' })
+    expect(await response.json()).toEqual({ status: 'confirmed', founding_number: 37 })
+  })
+
+  test('confirming again says so', async () => {
+    const { post } = setup({
+      confirm: async () => ({ outcome: 'already_confirmed', foundingNumber: 37 }),
+    })
+
+    const response = await post('/waitlist/confirmations', { token: TOKEN })
+
+    expect(await response.json()).toEqual({
+      status: 'already_confirmed',
+      founding_number: 37,
+    })
   })
 
   test('a token the database does not accept answers not-found', async () => {
-    const { post } = setup({ confirm: async () => 'invalid' })
+    const { post } = setup({ confirm: async () => ({ outcome: 'invalid' }) })
 
     expect((await post('/waitlist/confirmations', { token: TOKEN })).status).toBe(404)
   })
@@ -317,6 +332,29 @@ describe('T-WL-API-01 reading «mi link» (OP-WL-004)', () => {
       confirmed: true,
     })
     expect(calls.readLink).toEqual([TOKEN])
+  })
+
+  test('a Founding Member reads their number too', async () => {
+    const { post } = setup({
+      readLink: async () => ({
+        outcome: 'found',
+        referralCode: 'KEVN7QHX',
+        referrals: 4,
+        language: 'es',
+        confirmed: true,
+        foundingNumber: 37,
+      }),
+    })
+
+    const response = await post('/waitlist/link-reads', { token: TOKEN })
+
+    expect(await response.json()).toEqual({
+      referral_code: 'KEVN7QHX',
+      referrals: 4,
+      language: 'es',
+      confirmed: true,
+      founding_number: 37,
+    })
   })
 
   test('a link the database does not know answers not-found', async () => {

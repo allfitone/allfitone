@@ -41,6 +41,10 @@ import {
   createWaitlistEmailDeliveryDatabase,
 } from './waitlist-emails.js'
 import {
+  createWaitlistFoundingEmailBatchProcessor,
+  createWaitlistFoundingEmailDatabase,
+} from './waitlist-founding-emails.js'
+import {
   createWaitlistTeamNoticeBatchProcessor,
   createWaitlistTeamNoticeDatabase,
 } from './waitlist-team-notices.js'
@@ -443,6 +447,16 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         brandAssetUrl,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  // «Eres Founding Member» links to the same pages, so it rides the same switch.
+  const waitlistFoundingEmails = waitlistEmailsEnabled
+    ? createWaitlistFoundingEmailBatchProcessor({
+        queue,
+        database: createWaitlistFoundingEmailDatabase(sql),
+        email,
+        publicBaseUrl: required('WAITLIST_PUBLIC_BASE_URL'),
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   // Not an email, so no delivery switch: the founders' channel address is what turns it on.
   const waitlistTeamNotices = createWaitlistTeamNoticeBatchProcessor({
     queue,
@@ -478,6 +492,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await emailChanges(),
         await passwordChanges(),
         await waitlistEmails(),
+        await waitlistFoundingEmails(),
         await waitlistTeamNotices(),
       ]
       return {

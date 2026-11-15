@@ -100,6 +100,47 @@ export function createWaitlistEmailDeliveryDatabase(
   }
 }
 
+/** A waitlist page on space-web. A bearer token travels in the fragment, never the query. */
+export function waitlistPageUrl(
+  baseUrl: URL,
+  language: EmailLanguage,
+  path: string,
+  token?: string,
+): string {
+  const url = new URL(`${language}/${path}`, baseUrl)
+  if (token) url.hash = `token=${encodeURIComponent(token)}`
+  return url.toString()
+}
+
+/** What every waitlist email carries: the code, the link to share and the private pages. */
+export function waitlistRecipient(parts: {
+  baseUrl: URL
+  brandAssetUrl: string
+  language: EmailLanguage
+  name: string
+  referralCode: string
+  referrals: number
+  privateToken: string
+}) {
+  const referralUrl = new URL(`${parts.language}/waitlist`, parts.baseUrl)
+  referralUrl.searchParams.set('ref', parts.referralCode)
+  return {
+    language: parts.language,
+    name: parts.name,
+    brandAssetUrl: parts.brandAssetUrl,
+    code: parts.referralCode,
+    referralUrl: referralUrl.toString(),
+    referrals: parts.referrals,
+    referralsPageUrl: waitlistPageUrl(
+      parts.baseUrl,
+      parts.language,
+      'waitlist/referrals',
+      parts.privateToken,
+    ),
+    leaveUrl: waitlistPageUrl(parts.baseUrl, parts.language, 'waitlist/leave', parts.privateToken),
+  }
+}
+
 export function createWaitlistEmailBatchProcessor(dependencies: {
   queue: Queue
   database: WaitlistEmailDeliveryDatabase
@@ -125,12 +166,6 @@ export function createWaitlistEmailBatchProcessor(dependencies: {
       deadOrDelayed: results.filter((outcome) => outcome === 'failed').length,
       skipped: results.filter((outcome) => outcome === 'skipped').length,
     }
-  }
-
-  function page(language: EmailLanguage, path: string, token?: string): string {
-    const url = new URL(`${language}/${path}`, baseUrl)
-    if (token) url.hash = `token=${encodeURIComponent(token)}`
-    return url.toString()
   }
 
   async function deliver(message: QueueMessage): Promise<'delivered' | 'failed' | 'skipped'> {
@@ -159,24 +194,21 @@ export function createWaitlistEmailBatchProcessor(dependencies: {
       }
 
       const key = invitationTokenKey(tokenKeyVersion, environment)
-      const privateToken = createWaitlistToken(privateTokenId, key)
-      const referralUrl = new URL(`${language}/waitlist`, baseUrl)
-      referralUrl.searchParams.set('ref', referralCode)
-      const recipient = {
+      const recipient = waitlistRecipient({
+        baseUrl,
+        brandAssetUrl: dependencies.brandAssetUrl,
         language,
         name,
-        brandAssetUrl: dependencies.brandAssetUrl,
-        code: referralCode,
-        referralUrl: referralUrl.toString(),
+        referralCode,
         referrals: delivery.referrals,
-        referralsPageUrl: page(language, 'waitlist/referrals', privateToken),
-        leaveUrl: page(language, 'waitlist/leave', privateToken),
-      }
+        privateToken: createWaitlistToken(privateTokenId, key),
+      })
       const rendered =
         kind === 'confirmation' && delivery.confirmationTokenId && delivery.confirmationExpiresAt
           ? renderWaitlistConfirmationEmail({
               ...recipient,
-              confirmationUrl: page(
+              confirmationUrl: waitlistPageUrl(
+                baseUrl,
                 language,
                 'waitlist/confirm',
                 createWaitlistToken(delivery.confirmationTokenId, key),

@@ -2001,6 +2001,18 @@ button.pill-link {
   font-weight: 700;
 }
 
+/* A Founding Member's number on «mi link», set like the code below it. */
+.founding-number__value {
+  margin: 0;
+  color: var(--cyan);
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(48px, 5.5vw, 72px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  line-height: 0.9;
+}
+
 /* Leaving deletes the sign-up for good: the one filled action that is not cyan. */
 .cta--danger {
   background: var(--afo-color-feedback-danger-strong);

@@ -264,6 +264,11 @@ export const en: Dictionary = {
       confirmedTitle: 'Email confirmed.',
       confirmedBody:
         "Your place on the list counts from now. We'll write to this address when Allfit Space opens.",
+      foundingTitle: 'You’re Founding Member {number}.',
+      foundingBody:
+        'Your email is confirmed and your number is reserved. To activate it, create your Allfit Space account with this same email during the closed beta or within 7 days of launch. We’ll write to this address when you can create it.',
+      foundingAlreadyBody:
+        'Your email was already confirmed and your number is still reserved. To activate it, create your Allfit Space account with this same email during the closed beta or within 7 days of launch.',
       alreadyTitle: 'Your email was already confirmed.',
       alreadyBody:
         "Your place on the list still counts. We'll write to you when Allfit Space opens.",
@@ -275,6 +280,7 @@ export const en: Dictionary = {
       },
       title: 'Your Allfit Space link',
       body: 'Everyone who joins with your link and confirms their email adds to your count.',
+      foundingLabel: 'Founding Member',
       unconfirmedTitle: 'Your email is not confirmed.',
       unconfirmedBody:
         'Find the Allfit Space email in your inbox and open its link: your place on the list counts from then.',

@@ -6066,7 +6066,10 @@ export interface components {
     WaitlistConfirmation: {
       /** @enum {string} */
       status: 'confirmed' | 'already_confirmed'
+      founding_number?: components['schemas']['WaitlistFoundingNumber']
     }
+    /** @description The Founding Member number of the sign-up, given to the first hundred to confirm. Absent for a sign-up that holds none. */
+    WaitlistFoundingNumber: number
     WaitlistEmailRequest: {
       /** Format: email */
       email: string
@@ -6082,6 +6085,7 @@ export interface components {
       language: 'es' | 'en'
       /** @description Whether this sign-up confirmed its own email. */
       confirmed: boolean
+      founding_number?: components['schemas']['WaitlistFoundingNumber']
     }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
     ScopeResourceRule: {
@@ -24730,7 +24734,7 @@ export interface operations {
       }
     }
     responses: {
-      /** @description The sign-up's own code, counter and state */
+      /** @description The sign-up's own code, counter, state and Founding Member number */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']

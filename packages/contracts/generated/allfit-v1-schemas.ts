@@ -20955,6 +20955,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'string',
         enum: ['confirmed', 'already_confirmed'],
       },
+      founding_number: {
+        $ref: '#/components/schemas/WaitlistFoundingNumber',
+      },
     },
   },
   WaitlistConfirmationRequest: {
@@ -20980,6 +20983,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  WaitlistFoundingNumber: {
+    type: 'integer',
+    minimum: 1,
+    maximum: 100,
+    description:
+      'The Founding Member number of the sign-up, given to the first hundred to confirm. Absent for a sign-up that holds none.',
+  },
   WaitlistLink: {
     type: 'object',
     additionalProperties: false,
@@ -21000,6 +21010,9 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       confirmed: {
         type: 'boolean',
         description: 'Whether this sign-up confirmed its own email.',
+      },
+      founding_number: {
+        $ref: '#/components/schemas/WaitlistFoundingNumber',
       },
     },
   },

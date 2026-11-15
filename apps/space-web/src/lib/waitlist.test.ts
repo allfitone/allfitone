@@ -6,6 +6,8 @@ import {
   isPlausibleEmail,
   normalizeReferralCode,
   parseJoin,
+  foundingNumberLabel,
+  parseConfirmation,
   parseLink,
   referralLink,
   tokenFromFragment,
@@ -62,11 +64,51 @@ describe('joining’s answer', () => {
   })
 })
 
+describe('a confirmation’s answer', () => {
+  test('says whether it confirmed now or before, and the number the person holds', () => {
+    expect(parseConfirmation({ status: 'confirmed', founding_number: 37 })).toEqual({
+      status: 'confirmed',
+      foundingNumber: 37,
+    })
+    expect(parseConfirmation({ status: 'already_confirmed' })).toEqual({
+      status: 'already_confirmed',
+      foundingNumber: null,
+    })
+  })
+
+  test('a number that is not one of the hundred is no number', () => {
+    expect(
+      parseConfirmation({ status: 'confirmed', founding_number: 101 }).foundingNumber,
+    ).toBeNull()
+  })
+
+  test('anything else is refused', () => {
+    for (const body of [null, {}, { status: 'joined' }, { founding_number: 37 }]) {
+      expect(() => parseConfirmation(body)).toThrow()
+    }
+  })
+})
+
+test('a Founding Member number is written with three digits', () => {
+  expect(foundingNumberLabel(1)).toBe('#001')
+  expect(foundingNumberLabel(37)).toBe('#037')
+  expect(foundingNumberLabel(100)).toBe('#100')
+})
+
 describe('a private link’s answer', () => {
   test('is the person’s code, count and whether they confirmed', () => {
     expect(
       parseLink({ referral_code: 'kevin7qh', referrals: 7, language: 'es', confirmed: false }),
-    ).toEqual({ code: 'KEVIN7QH', referrals: 7, confirmed: false })
+    ).toEqual({ code: 'KEVIN7QH', referrals: 7, confirmed: false, foundingNumber: null })
+  })
+
+  test('and their Founding Member number, when they hold one', () => {
+    const body = { referral_code: 'KEVIN7QH', referrals: 7, language: 'es', confirmed: true }
+
+    expect(parseLink({ ...body, founding_number: 37 }).foundingNumber).toBe(37)
+    for (const founding_number of [0, 101, 3.5, '37', null]) {
+      expect(parseLink({ ...body, founding_number }).foundingNumber).toBeNull()
+    }
   })
 
   test('without all three it is refused', () => {

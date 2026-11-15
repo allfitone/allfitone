@@ -44,10 +44,18 @@ export function createWaitlistDatabase(): WaitlistDatabase {
     },
 
     async confirm(tokenHash, connection): Promise<WaitlistConfirmationResult> {
-      const [row] = await database()<Array<{ outcome: WaitlistConfirmationResult }>>`
-        select * from waitlist.confirm(${Buffer.from(tokenHash)}, ${Buffer.from(connection)})`
+      // `founding_number` is absent until the migration that adds it is deployed.
+      const [row] = await database()<
+        Array<{
+          outcome: WaitlistConfirmationResult['outcome']
+          founding_number?: number | null
+        }>
+      >`select * from waitlist.confirm(${Buffer.from(tokenHash)}, ${Buffer.from(connection)})`
       if (!row) throw new Error('PostgreSQL did not answer the waitlist confirmation')
-      return row.outcome
+      if (row.outcome === 'invalid' || row.outcome === 'rate_limited') {
+        return { outcome: row.outcome }
+      }
+      return { outcome: row.outcome, ...foundingNumberOf(row.founding_number) }
     },
 
     async requestEmail(email, connection, tokens): Promise<WaitlistEmailRequestResult> {
@@ -70,6 +78,7 @@ export function createWaitlistDatabase(): WaitlistDatabase {
           referrals: number | null
           language: WaitlistLanguage | null
           confirmed: boolean | null
+          founding_number?: number | null
         }>
       >`select * from waitlist.read_my_link(${Buffer.from(tokenHash)}, ${Buffer.from(connection)})`
       if (!row) throw new Error('PostgreSQL did not answer the waitlist link')
@@ -83,6 +92,7 @@ export function createWaitlistDatabase(): WaitlistDatabase {
         referrals: row.referrals ?? 0,
         language: row.language,
         confirmed: row.confirmed === true,
+        ...foundingNumberOf(row.founding_number),
       }
     },
 
@@ -93,4 +103,8 @@ export function createWaitlistDatabase(): WaitlistDatabase {
       return row.outcome
     },
   }
+}
+
+function foundingNumberOf(value: number | null | undefined): { foundingNumber?: number } {
+  return typeof value === 'number' ? { foundingNumber: value } : {}
 }

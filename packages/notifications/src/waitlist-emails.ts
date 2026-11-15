@@ -8,9 +8,12 @@
  *   link goes here instead, to the inbox only they read. An address that never
  *   confirmed should get the confirmation email again rather than this one, since that
  *   email already carries everything this one does.
+ * - **Founding Member** (TECH-298, HU-SP-118). The person holds one of the hundred
+ *   numbers. It says which, that it is reserved, and what activates it. The same email
+ *   goes to whoever inherits a number, so it never says they were among the first.
  *
- * Both carry what TECH-294 asks of every waitlist email: the person's code, the link
- * they share, how many people joined with it, and the private «mi link» page. Both also
+ * All carry what TECH-294 asks of every waitlist email: the person's code, the link
+ * they share, how many people joined with it, and the private «mi link» page. All also
  * carry the way out (TECH-323): a link to leave the list, which deletes the sign-up.
  *
  * Two links travel in each email, and they must never be confused. The referral link is
@@ -92,6 +95,18 @@ const WORDS = {
       footer:
         'No tienes que hacer nada. Alguien escribió esta dirección en la lista de espera, y tu código y tu contador solo llegan aquí.',
     },
+    founding: {
+      subject: (number: string) => `Eres Founding Member ${number} de Allfit Space`,
+      preheader: 'Tu número queda reservado. Adentro está cómo activarlo.',
+      heading: (name: string) => `Eres Founding Member, ${name}`,
+      lead: (number: string) =>
+        `Tienes uno de los 100 lugares de Founding Member de la lista de espera de Allfit Space. Tu número es el ${number} y queda reservado para ti.`,
+      numberLabel: 'TU NÚMERO',
+      numberText: 'Tu número',
+      note: 'Para activarlo, crea tu cuenta en Allfit Space con este mismo correo durante la beta cerrada o en los 7 días siguientes al lanzamiento. Te escribimos a este correo cuando puedas crearla.',
+      footerQuestion: '¿Por qué recibes este correo?',
+      footer: 'Porque confirmaste este correo en la lista de espera de Allfit Space.',
+    },
     text: {
       code: 'Tu código',
       link: 'Tu link para invitar',
@@ -129,6 +144,18 @@ const WORDS = {
       footerQuestion: 'Didn’t ask for this?',
       footer:
         'You don’t need to do anything. Someone entered this address on the waitlist, and your code and count only ever arrive here.',
+    },
+    founding: {
+      subject: (number: string) => `You’re Founding Member ${number} of Allfit Space`,
+      preheader: 'Your number is reserved. How to activate it is inside.',
+      heading: (name: string) => `You’re a Founding Member, ${name}`,
+      lead: (number: string) =>
+        `You hold one of the 100 Founding Member places on the Allfit Space waitlist. Your number is ${number}, and it’s reserved for you.`,
+      numberLabel: 'YOUR NUMBER',
+      numberText: 'Your number',
+      note: 'To activate it, create your Allfit Space account with this same email during the closed beta or within 7 days of launch. We’ll email you here when you can create it.',
+      footerQuestion: 'Why are you getting this email?',
+      footer: 'Because you confirmed this email on the Allfit Space waitlist.',
     },
     text: {
       code: 'Your code',
@@ -220,6 +247,59 @@ export function renderWaitlistLinkEmail(input: WaitlistRecipient): {
       footer: `${copy.footer} ${leaveSentence(input)}`,
     }),
   }
+}
+
+/**
+ * «Eres Founding Member» (TECH-298). The number takes the place the code has in the
+ * other emails; the code moves into the panel with the link and the count.
+ */
+export function renderWaitlistFoundingEmail(
+  input: WaitlistRecipient & { foundingNumber: number },
+): { subject: string; text: string; html: string } {
+  const words = WORDS[input.language]
+  const copy = words.founding
+  const name = escapeHtml(input.name)
+  const number = foundingNumberLabel(input.foundingNumber)
+  return {
+    subject: copy.subject(number),
+    text: [
+      `${copy.heading(input.name)}.`,
+      copy.lead(number),
+      `${copy.numberText}: ${number}`,
+      copy.note,
+      referralLines(input),
+      `${copy.footerQuestion} ${copy.footer}`,
+      `${words.leaveText}: ${input.leaveUrl}`,
+    ].join('\n\n'),
+    html: invitationEmailHtml({
+      language: input.language,
+      product: 'Space',
+      title: copy.subject(number),
+      preheader: copy.preheader,
+      heading: copy.heading(name),
+      lead: copy.lead(number),
+      detailLabel: copy.numberLabel,
+      detailValue: number,
+      panelRows: [
+        {
+          label: words.codeLabel,
+          html: `<p style="margin:0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${EMAIL_COLOR.textOnInverse};">${escapeHtml(input.code)}</p>`,
+        },
+        ...referralRows(input, { withPrivateLink: false }),
+      ],
+      actionLabel: words.referralsPage,
+      actionUrl: escapeHtml(input.referralsPageUrl),
+      brandAssetUrl: input.brandAssetUrl,
+      note: copy.note,
+      footerQuestion: copy.footerQuestion,
+      footer: `${copy.footer} ${leaveSentence(input)}`,
+    }),
+  }
+}
+
+/** «#037»: three digits, as the badge writes it. */
+export function foundingNumberLabel(value: number): string {
+  return `#${String(value).padStart(3, '0')}`
 }
 
 /** The way out, as the last sentence of the footer. */

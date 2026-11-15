@@ -39,12 +39,15 @@ export type WaitlistJoinResult =
   | { outcome: 'already_listed' }
   | { outcome: 'rate_limited' }
 
+/** `foundingNumber` is there for one of the first hundred to confirm, and only for them. */
 export type WaitlistConfirmationResult =
-  'confirmed' | 'already_confirmed' | 'invalid' | 'rate_limited'
+  | { outcome: 'confirmed' | 'already_confirmed'; foundingNumber?: number }
+  | { outcome: 'invalid' }
+  | { outcome: 'rate_limited' }
 
 export type WaitlistEmailRequestResult = 'accepted' | 'rate_limited'
 
-/** What the private link reads: the person's own code and counter, and nobody else. */
+/** What the private link reads: the person's own code, counter and number, and nobody else. */
 export type WaitlistLinkResult =
   | {
       outcome: 'found'
@@ -52,6 +55,8 @@ export type WaitlistLinkResult =
       referrals: number
       language: WaitlistLanguage
       confirmed: boolean
+      /** Their Founding Member number, from 1 to 100, when they hold one. */
+      foundingNumber?: number
     }
   | { outcome: 'invalid' }
   | { outcome: 'rate_limited' }

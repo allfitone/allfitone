@@ -279,6 +279,11 @@ export const es = {
       confirmedTitle: 'Correo confirmado.',
       confirmedBody:
         'Tu lugar en la lista cuenta desde ahora. Te escribimos a este correo cuando abra Allfit Space.',
+      foundingTitle: 'Eres Founding Member {number}.',
+      foundingBody:
+        'Confirmaste tu correo y tu número queda reservado. Para activarlo, crea tu cuenta en Allfit Space con este mismo correo durante la beta cerrada o en los 7 días siguientes al lanzamiento. Te escribimos a este correo cuando puedas crearla.',
+      foundingAlreadyBody:
+        'Tu correo ya estaba confirmado y tu número sigue reservado. Para activarlo, crea tu cuenta en Allfit Space con este mismo correo durante la beta cerrada o en los 7 días siguientes al lanzamiento.',
       alreadyTitle: 'Tu correo ya estaba confirmado.',
       alreadyBody: 'Tu lugar en la lista sigue contando. Te escribimos cuando abra Allfit Space.',
     },
@@ -289,6 +294,7 @@ export const es = {
       },
       title: 'Tu link de Allfit Space',
       body: 'Cada persona que se une con tu link y confirma su correo suma a tu contador.',
+      foundingLabel: 'Founding Member',
       unconfirmedTitle: 'Te falta confirmar tu correo.',
       unconfirmedBody:
         'Busca el correo de Allfit Space en tu bandeja y abre el enlace: tu lugar en la lista cuenta desde ese momento.',

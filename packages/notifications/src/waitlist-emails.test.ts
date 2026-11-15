@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import { renderWaitlistConfirmationEmail, renderWaitlistLinkEmail } from './index.js'
+import {
+  renderWaitlistConfirmationEmail,
+  renderWaitlistFoundingEmail,
+  renderWaitlistLinkEmail,
+} from './index.js'
 
 // What a reader sees: the shell keeps names together with non-breaking spaces.
 const readable = (html: string) => html.replaceAll('&nbsp;', ' ')
@@ -124,6 +128,70 @@ describe('waitlist link email', () => {
     expect(readable(html)).toContain('<html lang="en">')
     expect(readable(html)).toContain('Signed up with your link: 3.')
     expect(readable(html)).toContain('Didn’t ask for this?')
+  })
+})
+
+describe('waitlist Founding Member email', () => {
+  test('says the number, that it is reserved and how to activate it', () => {
+    const { subject, text, html } = renderWaitlistFoundingEmail({
+      ...BASE,
+      referrals: 2,
+      foundingNumber: 37,
+      language: 'es',
+    })
+
+    expect(subject).toBe('Eres Founding Member #037 de Allfit Space')
+    expect(readable(html)).toContain('<html lang="es">')
+    expect(readable(html)).toContain('Eres Founding Member, Laura')
+    expect(readable(html)).toContain('TU NÚMERO')
+    expect(readable(html)).toContain('#037')
+    expect(readable(html)).toContain('queda reservado para ti')
+    expect(readable(html)).toContain('en los 7 días siguientes al lanzamiento')
+    expect(readable(html)).toContain('TU CÓDIGO')
+    expect(readable(html)).toContain('LAURA7K')
+    expect(readable(html)).toContain('Registrados con tu link: 2.')
+    expect(readable(html)).toContain(`href="${BASE.referralsPageUrl}"`)
+    expect(readable(html)).toContain(`href="${BASE.leaveUrl}"`)
+    expect(readable(html)).not.toContain('Confirmar mi correo')
+
+    expect(text).toContain('Tu número: #037')
+    expect(text).toContain(`Tu código: ${BASE.code}`)
+    expect(text).toContain(`Salir de la lista de espera y borrar tus datos: ${BASE.leaveUrl}`)
+  })
+
+  test('writes every number with three digits', () => {
+    const first = renderWaitlistFoundingEmail({ ...BASE, foundingNumber: 1, language: 'es' })
+    const last = renderWaitlistFoundingEmail({ ...BASE, foundingNumber: 100, language: 'es' })
+
+    expect(first.subject).toBe('Eres Founding Member #001 de Allfit Space')
+    expect(last.subject).toBe('Eres Founding Member #100 de Allfit Space')
+  })
+
+  test('speaks English to someone who joined in English', () => {
+    const { subject, text, html } = renderWaitlistFoundingEmail({
+      ...BASE,
+      foundingNumber: 37,
+      language: 'en',
+    })
+
+    expect(subject).toBe('You’re Founding Member #037 of Allfit Space')
+    expect(readable(html)).toContain('<html lang="en">')
+    expect(readable(html)).toContain('You’re a Founding Member, Laura')
+    expect(readable(html)).toContain('YOUR NUMBER')
+    expect(readable(html)).toContain('within 7 days of launch')
+    expect(text).toContain('Your number: #037')
+  })
+
+  test('escapes the name a person typed', () => {
+    const { html } = renderWaitlistFoundingEmail({
+      ...BASE,
+      name: '<b>Laura</b>',
+      foundingNumber: 37,
+      language: 'es',
+    })
+
+    expect(html).not.toContain('<b>Laura</b>')
+    expect(html).toContain('&lt;b&gt;Laura&lt;/b&gt;')
   })
 })
 
