@@ -5,7 +5,7 @@
 
 begin;
 
-select plan(38);
+select plan(41);
 
 create function pg_temp.h(n integer) returns bytea language sql immutable as $$
   select decode(lpad(to_hex(n), 64, '0'), 'hex')
@@ -450,6 +450,34 @@ select is(
    from pg_temp.lists(null, 'discarded', 25, null)),
   array['Bruno Díaz', 'Gael Ríos', 'Persona 107'],
   'and the discarded filter lists them'
+);
+
+-- ---------------------------------------------------------------------------
+-- The record lives as long as its sign-up
+-- ---------------------------------------------------------------------------
+
+create temp table pg_temp_gael as select pg_temp.id_of(7) as id;
+
+select throws_ok(
+  $$ delete from waitlist.signup_events as event
+     where event.signup_id = (select id from pg_temp_gael) $$,
+  '55000', null,
+  'the record of a sign-up that is still on the list is not deleted'
+);
+
+select waitlist.forget_signup((select id from pg_temp_gael));
+
+select is(
+  (select count(*) from waitlist.signup_events as event
+   where event.signup_id = (select id from pg_temp_gael)),
+  0::bigint,
+  'when a sign-up leaves the list, the record of its review is deleted with it'
+);
+select is(
+  (select count(*) from waitlist.signup_events as event
+   where event.signup_id = pg_temp.id_of(2)),
+  1::bigint,
+  'and the record of the sign-ups that stay is untouched'
 );
 
 select * from finish();

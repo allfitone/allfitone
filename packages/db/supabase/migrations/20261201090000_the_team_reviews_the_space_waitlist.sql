@@ -14,9 +14,9 @@
 --
 -- **Marking fraud is recorded.** The sign-up stops counting for whoever invited it, and
 -- it gives up its Founding Member number, which goes to the next sign-up in line with its
--- email. The record keeps the reason, the number released and the duty assignment, and it
--- names the sign-up by its identifier alone, so it holds no personal data once the
--- sign-up is deleted.
+-- email. The record keeps the reason, the number released and the duty assignment. It is
+-- deleted with its sign-up: when a person leaves, or the list is deleted, nothing of what
+-- the team wrote about her stays.
 --
 -- **So is taking the mark back.** A mark can be a mistake, so the team withdraws it with
 -- a reason. The sign-up returns to what it was before the mark, with two limits: the
@@ -34,7 +34,7 @@ set statement_timeout = '60s';
 -- The record of what the team did to a sign-up
 -- ---------------------------------------------------------------------------
 
--- `signup_id` is not a foreign key: a sign-up leaves or is swept, and the record stays.
+-- The reason is free text about a person, so the record does not outlive her sign-up.
 create table waitlist.signup_events (
   id uuid not null default extensions.uuid_generate_v7(),
   signup_id uuid not null,
@@ -46,6 +46,7 @@ create table waitlist.signup_events (
   actor_duty_assignment_id uuid not null,
   occurred_at timestamptz not null default clock_timestamp(),
   constraint pk_signup_events primary key (id),
+  constraint fk_signup_events_signup foreign key (signup_id) references waitlist.signups (id) on delete cascade,
   constraint fk_signup_events_actor foreign key (actor_person_id) references identity.people (id) on delete restrict,
   constraint fk_signup_events_duty foreign key (actor_duty_assignment_id) references support.platform_duty_assignments (id) on delete restrict,
   constraint ck_signup_events_event_type check (
@@ -83,14 +84,22 @@ create policy signup_events_all_owner on waitlist.signup_events
 revoke all on waitlist.signup_events from public, allfit_api;
 
 comment on table waitlist.signup_events is
-  'Append-only record of what the team did to a waitlist sign-up. Names the sign-up by id only.';
+  'Append-only record of what the team did to a waitlist sign-up. Deleted with the sign-up.';
 
+-- A row goes only with its sign-up: by then the sign-up is gone, which is how the
+-- cascade is told from a delete of the record alone.
 create function waitlist.reject_signup_event_rewrite()
 returns trigger
 language plpgsql
+security definer
 set search_path = pg_catalog
 as $function$
 begin
+  if tg_op = 'DELETE'
+    and not exists (select 1 from waitlist.signups as signup where signup.id = old.signup_id)
+  then
+    return old;
+  end if;
   raise exception 'the record of a waitlist review is append-only' using errcode = '55000';
 end
 $function$;
