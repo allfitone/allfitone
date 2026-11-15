@@ -8,6 +8,7 @@ import {
   clientBodyProgressPath,
   clientExecutionsPath,
   clientHealthContextPath,
+  clientNutritionGoalsPath,
   clientNutritionPath,
   clientProgramsPath,
   clientTrainingProfilePath,
@@ -285,6 +286,23 @@ describe('the doors on each category', () => {
     ])
     expect(clientNutritionPath('019a0000-org', '019a0000-person')).toBe(
       '/organizations/019a0000-org/clients/people/019a0000-person/nutrition',
+    )
+  })
+
+  test('her nutrition goals are a door apart from her meals', () => {
+    const doors = doorsBySection(
+      [sectionFor('nutrition_guidance', ['listAuthorizedClientNutritionGoalVersions'])],
+      reader,
+    )
+    expect(doors.get('nutrition_guidance')).toEqual([
+      {
+        read: 'listAuthorizedClientNutritionGoalVersions',
+        label: 'Ver sus objetivos',
+        href: '/organizations/019a0000-org/clients/people/019a0000-person/nutrition-goals',
+      },
+    ])
+    expect(clientNutritionGoalsPath('019a0000-org', '019a0000-person')).toBe(
+      '/organizations/019a0000-org/clients/people/019a0000-person/nutrition-goals',
     )
   })
 

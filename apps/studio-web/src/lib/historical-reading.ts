@@ -22,17 +22,10 @@
  * says where the cut is, so the reader knows the history stops there.
  *
  * The measurements read the way the live screen reads them, in
- * `body-measurements.ts`, and a nutrient the way her meals name it, in
- * `nutrients.ts`.
+ * `body-measurements.ts`, and a goal the way the live goals read it, in
+ * `nutrition-goals.ts`. Only where a goal stood at the cut is said here.
  */
-import { nutrientName } from './nutrients'
-import type {
-  ClientNutritionGoalDecision,
-  ClientNutritionGoalTarget,
-  FrozenNutritionGoalVersion,
-  HistoricalRelationship,
-  ScopeCode,
-} from './studio-api'
+import type { FrozenNutritionGoalVersion, HistoricalRelationship, ScopeCode } from './studio-api'
 
 export type HistoricalSection = 'sessions' | 'body' | 'nutrition'
 
@@ -57,10 +50,6 @@ export function cutLine(cutAt: string): string {
   return `Hasta el corte: ${new Intl.DateTimeFormat('es-CO', MOMENT).format(new Date(cutAt))}`
 }
 
-function figure(value: number): string {
-  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(value)
-}
-
 const GOAL_STATUS: Record<NonNullable<FrozenNutritionGoalVersion['status_at_cut']>, string> = {
   proposed: 'Propuesto',
   accepted: 'Aceptado',
@@ -73,37 +62,6 @@ export function goalStatusLabel(
   status: FrozenNutritionGoalVersion['status_at_cut'],
 ): string | null {
   return status ? GOAL_STATUS[status] : null
-}
-
-function withUnit(value: number, unit: ClientNutritionGoalTarget['unit']): string {
-  return unit ? `${figure(value)} ${unit}` : figure(value)
-}
-
-function targetAmount(target: ClientNutritionGoalTarget): string | null {
-  const { mode, minimum, maximum, exact, unit } = target
-  if (mode === 'range' && minimum !== null && maximum !== null) {
-    return `entre ${figure(minimum)} y ${withUnit(maximum, unit)}`
-  }
-  if (mode === 'minimum' && minimum !== null) return `al menos ${withUnit(minimum, unit)}`
-  if (mode === 'maximum' && maximum !== null) return `hasta ${withUnit(maximum, unit)}`
-  if (mode === 'exact' && exact !== null) return withUnit(exact, unit)
-  return null
-}
-
-/** One target as it was set, or null when the frozen version keeps none of it. */
-export function targetLine(target: ClientNutritionGoalTarget): string | null {
-  const name = target.nutrient_code ? nutrientName(target.nutrient_code) : null
-  const value = targetAmount(target)
-  if (name && value) return `${name}: ${value}`
-  return name ?? value
-}
-
-export function decisionLine(decision: ClientNutritionGoalDecision | null): string | null {
-  if (!decision) return null
-  const day = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(
-    new Date(decision.decided_at),
-  )
-  return decision.decision === 'accepted' ? `Lo aceptó el ${day}` : `Lo rechazó el ${day}`
 }
 
 export type ReadFailure = 'reauthenticate' | 'nothing' | 'gone' | 'retry'

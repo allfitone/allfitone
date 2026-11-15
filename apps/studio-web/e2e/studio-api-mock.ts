@@ -299,6 +299,10 @@ export interface StudioApiFixture {
   nutritionTotalsShared: boolean
   /** What `OP-NUT-013` answers for any meal photo: its bytes, the one 404, or a dropped connection. */
   mealPhotoOutcome: 'shown' | 'unavailable' | 'failure'
+  /** `OP-NUT-011`. What this relationship proposed her, newest first; null is the 403. */
+  clientNutritionGoals: unknown[] | null
+  /** The goal she follows now, travelling with every page of `OP-NUT-011`. */
+  clientActiveNutritionGoal: unknown
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -2859,6 +2863,106 @@ export const narrowNutritionMeals = clientNutritionMeals.map((meal) => ({
 }))
 
 /**
+ * The same person, sharing her nutrition goals at `contribute`, the level a
+ * proposal needs. A card of its own, so the card other suites read stays.
+ */
+export const goalSharingClientCard = {
+  ...clientCard,
+  sections: [
+    ...clientCard.sections,
+    {
+      scope_code: 'nutrition_guidance',
+      scope_version: 1,
+      access_level: 'contribute',
+      granted_at: '2026-03-01T10:00:00.000Z',
+      reads: ['listAuthorizedClientNutritionGoalVersions'],
+    },
+  ],
+}
+
+function goalTarget(
+  nutrient_code: string,
+  unit: string,
+  mode: 'minimum' | 'maximum' | 'range' | 'exact',
+  values: { minimum?: number; maximum?: number; exact?: number },
+) {
+  return {
+    nutrient_code,
+    mode,
+    minimum: values.minimum ?? null,
+    maximum: values.maximum ?? null,
+    exact: values.exact ?? null,
+    unit,
+  }
+}
+
+const followedGoalTargets = [
+  goalTarget('fiber', 'g', 'minimum', { minimum: 25 }),
+  goalTarget('protein', 'g', 'range', { minimum: 110, maximum: 130 }),
+]
+
+/**
+ * `OP-NUT-011`, written from `nutrition.client_goal_version_json`: what this
+ * relationship proposed her, newest first. One waits on her, one she follows and
+ * one she rejected. Targets arrive in code order, as the API sends them.
+ */
+export const clientNutritionGoalVersions = [
+  {
+    id: '01991600-7000-7000-8000-000000000701',
+    status: 'proposed',
+    rationale: 'Para el bloque de fuerza: más proteína, y la energía en un rango.',
+    author: { kind: 'professional', person_id: '01991600-7000-7000-8000-000000000103' },
+    targets: [
+      goalTarget('energy', 'kcal', 'range', { minimum: 2100, maximum: 2400 }),
+      goalTarget('protein', 'g', 'minimum', { minimum: 140 }),
+      goalTarget('water', 'ml', 'minimum', { minimum: 2500 }),
+    ],
+    created_at: '2026-07-20T15:00:00.000Z',
+    activated_at: null,
+    cancelled_at: null,
+    decision: null,
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000702',
+    status: 'active',
+    rationale: 'Una base para empezar, sin contar calorías.',
+    author: { kind: 'professional', person_id: '01991600-7000-7000-8000-000000000103' },
+    targets: followedGoalTargets,
+    created_at: '2026-06-01T15:00:00.000Z',
+    activated_at: '2026-06-02T15:00:00.000Z',
+    cancelled_at: null,
+    decision: { decision: 'accepted', decided_at: '2026-06-02T15:00:00.000Z' },
+  },
+  {
+    id: '01991600-7000-7000-8000-000000000703',
+    status: 'rejected',
+    rationale: null,
+    author: { kind: 'professional', person_id: '01991600-7000-7000-8000-000000000103' },
+    targets: [goalTarget('fat', 'g', 'maximum', { maximum: 70 })],
+    created_at: '2026-05-10T15:00:00.000Z',
+    activated_at: null,
+    cancelled_at: null,
+    decision: { decision: 'rejected', decided_at: '2026-05-12T15:00:00.000Z' },
+  },
+]
+
+/** The goal she follows: this relationship's, so it names its version. */
+export const clientActiveNutritionGoal = {
+  goal_version_id: '01991600-7000-7000-8000-000000000702',
+  from_this_relationship: true,
+  activated_at: '2026-06-02T15:00:00.000Z',
+  targets: followedGoalTargets,
+}
+
+/** One she set herself, or another gym proposed: nothing says which, who or why. */
+export const foreignActiveNutritionGoal = {
+  goal_version_id: null,
+  from_this_relationship: false,
+  activated_at: '2026-07-01T15:00:00.000Z',
+  targets: [goalTarget('energy', 'kcal', 'maximum', { maximum: 2000 })],
+}
+
+/**
  * `OP-REL-020`: what needs this caller's attention today.
  *
  * The fullest useful case — an owner who also coaches, so every notice a role
@@ -3152,6 +3256,8 @@ export function createStudioApiFixture(
     nutritionPhotoScope: { code: 'nutrition_media', version: 1 },
     nutritionTotalsShared: true,
     mealPhotoOutcome: 'shown',
+    clientNutritionGoals: structuredClone(clientNutritionGoalVersions),
+    clientActiveNutritionGoal: structuredClone(clientActiveNutritionGoal),
     ...overrides,
   }
 }
@@ -5282,6 +5388,38 @@ function defaultResponse(
       status: 200,
       headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, no-store' },
       bytes: bodyPhotoJpeg,
+    }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/goals\/versions$/.test(
+      request.path,
+    )
+  ) {
+    // Not attending her is 404, the owner and admins included.
+    if (fixture.clientCard === null) return { status: 404, body: error('not-found') }
+    if (fixture.clientNutritionGoals === null) {
+      return {
+        status: 403,
+        body: problem('scope-required', 403, {
+          required_scope: { code: 'nutrition_guidance', level: 'read' },
+        }),
+      }
+    }
+    const search = new URLSearchParams(request.search ?? '')
+    const all = fixture.clientNutritionGoals
+    const limit = Number(search.get('limit') ?? '25')
+    const from = Number(search.get('cursor') ?? '0')
+    const next = from + limit < all.length ? String(from + limit) : null
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'private, no-store' },
+      body: {
+        applied_scope: { code: 'nutrition_guidance', version: 1 },
+        data: all.slice(from, from + limit),
+        page: { next_cursor: next, has_more: next !== null },
+        active: fixture.clientActiveNutritionGoal,
+      },
     }
   }
   if (

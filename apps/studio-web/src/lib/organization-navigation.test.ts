@@ -270,4 +270,14 @@ describe('organization workspace navigation', () => {
       resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/nutrition`, organizationId),
     ).toEqual({ title: 'Comidas' })
   })
+
+  test('her nutrition goals are titled apart from her meals', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/clients/people/${personId}/nutrition-goals`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Objetivos nutricionales' })
+  })
 })

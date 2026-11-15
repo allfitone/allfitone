@@ -61,6 +61,7 @@ import {
   narrowHealthContext,
   NUTRITION_TODAY,
   narrowNutritionMeals,
+  goalSharingClientCard,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -4652,6 +4653,85 @@ export const SCREENS: Screen[] = [
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Ver la foto' }).first().click()
       await expect(page.getByText('No podemos mostrar esta foto')).toBeVisible()
+    },
+  },
+  // --- the goals this relationship proposed her · HU-070 ---
+  {
+    stories: 'HU-070 · what this relationship proposed, and the goal she follows',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goal]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-070 · what this relationship proposed, on a phone',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+      }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goal]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-070 · nothing proposed yet',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        clientNutritionGoals: [],
+        clientActiveNutritionGoal: null,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goals-nothing]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-070 · goals she does not share',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientNutritionGoals: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó sus objetivos nutricionales')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-070 · goals of a client the caller does not attend',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos sus objetivos nutricionales')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-070 · goals that could not be read',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [holderMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/nutrition/goals/versions')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goals-failure]')).toBeVisible()
     },
   },
 ]

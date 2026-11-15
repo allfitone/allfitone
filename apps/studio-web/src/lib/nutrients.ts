@@ -61,10 +61,14 @@ export function nutrientAmount(value: Pick<NutrientValue, 'value' | 'unit'>): st
   return `${AMOUNT.format(value.value)} ${value.unit}`
 }
 
-/** The API answers in code order; a reader looks for energy and the macros first. */
-export function inNutrientOrder<T extends Pick<NutrientValue, 'nutrient_code'>>(
+/**
+ * The API answers in code order; a reader looks for energy and the macros first.
+ * A code her version withholds goes last.
+ */
+export function inNutrientOrder<T extends { nutrient_code: NutrientCode | null }>(
   values: readonly T[],
 ): T[] {
-  const rank = (value: T) => RANK.get(value.nutrient_code) ?? RANK.size
+  const rank = (value: T) =>
+    value.nutrient_code === null ? RANK.size : (RANK.get(value.nutrient_code) ?? RANK.size)
   return [...values].sort((left, right) => rank(left) - rank(right))
 }
