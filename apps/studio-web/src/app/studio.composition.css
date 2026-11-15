@@ -1102,7 +1102,8 @@
   top: var(--afo-space-5);
 }
 
-[data-trajectory-body] {
+[data-trajectory-body],
+[data-goal-proposal-form] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -1828,7 +1829,8 @@
 [data-client-body-photo-head],
 [data-client-nutrition-meal-head],
 [data-client-nutrition-range-actions],
-[data-client-nutrition-goal-head] {
+[data-client-nutrition-goal-head],
+[data-goal-proposal-controls] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2192,7 +2194,9 @@
 [data-client-nutrition-item-nutrients],
 [data-client-nutrition-range-note],
 [data-client-nutrition-summary-meals],
-[data-client-nutrition-goal-decision] {
+[data-client-nutrition-goal-decision],
+[data-goal-proposal-unit],
+[data-goal-proposal-joiner] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }
@@ -3483,4 +3487,15 @@
    screen wide; the cap keeps each one the size of a date. */
 [data-client-nutrition-range] {
   max-inline-size: min(100%, 32rem);
+}
+
+/* A target is a short number beside its kind. At full width each row took three
+   lines, and the six rows ran past the dialog twice; the select keeps one width
+   so changing the kind does not move the values beside it. */
+[data-goal-proposal-mode] {
+  inline-size: 9rem;
+}
+
+[data-goal-proposal-amount] {
+  inline-size: 6rem;
 }

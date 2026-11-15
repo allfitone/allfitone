@@ -303,6 +303,18 @@ export interface StudioApiFixture {
   clientNutritionGoals: unknown[] | null
   /** The goal she follows now, travelling with every page of `OP-NUT-011`. */
   clientActiveNutritionGoal: unknown
+  /**
+   * What `OP-NUT-012` answers. The three 403s of criterion 1, the 409 of a paused
+   * service, the 404 of a client no longer attended, and a dropped connection.
+   */
+  goalProposalOutcome:
+    | 'proposed'
+    | 'forbidden'
+    | 'credential-required'
+    | 'scope-required'
+    | 'service-paused'
+    | 'gone'
+    | 'failure'
   intercept?: (
     request: MockRequest,
     fixture: StudioApiFixture,
@@ -2962,6 +2974,28 @@ export const foreignActiveNutritionGoal = {
   targets: [goalTarget('energy', 'kcal', 'maximum', { maximum: 2000 })],
 }
 
+/** The credential `OP-NUT-012` needs: of nutrition, verified, and in force today. */
+export const nutritionCredential = {
+  ...professionalCredential,
+  id: '01991600-3000-7000-8000-000000000011',
+  credential_type_code: 'nutrition_professional',
+  credential_type_name: 'Profesional en nutrición',
+  issuer: 'Colegio Colombiano de Nutricionistas Dietistas',
+  name: 'Nutricionista dietista',
+  verification: {
+    state: 'verified',
+    valid_from: '2026-01-01T00:00:00.000Z',
+    valid_to: '2030-01-01T00:00:00.000Z',
+    effective: true,
+  },
+}
+
+/** The coach signed in, with that credential on her profile. */
+export const nutritionProfessionalMe = {
+  profile: { ...professionalProfile, credentials: [nutritionCredential] },
+  memberships: [],
+}
+
 /**
  * `OP-REL-020`: what needs this caller's attention today.
  *
@@ -3258,6 +3292,7 @@ export function createStudioApiFixture(
     mealPhotoOutcome: 'shown',
     clientNutritionGoals: structuredClone(clientNutritionGoalVersions),
     clientActiveNutritionGoal: structuredClone(clientActiveNutritionGoal),
+    goalProposalOutcome: 'proposed',
     ...overrides,
   }
 }
@@ -5421,6 +5456,47 @@ function defaultResponse(
         active: fixture.clientActiveNutritionGoal,
       },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/nutrition\/goals\/versions$/.test(
+      request.path,
+    )
+  ) {
+    const outcome = fixture.goalProposalOutcome
+    if (fixture.clientCard === null || outcome === 'gone') {
+      return { status: 404, body: problem('not-found', 404) }
+    }
+    if (outcome === 'failure') return { status: 503, body: problem('upstream-unavailable', 503) }
+    if (outcome === 'service-paused') return { status: 409, body: problem(outcome, 409) }
+    if (outcome !== 'proposed') {
+      const extensions =
+        outcome === 'scope-required'
+          ? { required_scope: { code: 'nutrition_guidance', level: 'contribute' } }
+          : {}
+      return { status: 403, body: problem(outcome, 403, extensions) }
+    }
+    const body = objectValue(request.body)
+    const proposal = {
+      id: request.headers['command-id'] ?? '01991600-7000-7000-8000-000000000799',
+      status: 'proposed',
+      rationale: body['rationale'],
+      author: { kind: 'professional', person_id: '01991600-7000-7000-8000-000000000103' },
+      targets: body['targets'],
+      created_at: '2026-07-29T15:00:00.000Z',
+      activated_at: null,
+      cancelled_at: null,
+      decision: null,
+    }
+    // IX-33: one waiting at most, so the one waiting now reads `superseded`.
+    fixture.clientNutritionGoals = [
+      proposal,
+      ...(fixture.clientNutritionGoals ?? []).map((version) => {
+        const value = objectValue(version)
+        return value['status'] === 'proposed' ? { ...value, status: 'superseded' } : version
+      }),
+    ]
+    return { status: 201, headers: { 'Cache-Control': 'no-store' }, body: proposal }
   }
   if (
     request.method === 'POST' &&

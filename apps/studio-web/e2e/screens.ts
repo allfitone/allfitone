@@ -62,6 +62,7 @@ import {
   NUTRITION_TODAY,
   narrowNutritionMeals,
   goalSharingClientCard,
+  nutritionProfessionalMe,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -4732,6 +4733,76 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.locator('[data-client-nutrition-goals-failure]')).toBeVisible()
+    },
+  },
+  // --- the same screen, proposing her goals · HU-071 ---
+  {
+    stories: 'HU-071 · what proposing still needs',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+      }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goal-blockers]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-071 · the proposal, replacing the one still waiting',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        me: nutritionProfessionalMe,
+      }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Proponer objetivos' }).click()
+      await expect(page.locator('[data-goal-proposal-replaces]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-071 · a proposal the form refuses, on a phone',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        me: nutritionProfessionalMe,
+      }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Proponer objetivos' }).click()
+      await page.getByRole('combobox', { name: 'Energía', exact: true }).click()
+      await page.getByRole('option', { name: 'Entre', exact: true }).click()
+      await page.getByLabel('Energía: desde (kcal)').fill('2400')
+      await page.getByLabel('Energía: hasta (kcal)').fill('2100')
+      await page.getByRole('button', { name: 'Enviar la propuesta' }).click()
+      await expect(page.getByText('«Hasta» no puede ser menor que «Desde».')).toBeVisible()
+    },
+  },
+  {
+    // The refusal the screen cannot prevent: no read tells a coach her service is paused.
+    stories: 'HU-071 · a proposal refused for a paused service',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        me: nutritionProfessionalMe,
+        goalProposalOutcome: 'service-paused',
+      }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Proponer objetivos' }).click()
+      await page.getByRole('combobox', { name: 'Proteína', exact: true }).click()
+      await page.getByRole('option', { name: 'Al menos', exact: true }).click()
+      await page.getByLabel('Proteína: al menos (g)').fill('150')
+      await page.getByLabel('Por qué se lo propones').fill('Para sostener el bloque de fuerza.')
+      await page.getByRole('button', { name: 'Enviar la propuesta' }).click()
+      await expect(page.locator('[data-goal-proposal-refusal]')).toBeVisible()
     },
   },
 ]

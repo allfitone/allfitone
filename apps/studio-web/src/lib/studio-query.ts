@@ -316,6 +316,9 @@ export const studioQueryKeys = {
       personId,
       mealId,
     ] as const,
+  /* Without the limit: a proposal refreshes every page size of her goals at once. */
+  clientNutritionGoalsRoot: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-nutrition-goals', personId] as const,
   clientNutritionGoals: (organizationId: string, personId: string, limit: number) =>
     [
       ...ROOT_KEY,

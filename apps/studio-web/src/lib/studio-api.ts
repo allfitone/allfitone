@@ -193,6 +193,8 @@ export type NutritionGoalStatus = AllfitV1Schemas['NutritionGoalStatus']
 export type ClientNutritionGoalHistory = AllfitV1Schemas['ClientNutritionGoalHistory']
 export type ClientNutritionGoalVersion = AllfitV1Schemas['ClientNutritionGoalVersion']
 export type ClientActiveNutritionGoal = AllfitV1Schemas['ClientActiveNutritionGoal']
+export type ProfessionalNutritionGoalVersionCreate =
+  AllfitV1Schemas['ProfessionalNutritionGoalVersionCreate']
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080').replace(/\/$/, '')
 
@@ -1526,6 +1528,28 @@ export const studioApi = {
       `/studio/v1/organizations/${organizationId}/clients/${personId}/nutrition/goals/versions?${pageSearch(query)}`,
       {
         cache: 'no-store',
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-NUT-012`. A version of her goals for her to decide; nothing changes
+   * until she accepts it in Space. It replaces the one this relationship still
+   * has waiting. The command id is the proposal's id, so a retry creates none.
+   */
+  proposeClientNutritionGoalVersion: (
+    organizationId: string,
+    personId: string,
+    body: ProfessionalNutritionGoalVersionCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ClientNutritionGoalVersion>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/nutrition/goals/versions`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
         ...(signal ? { signal } : {}),
       },
     ),

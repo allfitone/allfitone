@@ -22,6 +22,11 @@
  *
  * **Never cached**: each visit reads again, and a later page is read only when
  * somebody asks for it. The words are in `nutrition-goals.ts`.
+ *
+ * **Proposing is offered only when it can work** (`HU-STUDIO-071`, criterion 1).
+ * The three conditions Studio can see are checked here: the role, a nutrition
+ * credential in force, and her guidance shared to contribute. When one is
+ * missing the screen says which, and offers no button the command would refuse.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -43,13 +48,24 @@ import {
 } from '@allfitone/react/components/empty'
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { FoundationIcon } from '@allfitone/react/icons'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { useState } from 'react'
 
+import { NutritionGoalProposal } from './client-nutrition-goal-proposal'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { clientCardPath } from '@/lib/client-card'
+import {
+  blockerText,
+  canGuideNutrition,
+  guidanceLevel,
+  holdsNutritionCredential,
+  pendingProposal,
+  proposalBlockers,
+  type ProposalBlocker,
+} from '@/lib/nutrition-goal-proposal'
 import {
   activeOriginLine,
   activeSinceLine,
@@ -64,10 +80,13 @@ import type {
   NutritionGoalStatus,
 } from '@/lib/studio-api'
 import {
+  clientCardQueryOptions,
   clientNutritionGoalsQueryOptions,
   flattenById,
   isStudioForbidden,
   isStudioNotFound,
+  organizationRolesQueryOptions,
+  studioMeQueryOptions,
 } from '@/lib/studio-query'
 
 const GOALS_PAGE = 20
@@ -87,6 +106,13 @@ export function ClientNutritionGoalsScreen() {
   const query = useInfiniteQuery(
     clientNutritionGoalsQueryOptions(organizationId, params.personId, GOALS_PAGE),
   )
+  const blockers = useProposalBlockers(
+    organizationId,
+    params.personId,
+    current.roles,
+    query.isSuccess,
+  )
+  const [proposed, setProposed] = useState(false)
   const cardPath = clientCardPath(organizationId, params.personId)
   const directoryPath = `/organizations/${organizationId}/clients`
 
@@ -103,6 +129,14 @@ export function ClientNutritionGoalsScreen() {
         description="Los objetivos de nutrición que esta relación le propuso, lo que ella decidió y la meta que sigue hoy. Es un permiso aparte: no incluye sus comidas."
         actions={
           <>
+            {first && blockers?.length === 0 ? (
+              <NutritionGoalProposal
+                organizationId={organizationId}
+                personId={params.personId}
+                pending={pendingProposal(proposals)}
+                onProposed={() => setProposed(true)}
+              />
+            ) : null}
             <Link
               href={cardPath}
               data-slot="button"
@@ -122,6 +156,16 @@ export function ClientNutritionGoalsScreen() {
           </>
         }
       />
+
+      {proposed ? (
+        <Alert variant="success" live="polite" data-client-nutrition-goal-proposed>
+          <AlertTitle>Le propusiste nuevos objetivos</AlertTitle>
+          <AlertDescription>
+            No cambia nada hasta que ella decida en Allfit Space. Su meta de hoy sigue igual.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {first && blockers && blockers.length > 0 ? <ProposalBlockers blockers={blockers} /> : null}
 
       {query.isPending ? (
         <div data-client-nutrition-goals-loading>
@@ -174,6 +218,57 @@ export function ClientNutritionGoalsScreen() {
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * What proposing needs that Studio can see, or null while any of it is unknown.
+ * Her card is read only once her goals are: a refused read needs no card.
+ */
+function useProposalBlockers(
+  organizationId: string,
+  personId: string,
+  roles: readonly string[],
+  enabled: boolean,
+): ProposalBlocker[] | null {
+  const rolesQuery = useQuery(organizationRolesQueryOptions(organizationId))
+  const meQuery = useQuery(studioMeQueryOptions())
+  const cardQuery = useQuery({ ...clientCardQueryOptions(organizationId, personId), enabled })
+  const card = cardQuery.data
+  if (!rolesQuery.data || !meQuery.data || !card) return null
+  return proposalBlockers({
+    canGuide: canGuideNutrition(roles, rolesQuery.data.items),
+    credential: holdsNutritionCredential(meQuery.data.profile?.credentials),
+    // A card of somebody no longer attended shares nothing to contribute to.
+    level: card.kind === 'attending' ? guidanceLevel(card.sections) : null,
+  })
+}
+
+/** Decision 4: which condition is missing, said rather than a button that would be refused. */
+function ProposalBlockers({ blockers }: { blockers: readonly ProposalBlocker[] }) {
+  return (
+    <Alert variant="info" live="polite" data-client-nutrition-goal-blockers>
+      <AlertTitle>Para proponerle objetivos te falta</AlertTitle>
+      <AlertDescription>
+        <ul data-client-nutrition-goal-blocker-list>
+          {blockers.map((blocker) => (
+            <li key={blocker}>{blockerText(blocker)}</li>
+          ))}
+        </ul>
+      </AlertDescription>
+      {blockers.includes('credential') ? (
+        <AlertAction>
+          <Link
+            href="/account"
+            data-slot="button"
+            data-variant="outline"
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Ir a mi perfil profesional
+          </Link>
+        </AlertAction>
+      ) : null}
+    </Alert>
   )
 }
 
