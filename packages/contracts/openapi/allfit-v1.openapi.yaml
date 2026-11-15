@@ -15239,7 +15239,7 @@ paths:
               $ref: '#/components/schemas/WaitlistPrivateLinkRequest'
       responses:
         '200':
-          description: The sign-up's own code, counter and state
+          description: The sign-up's own code, counter, state and Founding Member number
           headers:
             Cache-Control:
               $ref: '#/components/headers/NoStore'
@@ -16432,6 +16432,15 @@ components:
         status:
           type: string
           enum: [confirmed, already_confirmed]
+        founding_number:
+          $ref: '#/components/schemas/WaitlistFoundingNumber'
+    WaitlistFoundingNumber:
+      type: integer
+      minimum: 1
+      maximum: 100
+      description: >-
+        The Founding Member number of the sign-up, given to the first hundred to
+        confirm. Absent for a sign-up that holds none.
     WaitlistEmailRequest:
       type: object
       additionalProperties: false
@@ -16466,6 +16475,8 @@ components:
         confirmed:
           type: boolean
           description: Whether this sign-up confirmed its own email.
+        founding_number:
+          $ref: '#/components/schemas/WaitlistFoundingNumber'
     ScopeResourceRule:
       type: object
       additionalProperties: false

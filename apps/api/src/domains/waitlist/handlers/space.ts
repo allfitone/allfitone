@@ -79,10 +79,10 @@ export function spaceWaitlistRoutes(
     if (!TOKEN.test(token)) return problem(c, 'not-found')
 
     try {
-      const outcome = await waitlist().confirm(token, visitor)
-      if (outcome === 'rate_limited') return rateLimited(c)
-      if (outcome === 'invalid') return problem(c, 'not-found')
-      return c.json({ status: outcome }, 200)
+      const result = await waitlist().confirm(token, visitor)
+      if (result.outcome === 'rate_limited') return rateLimited(c)
+      if (result.outcome === 'invalid') return problem(c, 'not-found')
+      return c.json({ status: result.outcome, ...foundingNumber(result.foundingNumber) }, 200)
     } catch (cause) {
       return failWaitlist(c, cause)
     }
@@ -118,6 +118,7 @@ export function spaceWaitlistRoutes(
           referrals: result.referrals,
           language: result.language,
           confirmed: result.confirmed,
+          ...foundingNumber(result.foundingNumber),
         },
         200,
       )
@@ -143,6 +144,11 @@ export function spaceWaitlistRoutes(
   })
 
   return routes
+}
+
+/** The number is in the answer only for a sign-up that holds one. */
+function foundingNumber(value: number | undefined): { founding_number?: number } {
+  return value === undefined ? {} : { founding_number: value }
 }
 
 /** Hashed before comparing, so the comparison takes the same time whatever the lengths. */

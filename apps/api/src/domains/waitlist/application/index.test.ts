@@ -44,7 +44,7 @@ function setup(environment: NodeJS.ProcessEnv = ENVIRONMENT) {
     },
     confirm: async (hash, connection) => {
       seen.confirmed.push({ hash, connection })
-      return 'confirmed'
+      return { outcome: 'confirmed' }
     },
     requestEmail: async (_email, connection, tokens) => {
       seen.fingerprints.push({ connection })
