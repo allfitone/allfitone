@@ -663,7 +663,8 @@
 [data-waitlist-confirmed],
 [data-waitlist-inviter],
 [data-waitlist-discard-detail],
-[data-waitlist-fraud-reason] {
+[data-waitlist-fraud-reason],
+[data-waitlist-fraud-withdrawal] {
   font-size: var(--afo-font-size-sm);
   color: var(--afo-color-text-muted, currentColor);
   overflow-wrap: anywhere;
@@ -675,7 +676,8 @@
 
 /* The inviter keeps its name whole, with its code under it. */
 [data-waitlist-inviter],
-[data-waitlist-fraud-reason] {
+[data-waitlist-fraud-reason],
+[data-waitlist-fraud-withdrawal] {
   display: grid;
   gap: 2px;
   justify-items: start;
@@ -685,9 +687,8 @@
   min-width: 9.5rem;
 }
 
-/* The action sits apart from the badge and the detail above it. */
-[data-waitlist-stack] > [data-slot='badge'] ~ button,
-[data-waitlist-stack] > [data-slot='badge'] ~ [data-slot='button'] {
+/* The action sits apart from whatever the row says above it. */
+[data-waitlist-stack] > * ~ [data-slot='button'] {
   margin-block-start: 6px;
 }
 
@@ -697,8 +698,9 @@
   white-space: nowrap;
 }
 
-/* The reason of a mark is read in full: it is the record, not a label. */
-[data-waitlist-fraud-reason] {
+/* The reason of a mark, or of taking it back, is read in full: it is the record. */
+[data-waitlist-fraud-reason],
+[data-waitlist-fraud-withdrawal] {
   max-width: 32ch;
 }
 

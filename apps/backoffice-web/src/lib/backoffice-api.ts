@@ -638,6 +638,12 @@ export const backofficeApi = {
       body: JSON.stringify({ reason }),
     }),
 
+  withdrawWaitlistFraudMark: (signupId: string, reason: string, command: BackofficeCommand) =>
+    requestJson<BackofficeWaitlistSignup>(
+      `/backoffice/v1/waitlist/signups/${signupId}/fraud/withdrawal`,
+      { method: 'POST', headers: commandHeaders(command), body: JSON.stringify({ reason }) },
+    ),
+
   cancelOrganizationHandover: (organizationId: string, command: BackofficeCommand) =>
     requestJson<OrganizationHandover>(
       `/backoffice/v1/organizations/${organizationId}/cancellation`,

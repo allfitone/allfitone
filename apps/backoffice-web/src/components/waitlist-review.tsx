@@ -11,15 +11,16 @@
  * list's own rule and carries no decision; the second is a person's, and the row shows
  * its reason and its date.
  *
- * **What a mark does is said before it is done.** It is not undone here, so the
- * dialog spells out what this sign-up loses — the number it holds, the person it
- * counts for — and asks for the reason that stays in the record.
+ * **What a mark does is said before it is done, and so is what taking it back does.**
+ * A mark costs the sign-up its number and the person it counts for; taking it back
+ * returns the second and not the first, which went to someone else. One dialog serves
+ * both commands, spells out which, and asks for the reason that stays in the record.
  *
- * **A lost answer never marks twice.** The command is kept while the reason stays the
+ * **A lost answer never acts twice.** The command is kept while the reason stays the
  * same, so retrying after a network failure replays it. A reworded reason is a new
  * command.
  *
- * **After a mark the list is read again.** A freed Founding Member number goes to
+ * **After either command the list is read again.** A Founding Member number moves to
  * another sign-up, which may be on screen; patching one row would leave the other stale.
  */
 
@@ -93,6 +94,10 @@ import {
   waitlistFilterIssue,
   waitlistFilterIssueMessage,
   waitlistMessage,
+  withdrawalConsequences,
+  withdrawalMessage,
+  withdrawalOutcomeMessage,
+  WITHDRAWAL_REASON_REQUIRED,
   type WaitlistFilter,
   type WaitlistFilters,
   type WaitlistSignup,
@@ -104,6 +109,54 @@ import { ScreenFailure, ScreenLoading } from './screen-state'
 type LoadState = 'loading' | 'ready' | 'failed'
 
 const ANY = 'any'
+
+type ReviewKind = 'mark' | 'withdraw'
+
+interface ReviewAction {
+  kind: ReviewKind
+  signup: WaitlistSignup
+}
+
+interface ReviewCopy {
+  title: string
+  placeholder: string
+  reasonRequired: string
+  failureTitle: string
+  keep: string
+  confirm: string
+  busy: string
+  done: string
+  consequences: (signup: WaitlistSignup) => string[]
+  refusal: (code: string) => string
+}
+
+// The two commands over a sign-up share one dialog; this is everything that differs.
+const REVIEW_COPY: Record<ReviewKind, ReviewCopy> = {
+  mark: {
+    title: 'Marcar como fraude',
+    placeholder: 'Correos en serie desde un mismo equipo',
+    reasonRequired: FRAUD_REASON_REQUIRED,
+    failureTitle: 'No se marcó',
+    keep: 'Dejarla como está',
+    confirm: 'Marcar como fraude',
+    busy: 'Marcando…',
+    done: 'Marcada como fraude',
+    consequences: fraudConsequences,
+    refusal: fraudMessage,
+  },
+  withdraw: {
+    title: 'Quitar la marca de fraude',
+    placeholder: 'La persona escribió y es real',
+    reasonRequired: WITHDRAWAL_REASON_REQUIRED,
+    failureTitle: 'No se quitó la marca',
+    keep: 'Dejarla marcada',
+    confirm: 'Quitar la marca',
+    busy: 'Quitando…',
+    done: 'Marca de fraude retirada',
+    consequences: withdrawalConsequences,
+    refusal: withdrawalMessage,
+  },
+}
 
 export function WaitlistReview() {
   const [state, setState] = useState<LoadState>('loading')
@@ -118,14 +171,14 @@ export function WaitlistReview() {
   const [issue, setIssue] = useState<string | null>(null)
   const [totals, setTotals] = useState<WaitlistTotals | null>(null)
   const [totalsFailure, setTotalsFailure] = useState<string | null>(null)
-  // Bumped after a mark and by a retry: both reads start again from the first page.
+  // Bumped after a command and by a retry: both reads start again from the first page.
   const [revision, setRevision] = useState(0)
 
-  const [target, setTarget] = useState<WaitlistSignup | null>(null)
+  const [action, setAction] = useState<ReviewAction | null>(null)
   const [reason, setReason] = useState('')
-  const [marking, setMarking] = useState(false)
-  const [markFailure, setMarkFailure] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [actionFailure, setActionFailure] = useState<string | null>(null)
+  const [outcome, setOutcome] = useState<{ title: string; message: string } | null>(null)
   const pending = useRef<BackofficeCommand | null>(null)
 
   useEffect(() => {
@@ -207,51 +260,63 @@ export function WaitlistReview() {
     }
   }
 
-  function openMark(signup: WaitlistSignup) {
+  function openAction(kind: ReviewKind, signup: WaitlistSignup) {
     pending.current = null
     setReason('')
-    setMarkFailure(null)
-    setTarget(signup)
+    setActionFailure(null)
+    setAction({ kind, signup })
   }
 
-  function closeMark() {
+  function closeAction() {
     // Closing mid-flight would hide a command that is still going to land.
-    if (marking) return
-    setTarget(null)
+    if (sending) return
+    setAction(null)
   }
 
-  async function mark(event: FormEvent) {
+  async function send(event: FormEvent) {
     event.preventDefault()
-    if (!target) return
+    if (!action) return
+    const copy = REVIEW_COPY[action.kind]
     const parsed = parseFraudReason(reason)
     if (!parsed) {
-      setMarkFailure(FRAUD_REASON_REQUIRED)
+      setActionFailure(copy.reasonRequired)
       return
     }
     const command = pending.current ?? newBackofficeCommand()
     pending.current = command
-    setMarking(true)
-    setMarkFailure(null)
+    setSending(true)
+    setActionFailure(null)
     try {
-      await backofficeApi.markWaitlistSignupAsFraud(target.id, parsed, command)
+      // A mark is told from the sign-up as it was; a withdrawal from the answer, because
+      // only the answer knows whether a number was free.
+      const message =
+        action.kind === 'mark'
+          ? await backofficeApi
+              .markWaitlistSignupAsFraud(action.signup.id, parsed, command)
+              .then(() => fraudOutcomeMessage(action.signup))
+          : withdrawalOutcomeMessage(
+              await backofficeApi.withdrawWaitlistFraudMark(action.signup.id, parsed, command),
+            )
       pending.current = null
-      setOutcome(fraudOutcomeMessage(target))
-      setTarget(null)
+      setOutcome({ title: copy.done, message })
+      setAction(null)
       reload()
     } catch (error) {
       if (error instanceof BackofficeApiError && error.status === 401) {
         window.location.assign('/')
         return
       }
-      setMarkFailure(
+      setActionFailure(
         error instanceof BackofficeNetworkError
-          ? fraudMessage('network-unavailable')
-          : fraudMessage(error instanceof BackofficeApiError ? error.code : 'unknown'),
+          ? copy.refusal('network-unavailable')
+          : copy.refusal(error instanceof BackofficeApiError ? error.code : 'unknown'),
       )
     } finally {
-      setMarking(false)
+      setSending(false)
     }
   }
+
+  const copy = action ? REVIEW_COPY[action.kind] : null
 
   if (state === 'failed' && refused) {
     return (
@@ -352,8 +417,8 @@ export function WaitlistReview() {
 
       {outcome ? (
         <Alert live="polite" variant="success" data-waitlist-outcome>
-          <AlertTitle>Marcada como fraude</AlertTitle>
-          <AlertDescription>{outcome}</AlertDescription>
+          <AlertTitle>{outcome.title}</AlertTitle>
+          <AlertDescription>{outcome.message}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -405,8 +470,9 @@ export function WaitlistReview() {
                     <SignupRow
                       key={signup.id}
                       signup={signup}
-                      onMark={() => openMark(signup)}
-                      disabled={marking}
+                      onMark={() => openAction('mark', signup)}
+                      onWithdraw={() => openAction('withdraw', signup)}
+                      disabled={sending}
                     />
                   ))}
                 </TableBody>
@@ -436,22 +502,26 @@ export function WaitlistReview() {
       ) : null}
 
       <Dialog
-        open={target !== null}
+        open={action !== null}
         onOpenChange={(next) => {
-          if (!next) closeMark()
+          if (!next) closeAction()
         }}
       >
-        {target ? (
-          <DialogContent data-waitlist-fraud-dialog showCloseButton={false}>
+        {action && copy ? (
+          <DialogContent
+            data-waitlist-fraud-dialog
+            data-review-kind={action.kind}
+            showCloseButton={false}
+          >
             <DialogHeader>
-              <DialogTitle>Marcar como fraude</DialogTitle>
+              <DialogTitle>{copy.title}</DialogTitle>
               <DialogDescription>
-                {target.name} · {target.email}
+                {action.signup.name} · {action.signup.email}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={(event) => void mark(event)} data-waitlist-fraud-form noValidate>
+            <form onSubmit={(event) => void send(event)} data-waitlist-fraud-form noValidate>
               <ul data-waitlist-fraud-consequences aria-label="Qué cambia">
-                {fraudConsequences(target).map((consequence) => (
+                {copy.consequences(action.signup).map((consequence) => (
                   <li key={consequence}>{consequence}</li>
                 ))}
               </ul>
@@ -462,11 +532,11 @@ export function WaitlistReview() {
                   name="reason"
                   autoComplete="off"
                   maxLength={MAX_FRAUD_REASON}
-                  placeholder="Correos en serie desde un mismo equipo"
+                  placeholder={copy.placeholder}
                   value={reason}
-                  disabled={marking}
+                  disabled={sending}
                   aria-describedby="waitlist-fraud-reason-help"
-                  aria-invalid={markFailure === FRAUD_REASON_REQUIRED}
+                  aria-invalid={actionFailure === copy.reasonRequired}
                   onChange={(event) => {
                     // A reworded reason is another request: it must not reuse the key.
                     pending.current = null
@@ -477,18 +547,23 @@ export function WaitlistReview() {
                   Una línea que otra persona del equipo entienda al leer el registro.
                 </FieldDescription>
               </Field>
-              {markFailure ? (
+              {actionFailure ? (
                 <Alert live="assertive" variant="danger" data-waitlist-fraud-failure>
-                  <AlertTitle>No se marcó</AlertTitle>
-                  <AlertDescription>{markFailure}</AlertDescription>
+                  <AlertTitle>{copy.failureTitle}</AlertTitle>
+                  <AlertDescription>{actionFailure}</AlertDescription>
                 </Alert>
               ) : null}
               <DialogFooter>
-                <Button type="button" variant="outline" disabled={marking} onClick={closeMark}>
-                  Dejarla como está
+                <Button type="button" variant="outline" disabled={sending} onClick={closeAction}>
+                  {copy.keep}
                 </Button>
-                <Button type="submit" variant="destructive" disabled={marking}>
-                  {marking ? 'Marcando…' : 'Marcar como fraude'}
+                {/* Only the mark takes something away, so only it reads as destructive. */}
+                <Button
+                  type="submit"
+                  disabled={sending}
+                  {...(action.kind === 'mark' ? { variant: 'destructive' as const } : {})}
+                >
+                  {sending ? copy.busy : copy.confirm}
                 </Button>
               </DialogFooter>
             </form>
@@ -563,10 +638,12 @@ function WaitlistTotalsCard({ totals }: { totals: WaitlistTotals }) {
 function SignupRow({
   signup,
   onMark,
+  onWithdraw,
   disabled,
 }: {
   signup: WaitlistSignup
   onMark: () => void
+  onWithdraw: () => void
   disabled: boolean
 }) {
   const shared = sharedConnectionLabel(signup.referrals_sharing_connection)
@@ -632,21 +709,43 @@ function SignupRow({
           ) : null}
           {detail ? <span data-waitlist-discard-detail>{detail}</span> : null}
           {signup.fraud ? (
-            <span data-waitlist-fraud-reason>
-              <span>{signup.fraud.reason}</span>
-              <span data-waitlist-instant>{formatInstant(signup.fraud.marked_at)}</span>
-            </span>
+            <>
+              <span data-waitlist-fraud-reason>
+                <span>{signup.fraud.reason}</span>
+                <span data-waitlist-instant>{formatInstant(signup.fraud.marked_at)}</span>
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                aria-label={`Quitar la marca de fraude de la inscripción de ${signup.name}`}
+                onClick={onWithdraw}
+              >
+                Quitar la marca
+              </Button>
+            </>
           ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={disabled}
-              aria-label={`Marcar como fraude la inscripción de ${signup.name}`}
-              onClick={onMark}
-            >
-              Marcar como fraude
-            </Button>
+            <>
+              {signup.fraud_withdrawal ? (
+                <span data-waitlist-fraud-withdrawal>
+                  <span>Marca de fraude retirada: {signup.fraud_withdrawal.reason}</span>
+                  <span data-waitlist-instant>
+                    {formatInstant(signup.fraud_withdrawal.withdrawn_at)}
+                  </span>
+                </span>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                aria-label={`Marcar como fraude la inscripción de ${signup.name}`}
+                onClick={onMark}
+              >
+                Marcar como fraude
+              </Button>
+            </>
           )}
         </div>
       </TableCell>

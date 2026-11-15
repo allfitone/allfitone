@@ -569,8 +569,9 @@ export function directoryOrganization(
  *
  * The mock answers as the database does: newest first, a search over name, email and
  * code, and a fraud mark that takes the number away, hands it to the earliest-confirmed
- * sign-up that waits, and stops counting for the inviter. It refuses a query it cannot
- * read rather than ignoring it.
+ * sign-up that waits, and stops counting for the inviter. Taking the mark back returns
+ * the sign-up to what it was and puts it back in line for a number. It refuses a query it
+ * cannot read rather than ignoring it.
  */
 export interface WaitlistFixture {
   refusal?: { status: number; code: string }
@@ -578,6 +579,10 @@ export interface WaitlistFixture {
   markRefusal?: { status: number; code: string }
   /** Drops the answer of the next mark after applying it, like a connection lost. */
   loseNextMarkAnswer?: boolean
+  /** Refuses the withdrawal of a mark alone. */
+  withdrawalRefusal?: { status: number; code: string }
+  /** Drops the answer of the next withdrawal after applying it. */
+  loseNextWithdrawalAnswer?: boolean
   pageSize?: number
   signups: WaitlistSignupFixture[]
 }
@@ -595,7 +600,12 @@ export interface WaitlistSignupFixture {
   source: string | null
   invited_by_id: string | null
   discard_reason: 'self_referral' | 'same_device' | 'fraud' | null
-  fraud: { reason: string; marked_at: string } | null
+  fraud: {
+    reason: string
+    marked_at: string
+    previous_discard_reason: 'self_referral' | 'same_device' | null
+  } | null
+  fraud_withdrawal: { reason: string; withdrawn_at: string } | null
   referrals_sharing_connection: number
 }
 
@@ -621,6 +631,7 @@ export function waitlistSignup(
     invited_by_id: null,
     discard_reason: null,
     fraud: null,
+    fraud_withdrawal: null,
     referrals_sharing_connection: 0,
     ...overrides,
   }
@@ -2979,6 +2990,7 @@ function waitlistProjection(row: WaitlistSignupFixture, all: WaitlistSignupFixtu
     invited_by: inviter ? { name: inviter.name, referral_code: inviter.referral_code } : null,
     discard_reason: row.discard_reason,
     fraud: row.fraud,
+    fraud_withdrawal: row.fraud_withdrawal,
     referrals: all.filter(
       (candidate) =>
         candidate.invited_by_id === row.id &&
@@ -3112,20 +3124,17 @@ async function routeWaitlist(
     }
     if (!replay) {
       const released = row.founding_number
+      row.fraud = {
+        reason,
+        marked_at: '2026-11-14T18:00:00.000Z',
+        previous_discard_reason: row.discard_reason === 'fraud' ? null : row.discard_reason,
+      }
+      row.fraud_withdrawal = null
       row.discard_reason = 'fraud'
       row.founding_number = null
-      row.fraud = { reason, marked_at: '2026-11-14T18:00:00.000Z' }
       waitlistMarkKeys.set(row.id, key)
       if (released !== null) {
-        const next = all
-          .filter(
-            (candidate) =>
-              candidate.confirmed_at !== null &&
-              candidate.founding_number === null &&
-              candidate.discard_reason !== 'fraud',
-          )
-          .sort((left, right) => (left.confirmed_at ?? '').localeCompare(right.confirmed_at ?? ''))
-          .at(0)
+        const next = nextInLineForNumber(all)
         if (next) next.founding_number = released
       }
     }
@@ -3143,11 +3152,82 @@ async function routeWaitlist(
     return
   }
 
+  const withdrawn = /^\/backoffice\/v1\/waitlist\/signups\/([^/]+)\/fraud\/withdrawal$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && withdrawn) {
+    if (waitlist.withdrawalRefusal) {
+      await fulfillProblem(
+        route,
+        waitlist.withdrawalRefusal.status,
+        waitlist.withdrawalRefusal.code,
+      )
+      return
+    }
+    const row = all.find((candidate) => candidate.id === withdrawn[1])
+    if (!row) {
+      await fulfillProblem(route, 404, 'not-found')
+      return
+    }
+    const body = (request.body ?? {}) as { reason?: unknown }
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+    if (reason.length < 4 || reason.length > 200) {
+      await fulfillProblem(route, 422, 'validation-failed')
+      return
+    }
+    const key = request.headers['idempotency-key'] ?? ''
+    const replay = row.fraud_withdrawal !== null && waitlistWithdrawalKeys.get(row.id) === key
+    if (row.discard_reason !== 'fraud' && !replay) {
+      await fulfillProblem(route, 409, 'conflict')
+      return
+    }
+    if (!replay) {
+      row.discard_reason = row.fraud?.previous_discard_reason ?? null
+      row.fraud = null
+      row.fraud_withdrawal = { reason, withdrawn_at: '2026-11-14T19:00:00.000Z' }
+      waitlistWithdrawalKeys.set(row.id, key)
+      // Back in line: the lowest number nobody holds goes to whoever confirmed first.
+      const held = new Set(all.map((candidate) => candidate.founding_number))
+      const free = Array.from({ length: 100 }, (_, index) => index + 1).find(
+        (number) => !held.has(number),
+      )
+      const next = nextInLineForNumber(all)
+      if (free !== undefined && next) next.founding_number = free
+    }
+    if (waitlist.loseNextWithdrawalAnswer) {
+      waitlist.loseNextWithdrawalAnswer = false
+      await route.abort('failed')
+      return
+    }
+    await fulfill(
+      route,
+      200,
+      waitlistProjection(row, all),
+      replay ? { 'Idempotent-Replay': 'true' } : {},
+    )
+    return
+  }
+
   await fulfillProblem(route, 404, 'not-found')
+}
+
+/** The earliest-confirmed sign-up that waits for a Founding Member number, if any. */
+function nextInLineForNumber(all: WaitlistSignupFixture[]): WaitlistSignupFixture | undefined {
+  return all
+    .filter(
+      (candidate) =>
+        candidate.confirmed_at !== null &&
+        candidate.founding_number === null &&
+        candidate.discard_reason !== 'fraud',
+    )
+    .sort((left, right) => (left.confirmed_at ?? '').localeCompare(right.confirmed_at ?? ''))
+    .at(0)
 }
 
 /** The idempotency key each sign-up was marked with, to tell a replay from a second mark. */
 const waitlistMarkKeys = new Map<string, string>()
+/** The same for the key each mark was taken back with. */
+const waitlistWithdrawalKeys = new Map<string, string>()
 
 function maskedContact(email: string): string {
   const [local = '', domain = ''] = email.split('@')

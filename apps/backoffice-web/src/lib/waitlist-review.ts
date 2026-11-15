@@ -15,8 +15,9 @@
  * **A shared connection is a signal, not a verdict.** A gym, a family or an office
  * share one. The screen says how many, and that a person has to look.
  *
- * **Marking fraud is not undone here**, so what it does to this particular sign-up is
- * spelled out before the command, never after.
+ * **A mark changes more than a label**, so what it does to this particular sign-up is
+ * spelled out before the command, never after. So is what taking it back does: the
+ * sign-up counts again, but the number it gave up is not reserved for it.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
@@ -290,7 +291,9 @@ export function fraudConsequences(signup: WaitlistSignup): string[] {
   } else {
     consequences.push('No recibirá un número de Founding Member.')
   }
-  consequences.push('Queda registrado con tu nombre y con el motivo. No se deshace desde aquí.')
+  consequences.push(
+    'Queda registrado con tu nombre y con el motivo. La marca se puede quitar después.',
+  )
   return consequences
 }
 
@@ -304,6 +307,62 @@ export function fraudOutcomeMessage(before: WaitlistSignup): string {
   }
   if (before.invited_by && before.discard_reason === null && before.confirmed_at !== null) {
     parts.push(`Ya no suma como referido de ${before.invited_by.name}.`)
+  }
+  return parts.join(' ')
+}
+
+export const WITHDRAWAL_REASON_REQUIRED = `Escribe el motivo en una línea, de ${MIN_FRAUD_REASON} a ${MAX_FRAUD_REASON} caracteres. Queda en el registro de por qué se quitó la marca.`
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1)
+}
+
+/** What taking the mark back does to this sign-up, said before the command. */
+export function withdrawalConsequences(signup: WaitlistSignup): string[] {
+  const consequences: string[] = []
+  const previous = signup.fraud?.previous_discard_reason ?? null
+  const before = previous ? discardDetail(previous) : undefined
+  if (signup.invited_by) {
+    if (before) {
+      consequences.push(
+        `Sigue sin sumar como referido de ${signup.invited_by.name}: la lista la descartó al entrar (${lowerFirst(before)}).`,
+      )
+    } else if (signup.confirmed_at === null) {
+      consequences.push(
+        `Sumará como referido de ${signup.invited_by.name} cuando confirme su correo.`,
+      )
+    } else {
+      consequences.push(
+        `Vuelve a sumar como referido de ${signup.invited_by.name}, salvo que otra inscripción del mismo dispositivo ya cuente para esa persona.`,
+      )
+    }
+  }
+  consequences.push(
+    signup.confirmed_at === null
+      ? 'Podrá recibir un número de Founding Member cuando confirme su correo.'
+      : 'Vuelve a la fila de Founding Members y recibe el siguiente número que quede libre; el que tenía antes de la marca no se le reserva.',
+  )
+  consequences.push('Queda registrado con tu nombre y con el motivo.')
+  return consequences
+}
+
+/** What happened, read from the sign-up as the answer left it. */
+export function withdrawalOutcomeMessage(after: WaitlistSignup): string {
+  const parts = [`Se quitó la marca de fraude de la inscripción de ${after.name}.`]
+  if (after.founding_number !== null) {
+    parts.push(`Recibió el número ${after.founding_number} de Founding Member.`)
+  } else if (after.confirmed_at !== null) {
+    parts.push('Espera el siguiente número de Founding Member que quede libre.')
+  }
+  if (after.invited_by) {
+    const detail = after.discard_reason ? discardDetail(after.discard_reason) : undefined
+    if (detail) {
+      parts.push(
+        `Sigue sin sumar como referido de ${after.invited_by.name}: ${lowerFirst(detail)}.`,
+      )
+    } else if (after.discard_reason === null && after.confirmed_at !== null) {
+      parts.push(`Vuelve a sumar como referido de ${after.invited_by.name}.`)
+    }
   }
   return parts.join(' ')
 }
@@ -338,4 +397,24 @@ export function fraudMessage(code: string): string {
       'No hay conexión con el API. Reintenta: si la marca ya se había hecho, no se hará dos veces.',
   }
   return messages[code] ?? 'No se pudo marcar la inscripción.'
+}
+
+export function withdrawalMessage(code: string): string {
+  const messages: Record<string, string> = {
+    forbidden:
+      'Tu sesión no tiene vigente el deber que permite quitar una marca de fraude: administrar lo comercial de la plataforma.',
+    'not-found': 'Esta inscripción ya no está en la lista: la persona pudo haberse retirado.',
+    conflict:
+      'Esta inscripción ya no estaba marcada como fraude. Recarga la lista para verla al día.',
+    'validation-failed': WITHDRAWAL_REASON_REQUIRED,
+    'invalid-request': 'La orden no se pudo leer. Recarga la pantalla e inténtalo de nuevo.',
+    'idempotency-in-progress':
+      'La orden anterior todavía se está procesando. Espera un momento y reintenta.',
+    unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
+    'upstream-unavailable':
+      'El servicio no respondió. Reintenta: la marca no se quitará dos veces.',
+    'network-unavailable':
+      'No hay conexión con el API. Reintenta: si la marca ya se había quitado, no se quitará dos veces.',
+  }
+  return messages[code] ?? 'No se pudo quitar la marca de fraude.'
 }

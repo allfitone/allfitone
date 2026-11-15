@@ -20,6 +20,9 @@ import {
   waitlistAnswer,
   waitlistFilterIssue,
   waitlistMessage,
+  withdrawalConsequences,
+  withdrawalMessage,
+  withdrawalOutcomeMessage,
   type WaitlistSignup,
 } from './waitlist-review'
 
@@ -37,6 +40,7 @@ function signup(overrides: Partial<WaitlistSignup> = {}): WaitlistSignup {
     invited_by: { name: 'Ana Ruiz', referral_code: 'ANAR2Q7M' },
     discard_reason: null,
     fraud: null,
+    fraud_withdrawal: null,
     referrals: 0,
     referrals_sharing_connection: 0,
     ...overrides,
@@ -198,14 +202,14 @@ describe('what marking fraud does, said before it is done', () => {
     expect(fraudConsequences(signup())).toEqual([
       'Deja de sumar como referido de Ana Ruiz.',
       'Pierde el número 2 de Founding Member, que pasa a la siguiente persona confirmada que espera uno.',
-      'Queda registrado con tu nombre y con el motivo. No se deshace desde aquí.',
+      'Queda registrado con tu nombre y con el motivo. La marca se puede quitar después.',
     ])
   })
 
   test('a sign-up nobody invited and without a number only loses the chance of one', () => {
     expect(fraudConsequences(signup({ invited_by: null, founding_number: null }))).toEqual([
       'No recibirá un número de Founding Member.',
-      'Queda registrado con tu nombre y con el motivo. No se deshace desde aquí.',
+      'Queda registrado con tu nombre y con el motivo. La marca se puede quitar después.',
     ])
   })
 
@@ -232,6 +236,91 @@ describe('what marking fraud does, said before it is done', () => {
   })
 })
 
+describe('what taking a mark back does, said before it is done', () => {
+  const marked = (overrides: Partial<WaitlistSignup> = {}) =>
+    signup({
+      founding_number: null,
+      discard_reason: 'fraud',
+      fraud: {
+        reason: 'Correos en serie desde un mismo equipo',
+        marked_at: '2026-11-14T16:00:00.000Z',
+        previous_discard_reason: null,
+      },
+      ...overrides,
+    })
+
+  test('a confirmed referral counts again and waits in line for a number', () => {
+    expect(withdrawalConsequences(marked())).toEqual([
+      'Vuelve a sumar como referido de Ana Ruiz, salvo que otra inscripción del mismo dispositivo ya cuente para esa persona.',
+      'Vuelve a la fila de Founding Members y recibe el siguiente número que quede libre; el que tenía antes de la marca no se le reserva.',
+      'Queda registrado con tu nombre y con el motivo.',
+    ])
+  })
+
+  test('a sign-up the list had discarded before the mark is told it still does not count', () => {
+    const consequences = withdrawalConsequences(
+      marked({
+        fraud: {
+          reason: 'Mismo equipo que otra inscripción',
+          marked_at: '2026-11-14T16:00:00.000Z',
+          previous_discard_reason: 'same_device',
+        },
+      }),
+    )
+    expect(consequences[0]).toBe(
+      'Sigue sin sumar como referido de Ana Ruiz: la lista la descartó al entrar (dispositivo repetido).',
+    )
+  })
+
+  test('an unconfirmed sign-up is told in the future', () => {
+    expect(withdrawalConsequences(marked({ confirmed_at: null }))).toEqual([
+      'Sumará como referido de Ana Ruiz cuando confirme su correo.',
+      'Podrá recibir un número de Founding Member cuando confirme su correo.',
+      'Queda registrado con tu nombre y con el motivo.',
+    ])
+  })
+
+  test('a sign-up nobody invited is told nothing about referrals', () => {
+    expect(withdrawalConsequences(marked({ invited_by: null })).join(' ')).not.toContain('referido')
+  })
+
+  test('the outcome is read from the sign-up as the answer left it', () => {
+    const withdrawal = {
+      reason: 'La persona escribió y es real',
+      withdrawn_at: '2026-11-14T17:00:00.000Z',
+    }
+    expect(
+      withdrawalOutcomeMessage(signup({ founding_number: 4, fraud_withdrawal: withdrawal })),
+    ).toBe(
+      'Se quitó la marca de fraude de la inscripción de Bruno Díaz. Recibió el número 4 de Founding Member. Vuelve a sumar como referido de Ana Ruiz.',
+    )
+    expect(
+      withdrawalOutcomeMessage(signup({ founding_number: null, fraud_withdrawal: withdrawal })),
+    ).toBe(
+      'Se quitó la marca de fraude de la inscripción de Bruno Díaz. Espera el siguiente número de Founding Member que quede libre. Vuelve a sumar como referido de Ana Ruiz.',
+    )
+    expect(
+      withdrawalOutcomeMessage(
+        signup({
+          founding_number: null,
+          discard_reason: 'same_device',
+          fraud_withdrawal: withdrawal,
+        }),
+      ),
+    ).toContain('Sigue sin sumar como referido de Ana Ruiz: dispositivo repetido.')
+    expect(
+      withdrawalOutcomeMessage(
+        signup({
+          founding_number: null,
+          confirmed_at: null,
+          invited_by: null,
+          fraud_withdrawal: withdrawal,
+        }),
+      ),
+    ).toBe('Se quitó la marca de fraude de la inscripción de Bruno Díaz.')
+  })
+})
+
 describe('what a refusal says', () => {
   test('a read names the duty, and an unknown code still says something', () => {
     expect(waitlistMessage('forbidden')).toContain('administrar lo comercial de la plataforma')
@@ -243,5 +332,12 @@ describe('what a refusal says', () => {
     expect(fraudMessage('not-found')).toContain('ya no está en la lista')
     expect(fraudMessage('network-unavailable')).toContain('no se hará dos veces')
     expect(fraudMessage('teapot')).toBe('No se pudo marcar la inscripción.')
+  })
+
+  test('a mark that cannot be taken back says why, and that a retry is safe', () => {
+    expect(withdrawalMessage('conflict')).toContain('ya no estaba marcada')
+    expect(withdrawalMessage('forbidden')).toContain('quitar una marca de fraude')
+    expect(withdrawalMessage('network-unavailable')).toContain('no se quitará dos veces')
+    expect(withdrawalMessage('teapot')).toBe('No se pudo quitar la marca de fraude.')
   })
 })

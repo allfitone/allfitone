@@ -14,7 +14,8 @@ import {
  *
  * What is asserted is what the screen has to say out loud: a channel with its own name
  * rather than the stored value, a discard told apart from a fraud mark, what a mark
- * will do to this sign-up before it is made, and that a lost answer never marks twice.
+ * will do to this sign-up before it is made, what taking it back returns and what it
+ * does not, and that a lost answer never acts twice.
  */
 
 const PATH = '/waitlist'
@@ -74,6 +75,23 @@ function row(page: Page, name: string) {
   return page
     .locator('[data-waitlist-row]')
     .filter({ has: page.locator('[data-waitlist-person] strong', { hasText: name }) })
+}
+
+/** The same list after Bruno was marked: his number 2 went to Darío. */
+function listWithBrunoMarked(): WaitlistSignupFixture[] {
+  const signups = list()
+  const bruno = signups.find((signup) => signup.name === 'Bruno Díaz')
+  const dario = signups.find((signup) => signup.name === 'Darío Paz')
+  if (!bruno || !dario) throw new Error('the list changed')
+  bruno.discard_reason = 'fraud'
+  bruno.founding_number = null
+  bruno.fraud = {
+    reason: 'Correos en serie desde un mismo equipo',
+    marked_at: '2026-11-14T18:00:00.000Z',
+    previous_discard_reason: null,
+  }
+  dario.founding_number = 2
+  return signups
 }
 
 function lastListQuery(fixture: BackofficeFixture): string | undefined {
@@ -266,7 +284,7 @@ test('marking fraud says what it will do, asks for the reason and reads the list
   await expect(dialog).toContainText('Bruno Díaz · bruno.diaz@example.com')
   await expect(dialog).toContainText('Deja de sumar como referido de Ana Ruiz.')
   await expect(dialog).toContainText('Pierde el número 2 de Founding Member')
-  await expect(dialog).toContainText('No se deshace desde aquí.')
+  await expect(dialog).toContainText('La marca se puede quitar después.')
 
   // Without a reason nothing is sent.
   await dialog.getByRole('button', { name: 'Marcar como fraude' }).click()
@@ -288,6 +306,11 @@ test('marking fraud says what it will do, asks for the reason and reads the list
   await expect(
     row(page, 'Bruno Díaz').getByRole('button', { name: /Marcar como fraude/ }),
   ).toHaveCount(0)
+  await expect(
+    row(page, 'Bruno Díaz').getByRole('button', {
+      name: 'Quitar la marca de fraude de la inscripción de Bruno Díaz',
+    }),
+  ).toBeVisible()
   // The number went to the earliest-confirmed sign-up that waited, and the inviter lost one.
   await expect(row(page, 'Darío Paz').locator('[data-waitlist-founding]')).toHaveText(
     'Founding Member N.º 2',
@@ -376,6 +399,165 @@ test('a mark the server refuses stays in the dialog with what happened', async (
 
   await expect(dialog.locator('[data-waitlist-fraud-failure]')).toContainText(
     'ya estaba marcada como fraude',
+  )
+  await expect(page.locator('[data-waitlist-outcome]')).toHaveCount(0)
+})
+
+test('taking a mark back says what returns, asks for the reason and reads the list again', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    waitlist: { signups: listWithBrunoMarked() },
+  })
+  await mockBackofficeApi(context, fixture)
+  await page.goto(PATH)
+
+  await expect(row(page, 'Ana Ruiz').locator('[data-waitlist-referrals]')).toHaveText('1')
+  await page
+    .getByRole('button', { name: 'Quitar la marca de fraude de la inscripción de Bruno Díaz' })
+    .click()
+  const dialog = page.locator('[data-waitlist-fraud-dialog]')
+  await expect(dialog.getByRole('heading', { name: 'Quitar la marca de fraude' })).toBeVisible()
+  await expect(dialog).toContainText('Bruno Díaz · bruno.diaz@example.com')
+  await expect(dialog).toContainText('Vuelve a sumar como referido de Ana Ruiz')
+  await expect(dialog).toContainText('el que tenía antes de la marca no se le reserva')
+
+  // Without a reason nothing is sent.
+  await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
+  await expect(dialog.locator('[data-waitlist-fraud-failure]')).toContainText(
+    'Escribe el motivo en una línea',
+  )
+  expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+
+  await dialog.getByLabel('Motivo').fill('  La persona escribió y es real ')
+  await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
+
+  await expect(dialog).toHaveCount(0)
+  await expect(page.locator('[data-waitlist-outcome]')).toContainText('Marca de fraude retirada')
+  await expect(page.locator('[data-waitlist-outcome]')).toContainText(
+    'Se quitó la marca de fraude de la inscripción de Bruno Díaz. Recibió el número 4 de Founding Member. Vuelve a sumar como referido de Ana Ruiz.',
+  )
+  await expect(row(page, 'Bruno Díaz')).toHaveAttribute('data-discard', 'none')
+  await expect(row(page, 'Bruno Díaz').locator('[data-waitlist-fraud-withdrawal]')).toContainText(
+    'Marca de fraude retirada: La persona escribió y es real',
+  )
+  await expect(
+    row(page, 'Bruno Díaz').getByRole('button', {
+      name: 'Marcar como fraude la inscripción de Bruno Díaz',
+    }),
+  ).toBeVisible()
+  // The number it gave up stays with whoever received it; it takes the next one free.
+  await expect(row(page, 'Bruno Díaz').locator('[data-waitlist-founding]')).toHaveText(
+    'Founding Member N.º 4',
+  )
+  await expect(row(page, 'Darío Paz').locator('[data-waitlist-founding]')).toHaveText(
+    'Founding Member N.º 2',
+  )
+  await expect(row(page, 'Ana Ruiz').locator('[data-waitlist-referrals]')).toHaveText('2')
+  await expect(
+    page.locator('[data-waitlist-figure="marked_as_fraud"] [data-waitlist-value]'),
+  ).toHaveText('0')
+
+  const commands = fixture.requests.filter((request) => request.method === 'POST')
+  expect(commands).toHaveLength(1)
+  expect(commands[0]?.path).toMatch(
+    /\/backoffice\/v1\/waitlist\/signups\/[^/]+\/fraud\/withdrawal$/,
+  )
+  expect(commands[0]?.body).toEqual({ reason: 'La persona escribió y es real' })
+  expect(commands[0]?.headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/)
+  expect(commands[0]?.headers['command-id']).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/)
+})
+
+test('a sign-up the list had discarded before its mark is told it still will not count', async ({
+  context,
+  page,
+}) => {
+  const signups = list()
+  const dario = signups.find((signup) => signup.name === 'Darío Paz')
+  if (!dario) throw new Error('the list changed')
+  dario.discard_reason = 'fraud'
+  dario.fraud = {
+    reason: 'Mismo equipo que otra inscripción',
+    marked_at: '2026-11-14T18:00:00.000Z',
+    previous_discard_reason: 'same_device',
+  }
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), waitlist: { signups } }),
+  )
+  await page.goto(PATH)
+
+  await page
+    .getByRole('button', { name: 'Quitar la marca de fraude de la inscripción de Darío Paz' })
+    .click()
+  const dialog = page.locator('[data-waitlist-fraud-dialog]')
+  await expect(dialog).toContainText(
+    'Sigue sin sumar como referido de Ana Ruiz: la lista la descartó al entrar (dispositivo repetido).',
+  )
+
+  await dialog.getByRole('button', { name: 'Dejarla marcada' }).click()
+  await expect(dialog).toHaveCount(0)
+  await expect(row(page, 'Darío Paz')).toHaveAttribute('data-discard', 'fraud')
+})
+
+test('a lost answer of a withdrawal is retried with the same command, and acts once', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    waitlist: { signups: listWithBrunoMarked(), loseNextWithdrawalAnswer: true },
+  })
+  await mockBackofficeApi(context, fixture)
+  await page.goto(PATH)
+
+  await page
+    .getByRole('button', { name: 'Quitar la marca de fraude de la inscripción de Bruno Díaz' })
+    .click()
+  const dialog = page.locator('[data-waitlist-fraud-dialog]')
+  await dialog.getByLabel('Motivo').fill('La persona escribió y es real')
+  await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
+
+  await expect(dialog.locator('[data-waitlist-fraud-failure]')).toContainText(
+    'no se quitará dos veces',
+  )
+  await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
+
+  await expect(page.locator('[data-waitlist-outcome]')).toContainText('Bruno Díaz')
+  await expect(row(page, 'Bruno Díaz')).toHaveAttribute('data-discard', 'none')
+  const commands = fixture.requests.filter((request) => request.method === 'POST')
+  expect(commands).toHaveLength(2)
+  expect(commands[1]?.headers['idempotency-key']).toBe(commands[0]?.headers['idempotency-key'])
+  expect(commands[1]?.headers['command-id']).toBe(commands[0]?.headers['command-id'])
+})
+
+test('a withdrawal the server refuses stays in the dialog with what happened', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      waitlist: {
+        signups: listWithBrunoMarked(),
+        withdrawalRefusal: { status: 409, code: 'conflict' },
+      },
+    }),
+  )
+  await page.goto(PATH)
+
+  await page
+    .getByRole('button', { name: 'Quitar la marca de fraude de la inscripción de Bruno Díaz' })
+    .click()
+  const dialog = page.locator('[data-waitlist-fraud-dialog]')
+  await dialog.getByLabel('Motivo').fill('La persona escribió y es real')
+  await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
+
+  await expect(dialog.locator('[data-waitlist-fraud-failure]')).toContainText(
+    'ya no estaba marcada como fraude',
   )
   await expect(page.locator('[data-waitlist-outcome]')).toHaveCount(0)
 })
