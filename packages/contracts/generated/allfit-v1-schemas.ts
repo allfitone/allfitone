@@ -1852,6 +1852,21 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  BackofficeWaitlistFraudWithdrawal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['reason'],
+    properties: {
+      reason: {
+        type: 'string',
+        minLength: 4,
+        maxLength: 200,
+        pattern: '^[^\\u0000-\\u001F\\u007F]+$',
+        description:
+          'Why the mark was a mistake, on one line. It stays in the record of the withdrawal. Surrounding spaces are dropped.',
+      },
+    },
+  },
   BackofficeWaitlistSignup: {
     type: 'object',
     additionalProperties: false,
@@ -1868,6 +1883,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'invited_by',
       'discard_reason',
       'fraud',
+      'fraud_withdrawal',
       'referrals',
       'referrals_sharing_connection',
     ],
@@ -1927,12 +1943,35 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       fraud: {
         type: ['object', 'null'],
         additionalProperties: false,
-        required: ['reason', 'marked_at'],
+        description: 'The fraud mark that stands. Null once it is taken back.',
+        required: ['reason', 'marked_at', 'previous_discard_reason'],
         properties: {
           reason: {
             type: 'string',
           },
           marked_at: {
+            type: 'string',
+            format: 'date-time',
+          },
+          previous_discard_reason: {
+            type: ['string', 'null'],
+            enum: ['self_referral', 'same_device', null],
+            description:
+              'Why the sign-up did not count before the mark, and so what taking the mark back returns it to.',
+          },
+        },
+      },
+      fraud_withdrawal: {
+        type: ['object', 'null'],
+        additionalProperties: false,
+        description:
+          "The withdrawal of the sign-up's last fraud mark. Null while a mark stands, and for a sign-up that was never marked.",
+        required: ['reason', 'withdrawn_at'],
+        properties: {
+          reason: {
+            type: 'string',
+          },
+          withdrawn_at: {
             type: 'string',
             format: 'date-time',
           },

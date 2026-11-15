@@ -646,6 +646,14 @@ export const allfitV1ContractManifest = {
       security: ['backofficeCookieAuth'],
     },
     {
+      method: 'POST',
+      path: '/backoffice/v1/waitlist/signups/{signupId}/fraud/withdrawal',
+      operationId: 'withdrawBackofficeWaitlistFraudMark',
+      allfitOperation: 'OP-WL-016',
+      responses: ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
+      security: ['backofficeCookieAuth'],
+    },
+    {
       method: 'GET',
       path: '/backoffice/v1/waitlist/totals',
       operationId: 'readBackofficeWaitlistTotals',

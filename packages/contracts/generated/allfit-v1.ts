@@ -792,9 +792,29 @@ export interface paths {
     put?: never
     /**
      * Mark a sign-up as fraud
-     * @description `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited it and gives up its Founding Member number, which goes to the earliest-confirmed sign-up that waits for one. The mark is recorded with its reason and the duty assignment it was made under, and it is not undone here. A sign-up already marked is a 409.
+     * @description `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited it and gives up its Founding Member number, which goes to the earliest-confirmed sign-up that waits for one. The mark is recorded with its reason and the duty assignment it was made under, and it is taken back with `OP-WL-016`. A sign-up already marked is a 409.
      */
     post: operations['markBackofficeWaitlistSignupAsFraud']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/waitlist/signups/{signupId}/fraud/withdrawal': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take a fraud mark back
+     * @description `HU-BO-035`. A mark can be a mistake. The sign-up returns to what it was before the mark, with two limits: the Founding Member number it gave up is not given back, so it waits in line where its confirmation puts it and takes the next one free; and if its device came to count for the same inviter in the meantime, it returns as `same_device` rather than counting twice. The withdrawal is recorded with its reason and the duty assignment it was made under. A sign-up that is not marked is a 409.
+     */
+    post: operations['withdrawBackofficeWaitlistFraudMark']
     delete?: never
     options?: never
     head?: never
@@ -6177,10 +6197,22 @@ export interface components {
        * @enum {string|null}
        */
       discard_reason: 'self_referral' | 'same_device' | 'fraud' | null
+      /** @description The fraud mark that stands. Null once it is taken back. */
       fraud: {
         reason: string
         /** Format: date-time */
         marked_at: string
+        /**
+         * @description Why the sign-up did not count before the mark, and so what taking the mark back returns it to.
+         * @enum {string|null}
+         */
+        previous_discard_reason: 'self_referral' | 'same_device' | null
+      } | null
+      /** @description The withdrawal of the sign-up's last fraud mark. Null while a mark stands, and for a sign-up that was never marked. */
+      fraud_withdrawal: {
+        reason: string
+        /** Format: date-time */
+        withdrawn_at: string
       } | null
       /** @description Sign-ups that joined with this one's code, confirmed and count. */
       referrals: number
@@ -6204,6 +6236,10 @@ export interface components {
     }
     BackofficeWaitlistFraudMark: {
       /** @description Why the sign-up is fraud, on one line. It stays in the record of the mark. Surrounding spaces are dropped. */
+      reason: string
+    }
+    BackofficeWaitlistFraudWithdrawal: {
+      /** @description Why the mark was a mistake, on one line. It stays in the record of the withdrawal. Surrounding spaces are dropped. */
       reason: string
     }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
@@ -15300,6 +15336,48 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': components['schemas']['BackofficeWaitlistFraudMark']
+      }
+    }
+    responses: {
+      /** @description The sign-up as it now reads */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistSignup']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  withdrawBackofficeWaitlistFraudMark: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        signupId: components['parameters']['WaitlistSignupId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BackofficeWaitlistFraudWithdrawal']
       }
     }
     responses: {
