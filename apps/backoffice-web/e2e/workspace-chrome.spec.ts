@@ -118,7 +118,7 @@ test('groups the navigation by area and names the area over the title', async ({
   await expect(header).toContainText('Seguridad y privacidad')
   await expect(header.getByRole('heading', { level: 1 })).toHaveText('Solicitudes de eliminación')
 
-  // Thirteen entries and three labels have to fit above the operator's name.
+  // Fourteen entries and three labels have to fit above the operator's name.
   const sidebar = page.locator('[data-backoffice-sidebar]')
   const overflow = await sidebar.evaluate((element) => {
     const content = element.querySelector('[data-slot="sidebar-content"]')

@@ -146,10 +146,15 @@
   font-size: var(--afo-font-size-xs);
 }
 
-/* Three groups and thirteen entries have to fit a 900px viewport above the
+/* Three groups and fourteen entries have to fit a 900px viewport above the
    operator's name, so each group gives back the Design System's outer padding. */
 [data-backoffice-area] {
   padding-block: 2px;
+}
+
+/* A group's label is a heading, not a control: it does not need a target's height. */
+[data-backoffice-area] > [data-sidebar='group-label'] {
+  min-height: 32px;
 }
 
 [data-backoffice-brand] {
@@ -202,6 +207,7 @@
 [data-access-log],
 [data-credential-verification],
 [data-organization-directory],
+[data-waitlist-review],
 [data-attention-panel],
 [data-support-person] {
   display: grid;
@@ -294,6 +300,7 @@
 }
 
 [data-organization-directory-filters],
+[data-waitlist-filters],
 [data-handover-form] {
   display: grid;
   gap: 12px;
@@ -534,4 +541,263 @@
 [data-backoffice-access-shell]::after,
 [data-backoffice-device-gate]::after {
   content: none;
+}
+
+/* ------------------------------------------------------------ waitlist */
+
+/* The screen answers to its own width: beside an open menu it is narrower than the
+   window, and that is the width its table and its filters have to fit. */
+[data-waitlist-review] {
+  container: waitlist / inline-size;
+}
+
+[data-waitlist-body] {
+  display: grid;
+  gap: 20px;
+  justify-items: start;
+}
+
+[data-waitlist-body] > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-waitlist-body] > [data-slot='table-container'],
+[data-waitlist-body] > [data-slot='alert'],
+[data-waitlist-figures] {
+  width: 100%;
+}
+
+/* Four figures side by side when there is room. Each is a number with what it counts
+   under it, so none is read without its meaning. */
+[data-waitlist-figures] {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  align-items: start;
+  margin: 0;
+}
+
+[data-waitlist-figure] {
+  display: grid;
+  gap: 4px;
+}
+
+[data-waitlist-figure] dt {
+  font-size: var(--afo-font-size-sm);
+  font-weight: var(--afo-font-weight-semibold);
+}
+
+[data-waitlist-figure] dd {
+  margin: 0;
+}
+
+[data-waitlist-figure] [data-waitlist-value] {
+  font-size: var(--afo-font-size-3xl, 2rem);
+  font-weight: var(--afo-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+[data-waitlist-figure] [data-waitlist-note] {
+  font-size: var(--afo-font-size-sm);
+  color: var(--afo-color-text-muted, currentColor);
+}
+
+/* Three short columns: stretched across the card, a channel sat a screen away from
+   its numbers. */
+[data-waitlist-body] > .waitlist-channels {
+  max-width: 40rem;
+}
+
+/* What to look for and which, side by side, with the action at its own width. */
+[data-waitlist-filters] {
+  max-width: 60rem;
+}
+
+[data-waitlist-filter-row] {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+/* Cells wrap here: a long address must not push the review out of sight. */
+[data-waitlist-review] [data-waitlist-signups] {
+  min-width: 0;
+}
+
+[data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell'] {
+  white-space: normal;
+  vertical-align: top;
+}
+
+[data-waitlist-instant] {
+  white-space: nowrap;
+}
+
+/* Three short columns need no minimum: on a phone they fit without scrolling. */
+[data-waitlist-review] [data-waitlist-channels] {
+  min-width: 0;
+}
+
+/* A person is a name, an address and a code: three lines of one cell, so the table
+   keeps a column for everything the team compares between rows. */
+[data-waitlist-person],
+[data-waitlist-stack] {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+[data-waitlist-stack][data-align='end'] {
+  justify-items: end;
+}
+
+/* Wide enough for an ordinary address on one line; a longer one wraps. */
+[data-waitlist-person] {
+  min-width: 13rem;
+}
+
+[data-waitlist-person] > span:not([data-slot]),
+[data-waitlist-confirmed],
+[data-waitlist-inviter],
+[data-waitlist-discard-detail],
+[data-waitlist-fraud-reason] {
+  font-size: var(--afo-font-size-sm);
+  color: var(--afo-color-text-muted, currentColor);
+  overflow-wrap: anywhere;
+}
+
+[data-waitlist-person] [data-waitlist-founding] {
+  margin-block-start: 4px;
+}
+
+/* The inviter keeps its name whole, with its code under it. */
+[data-waitlist-inviter],
+[data-waitlist-fraud-reason] {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+}
+
+[data-waitlist-inviter] {
+  min-width: 9.5rem;
+}
+
+/* The action sits apart from the badge and the detail above it. */
+[data-waitlist-stack] > [data-slot='badge'] ~ button,
+[data-waitlist-stack] > [data-slot='badge'] ~ [data-slot='button'] {
+  margin-block-start: 6px;
+}
+
+[data-waitlist-review] code {
+  font-family: var(--afo-font-family-mono, monospace);
+  font-size: var(--afo-font-size-xs);
+  white-space: nowrap;
+}
+
+/* The reason of a mark is read in full: it is the record, not a label. */
+[data-waitlist-fraud-reason] {
+  max-width: 32ch;
+}
+
+[data-waitlist-row][data-discard='fraud'] {
+  box-shadow: inset 3px 0 0 var(--color-destructive, currentColor);
+}
+
+/* Too narrow for six columns: each sign-up becomes a block that names its own
+   fields, so nothing is reached by scrolling sideways. */
+@container waitlist (max-width: 1000px) {
+  [data-waitlist-filter-row] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-waitlist-review] [data-waitlist-signups],
+  [data-waitlist-review] [data-waitlist-signups] tbody {
+    display: block;
+    width: 100%;
+  }
+
+  [data-waitlist-review] [data-waitlist-signups] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  [data-waitlist-review] [data-waitlist-signups] [data-waitlist-row] {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  [data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell'] {
+    display: grid;
+    grid-template-columns: minmax(0, 9rem) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    padding: 0;
+    text-align: start;
+  }
+
+  [data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell']::before {
+    content: attr(data-label);
+    font-family: var(--afo-font-family-body, inherit);
+    font-size: var(--afo-font-size-sm);
+    font-weight: var(--afo-font-weight-regular, 400);
+    letter-spacing: normal;
+    line-height: 1.4;
+    color: var(--afo-color-text-muted, currentColor);
+  }
+
+  /* The person heads the block and needs no label. */
+  [data-waitlist-review] [data-waitlist-signups] [data-waitlist-cell='person'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-waitlist-review] [data-waitlist-signups] [data-waitlist-cell='person']::before {
+    content: none;
+  }
+
+  [data-waitlist-stack][data-align='end'] {
+    justify-items: start;
+  }
+
+  [data-waitlist-person],
+  [data-waitlist-inviter] {
+    min-width: 0;
+  }
+}
+
+/* A phone: the label goes above its value, which then has the whole line. */
+@container waitlist (max-width: 520px) {
+  [data-waitlist-review] [data-waitlist-channels] [data-slot='table-head'],
+  [data-waitlist-review] [data-waitlist-channels] [data-slot='table-cell'] {
+    padding-inline: 10px;
+  }
+
+  [data-waitlist-review] [data-waitlist-signups] [data-slot='table-cell'] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
+[data-waitlist-fraud-form] {
+  display: grid;
+  gap: 16px;
+}
+
+[data-waitlist-fraud-consequences] {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-inline-start: 1.25rem;
+  list-style: disc;
+}
+
+[data-waitlist-fraud-consequences] ::marker {
+  color: var(--afo-color-text-muted, currentColor);
 }

@@ -26,6 +26,7 @@ export interface BackofficeFixture {
   organizationHandover?: OrganizationHandoverFixture
   organizationFiles?: OrganizationFileFixture
   guestQuota?: { refusal?: { status: number; code: string } }
+  waitlist?: WaitlistFixture
   teamInvitations?: TeamInvitationFixture
   clientInvitations?: ClientInvitationFixture
   accountRecovery?: AccountRecoveryFixture
@@ -559,6 +560,68 @@ export function directoryOrganization(
     active_member_count: status === 'active' ? 1 : 0,
     site_count: 1,
     people_served: 3,
+    ...overrides,
+  }
+}
+
+/**
+ * The Allfit Space waitlist as the team reviews it.
+ *
+ * The mock answers as the database does: newest first, a search over name, email and
+ * code, and a fraud mark that takes the number away, hands it to the earliest-confirmed
+ * sign-up that waits, and stops counting for the inviter. It refuses a query it cannot
+ * read rather than ignoring it.
+ */
+export interface WaitlistFixture {
+  refusal?: { status: number; code: string }
+  /** Refuses the fraud mark alone, so the list still reads. */
+  markRefusal?: { status: number; code: string }
+  /** Drops the answer of the next mark after applying it, like a connection lost. */
+  loseNextMarkAnswer?: boolean
+  pageSize?: number
+  signups: WaitlistSignupFixture[]
+}
+
+export interface WaitlistSignupFixture {
+  id: string
+  name: string
+  email: string
+  language: 'es' | 'en'
+  referral_code: string
+  joined_at: string
+  confirmed_at: string | null
+  founding_number: number | null
+  /** What the link named, as stored: lower case, or null. */
+  source: string | null
+  invited_by_id: string | null
+  discard_reason: 'self_referral' | 'same_device' | 'fraud' | null
+  fraud: { reason: string; marked_at: string } | null
+  referrals_sharing_connection: number
+}
+
+let waitlistSequence = 0
+
+/** Sign-ups are created oldest first: each one joins a minute after the one before. */
+export function waitlistSignup(
+  overrides: Partial<WaitlistSignupFixture> = {},
+): WaitlistSignupFixture {
+  waitlistSequence += 1
+  const joinedAt = new Date(Date.UTC(2026, 10, 14, 15, waitlistSequence)).toISOString()
+  const confirmed = overrides.confirmed_at !== null
+  return {
+    id: `019a7700-0000-7000-8000-${String(waitlistSequence).padStart(12, '0')}`,
+    name: `Persona ${waitlistSequence}`,
+    email: `persona${waitlistSequence}@example.com`,
+    language: 'es',
+    referral_code: `CODE${String(waitlistSequence).padStart(4, '0')}`,
+    joined_at: joinedAt,
+    confirmed_at: confirmed ? new Date(Date.parse(joinedAt) + 120_000).toISOString() : null,
+    founding_number: null,
+    source: null,
+    invited_by_id: null,
+    discard_reason: null,
+    fraud: null,
+    referrals_sharing_connection: 0,
     ...overrides,
   }
 }
@@ -1971,6 +2034,10 @@ export async function mockBackofficeApi(
       await routeOrganizationHandover(route, request, fixture)
       return
     }
+    if (request.path.startsWith('/backoffice/v1/waitlist/')) {
+      await routeWaitlist(route, request, fixture)
+      return
+    }
     if (request.path.startsWith('/backoffice/v1/break-glass/')) {
       await routeBreakGlass(route, request, fixture)
       return
@@ -2888,6 +2955,199 @@ async function routeOrganizationDirectory(
     },
   })
 }
+
+function waitlistChannel(row: WaitlistSignupFixture): {
+  kind: 'source' | 'referral' | 'direct'
+  source: string | null
+} {
+  if (row.source) return { kind: 'source', source: row.source }
+  return { kind: row.invited_by_id ? 'referral' : 'direct', source: null }
+}
+
+function waitlistProjection(row: WaitlistSignupFixture, all: WaitlistSignupFixture[]) {
+  const inviter = all.find((candidate) => candidate.id === row.invited_by_id)
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    language: row.language,
+    referral_code: row.referral_code,
+    joined_at: row.joined_at,
+    confirmed_at: row.confirmed_at,
+    founding_number: row.founding_number,
+    channel: waitlistChannel(row),
+    invited_by: inviter ? { name: inviter.name, referral_code: inviter.referral_code } : null,
+    discard_reason: row.discard_reason,
+    fraud: row.fraud,
+    referrals: all.filter(
+      (candidate) =>
+        candidate.invited_by_id === row.id &&
+        candidate.confirmed_at !== null &&
+        candidate.discard_reason === null,
+    ).length,
+    referrals_sharing_connection: row.referrals_sharing_connection,
+  }
+}
+
+const WAITLIST_FILTERS: readonly string[] = [
+  'confirmed',
+  'unconfirmed',
+  'founding_members',
+  'discarded',
+]
+
+async function routeWaitlist(
+  route: Route,
+  request: MockRequest,
+  fixture: BackofficeFixture,
+): Promise<void> {
+  const waitlist = fixture.waitlist ?? { signups: [] }
+  fixture.waitlist = waitlist
+  if (waitlist.refusal) {
+    await fulfillProblem(route, waitlist.refusal.status, waitlist.refusal.code)
+    return
+  }
+  const all = waitlist.signups
+
+  if (request.method === 'GET' && request.path === '/backoffice/v1/waitlist/totals') {
+    const channels = new Map<string, { signups: number; confirmed: number }>()
+    for (const row of all) {
+      const channel = waitlistChannel(row)
+      const key = JSON.stringify(channel)
+      const counted = channels.get(key) ?? { signups: 0, confirmed: 0 }
+      counted.signups += 1
+      if (row.confirmed_at !== null) counted.confirmed += 1
+      channels.set(key, counted)
+    }
+    await fulfill(route, 200, {
+      signups: all.length,
+      confirmed: all.filter((row) => row.confirmed_at !== null).length,
+      founding_members: all.filter((row) => row.founding_number !== null).length,
+      marked_as_fraud: all.filter((row) => row.discard_reason === 'fraud').length,
+      channels: [...channels.entries()]
+        .map(([key, counted]) => ({ channel: JSON.parse(key) as unknown, ...counted }))
+        .sort((left, right) => right.signups - left.signups),
+    })
+    return
+  }
+
+  if (request.method === 'GET' && request.path === '/backoffice/v1/waitlist/signups') {
+    const parameters = new URLSearchParams(request.query)
+    const search = parameters.get('q')?.trim().toLowerCase() ?? null
+    const filter = parameters.get('filter')
+    const cursor = parameters.get('cursor')
+    if (search !== null && (search.length < 2 || search.length > 254)) {
+      await fulfillProblem(route, 400, 'invalid-request')
+      return
+    }
+    if (filter !== null && !WAITLIST_FILTERS.includes(filter)) {
+      await fulfillProblem(route, 400, 'invalid-request')
+      return
+    }
+    let before: string | undefined
+    if (cursor !== null) {
+      try {
+        before = (JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { id: string })
+          .id
+      } catch {
+        await fulfillProblem(route, 400, 'invalid-request')
+        return
+      }
+    }
+    const ordered = all
+      .filter(
+        (row) =>
+          (search === null ||
+            row.name.toLowerCase().includes(search) ||
+            row.email.toLowerCase().includes(search) ||
+            row.referral_code.toLowerCase().includes(search)) &&
+          (filter === null ||
+            (filter === 'confirmed' && row.confirmed_at !== null) ||
+            (filter === 'unconfirmed' && row.confirmed_at === null) ||
+            (filter === 'founding_members' && row.founding_number !== null) ||
+            (filter === 'discarded' && row.discard_reason !== null)) &&
+          (before === undefined || row.id < before),
+      )
+      .sort((left, right) => (left.id < right.id ? 1 : -1))
+    const size = waitlist.pageSize ?? 25
+    const visible = ordered.slice(0, size)
+    const last = visible.at(-1)
+    const hasMore = ordered.length > size
+    await fulfill(route, 200, {
+      data: visible.map((row) => waitlistProjection(row, all)),
+      page: {
+        has_more: hasMore,
+        next_cursor:
+          hasMore && last
+            ? Buffer.from(JSON.stringify({ id: last.id }), 'utf8').toString('base64url')
+            : null,
+      },
+    })
+    return
+  }
+
+  const marked = /^\/backoffice\/v1\/waitlist\/signups\/([^/]+)\/fraud$/.exec(request.path)
+  if (request.method === 'POST' && marked) {
+    if (waitlist.markRefusal) {
+      await fulfillProblem(route, waitlist.markRefusal.status, waitlist.markRefusal.code)
+      return
+    }
+    const row = all.find((candidate) => candidate.id === marked[1])
+    if (!row) {
+      await fulfillProblem(route, 404, 'not-found')
+      return
+    }
+    const body = (request.body ?? {}) as { reason?: unknown }
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+    if (reason.length < 4 || reason.length > 200) {
+      await fulfillProblem(route, 422, 'validation-failed')
+      return
+    }
+    // The same command sent again answers what the first one did.
+    const key = request.headers['idempotency-key'] ?? ''
+    const replay = row.fraud !== null && waitlistMarkKeys.get(row.id) === key
+    if (row.discard_reason === 'fraud' && !replay) {
+      await fulfillProblem(route, 409, 'conflict')
+      return
+    }
+    if (!replay) {
+      const released = row.founding_number
+      row.discard_reason = 'fraud'
+      row.founding_number = null
+      row.fraud = { reason, marked_at: '2026-11-14T18:00:00.000Z' }
+      waitlistMarkKeys.set(row.id, key)
+      if (released !== null) {
+        const next = all
+          .filter(
+            (candidate) =>
+              candidate.confirmed_at !== null &&
+              candidate.founding_number === null &&
+              candidate.discard_reason !== 'fraud',
+          )
+          .sort((left, right) => (left.confirmed_at ?? '').localeCompare(right.confirmed_at ?? ''))
+          .at(0)
+        if (next) next.founding_number = released
+      }
+    }
+    if (waitlist.loseNextMarkAnswer) {
+      waitlist.loseNextMarkAnswer = false
+      await route.abort('failed')
+      return
+    }
+    await fulfill(
+      route,
+      200,
+      waitlistProjection(row, all),
+      replay ? { 'Idempotent-Replay': 'true' } : {},
+    )
+    return
+  }
+
+  await fulfillProblem(route, 404, 'not-found')
+}
+
+/** The idempotency key each sign-up was marked with, to tell a replay from a second mark. */
+const waitlistMarkKeys = new Map<string, string>()
 
 function maskedContact(email: string): string {
   const [local = '', domain = ''] = email.split('@')
