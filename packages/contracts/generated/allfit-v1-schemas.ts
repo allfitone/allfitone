@@ -1820,6 +1820,199 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     ],
   },
+  BackofficeWaitlistChannel: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['kind', 'source'],
+    description:
+      "Where a sign-up came from. `source` is what its link named, trimmed and in lower case, and is null for every other kind: `referral` joined with somebody's code, `direct` with neither, and `other` only appears in the totals, for the channels folded past the twenty largest.",
+    properties: {
+      kind: {
+        type: 'string',
+        enum: ['source', 'referral', 'direct', 'other'],
+      },
+      source: {
+        type: ['string', 'null'],
+        maxLength: 120,
+      },
+    },
+  },
+  BackofficeWaitlistFraudMark: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['reason'],
+    properties: {
+      reason: {
+        type: 'string',
+        minLength: 4,
+        maxLength: 200,
+        pattern: '^[^\\u0000-\\u001F\\u007F]+$',
+        description:
+          'Why the sign-up is fraud, on one line. It stays in the record of the mark. Surrounding spaces are dropped.',
+      },
+    },
+  },
+  BackofficeWaitlistSignup: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'id',
+      'name',
+      'email',
+      'language',
+      'referral_code',
+      'joined_at',
+      'confirmed_at',
+      'founding_number',
+      'channel',
+      'invited_by',
+      'discard_reason',
+      'fraud',
+      'referrals',
+      'referrals_sharing_connection',
+    ],
+    properties: {
+      id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      name: {
+        type: 'string',
+      },
+      email: {
+        type: 'string',
+        format: 'email',
+      },
+      language: {
+        type: 'string',
+        enum: ['es', 'en'],
+      },
+      referral_code: {
+        type: 'string',
+      },
+      joined_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+      confirmed_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      founding_number: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        maximum: 100,
+      },
+      channel: {
+        $ref: '#/components/schemas/BackofficeWaitlistChannel',
+      },
+      invited_by: {
+        type: ['object', 'null'],
+        additionalProperties: false,
+        required: ['name', 'referral_code'],
+        properties: {
+          name: {
+            type: 'string',
+          },
+          referral_code: {
+            type: 'string',
+          },
+        },
+      },
+      discard_reason: {
+        type: ['string', 'null'],
+        enum: ['self_referral', 'same_device', 'fraud', null],
+        description:
+          'Why the sign-up does not count for whoever invited it. The reason is all that is said: never the connection or the device it was judged by.',
+      },
+      fraud: {
+        type: ['object', 'null'],
+        additionalProperties: false,
+        required: ['reason', 'marked_at'],
+        properties: {
+          reason: {
+            type: 'string',
+          },
+          marked_at: {
+            type: 'string',
+            format: 'date-time',
+          },
+        },
+      },
+      referrals: {
+        type: 'integer',
+        minimum: 0,
+        description: "Sign-ups that joined with this one's code, confirmed and count.",
+      },
+      referrals_sharing_connection: {
+        type: 'integer',
+        minimum: 0,
+        description:
+          "How many of its referrals joined from this sign-up's own connection, or from the same connection as another of them. A signal, not a discard.",
+      },
+    },
+  },
+  BackofficeWaitlistSignupPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        items: {
+          $ref: '#/components/schemas/BackofficeWaitlistSignup',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  BackofficeWaitlistTotals: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['signups', 'confirmed', 'founding_members', 'marked_as_fraud', 'channels'],
+    properties: {
+      signups: {
+        type: 'integer',
+        minimum: 0,
+      },
+      confirmed: {
+        type: 'integer',
+        minimum: 0,
+      },
+      founding_members: {
+        type: 'integer',
+        minimum: 0,
+        maximum: 100,
+      },
+      marked_as_fraud: {
+        type: 'integer',
+        minimum: 0,
+      },
+      channels: {
+        type: 'array',
+        maxItems: 21,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['channel', 'signups', 'confirmed'],
+          properties: {
+            channel: {
+              $ref: '#/components/schemas/BackofficeWaitlistChannel',
+            },
+            signups: {
+              type: 'integer',
+              minimum: 0,
+            },
+            confirmed: {
+              type: 'integer',
+              minimum: 0,
+            },
+          },
+        },
+      },
+    },
+  },
   BillingPeriod: {
     type: 'string',
     enum: ['month', 'year'],

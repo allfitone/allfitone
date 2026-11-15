@@ -48,6 +48,11 @@ tags:
     description: >-
       The organization directory Allfit's team uses to reach a gym, and later its
       lifecycle. Organizations only: nothing here searches or returns a person.
+  - name: Backoffice Waitlist
+    description: >-
+      The Allfit Space waitlist as the team reviews it (ADR-050, decision 3): who
+      joined, through which channel, and what does not count. Under the commercial
+      duty; a hash of a connection or a device is never returned.
   - name: Backoffice Support
     description: >-
       The minimised operational projection Allfit staff read to resolve a case.
@@ -1928,6 +1933,141 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrganizationHandover'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /backoffice/v1/waitlist/signups:
+    get:
+      tags: [Backoffice Waitlist]
+      operationId: listBackofficeWaitlistSignups
+      x-allfit-operation: OP-WL-011
+      x-allfit-cache: no-store
+      summary: Read the Allfit Space waitlist
+      description: >-
+        `HU-BO-035`. Every sign-up, newest first: its name, its email, when it joined
+        and confirmed, its Founding Member number, the channel it arrived through, who
+        invited it and how many of its own referrals count. It is
+        `manage_platform_commercial`.
+
+        A sign-up that does not count says why, and nothing else about it: the hash of
+        its connection and of its device never leave the database. What is returned
+        in their place is `referrals_sharing_connection`, how many of a sign-up's
+        referrals joined from its own connection or from one another's. It is a signal
+        for a person to look at, not a discard.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/WaitlistSignupSearch'
+        - $ref: '#/components/parameters/WaitlistSignupFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Sign-ups, newest first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackofficeWaitlistSignupPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /backoffice/v1/waitlist/totals:
+    get:
+      tags: [Backoffice Waitlist]
+      operationId: readBackofficeWaitlistTotals
+      x-allfit-operation: OP-WL-011
+      x-allfit-cache: no-store
+      summary: Read the totals of the waitlist
+      description: >-
+        `HU-BO-035`, criterion 4. How many signed up, how many confirmed, how many hold
+        a Founding Member number and how many were marked as fraud, over the whole
+        list, and the same count for each channel, largest first. Past the twenty
+        largest channels the rest are one row of kind `other`.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+      responses:
+        '200':
+          description: The totals of the whole list
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackofficeWaitlistTotals'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /backoffice/v1/waitlist/signups/{signupId}/fraud:
+    post:
+      tags: [Backoffice Waitlist]
+      operationId: markBackofficeWaitlistSignupAsFraud
+      x-allfit-operation: OP-WL-012
+      x-allfit-cache: no-store
+      summary: Mark a sign-up as fraud
+      description: >-
+        `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited
+        it and gives up its Founding Member number, which goes to the earliest-confirmed
+        sign-up that waits for one. The mark is recorded with its reason and the duty
+        assignment it was made under, and it is not undone here. A sign-up already
+        marked is a 409.
+      security:
+        - backofficeCookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/WaitlistSignupId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackofficeWaitlistFraudMark'
+      responses:
+        '200':
+          description: The sign-up as it now reads
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackofficeWaitlistSignup'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -15389,6 +15529,34 @@ components:
       required: false
       schema:
         $ref: '#/components/schemas/OrganizationLifecycleStatus'
+    WaitlistSignupSearch:
+      name: q
+      in: query
+      required: false
+      description: >-
+        Part of a sign-up's name, email or referral code, matched literally in any
+        case. At least two characters, so a search is a question rather than a way to
+        page everything.
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 254
+    WaitlistSignupFilter:
+      name: filter
+      in: query
+      required: false
+      description: >-
+        `discarded` is every sign-up that does not count for its inviter, whatever
+        the reason.
+      schema:
+        type: string
+        enum: [confirmed, unconfirmed, founding_members, discarded]
+    WaitlistSignupId:
+      name: signupId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/Uuid'
     AccessEventActor:
       name: actor_person_id
       in: query
@@ -16477,6 +16645,158 @@ components:
           description: Whether this sign-up confirmed its own email.
         founding_number:
           $ref: '#/components/schemas/WaitlistFoundingNumber'
+    BackofficeWaitlistChannel:
+      type: object
+      additionalProperties: false
+      required: [kind, source]
+      description: >-
+        Where a sign-up came from. `source` is what its link named, trimmed and in
+        lower case, and is null for every other kind: `referral` joined with
+        somebody's code, `direct` with neither, and `other` only appears in the totals,
+        for the channels folded past the twenty largest.
+      properties:
+        kind:
+          type: string
+          enum: [source, referral, direct, other]
+        source:
+          type: [string, 'null']
+          maxLength: 120
+    BackofficeWaitlistSignup:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - email
+        - language
+        - referral_code
+        - joined_at
+        - confirmed_at
+        - founding_number
+        - channel
+        - invited_by
+        - discard_reason
+        - fraud
+        - referrals
+        - referrals_sharing_connection
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        language:
+          type: string
+          enum: [es, en]
+        referral_code:
+          type: string
+        joined_at:
+          type: string
+          format: date-time
+        confirmed_at:
+          type: [string, 'null']
+          format: date-time
+        founding_number:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 100
+        channel:
+          $ref: '#/components/schemas/BackofficeWaitlistChannel'
+        invited_by:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [name, referral_code]
+          properties:
+            name:
+              type: string
+            referral_code:
+              type: string
+        discard_reason:
+          type: [string, 'null']
+          enum: [self_referral, same_device, fraud, null]
+          description: >-
+            Why the sign-up does not count for whoever invited it. The reason is all
+            that is said: never the connection or the device it was judged by.
+        fraud:
+          type: [object, 'null']
+          additionalProperties: false
+          required: [reason, marked_at]
+          properties:
+            reason:
+              type: string
+            marked_at:
+              type: string
+              format: date-time
+        referrals:
+          type: integer
+          minimum: 0
+          description: Sign-ups that joined with this one's code, confirmed and count.
+        referrals_sharing_connection:
+          type: integer
+          minimum: 0
+          description: >-
+            How many of its referrals joined from this sign-up's own connection, or
+            from the same connection as another of them. A signal, not a discard.
+    BackofficeWaitlistSignupPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BackofficeWaitlistSignup'
+        page:
+          $ref: '#/components/schemas/Page'
+    BackofficeWaitlistTotals:
+      type: object
+      additionalProperties: false
+      required: [signups, confirmed, founding_members, marked_as_fraud, channels]
+      properties:
+        signups:
+          type: integer
+          minimum: 0
+        confirmed:
+          type: integer
+          minimum: 0
+        founding_members:
+          type: integer
+          minimum: 0
+          maximum: 100
+        marked_as_fraud:
+          type: integer
+          minimum: 0
+        channels:
+          type: array
+          maxItems: 21
+          items:
+            type: object
+            additionalProperties: false
+            required: [channel, signups, confirmed]
+            properties:
+              channel:
+                $ref: '#/components/schemas/BackofficeWaitlistChannel'
+              signups:
+                type: integer
+                minimum: 0
+              confirmed:
+                type: integer
+                minimum: 0
+    BackofficeWaitlistFraudMark:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 4
+          maxLength: 200
+          pattern: '^[^\u0000-\u001F\u007F]+$'
+          description: >-
+            Why the sign-up is fraud, on one line. It stays in the record of the mark.
+            Surrounding spaces are dropped.
     ScopeResourceRule:
       type: object
       additionalProperties: false

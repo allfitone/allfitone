@@ -740,6 +740,67 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/backoffice/v1/waitlist/signups': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read the Allfit Space waitlist
+     * @description `HU-BO-035`. Every sign-up, newest first: its name, its email, when it joined and confirmed, its Founding Member number, the channel it arrived through, who invited it and how many of its own referrals count. It is `manage_platform_commercial`.
+     *     A sign-up that does not count says why, and nothing else about it: the hash of its connection and of its device never leave the database. What is returned in their place is `referrals_sharing_connection`, how many of a sign-up's referrals joined from its own connection or from one another's. It is a signal for a person to look at, not a discard.
+     */
+    get: operations['listBackofficeWaitlistSignups']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/waitlist/totals': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read the totals of the waitlist
+     * @description `HU-BO-035`, criterion 4. How many signed up, how many confirmed, how many hold a Founding Member number and how many were marked as fraud, over the whole list, and the same count for each channel, largest first. Past the twenty largest channels the rest are one row of kind `other`.
+     */
+    get: operations['readBackofficeWaitlistTotals']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/waitlist/signups/{signupId}/fraud': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Mark a sign-up as fraud
+     * @description `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited it and gives up its Founding Member number, which goes to the earliest-confirmed sign-up that waits for one. The mark is recorded with its reason and the duty assignment it was made under, and it is not undone here. A sign-up already marked is a 409.
+     */
+    post: operations['markBackofficeWaitlistSignupAsFraud']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/verification-requests': {
     parameters: {
       query?: never
@@ -6086,6 +6147,64 @@ export interface components {
       /** @description Whether this sign-up confirmed its own email. */
       confirmed: boolean
       founding_number?: components['schemas']['WaitlistFoundingNumber']
+    }
+    /** @description Where a sign-up came from. `source` is what its link named, trimmed and in lower case, and is null for every other kind: `referral` joined with somebody's code, `direct` with neither, and `other` only appears in the totals, for the channels folded past the twenty largest. */
+    BackofficeWaitlistChannel: {
+      /** @enum {string} */
+      kind: 'source' | 'referral' | 'direct' | 'other'
+      source: string | null
+    }
+    BackofficeWaitlistSignup: {
+      id: components['schemas']['Uuid']
+      name: string
+      /** Format: email */
+      email: string
+      /** @enum {string} */
+      language: 'es' | 'en'
+      referral_code: string
+      /** Format: date-time */
+      joined_at: string
+      /** Format: date-time */
+      confirmed_at: string | null
+      founding_number: number | null
+      channel: components['schemas']['BackofficeWaitlistChannel']
+      invited_by: {
+        name: string
+        referral_code: string
+      } | null
+      /**
+       * @description Why the sign-up does not count for whoever invited it. The reason is all that is said: never the connection or the device it was judged by.
+       * @enum {string|null}
+       */
+      discard_reason: 'self_referral' | 'same_device' | 'fraud' | null
+      fraud: {
+        reason: string
+        /** Format: date-time */
+        marked_at: string
+      } | null
+      /** @description Sign-ups that joined with this one's code, confirmed and count. */
+      referrals: number
+      /** @description How many of its referrals joined from this sign-up's own connection, or from the same connection as another of them. A signal, not a discard. */
+      referrals_sharing_connection: number
+    }
+    BackofficeWaitlistSignupPage: {
+      data: components['schemas']['BackofficeWaitlistSignup'][]
+      page: components['schemas']['Page']
+    }
+    BackofficeWaitlistTotals: {
+      signups: number
+      confirmed: number
+      founding_members: number
+      marked_as_fraud: number
+      channels: {
+        channel: components['schemas']['BackofficeWaitlistChannel']
+        signups: number
+        confirmed: number
+      }[]
+    }
+    BackofficeWaitlistFraudMark: {
+      /** @description Why the sign-up is fraud, on one line. It stays in the record of the mark. Surrounding spaces are dropped. */
+      reason: string
     }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
     ScopeResourceRule: {
@@ -13636,6 +13755,11 @@ export interface components {
     /** @description Part of an organization's display name, matched literally. At least two characters, so a search is a question rather than a way to page everything. */
     OrganizationSearch: string
     OrganizationLifecycleFilter: components['schemas']['OrganizationLifecycleStatus']
+    /** @description Part of a sign-up's name, email or referral code, matched literally in any case. At least two characters, so a search is a question rather than a way to page everything. */
+    WaitlistSignupSearch: string
+    /** @description `discarded` is every sign-up that does not count for its inviter, whatever the reason. */
+    WaitlistSignupFilter: 'confirmed' | 'unconfirmed' | 'founding_members' | 'discarded'
+    WaitlistSignupId: components['schemas']['Uuid']
     /** @description The team member whose accesses are being reviewed. */
     AccessEventActor: components['schemas']['Uuid']
     /** @description The person whose data was accessed. */
@@ -15085,6 +15209,109 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['OrganizationHandover']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listBackofficeWaitlistSignups: {
+    parameters: {
+      query?: {
+        /** @description Part of a sign-up's name, email or referral code, matched literally in any case. At least two characters, so a search is a question rather than a way to page everything. */
+        q?: components['parameters']['WaitlistSignupSearch']
+        /** @description `discarded` is every sign-up that does not count for its inviter, whatever the reason. */
+        filter?: components['parameters']['WaitlistSignupFilter']
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sign-ups, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistSignupPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readBackofficeWaitlistTotals: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The totals of the whole list */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistTotals']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  markBackofficeWaitlistSignupAsFraud: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        signupId: components['parameters']['WaitlistSignupId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BackofficeWaitlistFraudMark']
+      }
+    }
+    responses: {
+      /** @description The sign-up as it now reads */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistSignup']
         }
       }
       400: components['responses']['BadRequest']
