@@ -64,6 +64,7 @@ const marked: AllfitV1Schemas['BackofficeWaitlistSignup'] = {
     reason: REASON,
     marked_at: '2026-11-14T16:00:00.000Z',
     previous_discard_reason: null,
+    withheld_founding_number: null,
   },
 }
 

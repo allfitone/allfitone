@@ -89,6 +89,7 @@ function listWithBrunoMarked(): WaitlistSignupFixture[] {
     reason: 'Correos en serie desde un mismo equipo',
     marked_at: '2026-11-14T18:00:00.000Z',
     previous_discard_reason: null,
+    withheld_founding_number: null,
   }
   dario.founding_number = 2
   return signups
@@ -501,6 +502,7 @@ test('a sign-up the list had discarded before its mark is told it still will not
     reason: 'Mismo equipo que otra inscripción',
     marked_at: '2026-11-14T18:00:00.000Z',
     previous_discard_reason: 'same_device',
+    withheld_founding_number: null,
   }
   await mockBackofficeApi(
     context,

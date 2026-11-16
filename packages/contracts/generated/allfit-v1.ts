@@ -792,7 +792,7 @@ export interface paths {
     put?: never
     /**
      * Mark a sign-up as fraud
-     * @description `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited it and gives up its Founding Member number, which goes to the earliest-confirmed sign-up that waits for one. The mark is recorded with its reason and the duty assignment it was made under, and it is taken back with `OP-WL-016`. A sign-up already marked is a 409.
+     * @description `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited it and gives up its Founding Member number, which goes to the earliest-confirmed sign-up that waits for one. A sign-up that already has its account loses the number too, and so does its person, but nobody inherits it (`HU-SP-118`, criterion 6): the mark keeps it as `withheld_founding_number`. The mark is recorded with its reason and the duty assignment it was made under, and it is taken back with `OP-WL-016`. A sign-up already marked is a 409.
      */
     post: operations['markBackofficeWaitlistSignupAsFraud']
     delete?: never
@@ -812,7 +812,7 @@ export interface paths {
     put?: never
     /**
      * Take a fraud mark back
-     * @description `HU-BO-035`. A mark can be a mistake. The sign-up returns to what it was before the mark, with two limits: the Founding Member number it gave up is not given back, so it waits in line where its confirmation puts it and takes the next one free; and if its device came to count for the same inviter in the meantime, it returns as `same_device` rather than counting twice. The withdrawal is recorded with its reason and the duty assignment it was made under. A sign-up that is not marked is a 409.
+     * @description `HU-BO-035`. A mark can be a mistake. The sign-up returns to what it was before the mark, with two limits: the Founding Member number it gave up is not given back, so it waits in line where its confirmation puts it and takes the next one free; and if its device came to count for the same inviter in the meantime, it returns as `same_device` rather than counting twice. A number the mark withheld went to nobody, so that one is returned. The withdrawal is recorded with its reason and the duty assignment it was made under. A sign-up that is not marked is a 409.
      */
     post: operations['withdrawBackofficeWaitlistFraudMark']
     delete?: never
@@ -6207,6 +6207,8 @@ export interface components {
          * @enum {string|null}
          */
         previous_discard_reason: 'self_referral' | 'same_device' | null
+        /** @description The Founding Member number the mark took from a sign-up that had its account. Nobody inherits it, and taking the mark back returns it. */
+        withheld_founding_number: number | null
       } | null
       /** @description The withdrawal of the sign-up's last fraud mark. Null while a mark stands, and for a sign-up that was never marked. */
       fraud_withdrawal: {

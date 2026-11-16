@@ -4,7 +4,7 @@
 
 begin;
 
-select plan(11);
+select plan(12);
 
 create function pg_temp.h(n integer) returns bytea language sql immutable as $$
   select decode(lpad(to_hex(n), 64, '0'), 'hex')
@@ -22,8 +22,11 @@ select ok(
   not has_function_privilege('allfit_api', 'waitlist.settle_founding_number(uuid)', 'EXECUTE')
     and not has_function_privilege(
       'allfit_api', 'identity.record_founding_number(uuid,smallint)', 'EXECUTE'
+    )
+    and not has_function_privilege(
+      'allfit_api', 'identity.withdraw_founding_number(uuid,smallint)', 'EXECUTE'
     ),
-  'and neither of the helpers that write a number'
+  'and none of the helpers that write a number or take one away'
 );
 select ok(
   not has_table_privilege('allfit_api', 'waitlist.settled_founding_numbers', 'SELECT')
@@ -94,6 +97,13 @@ select throws_ok(
   ) $$,
   '42501', null,
   'nor give a person a number'
+);
+select throws_ok(
+  $$ select identity.withdraw_founding_number(
+    '019e1201-0000-7000-8000-000000000001'::uuid, 1::smallint
+  ) $$,
+  '42501', null,
+  'nor take one away'
 );
 
 select set_config('app.actor_kind', 'worker', true),
