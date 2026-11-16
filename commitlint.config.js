@@ -40,6 +40,7 @@ export default {
         'payments',
         'support',
         'waitlist',
+        'intelligence',
         'platform',
         // repository-wide
         'repo',

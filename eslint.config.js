@@ -283,6 +283,7 @@ const DOMAINS = [
   'catalog',
   'execution',
   'identity',
+  'intelligence',
   'nutrition',
   'organizations',
   'payments',
