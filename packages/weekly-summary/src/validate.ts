@@ -9,6 +9,10 @@
  *   log is refused, and so is a comparison when there is no week before to compare with.
  *   A part she did log may not be missing either: half a summary reads as a whole one.
  * - **Every number is one of hers** (`numbers.ts`).
+ * - **No proportion.** «Almost double» is a figure in words, worked out by the model and
+ *   read by no check: in the first eval a model said it of a volume that rose by a
+ *   quarter. The week gives the figures of both weeks and their difference; a summary
+ *   says those.
  * - **Nothing medical** (ADR-053, decision 9). A summary describes a week; it does not
  *   diagnose, guess at a condition or name a remedy. The words below are the ones such a
  *   sentence needs, in the two languages a summary is written in. An exercise is named as
@@ -37,6 +41,9 @@ const PART_AT_MOST = 900
 
 const LINK = /https?:\/\/|www\./i
 const MARKUP = /[*#`]|^\s*[-•]\s/m
+// Twice, as a count, and «hora y media» are not proportions: «twice as» and «la mitad» are.
+const PROPORTION =
+  /\bdobl|duplic|tripl|cuadrupl|\bla mitad\b|\bveces (?:m[aá]s|menos)\b|por ciento|\bdoubl|quadrupl|\btwice as\b|\btimes (?:as|more|less)\b|\bhalf (?:as|the)\b|\bhalv(?:ed|ing)\b|percent|%/i
 const MEDICAL =
   /diagn[oó]s|trastorno|desorden|disorder|enfermedad|disease|illness|patolog|s[ií]ntoma|symptom|lesi[oó]n|lesiona|injur|m[eé]dic[oa]s?\b|medical|doctor|cl[ií]nic|medicament|medication|f[aá]rmac|suplement|supplement|anorexi|bulimi|diabet|hipertens|hypertens|obes/i
 
@@ -112,6 +119,7 @@ export function problemsIn(raw: unknown, document: WeekDocument): Problem[] {
   each('markup', ({ written }) => MARKUP.exec(written)?.[0])
   each('medical', ({ text }) => MEDICAL.exec(withoutNames(text, names))?.[0])
   each('unknown-number', ({ text }) => strangers(text, known).join(' ') || undefined)
+  each('proportion', ({ text }) => PROPORTION.exec(withoutNames(text, names))?.[0])
   return problems
 }
 

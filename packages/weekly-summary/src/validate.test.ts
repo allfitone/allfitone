@@ -182,6 +182,57 @@ describe('what a summary must hold to be shown', () => {
     )
   })
 
+  test('T-WSM-UNIT-57: a proportion in words is a figure nobody worked out', () => {
+    const cases = [
+      'Duplicaste el volumen de la semana anterior.',
+      'Moviste casi el doble que la semana pasada.',
+      'El volumen casi se triplicó.',
+      'Entrenaste tres veces más que antes.',
+      'Hiciste la mitad de las series.',
+      'Subiste un veinte por ciento.',
+      'You nearly doubled your volume.',
+      'Tripling your work sets.',
+      'You lifted twice as much as last week.',
+      'Three times as many sets as before.',
+      'Half as many sessions as the week before.',
+    ]
+    for (const overview of cases) {
+      expect([overview, reasons({ ...answer, overview })]).toEqual([overview, ['proportion']])
+    }
+  })
+
+  test('T-WSM-UNIT-58: a count, a duration or an exercise is not a proportion', () => {
+    const cases = [
+      'Entrenaste dos veces esta semana.',
+      'You trained twice this week.',
+      'Una sesión de poco más de hora y media.',
+      'Hiciste Sentadilla en la primera sesión.',
+    ]
+    for (const overview of cases) {
+      expect([overview, reasons({ ...answer, overview })]).toEqual([overview, []])
+    }
+    const named = document({
+      sessions: [
+        {
+          trainedOn: '2026-11-10',
+          durationSeconds: 1800,
+          exercises: [
+            {
+              movementId: 'double-unders',
+              name: 'Double unders',
+              workSets: 3,
+              bestSet: null,
+              volumeKg: null,
+              record: false,
+            },
+          ],
+        },
+      ],
+    })
+    const told = { ...answer, training: 'El martes hiciste Double unders.', changes: null }
+    expect(reasons(told, named)).toEqual([])
+  })
+
   test('T-WSM-UNIT-41: every broken rule is reported, in the order they are checked', () => {
     const broken = { ...answer, overview: 'Entrenaste 37 veces, mira www.example.com.' }
     expect(reasons(broken)).toEqual(['link', 'unknown-number'])

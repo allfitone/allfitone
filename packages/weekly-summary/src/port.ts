@@ -235,6 +235,7 @@ export const REFUSALS = [
   'markup',
   'medical',
   'unknown-number',
+  'proportion',
 ] as const
 export type RefusalReason = (typeof REFUSALS)[number]
 
