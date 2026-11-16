@@ -36,8 +36,9 @@ select ok(
     )
     and has_function_privilege('allfit_api', 'waitlist.prepare_email_delivery(uuid)', 'EXECUTE')
     and has_function_privilege('allfit_api', 'waitlist.prepare_team_notice(uuid)', 'EXECUTE')
-    and has_function_privilege('allfit_api', 'waitlist.prepare_founding_email(uuid)', 'EXECUTE'),
-  'the runtime role executes the six entry points'
+    and has_function_privilege('allfit_api', 'waitlist.prepare_founding_email(uuid)', 'EXECUTE')
+    and has_function_privilege('allfit_api', 'waitlist.link_signup(uuid,text,text)', 'EXECUTE'),
+  'the runtime role executes the seven entry points'
 );
 
 select ok(
@@ -49,7 +50,10 @@ select ok(
     )
     and not has_function_privilege('allfit_api', 'waitlist.referral_count(uuid)', 'EXECUTE')
     and not has_function_privilege('allfit_api', 'waitlist.new_referral_code()', 'EXECUTE')
-    and not has_function_privilege('allfit_api', 'waitlist.fill_founding_numbers()', 'EXECUTE'),
+    and not has_function_privilege('allfit_api', 'waitlist.fill_founding_numbers()', 'EXECUTE')
+    and not has_function_privilege(
+      'allfit_api', 'waitlist.settle_founding_number(uuid)', 'EXECUTE'
+    ),
   'and none of the helpers behind them'
 );
 

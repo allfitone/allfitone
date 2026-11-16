@@ -5,7 +5,7 @@
 
 begin;
 
-select plan(41);
+select plan(47);
 
 create function pg_temp.h(n integer) returns bytea language sql immutable as $$
   select decode(lpad(to_hex(n), 64, '0'), 'hex')
@@ -276,6 +276,7 @@ select is(
   pg_temp.totals(),
   jsonb_build_object(
     'signups', 7, 'confirmed', 4, 'founding_members', 4, 'marked_as_fraud', 0,
+    'with_account', 0,
     'channels', jsonb_build_array(
       jsonb_build_object(
         'channel', jsonb_build_object('kind', 'referral', 'source', null),
@@ -442,7 +443,10 @@ select is(
 );
 select is(
   pg_temp.totals() - 'channels',
-  jsonb_build_object('signups', 106, 'confirmed', 103, 'founding_members', 100, 'marked_as_fraud', 3),
+  jsonb_build_object(
+    'signups', 106, 'confirmed', 103, 'founding_members', 100, 'marked_as_fraud', 3,
+    'with_account', 0
+  ),
   'the totals count the marked sign-ups, and the hundred numbers stay held'
 );
 select is(
@@ -478,6 +482,63 @@ select is(
    where event.signup_id = pg_temp.id_of(2)),
   1::bigint,
   'and the record of the sign-ups that stay is untouched'
+);
+
+-- ---------------------------------------------------------------------------
+-- A sign-up with an account (`OP-WL-006`)
+-- ---------------------------------------------------------------------------
+
+insert into identity.people (id, given_name, family_name, status)
+values ('019e0601-0000-7000-8000-000000000301', 'Holder', 'Linked', 'active');
+
+create temp table pg_temp_holder as
+select id, email::text as email, founding_number
+from waitlist.signups
+where founding_number is not null and discard_reason is null
+order by founding_number
+limit 1;
+
+select set_config('app.actor_kind', 'worker', true);
+select is(
+  (select outcome from waitlist.link_signup(
+    '019e0601-0000-7000-8000-000000000301', (select email from pg_temp_holder), 'app_store'
+  )),
+  'linked',
+  'the worker links a Founding Member to her account'
+);
+select set_config('app.actor_kind', 'support', true);
+
+select is(
+  pg_temp.totals() ->> 'with_account', '1',
+  'the totals count the sign-ups with an account'
+);
+select is(
+  (select signup -> 'has_space_account'
+   from pg_temp.lists((select email from pg_temp_holder), null, 5, null)),
+  'true'::jsonb,
+  'and the list says which they are'
+);
+
+-- With an account the number is the person's: a fraud mark stops the sign-up counting
+-- for whoever invited it, and takes no number.
+select is(
+  (select concat_ws('|', result ->> 'discard_reason', result ->> 'founding_number')
+   from pg_temp.marks((select id from pg_temp_holder), 'Cuenta duplicada', 90)),
+  (select 'fraud|' || founding_number from pg_temp_holder),
+  'a fraud mark leaves a linked sign-up its number'
+);
+select is(
+  (select event.released_founding_number
+   from waitlist.signup_events as event
+   where event.signup_id = (select id from pg_temp_holder)),
+  null::smallint,
+  'the record says no number was released'
+);
+select is(
+  (select founding_member_number from identity.people
+   where id = '019e0601-0000-7000-8000-000000000301'),
+  (select founding_number from pg_temp_holder),
+  'and the person keeps it'
 );
 
 select * from finish();

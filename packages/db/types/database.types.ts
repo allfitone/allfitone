@@ -2262,6 +2262,7 @@ export type Database = {
       onboarding_attempts: {
         Row: {
           account_id: string
+          activation_store: string | null
           biological_sex_answered_at: string | null
           created_at: string
           expires_at: string
@@ -2277,6 +2278,7 @@ export type Database = {
         }
         Insert: {
           account_id: string
+          activation_store?: string | null
           biological_sex_answered_at?: string | null
           created_at?: string
           expires_at: string
@@ -2292,6 +2294,7 @@ export type Database = {
         }
         Update: {
           account_id?: string
+          activation_store?: string | null
           biological_sex_answered_at?: string | null
           created_at?: string
           expires_at?: string
@@ -2448,6 +2451,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           family_name: string
+          founding_member_number: number | null
           given_name: string
           id: string
           status: Database['identity']['Enums']['person_status']
@@ -2464,6 +2468,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           family_name: string
+          founding_member_number?: number | null
           given_name: string
           id?: string
           status?: Database['identity']['Enums']['person_status']
@@ -2480,6 +2485,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           family_name?: string
+          founding_member_number?: number | null
           given_name?: string
           id?: string
           status?: Database['identity']['Enums']['person_status']
@@ -2773,6 +2779,7 @@ export type Database = {
           p_idempotency_key: string
           p_privacy_notice_accepted: boolean
           p_request_hash: string
+          p_store?: string
           p_terms_accepted: boolean
         }
         Returns: string
@@ -3606,6 +3613,15 @@ export type Database = {
         Returns: Json
       }
       own_name_document: { Args: { p_person_id: string }; Returns: Json }
+      prepare_account_link: {
+        Args: { p_event_id: string }
+        Returns: {
+          link_state: string
+          person_id: string
+          store: string
+          verified_email: string
+        }[]
+      }
       prepare_account_recovery_delivery: {
         Args: { p_event_id: string }
         Returns: {
@@ -3860,6 +3876,10 @@ export type Database = {
       }
       record_email_change_code: {
         Args: { p_code: string; p_event_id: string }
+        Returns: undefined
+      }
+      record_founding_number: {
+        Args: { p_number: number; p_person_id: string }
         Returns: undefined
       }
       record_health_context: {
