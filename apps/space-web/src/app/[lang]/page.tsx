@@ -258,7 +258,12 @@ export default async function Landing({ params }: LocaleParams) {
               <p className="lead">{copy.waitlist.lead}</p>
             </div>
             <div className="join-panel">
-              <WaitlistForm locale={lang} copy={copy.form} newWindow={copy.footer.newWindow} />
+              <WaitlistForm
+                locale={lang}
+                copy={copy.form}
+                rewards={copy.referrals.rewards}
+                newWindow={copy.footer.newWindow}
+              />
             </div>
           </div>
         </section>

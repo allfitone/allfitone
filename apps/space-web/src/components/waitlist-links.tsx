@@ -301,8 +301,9 @@ export function ReferralsLink({
   locale,
   copy,
   form,
+  rewards,
   newWindow,
-}: PageProps & { newWindow: string }) {
+}: PageProps & { newWindow: string; rewards: Dictionary['referrals']['rewards'] }) {
   const token = useLinkToken('private')
   const [state, setState] = useState<ReferralsState>('loading')
   const [attempt, setAttempt] = useState(0)
@@ -355,6 +356,8 @@ export function ReferralsLink({
         newWindow={newWindow}
         code={state.code}
         referrals={state.referrals}
+        activeReferrals={state.activeReferrals}
+        rewards={rewards}
       />
       <Link className="text-button" href={`/${locale}${LEAVE_PATH}`}>
         {copy.referrals.leave}

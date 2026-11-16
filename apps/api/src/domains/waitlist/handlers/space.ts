@@ -63,7 +63,12 @@ export function spaceWaitlistRoutes(
       if (result.outcome === 'rate_limited') return rateLimited(c)
       if (result.outcome === 'already_listed') return c.json({ status: 'already_listed' }, 202)
       return c.json(
-        { status: 'joined', referral_code: result.referralCode, referrals: result.referrals },
+        {
+          status: 'joined',
+          referral_code: result.referralCode,
+          referrals: result.referrals,
+          active_referrals: result.activeReferrals,
+        },
         201,
       )
     } catch (cause) {
@@ -116,6 +121,7 @@ export function spaceWaitlistRoutes(
         {
           referral_code: result.referralCode,
           referrals: result.referrals,
+          active_referrals: result.activeReferrals,
           language: result.language,
           confirmed: result.confirmed,
           ...foundingNumber(result.foundingNumber),

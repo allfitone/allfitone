@@ -168,6 +168,9 @@ export const es = {
     shareMessage:
       'Me uní a la lista de espera de Allfit Space, la app de entrenamiento y nutrición de Allfit One. Únete con mi link: {link}',
     registered: 'Registrados con tu link: {count}.',
+    active: 'Activos: {count}. Te faltan {missing} para {reward}.',
+    activeOne: 'Activos: {count}. Te falta 1 para {reward}.',
+    activeAll: 'Activos: {count}. Alcanzaste todos los niveles.',
     rewardRule:
       'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
     reset: 'Usar otro correo',

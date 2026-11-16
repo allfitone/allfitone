@@ -21261,7 +21261,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   WaitlistLink: {
     type: 'object',
     additionalProperties: false,
-    required: ['referral_code', 'referrals', 'language', 'confirmed'],
+    required: ['referral_code', 'referrals', 'active_referrals', 'language', 'confirmed'],
     properties: {
       referral_code: {
         type: 'string',
@@ -21270,6 +21270,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'integer',
         minimum: 0,
         description: 'Sign-ups that joined with the code, confirmed and count.',
+      },
+      active_referrals: {
+        type: 'integer',
+        minimum: 0,
+        description:
+          'The referrals among them that the rewards count: an account created after the launch and three workouts or meals in its first 14 days. Zero for everybody before the launch.',
       },
       language: {
         type: 'string',
@@ -21309,7 +21315,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   WaitlistSignupJoined: {
     type: 'object',
     additionalProperties: false,
-    required: ['status', 'referral_code', 'referrals'],
+    required: ['status', 'referral_code', 'referrals', 'active_referrals'],
     properties: {
       status: {
         type: 'string',
@@ -21322,6 +21328,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       referrals: {
         type: 'integer',
         minimum: 0,
+      },
+      active_referrals: {
+        type: 'integer',
+        minimum: 0,
+        description:
+          'The referrals among them that the rewards count: an account created after the launch and three workouts or meals in its first 14 days. Zero for everybody before the launch.',
       },
     },
   },

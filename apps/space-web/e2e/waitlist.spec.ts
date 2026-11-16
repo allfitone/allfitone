@@ -9,7 +9,12 @@
 import { expect, test, type Page } from '@playwright/test'
 
 const SIGNUPS = '**/api/waitlist/signups'
-const JOINED = { status: 'joined', referral_code: 'KEVIN7QH', referrals: 3 }
+const JOINED = {
+  status: 'joined',
+  referral_code: 'KEVIN7QH',
+  referrals: 3,
+  active_referrals: 0,
+}
 
 async function fill(page: Page, form = page.locator('form').first()) {
   await form.getByLabel('Tu nombre').fill('Kevin')
@@ -144,6 +149,7 @@ test.describe('joined', () => {
     )
     await expect(whatsapp).toHaveAttribute('target', '_blank')
     await expect(page.getByText('Registrados con tu link: 3.')).toBeVisible()
+    await expect(page.getByText('Activos: 0. Te faltan 5 para 1 mes de Allfit Pro.')).toBeVisible()
     await expect(page.getByText('Para los premios de Allfit Pro cuentan los activos')).toBeVisible()
   })
 

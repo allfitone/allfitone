@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  activeReferralsLine,
   campaignFrom,
   failureOf,
   isPlausibleEmail,
@@ -37,10 +38,17 @@ describe('referral codes', () => {
 
 describe('joining’s answer', () => {
   test('a new address gets its code and a whole, non-negative count', () => {
-    expect(parseJoin({ status: 'joined', referral_code: 'kevin7qh', referrals: 3 })).toEqual({
+    expect(
+      parseJoin({ status: 'joined', referral_code: 'kevin7qh', referrals: 3, active_referrals: 1 }),
+    ).toEqual({ status: 'joined', code: 'KEVIN7QH', referrals: 3, activeReferrals: 1 })
+  })
+
+  test('an answer without the active count reads as nobody active', () => {
+    expect(parseJoin({ status: 'joined', referral_code: 'KEVIN7QH', referrals: 3 })).toEqual({
       status: 'joined',
       code: 'KEVIN7QH',
       referrals: 3,
+      activeReferrals: 0,
     })
   })
 
@@ -98,8 +106,27 @@ test('a Founding Member number is written with three digits', () => {
 describe('a private link’s answer', () => {
   test('is the person’s code, count and whether they confirmed', () => {
     expect(
-      parseLink({ referral_code: 'kevin7qh', referrals: 7, language: 'es', confirmed: false }),
-    ).toEqual({ code: 'KEVIN7QH', referrals: 7, confirmed: false, foundingNumber: null })
+      parseLink({
+        referral_code: 'kevin7qh',
+        referrals: 7,
+        active_referrals: 2,
+        language: 'es',
+        confirmed: false,
+      }),
+    ).toEqual({
+      code: 'KEVIN7QH',
+      referrals: 7,
+      activeReferrals: 2,
+      confirmed: false,
+      foundingNumber: null,
+    })
+  })
+
+  test('without the active count, nobody is active', () => {
+    const body = { referral_code: 'KEVIN7QH', referrals: 7, language: 'es', confirmed: true }
+
+    expect(parseLink(body).activeReferrals).toBe(0)
+    expect(parseLink({ ...body, active_referrals: -1 }).activeReferrals).toBe(0)
   })
 
   test('and their Founding Member number, when they hold one', () => {
@@ -180,4 +207,29 @@ test('an email only has to look like one; the confirmation proves it', () => {
   expect(isPlausibleEmail('kevin@correo.com')).toBe(true)
   expect(isPlausibleEmail('kevin@correo')).toBe(false)
   expect(isPlausibleEmail('kevin correo.com')).toBe(false)
+})
+
+describe('the active count beside its next level', () => {
+  const copy = {
+    active: 'Activos: {count}. Te faltan {missing} para {reward}.',
+    activeOne: 'Activos: {count}. Te falta 1 para {reward}.',
+    activeAll: 'Activos: {count}. Alcanzaste todos los niveles.',
+  }
+  const rewards = { 5: '1 mes', 15: '2 meses', 30: '3 meses', 100: '1 año' }
+
+  test('names the level it is working toward and how many it lacks', () => {
+    expect(activeReferralsLine(copy, rewards, 0)).toBe('Activos: 0. Te faltan 5 para 1 mes.')
+    expect(activeReferralsLine(copy, rewards, 5)).toBe('Activos: 5. Te faltan 10 para 2 meses.')
+    expect(activeReferralsLine(copy, rewards, 29)).toBe('Activos: 29. Te falta 1 para 3 meses.')
+    expect(activeReferralsLine(copy, rewards, 30)).toBe('Activos: 30. Te faltan 70 para 1 año.')
+  })
+
+  test('past the last level there is none to name', () => {
+    expect(activeReferralsLine(copy, rewards, 100)).toBe(
+      'Activos: 100. Alcanzaste todos los niveles.',
+    )
+    expect(activeReferralsLine(copy, rewards, 140)).toBe(
+      'Activos: 140. Alcanzaste todos los niveles.',
+    )
+  })
 })

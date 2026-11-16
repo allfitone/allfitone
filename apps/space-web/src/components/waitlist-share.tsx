@@ -4,9 +4,9 @@
  * What a person gets once they join: their code, set large so it can be read
  * aloud, their link with a copy action, WhatsApp as the main way to share it
  * (with the message prefilled) and, where the device has one, its own share
- * sheet. Below, the count: how many people signed up through them, and what
- * makes a referral count for rewards. A sign-up is not progress toward a level
- * (launch strategy v1.2): the steps return with the active count, TECH-334.
+ * sheet. Below, the count: how many people signed up through them, how many of
+ * them are active, and what makes a referral active. A sign-up is not progress
+ * toward a level (launch strategy v1.2): the level is said beside the active.
  */
 
 import { FoundationIcon } from '@allfitone/react/icons'
@@ -14,7 +14,7 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 
 import type { Dictionary } from '@/content'
 import type { Locale } from '@/lib/locale'
-import { referralLink, whatsappShareUrl } from '@/lib/waitlist'
+import { activeReferralsLine, referralLink, whatsappShareUrl } from '@/lib/waitlist'
 
 const noUpdates = () => () => undefined
 const canShareNatively = () => typeof navigator.share === 'function'
@@ -26,12 +26,16 @@ export function WaitlistShare({
   newWindow,
   code,
   referrals,
+  activeReferrals,
+  rewards,
 }: {
   locale: Locale
   copy: Dictionary['form']
   newWindow: string
   code: string
   referrals: number
+  activeReferrals: number
+  rewards: Dictionary['referrals']['rewards']
 }) {
   const link = referralLink(locale, code)
   const message = copy.shareMessage.replace('{link}', link)
@@ -118,6 +122,7 @@ export function WaitlistShare({
         <p className="share__count-total">
           {copy.registered.replace('{count}', String(referrals))}
         </p>
+        <p className="share__count-total">{activeReferralsLine(copy, rewards, activeReferrals)}</p>
         <p className="share__count-rule">{copy.rewardRule}</p>
       </div>
     </div>

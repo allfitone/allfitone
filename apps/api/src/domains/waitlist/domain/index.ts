@@ -35,7 +35,7 @@ export interface WaitlistJoinInput {
  * counter go to the inbox only its owner reads (HU-SP-115, criterion 5).
  */
 export type WaitlistJoinResult =
-  | { outcome: 'joined'; referralCode: string; referrals: number }
+  | { outcome: 'joined'; referralCode: string; referrals: number; activeReferrals: number }
   | { outcome: 'already_listed' }
   | { outcome: 'rate_limited' }
 
@@ -53,6 +53,8 @@ export type WaitlistLinkResult =
       outcome: 'found'
       referralCode: string
       referrals: number
+      /** The referrals among them that the rewards count. */
+      activeReferrals: number
       language: WaitlistLanguage
       confirmed: boolean
       /** Their Founding Member number, from 1 to 100, when they hold one. */

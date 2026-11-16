@@ -108,12 +108,15 @@ export interface WaitlistEntry {
  * already on the list gets neither: they go to its inbox, which only its owner reads.
  */
 export type WaitlistJoinResult =
-  { status: 'joined'; code: string; referrals: number } | { status: 'already_listed' }
+  | { status: 'joined'; code: string; referrals: number; activeReferrals: number }
+  | { status: 'already_listed' }
 
 /** What a private link shows: the person's own code and counter, and whether they confirmed. */
 export interface WaitlistLink {
   code: string
   referrals: number
+  /** Those among them the rewards count. Nobody before the launch. */
+  activeReferrals: number
   confirmed: boolean
   /** Their Founding Member number, 1 to 100, when they hold one. */
   foundingNumber: number | null
@@ -156,23 +159,63 @@ export function foundingNumberLabel(value: number): string {
   return `#${String(value).padStart(3, '0')}`
 }
 
+/** The words of the active count: toward a level, one short of it, and past the last. */
+export interface ActiveReferralsCopy {
+  active: string
+  activeOne: string
+  activeAll: string
+}
+
+/** «Activos: 3. Te faltan 2 para 1 mes de Allfit Pro.»: the active count and its next level. */
+export function activeReferralsLine(
+  copy: ActiveReferralsCopy,
+  rewards: Record<ReferralLevel, string>,
+  active: number,
+): string {
+  const count = String(active)
+  const level = REFERRAL_LEVELS.find((candidate) => candidate > active)
+  if (level === undefined) return copy.activeAll.replace('{count}', count)
+  const missing = level - active
+  return (missing === 1 ? copy.activeOne : copy.active)
+    .replace('{count}', count)
+    .replace('{missing}', String(missing))
+    .replace('{reward}', rewards[level])
+}
+
+// Absent while an older API answers, and nobody is active then.
+const activeOf = (value: unknown): number => (isCount(value) ? value : 0)
+
 /** Reads joining's answer, refusing anything that is not one of its two shapes. */
 export function parseJoin(body: unknown): WaitlistJoinResult {
-  const { status, referral_code: code, referrals } = fieldsOf(body)
+  const { status, referral_code: code, referrals, active_referrals: active } = fieldsOf(body)
   if (status === 'already_listed') return { status }
   const valid = normalizeReferralCode(code)
-  if (status === 'joined' && valid && isCount(referrals)) return { status, code: valid, referrals }
+  if (status === 'joined' && valid && isCount(referrals)) {
+    return { status, code: valid, referrals, activeReferrals: activeOf(active) }
+  }
   throw new WaitlistRequestError('unavailable')
 }
 
 /** Reads a private link's answer, refusing anything without a code and a count. */
 export function parseLink(body: unknown): WaitlistLink {
-  const { referral_code: code, referrals, confirmed, founding_number: founding } = fieldsOf(body)
+  const {
+    referral_code: code,
+    referrals,
+    active_referrals: active,
+    confirmed,
+    founding_number: founding,
+  } = fieldsOf(body)
   const valid = normalizeReferralCode(code)
   if (!valid || !isCount(referrals) || typeof confirmed !== 'boolean') {
     throw new WaitlistRequestError('unavailable')
   }
-  return { code: valid, referrals, confirmed, foundingNumber: foundingNumberOf(founding) }
+  return {
+    code: valid,
+    referrals,
+    activeReferrals: activeOf(active),
+    confirmed,
+    foundingNumber: foundingNumberOf(founding),
+  }
 }
 
 /** Reads confirming's answer, refusing anything that is not one of its two outcomes. */

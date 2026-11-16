@@ -39,6 +39,7 @@ export interface WaitlistFoundingEmailDelivery {
   language?: EmailLanguage
   referralCode?: string
   referrals?: number
+  activeReferrals?: number
   foundingNumber?: number
   privateTokenId?: string
   tokenKeyVersion?: number
@@ -63,6 +64,8 @@ export function createWaitlistFoundingEmailDatabase(
             language: EmailLanguage | null
             referral_code: string | null
             referrals: number | null
+            // Absent until the migration that adds it runs: the worker deploys first.
+            active_referrals?: number | null
             founding_number: number | null
             private_token_id: string | null
             token_key_version: number | null
@@ -76,6 +79,7 @@ export function createWaitlistFoundingEmailDatabase(
           ...(row.language ? { language: row.language } : {}),
           ...(row.referral_code ? { referralCode: row.referral_code } : {}),
           ...(row.referrals === null ? {} : { referrals: row.referrals }),
+          ...(row.active_referrals == null ? {} : { activeReferrals: row.active_referrals }),
           ...(row.founding_number === null ? {} : { foundingNumber: row.founding_number }),
           ...(row.private_token_id ? { privateTokenId: row.private_token_id } : {}),
           ...(row.token_key_version ? { tokenKeyVersion: row.token_key_version } : {}),
@@ -147,6 +151,7 @@ export function createWaitlistFoundingEmailBatchProcessor(dependencies: {
           name,
           referralCode,
           referrals,
+          activeReferrals: delivery.activeReferrals ?? 0,
           privateToken: createWaitlistToken(privateTokenId, key),
         }),
         foundingNumber,

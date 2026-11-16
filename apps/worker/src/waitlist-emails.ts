@@ -40,6 +40,7 @@ export interface WaitlistEmailDelivery {
   language?: EmailLanguage
   referralCode?: string
   referrals?: number
+  activeReferrals?: number
   confirmationTokenId?: string
   privateTokenId?: string
   tokenKeyVersion?: number
@@ -73,6 +74,8 @@ export function createWaitlistEmailDeliveryDatabase(
             language: EmailLanguage | null
             referral_code: string | null
             referrals: number | null
+            // Absent until the migration that adds it runs: the worker deploys first.
+            active_referrals?: number | null
             confirmation_token_id: string | null
             private_token_id: string | null
             token_key_version: number | null
@@ -88,6 +91,7 @@ export function createWaitlistEmailDeliveryDatabase(
           ...(row.language ? { language: row.language } : {}),
           ...(row.referral_code ? { referralCode: row.referral_code } : {}),
           ...(row.referrals === null ? {} : { referrals: row.referrals }),
+          ...(row.active_referrals == null ? {} : { activeReferrals: row.active_referrals }),
           ...(row.confirmation_token_id ? { confirmationTokenId: row.confirmation_token_id } : {}),
           ...(row.private_token_id ? { privateTokenId: row.private_token_id } : {}),
           ...(row.token_key_version ? { tokenKeyVersion: row.token_key_version } : {}),
@@ -120,6 +124,7 @@ export function waitlistRecipient(parts: {
   name: string
   referralCode: string
   referrals: number
+  activeReferrals: number
   privateToken: string
 }) {
   const referralUrl = new URL(`${parts.language}/waitlist`, parts.baseUrl)
@@ -131,6 +136,7 @@ export function waitlistRecipient(parts: {
     code: parts.referralCode,
     referralUrl: referralUrl.toString(),
     referrals: parts.referrals,
+    activeReferrals: parts.activeReferrals,
     referralsPageUrl: waitlistPageUrl(
       parts.baseUrl,
       parts.language,
@@ -201,6 +207,7 @@ export function createWaitlistEmailBatchProcessor(dependencies: {
         name,
         referralCode,
         referrals: delivery.referrals,
+        activeReferrals: delivery.activeReferrals ?? 0,
         privateToken: createWaitlistToken(privateTokenId, key),
       })
       const rendered =

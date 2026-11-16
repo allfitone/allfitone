@@ -10,7 +10,13 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page, type Request } from '@playwright/test'
 
 const TOKEN = 'kQ3v9Zp_Lm2-Xc8Rt4Yw6Ub1Na7Hs5Jd0Fg3Ek2Ci9B'
-const LINK = { referral_code: 'KEVIN7QH', referrals: 7, language: 'es', confirmed: true }
+const LINK = {
+  referral_code: 'KEVIN7QH',
+  referrals: 7,
+  active_referrals: 4,
+  language: 'es',
+  confirmed: true,
+}
 
 /** Answers one relay operation and keeps every request it receives. */
 async function answer(page: Page, operation: string, status: number, json?: unknown) {
@@ -110,6 +116,7 @@ test.describe('«mi link»', () => {
     await expect(page.getByText('KEVIN7QH', { exact: true })).toBeVisible()
     await expect(page.getByText('space.allfit.one/es/waitlist?ref=KEVIN7QH')).toBeVisible()
     await expect(page.getByText('Registrados con tu link: 7.')).toBeVisible()
+    await expect(page.getByText('Activos: 4. Te falta 1 para 1 mes de Allfit Pro.')).toBeVisible()
     await expect(page.getByText('Te falta confirmar tu correo.')).toHaveCount(0)
     expect(requests.map((request) => request.postDataJSON() as unknown)).toEqual([{ token: TOKEN }])
   })
