@@ -1945,7 +1945,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: ['object', 'null'],
         additionalProperties: false,
         description: 'The fraud mark that stands. Null once it is taken back.',
-        required: ['reason', 'marked_at', 'previous_discard_reason'],
+        required: ['reason', 'marked_at', 'previous_discard_reason', 'withheld_founding_number'],
         properties: {
           reason: {
             type: 'string',
@@ -1959,6 +1959,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             enum: ['self_referral', 'same_device', null],
             description:
               'Why the sign-up did not count before the mark, and so what taking the mark back returns it to.',
+          },
+          withheld_founding_number: {
+            type: ['integer', 'null'],
+            minimum: 1,
+            maximum: 100,
+            description:
+              'The Founding Member number the mark took from a sign-up that had its account. Nobody inherits it, and taking the mark back returns it.',
           },
         },
       },
