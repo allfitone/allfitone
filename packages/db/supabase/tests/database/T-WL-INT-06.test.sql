@@ -519,26 +519,26 @@ select is(
   'and the list says which they are'
 );
 
--- With an account the number is the person's: a fraud mark stops the sign-up counting
--- for whoever invited it, and takes no number.
+-- With an account the number is the person's, and proven fraud takes it from her. It is
+-- withheld, not released: nobody inherits it (`T-WL-INT-10`).
 select is(
   (select concat_ws('|', result ->> 'discard_reason', result ->> 'founding_number')
    from pg_temp.marks((select id from pg_temp_holder), 'Cuenta duplicada', 90)),
-  (select 'fraud|' || founding_number from pg_temp_holder),
-  'a fraud mark leaves a linked sign-up its number'
+  'fraud',
+  'a fraud mark takes the number of a linked sign-up'
 );
 select is(
-  (select event.released_founding_number
+  (select concat_ws('|', event.released_founding_number, event.withheld_founding_number)
    from waitlist.signup_events as event
    where event.signup_id = (select id from pg_temp_holder)),
-  null::smallint,
-  'the record says no number was released'
+  (select founding_number::text from pg_temp_holder),
+  'the record says it was withheld, not released'
 );
 select is(
   (select founding_member_number from identity.people
    where id = '019e0601-0000-7000-8000-000000000301'),
-  (select founding_number from pg_temp_holder),
-  'and the person keeps it'
+  null::smallint,
+  'and the person loses it'
 );
 
 select * from finish();

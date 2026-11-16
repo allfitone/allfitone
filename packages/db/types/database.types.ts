@@ -4294,6 +4294,10 @@ export type Database = {
           result: Json
         }[]
       }
+      withdraw_founding_number: {
+        Args: { p_number: number; p_person_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       access_session_surface: 'studio' | 'backoffice'
