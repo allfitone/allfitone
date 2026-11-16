@@ -9,7 +9,7 @@
  *   figure the document does not have, so the prompt says where every total and
  *   difference already is, and what to do when the wanted figure is not there. It names
  *   the rounder figure nearby because a model wrote «just under 100 minutes» of a week
- *   of 99, every time it was asked: a week that could never have a summary.
+ *   of 99 in every try of two eval runs: asking again would not have given a summary.
  * - **A proportion is a number in words.** The check reads digits, so «almost double»
  *   passes it unread; in the first eval one such answer was not true. The prompt asks for
  *   the figures of both weeks instead.
