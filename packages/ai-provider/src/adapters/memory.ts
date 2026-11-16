@@ -5,6 +5,7 @@
  */
 
 import { ModelError, type LanguageModel, type ModelFailure, type ModelRequest } from '../port.js'
+import { shapeReason } from '../reason.js'
 
 export interface MemoryModel extends LanguageModel {
   readonly seen: ModelRequest<unknown>[]
@@ -35,7 +36,7 @@ export function createMemoryModel(id = 'memory/model'): MemoryModel {
       const parsed = request.schema.safeParse(raw)
       return parsed.success
         ? Promise.resolve({ value: parsed.data, model: id })
-        : Promise.reject(new ModelError('invalid-answer', parsed.error))
+        : Promise.reject(new ModelError('invalid-answer', shapeReason(parsed.error)))
     },
   }
 }

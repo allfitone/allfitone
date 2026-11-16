@@ -13,9 +13,17 @@
  *   limit) is `rejected`; everything else is `unavailable`.
  */
 
-import { createGateway, generateText, NoObjectGeneratedError, Output, RetryError } from 'ai'
+import {
+  createGateway,
+  generateText,
+  JSONParseError,
+  NoObjectGeneratedError,
+  Output,
+  RetryError,
+} from 'ai'
 
-import { ModelError, type LanguageModel, type ModelFailure, type Part } from '../port.js'
+import { ModelError, type LanguageModel, type Part } from '../port.js'
+import { vendorReason } from '../reason.js'
 
 export interface GatewaySettings {
   readonly apiKey: string
@@ -49,7 +57,7 @@ export function createGatewayModel(settings: GatewaySettings): LanguageModel {
         })
         return { value: result.output, model: request.model }
       } catch (cause) {
-        throw new ModelError(failureOf(cause), cause)
+        throw failed(cause)
       }
     },
   }
@@ -61,14 +69,26 @@ function content(part: Part) {
     : { type: 'file' as const, data: part.bytes, mediaType: part.media }
 }
 
-function failureOf(cause: unknown): ModelFailure {
-  if (NoObjectGeneratedError.isInstance(cause)) return 'invalid-answer'
+function failed(cause: unknown): ModelError {
+  if (NoObjectGeneratedError.isInstance(cause)) {
+    const how = JSONParseError.isInstance(cause.cause)
+      ? 'the answer was not JSON'
+      : 'the answer did not match the schema'
+    return new ModelError('invalid-answer', `${how}, finish: ${String(cause.finishReason)}`)
+  }
+  const last = RetryError.isInstance(cause) ? cause.lastError : cause
+  const status = statusOf(last)
+  const reason = vendorReason(last, status)
   // The SDK swaps the Gateway's 401 for a plain Error with a friendlier message; only the
   // name survives, so the name is what says the key was refused.
-  if (cause instanceof Error && cause.name === 'GatewayAuthenticationError') return 'rejected'
-  const status = statusOf(RetryError.isInstance(cause) ? cause.lastError : cause)
+  if (last instanceof Error && last.name === 'GatewayAuthenticationError') {
+    return new ModelError('rejected', reason)
+  }
   const refused = status !== undefined && status >= 400 && status < 500
-  return refused && ![408, 424, 429].includes(status) ? 'rejected' : 'unavailable'
+  return new ModelError(
+    refused && ![408, 424, 429].includes(status) ? 'rejected' : 'unavailable',
+    reason,
+  )
 }
 
 function statusOf(cause: unknown): number | undefined {

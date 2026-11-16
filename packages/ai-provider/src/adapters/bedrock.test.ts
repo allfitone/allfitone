@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 
-import { ModelError, type ModelRequest } from '../port.js'
+import type { ModelRequest } from '../port.js'
 import { createBedrockModel } from './bedrock.js'
+import { failureOf, outcome } from './testing.js'
 
 const DISH = z.object({ dish: z.string(), grams: z.number().optional() })
-const PHOTO = new Uint8Array([255, 216, 255, 224])
+const PHOTO = new Uint8Array([255, 216, 255, 224, 7, 7, 7, 7, 7, 7, 7, 7])
 const MODEL = 'us.anthropic.claude-haiku-5-5'
 
 const request = (
@@ -106,9 +107,7 @@ describe('the Bedrock model (ADR-045)', () => {
       answered('{"dish":"ajiaco"}', 'content_filtered'),
     ]) {
       const bedrock = fakeBedrock(reply)
-      await expect(modelAt(bedrock.endpoint).answer(request())).rejects.toThrow(
-        new ModelError('invalid-answer'),
-      )
+      expect(await outcome(modelAt(bedrock.endpoint).answer(request()))).toBe('invalid-answer')
       await server?.stop(true)
     }
   })
@@ -123,9 +122,7 @@ describe('the Bedrock model (ADR-045)', () => {
     ] as const
     for (const [reply, failure] of cases) {
       const bedrock = fakeBedrock(reply)
-      await expect(modelAt(bedrock.endpoint).answer(request())).rejects.toThrow(
-        new ModelError(failure),
-      )
+      expect(await outcome(modelAt(bedrock.endpoint).answer(request()))).toBe(failure)
       await server?.stop(true)
     }
 
@@ -135,9 +132,26 @@ describe('the Bedrock model (ADR-045)', () => {
       fetch: () => Bun.sleep(3_000).then(answered('{"dish":"ajiaco"}')),
     })
     const started = performance.now()
-    await expect(
-      modelAt(`http://127.0.0.1:${String(server.port)}`).answer(request(200)),
-    ).rejects.toThrow(new ModelError('unavailable'))
+    const late = modelAt(`http://127.0.0.1:${String(server.port)}`).answer(request(200))
+    expect(await outcome(late)).toBe('unavailable')
     expect(performance.now() - started).toBeLessThan(2_000)
+  })
+
+  test('T-AIP-UNIT-10 an error says what failed, and never carries the photo, the text or the answer', async () => {
+    let bedrock = fakeBedrock(failed(400, 'ValidationException'))
+    let failure = await failureOf(modelAt(bedrock.endpoint).answer(request()))
+    expect(failure.error.message).toBe('model failed: rejected: ValidationException 400 no')
+    expect(failure.error.cause).toBeUndefined()
+    expect(failure.printed).not.toContain('¿Qué plato es?')
+    expect(failure.printed).not.toContain(Buffer.from(PHOTO).toString('base64'))
+    await server?.stop(true)
+
+    bedrock = fakeBedrock(answered('{"dish":"bandeja paisa","grams":"muchos"}'))
+    failure = await failureOf(modelAt(bedrock.endpoint).answer(request()))
+    expect(failure.error.message).toBe(
+      'model failed: invalid-answer: the answer did not match the schema (grams invalid_type)',
+    )
+    expect(failure.printed).not.toContain('bandeja paisa')
+    expect(failure.printed).not.toContain('muchos')
   })
 })

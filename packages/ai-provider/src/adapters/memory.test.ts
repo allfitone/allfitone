@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 
-import { ModelError } from '../port.js'
 import { createMemoryModel } from './memory.js'
+import { outcome } from './testing.js'
 
 const DISH = z.object({ dish: z.string() })
 
@@ -21,11 +21,11 @@ describe('the memory model (ADR-045)', () => {
     expect(model.seen).toEqual([request])
 
     model.willAnswer({ plate: 'ajiaco' })
-    await expect(model.answer(request)).rejects.toThrow(new ModelError('invalid-answer'))
+    expect(await outcome(model.answer(request))).toBe('invalid-answer')
 
     model.willAnswer({ dish: 'ajiaco' })
     model.failNext('unavailable')
-    await expect(model.answer(request)).rejects.toThrow(new ModelError('unavailable'))
+    expect(await outcome(model.answer(request))).toBe('unavailable')
     expect(await model.answer(request)).toEqual({ value: { dish: 'ajiaco' }, model: 'memory/test' })
   })
 })

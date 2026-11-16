@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 
-import { ModelError, type ModelRequest } from '../port.js'
+import type { ModelRequest } from '../port.js'
 import { createGatewayModel } from './gateway.js'
+import { failureOf, outcome } from './testing.js'
 
 const DISH = z.object({ dish: z.string() })
+const PHOTO = new Uint8Array([255, 216, 255, 224, 7, 7, 7, 7, 7, 7, 7, 7])
 
 const request = (timeoutMs = 5_000): ModelRequest<{ dish: string }> => ({
   model: 'google/gemini-3.5-flash-lite',
   parts: [
-    { kind: 'image', media: 'image/jpeg', bytes: new Uint8Array([255, 216, 255]) },
+    { kind: 'image', media: 'image/jpeg', bytes: PHOTO },
     { kind: 'text', text: '¿Qué plato es?' },
   ],
   schema: DISH,
@@ -53,13 +55,6 @@ function answeringGateway(text: string, finish = 'stop'): { baseURL: string; bod
   return { baseURL: `http://127.0.0.1:${String(server.port)}`, bodies }
 }
 
-/** How a request ended: the closed failure, or `answered`. */
-const outcome = (pending: Promise<unknown>): Promise<unknown> =>
-  pending.then(
-    () => 'answered',
-    (cause: unknown) => (cause instanceof ModelError ? cause.failure : cause),
-  )
-
 describe('the Gateway model (ADR-041, ADR-045)', () => {
   test('T-AIP-UNIT-02 refuses to start without a provider to route to', () => {
     expect(() => createGatewayModel({ apiKey: 'k', providers: [] })).toThrow(
@@ -84,13 +79,13 @@ describe('the Gateway model (ADR-041, ADR-045)', () => {
   test('T-AIP-UNIT-04 a refused request is rejected, a failing or silent Gateway is unavailable', async () => {
     let gateway = fakeGateway(401, 'authentication_error')
     let model = createGatewayModel({ apiKey: 'k', providers: ['vertex'], baseURL: gateway.baseURL })
-    await expect(model.answer(request())).rejects.toThrow(new ModelError('rejected'))
+    expect(await outcome(model.answer(request()))).toBe('rejected')
     expect(gateway.bodies).toHaveLength(1)
     await server?.stop(true)
 
     gateway = fakeGateway(500, 'internal_server_error')
     model = createGatewayModel({ apiKey: 'k', providers: ['vertex'], baseURL: gateway.baseURL })
-    await expect(model.answer(request())).rejects.toThrow(new ModelError('unavailable'))
+    expect(await outcome(model.answer(request()))).toBe('unavailable')
     expect(gateway.bodies).toHaveLength(2)
     await server?.stop(true)
 
@@ -101,7 +96,7 @@ describe('the Gateway model (ADR-041, ADR-045)', () => {
       baseURL: `http://127.0.0.1:${String(server.port)}`,
     })
     const started = performance.now()
-    await expect(model.answer(request(200))).rejects.toThrow(new ModelError('unavailable'))
+    expect(await outcome(model.answer(request(200)))).toBe('unavailable')
     expect(performance.now() - started).toBeLessThan(2_000)
   })
 
@@ -122,5 +117,32 @@ describe('the Gateway model (ADR-041, ADR-045)', () => {
       expect(gateway.bodies).toHaveLength(1)
       await server?.stop(true)
     }
+  })
+
+  test('T-AIP-UNIT-09 an error says what failed, and never carries the photo, the text or the answer', async () => {
+    const photo = Buffer.from(PHOTO)
+    const settings = { apiKey: 'k', providers: ['vertex'] }
+
+    let gateway = fakeGateway(500, 'internal_server_error')
+    let failed = await failureOf(
+      createGatewayModel({ ...settings, baseURL: gateway.baseURL }).answer(request()),
+    )
+    expect(failed.error.message).toBe(
+      'model failed: unavailable: GatewayInternalServerError 500 no',
+    )
+    expect(failed.error.cause).toBeUndefined()
+    expect(failed.printed).not.toContain('¿Qué plato es?')
+    expect(failed.printed).not.toContain(photo.toString('base64'))
+    await server?.stop(true)
+
+    gateway = answeringGateway('{"plate":"bandeja paisa"}')
+    failed = await failureOf(
+      createGatewayModel({ ...settings, baseURL: gateway.baseURL }).answer(request()),
+    )
+    expect(failed.error.message).toBe(
+      'model failed: invalid-answer: the answer did not match the schema, finish: stop',
+    )
+    expect(failed.printed).not.toContain('bandeja paisa')
+    expect(failed.printed).not.toContain('¿Qué plato es?')
   })
 })

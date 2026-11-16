@@ -53,11 +53,15 @@ export interface LanguageModel {
  */
 export type ModelFailure = 'unavailable' | 'invalid-answer' | 'rejected'
 
+/**
+ * It carries no cause: a vendor's error holds the request it failed, and that must not
+ * reach a log. `reason` is what an adapter may say instead (see `reason.ts`).
+ */
 export class ModelError extends Error {
   readonly failure: ModelFailure
 
-  constructor(failure: ModelFailure, cause?: unknown) {
-    super(`model failed: ${failure}`, { cause })
+  constructor(failure: ModelFailure, reason?: string) {
+    super(reason ? `model failed: ${failure}: ${reason}` : `model failed: ${failure}`)
     this.name = 'ModelError'
     this.failure = failure
   }

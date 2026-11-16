@@ -23,6 +23,7 @@
 import {
   AccessDeniedException,
   BedrockRuntimeClient,
+  BedrockRuntimeServiceException,
   ConverseCommand,
   ResourceNotFoundException,
   ValidationException,
@@ -31,7 +32,8 @@ import {
 import { NodeHttpHandler } from '@smithy/node-http-handler'
 import { z } from 'zod'
 
-import { ModelError, type LanguageModel, type ModelFailure, type Part } from '../port.js'
+import { ModelError, type LanguageModel, type Part } from '../port.js'
+import { shapeReason, vendorReason } from '../reason.js'
 
 export interface BedrockSettings {
   readonly region: string
@@ -76,23 +78,20 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
           { abortSignal: request.signal ? AbortSignal.any([request.signal, deadline]) : deadline },
         )
         if (response.stopReason !== 'end_turn') {
-          throw new ModelError(
-            'invalid-answer',
-            new Error(`stopped: ${String(response.stopReason)}`),
-          )
+          throw new ModelError('invalid-answer', `stopped: ${String(response.stopReason)}`)
         }
         text = (response.output?.message?.content ?? []).map((block) => block.text ?? '').join('')
       } catch (cause) {
-        throw cause instanceof ModelError ? cause : new ModelError(failureOf(cause), cause)
+        throw cause instanceof ModelError ? cause : failed(cause)
       }
       let raw: unknown
       try {
         raw = JSON.parse(text)
-      } catch (cause) {
-        throw new ModelError('invalid-answer', cause)
+      } catch {
+        throw new ModelError('invalid-answer', 'the answer was not JSON')
       }
       const parsed = request.schema.safeParse(raw)
-      if (!parsed.success) throw new ModelError('invalid-answer', parsed.error)
+      if (!parsed.success) throw new ModelError('invalid-answer', shapeReason(parsed.error))
       return { value: parsed.data, model: request.model }
     },
   }
@@ -110,10 +109,12 @@ function jsonSchema(schema: z.ZodType): string {
   return JSON.stringify(rest)
 }
 
-function failureOf(cause: unknown): ModelFailure {
+function failed(cause: unknown): ModelError {
   const refused =
     cause instanceof AccessDeniedException ||
     cause instanceof ValidationException ||
     cause instanceof ResourceNotFoundException
-  return refused ? 'rejected' : 'unavailable'
+  const status =
+    cause instanceof BedrockRuntimeServiceException ? cause.$metadata.httpStatusCode : undefined
+  return new ModelError(refused ? 'rejected' : 'unavailable', vendorReason(cause, status))
 }
