@@ -201,6 +201,7 @@ packages/
   queue/            Port and adapter for the job queue
   store-billing/    Port and adapters for App Store and Google Play
   telemetry/        Closed telemetry contracts and provider-neutral ports
+  weekly-summary/   The weekly summary of Space, a task over the model port
 ```
 
 `apps/` are things that **run**. `packages/` are things that get **used**.
