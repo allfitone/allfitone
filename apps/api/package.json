@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch --env-file=../../.env.local src/server.ts",
-    "prebuild": "bun run --cwd ../../packages/auth-provider build && bun run --cwd ../../packages/contracts build && bun run --cwd ../../packages/db build && bun run --cwd ../../packages/ai-provider build && bun run --cwd ../../packages/food-recognition build && bun run --cwd ../../packages/notifications build && bun run --cwd ../../packages/object-store build && bun run --cwd ../../packages/queue build && bun run --cwd ../../packages/store-billing build && bun run --cwd ../../packages/telemetry build",
+    "prebuild": "bun run --cwd ../../packages/auth-provider build && bun run --cwd ../../packages/contracts build && bun run --cwd ../../packages/db build && bun run --cwd ../../packages/ai-provider build && bun run --cwd ../../packages/food-recognition build && bun run --cwd ../../packages/notifications build && bun run --cwd ../../packages/object-store build && bun run --cwd ../../packages/queue build && bun run --cwd ../../packages/store-billing build && bun run --cwd ../../packages/telemetry build && bun run --cwd ../../packages/weekly-summary build",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "test": "bun test",
@@ -22,6 +22,7 @@
     "@allfitone/queue": "workspace:*",
     "@allfitone/store-billing": "workspace:*",
     "@allfitone/telemetry": "workspace:*",
+    "@allfitone/weekly-summary": "workspace:*",
     "@hono/node-server": "^1.13.0",
     "hono": "^4.6.0",
     "postgres": "3.4.9",

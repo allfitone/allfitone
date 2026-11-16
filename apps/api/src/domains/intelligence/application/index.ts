@@ -1,5 +1,6 @@
 /**
- * The AI consent use cases, for the person herself (HU-SP-124, HU-SP-125).
+ * The assistant's use cases for the person herself: her AI consent (HU-SP-124,
+ * HU-SP-125) and, beside it, the weekly summary (`weekly-summary.ts`).
  *
  * The rules live in PostgreSQL: one consent in force, history kept, only the person
  * decides. This layer adds the one thing the database cannot know, which text is in
@@ -11,15 +12,19 @@
  * her without her having decided anything.
  */
 
+import type { WeeklySummarizer } from '@allfitone/weekly-summary'
+
 import {
   ConsentTextNotInForce,
+  type ConsentDatabase,
   type ConsentRow,
   type IntelligenceCommand,
   type IntelligenceConsent,
   type IntelligenceDatabase,
 } from '../domain/index.js'
+import { createWeeklySummaryService, type WeeklySummaryService } from './weekly-summary.js'
 
-export interface SpaceIntelligenceService {
+export interface ConsentService {
   readConsent(input: { personId: string; requestId: string }): Promise<IntelligenceConsent>
   giveConsent(
     input: IntelligenceCommand & { personId: string; version: string },
@@ -27,10 +32,12 @@ export interface SpaceIntelligenceService {
   withdrawConsent(input: IntelligenceCommand & { personId: string }): Promise<IntelligenceConsent>
 }
 
-export function createSpaceIntelligenceService(
-  database: IntelligenceDatabase,
+export type SpaceIntelligenceService = ConsentService & WeeklySummaryService
+
+export function createConsentService(
+  database: ConsentDatabase,
   currentConsent: string | null,
-): SpaceIntelligenceService {
+): ConsentService {
   const answer = (row: ConsentRow | null): IntelligenceConsent => ({
     current_version: currentConsent,
     accepted_version: row?.accepted_version ?? null,
@@ -48,5 +55,17 @@ export function createSpaceIntelligenceService(
 
     // Taking it back never depends on a text: she can always stop.
     withdrawConsent: async (input) => answer(await database.withdrawConsent(input)),
+  }
+}
+
+/** One consent, and every capability under it: the same text decides both. */
+export function createSpaceIntelligenceService(
+  database: IntelligenceDatabase,
+  currentConsent: string | null,
+  summarizer: WeeklySummarizer | null,
+): SpaceIntelligenceService {
+  return {
+    ...createConsentService(database, currentConsent),
+    ...createWeeklySummaryService(database, currentConsent, summarizer),
   }
 }

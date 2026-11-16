@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  ConsentTextNotInForce,
-  type ConsentRow,
-  type IntelligenceDatabase,
-} from '../domain/index.js'
-import { createSpaceIntelligenceService } from './index.js'
+import { ConsentTextNotInForce, type ConsentDatabase, type ConsentRow } from '../domain/index.js'
+import { createConsentService } from './index.js'
 
 const PERSON = '019f1400-0000-7000-8000-000000000001'
 const command = {
@@ -18,7 +14,7 @@ const nothing: ConsentRow = { accepted_version: null, accepted_at: null, withdra
 function harness(current: string | null, held: ConsentRow | null = nothing) {
   const given: string[] = []
   let withdrawals = 0
-  const database: IntelligenceDatabase = {
+  const database: ConsentDatabase = {
     readConsent: async () => held,
     giveConsent: async ({ version }) => {
       given.push(version)
@@ -30,7 +26,7 @@ function harness(current: string | null, held: ConsentRow | null = nothing) {
     },
   }
   return {
-    service: createSpaceIntelligenceService(database, current),
+    service: createConsentService(database, current),
     given,
     withdrawals: () => withdrawals,
   }
