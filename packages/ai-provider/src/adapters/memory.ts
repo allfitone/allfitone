@@ -14,7 +14,7 @@ export interface MemoryModel extends LanguageModel {
   failNext(failure: ModelFailure): void
 }
 
-export function createMemoryModel(id = 'memory/model'): MemoryModel {
+export function createMemoryModel(): MemoryModel {
   let raw: unknown = null
   let failure: ModelFailure | null = null
   const seen: ModelRequest<unknown>[] = []
@@ -35,7 +35,7 @@ export function createMemoryModel(id = 'memory/model'): MemoryModel {
       }
       const parsed = request.schema.safeParse(raw)
       return parsed.success
-        ? Promise.resolve({ value: parsed.data, model: id })
+        ? Promise.resolve({ value: parsed.data, usage: null })
         : Promise.reject(new ModelError('invalid-answer', shapeReason(parsed.error)))
     },
   }

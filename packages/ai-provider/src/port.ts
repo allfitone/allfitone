@@ -3,17 +3,18 @@
  *
  * It speaks our language, not a vendor's. A task says what it sends — text and images,
  * in order — which model answers, the shape the answer must have and how long it may
- * take; it gets back an answer that already has that shape, and the exact model that
- * gave it, for the record the task keeps. Any vendor that answers in a JSON schema fits
- * behind it: Vercel AI Gateway and Amazon Bedrock today, another tomorrow. That is the
- * test AGENTS.md sets for a port.
+ * take; it gets back an answer that already has that shape, and what the request
+ * consumed. Any vendor that answers in a JSON schema fits behind it: Vercel AI Gateway
+ * and Amazon Bedrock today, another tomorrow. That is the test AGENTS.md sets for a port.
  *
- * **What is missing is missing on purpose.** Tools, conversations of several turns,
- * token usage and streaming have no caller yet; each joins this port with the first task
- * that needs it, not before (ADR-021: no abstraction only because it might be reused).
+ * **What is missing is missing on purpose.** Tools, conversations of several turns and
+ * streaming have no caller yet; each joins this port with the first task that needs it,
+ * not before (ADR-021: no abstraction only because it might be reused).
  *
  * **One model per request, and no fallback.** A model that has not passed the task's
  * eval never answers in its place: when the model fails, the request fails (ADR-041).
+ * So the model that answered is the model the task asked for, and that is the id the
+ * task records (ADR-018); an answer does not repeat it.
  */
 
 import type { ZodType } from 'zod'
@@ -34,10 +35,16 @@ export interface ModelRequest<T> {
   readonly signal?: AbortSignal | undefined
 }
 
+/** Tokens as the vendor counted them: what a task's eval compares between models. */
+export interface Usage {
+  readonly inputTokens: number
+  readonly outputTokens: number
+}
+
 export interface ModelAnswer<T> {
   readonly value: T
-  /** The exact model that answered, for the record the task keeps (ADR-018). */
-  readonly model: string
+  /** Null when the vendor did not say. */
+  readonly usage: Usage | null
 }
 
 export interface LanguageModel {

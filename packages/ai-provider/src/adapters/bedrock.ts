@@ -32,7 +32,7 @@ import {
 import { NodeHttpHandler } from '@smithy/node-http-handler'
 import { z } from 'zod'
 
-import { ModelError, type LanguageModel, type Part } from '../port.js'
+import { ModelError, type LanguageModel, type Part, type Usage } from '../port.js'
 import { shapeReason, vendorReason } from '../reason.js'
 
 export interface BedrockSettings {
@@ -62,6 +62,7 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
     async answer(request) {
       const deadline = AbortSignal.timeout(request.timeoutMs)
       let text: string
+      let usage: Usage | null
       try {
         const response = await client.send(
           new ConverseCommand({
@@ -81,6 +82,9 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
           throw new ModelError('invalid-answer', `stopped: ${String(response.stopReason)}`)
         }
         text = (response.output?.message?.content ?? []).map((block) => block.text ?? '').join('')
+        const { inputTokens, outputTokens } = response.usage ?? {}
+        const counted = inputTokens !== undefined && outputTokens !== undefined
+        usage = counted ? { inputTokens, outputTokens } : null
       } catch (cause) {
         throw cause instanceof ModelError ? cause : failed(cause)
       }
@@ -92,7 +96,7 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
       }
       const parsed = request.schema.safeParse(raw)
       if (!parsed.success) throw new ModelError('invalid-answer', shapeReason(parsed.error))
-      return { value: parsed.data, model: request.model }
+      return { value: parsed.data, usage }
     },
   }
 }

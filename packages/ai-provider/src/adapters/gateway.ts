@@ -55,7 +55,9 @@ export function createGatewayModel(settings: GatewaySettings): LanguageModel {
             gateway: { only: [...settings.providers], zeroDataRetention: true },
           },
         })
-        return { value: result.output, model: request.model }
+        const { inputTokens, outputTokens } = result.usage
+        const counted = inputTokens !== undefined && outputTokens !== undefined
+        return { value: result.output, usage: counted ? { inputTokens, outputTokens } : null }
       } catch (cause) {
         throw failed(cause)
       }

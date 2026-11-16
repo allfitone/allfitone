@@ -75,7 +75,10 @@ describe('the Bedrock model (ADR-045)', () => {
   test('T-AIP-UNIT-05 sends the photo, the text and the schema to the exact model, and reads the answer', async () => {
     const bedrock = fakeBedrock(answered('{"dish":"ajiaco","grams":350}'))
     const answer = await modelAt(bedrock.endpoint).answer(request())
-    expect(answer).toEqual({ value: { dish: 'ajiaco', grams: 350 }, model: MODEL })
+    expect(answer).toEqual({
+      value: { dish: 'ajiaco', grams: 350 },
+      usage: { inputTokens: 10, outputTokens: 5 },
+    })
 
     const [call] = bedrock.received
     expect(call?.path).toBe(`/model/${MODEL}/converse`)

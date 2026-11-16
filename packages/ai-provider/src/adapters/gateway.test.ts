@@ -69,7 +69,10 @@ describe('the Gateway model (ADR-041, ADR-045)', () => {
       providers: ['vertex'],
       baseURL: gateway.baseURL,
     })
-    expect((await model.answer(request())).value).toEqual({ dish: 'ajiaco' })
+    expect(await model.answer(request())).toEqual({
+      value: { dish: 'ajiaco' },
+      usage: { inputTokens: 120, outputTokens: 30 },
+    })
     const sent = gateway.bodies.join('\n')
     expect(sent).toContain('"zeroDataRetention":true')
     expect(sent).toContain('"only":["vertex"]')

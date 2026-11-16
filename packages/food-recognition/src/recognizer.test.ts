@@ -26,7 +26,7 @@ const ANSWER = {
 
 describe('the recogniser over the model port (ADR-041, ADR-045)', () => {
   test('T-REC-UNIT-12 sends the photo then the prompt to the exact model, and answers in fractions of the photo', async () => {
-    const model = createMemoryModel(MODEL)
+    const model = createMemoryModel()
     model.willAnswer(ANSWER)
     const recognizer = createFoodRecognizer(model, { model: MODEL })
 
@@ -55,7 +55,7 @@ describe('the recogniser over the model port (ADR-041, ADR-045)', () => {
   })
 
   test('T-REC-UNIT-13 a model failure is a recognition failure, and an empty plate is nothing recognised', async () => {
-    const model = createMemoryModel(MODEL)
+    const model = createMemoryModel()
     const recognizer = createFoodRecognizer(model, { model: MODEL, timeoutMs: 60_000 })
     const cases: [ModelFailure, 'invalid-answer' | 'unavailable'][] = [
       ['invalid-answer', 'invalid-answer'],
