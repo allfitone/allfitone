@@ -8,6 +8,7 @@
  * `google/gemini-3.5-flash-lite` needs `AI_GATEWAY_API_KEY`; `bedrock:<model id>` asks
  * Amazon Bedrock with the local AWS credentials, in `AWS_REGION` or `us-east-1` (ADR-045),
  * and `bedrock-tool:<model id>` asks a model without structured output, such as Nova.
+ * A model's own request fields follow the id as a query: `bedrock:<id>?reasoning_effort=none`.
  * Passing on Bedrock is a measurement, not a switch: production changes only with its own
  * consent version and decision.
  *
@@ -47,11 +48,12 @@ interface Asked {
 
 /** The port and the exact id each argument names: Bedrock by prefix, the Gateway otherwise. */
 function modelFor(name: string): Asked {
-  const bedrock = /^bedrock(-tool)?:(.+)$/.exec(name)
+  const bedrock = /^bedrock(-tool)?:([^?]+)(?:\?(.+))?$/.exec(name)
   if (bedrock) {
     const region = process.env.AWS_REGION?.trim() || 'us-east-1'
+    const modelFields = bedrock[3] ? Object.fromEntries(new URLSearchParams(bedrock[3])) : undefined
     return {
-      port: createBedrockModel({ region, shape: bedrock[1] ? 'tool' : 'output' }),
+      port: createBedrockModel({ region, shape: bedrock[1] ? 'tool' : 'output', modelFields }),
       id: bedrock[2] ?? '',
       timeoutMs: 150_000,
       atOnce: 3,
@@ -163,7 +165,7 @@ for (const model of models) {
       ? `${(used.input / used.answers).toFixed(0)} de entrada y ${(used.output / used.answers).toFixed(0)} de salida`
       : 'sin dato'
   console.log(
-    `${model}: ${passes ? 'PASA' : 'NO PASA'} · aciertos ${(recall * 100).toFixed(0)} % · solo el plato ${String(collapsed)} · errores ${String(errors.length)} · mediana ${(sorted[Math.floor(sorted.length / 2)] ?? 0).toFixed(0)} ms · tokens por foto: ${tokens}`,
+    `${model}: ${passes ? 'PASA' : 'NO PASA'} · aciertos ${(recall * 100).toFixed(0)} % · solo el plato ${String(collapsed)} · errores ${String(errors.length)} · mediana ${(sorted[Math.floor(sorted.length / 2)] ?? 0).toFixed(0)} ms · la más lenta ${(sorted.at(-1) ?? 0).toFixed(0)} ms · tokens por foto: ${tokens}`,
   )
   for (const score of scores.filter((one) => one.recall < 1 || one.error)) {
     console.log(

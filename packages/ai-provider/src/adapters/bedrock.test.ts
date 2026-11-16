@@ -241,4 +241,23 @@ describe('the Bedrock model (ADR-045)', () => {
       await server?.stop(true)
     }
   })
+
+  test("T-AIP-UNIT-13 a model's own request fields reach it as given, and none are sent unasked", async () => {
+    let bedrock = fakeBedrock(answered('{"dish":"ajiaco"}'))
+    const quiet = createBedrockModel({
+      region: 'us-east-1',
+      endpoint: bedrock.endpoint,
+      credentials: { accessKeyId: 'AKIAEXAMPLE', secretAccessKey: 'secret' },
+      modelFields: { reasoning_effort: 'none' },
+    })
+    expect(await outcome(quiet.answer(request()))).toBe('answered')
+    expect(bedrock.received[0]?.body.additionalModelRequestFields).toEqual({
+      reasoning_effort: 'none',
+    })
+    await server?.stop(true)
+
+    bedrock = fakeBedrock(answered('{"dish":"ajiaco"}'))
+    expect(await outcome(modelAt(bedrock.endpoint).answer(request()))).toBe('answered')
+    expect(bedrock.received[0]?.body).not.toHaveProperty('additionalModelRequestFields')
+  })
 })

@@ -17,6 +17,9 @@
  * - **Not every model has structured output.** Amazon Nova refuses it, so `shape: 'tool'`
  *   asks for the same schema as the input of one tool the model must call. Nothing holds
  *   the model to it there but the check made here, and the limits above do not apply.
+ * - **A model that reasons before it answers spends the output ceiling on that.** Kimi K3
+ *   reasons unless told otherwise; `modelFields` carries a model's own request fields,
+ *   such as `reasoning_effort`, which Converse passes on without checking them.
  * - **Errors** are sorted by what Bedrock says: no access, an invalid request or no such
  *   model is `rejected`; throttling, a busy or failing model and a deadline are
  *   `unavailable`.
@@ -61,6 +64,8 @@ export interface BedrockSettings {
   readonly maxOutputTokens?: number | undefined
   /** How the schema is asked: Bedrock's structured output (the default), or one tool. */
   readonly shape?: 'output' | 'tool' | undefined
+  /** A model's own request fields, such as `reasoning_effort`; Converse passes them on. */
+  readonly modelFields?: Readonly<Record<string, string>> | undefined
 }
 
 const CONNECT_TIMEOUT_MS = 3_000
@@ -90,6 +95,7 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
             messages: [{ role: 'user', content: request.parts.map(content) }],
             inferenceConfig: { maxTokens: settings.maxOutputTokens ?? MAX_OUTPUT_TOKENS },
             ...(asTool ? throughTool(schema) : throughOutput(schema)),
+            ...(settings.modelFields ? { additionalModelRequestFields: settings.modelFields } : {}),
           }),
           { abortSignal: request.signal ? AbortSignal.any([request.signal, deadline]) : deadline },
         )
