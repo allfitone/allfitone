@@ -10,6 +10,10 @@
  * - **Where each food sits** is asked on a 0–1000 grid, which Gemini answers far more
  *   reliably than fractions, and turned into fractions here: the grid is part of the
  *   prompt, not of any vendor.
+ * - **The detail of an estimate is asked as a list** of code and amount, and turned into
+ *   the estimate's own fields here. Twenty-six optional fields are more than Bedrock's
+ *   structured output takes in a schema (12); a list has none, so one shape serves
+ *   every vendor.
  * - **A model failure is a recognition failure.** A refused request is `unavailable` to
  *   the person, who searches instead; the API logs only that closed value.
  */
@@ -27,9 +31,6 @@ export interface RecognizerSettings {
   readonly timeoutMs?: number | undefined
 }
 
-// The detail is optional: the model says what it can, and what it cannot stays unsaid.
-const DETAIL = Object.fromEntries(DETAIL_CODES.map((code) => [code, z.number().optional()]))
-
 const ANSWER = z.object({
   dish: z.string().nullable(),
   items: z.array(
@@ -45,7 +46,8 @@ const ANSWER = z.object({
         protein: z.number(),
         carbohydrates: z.number(),
         fat: z.number(),
-        ...DETAIL,
+        // The model lists what it can say; what it cannot stays out of the list.
+        detail: z.array(z.object({ code: z.enum(DETAIL_CODES), amount: z.number() })),
       }),
     }),
   ),
@@ -75,14 +77,18 @@ export function createFoodRecognizer(
         const malformed = cause instanceof ModelError && cause.failure === 'invalid-answer'
         throw new RecognitionError(malformed ? 'invalid-answer' : 'unavailable', cause)
       }
-      const fractions = {
+      const ours = {
         ...answer,
-        items: answer.items.map((item) => ({
+        items: answer.items.map(({ estimate: { detail, ...whole }, ...item }) => ({
           ...item,
           at: { x: item.at.x / 1000, y: item.at.y / 1000 },
+          estimate: {
+            ...whole,
+            ...Object.fromEntries(detail.map((one) => [one.code, one.amount])),
+          },
         })),
       }
-      return { ...checkAnswer(fractions), model: settings.model }
+      return { ...checkAnswer(ours), model: settings.model }
     },
   }
 }

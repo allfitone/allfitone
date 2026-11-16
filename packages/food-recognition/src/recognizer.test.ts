@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 
 import { createMemoryModel, type ModelFailure } from '@allfitone/ai-provider'
+import { createBedrockModel } from '@allfitone/ai-provider/bedrock'
 
 import { RecognitionError } from './port.js'
 import { RECOGNITION_PROMPT } from './prompt.js'
@@ -19,10 +20,25 @@ const ANSWER = {
       confidence: 0.9,
       at: { x: 250, y: 500 },
       icon: 'vegetable',
-      estimate: { energy: 90, protein: 2, carbohydrates: 20, fat: 0, fiber: 2 },
+      estimate: {
+        energy: 90,
+        protein: 2,
+        carbohydrates: 20,
+        fat: 0,
+        detail: [
+          { code: 'fiber', amount: 2 },
+          { code: 'potassium', amount: 400 },
+        ],
+      },
     },
   ],
 }
+
+let server: ReturnType<typeof Bun.serve> | undefined
+afterEach(async () => {
+  await server?.stop(true)
+  server = undefined
+})
 
 describe('the recogniser over the model port (ADR-041, ADR-045)', () => {
   test('T-REC-UNIT-12 sends the photo then the prompt to the exact model, and answers in fractions of the photo', async () => {
@@ -40,7 +56,14 @@ describe('the recogniser over the model port (ADR-041, ADR-045)', () => {
           confidence: 0.9,
           at: { x: 0.25, y: 0.5 },
           icon: 'vegetable',
-          estimate: { energy: 90, protein: 2, carbohydrates: 20, fat: 0, fiber: 2 },
+          estimate: {
+            energy: 90,
+            protein: 2,
+            carbohydrates: 20,
+            fat: 0,
+            fiber: 2,
+            potassium: 400,
+          },
         },
       ],
       model: MODEL,
@@ -72,5 +95,30 @@ describe('the recogniser over the model port (ADR-041, ADR-045)', () => {
     await expect(recognizer.recognize(JPEG)).rejects.toThrow(
       new RecognitionError('nothing-recognised'),
     )
+  })
+
+  test('T-REC-UNIT-14 the answer is asked in a shape Bedrock takes too', async () => {
+    let asked = 0
+    server = Bun.serve({
+      port: 0,
+      fetch() {
+        asked += 1
+        return Response.json({
+          output: { message: { role: 'assistant', content: [{ text: JSON.stringify(ANSWER) }] } },
+          stopReason: 'end_turn',
+          usage: { inputTokens: 900, outputTokens: 200, totalTokens: 1100 },
+        })
+      },
+    })
+    const bedrock = createBedrockModel({
+      region: 'us-east-1',
+      endpoint: `http://127.0.0.1:${String(server.port)}`,
+      credentials: { accessKeyId: 'AKIAEXAMPLE', secretAccessKey: 'secret' },
+    })
+    const recognizer = createFoodRecognizer(bedrock, { model: 'us.anthropic.claude-haiku-5-5' })
+
+    const seen = await recognizer.recognize(JPEG)
+    expect(seen.items[0]?.estimate).toMatchObject({ energy: 90, fiber: 2, potassium: 400 })
+    expect(asked).toBe(1)
   })
 })

@@ -16,7 +16,7 @@ items: SIEMPRE cada componente visible por separado, aunque hayas reconocido el 
 - confidence: de 0 a 1.
 - icon: el grupo del alimento, uno de: egg, dairy, grain, bread, sandwich, meat, poultry, fish, ham, fruit, banana, citrus, grape, vegetable, salad, greens, legume, nut, soup, coffee, drink, water, sweet, cookie, dessert, cake, pizza, burger, snack, oil, wine, cheese. (Cereal de desayuno es grain; queso es cheese; jugo y gaseosa son drink.)
 - estimate: tu mejor estimación para esa porción (los gramos que diste): energy en kcal y protein, carbohydrates y fat en gramos, siempre.
-  Además, cuando puedas estimarlos con sentido para ese alimento: fiber, saturated_fat, trans_fat y sugars en gramos; cholesterol y sodium en mg; vitamin_c, vitamin_e, thiamin, riboflavin, niacin, pantothenic_acid, vitamin_b6, calcium, iron, magnesium, phosphorus, potassium, zinc y copper en mg; vitamin_a, vitamin_d, vitamin_k, vitamin_b12, folate y selenium en microgramos. Omite el que no sepas; no inventes ceros.
+  Además, en detail, una lista con los que puedas estimar con sentido para ese alimento, cada uno como { code, amount }: fiber, saturated_fat, trans_fat y sugars en gramos; cholesterol y sodium en mg; vitamin_c, vitamin_e, thiamin, riboflavin, niacin, pantothenic_acid, vitamin_b6, calcium, iron, magnesium, phosphorus, potassium, zinc y copper en mg; vitamin_a, vitamin_d, vitamin_k, vitamin_b12, folate y selenium en microgramos. Deja fuera de la lista el que no sepas; no inventes ceros.
 - at: SIEMPRE el centro aproximado de ese componente en la foto, con x e y enteros de 0 a 1000 medidos desde la esquina superior izquierda (x hacia la derecha, y hacia abajo).
 
 Reglas:
