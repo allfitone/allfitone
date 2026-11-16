@@ -13,7 +13,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 
-import { createBedrockModel, createGatewayModel, type LanguageModel } from '@allfitone/ai-provider'
+import { createGatewayModel, type LanguageModel } from '@allfitone/ai-provider'
+import { createBedrockModel } from '@allfitone/ai-provider/bedrock'
 
 import { DEFAULT_MODEL } from '../src/factory.js'
 import { createFoodRecognizer } from '../src/recognizer.js'

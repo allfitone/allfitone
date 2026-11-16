@@ -11,6 +11,11 @@
       "types": "./src/index.ts",
       "bun": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./bedrock": {
+      "types": "./src/adapters/bedrock.ts",
+      "bun": "./src/adapters/bedrock.ts",
+      "import": "./dist/adapters/bedrock.js"
     }
   },
   "scripts": {

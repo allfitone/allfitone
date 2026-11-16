@@ -7,6 +7,13 @@
  * - **The schema goes to Bedrock's structured output** as JSON Schema, and the answer is
  *   held to it again here: an answer that stopped for any reason but the end of its turn
  *   (cut at the token limit, filtered) is not an answer, whatever it parses to.
+ * - **Bedrock takes fewer schemas than zod writes** (user guide, «Structured output»):
+ *   no numeric or string bounds, at most 16 properties that may be null or one of several
+ *   types, and at most 12 optional properties, nested objects included. One optional
+ *   property too many is answered only after up to 90 seconds, so that one is counted
+ *   here and `rejected` before anything is sent, as is a schema JSON Schema cannot say.
+ * - **A schema Bedrock has not seen is compiled first**, which can take 90 seconds, and
+ *   then kept for 24 hours. A task's deadline has to allow for that first request.
  * - **Errors** are sorted by what Bedrock says: no access, an invalid request or no such
  *   model is `rejected`; throttling, a busy or failing model and a deadline are
  *   `unavailable`.
@@ -18,6 +25,9 @@
  *
  * Bedrock keeps no prompt or answer unless model invocation logging is switched on for
  * the account; it stays off (ADR-045).
+ *
+ * It has its own entry, `@allfitone/ai-provider/bedrock`: a deployable that does not ask
+ * Bedrock does not load its client.
  */
 
 import {
@@ -49,6 +59,7 @@ export interface BedrockSettings {
 const CONNECT_TIMEOUT_MS = 3_000
 const ATTEMPTS = 2
 const MAX_OUTPUT_TOKENS = 8_192
+const MAX_OPTIONAL = 12
 
 export function createBedrockModel(settings: BedrockSettings): LanguageModel {
   const client = new BedrockRuntimeClient({
@@ -60,6 +71,7 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
   })
   return {
     async answer(request) {
+      const schema = jsonSchema(request.schema)
       const deadline = AbortSignal.timeout(request.timeoutMs)
       let text: string
       let usage: Usage | null
@@ -72,7 +84,7 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
             outputConfig: {
               textFormat: {
                 type: 'json_schema',
-                structure: { jsonSchema: { name: 'answer', schema: jsonSchema(request.schema) } },
+                structure: { jsonSchema: { name: 'answer', schema } },
               },
             },
           }),
@@ -109,8 +121,48 @@ function content(part: Part): ContentBlock {
 
 /** The schema as Bedrock reads it: JSON Schema 2020-12, without the `$schema` marker. */
 function jsonSchema(schema: z.ZodType): string {
-  const { $schema: _marker, ...rest } = z.toJSONSchema(schema)
+  let written: Record<string, unknown>
+  try {
+    written = z.toJSONSchema(schema)
+  } catch (cause) {
+    throw new ModelError(
+      'rejected',
+      `the schema cannot be written as JSON Schema: ${vendorReason(cause)}`,
+    )
+  }
+  const { $schema: _marker, ...rest } = written
+  const optional = optionalIn(rest)
+  if (optional > MAX_OPTIONAL) {
+    throw new ModelError(
+      'rejected',
+      `Bedrock takes at most ${String(MAX_OPTIONAL)} optional properties in a schema, and this one has ${String(optional)}`,
+    )
+  }
   return JSON.stringify(rest)
+}
+
+const SCHEMA_MAPS = ['properties', '$defs', 'definitions']
+const SCHEMA_LISTS = ['anyOf', 'allOf', 'oneOf', 'prefixItems']
+const SCHEMAS = ['items', 'additionalProperties']
+
+/** Every property not listed in its object's `required`, through the whole schema. */
+function optionalIn(node: unknown): number {
+  if (typeof node !== 'object' || node === null) return 0
+  const schema = node as Record<string, unknown>
+  const inside: unknown[] = SCHEMAS.map((key) => schema[key])
+  for (const key of SCHEMA_LISTS) {
+    if (Array.isArray(schema[key])) inside.push(...(schema[key] as unknown[]))
+  }
+  let optional = 0
+  for (const key of SCHEMA_MAPS) {
+    const map = schema[key]
+    if (typeof map !== 'object' || map === null) continue
+    inside.push(...Object.values(map))
+    if (key !== 'properties') continue
+    const required = Array.isArray(schema.required) ? (schema.required as unknown[]) : []
+    optional += Object.keys(map).filter((name) => !required.includes(name)).length
+  }
+  return inside.reduce<number>((sum, one) => sum + optionalIn(one), optional)
 }
 
 function failed(cause: unknown): ModelError {

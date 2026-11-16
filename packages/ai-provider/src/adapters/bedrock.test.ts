@@ -157,4 +157,31 @@ describe('the Bedrock model (ADR-045)', () => {
     expect(failure.printed).not.toContain('bandeja paisa')
     expect(failure.printed).not.toContain('muchos')
   })
+
+  test('T-AIP-UNIT-11 a schema Bedrock would not take is rejected before anything is sent', async () => {
+    const optional = (count: number) =>
+      z.object({
+        dish: z.string(),
+        estimate: z.object(
+          Object.fromEntries(
+            Array.from({ length: count }, (_, at) => [`n${String(at)}`, z.number().optional()]),
+          ),
+        ),
+      })
+    const asking = (schema: z.ZodType) => ({ ...request(), schema })
+    const bedrock = fakeBedrock(answered('{"dish":"ajiaco","estimate":{}}'))
+    const model = modelAt(bedrock.endpoint)
+
+    let failure = await failureOf(model.answer(asking(optional(13))))
+    expect(failure.error.message).toBe(
+      'model failed: rejected: Bedrock takes at most 12 optional properties in a schema, and this one has 13',
+    )
+    failure = await failureOf(model.answer(asking(z.object({ eaten: z.date() }))))
+    expect(failure.error.failure).toBe('rejected')
+    expect(failure.error.message).toContain('the schema cannot be written as JSON Schema')
+    expect(bedrock.received).toHaveLength(0)
+
+    expect(await outcome(model.answer(asking(optional(12))))).toBe('answered')
+    expect(bedrock.received).toHaveLength(1)
+  })
 })
