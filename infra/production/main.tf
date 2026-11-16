@@ -101,7 +101,8 @@ locals {
     "API_PUBLIC_URL", "STUDIO_WEB_URL", "BACKOFFICE_WEB_URL",
     "SESSION_ENCRYPTION_KEY", "BACKOFFICE_AUTH_ENABLED",
     "CLIENT_INVITATION_ISSUANCE_ENABLED", "STAFF_INVITATION_ISSUANCE_ENABLED",
-    "AI_GATEWAY_API_KEY", "FOOD_RECOGNITION_MODEL",
+    # Unused while food recognition is on Bedrock; kept until the Gateway route is removed.
+    "AI_GATEWAY_API_KEY",
     "OBJECT_STORE_BUCKET", "OBJECT_STORE_REGION", "OBJECT_STORE_ENDPOINT",
     "OBJECT_STORE_ACCESS_KEY_ID", "OBJECT_STORE_SECRET_ACCESS_KEY", "OBJECT_STORE_KMS_KEY_ID",
     "APPLE_APP_APPLE_ID", "APPLE_BUNDLE_ID", "APPLE_ENVIRONMENT",
@@ -236,6 +237,44 @@ resource "aws_ssm_parameter" "image_tag" {
   }
 }
 
+# Meal photos are recognised on Amazon Bedrock (ADR-045). The model is pinned here, in
+# review, because the consent a person is asked follows it; it changes only after the eval
+# in packages/food-recognition passes. Applying this is the switch from the AI Gateway.
+locals {
+  food_recognition_profile = "us.anthropic.claude-sonnet-4-6"
+  food_recognition_model   = "anthropic.claude-sonnet-4-6"
+
+  # A `us.` profile answers from any of these and never leaves the country (ADR-042).
+  food_recognition_regions = ["us-east-1", "us-east-2", "us-west-2"]
+
+  food_recognition_profile_arn = "arn:aws:bedrock:${var.region}:${var.account_id}:inference-profile/${local.food_recognition_profile}"
+
+  # The API's own role: ask that one model, through that one profile, and nothing else.
+  api_task_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "AskThroughTheProfile"
+        Effect   = "Allow"
+        Action   = "bedrock:InvokeModel"
+        Resource = local.food_recognition_profile_arn
+      },
+      {
+        Sid    = "TheModelOnlyThroughTheProfile"
+        Effect = "Allow"
+        Action = "bedrock:InvokeModel"
+        Resource = [
+          for region in local.food_recognition_regions :
+          "arn:aws:bedrock:${region}::foundation-model/${local.food_recognition_model}"
+        ]
+        Condition = {
+          StringLike = { "bedrock:InferenceProfileArn" = local.food_recognition_profile_arn }
+        }
+      },
+    ]
+  })
+}
+
 module "services" {
   source = "../modules/services"
 
@@ -256,8 +295,14 @@ module "services" {
       desired_count      = var.service_desired_count
       single_instance    = false
       secret_keys        = local.api_secret_keys
-      environment        = { PORT = "8080" }
-      health_command     = null
+      environment = {
+        PORT                    = "8080"
+        FOOD_RECOGNITION_MODEL  = "bedrock/${local.food_recognition_profile}"
+        FOOD_RECOGNITION_REGION = var.region
+      }
+      health_command = null
+      # Bedrock with no key: the role asks the model that recognises food and nothing else.
+      task_role_policy = local.api_task_policy
     }
     worker = {
       port               = null
