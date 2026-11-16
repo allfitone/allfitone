@@ -35,6 +35,31 @@ function fakeGateway(status: number, type: string): { baseURL: string; bodies: s
   return { baseURL: `http://127.0.0.1:${String(server.port)}`, bodies }
 }
 
+/** A Gateway whose model answers `text`, stopping for `finish`. */
+function answeringGateway(text: string, finish = 'stop'): { baseURL: string; bodies: string[] } {
+  const bodies: string[] = []
+  server = Bun.serve({
+    port: 0,
+    async fetch(incoming) {
+      bodies.push(await incoming.text())
+      return Response.json({
+        content: [{ type: 'text', text }],
+        finishReason: { unified: finish, raw: finish },
+        usage: { inputTokens: { total: 120 }, outputTokens: { total: 30 } },
+        warnings: [],
+      })
+    },
+  })
+  return { baseURL: `http://127.0.0.1:${String(server.port)}`, bodies }
+}
+
+/** How a request ended: the closed failure, or `answered`. */
+const outcome = (pending: Promise<unknown>): Promise<unknown> =>
+  pending.then(
+    () => 'answered',
+    (cause: unknown) => (cause instanceof ModelError ? cause.failure : cause),
+  )
+
 describe('the Gateway model (ADR-041, ADR-045)', () => {
   test('T-AIP-UNIT-02 refuses to start without a provider to route to', () => {
     expect(() => createGatewayModel({ apiKey: 'k', providers: [] })).toThrow(
@@ -43,13 +68,13 @@ describe('the Gateway model (ADR-041, ADR-045)', () => {
   })
 
   test('T-AIP-UNIT-03 sends the exact model with zero data retention, only through the providers allowed', async () => {
-    const gateway = fakeGateway(401, 'authentication_error')
+    const gateway = answeringGateway('{"dish":"ajiaco"}')
     const model = createGatewayModel({
       apiKey: 'k',
       providers: ['vertex'],
       baseURL: gateway.baseURL,
     })
-    await expect(model.answer(request())).rejects.toThrow(ModelError)
+    expect((await model.answer(request())).value).toEqual({ dish: 'ajiaco' })
     const sent = gateway.bodies.join('\n')
     expect(sent).toContain('"zeroDataRetention":true')
     expect(sent).toContain('"only":["vertex"]')
@@ -78,5 +103,24 @@ describe('the Gateway model (ADR-041, ADR-045)', () => {
     const started = performance.now()
     await expect(model.answer(request(200))).rejects.toThrow(new ModelError('unavailable'))
     expect(performance.now() - started).toBeLessThan(2_000)
+  })
+
+  test('T-AIP-UNIT-08 an answer that is not JSON, out of shape or cut short is not an answer', async () => {
+    const answers = [
+      ['ajiaco', 'stop'],
+      ['{"plate":"ajiaco"}', 'stop'],
+      ['{"dish":"aji', 'length'],
+    ] as const
+    for (const [text, finish] of answers) {
+      const gateway = answeringGateway(text, finish)
+      const model = createGatewayModel({
+        apiKey: 'k',
+        providers: ['vertex'],
+        baseURL: gateway.baseURL,
+      })
+      expect(await outcome(model.answer(request()))).toBe('invalid-answer')
+      expect(gateway.bodies).toHaveLength(1)
+      await server?.stop(true)
+    }
   })
 })

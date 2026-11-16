@@ -7,19 +7,13 @@
  *   request never goes elsewhere; were none of them to offer the model, it fails instead.
  * - **One model, by exact id**, and no `models` fallback list, so a model that has not
  *   passed the task's eval never answers in its place.
- * - **The answer is held to the schema** by the SDK; one that does not fit is
+ * - **The answer is held to the schema** by the SDK, which says so with its own
+ *   no-object error whether the text was not JSON, did not fit or was cut short; that is
  *   `invalid-answer`. A status the request itself caused (4xx but a timeout or a rate
  *   limit) is `rejected`; everything else is `unavailable`.
  */
 
-import {
-  createGateway,
-  generateText,
-  JSONParseError,
-  Output,
-  RetryError,
-  TypeValidationError,
-} from 'ai'
+import { createGateway, generateText, NoObjectGeneratedError, Output, RetryError } from 'ai'
 
 import { ModelError, type LanguageModel, type ModelFailure, type Part } from '../port.js'
 
@@ -68,9 +62,7 @@ function content(part: Part) {
 }
 
 function failureOf(cause: unknown): ModelFailure {
-  if (cause instanceof TypeValidationError || cause instanceof JSONParseError) {
-    return 'invalid-answer'
-  }
+  if (NoObjectGeneratedError.isInstance(cause)) return 'invalid-answer'
   // The SDK swaps the Gateway's 401 for a plain Error with a friendlier message; only the
   // name survives, so the name is what says the key was refused.
   if (cause instanceof Error && cause.name === 'GatewayAuthenticationError') return 'rejected'
