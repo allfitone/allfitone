@@ -9,6 +9,9 @@
  * - **A number is read every way its digits can be.** «1.850» is 1850 where a point
  *   groups thousands and 1.85 where it marks decimals; a text in Spanish and one in
  *   English write the same amount differently. A number is known if any reading is.
+ * - **Thousands may be grouped with a space**, as Spanish writes them: «22 135 kg». The
+ *   groups are one number when the week has that number; otherwise each is read alone,
+ *   so two numbers that merely stand side by side are still two.
  * - **The week's numbers are its values, and the digits inside its texts.** A date such
  *   as `2026-11-09` gives 2026, 11 and 9, so the text may say «el 9 de noviembre».
  * - **Nothing is allowed for free**, not even small numbers: what the summary may count
@@ -16,6 +19,9 @@
  */
 
 const NUMBER = /\d+(?:[.,]\d+)*/g
+// A plain, no-break, narrow no-break or thin space between groups of three digits.
+const GROUP_SPACE = /[ \u00a0\u202f\u2009]/g
+const GROUPED = /(?<![\d.,])\d{1,3}(?:[ \u00a0\u202f\u2009]\d{3})+(?:[.,]\d+)?(?!\d)/g
 const PLACES = 1e6
 
 const exact = (value: number): number => Math.round(value * PLACES) / PLACES
@@ -54,7 +60,11 @@ export function numbersOf(document: unknown): ReadonlySet<number> {
 
 /** The numbers in `text`, as written, that no reading finds among `known`. */
 export function strangers(text: string, known: ReadonlySet<number>): string[] {
-  return (text.match(NUMBER) ?? []).filter(
-    (written) => !readings(written).some((value) => known.has(exact(value))),
+  const isKnown = (written: string): boolean =>
+    readings(written).some((value) => known.has(exact(value)))
+  // A known grouped number is set aside whole; an unknown one is left to be read in parts.
+  const rest = text.replace(GROUPED, (written) =>
+    isKnown(written.replace(GROUP_SPACE, '')) ? ' ' : written,
   )
+  return (rest.match(NUMBER) ?? []).filter((written) => !isKnown(written))
 }

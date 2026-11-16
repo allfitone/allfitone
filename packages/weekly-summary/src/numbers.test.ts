@@ -67,4 +67,17 @@ describe('the numbers a summary may show', () => {
     expect(strangers('1.234.567,5 kg', known)).toEqual([])
     expect(strangers('1,234,567.5 kg', known)).toEqual([])
   })
+
+  test('T-WSM-UNIT-54: thousands grouped with a space are one number', () => {
+    const known = numbersOf({ volume_kg: 22135, total_kg: 1234567.5 })
+    expect(strangers('Moviste 22 135 kg.', known)).toEqual([])
+    expect(strangers('Moviste 22\u00a0135 kg, o 22\u202f135 kg.', known)).toEqual([])
+    expect(strangers('1 234 567,5 kg', known)).toEqual([])
+    expect(strangers('Moviste 22 136 kg.', known)).toEqual(['22', '136'])
+  })
+
+  test('T-WSM-UNIT-55: two numbers a space apart stay two when the week has no such whole', () => {
+    expect(strangers('Hiciste 3 100 veces.', numbersOf({ sets: 3, reps: 100 }))).toEqual([])
+    expect(strangers('Entrenaste 22 135 veces.', numbersOf({ sessions: 22 }))).toEqual(['135'])
+  })
 })
