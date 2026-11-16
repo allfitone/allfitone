@@ -44,10 +44,12 @@ const FIELD_ORDER: readonly Field[] = ['name', 'email', 'consent']
 export function WaitlistForm({
   locale,
   copy,
+  rewards,
   newWindow,
 }: {
   locale: Locale
   copy: Dictionary['form']
+  rewards: Dictionary['referrals']['rewards']
   newWindow: string
 }) {
   const referredBy = useReferralCode()
@@ -174,6 +176,8 @@ export function WaitlistForm({
             newWindow={newWindow}
             code={joined.code}
             referrals={joined.referrals}
+            activeReferrals={joined.activeReferrals}
+            rewards={rewards}
           />
         ) : null}
         <button type="button" className="text-button" onClick={reset}>

@@ -27,6 +27,7 @@ export default async function ReferralsPage({ params }: LocaleParams) {
         locale={lang}
         copy={copy.linkPages}
         form={copy.form}
+        rewards={copy.referrals.rewards}
         newWindow={copy.footer.newWindow}
       />
     </LinkPage>

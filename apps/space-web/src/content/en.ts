@@ -156,6 +156,9 @@ export const en: Dictionary = {
     shareMessage:
       "I joined the waitlist for Allfit Space, Allfit One's training and nutrition app. Join with my link: {link}",
     registered: 'Signed up with your link: {count}.',
+    active: 'Active: {count}. {missing} more for {reward}.',
+    activeOne: 'Active: {count}. 1 more for {reward}.',
+    activeAll: 'Active: {count}. You reached every level.',
     rewardRule:
       'Allfit Pro rewards count active referrals: from launch, they create an account and log 3 workouts or meals in their first 14 days.',
     reset: 'Use another email',
