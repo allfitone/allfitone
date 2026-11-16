@@ -7181,6 +7181,42 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     maxLength: 100,
     pattern: '^(?:UTC|[A-Za-z_]+(?:/[A-Za-z0-9_+\\-]+)+)$',
   },
+  IntelligenceConsent: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['current_version', 'accepted_version', 'accepted_at', 'withdrawn_at'],
+    properties: {
+      current_version: {
+        type: ['string', 'null'],
+        description:
+          'The text a person must hold before any capability of the assistant runs. Null while no text is in force.',
+      },
+      accepted_version: {
+        type: ['string', 'null'],
+        description: 'The text she holds now, or null when she holds none.',
+      },
+      accepted_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+      },
+      withdrawn_at: {
+        type: ['string', 'null'],
+        format: 'date-time',
+        description: 'When she last withdrew it, while she holds none.',
+      },
+    },
+  },
+  IntelligenceConsentGive: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['version'],
+    properties: {
+      version: {
+        type: 'string',
+        pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$',
+      },
+    },
+  },
   IntervalResultReplace: {
     type: 'object',
     additionalProperties: false,

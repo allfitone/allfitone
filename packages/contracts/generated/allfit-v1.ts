@@ -4844,6 +4844,50 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/intelligence/consent': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read the person's consent to the assistant using her data
+     * @description HU-SP-124. One consent covers everything the assistant does (ADR-053, decision 4). `current_version` is the text a person must hold for any capability to run; it is null while no text is in force, and then nothing can be given and nothing runs. `withdrawn_at` is set only while she holds none and took the last one back herself.
+     */
+    get: operations['getIntelligenceConsent']
+    /**
+     * Give the consent, by the version of the text the person read
+     * @description HU-SP-124. Only the text in force can be given: any other version is 422, so a build that shows an older text cannot replace the one she holds. Giving the text she already holds answers the same and writes nothing. A later text ends the earlier one, which is kept.
+     */
+    put: operations['giveIntelligenceConsent']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/intelligence/consent/withdrawal': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Withdraw the consent
+     * @description HU-SP-125. Ends the consent in force, for every capability and in both products at once. Nothing is deleted: what she accepted and when stays on record. Withdrawing when none is in force answers the same. It has no body.
+     */
+    post: operations['withdrawIntelligenceConsent']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/nutrition/daily-summaries': {
     parameters: {
       query?: never
@@ -11509,6 +11553,22 @@ export interface components {
       accepted_at: string | null
     }
     NutritionRecognitionConsentAccept: {
+      version: string
+    }
+    IntelligenceConsent: {
+      /** @description The text a person must hold before any capability of the assistant runs. Null while no text is in force. */
+      current_version: string | null
+      /** @description The text she holds now, or null when she holds none. */
+      accepted_version: string | null
+      /** Format: date-time */
+      accepted_at: string | null
+      /**
+       * Format: date-time
+       * @description When she last withdrew it, while she holds none.
+       */
+      withdrawn_at: string | null
+    }
+    IntelligenceConsentGive: {
       version: string
     }
     NutritionMealPage: {
@@ -22696,6 +22756,98 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       409: components['responses']['Conflict']
       422: components['responses']['ValidationFailed']
+    }
+  }
+  getIntelligenceConsent: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The text in force and what the person holds */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['IntelligenceConsent']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  giveIntelligenceConsent: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IntelligenceConsentGive']
+      }
+    }
+    responses: {
+      /** @description Consent in force */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['IntelligenceConsent']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  withdrawIntelligenceConsent: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description No consent is in force */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['IntelligenceConsent']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listMyNutritionDailySummaries: {
