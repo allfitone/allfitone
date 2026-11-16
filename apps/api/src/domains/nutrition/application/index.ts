@@ -14,7 +14,8 @@
  * stays queued for a later sweep and does not undo what the person did.
  *
  * **Recognising a photo stores nothing and invents nothing** (ADR-041). Without the
- * current consent the photo never leaves Allfit. It is sanitised to 1024 px before it
+ * current consent the photo never leaves Allfit, and the current consent is the
+ * recogniser's own: the text that names where it sends a photo. It is sanitised to 1024 px before it
  * does, the recogniser says only what it sees and how much, and every nutrient comes from
  * the catalogue food that name meets. Only when no food matches does the model's own
  * estimate stand in, marked `estimated` for the app to say so (ADR-041 as amended). What
@@ -24,7 +25,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { nutrientValue } from '@allfitone/contracts/nutrients'
-import { DETAIL_CODES, type Estimate, type FoodRecognizer } from '@allfitone/food-recognition'
+import { DETAIL_CODES, type Estimate, type FoodRecognition } from '@allfitone/food-recognition'
 import type { ObjectStore } from '@allfitone/object-store'
 
 import type {
@@ -53,8 +54,6 @@ import type {
 
 /** The longest a phone may hold a read of a private photo (contract, ADR-027). */
 const SIGNED_SECONDS = 300
-/** The consent text a person must have accepted before a photo is recognised. */
-export const CURRENT_CONSENT_VERSION = '2026-10-04'
 /** Enough for a model to see a plate; less to send than what is kept. */
 const RECOGNITION_SIDE = 1024
 const SURE_ENOUGH = 0.6
@@ -147,7 +146,7 @@ export function createSpaceNutritionService(
   database: NutritionDatabase,
   store: ObjectStore,
   sanitizer: PhotoSanitizer,
-  recognizer: FoodRecognizer,
+  { recognizer, consent: currentConsent }: FoodRecognition,
 ): SpaceNutritionService {
   const consentOf = async (
     personId: string,
@@ -155,7 +154,7 @@ export function createSpaceNutritionService(
   ): Promise<NutritionRecognitionConsent> => {
     const row = await database.readConsent({ personId, requestId })
     return {
-      current_version: CURRENT_CONSENT_VERSION,
+      current_version: currentConsent,
       accepted_version: row?.accepted_version ?? null,
       accepted_at: row?.accepted_at ?? null,
     }
@@ -255,7 +254,7 @@ export function createSpaceNutritionService(
       // The plan first: without it the photo is not even sanitised.
       await database.requireRecognition({ personId, requestId })
       const consent = await consentOf(personId, requestId)
-      if (consent.accepted_version !== CURRENT_CONSENT_VERSION) throw new ConsentRequired()
+      if (consent.accepted_version !== currentConsent) throw new ConsentRequired()
 
       const clean = await sanitizer.sanitize(Buffer.from(photo.content, 'base64'), RECOGNITION_SIDE)
       const seen = await recognizer.recognize(clean)

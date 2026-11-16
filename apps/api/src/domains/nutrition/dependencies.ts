@@ -1,6 +1,6 @@
 /** Nutrition module composition: its database, the private store, the sanitiser and the recogniser. */
 
-import { createFoodRecognizerFromEnv } from '@allfitone/food-recognition'
+import { createFoodRecognitionFromEnv } from '@allfitone/food-recognition'
 import { createObjectStoreFromEnv } from '@allfitone/object-store'
 
 import { createSpaceNutritionService, type SpaceNutritionService } from './application/index.js'
@@ -17,7 +17,7 @@ export function spaceNutritionService(): SpaceNutritionService {
     createNutritionDatabase(),
     createObjectStoreFromEnv(process.env),
     createSharpSanitizer(),
-    createFoodRecognizerFromEnv(process.env),
+    createFoodRecognitionFromEnv(process.env),
   )
   return cached
 }
