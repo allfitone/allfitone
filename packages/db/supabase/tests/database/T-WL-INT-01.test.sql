@@ -21,7 +21,7 @@ $$;
 create function pg_temp.joins(
   p_n integer, p_name text, p_email text, p_code text, p_connection integer, p_device integer
 ) returns table (outcome text, referral_code text, referrals integer) language sql as $$
-  select * from waitlist.join(
+  select outcome, referral_code, referrals from waitlist.join(
     p_name, p_email, 'es', true, '2026-11-10', p_code, 'instagram', null, null,
     pg_temp.h(100000 + p_connection),
     case when p_device is null then null else pg_temp.h(200000 + p_device) end,
