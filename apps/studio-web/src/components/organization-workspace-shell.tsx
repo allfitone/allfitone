@@ -79,8 +79,12 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
   const teamActive = pathname.startsWith(teamHref)
   const clientsHref = `${basePath}/clients`
   const clientsActive = pathname.startsWith(clientsHref)
+  const contentHref = `${basePath}/content`
+  const contentActive = pathname.startsWith(contentHref)
   const billingHref = `${basePath}/billing`
   const billingActive = pathname.startsWith(billingHref)
+  const casesHref = `${basePath}/historical-access-cases`
+  const casesActive = pathname.startsWith(casesHref)
 
   function closeMobileNavigation() {
     setOpenMobile(false)
@@ -214,6 +218,21 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                   <span>Clientes</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {/* Between Clientes and Cobros: content is what a gym makes, and
+                  it is read by the same people who attend those clients. Shown
+                  to everybody for the same reason as Cobros below — the screen
+                  says no when the role has no `manage_content`, and hiding the
+                  entry would need a second copy of that grant here. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href={contentHref} onClick={closeMobileNavigation} />}
+                  isActive={contentActive}
+                  aria-current={contentActive ? 'page' : undefined}
+                >
+                  <FoundationIcon name="overview" decorative />
+                  <span>Contenido</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               {/* Shown to everybody; the screen itself says no when the role has no
                   `manage_billing`, and PostgreSQL says it again underneath. Hiding the
                   entry would need a second copy of that grant here, which is the drift
@@ -226,6 +245,18 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                 >
                   <FoundationIcon name="business" decorative />
                   <span>Cobros</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              {/* Shown to everybody: a coach reads the cases that name them, and only
+                  `manage_historical_access` opens one, which the screen decides. */}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  render={<Link href={casesHref} onClick={closeMobileNavigation} />}
+                  isActive={casesActive}
+                  aria-current={casesActive ? 'page' : undefined}
+                >
+                  <FoundationIcon name="permissions" decorative />
+                  <span>Casos de historial</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

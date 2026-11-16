@@ -28,6 +28,11 @@ variable "origin_verify_secret" {
   sensitive   = true
 }
 
+variable "backoffice_origin" {
+  description = "The Backoffice web origin: the only browser that may read a refused Backoffice sign-in."
+  type        = string
+}
+
 variable "apps" {
   description = "What the load balancer serves, per app."
   type = map(object({

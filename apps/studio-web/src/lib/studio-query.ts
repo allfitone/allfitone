@@ -8,6 +8,16 @@ import {
 import {
   StudioApiError,
   studioApi,
+  type AuthorizedExecutionPage,
+  type AuthorizedExecutionSummary,
+  type ProgressPeriod,
+  type RelationshipAssignment,
+  type RelationshipAssignmentPage,
+  type CatalogActivityTypeList,
+  type CatalogDisciplineList,
+  type OrganizationMovement,
+  type SessionTemplateDraft,
+  type StudioMovementPage,
   type ClientDirectoryGroup,
   type InformationCategoryList,
   type OfferableScopeCatalog,
@@ -17,14 +27,31 @@ import {
   type OrganizationMembershipPage,
   type OrganizationMembershipStatus,
   type OrganizationSubscription,
+  type OrganizationPlanPage,
   type OrganizationSubscriptionPage,
   type SubscriptionStatus,
+  type ProgramPage,
+  type ProgramVersion,
+  type SessionTemplatePage,
+  type SessionTemplateVersion,
   type ProfessionalCredential,
   type ProfessionalProfile,
   type StudioMe,
   type TeamInvitationPage,
   type TeamInvitationStatus,
+  type HistoricalAccessCase,
+  type HistoricalAccessCasePage,
+  type FrozenBodyProgressPage,
+  type FrozenExecutionPage,
+  type FrozenNutritionGoalVersionPage,
+  type ClientHealthContextPage,
+  type ClientBodyPhotoPage,
+  type ClientBodyProgressPage,
+  type ClientNutritionMealPage,
+  type ClientNutritionDailySummaryPage,
+  type ClientNutritionGoalHistory,
 } from './studio-api'
+import type { MovementSearchFilters } from './movement-search'
 
 export type MembershipFilter = OrganizationMembershipStatus | 'all'
 export type InvitationFilter = TeamInvitationStatus | 'all'
@@ -55,11 +82,71 @@ export const studioQueryKeys = {
   organizationMemberships: (organizationId: string, status: MembershipFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'memberships', { status, limit }] as const,
   offerableScopes: () => [...ROOT_KEY, 'offerable-scopes'] as const,
+  organizationProgramsRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs'] as const,
+  organizationPrograms: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs', { limit }] as const,
+  organizationProgramPages: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'programs', 'pages', { limit }] as const,
+  organizationSessionTemplatesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates'] as const,
+  organizationSessionTemplates: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates', { limit }] as const,
   informationCategories: () => [...ROOT_KEY, 'information-categories'] as const,
+  catalogDisciplines: () => [...ROOT_KEY, 'catalog', 'disciplines'] as const,
+  catalogActivityTypes: () => [...ROOT_KEY, 'catalog', 'activity-types'] as const,
+  organizationSessionTemplatePages: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-templates', 'pages', { limit }] as const,
+  sessionTemplateVersion: (organizationId: string, templateId: string, versionNumber: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'session-templates',
+      'version',
+      templateId,
+      versionNumber,
+    ] as const,
+  programVersion: (organizationId: string, programId: string, versionNumber: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'programs',
+      'version',
+      programId,
+      versionNumber,
+    ] as const,
+  sessionTemplateDraft: (organizationId: string, templateId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'session-template-draft', templateId] as const,
+  organizationMovement: (organizationId: string, movementId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movement', movementId] as const,
+  organizationMovementsRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movements'] as const,
+  organizationMovements: (organizationId: string, filters: MovementSearchFilters, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'movements', { ...filters, limit }] as const,
   organizationClientsRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'clients'] as const,
-  organizationClients: (organizationId: string, status: ClientFilter, limit: number) =>
-    [...ROOT_KEY, 'organization', organizationId, 'clients', { status, limit }] as const,
+  /*
+   * The search belongs in the key, so a new term is a different query with its
+   * own pages — which is also what drops the cursor, since a cursor the server
+   * issued only resumes the search it was issued under. Without a term the key
+   * keeps its old shape, so the unsearched directory and the invitation form
+   * go on sharing one cache entry.
+   */
+  organizationClients: (
+    organizationId: string,
+    status: ClientFilter,
+    limit: number,
+    search?: string,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'clients',
+      { status, limit, ...(search ? { search } : {}) },
+    ] as const,
   authorizedScopesRoot: (organizationId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'authorized-scopes'] as const,
   authorizedScopes: (organizationId: string, limit: number) =>
@@ -68,8 +155,69 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions'] as const,
   organizationSubscriptions: (organizationId: string, status: SubscriptionFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'subscriptions', { status, limit }] as const,
+  organizationPlansRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'plans'] as const,
+  organizationPlans: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'plans', { limit }] as const,
+  clientCard: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-card', personId] as const,
+  /*
+   * Deliberately not under `organization/<id>`, which every other key here is.
+   *
+   * `invalidateQueries` matches by prefix, and three screens invalidate
+   * `organization(<id>)` whole when they save — the profile and the two site
+   * forms. A `today` key below that prefix would be refetched by saving an
+   * address, and refetching this one writes a line in the access log of every
+   * client the caller attends. Out of the prefix, nothing can reach it by
+   * accident; whoever wants it refreshed has to name it.
+   */
+  today: (organizationId: string) => [...ROOT_KEY, 'today', organizationId] as const,
+  clientTrainingProfile: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
+  clientProgress: (
+    organizationId: string,
+    personId: string,
+    query: { timezone: string; period: ProgressPeriod; count: number },
+  ) => [...ROOT_KEY, 'organization', organizationId, 'client-progress', personId, query] as const,
+  clientExecution: (organizationId: string, personId: string, executionId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-execution',
+      personId,
+      executionId,
+    ] as const,
+  clientExecutions: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-executions',
+      personId,
+      { limit },
+    ] as const,
   relationship: (organizationId: string, relationshipId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'relationship', relationshipId] as const,
+  relationshipAssignmentsRoot: (organizationId: string, relationshipId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'relationship',
+      relationshipId,
+      'assignments',
+    ] as const,
+  relationshipAssignments: (organizationId: string, relationshipId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'relationship',
+      relationshipId,
+      'assignments',
+      { limit },
+    ] as const,
   relationshipHistory: (organizationId: string, relationshipId: string, limit: number) =>
     [
       ...ROOT_KEY,
@@ -84,6 +232,102 @@ export const studioQueryKeys = {
     [...ROOT_KEY, 'organization', organizationId, 'invitations'] as const,
   organizationInvitations: (organizationId: string, status: InvitationFilter, limit: number) =>
     [...ROOT_KEY, 'organization', organizationId, 'invitations', { status, limit }] as const,
+  historicalAccessCasesRoot: (organizationId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'historical-access-cases'] as const,
+  historicalAccessCases: (organizationId: string, limit: number) =>
+    [...ROOT_KEY, 'organization', organizationId, 'historical-access-cases', { limit }] as const,
+  historicalRead: (
+    organizationId: string,
+    relationshipId: string,
+    caseId: string,
+    read: 'relationship' | 'executions' | 'body-progress' | 'goal-versions',
+    limit: number,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'historical-relationship',
+      relationshipId,
+      { caseId, read, limit },
+    ] as const,
+  clientHealthContext: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-health-context',
+      personId,
+      { limit },
+    ] as const,
+  clientBodyProgress: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-body-progress',
+      personId,
+      { limit },
+    ] as const,
+  clientBodyPhotos: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-body-photos',
+      personId,
+      { limit },
+    ] as const,
+  clientBodyPhoto: (organizationId: string, personId: string, photoId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-body-photo', personId, photoId] as const,
+  clientNutritionMeals: (
+    organizationId: string,
+    personId: string,
+    range: { from: string; to: string },
+    limit: number,
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-meals',
+      personId,
+      { from: range.from, to: range.to, limit },
+    ] as const,
+  clientNutritionSummaries: (
+    organizationId: string,
+    personId: string,
+    range: { from: string; to: string },
+  ) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-summaries',
+      personId,
+      { from: range.from, to: range.to },
+    ] as const,
+  clientNutritionMealPhoto: (organizationId: string, personId: string, mealId: string) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-meal-photo',
+      personId,
+      mealId,
+    ] as const,
+  /* Without the limit: a proposal refreshes every page size of her goals at once. */
+  clientNutritionGoalsRoot: (organizationId: string, personId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'client-nutrition-goals', personId] as const,
+  clientNutritionGoals: (organizationId: string, personId: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'client-nutrition-goals',
+      personId,
+      { limit },
+    ] as const,
 } as const
 
 export function createStudioQueryClient(): QueryClient {
@@ -212,6 +456,227 @@ export function organizationQueryOptions(organizationId: string) {
     queryFn: ({ signal }) => studioApi.organization(organizationId, signal),
     staleTime: STUDIO_ORGANIZATION_STALE_TIME_MS,
   })
+}
+
+/**
+ * Never cached, which for this one read is the contract and not a preference:
+ * `OP-REL-019` answers `private-no-store`.
+ *
+ * It is also what the screen needs. This answer decides which categories appear
+ * at all, so showing a remembered copy would put back a section the person
+ * revoked seconds ago — and a section on screen is an invitation to go read what
+ * is behind it. `gcTime: 0` drops it the moment nobody is looking, so coming
+ * back to the card always asks again rather than painting the old answer while
+ * the new one travels.
+ *
+ * The cost is a loading state on every arrival instead of a flash of stale
+ * content. For an index of what somebody allowed, that is the right way round.
+ */
+export function clientCardQueryOptions(organizationId: string, personId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientCard(organizationId, personId),
+    queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
+/**
+ * The landing panel of what needs attention today, read under the strictest
+ * rules in this file — and here they are not a preference but the only honest
+ * way to ask.
+ *
+ * `OP-REL-020` answers `private-no-store`, so nothing may be remembered. More
+ * than that: working out the training notice evaluates every client the caller
+ * attends and **records each one in that person's own access log, shown or
+ * not**. Each request therefore costs one line, visible to each of those
+ * people, in a register they read to see who looked at their data.
+ *
+ * So this read happens when somebody arrives at the screen, and otherwise never.
+ * Alt-tabbing back, a reconnecting laptop or a polite thirty-second refresh
+ * would each write that line again and turn the register into a log of a
+ * window's focus rather than of anybody's intent. `gcTime: 0` makes arriving
+ * ask again instead of painting a remembered answer, which is also what the
+ * screen needs: a notice resolved two minutes ago must not still be on it.
+ */
+export function todayQueryOptions(organizationId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.today(organizationId),
+    queryFn: ({ signal }) => studioApi.today(organizationId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Never cached, for the same reason as the card: `OP-IDN-018` answers
+ * `private-no-store`, and a remembered copy would outlive the grant it was read
+ * under — she can revoke the category between two visits.
+ *
+ * **And never refetched on its own.** Every answer here is a read of her data,
+ * recorded inside the same transaction and shown to her. With the client's
+ * defaults, alt-tabbing back to the screen would write her another access she
+ * can see and the coach never asked for — a log of the window's focus rather
+ * than of anybody's intent. So this is the one read in Studio that leaves the
+ * window and the network alone and goes only when somebody arrives or presses
+ * the button.
+ */
+export function clientTrainingProfileQueryOptions(organizationId: string, personId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientTrainingProfile(organizationId, personId),
+    queryFn: ({ signal }) => studioApi.clientTrainingProfile(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * How her training is going, read under the same rules as the two screens beside
+ * it: `private-no-store`, never remembered, and never refetched on its own,
+ * because the answer is a read recorded for her to see.
+ *
+ * The zone is part of the key, not only of the request. It decides which week a
+ * session falls in, so the same person read from two zones is two answers — and
+ * one must not be served from the other's cache.
+ */
+export function clientProgressQueryOptions(
+  organizationId: string,
+  personId: string,
+  query: { timezone: string; period: ProgressPeriod; count: number },
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientProgress(organizationId, personId, query),
+    queryFn: ({ signal }) => studioApi.clientProgress(organizationId, personId, query, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her sessions, newest first, a page at a time. Read under the same rules as the
+ * training profile and for the same reasons: `private-no-store`, so nothing is
+ * remembered, and no refetch of its own, because each page is a read recorded
+ * for her to see.
+ *
+ * It matters more here than there. An infinite query refetches **every page it
+ * holds**, so a window regaining focus with four pages loaded would write her
+ * four accesses nobody asked for.
+ */
+export function clientExecutionsQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientExecutions(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }) =>
+      studioApi.clientExecutions(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her programs from this relationship, paged. Uncached and never refetched on
+ * its own, like every read of her data: each answer is an access recorded in
+ * the same transaction and shown to her, so the window regaining focus must not
+ * write her one nobody asked for.
+ */
+export function relationshipAssignmentsQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.relationshipAssignments(organizationId, relationshipId, limit),
+    queryFn: ({ pageParam, signal }) =>
+      studioApi.relationshipAssignments(
+        organizationId,
+        relationshipId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/** Newest first, as the operation ordered them, and an assignment only once. */
+export function flattenAssignmentPages(
+  data: InfiniteData<RelationshipAssignmentPage, unknown> | undefined,
+): RelationshipAssignment[] {
+  if (!data) return []
+  const assignments: RelationshipAssignment[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const assignment of page.data) {
+      if (seen.has(assignment.id)) continue
+      seen.add(assignment.id)
+      assignments.push(assignment)
+    }
+  }
+  return assignments
+}
+
+/**
+ * One of her sessions in full. Never cached and never refetched on its own, for
+ * the same reason as the rest of her card's reads: every answer is an access
+ * recorded in the same transaction and shown to her, so the window regaining
+ * focus must not write her one nobody asked for.
+ */
+export function clientExecutionQueryOptions(
+  organizationId: string,
+  personId: string,
+  executionId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientExecution(organizationId, personId, executionId),
+    queryFn: ({ signal }) =>
+      studioApi.clientExecution(organizationId, personId, executionId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One list, even though two categories feed it: the operation answers them
+ * interleaved by when she trained, and a session can only arrive once.
+ */
+export function flattenExecutionPages(
+  data: InfiniteData<AuthorizedExecutionPage, unknown> | undefined,
+): AuthorizedExecutionSummary[] {
+  if (!data) return []
+  const sessions: AuthorizedExecutionSummary[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const session of page.data) {
+      if (seen.has(session.id)) continue
+      seen.add(session.id)
+      sessions.push(session)
+    }
+  }
+  return sessions
 }
 
 /**
@@ -346,9 +811,10 @@ export function organizationClientsQueryOptions(
   organizationId: string,
   status: ClientFilter,
   limit: number,
+  search?: string,
 ) {
   return infiniteQueryOptions({
-    queryKey: studioQueryKeys.organizationClients(organizationId, status, limit),
+    queryKey: studioQueryKeys.organizationClients(organizationId, status, limit, search),
     queryFn: ({ pageParam, signal }) =>
       studioApi.organizationClients(
         organizationId,
@@ -356,6 +822,7 @@ export function organizationClientsQueryOptions(
           ...(status === 'all' ? {} : { status }),
           limit,
           ...(pageParam ? { cursor: pageParam } : {}),
+          ...(search ? { search } : {}),
         },
         signal,
       ),
@@ -399,6 +866,30 @@ export function offerableScopesQueryOptions() {
   })
 }
 
+/*
+ * What a coach may offer with an invitation. Held at the team stale time rather
+ * than the catalogue one: a version somebody retires while this form is open is
+ * exactly the case the command refuses, and a two-minute-old list would offer
+ * it. The server checks it again under a share lock either way.
+ */
+export function organizationSessionTemplatesQueryOptions(organizationId: string, limit: number) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationSessionTemplates(organizationId, limit),
+    queryFn: ({ signal }): Promise<SessionTemplatePage> =>
+      studioApi.organizationSessionTemplates(organizationId, limit, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function organizationProgramsQueryOptions(organizationId: string, limit: number) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationPrograms(organizationId, limit),
+    queryFn: ({ signal }): Promise<ProgramPage> =>
+      studioApi.organizationPrograms(organizationId, limit, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
 /**
  * The wording of the seven categories. It carries no version and nobody
  * publishes it, so it is as stale-tolerant as the role catalogue: the only way
@@ -410,6 +901,151 @@ export function informationCategoriesQueryOptions() {
     queryFn: ({ signal }): Promise<InformationCategoryList> =>
       studioApi.informationCategories(signal),
     staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/**
+ * The disciplines a template can belong to. Published by Backoffice, which is
+ * rare and never mid-session, so held as long as the role catalogue.
+ */
+export function catalogDisciplinesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.catalogDisciplines(),
+    queryFn: ({ signal }): Promise<CatalogDisciplineList> => studioApi.catalogDisciplines(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * A search, so every filter is part of the key: a new term is a new query with
+ * its own pages, which also drops a cursor the server issued for the old one.
+ * Held as briefly as a directory page because a teammate can add or archive a
+ * movement while the editor is open.
+ */
+export function organizationMovementsQueryOptions(
+  organizationId: string,
+  filters: MovementSearchFilters,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationMovements(organizationId, filters, limit),
+    queryFn: ({ pageParam, signal }): Promise<StudioMovementPage> =>
+      studioApi.organizationMovements(
+        organizationId,
+        {
+          ...(filters.term ? { search: filters.term } : {}),
+          ...(filters.disciplineCode ? { discipline: filters.disciplineCode } : {}),
+          includeArchived: filters.includeArchived,
+          limit,
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function catalogActivityTypesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.catalogActivityTypes(),
+    queryFn: ({ signal }): Promise<CatalogActivityTypeList> =>
+      studioApi.catalogActivityTypes(signal),
+    staleTime: STUDIO_ROLE_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the library, for a screen that has to find one template in it:
+ * the editor reads the discipline there, which the draft does not carry.
+ */
+export function organizationSessionTemplatePagesQueryOptions(
+  organizationId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationSessionTemplatePages(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<SessionTemplatePage> =>
+      studioApi.organizationSessionTemplates(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * A published version's content never changes, but its status does when it is
+ * retired, so it is revalidated like the listing rather than cached for good.
+ */
+export function sessionTemplateVersionQueryOptions(
+  organizationId: string,
+  templateId: string,
+  versionNumber: number,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.sessionTemplateVersion(organizationId, templateId, versionNumber),
+    queryFn: ({ signal }): Promise<SessionTemplateVersion> =>
+      studioApi.organizationSessionTemplateVersion(
+        organizationId,
+        templateId,
+        versionNumber,
+        signal,
+      ),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function programVersionQueryOptions(
+  organizationId: string,
+  programId: string,
+  versionNumber: number,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.programVersion(organizationId, programId, versionNumber),
+    queryFn: ({ signal }): Promise<ProgramVersion> =>
+      studioApi.organizationProgramVersion(organizationId, programId, versionNumber, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * Every page of the programs, for the editor: a program draft has no read of
+ * its own, so the editor finds it in the listing.
+ */
+export function organizationProgramPagesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationProgramPages(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ProgramPage> =>
+      studioApi.organizationPrograms(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+/*
+ * The base an edit starts from. Never refetched behind the editor's back: the
+ * screen keeps its own copy, and a draft somebody else saved arrives with the
+ * conflict the next save meets, which is where it can be compared.
+ */
+export function sessionTemplateDraftQueryOptions(organizationId: string, templateId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.sessionTemplateDraft(organizationId, templateId),
+    queryFn: ({ signal }): Promise<SessionTemplateDraft> =>
+      studioApi.organizationSessionTemplateDraft(organizationId, templateId, signal),
+    staleTime: Number.POSITIVE_INFINITY,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+export function organizationMovementQueryOptions(organizationId: string, movementId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.organizationMovement(organizationId, movementId),
+    queryFn: ({ signal }): Promise<OrganizationMovement> =>
+      studioApi.organizationMovement(organizationId, movementId, signal),
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
   })
 }
 
@@ -550,6 +1186,22 @@ export function organizationSubscriptionsQueryOptions(
   })
 }
 
+/*
+ * Every page of the plans. A gym sells a handful, so the screen reads them all
+ * rather than paging what nobody scrolls through; a plan page reads the same
+ * list to find its plan, since there is no read of one plan on its own.
+ */
+export function organizationPlansQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.organizationPlans(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<OrganizationPlanPage> =>
+      studioApi.organizationPlans(organizationId, limit, signal, pageParam ?? undefined),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
 export function flattenSubscriptionPages(
   data: InfiniteData<OrganizationSubscriptionPage, unknown> | undefined,
 ): OrganizationSubscription[] {
@@ -564,4 +1216,382 @@ export function flattenSubscriptionPages(
     }
   }
   return subscriptions
+}
+
+/*
+ * The cases are metadata about an exception, not her data, so they cache like the
+ * team does. They change on their own when a deadline passes, which is why they
+ * never sit longer than the team stale time.
+ */
+export function historicalAccessCasesQueryOptions(organizationId: string, limit: number) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalAccessCases(organizationId, limit),
+    queryFn: ({ pageParam, signal }): Promise<HistoricalAccessCasePage> =>
+      studioApi.historicalAccessCases(
+        organizationId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: STUDIO_TEAM_STALE_TIME_MS,
+  })
+}
+
+export function flattenHistoricalCasePages(
+  data: InfiniteData<HistoricalAccessCasePage, unknown> | undefined,
+): HistoricalAccessCase[] {
+  if (!data) return []
+  const cases: HistoricalAccessCase[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const entry of page.data) {
+      if (seen.has(entry.id)) continue
+      seen.add(entry.id)
+      cases.push(entry)
+    }
+  }
+  return cases
+}
+
+/*
+ * Reads through a case. Every answer is an access recorded against her, with the
+ * case it went through, so none is cached, retried on focus or refetched on its own:
+ * the screen asks on arrival and when somebody presses for more.
+ */
+const HISTORICAL_READ = {
+  staleTime: 0,
+  gcTime: 0,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const
+
+export function historicalRelationshipQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'relationship',
+      1,
+    ),
+    queryFn: ({ signal }) =>
+      studioApi.historicalRelationship(organizationId, relationshipId, caseId, signal),
+    ...HISTORICAL_READ,
+  })
+}
+
+export function frozenExecutionsQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'executions',
+      limit,
+    ),
+    queryFn: ({ pageParam, signal }): Promise<FrozenExecutionPage> =>
+      studioApi.frozenExecutions(
+        organizationId,
+        relationshipId,
+        caseId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    ...HISTORICAL_READ,
+  })
+}
+
+export function frozenBodyProgressQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'body-progress',
+      limit,
+    ),
+    queryFn: ({ pageParam, signal }): Promise<FrozenBodyProgressPage> =>
+      studioApi.frozenBodyProgress(
+        organizationId,
+        relationshipId,
+        caseId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    ...HISTORICAL_READ,
+  })
+}
+
+export function frozenGoalVersionsQueryOptions(
+  organizationId: string,
+  relationshipId: string,
+  caseId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.historicalRead(
+      organizationId,
+      relationshipId,
+      caseId,
+      'goal-versions',
+      limit,
+    ),
+    queryFn: ({ pageParam, signal }): Promise<FrozenNutritionGoalVersionPage> =>
+      studioApi.frozenGoalVersions(
+        organizationId,
+        relationshipId,
+        caseId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    ...HISTORICAL_READ,
+  })
+}
+
+/** Newest first, as the read ordered them, and each item once. */
+export function flattenById<T extends { id: string }>(
+  data: InfiniteData<{ data: T[] }, unknown> | undefined,
+): T[] {
+  if (!data) return []
+  const items: T[] = []
+  const seen = new Set<string>()
+  for (const page of data.pages) {
+    for (const item of page.data) {
+      if (seen.has(item.id)) continue
+      seen.add(item.id)
+      items.push(item)
+    }
+  }
+  return items
+}
+
+/**
+ * Her health context, newest first, a page at a time, read under the rules of
+ * the training screens beside it: `private-no-store`, never remembered, and
+ * never refetched on its own, because every page is a read recorded for her.
+ */
+export function clientHealthContextQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientHealthContext(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientHealthContextPage> =>
+      studioApi.clientHealthContext(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her measurements, and the photos she shows this gym, under the same rules as
+ * every other read of hers: never remembered, never refetched on its own.
+ */
+export function clientBodyProgressQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientBodyProgress(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientBodyProgressPage> =>
+      studioApi.clientBodyProgress(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+export function clientBodyPhotosQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientBodyPhotos(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientBodyPhotoPage> =>
+      studioApi.clientBodyPhotos(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One photo, asked for only while somebody has it open.
+ *
+ * **Each request is an access she reads**, so this one is stricter than the
+ * reads around it. No retry, not even the client's default one for a failed
+ * connection: a second attempt is a second line in her log, and only a person
+ * pressing a button may cause it. Held while open (`staleTime: Infinity`), so
+ * a repaint never asks again; dropped when closed (`gcTime: 0`), so the bytes do
+ * not outlive the view, and opening it again is honestly another view.
+ */
+export function clientBodyPhotoQueryOptions(
+  organizationId: string,
+  personId: string,
+  photoId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientBodyPhoto(organizationId, personId, photoId),
+    queryFn: ({ signal }) =>
+      studioApi.clientBodyPhotoContent(organizationId, personId, photoId, signal),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her meals between two of her days, a page at a time, under the rules of every
+ * read of hers: never remembered, never refetched on its own. Another range is
+ * another read, asked for only when somebody asks for it.
+ */
+export function clientNutritionMealsQueryOptions(
+  organizationId: string,
+  personId: string,
+  range: { from: string; to: string },
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientNutritionMeals(organizationId, personId, range, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientNutritionMealPage> =>
+      studioApi.clientNutritionMeals(
+        organizationId,
+        personId,
+        { from: range.from, to: range.to, limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * Her days added up, for the same range as her meals and under the same rules:
+ * never remembered, never refetched on its own. One answer covers the range.
+ */
+export function clientNutritionSummariesQueryOptions(
+  organizationId: string,
+  personId: string,
+  range: { from: string; to: string },
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientNutritionSummaries(organizationId, personId, range),
+    queryFn: ({ signal }): Promise<ClientNutritionDailySummaryPage> =>
+      studioApi.clientNutritionDailySummaries(
+        organizationId,
+        personId,
+        { from: range.from, to: range.to },
+        signal,
+      ),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * One meal photo, asked for only while somebody has it open, under the same
+ * rules as a body photo: each request is a view she reads, recorded on its own.
+ * No retry of its own, held while open and dropped when closed, so opening it
+ * again is honestly another view.
+ */
+export function clientNutritionMealPhotoQueryOptions(
+  organizationId: string,
+  personId: string,
+  mealId: string,
+) {
+  return queryOptions({
+    queryKey: studioQueryKeys.clientNutritionMealPhoto(organizationId, personId, mealId),
+    queryFn: ({ signal }) =>
+      studioApi.clientNutritionMealPhoto(organizationId, personId, mealId, signal),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+}
+
+/**
+ * What this relationship proposed her and the goal she follows now, a page at a
+ * time, under the rules of every read of hers: never remembered, never refetched
+ * on its own. Her active goal travels with every page; the first one is read.
+ */
+export function clientNutritionGoalsQueryOptions(
+  organizationId: string,
+  personId: string,
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.clientNutritionGoals(organizationId, personId, limit),
+    queryFn: ({ pageParam, signal }): Promise<ClientNutritionGoalHistory> =>
+      studioApi.clientNutritionGoalVersions(
+        organizationId,
+        personId,
+        { limit, ...(pageParam ? { cursor: pageParam } : {}) },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
 }

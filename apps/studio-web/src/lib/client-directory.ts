@@ -13,7 +13,13 @@
  * directory, so both open the screen — the narrowing happens in the database,
  * never here.
  */
-import type { ClientDirectoryItem, OrganizationRole } from './studio-api'
+import { clientCardPath } from './client-card'
+import type {
+  ClientDirectoryItem,
+  ClientDirectoryRelationship,
+  OrganizationRole,
+} from './studio-api'
+import type { ClientFilter } from './studio-query'
 
 const VIEW_DIRECTORY = 'view_directory'
 const VIEW_ASSIGNED_DIRECTORY = 'view_assigned_directory'
@@ -72,4 +78,131 @@ export function clientInitials(displayName: string): string {
     .slice(0, 2)
     .map((part) => Array.from(part)[0]?.toLocaleUpperCase('es-CO') ?? '')
     .join('')
+}
+
+/*
+ * Searching the directory — HU-STUDIO-082.
+ *
+ * The search belongs to the server: `q` narrows what the caller already reads
+ * and never widens it, so a coach finds only the people assigned to them and
+ * this screen filters nothing. A second narrowing here would be a second place
+ * for that rule to be wrong.
+ *
+ * What lives below is only what the screen must know before it asks: when a
+ * term is worth a request, and when searching is not offered at all.
+ */
+
+/** What the route accepts before it trims anything; past this it answers 422. */
+export const SEARCH_RAW_LIMIT = 200
+const SEARCH_MIN_LENGTH = 2
+const SEARCH_MAX_LENGTH = 80
+
+/**
+ * The same normalization the route applies — surrounding and repeated spaces
+ * are ignored. Written here so the screen only asks for terms the server will
+ * accept, instead of learning the rule from a rejection.
+ */
+export function normalizeSearchTerm(raw: string): string {
+  return raw.trim().replace(/\s+/gu, ' ')
+}
+
+export type SearchTermState = 'idle' | 'too-short' | 'ready' | 'too-long'
+
+/**
+ * `idle` is an empty box, not an error: the directory simply shows everything.
+ * `too-short` is the state a person passes through on the way to typing a
+ * name, so it asks for nothing and says nothing until there is something to
+ * say.
+ */
+export function searchTermState(raw: string): SearchTermState {
+  if (raw.length > SEARCH_RAW_LIMIT) return 'too-long'
+  const term = normalizeSearchTerm(raw)
+  if (term.length === 0) return 'idle'
+  if (term.length < SEARCH_MIN_LENGTH) return 'too-short'
+  return term.length <= SEARCH_MAX_LENGTH ? 'ready' : 'too-long'
+}
+
+/** The term to send, or undefined while the box is not worth a request yet. */
+export function searchTermToSend(raw: string): string | undefined {
+  return searchTermState(raw) === 'ready' ? normalizeSearchTerm(raw) : undefined
+}
+
+/**
+ * An invitation nobody has answered carries no name — until somebody accepts,
+ * no person exists — so the route refuses a search together with that filter.
+ * The screen offers no search there rather than letting the request fail: a
+ * control that errors on a combination the product forbids teaches nothing.
+ */
+export function canSearchWithin(filter: ClientFilter): boolean {
+  return filter !== 'invited'
+}
+
+export const SEARCH_UNAVAILABLE_REASON =
+  'Una invitación sin responder todavía no tiene nombre, así que no se puede buscar entre ellas.'
+
+export const SEARCH_TOO_LONG_REASON = `Escribe un nombre más corto, de máximo ${SEARCH_MAX_LENGTH} caracteres.`
+
+/**
+ * Where a person's name in the list leads.
+ *
+ * A coach lands on her card. His directory holds only the people he was
+ * assigned, so `OP-REL-019` will answer him for every row he can see. Somebody
+ * who reads the whole organization lands on the relationship instead: that
+ * operation answers them the same `404` as for a person who does not exist, and
+ * the relationship — the link, who attends her, what she granted — is the screen
+ * that is theirs.
+ *
+ * This leaves out a reader who both administers the gym and coaches in it: he
+ * reads every client, so he is sent to the relationship and has no way through
+ * to the card of somebody he does attend. A way in from the relationship screen
+ * is where that closes, and it is named as a gap rather than guessed at here.
+ */
+export function clientEntryPath(
+  entry: ClientDirectoryRelationship,
+  reader: { organizationId: string; everyClient: boolean },
+): string {
+  return reader.everyClient
+    ? relationshipPath(reader.organizationId, entry.relationship_id)
+    : clientCardPath(reader.organizationId, entry.person_id)
+}
+
+/**
+ * Every value the directory's filter can take: the contract's groups, plus
+ * "all" for the screen's own default.
+ *
+ * `Record<ClientFilter, true>` is load-bearing — a group the contract adds and
+ * this table forgets would stop the build here rather than silently become an
+ * unreachable filter.
+ */
+const FILTER_VALUES: Readonly<Record<ClientFilter, true>> = {
+  all: true,
+  active: true,
+  invited: true,
+  terminated: true,
+}
+
+/**
+ * The filter a URL asked for.
+ *
+ * The notice of unanswered client invitations on the landing opens this screen
+ * narrowed, because the operation it names carries `status=invited` and a link
+ * that dropped it would promise a narrowed list and deliver every client.
+ *
+ * A query string is anybody's to type, so anything else means "every client"
+ * rather than travelling into a request the API answers `422`.
+ */
+export function clientFilterFromQuery(status: string | string[] | undefined): ClientFilter {
+  if (typeof status !== 'string' || !Object.hasOwn(FILTER_VALUES, status)) return 'all'
+  return status as ClientFilter
+}
+
+/**
+ * Where a link itself lives, keyed by the relationship and not by the person.
+ *
+ * One string, because two screens now reach it: this directory, and the panel
+ * of what needs attention today, whose notices about an unassigned link or a
+ * termination request are resolved on exactly this screen.
+ */
+export function relationshipPath(organizationId: string, relationshipId: string): string {
+  return `/organizations/${organizationId}/clients/${relationshipId}`
 }

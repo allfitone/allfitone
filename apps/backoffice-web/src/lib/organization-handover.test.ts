@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   EMPTY_HANDOVER_DRAFT,
+  ORGANIZATION_TYPES,
   canActOn,
   cancelledBySentence,
   createdBySentence,
@@ -45,6 +46,16 @@ function handover(overrides: Partial<OrganizationHandover> = {}): OrganizationHa
     ...overrides,
   }
 }
+
+describe('the types a gym can be created as', () => {
+  test("a solo trainer's practice reads as Studio and the catalogue name it", () => {
+    expect(ORGANIZATION_TYPES.map((type) => type.label)).toEqual([
+      'Gimnasio',
+      'Estudio',
+      'Profesional independiente',
+    ])
+  })
+})
 
 // HU-BO-013 c5: once a natural person claims the gym, the address is theirs.
 describe('the site of a handover', () => {
@@ -187,6 +198,6 @@ describe('organization handover presentation', () => {
 
   test('explains a lost race and an expired duty', () => {
     expect(handoverMessage('conflict')).toContain('Se volvió a leer su estado')
-    expect(handoverMessage('forbidden')).toContain('vencen por diseño')
+    expect(handoverMessage('forbidden')).toContain('llegan con el rol de administrador')
   })
 })

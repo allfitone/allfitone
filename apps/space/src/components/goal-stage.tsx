@@ -36,14 +36,12 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets'
 
 import { cssDuration, PRESS_DURATION, PRESS_SCALE, SPRING } from '../client/motion'
-import { pairHeight } from '../client/goal-form'
+import { copyInset, pairLayout, singleHeight } from '../client/goal-form'
 
 import halo from '../../assets/images/goal/goal-halo.webp'
 
-/** How far the front figure sits from the card edge, and how much of the one behind
- *  it hides. Both were tuned against the approved prototype. */
+/** How far the front figure sits from the card edge, tuned against the approved prototype. */
 const EDGE = 10
-const OVERLAP = 0.55
 
 /**
  * How far the glow spreads past the figures. Kept modest and faint: at 1.7 and 40 % it
@@ -92,6 +90,36 @@ function figureAspect(source: number): number {
   const asset = Image.resolveAssetSource(source)
   if (!asset?.width || !asset?.height) return 0
   return asset.width / asset.height
+}
+
+type Figures = { before: number; after: number | null }
+
+/** Where the figures of a goal stand: shared by the drawing and by the copy beside it. */
+function layoutOf(bodies: Figures, width: number, height: number) {
+  const beforeAspect = figureAspect(bodies.before)
+  if (!bodies.after) {
+    const figureHeight = singleHeight(width, height, beforeAspect, EDGE * 4)
+    const beforeWidth = figureHeight * beforeAspect
+    return {
+      figureHeight,
+      overlap: 0,
+      beforeWidth,
+      afterWidth: 0,
+      front: beforeWidth,
+      right: EDGE * 4,
+    }
+  }
+  const afterAspect = figureAspect(bodies.after)
+  const pair = pairLayout(width, height, beforeAspect, afterAspect, EDGE)
+  const afterWidth = pair.height * afterAspect
+  return {
+    figureHeight: pair.height,
+    overlap: pair.overlap,
+    beforeWidth: pair.height * beforeAspect,
+    afterWidth,
+    front: afterWidth,
+    right: EDGE,
+  }
 }
 
 /**
@@ -212,8 +240,13 @@ export function GoalStage({
     transform: [{ translateY: (1 - swap.value) * FIGURE_RISE }],
   }))
 
-  const neutralAspect = figureAspect(neutral)
-  const neutralHeight = Math.min(height, (width * 0.34) / (neutralAspect || 1))
+  const still = layoutOf({ before: neutral, after: null }, width, height)
+  const neutralHeight = still.figureHeight
+  const named = gallery.find((piece) => piece.key === drawn)
+  const chosen = named ? layoutOf(named.bodies, width, height) : still
+  // Each text stops where its own front figure starts, so no word sits on skin.
+  const waitingInset = copyInset(width, still.front, still.right, EDGE)
+  const namingInset = copyInset(width, chosen.front, chosen.right, EDGE)
 
   return (
     <SignalBlock variant="surfaceDeep" style={styles.stageFill}>
@@ -233,7 +266,7 @@ export function GoalStage({
               styles.figure,
               {
                 height: neutralHeight,
-                width: neutralHeight * neutralAspect,
+                width: still.beforeWidth,
                 right: EDGE * 4,
                 top: height - neutralHeight,
               },
@@ -264,13 +297,16 @@ export function GoalStage({
         {/* Proporcional y no los ciento cincuenta del lienzo: ese número era de un
             teléfono de trescientos noventa, y en una tableta dejaba la frase en una
             columna estrecha con media caja vacía al lado. */}
-        <View style={[styles.stageCopy, { right: width * 0.42 }]}>
-          <Animated.View style={waiting} pointerEvents="none">
+        <View style={styles.stageCopy}>
+          <Animated.View style={[waiting, { marginRight: waitingInset }]} pointerEvents="none">
             <Text role="body" size="md" color="secondary">
               Elige uno abajo y verás aquí a dónde te lleva.
             </Text>
           </Animated.View>
-          <Animated.View style={[styles.stageNaming, arrived]} pointerEvents="none">
+          <Animated.View
+            style={[styles.stageNaming, { right: namingInset }, arrived]}
+            pointerEvents="none"
+          >
             <Text role="display" size="3xl" uppercase numberOfLines={2}>
               {shown?.name ?? ''}
             </Text>
@@ -347,18 +383,12 @@ function Bodies({
   height,
   tint,
 }: {
-  readonly bodies: { before: number; after: number | null }
+  readonly bodies: Figures
   readonly width: number
   readonly height: number
   readonly tint: string
 }) {
-  const beforeAspect = figureAspect(bodies.before)
-  const afterAspect = bodies.after ? figureAspect(bodies.after) : 0
-  const figureHeight = bodies.after
-    ? pairHeight(width, height, beforeAspect, afterAspect, OVERLAP, EDGE)
-    : Math.min(height, (width * 0.34) / (beforeAspect || 1))
-  const afterWidth = figureHeight * afterAspect
-  const beforeWidth = figureHeight * beforeAspect
+  const { figureHeight, overlap, beforeWidth, afterWidth } = layoutOf(bodies, width, height)
 
   if (!bodies.after) {
     return (
@@ -387,7 +417,7 @@ function Bodies({
       <Halo
         size={figureHeight}
         height={height}
-        right={EDGE + (afterWidth * OVERLAP + beforeWidth) / 2 - figureHeight / 2}
+        right={EDGE + (afterWidth * overlap + beforeWidth) / 2 - figureHeight / 2}
         tint={tint}
       />
       {/* Ya viene suavizada en el archivo: React Native no tiene filtro de desenfoque
@@ -400,7 +430,7 @@ function Bodies({
           {
             height: figureHeight,
             width: beforeWidth,
-            right: EDGE + afterWidth * OVERLAP,
+            right: EDGE + afterWidth * overlap,
             top: height - figureHeight,
           },
         ]}
@@ -502,7 +532,7 @@ const styles = StyleSheet.create({
   figure: { position: 'absolute' },
   behind: { opacity: 0.75 },
   // Las dos caras del texto apiladas en el mismo sitio, para que el cruce no derive.
-  stageCopy: { position: 'absolute', left: 18, bottom: 20 },
+  stageCopy: { position: 'absolute', left: 18, right: 0, bottom: 20 },
   stageNaming: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   stageEdge: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3 },
   why: { marginTop: 6 },

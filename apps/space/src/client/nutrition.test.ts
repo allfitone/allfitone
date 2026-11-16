@@ -12,6 +12,7 @@ import {
   dayAfterDeleting,
   deletionHeldNote,
   dayTitle,
+  daysBefore,
   emptyDaysNote,
   eatenFor,
   etagOf,
@@ -182,6 +183,14 @@ describe('days and history (N-5)', () => {
     expect(dayTitle('2026-09-30', '2026-09-30')).toBe('Hoy')
     expect(dayTitle('2026-09-29', '2026-09-30')).toBe('Ayer')
     expect(dayTitle('2026-09-27', '2026-09-30')).toBe('Domingo 27')
+  })
+
+  // The history screen adds the date under «Hoy» and «Ayer» from this, not from the words.
+  test('T-SPC-UNIT-339 a day counts back from today in whole days', () => {
+    expect(daysBefore('2026-09-30', '2026-09-30')).toBe(0)
+    expect(daysBefore('2026-09-29', '2026-09-30')).toBe(1)
+    expect(daysBefore('2026-08-31', '2026-09-01')).toBe(1)
+    expect(daysBefore('2026-09-27', '2026-09-30')).toBe(3)
   })
 })
 

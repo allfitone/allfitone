@@ -2,7 +2,7 @@
 -- session (`HU-BO-008` c6, `HU-BO-009` c6).
 --
 -- `support.exercise_break_glass` checks the requester, the duty on the session, the
--- window, the quorum and the scope before it returns anything. The duty and window
+-- window and the scope before it returns anything. The duty and window
 -- checks had no assertion of their own: a revoked session, a session from another
 -- surface — which can never be AAL2 for the Backoffice — a window closed by hand and one
 -- past its end. Every refusal still leaves its evidence.
@@ -16,7 +16,6 @@ values
   ('019bb000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019bb000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019bb000-0000-7000-8000-000000000003', 'Requester', 'Gamma', 'active'),
-  ('019bb000-0000-7000-8000-000000000004', 'Approver', 'Delta', 'active'),
   ('019bb000-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
@@ -24,9 +23,7 @@ values
   ('019bb000-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha_bg3', null),
   ('019bb000-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta_bg3', null),
   ('019bb000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma_bg3',
-    '019bb000-0000-7000-8000-000000000003'),
-  ('019bb000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta_bg3',
-    '019bb000-0000-7000-8000-000000000004');
+    '019bb000-0000-7000-8000-000000000003');
 
 select support.bootstrap_backoffice_administrators(
   '019bb000-0000-7000-8000-000000000001', 'alpha_bg3',
@@ -47,8 +44,6 @@ from (values
     'alpha_bg3', 'f1', null::timestamptz),
   ('019bb000-0000-7000-8000-000000000023'::uuid, '019bb000-0000-7000-8000-000000000013'::uuid,
     'gamma_bg3', 'f3', null::timestamptz),
-  ('019bb000-0000-7000-8000-000000000024'::uuid, '019bb000-0000-7000-8000-000000000014'::uuid,
-    'delta_bg3', 'f4', null::timestamptz),
   -- The requester's earlier Backoffice session, already revoked.
   ('019bb000-0000-7000-8000-000000000033'::uuid, '019bb000-0000-7000-8000-000000000013'::uuid,
     'gamma_old_bg3', 'e3', clock_timestamp() - interval '1 minute')
@@ -70,9 +65,7 @@ select support.assign_platform_role(
 )
 from (values
   ('019bb000-0000-7000-8000-000000000003'::uuid, '019bb000-0000-7000-8000-000000000103'::uuid,
-    '019bb000-0000-7000-8000-000000000203'::uuid, '73'),
-  ('019bb000-0000-7000-8000-000000000004'::uuid, '019bb000-0000-7000-8000-000000000104'::uuid,
-    '019bb000-0000-7000-8000-000000000204'::uuid, '74')
+    '019bb000-0000-7000-8000-000000000203'::uuid, '73')
 ) as role_row(person_id, key, command, hash_byte);
 
 select support.assign_platform_duty(
@@ -82,14 +75,13 @@ select support.assign_platform_duty(
 )
 from (values
   ('019bb000-0000-7000-8000-000000000003'::uuid, 'request_break_glass',
-    '019bb000-0000-7000-8000-000000000113'::uuid, '019bb000-0000-7000-8000-000000000213'::uuid, '83'),
-  ('019bb000-0000-7000-8000-000000000004'::uuid, 'approve_break_glass',
-    '019bb000-0000-7000-8000-000000000114'::uuid, '019bb000-0000-7000-8000-000000000214'::uuid, '84')
+    '019bb000-0000-7000-8000-000000000113'::uuid, '019bb000-0000-7000-8000-000000000213'::uuid, '83')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
 
 select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019bb000-0000-7000-8000-000000000003', true);
 
+-- Asking opens the window (ADR-046 decision 2).
 create temporary table window_file as
 select (result->>'id')::uuid as id
 from support.request_break_glass(
@@ -99,16 +91,6 @@ from support.request_break_glass(
   '11111111-1111-4111-8111-111111114001', '019bb000-0000-7000-8000-000000000301',
   decode(repeat('91', 32), 'hex')
 );
-
-select set_config('app.actor_person_id', '019bb000-0000-7000-8000-000000000004', true);
-select support.decide_break_glass(
-  '019bb000-0000-7000-8000-000000000004', '019bb000-0000-7000-8000-000000000024',
-  (select id from window_file), 'approved', 'APPROVED-CASE-JUSTIFIES',
-  '11111111-1111-4111-8111-111111114002', '019bb000-0000-7000-8000-000000000302',
-  decode(repeat('92', 32), 'hex')
-);
-
-select set_config('app.actor_person_id', '019bb000-0000-7000-8000-000000000003', true);
 
 select isnt(
   (select support.exercise_break_glass(

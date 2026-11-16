@@ -28,7 +28,7 @@ values
   ('019af000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019af000-0000-7000-8000-000000000003', 'Support', 'Gamma', 'active'),
   ('019af000-0000-7000-8000-000000000004', 'Lifecycle', 'Delta', 'active'),
-  ('019af000-0000-7000-8000-000000000005', 'Badged', 'Epsilon', 'active'),
+  ('019af000-0000-7000-8000-000000000005', 'Outsider', 'Epsilon', 'active'),
   ('019af000-0000-7000-8000-000000000006', 'Owner', 'Zeta', 'active'),
   ('019af000-0000-7000-8000-000000000007', 'Invitee', 'Eta', 'active'),
   ('019af000-0000-7000-8000-000000000008', 'Owner', 'Theta', 'active'),
@@ -71,6 +71,8 @@ from (values
     'epsilon_resend', 'b5')
 ) as session_row(session_id, account_id, suffix, hash_byte);
 
+-- Epsilon keeps a Backoffice session but is never granted the role: every admin holds
+-- every duty (ADR-046), so a session without the role is the refusal left.
 select support.assign_platform_role(
   '019af000-0000-7000-8000-000000000001', '019af000-0000-7000-8000-000000000041',
   person_id, 'allfit_admin', key, command, decode(repeat(hash_byte, 32), 'hex')
@@ -79,11 +81,10 @@ from (values
   ('019af000-0000-7000-8000-000000000003'::uuid, '019af000-0000-7000-8000-000000000103'::uuid,
     '019af000-0000-7000-8000-000000000203'::uuid, '63'),
   ('019af000-0000-7000-8000-000000000004'::uuid, '019af000-0000-7000-8000-000000000104'::uuid,
-    '019af000-0000-7000-8000-000000000204'::uuid, '64'),
-  ('019af000-0000-7000-8000-000000000005'::uuid, '019af000-0000-7000-8000-000000000105'::uuid,
-    '019af000-0000-7000-8000-000000000205'::uuid, '65')
+    '019af000-0000-7000-8000-000000000204'::uuid, '64')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Converges onto the duties the role already brings.
 select support.assign_platform_duty(
   '019af000-0000-7000-8000-000000000001', '019af000-0000-7000-8000-000000000041',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -205,12 +206,12 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone does not see a gym''s invitations'
+  'a Backoffice session without the admin role does not see a gym''s invitations'
 );
 
 select throws_ok(
   $$ select * from identity.resend_team_invitation(
-    '019af000-0000-7000-8000-000000000004', '019af000-0000-7000-8000-000000000044',
+    '019af000-0000-7000-8000-000000000005', '019af000-0000-7000-8000-000000000045',
     (select organization_id from resend_gym), '019af000-0000-7000-8000-000000000501',
     extensions.digest('T-IDN-RESEND-01 a1', 'sha256'), 1::smallint,
     'a0000000-0000-4000-8000-000000000001', '019af000-0000-7000-8000-000000000600',
@@ -218,7 +219,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the lifecycle duty does not resend a team invitation'
+  'a Backoffice session without the admin role does not resend a team invitation'
 );
 
 select throws_ok(
@@ -356,6 +357,7 @@ select ok(
                   and resend.actor_duty_assignment_id = (
                     select assignment.id from support.platform_duty_assignments as assignment
                     where assignment.person_id = '019af000-0000-7000-8000-000000000003'
+                      and assignment.duty_code = 'diagnose_support_metadata'
                   ))
    from identity.invitation_resends as resend
    where resend.invitation_id = '019af000-0000-7000-8000-000000000501'),
@@ -594,7 +596,8 @@ insert into identity.invitations (
 select '019af000-0000-7000-8000-000000000701', invitation.organization_id,
        '019af000-0000-7000-8000-000000000003',
        (select assignment.id from support.platform_duty_assignments as assignment
-        where assignment.person_id = '019af000-0000-7000-8000-000000000003'),
+        where assignment.person_id = '019af000-0000-7000-8000-000000000003'
+          and assignment.duty_code = 'diagnose_support_metadata'),
        'email', 'fresh@example.test', extensions.digest('T-IDN-RESEND-01 71', 'sha256'), 1,
        decode(repeat('72', 32), 'hex'), invitation.responsible_party,
        clock_timestamp() + interval '7 days'

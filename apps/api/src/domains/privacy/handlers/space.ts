@@ -10,6 +10,8 @@
  *
  * The revocation has no body, so what makes it idempotent is hashed from the path: an
  * empty object would let one key replay across two different grants.
+ *
+ * `/space/v1/access-events`: who read her data (OP-PRV-015, HU-STUDIO-083 c3).
  */
 
 import { createHash } from 'node:crypto'
@@ -24,8 +26,17 @@ import {
   spaceActorResolver,
   type SpaceActorResolver,
 } from '../../identity/index.js'
-import { myConsentService, sessionVisibilityService } from '../dependencies.js'
-import type { MyConsentService, SessionVisibilityService } from '../application/index.js'
+import { myAccessLogService, myConsentService, sessionVisibilityService } from '../dependencies.js'
+import type {
+  MyAccessLogService,
+  MyConsentService,
+  SessionVisibilityService,
+} from '../application/index.js'
+import {
+  SCOPE_CODES,
+  decodeMyAccessEventCursor,
+  encodeMyAccessEventCursor,
+} from '../domain/index.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -38,9 +49,11 @@ export function spacePrivacyRoutes(
   injectedVerifier?: TokenVerifier,
   injectedActors?: SpaceActorResolver,
   injectedVisibility?: SessionVisibilityService,
+  injectedAccessLog?: MyAccessLogService,
 ): Hono {
   const consents = () => injectedConsents ?? myConsentService()
   const visibility = () => injectedVisibility ?? sessionVisibilityService()
+  const accessLog = () => injectedAccessLog ?? myAccessLogService()
   const actors = () => injectedActors ?? spaceActorResolver()
   const verify: TokenVerifier =
     injectedVerifier ?? ((token) => authProvider().verifyAccessToken(token, 'space'))
@@ -81,6 +94,34 @@ export function spacePrivacyRoutes(
         id: result.resource.grantId,
         status: result.resource.status,
         revoked_at: result.resource.revokedAt,
+      })
+    } catch (cause) {
+      return failure(c, cause)
+    }
+  })
+
+  // `OP-PRV-015`. Hers only, and reading it is not itself an access to log.
+  routes.get('/access-events', async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+
+    const query = parseAccessLogQuery(c)
+    if (!query) return fail(c, 'invalid-request')
+
+    const token = await verified(c, verify)
+    if (!token) return fail(c, 'unauthenticated')
+
+    try {
+      const personId = await actors().personFor(token.subject)
+      const page = await accessLog().listMine({ personId, ...query })
+      return c.json({
+        data: page.items,
+        page: {
+          has_more: page.hasMore,
+          next_cursor:
+            page.hasMore && page.last
+              ? encodeMyAccessEventCursor(page.last, query.scopeCode)
+              : null,
+        },
       })
     } catch (cause) {
       return failure(c, cause)
@@ -223,6 +264,22 @@ function parsePagination(c: Context) {
     return { limit, cursor: { deniedAt: parsed.deniedAt, id: parsed.id } }
   } catch {
     return undefined
+  }
+}
+
+function parseAccessLogQuery(c: Context) {
+  const rawLimit = c.req.query('limit') ?? '25'
+  if (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > 100) return undefined
+  const rawScope = c.req.query('scope_code')
+  const scopeCode = SCOPE_CODES.find((code) => code === rawScope)
+  if (rawScope !== undefined && !scopeCode) return undefined
+  const rawCursor = c.req.query('cursor')
+  const cursor = rawCursor ? decodeMyAccessEventCursor(rawCursor, scopeCode) : undefined
+  if (rawCursor && !cursor) return undefined
+  return {
+    limit: Number(rawLimit),
+    ...(scopeCode ? { scopeCode } : {}),
+    ...(cursor ? { cursor } : {}),
   }
 }
 

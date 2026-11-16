@@ -9,9 +9,9 @@
 #   plan   pending migrations and the order a push would apply them in
 #   push   plan, apply, set the allfit_api password, show the history
 #   test   the pgTAP suite against this database
-#   bootstrap  the first two Backoffice administrators, each granted by the other
-#              (SUBJECT_A, SUBJECT_B: WorkOS user ids; DUTY_DAYS: 1-90;
-#              CEREMONY_REFERENCE: the approving ticket, without personal data)
+#   bootstrap  the first two Backoffice administrators, each granted by the other;
+#              the role brings every duty (ADR-046). SUBJECT_A, SUBJECT_B: WorkOS
+#              user ids; CEREMONY_REFERENCE: the approving ticket, without personal data
 #
 # INCLUDE_ALL=true applies migrations older than the newest one applied. It is
 # a decision, not a retry: read `plan` first, as in deploy-database-aws.yml.
@@ -52,18 +52,11 @@ SQL
     pg_prove --ext .sql -r /db/supabase/tests/database
     ;;
   bootstrap)
-    : "${SUBJECT_A:?}" "${SUBJECT_B:?}" "${DUTY_DAYS:?}" "${CEREMONY_REFERENCE:?}"
-    case "$DUTY_DAYS" in
-      *[!0-9]*) echo "DUTY_DAYS must be a number of days" >&2; exit 64 ;;
-    esac
-    if [ "$DUTY_DAYS" -lt 1 ] || [ "$DUTY_DAYS" -gt 90 ]; then
-      echo "DUTY_DAYS must be between 1 and 90 (ADR-028)" >&2
-      exit 64
-    fi
+    : "${SUBJECT_A:?}" "${SUBJECT_B:?}" "${CEREMONY_REFERENCE:?}"
     # Each administrator signed in to Studio once, so the account already has a person.
     psql "$url" --set=ON_ERROR_STOP=1 \
       --set=subject_a="$SUBJECT_A" --set=subject_b="$SUBJECT_B" \
-      --set=duty_days="$DUTY_DAYS" --set=ceremony="$CEREMONY_REFERENCE" <<'SQL'
+      --set=ceremony="$CEREMONY_REFERENCE" <<'SQL'
 begin;
 select a.person_id as person_a, b.person_id as person_b, a.issuer
 from identity.access_accounts as a
@@ -72,9 +65,10 @@ where a.provider = 'workos' and a.subject = :'subject_a' and b.subject = :'subje
   and a.person_id is not null and b.person_id is not null
 \gset
 set local role allfit_migrator;
+-- The validity argument is ignored since ADR-046: the duties last as long as the role.
 select support.bootstrap_backoffice_administrators(
   :'person_a'::uuid, :'subject_a', :'person_b'::uuid, :'subject_b', :'issuer',
-  clock_timestamp() + make_interval(days => :'duty_days'::int), :'ceremony'
+  null, :'ceremony'
 );
 commit;
 \echo allfit_admin granted to :person_a and :person_b

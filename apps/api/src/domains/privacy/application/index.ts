@@ -38,6 +38,9 @@ import type {
   SessionVisibilityDatabase,
   SessionVisibilityDenial,
   SessionVisibilityPage,
+  MyAccessLogDatabase,
+  MyAccessLogPage,
+  MyAccessLogQuery,
 } from '../domain/index.js'
 
 export interface ScopeDefinitionService {
@@ -188,4 +191,13 @@ export function createAuthorizedScopeService(
   return {
     list: (personId, query) => database.list(personId, query),
   }
+}
+
+export interface MyAccessLogService {
+  listMine(query: MyAccessLogQuery): Promise<MyAccessLogPage>
+}
+
+// Only hers: the function refuses any other person, so nothing here decides whose.
+export function createMyAccessLogService(database: MyAccessLogDatabase): MyAccessLogService {
+  return { listMine: (query) => database.listMine(query) }
 }

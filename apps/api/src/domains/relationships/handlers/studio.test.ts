@@ -329,6 +329,110 @@ describe('the client directory endpoint', () => {
   })
 })
 
+describe('finding a client by name (HU-STUDIO-082)', () => {
+  const CLIENTS = `/studio/v1/organizations/${ORGANIZATION}/clients`
+
+  test('the search reaches the service with its spaces collapsed', async () => {
+    let seen: DirectoryQuery | undefined
+    const response = await app(directory({}, (query) => (seen = query))).request(
+      `${CLIENTS}?q=${encodeURIComponent('  José   Pérez ')}`,
+      { headers: HEADERS },
+    )
+    expect(response.status).toBe(200)
+    expect(seen?.query).toBe('José Pérez')
+  })
+
+  test('without a search the service is asked for none', async () => {
+    let seen: DirectoryQuery | undefined
+    await app(directory({}, (query) => (seen = query))).request(CLIENTS, { headers: HEADERS })
+    expect(seen).toBeDefined()
+    expect(seen?.query).toBeUndefined()
+  })
+
+  test('no match is an empty page, said plainly rather than as an error', async () => {
+    const response = await app(directory({ items: [] })).request(`${CLIENTS}?q=zz`, {
+      headers: HEADERS,
+    })
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { data: unknown[]; page: Record<string, unknown> }
+    expect(body.data).toEqual([])
+    expect(body.page).toEqual({ has_more: false, next_cursor: null })
+  })
+
+  for (const [label, value] of [
+    ['one character', 'j'],
+    ['more than eighty characters', 'a'.repeat(81)],
+    ['only spaces', '    '],
+  ] as const) {
+    test(`a search of ${label} is refused before any read`, async () => {
+      let called = false
+      const response = await app(directory({}, () => (called = true))).request(
+        `${CLIENTS}?q=${encodeURIComponent(value)}`,
+        { headers: HEADERS },
+      )
+      expect(response.status).toBe(422)
+      expect(called).toBe(false)
+    })
+  }
+
+  test('searching the unanswered invitations is refused: none of them has a name', async () => {
+    let called = false
+    const response = await app(directory({}, () => (called = true))).request(
+      `${CLIENTS}?status=invited&q=jorge`,
+      { headers: HEADERS },
+    )
+    expect(response.status).toBe(422)
+    expect(called).toBe(false)
+  })
+
+  test('a cursor issued under one search is refused under another, or under none', async () => {
+    const first = await app(directory({ hasMore: true })).request(`${CLIENTS}?q=jo`, {
+      headers: HEADERS,
+    })
+    const { page } = (await first.json()) as { page: { next_cursor: string } }
+
+    const elsewhere = await app(directory()).request(
+      `${CLIENTS}?q=ana&cursor=${page.next_cursor}`,
+      { headers: HEADERS },
+    )
+    const unsearched = await app(directory()).request(`${CLIENTS}?cursor=${page.next_cursor}`, {
+      headers: HEADERS,
+    })
+    expect(elsewhere.status).toBe(422)
+    expect(unsearched.status).toBe(422)
+  })
+
+  test('a cursor resumes the same search, however its spaces were typed', async () => {
+    const first = await app(directory({ hasMore: true })).request(`${CLIENTS}?q=jo%20%20a`, {
+      headers: HEADERS,
+    })
+    const { page } = (await first.json()) as { page: { next_cursor: string } }
+    let seen: DirectoryQuery | undefined
+    const next = await app(directory({}, (query) => (seen = query))).request(
+      `${CLIENTS}?q=jo%20a&cursor=${page.next_cursor}`,
+      { headers: HEADERS },
+    )
+    expect(next.status).toBe(200)
+    expect(seen).toMatchObject({ query: 'jo a', cursorName: 'ana alvarez' })
+  })
+
+  test('a cursor issued before searches existed still resumes an unsearched page', async () => {
+    const legacy = Buffer.from(
+      JSON.stringify({
+        v: 2,
+        filter_status: null,
+        group: 'active',
+        name: 'Ana Alvarez',
+        id: '019ad000-0000-7000-8000-000000000301',
+      }),
+    ).toString('base64url')
+    const response = await app(directory()).request(`${CLIENTS}?cursor=${legacy}`, {
+      headers: HEADERS,
+    })
+    expect(response.status).toBe(200)
+  })
+})
+
 const ASSIGN_HEADERS = {
   ...HEADERS,
   'content-type': 'application/json',

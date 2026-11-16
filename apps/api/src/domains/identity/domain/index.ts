@@ -10,6 +10,7 @@ export type {
   StoredBackofficeAttempt,
   StoredBackofficeSession,
 } from './backoffice.js'
+export { BACKOFFICE_IDLE_LIMIT_MS, BACKOFFICE_SESSION_LIFETIME_SECONDS } from './backoffice.js'
 export { VERIFICATION_METHODS, VERIFICATION_RESULTS } from './credential-verification.js'
 export type {
   CredentialRenewalDue,
@@ -42,6 +43,8 @@ export interface StoredAccessSession {
   accessTokenExpiresAt: Date
   tokenVersion: number
   personStatus?: 'pending_activation' | 'active' | 'closed'
+  /** Until when its sign-in counts as recent; PostgreSQL owns the window. */
+  recentAuthenticationExpiresAt: Date | null
 }
 
 export interface ActorRegistration {
@@ -53,11 +56,15 @@ export interface ActorRegistration {
 export interface AccountActor {
   accountId: string
   personId?: string
+  /** The Studio access session the actor came through, for step-up checks. */
+  sessionId?: string
 }
 
 export interface StudioAccountIdentity {
   actor: AccountActor
   identity: AuthenticatedIdentity
+  /** Optional only for injected test seams; production session resolution always sets it. */
+  recentAuthenticationExpiresAt?: Date | null
   /** Optional only for injected test seams; production session resolution always sets it. */
   analytics?: AnalyticsIdentity
 }
@@ -114,6 +121,15 @@ export type TrainingExperience = 'starting' | 'some_practice' | 'experienced'
  * same shape of decision: six in the catalogue, five offered.
  */
 export type TrainingDiscipline = 'strength'
+
+/** HU-SP-012 criterion 3. An enum of the catalogue, so nine days is refused by the database. */
+export type TrainingDaysPerWeek = '1' | '2' | '3' | '4' | '5' | '6' | '7'
+
+/** HU-SP-012 criterion 3, as ranges: what someone knows is how much fits, not a number. */
+export type SessionDuration = 'up_to_30_min' | '30_to_45_min' | '45_to_60_min' | 'over_60_min'
+
+/** HU-SP-013 criterion 1. `multiple` is "several places", an answer in its own right. */
+export type TrainingPlace = 'gym' | 'home' | 'outdoors' | 'multiple'
 
 /**
  * The body metrics a person records. The `body_` prefix is not decoration: `metric_code`
@@ -206,6 +222,9 @@ export type ProfileClaimDeclaration =
   | { attributeCode: 'primary_training_goal'; valueText: PrimaryTrainingGoal }
   | { attributeCode: 'training_experience'; valueText: TrainingExperience }
   | { attributeCode: 'training_discipline'; valueText: TrainingDiscipline }
+  | { attributeCode: 'training_days_per_week'; valueText: TrainingDaysPerWeek }
+  | { attributeCode: 'session_duration'; valueText: SessionDuration }
+  | { attributeCode: 'training_place'; valueText: TrainingPlace }
 
 /** What the database records for a claim, including what it displaced. */
 export type ProfileClaim = ProfileClaimDeclaration & {
@@ -381,6 +400,8 @@ export interface IdentitySessionDatabase {
     tokenHash: Uint8Array
     tokenCiphertext: string
     accessTokenExpiresAt: Date
+    /** When the person last actively authenticated, per the verified token. */
+    authenticatedAt: Date | null
   }): Promise<string>
   loadSession(tokenHash: Uint8Array): Promise<StoredAccessSession | undefined>
   rotateSession(input: {

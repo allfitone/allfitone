@@ -28,6 +28,14 @@ export interface HealthContextService {
       claim: HealthContextDeclaration
     },
   ): Promise<HealthContextResult<HealthContextClaim>>
+  /** In place, keeping no earlier wording (ADR-052). */
+  correct(
+    token: VerifiedToken,
+    input: Omit<HealthContextCommand, 'requestId'> & {
+      claimId: string
+      claim: HealthContextDeclaration
+    },
+  ): Promise<HealthContextResult<HealthContextClaim>>
   delete(
     token: VerifiedToken,
     input: Omit<HealthContextCommand, 'requestId'> & { claimId: string },
@@ -53,6 +61,12 @@ export function createHealthContextService(dependencies: {
       }),
     declare: (token, input) =>
       dependencies.database.declare({
+        ...holder(token),
+        ...input,
+        requestId: dependencies.requestId(),
+      }),
+    correct: (token, input) =>
+      dependencies.database.correct({
         ...holder(token),
         ...input,
         requestId: dependencies.requestId(),

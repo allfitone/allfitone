@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 import { OrganizationDirectory } from '@/components/organization-directory'
 
 export const metadata: Metadata = {
-  title: 'Gimnasios · Allfit Backoffice',
+  title: 'Gimnasios | Allfit Backoffice',
 }
 
 export default function OrganizationsPage() {

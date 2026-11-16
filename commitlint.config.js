@@ -39,6 +39,7 @@ export default {
         'nutrition',
         'payments',
         'support',
+        'waitlist',
         'platform',
         // repository-wide
         'repo',

@@ -242,7 +242,12 @@ export function createWorkOSAuthProvider(config: WorkOSConfig): AuthProvider {
       // Deliberately narrow. org_id, role and permissions are present in the
       // token and are NOT returned: authorization is resolved in PostgreSQL,
       // inside the transaction. Widening this creates a second source of truth.
-      return { subject, sessionId, surface }
+      return {
+        subject,
+        sessionId,
+        surface,
+        authenticatedAt: authenticationInstant(claims.auth_time),
+      }
     },
 
     async verifyWebhookEvent(
@@ -479,20 +484,20 @@ export function createWorkOSAuthProvider(config: WorkOSConfig): AuthProvider {
       // Application's credentials reach the same directory.
       const c = requireClient(ADMIN_SURFACE)
       try {
-        await c.userManagement.updateUser({ userId: subject, email })
+        await c.userManagement.updateUser({ userId: subject, email, emailVerified: true })
       } catch (cause) {
         throw translate(cause)
       }
     },
 
-    async revokeSessions(subject: ExternalSubject): Promise<void> {
+    async revokeSessions(subject: ExternalSubject, keep?: string): Promise<void> {
       // The SDK revokes one session at a time, so "close every session" is list
       // then revoke each. Expressed here rather than in the domain, because the
       // domain should not know that limitation exists.
       const c = requireClient(ADMIN_SURFACE)
       try {
         const sessions = await c.userManagement.listSessions(subject)
-        for (const session of sessions.data) {
+        for (const session of sessions.data.filter((one) => one.id !== keep)) {
           await c.userManagement.revokeSession({ sessionId: session.id })
         }
       } catch (cause) {
@@ -733,4 +738,11 @@ function assertConfig(config: WorkOSConfig): void {
       throw new Error(`Missing API key for surface "${surface}".`)
     }
   }
+}
+
+// Seconds since the epoch, as AuthKit writes it. Anything else says nothing.
+function authenticationInstant(value: unknown): Date | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+    ? new Date(value * 1000)
+    : null
 }

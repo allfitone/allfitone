@@ -10,7 +10,7 @@ import {
 
 /**
  * `HU-BO-005` c1 and c5, `HU-BO-020` c3 — the attention panel's billing count leads to
- * who it is, and that list names payers only under a case.
+ * who it is. The list names payers under a case when one is given (optional, ADR-046).
  */
 
 const CASE = 'CASE-2026-FU'
@@ -34,10 +34,10 @@ test('the billing notice leads to who it counts', async ({ context, page }) => {
   await page.getByRole('link', { name: 'Ver a quién hacer seguimiento' }).click()
 
   await expect(page).toHaveURL('/people/billing')
-  await expect(page.locator('[data-billing-follow-up-idle]')).toContainText('Primero el caso')
+  await expect(page.locator('[data-billing-follow-up-list]')).toBeVisible()
 })
 
-test('nothing is read without a case, and with one each row opens the person’s payments', async ({
+test('the list opens without a case, and under one each row opens the payments under it', async ({
   context,
   page,
 }) => {
@@ -61,9 +61,16 @@ test('nothing is read without a case, and with one each row opens the person’s
   await mockBackofficeApi(context, fixture)
 
   await page.goto('/people/billing')
+  await expect(page.locator('[data-billing-follow-up-summary]')).toHaveText(
+    '2 personas por seguir.',
+  )
+  await expect(
+    page.locator('[data-billing-follow-up-row]').first().locator('[data-billing-follow-up-person]'),
+  ).toHaveAttribute('href', `/people/${suspended.person_id}`)
+
+  await page.locator('#billing-case').fill('sin caso')
   await page.getByRole('button', { name: 'Ver la lista' }).click()
-  await expect(page.getByText('Falta una referencia de caso válida')).toBeVisible()
-  expect(reads(fixture)).toHaveLength(0)
+  await expect(page.getByText('La referencia del caso va como CASE-2026-001')).toBeVisible()
 
   await page.locator('#billing-case').fill(CASE)
   await page.getByRole('button', { name: 'Ver la lista' }).click()
@@ -81,9 +88,10 @@ test('nothing is read without a case, and with one each row opens the person’s
     'href',
     `/people/${suspended.person_id}?case_reference=${CASE}`,
   )
-  expect(reads(fixture).map((request) => request.query)).toEqual([
-    `?case_reference=${CASE}&limit=50`,
-  ])
+  // StrictMode may read the first page twice; the read under the case is the last one.
+  const queries = reads(fixture).map((request) => request.query)
+  expect(queries.at(-1)).toBe(`?case_reference=${CASE}&limit=50`)
+  expect(queries.slice(0, -1).every((query) => query === '?limit=50')).toBe(true)
 })
 
 test('without the billing duty the screen names the duty it needs', async ({ context, page }) => {

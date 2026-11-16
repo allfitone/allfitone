@@ -23,7 +23,7 @@ values
   ('019b4000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019b4000-0000-7000-8000-000000000003', 'Commerce', 'Gamma', 'active'),
   ('019b4000-0000-7000-8000-000000000004', 'Commerce', 'Delta', 'active'),
-  ('019b4000-0000-7000-8000-000000000005', 'Support', 'Epsilon', 'active');
+  ('019b4000-0000-7000-8000-000000000005', 'Outsider', 'Epsilon', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -70,11 +70,11 @@ from (values
   ('019b4000-0000-7000-8000-000000000003'::uuid, '019b4000-0000-7000-8000-000000000103'::uuid,
     '019b4000-0000-7000-8000-000000000203'::uuid, '63'),
   ('019b4000-0000-7000-8000-000000000004'::uuid, '019b4000-0000-7000-8000-000000000104'::uuid,
-    '019b4000-0000-7000-8000-000000000204'::uuid, '64'),
-  ('019b4000-0000-7000-8000-000000000005'::uuid, '019b4000-0000-7000-8000-000000000105'::uuid,
-    '019b4000-0000-7000-8000-000000000205'::uuid, '65')
+    '019b4000-0000-7000-8000-000000000204'::uuid, '64')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Epsilon keeps a live Backoffice session and is never granted the role.
+-- Converges onto the duties the role already brings.
 select support.assign_platform_duty(
   '019b4000-0000-7000-8000-000000000001', '019b4000-0000-7000-8000-000000000021',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -84,9 +84,7 @@ from (values
   ('019b4000-0000-7000-8000-000000000003'::uuid, 'manage_platform_commercial',
     '019b4000-0000-7000-8000-000000000113'::uuid, '019b4000-0000-7000-8000-000000000213'::uuid, '73'),
   ('019b4000-0000-7000-8000-000000000004'::uuid, 'manage_platform_commercial',
-    '019b4000-0000-7000-8000-000000000114'::uuid, '019b4000-0000-7000-8000-000000000214'::uuid, '74'),
-  ('019b4000-0000-7000-8000-000000000005'::uuid, 'diagnose_support_metadata',
-    '019b4000-0000-7000-8000-000000000115'::uuid, '019b4000-0000-7000-8000-000000000215'::uuid, '75')
+    '019b4000-0000-7000-8000-000000000114'::uuid, '019b4000-0000-7000-8000-000000000214'::uuid, '74')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
 
 -- This file proves how plans are published and read against a catalogue of its own, so
@@ -104,12 +102,14 @@ select set_config('app.actor_kind', 'support', true),
 -- Who manages Allfit's plans
 -- ---------------------------------------------------------------------------
 
+select set_config('app.actor_person_id', '019b4000-0000-7000-8000-000000000005', true);
+
 select throws_ok(
   $$ select payments.list_platform_plans(
     '019b4000-0000-7000-8000-000000000005', '019b4000-0000-7000-8000-000000000025'
   ) $$,
   '42501', null,
-  'a support duty does not read Allfit''s plans'
+  'a Backoffice session without the admin role does not read Allfit''s plans'
 );
 
 select throws_ok(
@@ -121,6 +121,8 @@ select throws_ok(
   '42501', null,
   'nor creates one'
 );
+
+select set_config('app.actor_person_id', '019b4000-0000-7000-8000-000000000003', true);
 
 select throws_ok(
   $$ select payments.list_platform_plans(
@@ -547,6 +549,8 @@ select pg_temp.propose(
     {"feature_code":"history_weeks","enabled":true,"limit_value":24}]'
 ) as plan;
 
+select set_config('app.actor_person_id', '019b4000-0000-7000-8000-000000000005', true);
+
 select throws_ok(
   format($$ select * from payments.withdraw_platform_plan_version(
     '019b4000-0000-7000-8000-000000000005', '019b4000-0000-7000-8000-000000000025',
@@ -555,8 +559,10 @@ select throws_ok(
     (select result->>'id' from paid_plan),
     (select plan->'proposal'->>'id' from premium_v3)),
   '42501', null,
-  'withdrawing a proposal needs the commercial duty too'
+  'withdrawing a proposal is refused to a session without the admin role too'
 );
+
+select set_config('app.actor_person_id', '019b4000-0000-7000-8000-000000000003', true);
 
 create temporary table premium_v3_withdrawn on commit drop as
 select result as plan from payments.withdraw_platform_plan_version(

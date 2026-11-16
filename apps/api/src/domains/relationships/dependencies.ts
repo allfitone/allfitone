@@ -1,5 +1,9 @@
 import {
+  createClientCardService,
   createClientDirectoryService,
+  createStudioTodayService,
+  type ClientCardService,
+  type StudioTodayService,
   createMyRelationshipCommandService,
   createMyRelationshipService,
   createHolderAssignmentService,
@@ -25,7 +29,9 @@ import {
   type TerminationRequestService,
 } from './application/index.js'
 import {
+  createClientCardDatabase,
   createClientDirectoryDatabase,
+  createStudioTodayDatabase,
   createMyRelationshipCommandDatabase,
   createMyRelationshipDatabase,
   createHolderAssignmentDatabase,
@@ -117,4 +123,17 @@ export function terminationRequestService(): TerminationRequestService {
 export function myRelationshipService(): MyRelationshipService {
   cachedMine ??= createMyRelationshipService(createMyRelationshipDatabase())
   return cachedMine
+}
+
+let cachedCards: ClientCardService | undefined
+let cachedToday: StudioTodayService | undefined
+
+export function clientCardService(): ClientCardService {
+  cachedCards ??= createClientCardService(createClientCardDatabase())
+  return cachedCards
+}
+
+export function studioTodayService(): StudioTodayService {
+  cachedToday ??= createStudioTodayService(createStudioTodayDatabase())
+  return cachedToday
 }

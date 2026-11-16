@@ -149,7 +149,7 @@ export function directoryAnswer(
 export function directoryMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente un deber que permita ver el directorio: soporte o ciclo de vida de gimnasios. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente un deber que permita ver el directorio: soporte o ciclo de vida de gimnasios. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'invalid-request':
       'Alguno de los filtros no se pudo leer. Se rechaza en vez de ignorarlo, porque ignorarlo ampliaría la búsqueda.',
     'validation-failed': 'La búsqueda no cumple el contrato. Revisa el nombre buscado.',

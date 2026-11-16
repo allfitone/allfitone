@@ -303,3 +303,57 @@ export interface AuthorizedScopeDatabase {
     query: AuthorizedScopeQuery,
   ): Promise<{ items: AuthorizedScope[]; hasMore: boolean }>
 }
+
+/**
+ * OP-PRV-015. One read of her data by somebody else, as she sees it: who read and for
+ * which organization, never the record's id, which only the cursor carries.
+ */
+export type MyAccessEvent = AllfitV1Schemas['MyAccessEvent']
+
+export interface MyAccessLogQuery {
+  personId: string
+  limit: number
+  scopeCode?: ScopeCode
+  cursor?: AccessEventCursor
+}
+
+export interface MyAccessLogPage {
+  items: MyAccessEvent[]
+  hasMore: boolean
+  /** The last record shown, to resume after it; null on an empty page. */
+  last: AccessEventCursor | null
+}
+
+export interface MyAccessLogDatabase {
+  listMine(query: MyAccessLogQuery): Promise<MyAccessLogPage>
+}
+
+/*
+ * Her cursor also carries the category it was issued under, so a page never resumes a
+ * different question from a position that means nothing in it.
+ */
+export function encodeMyAccessEventCursor(
+  cursor: AccessEventCursor,
+  scopeCode: ScopeCode | undefined,
+): string {
+  return Buffer.from(
+    JSON.stringify({ at: cursor.at, id: cursor.id, scope: scopeCode ?? null }),
+    'utf8',
+  ).toString('base64url')
+}
+
+export function decodeMyAccessEventCursor(
+  value: string,
+  scopeCode: ScopeCode | undefined,
+): AccessEventCursor | undefined {
+  const cursor = decodeAccessEventCursor(value)
+  if (!cursor) return undefined
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
+    const scope =
+      typeof parsed === 'object' && parsed !== null && 'scope' in parsed ? parsed.scope : undefined
+    return scope === (scopeCode ?? null) ? cursor : undefined
+  } catch {
+    return undefined
+  }
+}

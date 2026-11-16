@@ -30,6 +30,14 @@ describe('dictionaries', () => {
     }
   })
 
+  // A rule for every Allfit One site: page titles never use «·», «-», «–» or «—».
+  test('the page title separates its parts with « | »', () => {
+    for (const dictionary of [es, en]) {
+      expect(dictionary.meta.title).toMatch(/^Allfit Space \| \S/)
+      expect(dictionary.meta.title).not.toMatch(/·| [-–—] /)
+    }
+  })
+
   test('every text starts with a capital letter or a number', () => {
     for (const dictionary of [es, en]) {
       const lower = leaves(dictionary).filter(

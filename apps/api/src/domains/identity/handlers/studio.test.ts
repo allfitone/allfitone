@@ -24,6 +24,7 @@ function fakeProvider(overrides: Partial<AuthProvider> = {}): AuthProvider {
       subject: 'user_01ABC',
       sessionId: 'session_01XYZ',
       surface: 'studio',
+      authenticatedAt: null,
     }),
     verifyWebhookEvent: async () => null,
     authenticateWithPassword: async () => {
@@ -114,6 +115,31 @@ describe('GET /auth/start', () => {
     expect(cookie.value).toBe(cookie.state)
   })
 
+  test('asks for no particular freshness on an ordinary sign-in', async () => {
+    const requests: Parameters<AuthProvider['getAuthorizationUrl']>[0][] = []
+    const provider = fakeProvider({
+      getAuthorizationUrl: (request) => {
+        requests.push(request)
+        return AUTHORIZE_URL
+      },
+    })
+    await app(provider).request('/studio/v1/auth/start')
+    expect(requests[0]?.maxAgeSeconds).toBeUndefined()
+  })
+
+  test('forces WorkOS to authenticate again when the step-up asks for it', async () => {
+    const requests: Parameters<AuthProvider['getAuthorizationUrl']>[0][] = []
+    const provider = fakeProvider({
+      getAuthorizationUrl: (request) => {
+        requests.push(request)
+        return AUTHORIZE_URL
+      },
+    })
+    const response = await app(provider).request('/studio/v1/auth/start?reauthenticate=true')
+    expect(response.status).toBe(302)
+    expect(requests[0]?.maxAgeSeconds).toBe(0)
+  })
+
   test('protects and scopes the state cookie', async () => {
     const previousNodeEnv = process.env.NODE_ENV
     process.env.NODE_ENV = 'production'
@@ -192,7 +218,16 @@ describe('GET /auth/callback', () => {
   })
 
   test('rejects malformed and replayed states without consuming active flows', async () => {
-    const instance = app()
+    let codesCompleted = 0
+    const instance = app(
+      fakeProvider(),
+      fakeSessions({
+        completeCode: async () => {
+          codesCompleted += 1
+          return { opaqueToken: 'opaque-session' }
+        },
+      }),
+    )
     const active = stateCookieFrom(await instance.request('/studio/v1/auth/start'))
     const malformed = await instance.request('/studio/v1/auth/callback?code=abc&state=not-base64', {
       headers: { cookie: `${active.name}=${active.value}` },
@@ -207,9 +242,13 @@ describe('GET /auth/callback', () => {
       },
     )
     expect(valid.status).toBe(303)
+    expect(valid.headers.get('location')).toBe('http://localhost:3000/app')
 
+    // A replay lands where an expired flow does: no code is used and no session is set.
     const replay = await instance.request(`/studio/v1/auth/callback?code=abc&state=${active.state}`)
-    expect(replay.status).toBe(400)
+    expect(replay.headers.get('location')).toBe('http://localhost:3000/?access=expired')
+    expect(replay.headers.get('set-cookie')).toBeNull()
+    expect(codesCompleted).toBe(1)
   })
 
   test('accepts and consumes the legacy state cookie during rollout', async () => {
@@ -222,14 +261,24 @@ describe('GET /auth/callback', () => {
     expect(response.headers.get('set-cookie')).toContain(`${LEGACY_STATE_COOKIE}=;`)
   })
 
-  test('rejects a missing state cookie as an expired flow', async () => {
-    const response = await app().request(
-      `/studio/v1/auth/callback?code=abc&state=${'C'.repeat(43)}`,
-    )
-    expect(response.status).toBe(400)
-    await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'invalid-request', detail: 'missing or expired state cookie' },
-    })
+  // A sign-up that waits on its verification email outlives the ten-minute state.
+  test('returns an expired flow to the landing with a notice, without using its code', async () => {
+    let codesCompleted = 0
+    const response = await app(
+      fakeProvider(),
+      fakeSessions({
+        completeCode: async () => {
+          codesCompleted += 1
+          return { opaqueToken: 'opaque-session' }
+        },
+      }),
+    ).request(`/studio/v1/auth/callback?code=abc&state=${'C'.repeat(43)}`)
+
+    expect(response.status).toBe(303)
+    expect(response.headers.get('location')).toBe('http://localhost:3000/?access=expired')
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('set-cookie')).toBeNull()
+    expect(codesCompleted).toBe(0)
   })
 })
 
@@ -244,7 +293,27 @@ describe('GET /session', () => {
       authenticated: true,
       registration_status: 'complete',
       identity: { given_name: 'Ada', family_name: 'Lovelace' },
+      recent_authentication_expires_at: null,
       analytics: { distinct_id: null },
+    })
+  })
+
+  test('says until when the sign-in counts as recent, for the step-up screen', async () => {
+    const response = await app(
+      fakeProvider(),
+      fakeSessions({
+        readSession: async () => ({
+          authenticated: true,
+          registration_status: 'complete',
+          identity: { given_name: 'Ada', family_name: 'Lovelace' },
+          recent_authentication_expires_at: '2026-11-08T15:10:00.000Z',
+        }),
+      }),
+    ).request('/studio/v1/session', {
+      headers: { cookie: 'allfit_studio_session=opaque-session' },
+    })
+    await expect(response.json()).resolves.toMatchObject({
+      recent_authentication_expires_at: '2026-11-08T15:10:00.000Z',
     })
   })
 

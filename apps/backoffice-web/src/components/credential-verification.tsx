@@ -62,6 +62,7 @@ import {
   decisionSuccess,
   draftFor,
   formatDay,
+  kindHint,
   kindLabel,
   methodHint,
   methodLabel,
@@ -244,6 +245,9 @@ export function CredentialVerification() {
                     <Badge id={`vr-kind-${request.request_id}`} variant="secondary">
                       {kindLabel(request.kind)}
                     </Badge>
+                    {kindHint(request.kind) ? (
+                      <span data-verification-kind-hint> {kindHint(request.kind)}</span>
+                    ) : null}
                   </dd>
                   <dt>Emisor</dt>
                   <dd>

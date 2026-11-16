@@ -1,5 +1,10 @@
 import type { AuthenticatedIdentity, SessionTokens } from '@allfitone/auth-provider'
 
+// ADR-046. PostgreSQL enforces both (`access_control.backoffice_idle_limit` and
+// `backoffice_session_lifetime`); these only shape the cookie and the countdown.
+export const BACKOFFICE_IDLE_LIMIT_MS = 60 * 60 * 1000
+export const BACKOFFICE_SESSION_LIFETIME_SECONDS = 12 * 60 * 60
+
 export type BackofficeAttemptState =
   'pending_enrollment' | 'pending_challenge' | 'completed' | 'failed' | 'expired'
 

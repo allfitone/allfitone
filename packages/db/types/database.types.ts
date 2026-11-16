@@ -35,12 +35,18 @@ export type Database = {
         Args: never
         Returns: Database['identity']['Enums']['actor_kind']
       }
+      backoffice_idle_limit: { Args: never; Returns: string }
+      backoffice_session_lifetime: { Args: never; Returns: string }
       can_access: {
         Args: {
           p_level: 'read' | 'contribute'
           p_relationship_id: string
           p_scope_code: string
         }
+        Returns: boolean
+      }
+      can_read_frozen: {
+        Args: { p_case_id: string; p_resource: string; p_scope_code: string }
         Returns: boolean
       }
       can_read_membership_event: {
@@ -54,6 +60,14 @@ export type Database = {
         Returns: string
       }
       counts_platform_metrics: { Args: never; Returns: boolean }
+      frozen_case_covers_person: {
+        Args: { p_person_id: string }
+        Returns: boolean
+      }
+      frozen_case_covers_relationship: {
+        Args: { p_relationship_id: string }
+        Returns: boolean
+      }
       grant_of: {
         Args: { p_relationship_id: string; p_scope_code: string }
         Returns: {
@@ -90,6 +104,10 @@ export type Database = {
         Args: { p_relationship_id: string }
         Returns: boolean
       }
+      historical_case_exercisable: {
+        Args: { p_case_id: string }
+        Returns: boolean
+      }
       holds_backoffice_duty: { Args: { p_duty_code: string }; Returns: boolean }
       is_self: { Args: { target_person_id: string }; Returns: boolean }
       open_contract_scope: {
@@ -99,6 +117,16 @@ export type Database = {
       org: { Args: never; Returns: string }
       owns_membership: { Args: { p_membership_id: string }; Returns: boolean }
       person: { Args: never; Returns: string }
+      reads_frozen_session: {
+        Args: {
+          p_context_relationship_id: string
+          p_ended_at: string
+          p_is_autonomous: boolean
+          p_person_id: string
+          p_session_id: string
+        }
+        Returns: boolean
+      }
       reads_under_break_glass: {
         Args: { p_category: string; p_subject_person_id: string }
         Returns: boolean
@@ -465,6 +493,50 @@ export type Database = {
           },
         ]
       }
+      movement_revisions: {
+        Row: {
+          actor_membership_id: string
+          after: Json
+          before: Json
+          created_at: string
+          id: string
+          movement_id: string
+          organization_id: string
+          revision_from: number
+          revision_to: number
+        }
+        Insert: {
+          actor_membership_id: string
+          after: Json
+          before: Json
+          created_at?: string
+          id: string
+          movement_id: string
+          organization_id: string
+          revision_from: number
+          revision_to: number
+        }
+        Update: {
+          actor_membership_id?: string
+          after?: Json
+          before?: Json
+          created_at?: string
+          id?: string
+          movement_id?: string
+          organization_id?: string
+          revision_from?: number
+          revision_to?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_movement_revisions_movement'
+            columns: ['movement_id']
+            isOneToOne: false
+            referencedRelation: 'movements'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       movement_variants: {
         Row: {
           base_movement_id: string
@@ -508,36 +580,42 @@ export type Database = {
         Row: {
           content_scope: Database['catalog']['Enums']['content_scope']
           created_at: string
+          created_by_membership_id: string | null
           discipline_code: string
           id: string
           name: string
           normalized_name: string
           owner_organization_id: string | null
           owner_person_id: string | null
+          revision_number: number
           status: Database['catalog']['Enums']['publication_status']
           successor_movement_id: string | null
         }
         Insert: {
           content_scope: Database['catalog']['Enums']['content_scope']
           created_at?: string
+          created_by_membership_id?: string | null
           discipline_code: string
           id?: string
           name: string
           normalized_name: string
           owner_organization_id?: string | null
           owner_person_id?: string | null
+          revision_number?: number
           status?: Database['catalog']['Enums']['publication_status']
           successor_movement_id?: string | null
         }
         Update: {
           content_scope?: Database['catalog']['Enums']['content_scope']
           created_at?: string
+          created_by_membership_id?: string | null
           discipline_code?: string
           id?: string
           name?: string
           normalized_name?: string
           owner_organization_id?: string | null
           owner_person_id?: string | null
+          revision_number?: number
           status?: Database['catalog']['Enums']['publication_status']
           successor_movement_id?: string | null
         }
@@ -776,6 +854,42 @@ export type Database = {
           result: Json
         }[]
       }
+      archive_organization_movement: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_movement_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      clean_movement_aliases: {
+        Args: { p_aliases: string[]; p_normalized_name: string }
+        Returns: string[]
+      }
+      create_organization_movement: {
+        Args: {
+          p_aliases: string[]
+          p_command_id: string
+          p_discipline_code: string
+          p_equipment: string[]
+          p_idempotency_key: string
+          p_name: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+          p_variant: Json
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       deprecate_result_contract: {
         Args: {
           p_actor_person_id: string
@@ -815,6 +929,7 @@ export type Database = {
       list_activity_types: {
         Args: never
         Returns: {
+          activity_family: Database['catalog']['Enums']['activity_family']
           code: string
           discipline_code: string
           id: string
@@ -867,7 +982,17 @@ export type Database = {
           sort_name: string
         }[]
       }
+      movement_equipment_ids: { Args: { p_codes: string[] }; Returns: string[] }
+      movement_in_use: { Args: { p_movement_id: string }; Returns: boolean }
+      movement_revision_document: {
+        Args: { p_movement_id: string }
+        Returns: Json
+      }
       normalize_movement_name: { Args: { p_name: string }; Returns: string }
+      organization_movement_document: {
+        Args: { p_movement_id: string }
+        Returns: Json
+      }
       publish_activity_type: {
         Args: {
           p_actor_person_id: string
@@ -968,13 +1093,51 @@ export type Database = {
         Returns: Json
       }
       read_muscles: { Args: { p_person_id: string }; Returns: Json }
+      read_organization_movement: {
+        Args: {
+          p_movement_id: string
+          p_organization_id: string
+          p_person_id: string
+        }
+        Returns: Json
+      }
+      replace_movement_details: {
+        Args: {
+          p_aliases: string[]
+          p_equipment_ids: string[]
+          p_movement_id: string
+          p_replace_variant: boolean
+          p_variant: Json
+        }
+        Returns: undefined
+      }
       require_catalog_reader: { Args: never; Returns: string }
       require_global_catalog_curator: {
         Args: { p_actor_person_id: string; p_actor_session_id: string }
         Returns: undefined
       }
+      require_movement_member: {
+        Args: {
+          p_capability: string
+          p_organization_id: string
+          p_person_id: string
+        }
+        Returns: string
+      }
       result_contract_projection: {
         Args: { p_contract_id: string }
+        Returns: Json
+      }
+      search_organization_movements: {
+        Args: {
+          p_cursor: string
+          p_discipline_code: string
+          p_include_archived: boolean
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_query: string
+        }
         Returns: Json
       }
       set_global_movement_equipment: {
@@ -992,6 +1155,23 @@ export type Database = {
           result: Json
         }[]
       }
+      update_organization_movement: {
+        Args: {
+          p_changes: Json
+          p_command_id: string
+          p_expected_revision: number
+          p_idempotency_key: string
+          p_movement_id: string
+          p_organization_id: string
+          p_person_id: string
+          p_request_hash: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      valid_movement_variant: { Args: { p_variant: Json }; Returns: boolean }
     }
     Enums: {
       activity_family: 'strength' | 'endurance' | 'interval' | 'mobility'
@@ -1103,6 +1283,7 @@ export type Database = {
           access_token_expires_at: string
           assurance_level: number
           assurance_verified_at: string | null
+          authenticated_at: string | null
           authentication_method: string | null
           created_at: string
           id: string
@@ -1121,6 +1302,7 @@ export type Database = {
           access_token_expires_at: string
           assurance_level?: number
           assurance_verified_at?: string | null
+          authenticated_at?: string | null
           authentication_method?: string | null
           created_at?: string
           id?: string
@@ -1139,6 +1321,7 @@ export type Database = {
           access_token_expires_at?: string
           assurance_level?: number
           assurance_verified_at?: string | null
+          authenticated_at?: string | null
           authentication_method?: string | null
           created_at?: string
           id?: string
@@ -1273,21 +1456,27 @@ export type Database = {
         Row: {
           id: string
           media_ref: string
+          next_attempt_at: string | null
           person_id: string
+          purge_attempts: number
           requested_at: string
           sealed_at: string | null
         }
         Insert: {
           id?: string
           media_ref: string
+          next_attempt_at?: string | null
           person_id: string
+          purge_attempts?: number
           requested_at?: string
           sealed_at?: string | null
         }
         Update: {
           id?: string
           media_ref?: string
+          next_attempt_at?: string | null
           person_id?: string
+          purge_attempts?: number
           requested_at?: string
           sealed_at?: string | null
         }
@@ -1719,7 +1908,10 @@ export type Database = {
           action_kind: Database['identity']['Enums']['identity_action_kind']
           cancelled_at: string | null
           case_reference: string | null
+          code_attempts: number
+          code_hash: string | null
           confirmed_at: string | null
+          confirming_session_id: string | null
           contact_fingerprint: string
           contact_hint: string
           created_at: string
@@ -1733,6 +1925,7 @@ export type Database = {
           initiated_by_kind: string
           initiated_by_person_id: string
           person_id: string
+          proposed_email: string | null
           status: Database['identity']['Enums']['identity_action_status']
           updated_at: string
         }
@@ -1741,7 +1934,10 @@ export type Database = {
           action_kind: Database['identity']['Enums']['identity_action_kind']
           cancelled_at?: string | null
           case_reference?: string | null
+          code_attempts?: number
+          code_hash?: string | null
           confirmed_at?: string | null
+          confirming_session_id?: string | null
           contact_fingerprint: string
           contact_hint: string
           created_at?: string
@@ -1755,6 +1951,7 @@ export type Database = {
           initiated_by_kind: string
           initiated_by_person_id: string
           person_id: string
+          proposed_email?: string | null
           status?: Database['identity']['Enums']['identity_action_status']
           updated_at?: string
         }
@@ -1763,7 +1960,10 @@ export type Database = {
           action_kind?: Database['identity']['Enums']['identity_action_kind']
           cancelled_at?: string | null
           case_reference?: string | null
+          code_attempts?: number
+          code_hash?: string | null
           confirmed_at?: string | null
+          confirming_session_id?: string | null
           contact_fingerprint?: string
           contact_hint?: string
           created_at?: string
@@ -1777,6 +1977,7 @@ export type Database = {
           initiated_by_kind?: string
           initiated_by_person_id?: string
           person_id?: string
+          proposed_email?: string | null
           status?: Database['identity']['Enums']['identity_action_status']
           updated_at?: string
         }
@@ -2147,6 +2348,48 @@ export type Database = {
           },
         ]
       }
+      password_changes: {
+        Row: {
+          access_account_id: string
+          created_at: string
+          id: string
+          keep_session_id: string | null
+          outcome: string
+          person_id: string
+        }
+        Insert: {
+          access_account_id: string
+          created_at?: string
+          id: string
+          keep_session_id?: string | null
+          outcome: string
+          person_id: string
+        }
+        Update: {
+          access_account_id?: string
+          created_at?: string
+          id?: string
+          keep_session_id?: string | null
+          outcome?: string
+          person_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_password_changes_account'
+            columns: ['access_account_id']
+            isOneToOne: false
+            referencedRelation: 'access_accounts'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'fk_password_changes_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       password_reset_receipts: {
         Row: {
           access_account_id: string | null
@@ -2474,6 +2717,7 @@ export type Database = {
           created_at: string
           data_classification_code: string
           id: string
+          multivalued: boolean
           name: string
           unit_dimension: string | null
           value_kind: string
@@ -2484,6 +2728,7 @@ export type Database = {
           created_at?: string
           data_classification_code: string
           id?: string
+          multivalued?: boolean
           name: string
           unit_dimension?: string | null
           value_kind: string
@@ -2494,6 +2739,7 @@ export type Database = {
           created_at?: string
           data_classification_code?: string
           id?: string
+          multivalued?: boolean
           name?: string
           unit_dimension?: string | null
           value_kind?: string
@@ -2576,6 +2822,14 @@ export type Database = {
           result: Json
         }[]
       }
+      claim_body_photo_disposals: {
+        Args: { p_limit: number }
+        Returns: {
+          id: string
+          media_ref: string
+          purge_attempts: number
+        }[]
+      }
       client_invitation_projection: {
         Args: { p_invitation_id: string }
         Returns: {
@@ -2618,6 +2872,10 @@ export type Database = {
           session_id: string
         }[]
       }
+      complete_email_change: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
       consume_account_recovery_send: {
         Args: { p_person_id: string }
         Returns: undefined
@@ -2630,10 +2888,78 @@ export type Database = {
         }
         Returns: undefined
       }
+      correct_health_context: {
+        Args: {
+          p_body_area: string
+          p_claim_id: string
+          p_command_id: string
+          p_context_type: string
+          p_description: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+          p_valid_from: string
+          p_valid_to: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      correct_own_biological_sex: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+          p_value: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      correct_own_name: {
+        Args: {
+          p_command_id: string
+          p_family_name: string
+          p_given_name: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+          p_username: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
+      correct_own_phone: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_phone: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       create_access_session: {
         Args: {
           p_access_account_id: string
           p_access_token_expires_at: string
+          p_authenticated_at?: string
           p_provider_session_id: string
           p_surface: Database['identity']['Enums']['access_session_surface']
           p_token_ciphertext: string
@@ -2649,9 +2975,17 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: Json
       }
+      credential_verification_is_effective: {
+        Args: { p_person_id: string; p_type: string; p_verification_id: string }
+        Returns: boolean
+      }
       credential_verification_method_for: {
         Args: { p_credential_type_code: string }
         Returns: string
+      }
+      current_available_equipment: {
+        Args: { p_person_id: string }
+        Returns: Json
       }
       current_focus_areas: { Args: { p_person_id: string }; Returns: string[] }
       decide_client_invitation: {
@@ -2765,6 +3099,21 @@ export type Database = {
           organization_id: string
           proposed_role_code: string
           replayed: boolean
+        }[]
+      }
+      declare_available_equipment: {
+        Args: {
+          p_command_id: string
+          p_equipment: string[]
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
         }[]
       }
       declare_biological_sex: {
@@ -2895,6 +3244,14 @@ export type Database = {
         }
         Returns: string
       }
+      effective_credential_verification: {
+        Args: { p_person_id: string; p_type: string }
+        Returns: string
+      }
+      email_change_code_hash: {
+        Args: { p_code: string; p_request_id: string }
+        Returns: string
+      }
       expire_backoffice_authentication_attempts: {
         Args: { p_limit: number }
         Returns: number
@@ -2902,6 +3259,14 @@ export type Database = {
       expire_backoffice_sessions: { Args: { p_limit: number }; Returns: number }
       expire_staff_invitations: { Args: { p_limit?: number }; Returns: number }
       fail_account_recovery_delivery: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      fail_email_change_apply: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      fail_email_change_delivery: {
         Args: { p_event_id: string }
         Returns: undefined
       }
@@ -3070,6 +3435,19 @@ export type Database = {
           last_valid_to: string
         }[]
       }
+      list_frozen_body_progress: {
+        Args: {
+          p_case_id: string
+          p_cursor_id: string
+          p_cursor_measured_on: string
+          p_limit: number
+          p_organization_id: string
+          p_person_id: string
+          p_relationship_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
       list_health_context: {
         Args: {
           p_before_id?: string
@@ -3127,6 +3505,7 @@ export type Database = {
           person_id: string
           person_status: string
           provider_session_id: string
+          recent_authentication_expires_at: string
           session_id: string
           token_ciphertext: string
           token_version: number
@@ -3222,6 +3601,11 @@ export type Database = {
           result: Json
         }[]
       }
+      own_email_change_document: {
+        Args: { p_person_id: string }
+        Returns: Json
+      }
+      own_name_document: { Args: { p_person_id: string }; Returns: Json }
       prepare_account_recovery_delivery: {
         Args: { p_event_id: string }
         Returns: {
@@ -3249,6 +3633,26 @@ export type Database = {
           token_key_version: number
         }[]
       }
+      prepare_email_change_apply: {
+        Args: { p_event_id: string }
+        Returns: {
+          apply_state: string
+          keep_session: string
+          new_email: string
+          previous_email: string
+          request_id: string
+          subject: string
+        }[]
+      }
+      prepare_email_change_delivery: {
+        Args: { p_event_id: string }
+        Returns: {
+          contact: string
+          delivery_state: string
+          expires_at: string
+          request_id: string
+        }[]
+      }
       prepare_ownership_invitation_delivery: {
         Args: { p_event_id: string }
         Returns: {
@@ -3258,6 +3662,28 @@ export type Database = {
           invitation_id: string
           organization_name: string
           token_key_version: number
+        }[]
+      }
+      prepare_password_change: {
+        Args: {
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_subject: string
+        }
+        Returns: {
+          password_state: string
+          sign_in_email: string
+        }[]
+      }
+      prepare_password_change_notice: {
+        Args: { p_event_id: string }
+        Returns: {
+          change_id: string
+          keep_session: string
+          notice_state: string
+          sign_in_email: string
+          subject: string
         }[]
       }
       prepare_staff_invitation_delivery: {
@@ -3352,6 +3778,14 @@ export type Database = {
           status: string
         }[]
       }
+      read_own_identity: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: Json
+      }
+      read_own_profile: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: Json
+      }
       read_training_profile: {
         Args: { p_person_id: string }
         Returns: {
@@ -3362,6 +3796,7 @@ export type Database = {
           training_experience: string
         }[]
       }
+      recent_authentication_window: { Args: never; Returns: string }
       record_account_recovery_access: {
         Args: { p_actor_person_id: string; p_person_id: string }
         Returns: undefined
@@ -3423,6 +3858,10 @@ export type Database = {
           value_numeric: number
         }[]
       }
+      record_email_change_code: {
+        Args: { p_code: string; p_event_id: string }
+        Returns: undefined
+      }
       record_health_context: {
         Args: {
           p_body_area: string
@@ -3442,6 +3881,20 @@ export type Database = {
           result: Json
         }[]
       }
+      record_password_change: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_keep_session_id: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+        }[]
+      }
       recover_backoffice_totp_factor: {
         Args: {
           p_approved_by_person_id: string
@@ -3450,6 +3903,25 @@ export type Database = {
           p_subject_person_id: string
         }
         Returns: string
+      }
+      reject_password_change: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: undefined
+      }
+      request_email_change: {
+        Args: {
+          p_command_id: string
+          p_email: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
       }
       require_account_recovery_assistant: {
         Args: { p_actor_person_id: string; p_actor_session_id: string }
@@ -3465,6 +3937,10 @@ export type Database = {
       }
       require_professional_actor: {
         Args: { p_person_id: string }
+        Returns: undefined
+      }
+      require_recent_studio_authentication: {
+        Args: { p_session_id: string }
         Returns: undefined
       }
       require_space_person: {
@@ -3661,6 +4137,10 @@ export type Database = {
         Args: { p_media_ref: string; p_person_id: string }
         Returns: undefined
       }
+      seal_swept_body_photo_disposal: {
+        Args: { p_disposal_id: string }
+        Returns: boolean
+      }
       share_body_photo: {
         Args: {
           p_body_photo_id: string
@@ -3764,6 +4244,22 @@ export type Database = {
         }
         Returns: undefined
       }
+      verify_email_change: {
+        Args: {
+          p_code: string
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_session_id: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
+          result: Json
+        }[]
+      }
       withdraw_body_photo_share: {
         Args: {
           p_body_photo_id: string
@@ -3786,9 +4282,15 @@ export type Database = {
         'pending_enrollment' | 'pending_challenge' | 'completed' | 'failed' | 'expired'
       biological_sex: 'male' | 'female'
       eligibility_result: 'pass' | 'fail' | 'review_required' | 'unknown'
-      identity_action_kind: 'account_recovery'
+      identity_action_kind: 'account_recovery' | 'email_change'
       identity_action_status:
-        'initiated' | 'awaiting_verification' | 'confirmed' | 'expired' | 'cancelled' | 'failed'
+        | 'initiated'
+        | 'awaiting_verification'
+        | 'applying'
+        | 'confirmed'
+        | 'expired'
+        | 'cancelled'
+        | 'failed'
       invitation_intent_kind:
         'membership' | 'service_relationship' | 'program_assignment' | 'ownership'
       invitation_intent_status: 'pending' | 'accepted' | 'rejected' | 'revoked' | 'expired'
@@ -6615,10 +7117,11 @@ export const Constants = {
       ],
       biological_sex: ['male', 'female'],
       eligibility_result: ['pass', 'fail', 'review_required', 'unknown'],
-      identity_action_kind: ['account_recovery'],
+      identity_action_kind: ['account_recovery', 'email_change'],
       identity_action_status: [
         'initiated',
         'awaiting_verification',
+        'applying',
         'confirmed',
         'expired',
         'cancelled',

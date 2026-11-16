@@ -31,6 +31,7 @@ export const BACKOFFICE_ROUTES: readonly WorkspaceRoute[] = [
   { href: '/organizations', title: 'Gimnasios', icon: 'organization', area: 'A10' },
   { href: '/diagnosis', title: 'Diagnóstico técnico', icon: 'activity', area: 'A10' },
   { href: '/plans', title: 'Planes de Allfit One', icon: 'business', area: 'A10' },
+  { href: '/waitlist', title: 'Lista de espera', icon: 'checklist', area: 'A10' },
   { href: '/verifications', title: 'Verificación de títulos', icon: 'check', area: 'A11' },
   { href: '/catalogue', title: 'Catálogo global', icon: 'training', area: 'A11' },
   {

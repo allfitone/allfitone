@@ -126,6 +126,35 @@ describe('Studio surface CORS', () => {
     )
   })
 
+  test('allows a gym to edit its own movement from the Studio origin', async () => {
+    process.env.API_PUBLIC_URL = 'https://api.example.test'
+    process.env.STUDIO_WEB_URL = 'https://studio.example.test'
+    process.env.BACKOFFICE_WEB_URL = 'https://backoffice.example.test'
+
+    const movement = await createApp().request(
+      '/studio/v1/organizations/019a0ab9-b723-7b7b-954d-5385eb5d1ea9/movements/019f5707-0000-7000-8000-0000000000a1',
+      {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://studio.example.test',
+          'access-control-request-method': 'PATCH',
+          'access-control-request-headers': 'content-type,idempotency-key,command-id',
+        },
+      },
+    )
+
+    const allowedMethods = (movement.headers.get('access-control-allow-methods') ?? '')
+      .toUpperCase()
+      .split(',')
+      .map((method) => method.trim())
+    expect(movement.status).toBe(204)
+    expect(movement.headers.get('access-control-allow-origin')).toBe('https://studio.example.test')
+    expect(allowedMethods).toContain('PATCH')
+    expect(
+      (movement.headers.get('access-control-allow-headers') ?? '').toLowerCase().split(','),
+    ).toEqual(expect.arrayContaining(['content-type', 'idempotency-key', 'command-id']))
+  })
+
   test('allows a coach to read the corrections he proposed from the Studio origin', async () => {
     process.env.API_PUBLIC_URL = 'https://api.example.test'
     process.env.STUDIO_WEB_URL = 'https://studio.example.test'

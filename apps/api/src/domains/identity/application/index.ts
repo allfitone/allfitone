@@ -46,6 +46,8 @@ export interface StudioSessionService {
     authenticated: true
     registration_status: RegistrationStatus
     identity: { given_name: string | null; family_name: string | null }
+    /** Optional only for injected test seams, like analytics; the handler answers null. */
+    recent_authentication_expires_at?: string | null
     analytics?: AnalyticsIdentity
   }>
   resolveActor(opaqueToken: string): Promise<AccountActor>
@@ -127,6 +129,7 @@ export function createStudioSessionService(
           context,
         ),
         accessTokenExpiresAt: expiresAt(result.tokens, now()),
+        authenticatedAt: verified.authenticatedAt,
       })
       return { opaqueToken }
     },
@@ -140,6 +143,8 @@ export function createStudioSessionService(
           given_name: context.identity.givenName,
           family_name: context.identity.familyName,
         },
+        recent_authentication_expires_at:
+          context.recentAuthenticationExpiresAt?.toISOString() ?? null,
         analytics: context.analytics ?? { distinct_id: null },
       }
     },
@@ -215,8 +220,10 @@ export function createStudioSessionService(
       actor: {
         accountId: session.accountId,
         ...(registration.personId ? { personId: registration.personId } : {}),
+        sessionId: session.sessionId,
       },
       identity: secret.identity,
+      recentAuthenticationExpiresAt: session.recentAuthenticationExpiresAt,
       analytics: analyticsIdentityForSurfaceFromEnvironment(
         'studio',
         dependencies.issuer,

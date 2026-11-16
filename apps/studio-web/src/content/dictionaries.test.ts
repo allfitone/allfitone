@@ -42,6 +42,13 @@ describe('landing dictionaries', () => {
     }
   })
 
+  test('the page title separates its parts with « | »', () => {
+    for (const dictionary of [es, en]) {
+      expect(dictionary.meta.title).toMatch(/^Allfit Studio \| \S/)
+      expect(dictionary.meta.title).not.toMatch(/·| [-–—] /)
+    }
+  })
+
   // A forgotten translation reads as Spanish on the English page. These three
   // are the same word in both languages.
   test('English translates everything else', () => {

@@ -10,7 +10,7 @@ import { spaceHealthContextRoutes } from './space-health-context.js'
 const CLAIM_ID = '019b6000-0000-7000-8000-000000000501'
 const CASE_ID = '019b6000-0000-7000-8000-000000000901'
 const IDEMPOTENCY_KEY = 'a0000000-0000-4000-8000-000000000601'
-const OPERATIONS = ['OP-IDN-008', 'OP-IDN-049', 'OP-IDN-050']
+const OPERATIONS = ['OP-IDN-008', 'OP-IDN-049', 'OP-IDN-050', 'OP-IDN-067']
 
 const claim: AllfitV1Schemas['HealthContextClaim'] = {
   id: CLAIM_ID,
@@ -36,6 +36,13 @@ function healthService(overrides: Partial<HealthContextService> = {}): HealthCon
     declare: (verifiedToken, input) => {
       captured.push({ operation: 'declare', token: verifiedToken, input })
       return Promise.resolve({ resource: claim, replayed: false })
+    },
+    correct: (verifiedToken, input) => {
+      captured.push({ operation: 'correct', token: verifiedToken, input })
+      return Promise.resolve({
+        resource: { ...claim, ...input.claim, description: input.claim.description.trim() },
+        replayed: false,
+      })
     },
     delete: (verifiedToken, input) => {
       captured.push({ operation: 'delete', token: verifiedToken, input })
@@ -83,7 +90,7 @@ function request(
 
 function command(
   path: string,
-  method: 'POST' | 'DELETE',
+  method: 'POST' | 'PUT' | 'DELETE',
   body?: unknown,
   headers: Record<string, string> = {},
 ): Request {
@@ -118,7 +125,7 @@ beforeEach(() => {
 })
 
 describe('Space health context API contract', () => {
-  test('T-IDN-HEALTH-API-01 mounts the read and both commands with their contract methods', () => {
+  test('T-IDN-HEALTH-API-01 mounts the read and the three commands with their contract methods', () => {
     const contract = allfitV1ContractManifest.operations
       .filter((operation) => OPERATIONS.includes(operation.allfitOperation))
       .map((operation) => `${operation.method} ${colonPath(operation.path)}`)
@@ -128,7 +135,7 @@ describe('Space health context API contract', () => {
       .map((route) => `${route.method} /space/v1${route.path}`)
       .sort()
 
-    expect(contract).toHaveLength(3)
+    expect(contract).toHaveLength(4)
     expect(mounted).toEqual(contract)
   })
 
@@ -141,6 +148,7 @@ describe('Space health context API contract', () => {
 
     expect(mounted).toContain('GET /space/v1/health-context')
     expect(mounted).toContain('POST /space/v1/health-context')
+    expect(mounted).toContain('PUT /space/v1/health-context/:claimId')
     expect(mounted).toContain('DELETE /space/v1/health-context/:claimId')
   })
 
@@ -336,5 +344,77 @@ describe('Space health context API contract', () => {
 
     expect(answers.map((response) => response.status)).toEqual([401, 401, 401])
     expect(captured).toEqual([])
+  })
+
+  test('T-IDN-HEALTH-API-12 corrects a claim in place and answers it as it now stands', async () => {
+    const corrected = {
+      context_type: 'recovery',
+      description: ' La derecha. Ya camino bien. ',
+      body_area: 'knee',
+      valid_from: '2026-09-06T10:00:00.000Z',
+      valid_to: '2026-12-15T00:00:00.000Z',
+    }
+    const response = await routes().fetch(
+      command(`/health-context/${CLAIM_ID}`, 'PUT', corrected, {
+        'command-id': '019b6000-0000-7000-8000-000000000777',
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    await expect(response.json()).resolves.toMatchObject({
+      id: CLAIM_ID,
+      context_type: 'recovery',
+      description: 'La derecha. Ya camino bien.',
+      valid_to: '2026-12-15T00:00:00.000Z',
+    })
+    expect(captured[0]).toMatchObject({
+      operation: 'correct',
+      input: {
+        claimId: CLAIM_ID,
+        commandId: '019b6000-0000-7000-8000-000000000777',
+        claim: { context_type: 'recovery', body_area: 'knee' },
+      },
+    })
+  })
+
+  test('T-IDN-HEALTH-API-13 a correction says when it replays', async () => {
+    const response = await routes(
+      healthService({ correct: async () => ({ resource: claim, replayed: true }) }),
+    ).fetch(command(`/health-context/${CLAIM_ID}`, 'PUT', declaration))
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('idempotent-replay')).toBe('true')
+  })
+
+  test('T-IDN-HEALTH-API-14 refuses a correction the database would refuse anyway', async () => {
+    const answers = await Promise.all([
+      routes().fetch(command('/health-context/not-a-claim', 'PUT', declaration)),
+      routes().fetch(
+        command(`/health-context/${CLAIM_ID}`, 'PUT', {
+          ...declaration,
+          context_type: 'diagnosis',
+        }),
+      ),
+      routes().fetch(
+        command(`/health-context/${CLAIM_ID}`, 'PUT', { ...declaration, diagnosis: 'x' }),
+      ),
+    ])
+
+    expect(answers.map((response) => response.status)).toEqual([400, 422, 422])
+    expect(captured).toEqual([])
+  })
+
+  test('T-IDN-HEALTH-API-15 a claim that is not hers is 404, and a held one is 409', async () => {
+    const refused = (sqlState: string) =>
+      routes(
+        healthService({
+          correct: () => Promise.reject(Object.assign(new Error('refused'), { code: sqlState })),
+        }),
+      ).fetch(command(`/health-context/${CLAIM_ID}`, 'PUT', declaration))
+
+    expect((await refused('P0002')).status).toBe(404)
+    expect((await refused('55000')).status).toBe(409)
+    expect((await refused('22023')).status).toBe(422)
   })
 })

@@ -32,7 +32,11 @@ export interface RecoveryCommandResult {
 
 export interface AccountRecoveryDatabase {
   read(
-    input: RecoveryAssistant & { requestId: string; caseReference: string; personId: string },
+    input: RecoveryAssistant & {
+      requestId: string
+      caseReference: string | null
+      personId: string
+    },
   ): Promise<BackofficeAccountRecovery>
   start(
     input: RecoveryAssistant & RecoveryCommand & { personId: string },

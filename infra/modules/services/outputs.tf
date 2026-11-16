@@ -12,6 +12,11 @@ output "log_group_names" {
 }
 
 output "execution_role_arn" {
-  description = "The only role a task definition names; the deploy role may pass it to ECS."
+  description = "The agent's role, named by every task definition; the deploy role may pass it to ECS."
   value       = aws_iam_role.execution.arn
+}
+
+output "task_role_arns" {
+  description = "The app's own role, per service that has one; the deploy role may pass them to ECS too."
+  value       = { for key, role in aws_iam_role.task : key => role.arn }
 }

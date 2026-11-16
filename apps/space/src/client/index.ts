@@ -39,7 +39,7 @@ export type RegistrationAccepted = AllfitV1Schemas['SpaceRegistrationAccepted']
 export type SessionTokens = AllfitV1Schemas['SpaceSessionTokens']
 export type SessionRefreshed = AllfitV1Schemas['SpaceSessionRefreshed']
 
-export { ApiError, type ApiFailure } from './api-error'
+export { ApiError, type ApiFailure, unreachable } from './api-error'
 import { ApiError, apiErrorFrom } from './api-error'
 
 /** The port the API listens on. Only the host varies between simulator and device. */

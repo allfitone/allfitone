@@ -249,8 +249,8 @@ describe('attention panel presentation', () => {
     expect(GYM_CHARGES_NOTE).toContain('no sabemos todavía si fallan')
   })
 
-  test('a refusal explains that the base role grants nothing', () => {
-    expect(attentionMessage('forbidden')).toContain('no basta por sí solo')
+  test('a refusal explains that the duties come with the admin role', () => {
+    expect(attentionMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(attentionMessage('unknown-code')).toBe('No se pudo leer lo que necesita atención.')
   })
 })

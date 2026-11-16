@@ -5,7 +5,8 @@
 -- relationship no longer what was proposed against cancels it, with why:
 --
 --   · `target_changed` when she corrects the session herself: its sets are written anew.
---   · `session_annulled` when she annuls it, `session_hidden` when she hides it from the gym.
+--   · `session_annulled` when she annuls it, `session_hidden` when she hides it from the gym;
+--     Studio says `session_unavailable` for both, so a hidden session leaves no trace there.
 --   · `relationship_terminated` when the relationship ends, by any of its three paths:
 --     she ends it, the gym ends it, or the organization closes.
 --
@@ -15,7 +16,7 @@
 -- Written before the migration and watched failing.
 begin;
 
-select plan(20);
+select plan(22);
 
 insert into identity.people (id, given_name, family_name, contact_email, status)
 values
@@ -409,6 +410,26 @@ select is(
    where id in ('019f5200-0000-7000-8000-000000000c03', '019f5200-0000-7000-8000-000000000c04')),
   array['cancelled:session_annulled', 'cancelled:session_hidden'],
   'T-EXE-PROPOSAL-CANCEL-INT-02 annulling a session, or hiding it from the gym, cancels what waited on it');
+
+-- HU-STUDIO-084 c4: a session she hides simply does not exist for him, so his proposals
+-- say the session is unavailable, the same word as for one she annulled.
+set local role allfit_api;
+select pg_temp.act('019f5200-0000-7000-8000-000000000012');
+select is(
+  (select array_agg(proposal->>'cancel_reason' order by proposal->>'id')
+   from execution.list_proposed_corrections(
+    '019f5200-0000-7000-8000-000000000012', '019f5200-0000-7000-8000-000000000101', null, 20, null, null) as proposal
+   where proposal->>'id' in ('019f5200-0000-7000-8000-000000000c03', '019f5200-0000-7000-8000-000000000c04')),
+  array['session_unavailable', 'session_unavailable'],
+  'T-EXE-PROPOSAL-CANCEL-LIST-03 Studio never tells a hidden session from an annulled one');
+select pg_temp.act('019f5200-0000-7000-8000-000000000001');
+select is(
+  (select array_agg(proposal->>'cancel_reason' order by proposal->>'id')
+   from execution.list_my_correction_proposals('019f5200-0000-7000-8000-000000000001', null, 20, null, null) as proposal
+   where proposal->>'id' in ('019f5200-0000-7000-8000-000000000c03', '019f5200-0000-7000-8000-000000000c04')),
+  array['session_annulled', 'session_hidden'],
+  'T-EXE-PROPOSAL-CANCEL-LIST-04 she, who did it, still sees which');
+reset role;
 
 -- The revised session's sets are new: a proposal now lands on them.
 set local role allfit_api;

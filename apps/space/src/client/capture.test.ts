@@ -130,7 +130,7 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
     expect(item).toMatchObject({ grams: 300, amount: 1.5 })
     expect(portionText(item)).toBe('1 ½ unidades')
     expect(portionText(withAmount(item, 1.5, cup, 'number'))).toBe('1,5 unidades')
-    expect(withFood(item, { ...avocado, id: 'otro', portions: [] })).toMatchObject({
+    expect(withFood(item, { ...avocado, id: 'other', portions: [] })).toMatchObject({
       grams: 300,
       amount: 300,
       unit: { label: 'g' },

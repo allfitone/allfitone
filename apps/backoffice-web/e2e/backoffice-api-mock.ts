@@ -26,6 +26,7 @@ export interface BackofficeFixture {
   organizationHandover?: OrganizationHandoverFixture
   organizationFiles?: OrganizationFileFixture
   guestQuota?: { refusal?: { status: number; code: string } }
+  waitlist?: WaitlistFixture
   teamInvitations?: TeamInvitationFixture
   clientInvitations?: ClientInvitationFixture
   accountRecovery?: AccountRecoveryFixture
@@ -99,10 +100,9 @@ export function scopeDefinition(
 /**
  * Break-glass files.
  *
- * This mock reproduces the *command's* rules, not the screen's expectations. A
- * decision appends an approval and the window opens only once the quorum is
- * complete; the requester may never decide on their own file; a rejection is
- * final; and a denied attempt still answers 200 with its reason. A mock more
+ * This mock reproduces the *command's* rules, not the screen's expectations. Asking
+ * opens the window for sixty minutes with no approval (ADR-046); only the requester
+ * exercises it; and a denied attempt still answers 200 with its reason. A mock more
  * permissive than the real command would let the screen pass while production
  * refused — which is the whole failure this file exists to prevent.
  */
@@ -178,6 +178,16 @@ export interface BreakGlassFixture {
   /** Sessions and plan under a gym; a relationship_training read returns them. */
   gymSessions?: BreakGlassSessionFixture[]
   gymAgenda?: BreakGlassAgendaFixture[]
+  /** HU-BO-008: the sessions older than the first page, answered to a read sent `before`. */
+  olderSessions?: BreakGlassSessionFixture[]
+  /** HU-BO-008 c4: what she hid from a gym, beside the sessions of either training read. */
+  hiddenSessions?: {
+    executed_session_id: string
+    relationship_id: string
+    organization_id: string
+    organization_name: string
+    hidden_at: string
+  }[]
   files: BreakGlassFileFixture[]
 }
 
@@ -369,12 +379,11 @@ export interface BreakGlassFileFixture {
   }>
   exercise_count: number
   /**
-   * Whether the viewer opened this file. The other two viewer fields are derived
-   * from it on every answer, never set by a test, so a spec cannot grant itself a
-   * button the server would withhold.
+   * Whether the viewer opened this file. `viewer_can_exercise` is derived from it on
+   * every answer, never set by a test, so a spec cannot grant itself a button the
+   * server would withhold.
    */
   viewer_is_requester: boolean
-  viewer_has_decided: boolean
 }
 
 export const BREAK_GLASS_PEER_ID = '019a4000-0000-7000-8000-000000000001'
@@ -387,12 +396,15 @@ function breakGlassTier(categories: string[]): 'standard' | 'restricted' {
     : 'standard'
 }
 
+const BREAK_GLASS_WINDOW_MINUTES = 60
+
+/** A window opened `minutesAgo` minutes ago, the way asking opens one since ADR-046. */
 export function breakGlassFile(
   overrides: Partial<BreakGlassFileFixture> = {},
+  minutesAgo = 1,
 ): BreakGlassFileFixture {
   const categories = overrides.categories ?? ['nutrition_guidance']
-  const tier = breakGlassTier(categories)
-  const now = Date.now()
+  const opened = Date.now() - minutesAgo * 60_000
   return {
     id: nextAssignmentId(),
     requester_person_id: ACTOR_PERSON_ID,
@@ -400,21 +412,20 @@ export function breakGlassFile(
     categories,
     purpose: 'customer_support_request',
     case_reference: 'CASE-2026-001',
-    sensitivity_tier: tier,
-    required_approvals: tier === 'restricted' ? 2 : 1,
-    requested_duration_minutes: tier === 'restricted' ? 15 : 30,
-    requested_at: new Date(now - 120_000).toISOString(),
-    request_expires_at: new Date(now + 1_680_000).toISOString(),
-    status: 'requested',
-    window_starts_at: null,
-    window_ends_at: null,
+    sensitivity_tier: breakGlassTier(categories),
+    required_approvals: 0,
+    requested_duration_minutes: BREAK_GLASS_WINDOW_MINUTES,
+    requested_at: new Date(opened).toISOString(),
+    request_expires_at: new Date(opened + 30 * 60_000).toISOString(),
+    status: 'approved',
+    window_starts_at: new Date(opened).toISOString(),
+    window_ends_at: new Date(opened + BREAK_GLASS_WINDOW_MINUTES * 60_000).toISOString(),
     closed_at: null,
     reviewed_at: null,
     review_outcome: null,
     approvals: [],
     exercise_count: 0,
     viewer_is_requester: true,
-    viewer_has_decided: false,
     ...overrides,
   }
 }
@@ -424,22 +435,24 @@ export function openBreakGlassWindow(
   minutes: number,
   overrides: Partial<BreakGlassFileFixture> = {},
 ): BreakGlassFileFixture {
+  return breakGlassFile(overrides, BREAK_GLASS_WINDOW_MINUTES - minutes)
+}
+
+/** A request asked for before ADR-046 that nobody approved: it can only lapse. */
+export function legacyPendingBreakGlass(
+  overrides: Partial<BreakGlassFileFixture> = {},
+): BreakGlassFileFixture {
   const now = Date.now()
-  const file = breakGlassFile(overrides)
-  return {
-    ...file,
-    status: 'approved',
-    reviewed_at: new Date(now - 60_000).toISOString(),
-    review_outcome: 'approved',
-    window_starts_at: new Date(now - 60_000).toISOString(),
-    window_ends_at: new Date(now + minutes * 60_000).toISOString(),
-    approvals: Array.from({ length: file.required_approvals }, (_unused, index) => ({
-      approver_person_id: `019a4000-0000-7000-8000-00000000000${index + 1}`,
-      decision: 'approved' as const,
-      reason_code: 'REASON-APPROVED',
-      decided_at: new Date(now - 60_000).toISOString(),
-    })),
-  }
+  return breakGlassFile({
+    required_approvals: 1,
+    requested_duration_minutes: 30,
+    requested_at: new Date(now - 120_000).toISOString(),
+    request_expires_at: new Date(now + 1_680_000).toISOString(),
+    status: 'requested',
+    window_starts_at: null,
+    window_ends_at: null,
+    ...overrides,
+  })
 }
 
 /**
@@ -547,6 +560,81 @@ export function directoryOrganization(
     active_member_count: status === 'active' ? 1 : 0,
     site_count: 1,
     people_served: 3,
+    ...overrides,
+  }
+}
+
+/**
+ * The Allfit Space waitlist as the team reviews it.
+ *
+ * The mock answers as the database does: newest first, a search over name, email and
+ * code, and a fraud mark that takes the number away, hands it to the earliest-confirmed
+ * sign-up that waits, and stops counting for the inviter. Taking the mark back returns
+ * the sign-up to what it was and puts it back in line for a number. It refuses a query it
+ * cannot read rather than ignoring it.
+ */
+export interface WaitlistFixture {
+  refusal?: { status: number; code: string }
+  /** Refuses the fraud mark alone, so the list still reads. */
+  markRefusal?: { status: number; code: string }
+  /** Drops the answer of the next mark after applying it, like a connection lost. */
+  loseNextMarkAnswer?: boolean
+  /** Refuses the withdrawal of a mark alone. */
+  withdrawalRefusal?: { status: number; code: string }
+  /** Drops the answer of the next withdrawal after applying it. */
+  loseNextWithdrawalAnswer?: boolean
+  pageSize?: number
+  signups: WaitlistSignupFixture[]
+}
+
+export interface WaitlistSignupFixture {
+  id: string
+  name: string
+  email: string
+  language: 'es' | 'en'
+  referral_code: string
+  joined_at: string
+  confirmed_at: string | null
+  founding_number: number | null
+  /** What the link named, as stored: lower case, or null. */
+  source: string | null
+  invited_by_id: string | null
+  discard_reason: 'self_referral' | 'same_device' | 'fraud' | null
+  fraud: {
+    reason: string
+    marked_at: string
+    previous_discard_reason: 'self_referral' | 'same_device' | null
+  } | null
+  fraud_withdrawal: { reason: string; withdrawn_at: string } | null
+  referrals_sharing_connection: number
+  has_space_account: boolean
+}
+
+let waitlistSequence = 0
+
+/** Sign-ups are created oldest first: each one joins a minute after the one before. */
+export function waitlistSignup(
+  overrides: Partial<WaitlistSignupFixture> = {},
+): WaitlistSignupFixture {
+  waitlistSequence += 1
+  const joinedAt = new Date(Date.UTC(2026, 10, 14, 15, waitlistSequence)).toISOString()
+  const confirmed = overrides.confirmed_at !== null
+  return {
+    id: `019a7700-0000-7000-8000-${String(waitlistSequence).padStart(12, '0')}`,
+    name: `Persona ${waitlistSequence}`,
+    email: `persona${waitlistSequence}@example.com`,
+    language: 'es',
+    referral_code: `CODE${String(waitlistSequence).padStart(4, '0')}`,
+    joined_at: joinedAt,
+    confirmed_at: confirmed ? new Date(Date.parse(joinedAt) + 120_000).toISOString() : null,
+    founding_number: null,
+    source: null,
+    invited_by_id: null,
+    discard_reason: null,
+    fraud: null,
+    fraud_withdrawal: null,
+    referrals_sharing_connection: 0,
+    has_space_account: false,
     ...overrides,
   }
 }
@@ -847,7 +935,7 @@ export interface VerificationFixture {
 
 export interface VerificationRequestFixture {
   request_id: string
-  kind: 'initial' | 'renewal'
+  kind: 'initial' | 'renewal' | 'name_change'
   requested_at: string
   credential_id: string
   credential_type_code: string
@@ -1286,7 +1374,7 @@ async function routeBillingFollowUp(
     return
   }
   const parameters = new URLSearchParams(request.query)
-  if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(parameters.get('case_reference') ?? '')) {
+  if (untraceableCase(parameters.get('case_reference'))) {
     await fulfillProblem(route, 400, 'invalid-request')
     return
   }
@@ -1551,6 +1639,9 @@ export function personPaymentsRecord(
 
 export interface SupportPersonFixture {
   person_id: string
+  display_name: string
+  contact_email: string | null
+  contact_phone: string | null
   account_status: string
   created_at: string
   activated_at: string | null
@@ -1595,10 +1686,14 @@ export interface SupportPersonFixture {
 
 export const SUPPORT_SUBJECT_ID = '019a5000-0000-7000-8000-000000000005'
 export const SUPPORT_SUBJECT_EMAIL = 'subject.epsilon@example.test'
+export const SUPPORT_SUBJECT_NAME = 'Epsilon Ramírez'
 
 export function supportPerson(overrides: Partial<SupportPersonFixture> = {}): SupportPersonFixture {
   return {
     person_id: SUPPORT_SUBJECT_ID,
+    display_name: SUPPORT_SUBJECT_NAME,
+    contact_email: SUPPORT_SUBJECT_EMAIL,
+    contact_phone: '+573001234567',
     account_status: 'active',
     created_at: '2026-01-04T10:00:00.000Z',
     activated_at: '2026-01-05T10:00:00.000Z',
@@ -1641,7 +1736,13 @@ export interface CatalogueFixture {
   /** Every catalogue read is refused, as it is once the session ends. */
   refusal?: { status: number; code: string }
   disciplines: Array<{ code: string; name: string }>
-  activityTypes: Array<{ id: string; discipline_code: string; code: string; name: string }>
+  activityTypes: Array<{
+    id: string
+    discipline_code: string
+    code: string
+    name: string
+    activity_family: 'strength' | 'endurance' | 'interval' | 'mobility' | null
+  }>
 }
 
 export const CATALOGUE_ACTIVITY_TYPE_ID = '019a5000-0000-7000-8000-000000000301'
@@ -1658,12 +1759,14 @@ export function publishedCatalogue(): CatalogueFixture {
         discipline_code: 'test_strength',
         code: 'test_strength_session',
         name: 'Sesión de fuerza de prueba',
+        activity_family: 'strength',
       },
       {
         id: '019a5000-0000-7000-8000-000000000302',
         discipline_code: 'test_endurance',
         code: 'test_endurance_session',
         name: 'Sesión de resistencia de prueba',
+        activity_family: 'endurance',
       },
     ],
   }
@@ -1721,9 +1824,11 @@ export interface PlatformAccessFixture {
 export interface PlatformRoleFixture {
   id: string
   person_id: string
+  person_name: string | null
   platform_role: 'allfit_admin'
   status: 'active' | 'revoked'
   granted_by_person_id: string
+  granted_by_name: string | null
   granted_at: string
   revoked_by_person_id: string | null
   revoked_at: string | null
@@ -1732,13 +1837,16 @@ export interface PlatformRoleFixture {
 export interface PlatformDutyFixture {
   id: string
   person_id: string
+  person_name: string | null
   duty_code: string
   actor_mode: 'A10' | 'A11' | 'A12'
   status: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
+  basis: 'granted' | 'admin_role'
   valid_from: string
   valid_to: string
   required_aal: 2
   granted_by_person_id: string
+  granted_by_name: string | null
   recertified_by_person_id: string | null
   recertified_at: string | null
   suspended_by_person_id: string | null
@@ -1939,6 +2047,10 @@ export async function mockBackofficeApi(
       await routeOrganizationHandover(route, request, fixture)
       return
     }
+    if (request.path.startsWith('/backoffice/v1/waitlist/')) {
+      await routeWaitlist(route, request, fixture)
+      return
+    }
     if (request.path.startsWith('/backoffice/v1/break-glass/')) {
       await routeBreakGlass(route, request, fixture)
       return
@@ -2102,22 +2214,24 @@ async function routePlatformAccess(
   }
   if (resource === 'role-assignments') {
     const body = request.body as { person_id?: string } | undefined
-    const created = platformRole({ person_id: body?.person_id ?? SUBJECT_PERSON_ID })
-    access.roles.push(created)
-    await fulfill(route, 201, created)
-    return
-  }
-  if (resource === 'duty-assignments') {
-    const body = request.body as
-      | { person_id?: string; duty_code?: string; valid_to?: string; reason_code?: string }
-      | undefined
-    const created = platformDuty({
-      person_id: body?.person_id ?? SUBJECT_PERSON_ID,
-      duty_code: body?.duty_code ?? 'diagnose_support_metadata',
-      valid_to: body?.valid_to ?? new Date(Date.now() + 30 * 86400000).toISOString(),
-      reason_code: body?.reason_code ?? 'CASE-000',
+    const personId = body?.person_id ?? SUBJECT_PERSON_ID
+    // The projection names the holder from `identity.people`, as the database does.
+    const holder = fixture.support?.people.find((person) => person.person_id === personId)
+    const created = platformRole({
+      person_id: personId,
+      person_name: holder?.display_name ?? platformPersonName(personId),
     })
-    access.duties.push(created)
+    access.roles.push(created)
+    // The role brings every duty with it, as the database's trigger does.
+    for (const dutyCode of STANDING_DUTY_CODES) {
+      access.duties.push(
+        standingDuty({
+          person_id: created.person_id,
+          person_name: created.person_name,
+          duty_code: dutyCode,
+        }),
+      )
+    }
     await fulfill(route, 201, created)
     return
   }
@@ -2317,20 +2431,17 @@ function paginate<T>(rows: T[], pageSize: number | undefined, offset: number) {
  * happens to render.
  */
 /**
- * The two derived viewer fields. Deriving them here rather than letting a test set
- * them is what keeps the mock honest: the rule is the one the database trigger
- * enforces — an approver is never the requester and never decides twice.
+ * The derived viewer field. Deriving it here rather than letting a test set it is
+ * what keeps the mock honest: only the requester exercises an open window.
  */
 function breakGlassProjection(file: BreakGlassFileFixture) {
-  const { viewer_has_decided, ...row } = file
   // The status is effective, not stored: a window whose end has passed and a
-  // request nobody decided in time both read as expired, the way
+  // request from before that never opened both read as expired, the way
   // `support.effective_break_glass_status` computes them.
   const status = breakGlassEffectiveStatus(file)
   return {
-    ...row,
+    ...file,
     status,
-    viewer_can_decide: status === 'requested' && !file.viewer_is_requester && !viewer_has_decided,
     viewer_can_exercise: status === 'approved' && file.viewer_is_requester,
   }
 }
@@ -2418,15 +2529,18 @@ async function routeBreakGlass(
           case_reference?: string
         }
       | undefined
-    // Tier, quorum and duration are derived from the categories here exactly as the
-    // server derives them, so a body that tried to set them would be ignored.
-    const created = breakGlassFile({
-      ...(body?.subject_person_id ? { subject_person_id: body.subject_person_id } : {}),
-      ...(body?.categories ? { categories: body.categories } : {}),
-      ...(body?.purpose ? { purpose: body.purpose } : {}),
-      ...(body?.case_reference ? { case_reference: body.case_reference } : {}),
-      viewer_is_requester: true,
-    })
+    // Tier and duration are derived from the categories here exactly as the server
+    // derives them, and asking opens the window, so a body cannot set any of it.
+    const created = breakGlassFile(
+      {
+        ...(body?.subject_person_id ? { subject_person_id: body.subject_person_id } : {}),
+        ...(body?.categories ? { categories: body.categories } : {}),
+        ...(body?.purpose ? { purpose: body.purpose } : {}),
+        ...(body?.case_reference ? { case_reference: body.case_reference } : {}),
+        viewer_is_requester: true,
+      },
+      0,
+    )
     glass.files.push(created)
     await fulfill(route, 201, breakGlassProjection(created))
     return
@@ -2439,42 +2553,6 @@ async function routeBreakGlass(
   }
   const action = segments[5]
   const now = new Date().toISOString()
-
-  if (action === 'decisions') {
-    if (file.viewer_is_requester || file.viewer_has_decided) {
-      await fulfillProblem(route, 403, 'forbidden')
-      return
-    }
-    if (breakGlassEffectiveStatus(file) !== 'requested') {
-      await fulfillProblem(route, 409, 'conflict')
-      return
-    }
-    const body = request.body as
-      { decision?: 'approved' | 'rejected'; reason_code?: string } | undefined
-    const decision = body?.decision === 'rejected' ? 'rejected' : 'approved'
-    file.approvals.push({
-      approver_person_id: ACTOR_PERSON_ID,
-      decision,
-      reason_code: body?.reason_code ?? 'REASON-UNSTATED',
-      decided_at: now,
-    })
-    file.viewer_has_decided = true
-    file.reviewed_at = now
-    file.review_outcome = decision
-    const approved = file.approvals.filter((approval) => approval.decision === 'approved').length
-    if (decision === 'rejected') {
-      // One rejection is final. No later approval reopens the file.
-      file.status = 'rejected'
-    } else if (approved >= file.required_approvals) {
-      file.status = 'approved'
-      file.window_starts_at = now
-      file.window_ends_at = new Date(
-        Date.now() + file.requested_duration_minutes * 60_000,
-      ).toISOString()
-    }
-    await fulfill(route, 200, breakGlassProjection(file))
-    return
-  }
 
   if (action === 'reads') {
     const body = request.body as { category?: string; resource_type?: string } | undefined
@@ -2536,13 +2614,17 @@ async function routeBreakGlass(
         content: { nutrition_intake: glass.meals ?? [] },
       })
     } else if (category === 'prior_training_history') {
+      // HU-BO-008: a read sent `before` answers the older page, and nothing remains past it.
+      const paging = (request.body as { before?: unknown } | undefined)?.before !== undefined
       await fulfill(route, 200, {
         outcome: 'allowed',
         reason_code: 'authorized_exercise',
         ...event,
         content: {
-          prior_training_history: glass.sessions ?? [],
+          prior_training_history: paging ? (glass.olderSessions ?? []) : (glass.sessions ?? []),
+          has_older_sessions: !paging && (glass.olderSessions?.length ?? 0) > 0,
           agenda: glass.ownAgenda ?? [],
+          hidden_sessions: paging ? [] : (glass.hiddenSessions ?? []),
         },
       })
     } else if (category === 'relationship_training') {
@@ -2553,6 +2635,7 @@ async function routeBreakGlass(
         content: {
           relationship_training: glass.gymSessions ?? [],
           agenda: glass.gymAgenda ?? [],
+          hidden_sessions: glass.hiddenSessions ?? [],
         },
       })
     } else {
@@ -2885,6 +2968,269 @@ async function routeOrganizationDirectory(
     },
   })
 }
+
+function waitlistChannel(row: WaitlistSignupFixture): {
+  kind: 'source' | 'referral' | 'direct'
+  source: string | null
+} {
+  if (row.source) return { kind: 'source', source: row.source }
+  return { kind: row.invited_by_id ? 'referral' : 'direct', source: null }
+}
+
+function waitlistProjection(row: WaitlistSignupFixture, all: WaitlistSignupFixture[]) {
+  const inviter = all.find((candidate) => candidate.id === row.invited_by_id)
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    language: row.language,
+    referral_code: row.referral_code,
+    joined_at: row.joined_at,
+    confirmed_at: row.confirmed_at,
+    founding_number: row.founding_number,
+    channel: waitlistChannel(row),
+    invited_by: inviter ? { name: inviter.name, referral_code: inviter.referral_code } : null,
+    discard_reason: row.discard_reason,
+    fraud: row.fraud,
+    fraud_withdrawal: row.fraud_withdrawal,
+    referrals: all.filter(
+      (candidate) =>
+        candidate.invited_by_id === row.id &&
+        candidate.confirmed_at !== null &&
+        candidate.discard_reason === null,
+    ).length,
+    referrals_sharing_connection: row.referrals_sharing_connection,
+    has_space_account: row.has_space_account,
+  }
+}
+
+const WAITLIST_FILTERS: readonly string[] = [
+  'confirmed',
+  'unconfirmed',
+  'founding_members',
+  'discarded',
+]
+
+async function routeWaitlist(
+  route: Route,
+  request: MockRequest,
+  fixture: BackofficeFixture,
+): Promise<void> {
+  const waitlist = fixture.waitlist ?? { signups: [] }
+  fixture.waitlist = waitlist
+  if (waitlist.refusal) {
+    await fulfillProblem(route, waitlist.refusal.status, waitlist.refusal.code)
+    return
+  }
+  const all = waitlist.signups
+
+  if (request.method === 'GET' && request.path === '/backoffice/v1/waitlist/totals') {
+    const channels = new Map<string, { signups: number; confirmed: number }>()
+    for (const row of all) {
+      const channel = waitlistChannel(row)
+      const key = JSON.stringify(channel)
+      const counted = channels.get(key) ?? { signups: 0, confirmed: 0 }
+      counted.signups += 1
+      if (row.confirmed_at !== null) counted.confirmed += 1
+      channels.set(key, counted)
+    }
+    await fulfill(route, 200, {
+      signups: all.length,
+      confirmed: all.filter((row) => row.confirmed_at !== null).length,
+      founding_members: all.filter((row) => row.founding_number !== null).length,
+      marked_as_fraud: all.filter((row) => row.discard_reason === 'fraud').length,
+      channels: [...channels.entries()]
+        .map(([key, counted]) => ({ channel: JSON.parse(key) as unknown, ...counted }))
+        .sort((left, right) => right.signups - left.signups),
+    })
+    return
+  }
+
+  if (request.method === 'GET' && request.path === '/backoffice/v1/waitlist/signups') {
+    const parameters = new URLSearchParams(request.query)
+    const search = parameters.get('q')?.trim().toLowerCase() ?? null
+    const filter = parameters.get('filter')
+    const cursor = parameters.get('cursor')
+    if (search !== null && (search.length < 2 || search.length > 254)) {
+      await fulfillProblem(route, 400, 'invalid-request')
+      return
+    }
+    if (filter !== null && !WAITLIST_FILTERS.includes(filter)) {
+      await fulfillProblem(route, 400, 'invalid-request')
+      return
+    }
+    let before: string | undefined
+    if (cursor !== null) {
+      try {
+        before = (JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as { id: string })
+          .id
+      } catch {
+        await fulfillProblem(route, 400, 'invalid-request')
+        return
+      }
+    }
+    const ordered = all
+      .filter(
+        (row) =>
+          (search === null ||
+            row.name.toLowerCase().includes(search) ||
+            row.email.toLowerCase().includes(search) ||
+            row.referral_code.toLowerCase().includes(search)) &&
+          (filter === null ||
+            (filter === 'confirmed' && row.confirmed_at !== null) ||
+            (filter === 'unconfirmed' && row.confirmed_at === null) ||
+            (filter === 'founding_members' && row.founding_number !== null) ||
+            (filter === 'discarded' && row.discard_reason !== null)) &&
+          (before === undefined || row.id < before),
+      )
+      .sort((left, right) => (left.id < right.id ? 1 : -1))
+    const size = waitlist.pageSize ?? 25
+    const visible = ordered.slice(0, size)
+    const last = visible.at(-1)
+    const hasMore = ordered.length > size
+    await fulfill(route, 200, {
+      data: visible.map((row) => waitlistProjection(row, all)),
+      page: {
+        has_more: hasMore,
+        next_cursor:
+          hasMore && last
+            ? Buffer.from(JSON.stringify({ id: last.id }), 'utf8').toString('base64url')
+            : null,
+      },
+    })
+    return
+  }
+
+  const marked = /^\/backoffice\/v1\/waitlist\/signups\/([^/]+)\/fraud$/.exec(request.path)
+  if (request.method === 'POST' && marked) {
+    if (waitlist.markRefusal) {
+      await fulfillProblem(route, waitlist.markRefusal.status, waitlist.markRefusal.code)
+      return
+    }
+    const row = all.find((candidate) => candidate.id === marked[1])
+    if (!row) {
+      await fulfillProblem(route, 404, 'not-found')
+      return
+    }
+    const body = (request.body ?? {}) as { reason?: unknown }
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+    if (reason.length < 4 || reason.length > 200) {
+      await fulfillProblem(route, 422, 'validation-failed')
+      return
+    }
+    // The same command sent again answers what the first one did.
+    const key = request.headers['idempotency-key'] ?? ''
+    const replay = row.fraud !== null && waitlistMarkKeys.get(row.id) === key
+    if (row.discard_reason === 'fraud' && !replay) {
+      await fulfillProblem(route, 409, 'conflict')
+      return
+    }
+    if (!replay) {
+      const released = row.founding_number
+      row.fraud = {
+        reason,
+        marked_at: '2026-11-14T18:00:00.000Z',
+        previous_discard_reason: row.discard_reason === 'fraud' ? null : row.discard_reason,
+      }
+      row.fraud_withdrawal = null
+      row.discard_reason = 'fraud'
+      row.founding_number = null
+      waitlistMarkKeys.set(row.id, key)
+      if (released !== null) {
+        const next = nextInLineForNumber(all)
+        if (next) next.founding_number = released
+      }
+    }
+    if (waitlist.loseNextMarkAnswer) {
+      waitlist.loseNextMarkAnswer = false
+      await route.abort('failed')
+      return
+    }
+    await fulfill(
+      route,
+      200,
+      waitlistProjection(row, all),
+      replay ? { 'Idempotent-Replay': 'true' } : {},
+    )
+    return
+  }
+
+  const withdrawn = /^\/backoffice\/v1\/waitlist\/signups\/([^/]+)\/fraud\/withdrawal$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && withdrawn) {
+    if (waitlist.withdrawalRefusal) {
+      await fulfillProblem(
+        route,
+        waitlist.withdrawalRefusal.status,
+        waitlist.withdrawalRefusal.code,
+      )
+      return
+    }
+    const row = all.find((candidate) => candidate.id === withdrawn[1])
+    if (!row) {
+      await fulfillProblem(route, 404, 'not-found')
+      return
+    }
+    const body = (request.body ?? {}) as { reason?: unknown }
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+    if (reason.length < 4 || reason.length > 200) {
+      await fulfillProblem(route, 422, 'validation-failed')
+      return
+    }
+    const key = request.headers['idempotency-key'] ?? ''
+    const replay = row.fraud_withdrawal !== null && waitlistWithdrawalKeys.get(row.id) === key
+    if (row.discard_reason !== 'fraud' && !replay) {
+      await fulfillProblem(route, 409, 'conflict')
+      return
+    }
+    if (!replay) {
+      row.discard_reason = row.fraud?.previous_discard_reason ?? null
+      row.fraud = null
+      row.fraud_withdrawal = { reason, withdrawn_at: '2026-11-14T19:00:00.000Z' }
+      waitlistWithdrawalKeys.set(row.id, key)
+      // Back in line: the lowest number nobody holds goes to whoever confirmed first.
+      const held = new Set(all.map((candidate) => candidate.founding_number))
+      const free = Array.from({ length: 100 }, (_, index) => index + 1).find(
+        (number) => !held.has(number),
+      )
+      const next = nextInLineForNumber(all)
+      if (free !== undefined && next) next.founding_number = free
+    }
+    if (waitlist.loseNextWithdrawalAnswer) {
+      waitlist.loseNextWithdrawalAnswer = false
+      await route.abort('failed')
+      return
+    }
+    await fulfill(
+      route,
+      200,
+      waitlistProjection(row, all),
+      replay ? { 'Idempotent-Replay': 'true' } : {},
+    )
+    return
+  }
+
+  await fulfillProblem(route, 404, 'not-found')
+}
+
+/** The earliest-confirmed sign-up that waits for a Founding Member number, if any. */
+function nextInLineForNumber(all: WaitlistSignupFixture[]): WaitlistSignupFixture | undefined {
+  return all
+    .filter(
+      (candidate) =>
+        candidate.confirmed_at !== null &&
+        candidate.founding_number === null &&
+        candidate.discard_reason !== 'fraud',
+    )
+    .sort((left, right) => (left.confirmed_at ?? '').localeCompare(right.confirmed_at ?? ''))
+    .at(0)
+}
+
+/** The idempotency key each sign-up was marked with, to tell a replay from a second mark. */
+const waitlistMarkKeys = new Map<string, string>()
+/** The same for the key each mark was taken back with. */
+const waitlistWithdrawalKeys = new Map<string, string>()
 
 function maskedContact(email: string): string {
   const [local = '', domain = ''] = email.split('@')
@@ -3804,8 +4150,7 @@ async function routeAccountRecovery(
       await fulfillProblem(route, state.refusal.status, state.refusal.code)
       return
     }
-    const caseReference = new URLSearchParams(request.query).get('case_reference') ?? ''
-    if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(caseReference)) {
+    if (untraceableCase(new URLSearchParams(request.query).get('case_reference'))) {
       await fulfillProblem(route, 400, 'invalid-request')
       return
     }
@@ -3938,7 +4283,7 @@ async function routeOrganizationHandover(
           ? 'Estudio'
           : body.type_code === 'gym'
             ? 'Gimnasio'
-            : 'Práctica profesional',
+            : 'Profesional independiente',
       party_kind: partyKind,
       legal_name: partyKind === 'legal_entity' ? legalName : null,
       created_at: new Date().toISOString(),
@@ -4262,6 +4607,11 @@ async function routeDiagnosis(
  * The real surface refuses without a traceable case reference, so the mock does
  * too: a screen that forgot to send one would otherwise pass its own E2E.
  */
+function untraceableCase(value: string | null): boolean {
+  // Optional since ADR-046; one given in free text is still refused.
+  return value !== null && !/^[A-Z][A-Z0-9_-]{2,63}$/.test(value)
+}
+
 async function routeSupport(
   route: Route,
   request: MockRequest,
@@ -4274,8 +4624,7 @@ async function routeSupport(
   }
 
   const parameters = new URLSearchParams(request.query)
-  const caseReference = parameters.get('case_reference') ?? ''
-  if (!/^[A-Z][A-Z0-9_-]{2,63}$/.test(caseReference)) {
+  if (untraceableCase(parameters.get('case_reference'))) {
     await fulfillProblem(route, 400, 'invalid-request')
     return
   }
@@ -4301,33 +4650,36 @@ async function routeSupport(
     return
   }
 
-  const lookups = (['identifier', 'email', 'phone'] as const).filter((kind) => parameters.has(kind))
-  if (lookups.length !== 1) {
+  // Part of a name, an email or a phone, or the identifier, matched as text the way
+  // `support.search_people` does; the old exact lookups are refused, as the API does.
+  const term = (parameters.get('q') ?? '').trim().toLowerCase()
+  const limit = Number(parameters.get('limit') ?? 25)
+  const known = new Set(['q', 'case_reference', 'limit'])
+  if (term.length < 2 || [...parameters.keys()].some((key) => !known.has(key))) {
     await fulfillProblem(route, 400, 'invalid-request')
     return
   }
-  const [kind] = lookups
-  const value = parameters.get(kind ?? 'email') ?? ''
-  const found = support.people.find((person) =>
-    kind === 'identifier'
-      ? person.person_id === value
-      : kind === 'email'
-        ? value === SUPPORT_SUBJECT_EMAIL
-        : value === '+573001234567',
-  )
+  const matches = support.people
+    .filter(
+      (person) =>
+        person.person_id === term ||
+        person.display_name.toLowerCase().includes(term) ||
+        (person.contact_email ?? '').toLowerCase().includes(term) ||
+        (person.contact_phone ?? '').includes(term),
+    )
+    .sort((left, right) => left.display_name.localeCompare(right.display_name))
+  const page = matches.slice(0, limit)
   await fulfill(route, 200, {
-    outcome: found ? 'found' : 'not_found',
-    // HU-BO-006 criterion 2: a match is four fields, as the API answers it.
-    items: found
-      ? [
-          {
-            person_id: found.person_id,
-            account_status: found.account_status,
-            contact_email_masked: found.contact_email_masked,
-            contact_phone_masked: found.contact_phone_masked,
-          },
-        ]
-      : [],
+    outcome: page.length > 0 ? 'found' : 'not_found',
+    // A match is five fields, as the API answers it.
+    items: page.map((person) => ({
+      person_id: person.person_id,
+      display_name: person.display_name,
+      contact_email: person.contact_email,
+      contact_phone: person.contact_phone,
+      account_status: person.account_status,
+    })),
+    has_more: matches.length > limit,
   })
 }
 
@@ -4345,17 +4697,32 @@ function nextAssignmentId(): string {
   return `019a3000-0000-7000-8000-${String(identifierSequence).padStart(12, '0')}`
 }
 
+export const ACTOR_PERSON_NAME = 'Ada Lovelace'
+export const SUBJECT_PERSON_NAME = 'Grace Hopper'
+
+/** The two administrators the platform fixtures know, named as `identity.people` would. */
+export function platformPersonName(personId: string): string | null {
+  if (personId === ACTOR_PERSON_ID) return ACTOR_PERSON_NAME
+  if (personId === SUBJECT_PERSON_ID) return SUBJECT_PERSON_NAME
+  return null
+}
+
 export function platformRole(overrides: Partial<PlatformRoleFixture> = {}): PlatformRoleFixture {
-  return {
+  const role = {
     id: nextAssignmentId(),
     person_id: SUBJECT_PERSON_ID,
-    platform_role: 'allfit_admin',
-    status: 'active',
+    platform_role: 'allfit_admin' as const,
+    status: 'active' as const,
     granted_by_person_id: ACTOR_PERSON_ID,
     granted_at: new Date().toISOString(),
     revoked_by_person_id: null,
     revoked_at: null,
     ...overrides,
+  }
+  return {
+    ...role,
+    person_name: overrides.person_name ?? platformPersonName(role.person_id),
+    granted_by_name: overrides.granted_by_name ?? platformPersonName(role.granted_by_person_id),
   }
 }
 
@@ -4384,15 +4751,47 @@ export function actorModeFor(dutyCode: string): PlatformDutyFixture['actor_mode'
   return 'A10'
 }
 
+// The closed catalogue the role brings, as the database's role trigger writes it.
+const STANDING_DUTY_CODES = [
+  'view_platform_metrics',
+  'diagnose_support_metadata',
+  'view_billing_metadata',
+  'manage_organization_lifecycle',
+  'request_break_glass',
+  'verify_professional_credentials',
+  'curate_global_catalog',
+  'manage_platform_commercial',
+  'manage_platform_access',
+  'audit_platform_access',
+  'approve_break_glass',
+  'audit_break_glass',
+  'manage_privacy_requests',
+] as const
+
+/** ADR-046: a duty brought by the admin role, with no end of its own. */
+export function standingDuty(overrides: Partial<PlatformDutyFixture> = {}): PlatformDutyFixture {
+  return platformDuty({
+    basis: 'admin_role',
+    valid_to: '9999-12-31T00:00:00.000Z',
+    reason_code: 'admin_role',
+    ...overrides,
+  })
+}
+
 export function platformDuty(overrides: Partial<PlatformDutyFixture> = {}): PlatformDutyFixture {
   const now = Date.now()
   const dutyCode = overrides.duty_code ?? 'diagnose_support_metadata'
+  const personId = overrides.person_id ?? SUBJECT_PERSON_ID
+  const grantorId = overrides.granted_by_person_id ?? ACTOR_PERSON_ID
   return {
     id: nextAssignmentId(),
-    person_id: SUBJECT_PERSON_ID,
+    person_id: personId,
+    person_name: platformPersonName(personId),
+    granted_by_name: platformPersonName(grantorId),
     duty_code: dutyCode,
     actor_mode: actorModeFor(dutyCode),
     status: 'active',
+    basis: 'granted',
     valid_from: new Date(now).toISOString(),
     valid_to: new Date(now + 30 * 86400000).toISOString(),
     required_aal: 2,
@@ -4416,8 +4815,8 @@ export function activeSession(): SessionFixture {
     authentication_method: 'password_totp',
     operator: { given_name: 'Ada', family_name: 'Lovelace' },
     assurance_verified_at: new Date(now).toISOString(),
-    inactivity_expires_at: new Date(now + 15 * 60_000).toISOString(),
-    absolute_expires_at: new Date(now + 8 * 60 * 60_000).toISOString(),
+    inactivity_expires_at: new Date(now + 60 * 60_000).toISOString(),
+    absolute_expires_at: new Date(now + 12 * 60 * 60_000).toISOString(),
   }
 }
 

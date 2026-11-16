@@ -88,7 +88,7 @@ apps/
   studio-web/     Client of /studio/v1
   backoffice-web/ Client of /backoffice/v1
   space/          Expo · client of /space/v1
-  space-web/      Public landing of Allfit Space · no API client
+  space-web/      Public landing of Allfit Space · waitlist relay to /space/v1
 packages/
   ai-provider/      Port and adapters for the model vendors (AI Gateway, Bedrock)
   auth-provider/    Port and adapter for the identity provider
@@ -240,6 +240,13 @@ would create a second source of truth that silently drifts from the first.
 `VerifiedToken` in `packages/auth-provider` deliberately cannot carry them. If you
 find yourself wanting to widen that type, stop.
 
+**One bounded exception: `auth_time`.** It says when the person last actively
+authenticated, and a refresh never advances it. It is authentication, never
+authorization. It travels as `VerifiedToken.authenticatedAt` and is stored in
+`identity.access_sessions.authenticated_at`, where PostgreSQL decides whether a
+Studio sign-in is recent enough for a step-up (the historical access case,
+STUDIO-54..56). Nothing else in the token may join it.
+
 ### Three applications, one directory
 
 One provider environment per deployment environment, with three applications —
@@ -329,6 +336,10 @@ effective value does not move until the external side confirms.
 
 Never write to an external provider inside an HTTP request that also writes to the
 database.
+
+One bounded exception: changing a password (`OP-IDN-066`, ADR-051 in `allfitone-docs`).
+The outbox would have to hold the password, so the request sets it in the provider and
+only then records the change, without it. Nothing else may follow this path.
 
 ---
 

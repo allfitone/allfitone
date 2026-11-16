@@ -47,7 +47,7 @@ const MODE_BASIS: Record<AccessMode, string> = {
   frozen:
     'La persona había revocado el permiso, y la lectura fue del histórico que quedó congelado.',
   break_glass:
-    'No había permiso. Se abrió una ventana excepcional aprobada por otra persona, para un caso concreto.',
+    'No había permiso. Se abrió una ventana excepcional para un caso concreto, y otra persona la revisa después.',
   organization_operational:
     'Fue una operación del gimnasio sobre datos que administra, no una lectura de datos de salud.',
   support_metadata:
@@ -183,7 +183,7 @@ export function hasWithheld(page: AccessEventPage): boolean {
 export function accessLogMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber de auditoría que esta consulta exige. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber de auditoría que esta consulta exige. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'invalid-request':
       'Alguno de los filtros no se pudo leer. Se rechaza en vez de ignorarlo, porque ignorarlo ampliaría la consulta.',
     'validation-failed': 'La consulta no cumple el contrato. Revisa los identificadores y fechas.',

@@ -56,6 +56,7 @@ select support.assign_platform_role(
   decode(repeat('d3', 32), 'hex')
 );
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b2700-0000-7000-8000-000000000001', '019b2700-0000-7000-8000-000000000041',
   '019b2700-0000-7000-8000-000000000003', 'manage_platform_commercial',
@@ -234,7 +235,8 @@ select lives_ok(
     '{"guest_quota_seats": 10, "revision_number": 1}'::jsonb,
     '019b2700-0000-7000-8000-000000000003',
     (select id from support.platform_duty_assignments
-      where person_id = '019b2700-0000-7000-8000-000000000003')
+      where person_id = '019b2700-0000-7000-8000-000000000003'
+        and duty_code = 'manage_platform_commercial')
   ) $$,
   'a change recorded before the reference existed is still a valid record'
 );
@@ -257,7 +259,8 @@ select throws_ok(
     '{"guest_quota_seats": 20, "agreement_reference": " ", "revision_number": 2}'::jsonb,
     '019b2700-0000-7000-8000-000000000003',
     (select id from support.platform_duty_assignments
-      where person_id = '019b2700-0000-7000-8000-000000000003')
+      where person_id = '019b2700-0000-7000-8000-000000000003'
+        and duty_code = 'manage_platform_commercial')
   ) $$,
   '23514',
   null,
@@ -275,7 +278,8 @@ select throws_ok(
     '{"guest_quota_seats": 20, "agreement_reference": null, "revision_number": 2}'::jsonb,
     '019b2700-0000-7000-8000-000000000003',
     (select id from support.platform_duty_assignments
-      where person_id = '019b2700-0000-7000-8000-000000000003')
+      where person_id = '019b2700-0000-7000-8000-000000000003'
+        and duty_code = 'manage_platform_commercial')
   ) $$,
   '23514',
   null,

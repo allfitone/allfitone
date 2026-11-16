@@ -6,7 +6,8 @@
  * Three decisions shape it.
  *
  * **Nothing here edits the person.** There is no field for a name, an email or a phone:
- * only actions that start the person's own flow, recorded against the case of the card.
+ * only actions that start the person's own flow. Reading needs no case (ADR-046), but
+ * every action opens one, so the panel asks for it when the card was opened without.
  *
  * **The buttons are the database's answer.** Starting, resending and cancelling appear
  * only when the API says they apply. When recovery is unavailable the card says so and
@@ -29,6 +30,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { Field, FieldLabel } from '@allfitone/react/components/field'
+import { Input } from '@allfitone/react/components/input'
 import {
   Card,
   CardContent,
@@ -67,6 +70,7 @@ import {
   type BackofficeCommand,
 } from '@/lib/backoffice-api'
 import { formatInstant } from '@/lib/platform-access'
+import { isValidCaseReference } from '@/lib/support-metadata'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -84,7 +88,11 @@ export function AccountRecoveryPanel({
   const [busy, setBusy] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<string | null>(null)
   const [commandFailure, setCommandFailure] = useState<string | null>(null)
+  const [typedCase, setTypedCase] = useState('')
   const pending = useRef(new Map<string, BackofficeCommand>())
+  // The card's case when it has one; otherwise the one written here, for the actions only.
+  const commandCase = caseReference || typedCase.trim()
+  const commandReady = isValidCaseReference(commandCase)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -141,15 +149,15 @@ export function AccountRecoveryPanel({
 
   const start = () =>
     run('start', 'start', (command) =>
-      backofficeApi.startAccountRecovery(personId, caseReference, command),
+      backofficeApi.startAccountRecovery(personId, commandCase, command),
     )
   const resend = (request: BackofficeAccountRecoveryRequest) =>
     run(`resend:${request.request_id}`, 'resend', (command) =>
-      backofficeApi.resendAccountRecovery(personId, request.request_id, caseReference, command),
+      backofficeApi.resendAccountRecovery(personId, request.request_id, commandCase, command),
     )
   const cancel = (request: BackofficeAccountRecoveryRequest) =>
     run(`cancel:${request.request_id}`, 'cancel', (command) =>
-      backofficeApi.cancelAccountRecovery(personId, request.request_id, caseReference, command),
+      backofficeApi.cancelAccountRecovery(personId, request.request_id, commandCase, command),
     )
 
   const requests = recovery?.requests ?? []
@@ -203,10 +211,26 @@ export function AccountRecoveryPanel({
           </Alert>
         ) : null}
 
+        {state === 'ready' && !caseReference && (recovery?.can_start || underWay) ? (
+          <Field data-account-recovery-case>
+            <FieldLabel htmlFor="recovery-case">
+              Referencia del caso para enviar, reenviar o cancelar
+            </FieldLabel>
+            <Input
+              id="recovery-case"
+              value={typedCase}
+              onChange={(event) => setTypedCase(event.target.value)}
+              placeholder="CASE-2026-001"
+              autoComplete="off"
+              disabled={busy !== null}
+            />
+          </Field>
+        ) : null}
+
         {state === 'ready' && recovery?.can_start ? (
           <Button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || !commandReady}
             onClick={() => void start()}
             data-account-recovery-start
           >
@@ -267,6 +291,7 @@ export function AccountRecoveryPanel({
                     <RequestActions
                       request={request}
                       busy={busy}
+                      ready={commandReady}
                       onResend={() => void resend(request)}
                       onCancel={() => cancel(request)}
                     />
@@ -284,11 +309,13 @@ export function AccountRecoveryPanel({
 function RequestActions({
   request,
   busy,
+  ready,
   onResend,
   onCancel,
 }: {
   request: BackofficeAccountRecoveryRequest
   busy: string | null
+  ready: boolean
   onResend: () => void
   onCancel: () => Promise<void>
 }) {
@@ -301,7 +328,7 @@ function RequestActions({
           type="button"
           size="sm"
           variant="outline"
-          disabled={busy !== null}
+          disabled={busy !== null || !ready}
           aria-label={`Reenviar la recuperación a ${request.contact_hint}`}
           onClick={onResend}
         >
@@ -321,7 +348,7 @@ function RequestActions({
             type="button"
             size="sm"
             variant="ghost"
-            disabled={busy !== null}
+            disabled={busy !== null || !ready}
             aria-label={`Cancelar la recuperación enviada a ${request.contact_hint}`}
             onClick={() => setCancelling(true)}
           >

@@ -90,7 +90,7 @@ select set_config('app.actor_kind', 'person', true),
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)),
+    null, 50, null, null, null, null)),
   3::bigint,
   'the owner sees one client and the two people who have not answered'
 );
@@ -99,7 +99,7 @@ select is(
   (select array_agg(entry_kind order by sort_group, sort_name)
      from relationships.list_organization_clients(
        '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-       null, 50, null, null, null)),
+       null, 50, null, null, null, null)),
   array['relationship', 'invitation', 'invitation'],
   'each entry says which of the two it is'
 );
@@ -107,7 +107,7 @@ select is(
 select is(
   (select contact_hint from relationships.list_organization_clients(
      '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-     'invited', 50, null, null, null)
+     'invited', 50, null, null, null, null)
    order by sort_name limit 1),
   'b***@example.test',
   'an unanswered entry carries the contact masked, never in full'
@@ -116,7 +116,7 @@ select is(
 select is(
   (select display_name from relationships.list_organization_clients(
      '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-     'invited', 50, null, null, null)
+     'invited', 50, null, null, null, null)
    order by sort_name limit 1),
   null,
   'and no name, because the person does not exist yet'
@@ -125,7 +125,7 @@ select is(
 select is(
   (select person_id from relationships.list_organization_clients(
      '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-     'invited', 50, null, null, null)
+     'invited', 50, null, null, null, null)
    order by sort_name limit 1),
   null,
   'nor a person behind it'
@@ -134,7 +134,7 @@ select is(
 select is(
   (select invitation_status from relationships.list_organization_clients(
      '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-     'invited', 50, null, null, null)
+     'invited', 50, null, null, null, null)
    order by sort_name limit 1),
   'pending',
   'what it does carry is the state of the invitation'
@@ -143,7 +143,7 @@ select is(
 select is(
   (select invitation_status from relationships.list_organization_clients(
      '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-     'active', 50, null, null, null)),
+     'active', 50, null, null, null, null)),
   'accepted',
   'a relationship reports its invitation as accepted: it exists because somebody accepted'
 );
@@ -151,7 +151,7 @@ select is(
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-    'invited', 50, null, null, null)),
+    'invited', 50, null, null, null, null)),
   2::bigint,
   'filtering by invited returns only the unanswered ones'
 );
@@ -163,7 +163,7 @@ select set_config('app.actor_person_id', '019ae000-0000-7000-8000-000000000012',
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ae000-0000-7000-8000-000000000012', '019ae000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)),
+    null, 50, null, null, null, null)),
   2::bigint,
   'the coach sees their assigned client and the invitation they sent'
 );
@@ -172,7 +172,7 @@ select is(
   (select array_agg(contact_hint order by sort_name)
      from relationships.list_organization_clients(
        '019ae000-0000-7000-8000-000000000012', '019ae000-0000-7000-8000-000000000101',
-       'invited', 50, null, null, null)),
+       'invited', 50, null, null, null, null)),
   array['b***@example.test'],
   'and specifically not the one a colleague sent'
 );
@@ -185,7 +185,7 @@ select is(
   (select array_agg(contact_hint order by sort_name)
      from relationships.list_organization_clients(
        '019ae000-0000-7000-8000-000000000013', '019ae000-0000-7000-8000-000000000101',
-       'invited', 50, null, null, null)),
+       'invited', 50, null, null, null, null)),
   array['z***@example.test'],
   'the other coach sees theirs and not the one Camilo sent'
 );
@@ -201,7 +201,7 @@ update identity.invitation_intents
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-    'invited', 50, null, null, null)),
+    'invited', 50, null, null, null, null)),
   1::bigint,
   'a refused invitation leaves the pending list'
 );
@@ -209,7 +209,7 @@ select is(
 select throws_ok(
   $$select * from relationships.list_organization_clients(
     '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-    'nonsense', 50, null, null, null)$$,
+    'nonsense', 50, null, null, null, null)$$,
   '22023',
   'invalid directory status',
   'a status nobody defined is refused'
@@ -218,7 +218,7 @@ select throws_ok(
 select throws_ok(
   $$select * from relationships.list_organization_clients(
     '019ae000-0000-7000-8000-000000000011', '019ae000-0000-7000-8000-000000000101',
-    null, 50, 'invited', null, null)$$,
+    null, 50, 'invited', null, null, null)$$,
   '22023',
   'invalid directory cursor',
   'and half a cursor is refused rather than resumed from nowhere'

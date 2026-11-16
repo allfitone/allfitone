@@ -2,6 +2,8 @@ import { database } from '../../../platform/db/index.js'
 import { measureStudioRequestPhase } from '../../../platform/observability/index.js'
 import type postgres from 'postgres'
 import type {
+  ClientCard,
+  ClientCardDatabase,
   ClientDirectoryDatabase,
   HolderAssignmentDatabase,
   HolderReassignmentDatabase,
@@ -28,6 +30,8 @@ import type {
   MyRelationshipCommandDatabase,
   MyRelationshipDatabase,
   SubstitutionDecision,
+  StudioToday,
+  StudioTodayDatabase,
 } from '../domain/index.js'
 
 type DirectoryRow = {
@@ -71,7 +75,8 @@ export function createClientDirectoryDatabase(
               ${query.limit + 1}::integer,
               ${query.cursorGroup ?? null}::text,
               ${query.cursorName ?? null}::text,
-              ${query.cursorId ?? null}::uuid
+              ${query.cursorId ?? null}::uuid,
+              ${query.query ?? null}::text
             )
           `
           // Same transaction, so the figure and the page describe one instant.
@@ -195,6 +200,59 @@ function presentState(document: StateDocument): RelationshipState {
     terminationRequest: document.termination_request
       ? presentTerminationRequest(document.termination_request)
       : null,
+  }
+}
+
+/**
+ * PostgreSQL access for the client card (OP-REL-019). The document is the contract's
+ * minus the operations each section points to; a kind it does not know is a drift.
+ */
+export function createClientCardDatabase(sql: postgres.Sql = database()): ClientCardDatabase {
+  return {
+    readCard: (personId, query) =>
+      measureStudioRequestPhase('business-db', async () => {
+        const [row] = await sql.begin(async (transaction) => {
+          await setPersonActor(transaction, personId)
+          return transaction<{ card: ClientCard }[]>`
+            select relationships.read_client_card(
+              ${personId}::uuid,
+              ${query.organizationId}::uuid,
+              ${query.personId}::uuid
+            ) as card
+          `
+        })
+        if (row?.card.kind !== 'attending' && row?.card.kind !== 'former') {
+          throw new Error('read_client_card returned no card')
+        }
+        return row.card
+      }),
+  }
+}
+
+/**
+ * PostgreSQL access for what needs attention today (OP-REL-020). The training part logs
+ * one access event per client it looks at, so the request travels with the actor.
+ */
+export function createStudioTodayDatabase(sql: postgres.Sql = database()): StudioTodayDatabase {
+  return {
+    readToday: (personId, query) =>
+      measureStudioRequestPhase('business-db', async () => {
+        const [row] = await sql.begin(async (transaction) => {
+          await transaction`
+            select set_config('app.actor_kind', 'person', true),
+                   set_config('app.actor_person_id', ${personId}, true),
+                   set_config('app.request_id', ${query.requestId}, true)
+          `
+          return transaction<{ today: StudioToday }[]>`
+            select relationships.read_studio_today(
+              ${personId}::uuid,
+              ${query.organizationId}::uuid
+            ) as today
+          `
+        })
+        if (!row?.today.notices) throw new Error('read_studio_today returned nothing')
+        return row.today
+      }),
   }
 }
 

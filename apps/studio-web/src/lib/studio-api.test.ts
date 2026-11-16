@@ -221,6 +221,138 @@ describe('professional profile API', () => {
   })
 })
 
+/*
+ * The content block's commands answer RFC 9457 problems rather than the
+ * `{ error }` envelope. The two things a screen needs from them travel as
+ * extensions: what is missing from a draft, and the draft somebody else saved.
+ */
+describe('a problem answer', () => {
+  function answer(body: unknown, status: number) {
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/problem+json' },
+      })) as unknown as typeof fetch
+  }
+
+  async function refusal(): Promise<StudioApiError> {
+    const caught = await studioApi
+      .createOrganizationSessionTemplate(
+        '01991600-1000-7000-8000-000000000002',
+        { discipline_code: 'strength', title: 'Fuerza' },
+        newCommand(),
+      )
+      .catch((error: unknown) => error)
+    if (!(caught instanceof StudioApiError)) throw new Error('expected a StudioApiError')
+    return caught
+  }
+
+  test('is named by the last segment of its type', async () => {
+    answer(
+      { type: 'https://errors.allfit.invalid/not-found', title: 'Not found', status: 404 },
+      404,
+    )
+    const error = await refusal()
+    expect(error.status).toBe(404)
+    expect(error.code).toBe('not-found')
+  })
+
+  test('keeps every issue it lists, in order', async () => {
+    answer(
+      {
+        type: 'https://errors.allfit.invalid/validation-failed',
+        title: 'The request failed validation',
+        status: 422,
+        errors: [
+          { code: 'title', path: '/title', message: 'A non-empty title is required.' },
+          { code: 'steps', path: '/steps', message: 'At least one planned step is required.' },
+        ],
+      },
+      422,
+    )
+    const error = await refusal()
+    expect(error.issues.map((issue) => issue.code)).toEqual(['title', 'steps'])
+    expect(error.issues[0]?.path).toBe('/title')
+  })
+
+  test('hands over the current state a stale draft conflict carries', async () => {
+    const current = { id: 'draft', etag: '"sha256:current"' }
+    answer(
+      {
+        type: 'https://errors.allfit.invalid/stale-draft',
+        title: 'The local draft is stale',
+        status: 409,
+        current_state: current,
+      },
+      409,
+    )
+    const error = await refusal()
+    expect(error.code).toBe('stale-draft')
+    expect(error.currentState).toEqual(current)
+  })
+
+  test('without extensions has no issues and no state', async () => {
+    answer({ type: 'https://errors.allfit.invalid/conflict', title: 'Conflict', status: 409 }, 409)
+    const error = await refusal()
+    expect(error.issues).toEqual([])
+    expect(error.currentState).toBeUndefined()
+  })
+
+  test('ignores issues that are not issues', async () => {
+    answer(
+      {
+        type: 'https://errors.allfit.invalid/validation-failed',
+        status: 422,
+        errors: ['title', { code: 7 }, { code: 'steps', path: '/steps', message: 'x' }],
+      },
+      422,
+    )
+    const error = await refusal()
+    expect(error.issues.map((issue) => issue.code)).toEqual(['steps'])
+  })
+})
+
+describe('creating a session template', () => {
+  test('posts the discipline and title with the command headers', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    globalThis.fetch = (async (input, init) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return Response.json({ id: 'template' }, { status: 201 })
+    }) as typeof fetch
+    const command = newCommand()
+
+    await studioApi.createOrganizationSessionTemplate(
+      '01991600-1000-7000-8000-000000000002',
+      { discipline_code: 'strength', title: 'Fuerza' },
+      command,
+    )
+
+    expect(new URL(calls[0]?.url ?? '').pathname).toBe(
+      '/studio/v1/organizations/01991600-1000-7000-8000-000000000002/session-templates',
+    )
+    expect(calls[0]?.init.method).toBe('POST')
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      discipline_code: 'strength',
+      title: 'Fuerza',
+    })
+    const headers = new Headers(calls[0]?.init.headers)
+    expect(headers.get('idempotency-key')).toBe(command.idempotencyKey)
+    expect(headers.get('command-id')).toBe(command.commandId)
+  })
+
+  test('reads the disciplines under the Studio surface', async () => {
+    const calls: string[] = []
+    globalThis.fetch = (async (input) => {
+      calls.push(String(input))
+      return Response.json({ items: [] })
+    }) as typeof fetch
+
+    await studioApi.catalogDisciplines()
+
+    expect(new URL(calls[0] ?? '').pathname).toBe('/studio/v1/catalog/disciplines')
+  })
+})
+
 describe('organization team API', () => {
   test('maps invitation decisions to their explicit telemetry flow steps', () => {
     expect(invitationDecisionFlowStep('accepted')).toBe('invitation_accepted')
@@ -396,5 +528,87 @@ describe('the revision a site edit is based on', () => {
   test('a first revision survives the trip', async () => {
     const { body } = await patch(0)
     expect(body.expected_revision).toBe(0)
+  })
+})
+
+describe('searching movements', () => {
+  test('sends each filter under the name the route reads, and nothing it was not given', async () => {
+    const calls: string[] = []
+    globalThis.fetch = (async (input) => {
+      calls.push(String(input))
+      return Response.json({ data: [], page: { has_more: false, next_cursor: null } })
+    }) as typeof fetch
+
+    await studioApi.organizationMovements('01991600-1000-7000-8000-000000000002', {
+      search: 'bench',
+      discipline: 'strength',
+      includeArchived: true,
+      limit: 25,
+    })
+    await studioApi.organizationMovements('01991600-1000-7000-8000-000000000002', {
+      includeArchived: false,
+    })
+
+    const first = new URL(calls[0] ?? '')
+    expect(first.pathname).toBe(
+      '/studio/v1/organizations/01991600-1000-7000-8000-000000000002/movements',
+    )
+    expect(Object.fromEntries(first.searchParams)).toEqual({
+      q: 'bench',
+      discipline: 'strength',
+      include_archived: 'true',
+      limit: '25',
+    })
+    expect(new URL(calls[1] ?? '').search).toBe('')
+  })
+})
+
+describe('the draft commands of a template', () => {
+  function capture() {
+    const calls: Array<{ url: string; init: RequestInit }> = []
+    globalThis.fetch = (async (input, init) => {
+      calls.push({ url: String(input), init: init ?? {} })
+      return Response.json({ id: 'version', version_number: 1 }, { status: 201 })
+    }) as typeof fetch
+    return calls
+  }
+  const ORGANIZATION = '01991600-1000-7000-8000-000000000002'
+  const TEMPLATE = '01991600-a000-7000-8000-000000000001'
+  const ETAG = `"sha256:${'a'.repeat(43)}"`
+
+  test('a save replaces the draft whole and is conditioned on the ETag it started from', async () => {
+    const calls = capture()
+    const content = { title: 'Fuerza', activity_type_id: null, steps: [] }
+    await studioApi.replaceOrganizationSessionTemplateDraft(
+      ORGANIZATION,
+      TEMPLATE,
+      content,
+      ETAG,
+      newCommand(),
+    )
+
+    expect(new URL(calls[0]?.url ?? '').pathname).toBe(
+      `/studio/v1/organizations/${ORGANIZATION}/session-templates/${TEMPLATE}/draft`,
+    )
+    expect(calls[0]?.init.method).toBe('PUT')
+    expect(new Headers(calls[0]?.init.headers).get('if-match')).toBe(ETAG)
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual(content)
+  })
+
+  test('a publication carries no body, only the condition and the command', async () => {
+    const calls = capture()
+    const command = newCommand()
+    await studioApi.publishOrganizationSessionTemplateVersion(ORGANIZATION, TEMPLATE, ETAG, command)
+
+    expect(new URL(calls[0]?.url ?? '').pathname).toBe(
+      `/studio/v1/organizations/${ORGANIZATION}/session-templates/${TEMPLATE}/versions`,
+    )
+    expect(calls[0]?.init.method).toBe('POST')
+    // A body is refused with 415, and so is the content type that announces one.
+    expect(calls[0]?.init.body).toBeUndefined()
+    const headers = new Headers(calls[0]?.init.headers)
+    expect(headers.has('content-type')).toBe(false)
+    expect(headers.get('if-match')).toBe(ETAG)
+    expect(headers.get('idempotency-key')).toBe(command.idempotencyKey)
   })
 })

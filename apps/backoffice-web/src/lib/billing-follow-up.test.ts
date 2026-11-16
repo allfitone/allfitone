@@ -76,10 +76,11 @@ describe('the charges to follow up (HU-BO-005, HU-BO-020)', () => {
     expect(failed).toContain('billing_retry')
   })
 
-  test('each row leads to the person’s payments under the same case', () => {
+  test('each row leads to the person’s payments under the same case, or under none', () => {
     expect(followUpHref(item(), 'CASE-2026-FU')).toBe(
       `/people/${PERSON}?case_reference=CASE-2026-FU`,
     )
+    expect(followUpHref(item(), '')).toBe(`/people/${PERSON}`)
   })
 
   test('the summary counts who is listed and says when the list is cut', () => {

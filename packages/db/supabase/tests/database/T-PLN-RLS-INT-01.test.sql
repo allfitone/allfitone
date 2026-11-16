@@ -88,10 +88,12 @@ insert into catalog.activity_type_result_contracts (
   '019c0000-0000-7000-8000-000000000031', true, clock_timestamp()
 );
 insert into catalog.movements (
-  id, discipline_code, name, normalized_name, content_scope, owner_organization_id, status
+  id, discipline_code, name, normalized_name, content_scope, owner_organization_id, status,
+  created_by_membership_id
 ) values (
   '019e0000-0000-7000-8000-000000000111', 'test_strength', 'RLS Movement',
-  'rls movement', 'organization', '019e0000-0000-7000-8000-000000000101', 'published'
+  'rls movement', 'organization', '019e0000-0000-7000-8000-000000000101', 'published',
+  '019e0000-0000-7000-8000-000000000121'
 );
 insert into planning.session_templates (id, content_scope, owner_organization_id, discipline_code, author_person_id)
 values ('019e0000-0000-7000-8000-000000000201', 'organization', '019e0000-0000-7000-8000-000000000101', 'test_strength', '019e0000-0000-7000-8000-000000000001');

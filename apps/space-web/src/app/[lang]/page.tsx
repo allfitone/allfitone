@@ -2,25 +2,39 @@
  * The Space landing, in the order the story is told: what the app is (hero),
  * what using it looks like (from the first set to the last bite), where to
  * start (programmes), why it is safe (your data is yours), what you get to show
- * (every record counts), what it costs (Pro, included with your gym) and the
- * close. Every screen shown is a real capture of the app.
+ * (every record counts), what it costs (Pro, included when a gym or coach
+ * pays for Allfit Studio; its free plan does not), the waitlist and the close.
+ * Every screen shown is a real capture of the app.
+ *
+ * The app is not in the stores yet, so the page converts to the waitlist: the
+ * hero's and the header's actions open the waitlist page, where the offer and
+ * its terms are, and the landing keeps its own form near the end, with nothing
+ * under it but the privacy policy beside the authorization.
+ *
+ * Motion is spent once per section: the hero enters on load, each title rises
+ * out of its masks, and one main object follows it (the feature cards, the
+ * programme cards, the sharing screen, the Pro card). Leads, pillars, links,
+ * the store buttons and the form stay still. There is no marquee, progress bar,
+ * pointer light, parallax or glow; do not add them back.
  */
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Fragment } from 'react'
-
-import { ExternalIcon, HistoryIcon, LockedIcon, PermissionsIcon } from '@allfitone/react/icons'
+import { ExternalIcon, FoundationIcon } from '@allfitone/react/icons'
 
 import { Footer } from '@/components/footer'
 import { Header } from '@/components/header'
 import { Phone } from '@/components/phone'
 import { Records } from '@/components/records'
+import { ReferralLevels } from '@/components/referral-levels'
 import { Stores } from '@/components/stores'
 import { Title } from '@/components/title'
+import { WaitlistForm } from '@/components/waitlist-form'
 import { dictionaryFor } from '@/content'
 import type { LocaleParams } from '@/lib/route'
 import { isLocale } from '@/lib/locale'
+import { WAITLIST_PATH } from '@/lib/waitlist'
 
 const FEATURE_SCREENS = [
   '/images/screens/hoy-historial.webp',
@@ -35,8 +49,6 @@ const PROGRAM_PHOTOS = [
   '/images/photos/program-ppl.webp',
 ]
 
-const PILLAR_ICONS = [LockedIcon, PermissionsIcon, HistoryIcon]
-
 export default async function Landing({ params }: LocaleParams) {
   const { lang } = await params
   if (!isLocale(lang)) notFound()
@@ -45,29 +57,28 @@ export default async function Landing({ params }: LocaleParams) {
   return (
     <>
       <Header locale={lang} copy={copy.nav} />
-      <main id="contenido">
+      <main id="content">
         <section className="hero" aria-labelledby="hero-title">
-          <div className="hero__photo">
-            <Image src="/images/photos/hero.webp" alt="" fill priority sizes="100vw" />
-          </div>
-          <div className="hero__veil" />
           <div className="wrap hero__grid">
             <div className="hero__copy">
-              <h1 id="hero-title" className="display display--xl">
-                {copy.hero.lines.map((line, index) => (
-                  <span
-                    key={line}
-                    className={`line${index === 1 ? ' tone-ghost' : ''}`}
-                    style={{ '--l': index }}
-                  >
-                    <span className={index === 2 ? 'sheen' : undefined}>{line}</span>
-                  </span>
-                ))}
-              </h1>
+              <Title
+                as="h1"
+                id="hero-title"
+                lines={copy.hero.lines}
+                tones={['solid', 'ghost', 'cyan']}
+                size="xl"
+                reveal={false}
+              />
               <p className="lead">{copy.hero.lead}</p>
-              <Stores copy={copy.stores} />
+              <div className="hero__actions">
+                <Link className="cta" href={`/${lang}${WAITLIST_PATH}`}>
+                  {copy.hero.join}
+                  <FoundationIcon name="forward" size="sm" decorative />
+                </Link>
+                <Stores copy={copy.stores} />
+              </div>
             </div>
-            <div className="hero__phones" data-parallax="">
+            <div className="hero__phones">
               <div className="hero__phone hero__phone--back">
                 <Phone
                   src="/images/screens/programa.webp"
@@ -86,25 +97,7 @@ export default async function Landing({ params }: LocaleParams) {
               </div>
             </div>
           </div>
-          <p className="hero__scroll" aria-hidden="true">
-            {copy.hero.scroll}
-          </p>
         </section>
-
-        <div className="ticker" aria-hidden="true">
-          <div className="ticker__track">
-            {[0, 1].map((copyIndex) => (
-              <div key={copyIndex} className="ticker__group">
-                {copy.ticker.map((word) => (
-                  <Fragment key={word}>
-                    <span className="ticker__word">{word}</span>
-                    <span className="ticker__dot" />
-                  </Fragment>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
 
         <section id="app" className="section" aria-labelledby="features-title">
           <div className="wrap">
@@ -116,7 +109,6 @@ export default async function Landing({ params }: LocaleParams) {
                 <article
                   key={card.title}
                   className="feature"
-                  data-spotlight=""
                   data-reveal=""
                   style={{ '--i': index }}
                 >
@@ -134,13 +126,11 @@ export default async function Landing({ params }: LocaleParams) {
           </div>
         </section>
 
-        <section id="programas" className="section" aria-labelledby="programs-title">
+        <section id="programs" className="section" aria-labelledby="programs-title">
           <div className="wrap">
             <div className="section__head section__head--split">
               <Title id="programs-title" lines={copy.programs.title} />
-              <p className="lead" data-reveal="">
-                {copy.programs.lead}
-              </p>
+              <p className="lead">{copy.programs.lead}</p>
             </div>
             <ul
               className="programs__grid"
@@ -166,9 +156,6 @@ export default async function Landing({ params }: LocaleParams) {
                       />
                     ) : null}
                   </div>
-                  {index === 0 ? (
-                    <span className="program__badge">{copy.programs.suggested}</span>
-                  ) : null}
                   <h3>{program.name}</h3>
                   <p>{program.meta}</p>
                 </li>
@@ -177,14 +164,12 @@ export default async function Landing({ params }: LocaleParams) {
           </div>
         </section>
 
-        <section id="privacidad" className="section" aria-labelledby="privacy-title">
+        <section id="privacy" className="section" aria-labelledby="privacy-title">
           <div className="wrap">
             <div className="privacy__top">
               <div className="privacy__copy">
                 <Title id="privacy-title" lines={copy.privacy.title} size="xl" />
-                <p className="lead" data-reveal="">
-                  {copy.privacy.lead}
-                </p>
+                <p className="lead">{copy.privacy.lead}</p>
               </div>
               <div className="privacy__stage" data-reveal="">
                 <Phone
@@ -196,41 +181,58 @@ export default async function Landing({ params }: LocaleParams) {
               </div>
             </div>
             <ul className="pillars" role="list">
-              {copy.privacy.pillars.map((pillar, index) => {
-                const Icon = PILLAR_ICONS[index] ?? LockedIcon
-                return (
-                  <li key={pillar.title} className="pillar" data-reveal="" style={{ '--i': index }}>
-                    <span className="pillar__icon">
-                      <Icon size="md" decorative />
-                    </span>
-                    <h3>{pillar.title}</h3>
-                    <p>{pillar.text}</p>
-                  </li>
-                )
-              })}
+              {copy.privacy.pillars.map((pillar) => (
+                <li key={pillar.title} className="pillar">
+                  <h3>{pillar.title}</h3>
+                  <p>{pillar.text}</p>
+                </li>
+              ))}
             </ul>
           </div>
         </section>
 
         <Records copy={copy.records} />
 
-        <section id="gimnasios" className="section" aria-labelledby="pro-title">
+        <section className="invite-section" aria-labelledby="invite-title">
+          <div className="wrap">
+            <div className="invite" data-reveal="">
+              <div className="invite__copy">
+                <Title
+                  id="invite-title"
+                  lines={copy.invite.title}
+                  highlight={copy.invite.highlight}
+                  reveal={false}
+                />
+                <p>{copy.invite.text}</p>
+              </div>
+              <ReferralLevels rewards={copy.invite.rewards} openEnded />
+            </div>
+          </div>
+        </section>
+
+        <section id="gyms" className="section" aria-labelledby="pro-title">
           <div className="wrap">
             <div className="pro" data-reveal="">
               <div className="pro__copy">
-                <Title id="pro-title" lines={copy.pro.title} reveal={false} />
+                <Title
+                  id="pro-title"
+                  lines={copy.pro.title}
+                  highlight={copy.pro.highlight}
+                  reveal={false}
+                />
                 <p className="lead">{copy.pro.text}</p>
               </div>
               <div className="pro__photo">
                 <Image
-                  src="/images/photos/pro.webp"
+                  src="/images/photos/pro-curl.webp"
                   alt={copy.pro.alt}
                   fill
+                  quality={88}
                   sizes="(max-width: 900px) 100vw, 648px"
                 />
               </div>
             </div>
-            <div className="studio" data-reveal="">
+            <div className="studio">
               <div>
                 <h3>{copy.studio.title}</h3>
                 <p>{copy.studio.text}</p>
@@ -249,15 +251,25 @@ export default async function Landing({ params }: LocaleParams) {
           </div>
         </section>
 
+        <section id="waitlist" className="section waitlist" aria-labelledby="waitlist-title">
+          <div className="wrap waitlist__grid">
+            <div className="waitlist__copy">
+              <Title id="waitlist-title" lines={copy.waitlist.title} tones={['solid', 'cyan']} />
+              <p className="lead">{copy.waitlist.lead}</p>
+            </div>
+            <div className="join-panel">
+              <WaitlistForm locale={lang} copy={copy.form} newWindow={copy.footer.newWindow} />
+            </div>
+          </div>
+        </section>
+
         <section className="closing" aria-labelledby="closing-title">
           <div className="closing__photo">
             <Image src="/images/photos/closing.webp" alt="" fill sizes="100vw" />
           </div>
           <div className="wrap closing__inner">
             <Title id="closing-title" lines={copy.closing.title} />
-            <div data-reveal="">
-              <Stores copy={copy.stores} />
-            </div>
+            <Stores copy={copy.stores} />
           </div>
         </section>
       </main>

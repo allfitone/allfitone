@@ -119,3 +119,12 @@ run "ecs_owns_the_capacity" {
     error_message = "Managed termination protection requires scale-in protection on the group."
   }
 }
+
+run "session_manager_can_reach_the_machine" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.session_manager.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    error_message = "The database tunnel goes through Session Manager, so the machine must register with it."
+  }
+}

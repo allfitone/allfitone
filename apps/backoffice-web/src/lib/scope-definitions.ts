@@ -265,7 +265,7 @@ export function effectiveVersion(history: ScopeHistory): ScopeDefinition | undef
 export function scopeDefinitionMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber de curaduría del catálogo. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber de curaduría del catálogo. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'Una versión publicada es inmutable. Para corregirla, publica la versión siguiente: quien ya aceptó la anterior la conserva.',
     'validation-failed':

@@ -1,15 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  APPROVAL_REASONS,
   BREAK_GLASS_CATEGORIES,
-  REJECTION_REASONS,
   breakGlassRequestHref,
   decisionReasonLabel,
   requestPrefill,
-  approvalsSoFar,
   breakGlassMessage,
-  canDecide,
   canExercise,
   categoryLabel,
   emptyReadMessage,
@@ -18,12 +14,13 @@ import {
   mealRows,
   trainingRows,
   agendaRows,
+  appendSessionPage,
+  olderSessionsCursor,
   measurementRows,
   outcomeMessage,
   photoDayRows,
   projectedTier,
   purposeLabel,
-  quorumSentence,
   requestIssue,
   requestIssueMessage,
   resourceTypeFor,
@@ -45,20 +42,19 @@ function file(overrides: Partial<BreakGlassRequest> = {}): BreakGlassRequest {
     purpose: 'customer_support_request',
     case_reference: 'CASE-2026-001',
     sensitivity_tier: 'standard',
-    required_approvals: 1,
-    requested_duration_minutes: 30,
+    required_approvals: 0,
+    requested_duration_minutes: 60,
     requested_at: '2026-09-10T18:00:00.000Z',
     request_expires_at: '2026-09-10T18:30:00.000Z',
-    status: 'requested',
-    window_starts_at: null,
-    window_ends_at: null,
+    status: 'closed',
+    window_starts_at: '2026-09-10T18:00:00.000Z',
+    window_ends_at: '2026-09-10T19:00:00.000Z',
     closed_at: null,
     reviewed_at: null,
     review_outcome: null,
     approvals: [],
     exercise_count: 0,
     viewer_is_requester: false,
-    viewer_can_decide: false,
     viewer_can_exercise: false,
     ...overrides,
   }
@@ -90,16 +86,19 @@ describe('break-glass presentation rules', () => {
     expect(projectedTier(['nutrition_guidance', 'nutrition_intake'])).toBe('restricted')
   })
 
-  test('states the tier as a consequence, with its cost spelled out', () => {
+  test('states the tier as a consequence: asking opens it for an hour, and somebody reviews it', () => {
     const standard = tierConsequence(['nutrition_guidance'])
-    expect(standard?.approvals).toBe(1)
-    expect(standard?.minutes).toBe(30)
-    expect(standard?.sentence).toContain('una aprobación')
-
     const restricted = tierConsequence(['health_context'])
-    expect(restricted?.approvals).toBe(2)
-    expect(restricted?.minutes).toBe(15)
-    expect(restricted?.sentence).toContain('dos personas distintas')
+
+    for (const consequence of [standard, restricted]) {
+      expect(consequence?.minutes).toBe(60)
+      expect(consequence?.sentence).toContain('se abre al pedirla')
+      expect(consequence?.sentence).toContain('60 minutos')
+      expect(consequence?.sentence).toContain('otra persona la revisa')
+      expect(consequence?.sentence).not.toContain('aprobación')
+    }
+    expect(standard?.tier).toBe('standard')
+    expect(restricted?.tier).toBe('restricted')
   })
 
   test('refuses a request with no subject, no case or no scope', () => {
@@ -133,33 +132,11 @@ describe('break-glass presentation rules', () => {
     })
     expect(windowSentence(lapsed, now)).toContain('ya venció')
 
-    // A pending request has no window to describe.
+    // A closed window, like a request from before that never opened, has nothing to count.
     expect(windowSentence(file(), now)).toBeNull()
   })
 
-  test('says how far a pending request is from opening', () => {
-    expect(quorumSentence(file({ required_approvals: 2 }))).toContain('Faltan 2')
-    expect(
-      quorumSentence(
-        file({
-          required_approvals: 2,
-          approvals: [
-            {
-              approver_person_id: 'a',
-              decision: 'approved',
-              reason_code: 'REASON-OK',
-              decided_at: '2026-09-10T18:01:00.000Z',
-            },
-          ],
-        }),
-      ),
-    ).toContain('Faltan 1')
-    expect(approvalsSoFar(file())).toBe(0)
-  })
-
-  test('takes the permission hints from the server rather than re-deriving them', () => {
-    expect(canDecide(file({ viewer_can_decide: true }))).toBe(true)
-    expect(canDecide(file({ viewer_can_decide: false }))).toBe(false)
+  test('takes the permission hint from the server rather than re-deriving it', () => {
     expect(canExercise(file({ viewer_can_exercise: true }))).toBe(true)
     expect(canExercise(file({ viewer_can_exercise: false }))).toBe(false)
   })
@@ -185,7 +162,8 @@ describe('break-glass presentation rules', () => {
     expect(statusTone('rejected')).toBe('destructive')
     expect(statusTone('closed')).toBe('secondary')
     expect(statusLabel('approved')).toBe('Ventana abierta')
-    expect(statusLabel('requested')).toBe('Esperando aprobación')
+    // Only a request from before ADR-046 can still be in this state, until it lapses.
+    expect(statusLabel('requested')).toBe('Pedida antes del cambio, sin abrir')
   })
 
   test('explains every outcome, including the authorised one', () => {
@@ -488,6 +466,63 @@ describe('break-glass presentation rules', () => {
     expect(healthContextRows(allowed)).toEqual([])
   })
 
+  test('a meal lists every nutrient it recorded, not only the six of its summary (HU-BO-009)', () => {
+    const outcome: BreakGlassExerciseOutcome = {
+      outcome: 'allowed',
+      reason_code: 'authorized_exercise',
+      break_glass_event_id: '019a8000-0000-7000-8000-000000000606',
+      occurred_at: '2026-09-10T18:09:00.000Z',
+      category: 'nutrition_intake',
+      content: {
+        nutrition_intake: [
+          {
+            id: '019a8000-0000-7000-8000-000000000903',
+            occurred_at: '2026-09-15T23:30:00+00:00',
+            local_date: '2026-09-15',
+            timezone: 'America/Bogota',
+            meal_type: 'lunch',
+            note: null,
+            revision_number: 0,
+            has_media: false,
+            items: [
+              {
+                position: 1,
+                name: 'Lentejas',
+                quantity: 200,
+                quantity_unit: 'g',
+                nutrients: [
+                  { nutrient_code: 'iron', value: 3.3, unit: 'mg' },
+                  { nutrient_code: 'energy', value: 230, unit: 'kcal' },
+                  { nutrient_code: 'folate', value: 181, unit: 'mcg' },
+                ],
+              },
+              {
+                position: 2,
+                name: 'Naranja',
+                quantity: 1,
+                quantity_unit: 'unit',
+                nutrients: [
+                  { nutrient_code: 'vitamin_c', value: 70, unit: 'mg' },
+                  { nutrient_code: 'energy', value: 62, unit: 'kcal' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    }
+
+    const [lunch] = mealRows(outcome)
+    // In the catalogue's order, each summed across the items and in its own unit.
+    expect(lunch?.nutrients).toEqual([
+      'Energía: 292 kcal',
+      'Vitamina C: 70 mg',
+      'Folato: 181 mcg',
+      'Hierro: 3,3 mg',
+    ])
+    expect(lunch?.totals).toBe('292 kcal')
+  })
+
   test('shows a session as when it was trained, how long it lasted and what it held', () => {
     const allowed: BreakGlassExerciseOutcome = {
       outcome: 'allowed',
@@ -655,7 +690,7 @@ describe('break-glass presentation rules', () => {
   test('answers the state machine with the next action, never a retry', () => {
     expect(breakGlassMessage('conflict')).toContain('pide otra')
     expect(breakGlassMessage('conflict')).toContain('no se reabre')
-    expect(breakGlassMessage('forbidden')).toContain('vencen por diseño')
+    expect(breakGlassMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(breakGlassMessage('anything-else')).toBe('No se pudo completar la operación.')
   })
 })
@@ -796,6 +831,93 @@ describe('training under a window, opened (HU-BO-008)', () => {
     expect(rows.map((row) => row.activity)).toEqual(['Circuito'])
   })
 
+  test('says which gyms each session is hidden from, and none when she hid it from none (c4)', () => {
+    const other = { ...session, id: '019a8000-0000-7000-8000-000000000a10' }
+    const hiding = (organizationName: string) => ({
+      executed_session_id: session.id,
+      relationship_id: '019a8000-0000-7000-8000-000000000b01',
+      organization_id: '019a8000-0000-7000-8000-000000000c01',
+      organization_name: organizationName,
+      hidden_at: '2026-09-16T12:00:00+00:00',
+    })
+    const rows = trainingRows(
+      read('prior_training_history', {
+        prior_training_history: [session, other],
+        hidden_sessions: [hiding('Gimnasio Uno'), hiding('Gimnasio Dos')],
+      }),
+    )
+
+    expect(rows.map((row) => row.hiddenFrom)).toEqual([['Gimnasio Uno', 'Gimnasio Dos'], []])
+  })
+
+  test('offers the older sessions only when the read says some remain, from the last one shown', () => {
+    const older = { ...session, id: '019a8000-0000-7000-8000-000000000a11' }
+    const page = read('prior_training_history', {
+      prior_training_history: [session, older],
+      has_older_sessions: true,
+    })
+    expect(olderSessionsCursor(page)).toEqual({ started_at: older.started_at, id: older.id })
+    expect(
+      olderSessionsCursor(
+        read('prior_training_history', {
+          prior_training_history: [session],
+          has_older_sessions: false,
+        }),
+      ),
+    ).toBeNull()
+    // A server older than the screen says nothing about older sessions: nothing to offer.
+    expect(
+      olderSessionsCursor(read('prior_training_history', { prior_training_history: [session] })),
+    ).toBeNull()
+    expect(olderSessionsCursor({ ...page, outcome: 'denied' })).toBeNull()
+  })
+
+  test('appends the older page to what is shown, hidings included, and takes its word on more', () => {
+    const older = { ...session, id: '019a8000-0000-7000-8000-000000000a12' }
+    const hiding = {
+      executed_session_id: older.id,
+      relationship_id: '019a8000-0000-7000-8000-000000000b01',
+      organization_id: '019a8000-0000-7000-8000-000000000c01',
+      organization_name: 'Gimnasio Uno',
+      hidden_at: '2026-09-16T12:00:00+00:00',
+    }
+    const first = read('prior_training_history', {
+      prior_training_history: [session],
+      has_older_sessions: true,
+      hidden_sessions: [],
+      agenda: [],
+    })
+    const next = read('prior_training_history', {
+      prior_training_history: [older],
+      has_older_sessions: false,
+      hidden_sessions: [hiding],
+      agenda: [],
+    })
+
+    const merged = appendSessionPage(first, next)
+    expect(trainingRows(merged).map((row) => [row.id, row.hiddenFrom])).toEqual([
+      [session.id, []],
+      [older.id, ['Gimnasio Uno']],
+    ])
+    expect(olderSessionsCursor(merged)).toBeNull()
+
+    // A page that was refused, because the window closed, is shown as what it is.
+    const refused: BreakGlassExerciseOutcome = {
+      outcome: 'denied',
+      reason_code: 'window_not_open',
+      break_glass_event_id: next.break_glass_event_id,
+      occurred_at: next.occurred_at,
+    }
+    expect(appendSessionPage(first, refused)).toBe(refused)
+  })
+
+  test('a server older than the screen answers without hidings, and nothing reads as hidden', () => {
+    const [row] = trainingRows(
+      read('prior_training_history', { prior_training_history: [session] }),
+    )
+    expect(row?.hiddenFrom).toEqual([])
+  })
+
   test('the agenda names each programme and nothing of its content (c3)', () => {
     const rows = agendaRows(
       read('relationship_training', {
@@ -830,23 +952,13 @@ describe('training under a window, opened (HU-BO-008)', () => {
   })
 })
 
-// The approver could not say why: the screen sent one fixed code per decision.
-describe('why a request was approved or rejected', () => {
-  test('each decision has its own closed reasons, each a code the database accepts', () => {
-    const pattern = /^[A-Z][A-Z0-9_-]{2,63}$/
-    expect(APPROVAL_REASONS.length).toBeGreaterThan(1)
-    expect(REJECTION_REASONS.length).toBeGreaterThan(1)
-    for (const reason of [...APPROVAL_REASONS, ...REJECTION_REASONS]) {
-      expect(pattern.test(reason.code)).toBe(true)
-    }
-    expect(new Set([...APPROVAL_REASONS, ...REJECTION_REASONS].map((r) => r.code)).size).toBe(
-      APPROVAL_REASONS.length + REJECTION_REASONS.length,
-    )
-  })
-
+// Nobody decides a window any more (ADR-046); the decisions recorded before still read.
+describe('why a request from before was approved or rejected', () => {
   test('a recorded reason reads as words, and an old fixed code says nobody gave one', () => {
-    const [first] = APPROVAL_REASONS
-    expect(first && decisionReasonLabel(first.code)).toBe(first?.label)
+    expect(decisionReasonLabel('APPROVED-CASE-JUSTIFIES')).toBe(
+      'El caso justifica leer estos datos',
+    )
+    expect(decisionReasonLabel('REJECTED-TOO-BROAD')).toBe('Pedía más categorías de las necesarias')
     expect(decisionReasonLabel('REASON-APPROVED')).toBe('Sin motivo registrado')
     expect(decisionReasonLabel('SOMETHING-ELSE')).toBe('SOMETHING-ELSE')
   })

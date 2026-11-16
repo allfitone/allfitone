@@ -4,8 +4,8 @@
  *
  * Every page builds its metadata here rather than inheriting the layout's: a
  * page that sets its own `openGraph` replaces the inherited object whole, so a
- * legal page that only changed its title used to be shared with the home
- * page's title, address and description.
+ * page that only changed its title would be shared with the home page's title,
+ * address and description.
  */
 
 import type { Metadata } from 'next'
@@ -21,11 +21,8 @@ export const SITE_NAME = 'Allfit Space'
 export const PARENT_SITE_URL = 'https://www.allfit.one'
 export const ORGANIZATION_ID = `${PARENT_SITE_URL}/#organization`
 
-/**
- * The privacy policy and the terms are drafts under legal review that still
- * carry placeholders. They can be opened and shared, but stay out of search.
- */
-export const LEGAL_ROBOTS = { index: false, follow: true } as const
+/** Allfit One's one public address, the same the legal documents give. */
+export const CONTACT_EMAIL = 'hello@allfit.one'
 
 const OG_LOCALES = { es: 'es_CO', en: 'en_US' } as const satisfies Record<Locale, string>
 
@@ -81,5 +78,17 @@ export function pageMetadata(locale: Locale, path: string, { title, description 
       images: [image],
     },
     twitter: { card: 'summary_large_image', title, description, images: [image] },
+  } satisfies Metadata
+}
+
+/**
+ * The pages a waitlist email opens. They are one person's, not the site's: kept out of
+ * search, and they send no `Referer` (next.config.ts sends the same as a header).
+ */
+export function privatePageMetadata(locale: Locale, path: string, words: PageWords) {
+  return {
+    ...pageMetadata(locale, path, words),
+    robots: { index: false, follow: false },
+    referrer: 'no-referrer',
   } satisfies Metadata
 }

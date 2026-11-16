@@ -8,13 +8,14 @@ import {
 } from '@allfitone/auth-provider'
 import { measureRequestPhase } from '../../../platform/observability/index.js'
 
-import type {
-  BackofficeActor,
-  BackofficeAuthenticationDatabase,
-  SessionCipherContext,
-  SessionTokenVault,
-  StoredBackofficeSession,
-  StoredSessionSecret,
+import {
+  BACKOFFICE_IDLE_LIMIT_MS,
+  type BackofficeActor,
+  type BackofficeAuthenticationDatabase,
+  type SessionCipherContext,
+  type SessionTokenVault,
+  type StoredBackofficeSession,
+  type StoredSessionSecret,
 } from '../domain/index.js'
 
 const ATTEMPT_TTL_MS = 10 * 60 * 1000
@@ -286,7 +287,7 @@ export function createBackofficeAuthenticationService(dependencies: {
         },
         assurance_verified_at: resolved.session.assuranceVerifiedAt.toISOString(),
         inactivity_expires_at: new Date(
-          resolved.session.lastActivityAt.getTime() + 15 * 60 * 1000,
+          resolved.session.lastActivityAt.getTime() + BACKOFFICE_IDLE_LIMIT_MS,
         ).toISOString(),
         absolute_expires_at: resolved.session.absoluteExpiresAt.toISOString(),
       }

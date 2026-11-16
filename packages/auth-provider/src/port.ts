@@ -51,6 +51,11 @@ export interface VerifiedToken {
   sessionId: string
   /** Surface derived from the token's `client_id`. */
   surface: Surface
+  /**
+   * `auth_time`: when the person last actively authenticated; a refresh never advances it.
+   * Authentication only, never authorization. Null when the token does not say.
+   */
+  authenticatedAt: Date | null
 }
 
 /** Provider event projected into the only identity fact Allfit consumes. */
@@ -228,10 +233,11 @@ export interface AuthProvider {
    *
    * Contact email and sign-in email are the same datum. The worker makes this
    * call from the outbox, never an HTTP request, because PostgreSQL and the
-   * provider do not share a transaction.
+   * provider do not share a transaction. The address arrives verified: Allfit
+   * proved the mailbox with its own code before asking.
    */
   updateEmail(subject: ExternalSubject, email: string): Promise<void>
 
-  /** Ends all sessions. Invoked on password or email change. */
-  revokeSessions(subject: ExternalSubject): Promise<void>
+  /** Ends every session but `keep`, the one the change was confirmed from. */
+  revokeSessions(subject: ExternalSubject, keep?: string): Promise<void>
 }

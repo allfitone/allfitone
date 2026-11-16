@@ -5,21 +5,21 @@
  * weight the schema cannot. Three things it has to make true:
  *
  * The tier is shown as a *consequence*, never as a choice. An operator picks
- * categories; the tier, the number of approvers and the minutes follow. Showing
- * them as fields would invite someone to look for the cheap combination.
+ * categories and the tier follows. Asking opens the window for sixty minutes at
+ * any tier, and somebody else reviews it afterwards (ADR-046).
  *
- * A forbidden category is not offered at all. Not greyed out, not marked
- * "requires more approvals" — absent. An option that can never be granted is a
- * suggestion to try.
+ * A forbidden category is not offered at all. Not greyed out, not annotated —
+ * absent. An option that can never be granted is a suggestion to try.
  *
- * And a window says how long it has left, because fifteen minutes is short and
- * "approved" alone does not tell an operator to hurry.
+ * And a window says how long it has left, because an hour passes quickly while
+ * reading and "open" alone does not tell an operator to hurry.
  *
  * What an allowed read returns is shown as the person recorded it, beside the value the
  * platform normalized, and a photo is only ever a flag: the reference never reaches here.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+import { nutrientValue } from '@allfitone/contracts/nutrients'
 
 export type BreakGlassRequest = AllfitV1Schemas['BreakGlassRequest']
 export type BreakGlassCategory = AllfitV1Schemas['BreakGlassCategory']
@@ -108,7 +108,7 @@ export const BREAK_GLASS_STATUSES: readonly BreakGlassStatus[] = [
 ]
 
 const STATUS_LABELS: Record<BreakGlassStatus, string> = {
-  requested: 'Esperando aprobación',
+  requested: 'Pedida antes del cambio, sin abrir',
   approved: 'Ventana abierta',
   rejected: 'Rechazada',
   closed: 'Cerrada',
@@ -145,28 +145,20 @@ export function projectedTier(categories: readonly BreakGlassCategory[]): BreakG
 
 export interface TierConsequence {
   tier: BreakGlassTier
-  approvals: number
   minutes: number
   sentence: string
 }
 
+const WINDOW_MINUTES = 60
+
 export function tierConsequence(categories: readonly BreakGlassCategory[]): TierConsequence | null {
   const tier = projectedTier(categories)
   if (!tier) return null
-  if (tier === 'restricted') {
-    return {
-      tier,
-      approvals: 2,
-      minutes: 15,
-      sentence:
-        'Alcance restringido: hacen falta dos personas distintas y la ventana dura 15 minutos.',
-    }
-  }
+  const scope = tier === 'restricted' ? 'Alcance restringido' : 'Alcance estándar'
   return {
     tier,
-    approvals: 1,
-    minutes: 30,
-    sentence: 'Alcance estándar: hace falta una aprobación y la ventana dura 30 minutos.',
+    minutes: WINDOW_MINUTES,
+    sentence: `${scope}: la ventana se abre al pedirla y dura ${String(WINDOW_MINUTES)} minutos. Cada lectura queda registrada y otra persona la revisa después.`,
   }
 }
 
@@ -185,39 +177,29 @@ export function isValidSubject(value: string): boolean {
   return UUID.test(value.trim())
 }
 
-export interface DecisionReason {
-  code: string
-  label: string
+/** The reasons approvers gave before ADR-046, kept so those decisions still read as words. */
+const DECISION_REASONS: Readonly<Record<string, string>> = {
+  'APPROVED-CASE-JUSTIFIES': 'El caso justifica leer estos datos',
+  'APPROVED-PERSON-ASKED': 'La persona pidió la ayuda que lo requiere',
+  'APPROVED-LEGAL-DUTY': 'Lo exige una obligación legal',
+  'REJECTED-NOT-JUSTIFIED': 'El caso no justificaba leer estos datos',
+  'REJECTED-TOO-BROAD': 'Pedía más categorías de las necesarias',
+  'REJECTED-OTHER-WAY': 'Se podía resolver sin leer los datos',
+  'REJECTED-CONFLICT': 'Quien la pidió tenía un conflicto con la persona',
 }
-
-/** Why an approver approved: closed, so the record stays readable months later. */
-export const APPROVAL_REASONS: readonly DecisionReason[] = [
-  { code: 'APPROVED-CASE-JUSTIFIES', label: 'El caso justifica leer estos datos' },
-  { code: 'APPROVED-PERSON-ASKED', label: 'La persona pidió la ayuda que lo requiere' },
-  { code: 'APPROVED-LEGAL-DUTY', label: 'Lo exige una obligación legal' },
-]
-
-export const REJECTION_REASONS: readonly DecisionReason[] = [
-  { code: 'REJECTED-NOT-JUSTIFIED', label: 'El caso no justifica leer estos datos' },
-  { code: 'REJECTED-TOO-BROAD', label: 'Pide más categorías de las necesarias' },
-  { code: 'REJECTED-OTHER-WAY', label: 'Se puede resolver sin leer los datos' },
-  { code: 'REJECTED-CONFLICT', label: 'Quien la pide tiene un conflicto con la persona' },
-]
 
 // The single code every decision carried before an approver could choose one.
 const UNSTATED = new Set(['REASON-APPROVED', 'REASON-REJECTED'])
 
 export function decisionReasonLabel(code: string): string {
   if (UNSTATED.has(code)) return 'Sin motivo registrado'
-  return (
-    [...APPROVAL_REASONS, ...REJECTION_REASONS].find((reason) => reason.code === code)?.label ??
-    code
-  )
+  return DECISION_REASONS[code] ?? code
 }
 
 /** From the person's card: a request for that person, under the case the card was opened on. */
 export function breakGlassRequestHref(personId: string, caseReference: string): string {
-  return `/break-glass?subject=${personId}&case_reference=${encodeURIComponent(caseReference)}`
+  const base = `/break-glass?subject=${personId}`
+  return caseReference ? `${base}&case_reference=${encodeURIComponent(caseReference)}` : base
 }
 
 /** What the request form starts from; a value that is not a subject or a case is dropped. */
@@ -257,8 +239,8 @@ export function requestIssueMessage(issue: RequestIssue): string {
 }
 
 /**
- * How much of the window is left. Fifteen minutes is short, and "approved" on its
- * own does not tell an operator to hurry.
+ * How much of the window is left. An hour passes quickly while reading, and "open"
+ * on its own does not tell an operator to hurry.
  */
 export function remainingMinutes(file: BreakGlassRequest, now = Date.now()): number | null {
   if (file.status !== 'approved' || !file.window_ends_at) return null
@@ -272,32 +254,11 @@ export function windowSentence(file: BreakGlassRequest, now = Date.now()): strin
   return `Quedan ${left} ${left === 1 ? 'minuto' : 'minutos'} de ventana. No se puede extender.`
 }
 
-export function approvalsSoFar(file: BreakGlassRequest): number {
-  return file.approvals.filter((approval) => approval.decision === 'approved').length
-}
-
-/** What the tray shows about how far a pending request is from opening. */
-export function quorumSentence(file: BreakGlassRequest): string {
-  if (file.status !== 'requested') return ''
-  const so_far = approvalsSoFar(file)
-  const missing = file.required_approvals - so_far
-  if (missing <= 0) return 'Quórum completo.'
-  return `${so_far} de ${file.required_approvals} aprobaciones. Faltan ${missing}.`
-}
-
 /**
- * Whether this operator may decide, and whether they may exercise.
- *
- * Both come from the server. The rule — an approver is never the requester, never
- * the subject and never somebody who already decided — is the same one the
- * database trigger enforces, and re-deriving it here would be a second copy that
- * drifts. They are hints that save offering a button that would always be
- * refused; every command revalidates on its own.
+ * Whether this operator may exercise. The hint comes from the server: only the
+ * requester exercises, and re-deriving that here would be a second copy that
+ * drifts. Every command revalidates on its own.
  */
-export function canDecide(file: BreakGlassRequest): boolean {
-  return file.viewer_can_decide
-}
-
 export function canExercise(file: BreakGlassRequest, now = Date.now()): boolean {
   if (!file.viewer_can_exercise) return false
   // The hint was true when the server answered it. A window that has lapsed since
@@ -310,8 +271,9 @@ export function canExercise(file: BreakGlassRequest, now = Date.now()): boolean 
 const OUTCOME_MESSAGES: Record<string, string> = {
   not_the_requester: 'Sólo quien pidió la ventana puede ejercerla.',
   duty_not_effective: 'Tu deber ya no está vigente. Quedó registrado el intento.',
-  window_not_open: 'La ventana no está abierta: venció, se cerró o aún no fue aprobada.',
-  quorum_incomplete: 'Falta una aprobación para que la ventana se abra.',
+  window_not_open: 'La ventana no está abierta: venció o se cerró.',
+  quorum_incomplete:
+    'Esta solicitud es de antes del cambio y nunca se abrió. Pide una ventana nueva.',
   category_out_of_scope: 'Esa categoría no está dentro del alcance aprobado.',
   resource_out_of_scope:
     'Esa lectura no corresponde a la categoría aprobada. Quedó registrado el intento.',
@@ -485,12 +447,55 @@ const NUTRIENT_TOTALS: readonly [NutrientCode, string][] = [
   ['water', 'ml de agua'],
 ]
 
+/**
+ * HU-BO-009: every nutrient a meal can carry, by name, in the catalogue's order. A copy
+ * of Space's names on purpose: an app never imports another, and Space speaks to her
+ * while this speaks about her, so the two may diverge. Exhaustive by type.
+ */
+const NUTRIENT_NAMES: Readonly<Record<NutrientCode, string>> = {
+  energy: 'Energía',
+  protein: 'Proteína',
+  carbohydrates: 'Carbohidratos',
+  fat: 'Grasa',
+  fiber: 'Fibra',
+  water: 'Agua',
+  saturated_fat: 'Grasas saturadas',
+  trans_fat: 'Grasas trans',
+  cholesterol: 'Colesterol',
+  sodium: 'Sodio',
+  sugars: 'Azúcares',
+  vitamin_a: 'Vitamina A',
+  vitamin_c: 'Vitamina C',
+  vitamin_d: 'Vitamina D',
+  vitamin_e: 'Vitamina E',
+  vitamin_k: 'Vitamina K',
+  thiamin: 'Vitamina B1',
+  riboflavin: 'Vitamina B2',
+  niacin: 'Vitamina B3',
+  pantothenic_acid: 'Vitamina B5',
+  vitamin_b6: 'Vitamina B6',
+  vitamin_b12: 'Vitamina B12',
+  folate: 'Folato',
+  calcium: 'Calcio',
+  iron: 'Hierro',
+  magnesium: 'Magnesio',
+  phosphorus: 'Fósforo',
+  potassium: 'Potasio',
+  zinc: 'Zinc',
+  selenium: 'Selenio',
+  copper: 'Cobre',
+}
+
+const NUTRIENT_ORDER = Object.keys(NUTRIENT_NAMES) as NutrientCode[]
+
 export interface MealRow {
   id: string
   when: string
   type: string
   eaten: string
   totals: string
+  /** HU-BO-009: every nutrient the meal recorded, summed, by name and in its unit. */
+  nutrients: string[]
   note: string
   photo: string
 }
@@ -523,6 +528,10 @@ export function mealRows(outcome: BreakGlassExerciseOutcome): MealRow[] {
         )
         .join(' · '),
       totals: totals.length > 0 ? totals.join(' · ') : 'Sin valores registrados',
+      nutrients: NUTRIENT_ORDER.filter((code) => sums.has(code)).map(
+        (code) =>
+          `${NUTRIENT_NAMES[code]}: ${amount(sums.get(code) ?? 0)} ${nutrientValue(code, 0).unit}`,
+      ),
       note: meal.note ?? 'Sin nota',
       photo: meal.has_media ? 'Tiene foto; no se muestra aquí' : 'Sin foto',
     }
@@ -583,6 +592,8 @@ export interface TrainingRow {
   level: string
   /** HU-BO-008 c2: each thing the session recorded, one line each. */
   detail: string[]
+  /** HU-BO-008 c4: the gyms she hid this session from, by name; empty when none. */
+  hiddenFrom: string[]
 }
 
 /**
@@ -593,6 +604,8 @@ export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] 
   if (outcome.outcome !== 'allowed') return []
   const sessions =
     outcome.content?.prior_training_history ?? outcome.content?.relationship_training ?? []
+  // Beside the sessions, never inside them; a server older than the screen sends none.
+  const hidings = outcome.content?.hidden_sessions ?? []
   return sessions.map((session) => {
     const zone = String(session.timezone)
     return {
@@ -608,8 +621,63 @@ export function trainingRows(outcome: BreakGlassExerciseOutcome): TrainingRow[] 
           ? 'Sin nivel certificado'
           : LEVEL_LABELS[session.achieved_level],
       detail: detailLines(session),
+      hiddenFrom: hidings
+        .filter((hiding) => hiding.executed_session_id === session.id)
+        .map((hiding) => hiding.organization_name),
     }
   })
+}
+
+/**
+ * HU-BO-008: where the next training read starts — the last session shown — when the read
+ * said older ones remain. None otherwise, so the screen offers nothing it cannot reach.
+ */
+export function olderSessionsCursor(
+  outcome: BreakGlassExerciseOutcome,
+): { started_at: string; id: string } | null {
+  if (outcome.outcome !== 'allowed' || outcome.content?.has_older_sessions !== true) return null
+  const sessions =
+    outcome.content.prior_training_history ?? outcome.content.relationship_training ?? []
+  const last = sessions[sessions.length - 1]
+  return last ? { started_at: last.started_at, id: last.id } : null
+}
+
+/**
+ * The older page added below what is shown: its sessions, what she hid among them, and
+ * its word on whether more remain. A page that was not allowed replaces the read, so a
+ * window that closed meanwhile is shown as what it is.
+ */
+export function appendSessionPage(
+  current: BreakGlassExerciseOutcome,
+  next: BreakGlassExerciseOutcome,
+): BreakGlassExerciseOutcome {
+  if (next.outcome !== 'allowed' || current.outcome !== 'allowed') return next
+  const shown = current.content ?? {}
+  const page = next.content ?? {}
+  return {
+    ...current,
+    content: {
+      ...shown,
+      ...(shown.prior_training_history || page.prior_training_history
+        ? {
+            prior_training_history: [
+              ...(shown.prior_training_history ?? []),
+              ...(page.prior_training_history ?? []),
+            ],
+          }
+        : {}),
+      ...(shown.relationship_training || page.relationship_training
+        ? {
+            relationship_training: [
+              ...(shown.relationship_training ?? []),
+              ...(page.relationship_training ?? []),
+            ],
+          }
+        : {}),
+      hidden_sessions: [...(shown.hidden_sessions ?? []), ...(page.hidden_sessions ?? [])],
+      has_older_sessions: page.has_older_sessions ?? false,
+    },
+  }
 }
 
 type SessionResults = Partial<
@@ -808,7 +876,7 @@ export function emptyReadMessage(category: BreakGlassCategory | undefined): stri
 export function breakGlassMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente el deber que esta operación exige. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente el deber que esta operación exige. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'El expediente ya no admite esta acción: una solicitud rechazada no se aprueba, y una ventana cerrada no se reabre. Para continuar, pide otra.',
     'not-found': 'Ese expediente no existe.',

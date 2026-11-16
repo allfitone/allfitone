@@ -31,6 +31,8 @@ import type {
   SessionVisibilityCommand,
   SessionVisibilityDatabase,
   SessionVisibilityDenial,
+  MyAccessEvent,
+  MyAccessLogDatabase,
 } from '../domain/index.js'
 import { DEFAULT_ACCESS_EVENT_PAGE, encodeAccessEventCursor } from '../domain/index.js'
 
@@ -499,5 +501,66 @@ function toAuthorizedScope(row: AuthorizedScopeRow): AuthorizedScope {
     purpose: row.purpose,
     granted_at: row.granted_at.toISOString(),
     revoked_at: row.revoked_at ? row.revoked_at.toISOString() : null,
+  }
+}
+
+type MyAccessEventRow = {
+  id: string
+  cursor_at: string
+  occurred_at: string
+  actor_kind: MyAccessEvent['actor']['kind']
+  actor_display_name: string
+  organization_id: string | null
+  organization_display_name: string | null
+  attendance: MyAccessEvent['attendance']
+  access_mode: MyAccessEvent['access_mode']
+  scope_code: MyAccessEvent['scope_code']
+  scope_version: number | null
+  resource: string
+  result: MyAccessEvent['result']
+}
+
+/**
+ * OP-PRV-015. One row more than the page answers whether there is another; the cursor
+ * keeps PostgreSQL's microseconds, which a Date would round away and skip records with.
+ */
+export function createMyAccessLogDatabase(sql: postgres.Sql = database()): MyAccessLogDatabase {
+  return {
+    listMine: (query) =>
+      measureRequestPhase('business-db', async () => {
+        const rows = await sql.begin(async (transaction) => {
+          await asPerson(transaction, query.personId)
+          return transaction<MyAccessEventRow[]>`
+            select event.*,
+              to_char(event.occurred_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+                as cursor_at
+            from privacy.list_my_access_events(
+              ${query.personId}::uuid, ${query.scopeCode ?? null}::text,
+              ${query.limit + 1}::integer,
+              ${query.cursor?.at ?? null}::timestamptz, ${query.cursor?.id ?? null}::uuid
+            ) as event
+          `
+        })
+        const visible = rows.slice(0, query.limit)
+        const last = visible.at(-1)
+        return {
+          items: visible.map((row): MyAccessEvent => ({
+            occurred_at: row.occurred_at,
+            actor: { kind: row.actor_kind, display_name: row.actor_display_name },
+            organization:
+              row.organization_id && row.organization_display_name
+                ? { id: row.organization_id, display_name: row.organization_display_name }
+                : null,
+            attendance: row.attendance,
+            access_mode: row.access_mode,
+            scope_code: row.scope_code,
+            scope_version: row.scope_version,
+            resource: row.resource,
+            result: row.result,
+          })),
+          hasMore: rows.length > query.limit,
+          last: last ? { at: last.cursor_at, id: last.id } : null,
+        }
+      }),
   }
 }

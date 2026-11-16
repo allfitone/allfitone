@@ -1,5 +1,7 @@
 import type { AccountActor } from '../../identity/index.js'
 import type {
+  ClientCard,
+  ClientCardDatabase,
   ClientDirectoryDatabase,
   CommandContext,
   DirectoryPage,
@@ -21,6 +23,8 @@ import type {
   MyRelationshipDatabase,
   MyRelationshipPage,
   MyRelationshipQuery,
+  StudioToday,
+  StudioTodayDatabase,
 } from '../domain/index.js'
 
 /**
@@ -76,6 +80,43 @@ export function createRelationshipStateService(
     read(actor, query) {
       if (!actor.personId) throw new RelationshipsError('registration-incomplete')
       return database.readState(actor.personId, query)
+    },
+  }
+}
+
+export interface ClientCardService {
+  read(
+    actor: AccountActor,
+    query: { organizationId: string; personId: string },
+  ): Promise<ClientCard>
+}
+
+/*
+ * Thin like the state read. Whether the caller attends her, attended her, or neither is
+ * PostgreSQL's answer, and "neither" is the same not-found for everybody.
+ */
+export function createClientCardService(database: ClientCardDatabase): ClientCardService {
+  return {
+    read(actor, query) {
+      if (!actor.personId) throw new RelationshipsError('registration-incomplete')
+      return database.readCard(actor.personId, query)
+    },
+  }
+}
+
+export interface StudioTodayService {
+  read(
+    actor: AccountActor,
+    query: { organizationId: string; requestId: string },
+  ): Promise<StudioToday>
+}
+
+// Which notices the caller gets is decided by her capabilities, in the database.
+export function createStudioTodayService(database: StudioTodayDatabase): StudioTodayService {
+  return {
+    read(actor, query) {
+      if (!actor.personId) throw new RelationshipsError('registration-incomplete')
+      return database.readToday(actor.personId, query)
     },
   }
 }

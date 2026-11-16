@@ -9,8 +9,15 @@
  * inventory says the operator holds. That is deliberate. The inventory is
  * evidence, and using it to decide what to render would turn it into an
  * authorization cache — exactly what the story forbids. Every action is
- * attempted and the API answers from its own transaction, so a duty that expires
- * mid-session fails the next command instead of the next render.
+ * attempted and the API answers from its own transaction.
+ *
+ * ADR-046: the admin role brings every duty and they last as long as it does, so
+ * there is no duty form. A duty held through the role offers no action of its own.
+ *
+ * HU-BO-029 c1: every assignment says who holds it and who granted it, by name, with
+ * the short identifier beside it for a case. The person who receives the role is found
+ * with the same search as /people, so nobody types an identifier; that search is
+ * recorded on everyone it answers, as it is there.
  */
 
 import {
@@ -64,28 +71,31 @@ import {
   type PlatformDutyCode,
   type PlatformDutyFilters,
   type PlatformRoleAssignment,
+  type SupportPeopleSearch,
 } from '@/lib/backoffice-api'
 import {
   actorModeLabel,
   canRecertify,
-  DEFAULT_DUTY_DAYS,
   DUTY_STATUS_FILTERS,
-  MAX_DUTY_DAYS,
   PLATFORM_DUTY_CODES,
-  dutyExpiryFromDays,
   dutyLabel,
   dutyStatusLabel,
   dutyStatusTone,
+  dutyWindowLabel,
   formatInstant,
   isDutyClosed,
-  isValidDutyDays,
+  isHeldThroughRole,
   isValidPersonId,
-  isValidReasonCode,
+  personName,
   platformAccessMessage,
   roleStatusLabel,
   roleStatusTone,
+  shortIdentifier,
   type PlatformDutyStatus,
 } from '@/lib/platform-access'
+import { isSearchable, supportMetadataMessage } from '@/lib/support-metadata'
+
+type PersonMatch = SupportPeopleSearch['items'][number]
 
 type LoadState = 'loading' | 'ready' | 'forbidden' | 'error'
 
@@ -216,8 +226,8 @@ export function PlatformAccess() {
         title="No puedes ver este inventario"
         duties={['manage_platform_access', 'audit_platform_access']}
       >
-        Consultarlo exige un deber vigente de administración o de auditoría de accesos, con AAL2. El
-        rol base por sí solo no alcanza.
+        Consultarlo exige el rol de administrador vigente, con AAL2. Si lo tenías, puede haber sido
+        retirado.
       </ScreenRefusal>
     )
   }
@@ -271,12 +281,6 @@ export function PlatformAccess() {
         hasMore={inventory.dutyCursor !== null}
         appending={appending === 'duties'}
         onLoadMore={() => void loadMore('duties')}
-        onGrant={(input) =>
-          run(
-            () => backofficeApi.grantPlatformDuty(input, newBackofficeCommand()),
-            'Deber otorgado.',
-          )
-        }
         onSuspend={(assignmentId) =>
           run(
             () => backofficeApi.suspendPlatformDuty(assignmentId, newBackofficeCommand()),
@@ -317,18 +321,43 @@ function BaseRoleSection({
   onGrant: (personId: string) => void
   onRevoke: (assignmentId: string) => Promise<void>
 }) {
-  const [personId, setPersonId] = useState('')
+  const [term, setTerm] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [found, setFound] = useState<SupportPeopleSearch | null>(null)
+  const [chosen, setChosen] = useState<PersonMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<string | null>(null)
 
-  function submit(event: FormEvent) {
+  async function search(event: FormEvent) {
     event.preventDefault()
-    if (!isValidPersonId(personId)) {
-      setError('Escribe el identificador de la persona.')
+    const wanted = term.trim()
+    if (!isSearchable(wanted)) {
+      setError('Escribe al menos dos caracteres del nombre, el correo o el teléfono.')
       return
     }
     setError(null)
-    setPersonId('')
+    setChosen(null)
+    setSearching(true)
+    try {
+      setFound(await backofficeApi.searchSupportPeople({ query: wanted, caseReference: '' }))
+    } catch (failure) {
+      setFound(null)
+      setError(searchFailureMessage(failure))
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  function grant() {
+    if (!chosen || !isValidPersonId(chosen.person_id)) {
+      setError('Elige a la persona que recibe el rol.')
+      return
+    }
+    const personId = chosen.person_id
+    setError(null)
+    setChosen(null)
+    setFound(null)
+    setTerm('')
     onGrant(personId)
   }
 
@@ -339,32 +368,80 @@ function BaseRoleSection({
           Rol base
         </CardTitle>
         <CardDescription>
-          `allfit_admin` permite iniciar sesión y nada más. No concede ninguna operación sin un
-          deber vigente.
+          `allfit_admin` trae todos los deberes mientras dure. Nadie se lo otorga a sí mismo, y
+          retirarlo revoca sus deberes y cierra su sesión.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} data-backoffice-form data-platform-form noValidate>
+        <form
+          onSubmit={(event) => void search(event)}
+          data-backoffice-form
+          data-platform-form
+          noValidate
+        >
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="platform-role-person">Persona que recibe el rol</FieldLabel>
+              <FieldLabel htmlFor="platform-role-person">Buscar a quien recibe el rol</FieldLabel>
               <Input
                 id="platform-role-person"
-                value={personId}
-                onChange={(event) => setPersonId(event.target.value)}
-                placeholder="019a3000-0000-7000-8000-000000000001"
+                value={term}
+                onChange={(event) => setTerm(event.target.value)}
+                placeholder="Nombre, correo o teléfono"
                 autoComplete="off"
-                disabled={busy}
+                disabled={busy || searching}
               />
             </Field>
             {error ? <FieldError>{error}</FieldError> : null}
             <div data-form-actions>
-              <Button type="submit" disabled={busy}>
-                Otorgar rol base
+              <Button type="submit" variant="outline" disabled={busy || searching}>
+                {searching ? 'Buscando…' : 'Buscar'}
               </Button>
             </div>
           </FieldGroup>
         </form>
+        <p data-role-search-note>
+          La búsqueda queda registrada, y cada persona que aparece la ve en su historial.
+        </p>
+
+        {found ? (
+          found.items.length === 0 ? (
+            <p data-role-candidates-empty>Nadie coincide con esa búsqueda.</p>
+          ) : (
+            <ul data-role-candidates aria-label="Personas que coinciden">
+              {found.items.map((person) => (
+                <li key={person.person_id} data-role-candidate={person.person_id}>
+                  <strong>{person.display_name}</strong>{' '}
+                  <span>{person.contact_email ?? 'Sin correo'}</span>{' '}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={chosen?.person_id === person.person_id ? 'default' : 'outline'}
+                    aria-pressed={chosen?.person_id === person.person_id}
+                    disabled={busy}
+                    onClick={() => setChosen(person)}
+                  >
+                    Elegir
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+        {found?.has_more ? (
+          <p data-role-candidates-more>Coinciden más personas: escribe algo más preciso.</p>
+        ) : null}
+
+        {chosen ? (
+          <div data-role-chosen>
+            <p>
+              Recibirá el rol base: <strong>{chosen.display_name}</strong>
+              {chosen.contact_email ? ` (${chosen.contact_email})` : ''}
+            </p>
+            <Button type="button" disabled={busy} onClick={grant}>
+              Otorgar rol base
+            </Button>
+          </div>
+        ) : null}
 
         <Table scrollAreaLabel="Asignaciones de rol base">
           <TableHeader>
@@ -389,7 +466,7 @@ function BaseRoleSection({
               assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
                   <TableCell>
-                    <code>{assignment.person_id}</code>
+                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
                   </TableCell>
                   <TableCell>
                     <Badge variant={roleStatusTone(assignment.status)}>
@@ -397,7 +474,10 @@ function BaseRoleSection({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <code>{assignment.granted_by_person_id}</code>
+                    <PersonCell
+                      name={assignment.granted_by_name}
+                      personId={assignment.granted_by_person_id}
+                    />
                   </TableCell>
                   <TableCell>{formatInstant(assignment.granted_at)}</TableCell>
                   <TableCell>{formatInstant(assignment.revoked_at)}</TableCell>
@@ -424,9 +504,10 @@ function BaseRoleSection({
                           <AlertDialogHeader>
                             <AlertDialogTitle>¿Retirar el rol base?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              <code>{assignment.person_id}</code> deja de poder entrar al Backoffice
-                              ahora mismo: se cierran sus deberes vigentes y su sesión. No se puede
-                              deshacer; volver a darle acceso exige otorgar el rol de nuevo.
+                              {personName(assignment.person_name)} deja de poder entrar al
+                              Backoffice ahora mismo: se cierran sus deberes vigentes y su sesión.
+                              No se puede deshacer; volver a darle acceso exige otorgar el rol de
+                              nuevo.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -471,7 +552,6 @@ function DutySection({
   hasMore,
   appending,
   onLoadMore,
-  onGrant,
   onSuspend,
   onRevoke,
   onRecertify,
@@ -483,48 +563,11 @@ function DutySection({
   hasMore: boolean
   appending: boolean
   onLoadMore: () => void
-  onGrant: (input: {
-    personId: string
-    dutyCode: PlatformDutyCode
-    validTo: string
-    reasonCode: string
-  }) => void
   onSuspend: (assignmentId: string) => void
   onRevoke: (assignmentId: string) => Promise<void>
   onRecertify: (assignmentId: string) => void
 }) {
-  const [personId, setPersonId] = useState('')
-  const [dutyCode, setDutyCode] = useState<PlatformDutyCode>('diagnose_support_metadata')
-  const [days, setDays] = useState(String(DEFAULT_DUTY_DAYS))
-  const [reasonCode, setReasonCode] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<string | null>(null)
-
-  function submit(event: FormEvent) {
-    event.preventDefault()
-    const parsedDays = Number(days)
-    if (!isValidPersonId(personId)) {
-      setError('Escribe el identificador de la persona.')
-      return
-    }
-    if (!isValidDutyDays(parsedDays)) {
-      setError(`La vigencia va de 1 a ${MAX_DUTY_DAYS} días.`)
-      return
-    }
-    if (!isValidReasonCode(reasonCode)) {
-      setError('La referencia sólo admite letras, números y . _ : - y espacios.')
-      return
-    }
-    setError(null)
-    setPersonId('')
-    setReasonCode('')
-    onGrant({
-      personId,
-      dutyCode,
-      validTo: dutyExpiryFromDays(parsedDays),
-      reasonCode,
-    })
-  }
 
   return (
     <Card>
@@ -533,74 +576,11 @@ function DutySection({
           Deberes de plataforma
         </CardTitle>
         <CardDescription>
-          Cada deber es temporal, exige AAL2 y lo otorga otra persona. Vencer, suspender o revocar
-          corta sus operaciones en la siguiente transacción.
+          El rol de administrador trae los trece deberes, con AAL2, y duran lo que dure el rol. Un
+          deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={submit} data-backoffice-form data-platform-form noValidate>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-person">Persona que recibe el deber</FieldLabel>
-              <Input
-                id="platform-duty-person"
-                value={personId}
-                onChange={(event) => setPersonId(event.target.value)}
-                placeholder="019a3000-0000-7000-8000-000000000001"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-code">Deber</FieldLabel>
-              <Select
-                value={dutyCode}
-                onValueChange={(value) => setDutyCode(value as PlatformDutyCode)}
-              >
-                <SelectTrigger id="platform-duty-code" disabled={busy}>
-                  <SelectValue>{dutyLabel(dutyCode)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {PLATFORM_DUTY_CODES.map((code) => (
-                    <SelectItem key={code} value={code}>
-                      {dutyLabel(code)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-days">Vigencia en días</FieldLabel>
-              <Input
-                id="platform-duty-days"
-                type="number"
-                min={1}
-                max={MAX_DUTY_DAYS}
-                value={days}
-                onChange={(event) => setDays(event.target.value)}
-                disabled={busy}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="platform-duty-reason">Referencia</FieldLabel>
-              <Input
-                id="platform-duty-reason"
-                value={reasonCode}
-                onChange={(event) => setReasonCode(event.target.value)}
-                placeholder="CASE-2026-014"
-                autoComplete="off"
-                disabled={busy}
-              />
-            </Field>
-            {error ? <FieldError>{error}</FieldError> : null}
-            <div data-form-actions>
-              <Button type="submit" disabled={busy}>
-                Otorgar deber
-              </Button>
-            </div>
-          </FieldGroup>
-        </form>
-
         <FieldGroup data-platform-duty-filters>
           <Field>
             <FieldLabel htmlFor="platform-duty-status-filter">Estado del deber</FieldLabel>
@@ -674,14 +654,14 @@ function DutySection({
               <TableState
                 colSpan={9}
                 state="empty"
-                title="Nadie tiene deberes vigentes"
-                description="Sin un deber, quien tenga rol base puede entrar pero no ejecutar nada."
+                title="Nadie tiene deberes"
+                description="Los deberes llegan con el rol de administrador."
               />
             ) : (
               assignments.map((assignment) => (
                 <TableRow key={assignment.id}>
                   <TableCell>
-                    <code>{assignment.person_id}</code>
+                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
                   </TableCell>
                   <TableCell>{dutyLabel(assignment.duty_code)}</TableCell>
                   <TableCell>
@@ -693,16 +673,19 @@ function DutySection({
                     </Badge>
                   </TableCell>
                   <TableCell numeric>{assignment.required_aal}</TableCell>
+                  <TableCell>{dutyWindowLabel(assignment)}</TableCell>
                   <TableCell>
-                    {formatInstant(assignment.valid_from)} → {formatInstant(assignment.valid_to)}
-                  </TableCell>
-                  <TableCell>
-                    <code>{assignment.granted_by_person_id}</code>
+                    <PersonCell
+                      name={assignment.granted_by_name}
+                      personId={assignment.granted_by_person_id}
+                    />
                   </TableCell>
                   <TableCell>{formatInstant(assignment.recertified_at)}</TableCell>
                   <TableCell align="end">
                     {isDutyClosed(assignment.status) ? (
                       <span>—</span>
+                    ) : isHeldThroughRole(assignment) ? (
+                      <span>Sigue al rol</span>
                     ) : (
                       <>
                         {canRecertify(assignment.status) ? (
@@ -747,7 +730,7 @@ function DutySection({
                             <AlertDialogHeader>
                               <AlertDialogTitle>¿Revocar este deber?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                <code>{assignment.person_id}</code> deja de poder{' '}
+                                {personName(assignment.person_name)} deja de poder{' '}
                                 {dutyLabel(assignment.duty_code).toLowerCase()} desde la siguiente
                                 transacción. A diferencia de suspender, no se puede deshacer: para
                                 devolvérselo hay que otorgar un deber nuevo.
@@ -809,6 +792,21 @@ function LoadMore({
       {appending ? 'Cargando…' : label}
     </Button>
   )
+}
+
+/** The name reads first; the short identifier stays beside it for a case, whole on hover. */
+function PersonCell({ name, personId }: { name: string | null; personId: string }) {
+  return (
+    <span data-person-cell>
+      {personName(name)} <code title={personId}>{shortIdentifier(personId)}</code>
+    </span>
+  )
+}
+
+function searchFailureMessage(error: unknown): string {
+  if (error instanceof BackofficeNetworkError) return platformAccessMessage('network-unavailable')
+  if (error instanceof BackofficeApiError) return supportMetadataMessage(error.code)
+  return platformAccessMessage('upstream-unavailable')
 }
 
 function failureMessage(error: unknown): string {

@@ -165,7 +165,7 @@ export interface paths {
     put?: never
     /**
      * Grant a closed-catalogue platform duty for at most ninety days
-     * @description The actor mode is derived from the duty code and never accepted from the client. The target must already hold an active base role.
+     * @description The actor mode is derived from the duty code and never accepted from the client. The target must already hold an active base role. Since ADR-046 that role brings every duty, so granting one an administrator already holds answers with the assignment in force (`basis: admin_role`) and adds no row.
      */
     post: operations['grantBackofficePlatformDuty']
     delete?: never
@@ -300,6 +300,48 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/catalog/disciplines': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the published disciplines a gym can author content for
+     * @description The same global catalogue Backoffice publishes, read on the Studio surface because the Studio session cookie travels nowhere else. A session template names one of these codes, so a member picks it from this list rather than typing it. Any active person may read it, as on every surface: the catalogue is global published content, not a gym's data, and it carries no organisation to check a capability against.
+     *
+     *     An empty list is a real answer, not a fault: no discipline exists until Backoffice publishes one, and until then no template can be created. Refuses a caller that is not an active person rather than answering an empty list.
+     */
+    get: operations['listStudioCatalogDisciplines']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/catalog/activity-types': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the published global activity types a gym can author content for
+     * @description The global activity types, each under its discipline, read on the Studio surface for the same reason as the disciplines. A template draft and each of its steps may name one by id. Only global published content: a gym's own activity types are not listed here. Any active person may read it, and an empty list means Backoffice has published none yet.
+     */
+    get: operations['listStudioCatalogActivityTypes']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/catalog/disciplines': {
     parameters: {
       query?: never
@@ -368,8 +410,8 @@ export interface paths {
       cookie?: never
     }
     /**
-     * Find a person by something they handed over in their own case
-     * @description Exact match on exactly one of an identifier, an email or a phone. There is no exploratory search by name, so no parameter offers one. The search is recorded whether or not it matched: a fruitless search is the one most worth being able to review later. A match answers only what HU-BO-006 criterion 2 lists, and is also recorded in the person's own access log.
+     * Find a person by part of a name, an email or a phone
+     * @description Part of a name, an email or a phone number, or a person's identifier, matched as text and regardless of case (ADR-046 decision 4). Answers up to `limit` people in name order, with their name and contact, and whether more match. The search is recorded whether or not it matched: a fruitless search is the one most worth being able to review later. Every person it answers is recorded in her own access log before the answer travels.
      */
     get: operations['searchBackofficeSupportPeople']
     put?: never
@@ -561,7 +603,7 @@ export interface paths {
     /**
      * Read a gym's file
      * @description `HU-BO-013`: its data, its owner, its sites and its team. Ordinary support reads identifiers, states, dates and counters, so the owner and the team are person identifiers with their roles, never names or contacts, and the responsible party of an independent professional is never named.
-     *     Every active member the file returns is recorded in the access log before the file is returned. A natural person's site address is withheld, because it can be their home. People served, plans, the payment method and Premium have no tables yet and say `not_modelled` instead of an answer.
+     *     Every active member the file returns is recorded in the access log before the file is returned. A natural person's site address is withheld, because it can be their home. People served, its plans and their subscribers, whether its payment method is connected (never a credential), its guest quota and whether it gives Pro to the people it serves are answered from relationships, payments and the quota, each as the platform holds it today.
      */
     get: operations['readBackofficeOrganizationFile']
     put?: never
@@ -698,6 +740,87 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/backoffice/v1/waitlist/signups': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read the Allfit Space waitlist
+     * @description `HU-BO-035`. Every sign-up, newest first: its name, its email, when it joined and confirmed, its Founding Member number, the channel it arrived through, who invited it and how many of its own referrals count. It is `manage_platform_commercial`.
+     *     A sign-up that does not count says why, and nothing else about it: the hash of its connection and of its device never leave the database. What is returned in their place is `referrals_sharing_connection`, how many of a sign-up's referrals joined from its own connection or from one another's. It is a signal for a person to look at, not a discard.
+     */
+    get: operations['listBackofficeWaitlistSignups']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/waitlist/totals': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read the totals of the waitlist
+     * @description `HU-BO-035`, criterion 4. How many signed up, how many confirmed, how many hold a Founding Member number and how many were marked as fraud, over the whole list, and the same count for each channel, largest first. Past the twenty largest channels the rest are one row of kind `other`.
+     */
+    get: operations['readBackofficeWaitlistTotals']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/waitlist/signups/{signupId}/fraud': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Mark a sign-up as fraud
+     * @description `HU-BO-035`, criteria 3 and 6. The sign-up stops counting for whoever invited it and gives up its Founding Member number, which goes to the earliest-confirmed sign-up that waits for one. The mark is recorded with its reason and the duty assignment it was made under, and it is taken back with `OP-WL-016`. A sign-up already marked is a 409.
+     */
+    post: operations['markBackofficeWaitlistSignupAsFraud']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/backoffice/v1/waitlist/signups/{signupId}/fraud/withdrawal': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take a fraud mark back
+     * @description `HU-BO-035`. A mark can be a mistake. The sign-up returns to what it was before the mark, with two limits: the Founding Member number it gave up is not given back, so it waits in line where its confirmation puts it and takes the next one free; and if its device came to count for the same inviter in the meantime, it returns as `same_device` rather than counting twice. The withdrawal is recorded with its reason and the duty assignment it was made under. A sign-up that is not marked is a 409.
+     */
+    post: operations['withdrawBackofficeWaitlistFraudMark']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/backoffice/v1/verification-requests': {
     parameters: {
       query?: never
@@ -820,35 +943,15 @@ export interface paths {
     }
     /**
      * Read the break-glass tray
-     * @description Requests to decide, or your own. Reading the tray is never a permission: every operation revalidates its duty, its quorum and its window in its own transaction.
+     * @description Every file, or your own. Reading the tray is never a permission: every operation revalidates its role and its window in its own transaction.
      */
     get: operations['listBackofficeBreakGlassRequests']
     put?: never
     /**
      * Ask for a break-glass window
-     * @description The body names the subject, the categories, one of five closed purposes and a traceable case. It does **not** name the tier, the number of approvals or the duration: the server derives all three from the categories, so a caller cannot ask for the cheap ones. A forbidden category is refused rather than priced higher.
+     * @description The body names the subject, the categories, one of five closed purposes and a traceable case. It does **not** name the tier, the number of approvals or the duration: the server derives all three from the categories. Asking opens the window at once, for sixty minutes whatever the tier, because nobody else has to approve it (ADR-046); somebody other than the requester reviews it afterwards. A forbidden category is refused, and a window is never opened over your own data.
      */
     post: operations['requestBackofficeBreakGlass']
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/backoffice/v1/break-glass/requests/{requestId}/decisions': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /**
-     * Approve or reject a break-glass request
-     * @description A rejection is terminal. An approval that completes the quorum opens the window in the same transaction; one that does not leaves the request exactly where it was. The approver is never the requester or the subject, and never counts twice.
-     */
-    post: operations['decideBackofficeBreakGlass']
     delete?: never
     options?: never
     head?: never
@@ -867,7 +970,7 @@ export interface paths {
     /**
      * Exercise an approved break-glass window
      * @description Only the exact requester exercises. Every attempt, allowed or denied, writes evidence before anything is returned — a denial is an answer with a recorded reason, not an error, because the record of a refused attempt is the point.
-     *     The content projection is not available in this version: `execution` and `nutrition` do not exist yet, so an authorised exercise answers `content_unavailable` rather than inventing data.
+     *     An authorised exercise answers the content of its category: measurements and the days with body photos (never a photo), health context, meals, or training with its agenda and the sessions she hid from a gym. A category whose data the platform does not store answers `content_unavailable` rather than inventing data.
      */
     post: operations['exerciseBackofficeBreakGlass']
     delete?: never
@@ -1253,6 +1356,168 @@ export interface paths {
      *     Unlike `OP-IDN-004`, the `Command-Id` is not the identity of a stored row, because one command writes several. Idempotency rests on the durable receipt, and a replay answers the set in force.
      */
     post: operations['declareSpaceFocusAreas']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read my identity and how I sign in
+     * @description HU-SP-009. The name, the username, since when the Fitness ID is active, the contact email with whether it is verified, and each linked access account by provider and link date. Never the provider's subject, and never the grants or the relationships: those have their own place. Only a token that resolves to an active person reads it (403).
+     */
+    get: operations['readSpaceIdentity']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/name': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Correct my name and username
+     * @description HU-SP-098 criterion 6, from the profile. `OP-IDN-043` belongs to an open onboarding attempt and refuses an activated one; this belongs to an active person. Names are trimmed and the username is lower-cased. A username somebody else holds answers 409 without saying who. The contact email is not touched: changing it is `OP-IDN-021`, with its own verification.
+     */
+    post: operations['correctSpaceName']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/contact': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Correct my contact phone, or ask to change my email
+     * @description HU-SP-076. Exactly one of `phone` or `email`.
+     *     **Phone** (ADR-050): V1 sends no SMS, so the phone is a contact value. It is saved in E.164 at once and unverified, and `null` removes it. Spaces, dashes and parentheses are dropped before checking. Only a verified number is unique, so a number somebody else holds unverified is accepted. Answers 200.
+     *     **Email** (TECH-44): nothing changes yet. A code goes to the new address, valid for 30 minutes, and the change waits for `POST /space/v1/me/contact/verification`. Answers 202 with the pending change. A malformed address, her own and one somebody else holds are the same 422, so nothing says who has an account. Asking again replaces the open request with a new code; more than five in an hour, or one while a change is being applied, is 409.
+     */
+    patch: operations['correctSpaceContact']
+    trace?: never
+  }
+  '/space/v1/me/contact/verification': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Confirm my new email with its code
+     * @description HU-SP-077 (TECH-44). The six-digit code sent to the new address. The right one answers 200 `applying`: the worker updates the sign-in address in WorkOS, warns the previous address, closes every other session (this one stays) and then promotes the new address, verified. A wrong or expired code is 422; the fifth wrong one ends the request, which is 409, and a new code has to be asked for.
+     */
+    post: operations['verifySpaceContact']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/me/password': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Change my password
+     * @description HU-SP-005 (TECH-325, ADR-051). The current password is checked and the new one set in WorkOS inside the request; nothing derived from either is stored, logged or hashed into the idempotency receipt. Answers 204 once WorkOS took it: the worker then closes every other session, keeping this one, and emails a notice to the sign-in address. A wrong current password is 422 `wrong-password` and is counted; a new password WorkOS refuses is 422 `weak-password`; five wrong ones in an hour make the next attempt 429 `rate-limited` without asking WorkOS. A replay with the same key answers 204 without asking WorkOS again.
+     */
+    post: operations['changeSpacePassword']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/profile': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read my fitness profile
+     * @description HU-SP-023. Every live claim of every attribute, whatever its classification, one entry per attribute, with the version shown and why. Selection rule v1: the most recent version the person declared wins (`declared_by_you`); without one, the most recent of any provenance (`most_recent`). Every other live version is an alternative, never hidden. An attribute nobody answered is absent. Weight and height are a series, not claims, and stay in `GET /space/v1/body-progress`.
+     */
+    get: operations['readSpaceFitnessProfile']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/profile/biological-sex': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Correct my biological sex
+     * @description HU-SP-096 criteria 3 and 4, from the profile. `null` is declining and it is valid: it clears the value. Changing it rewrites nothing already recorded.
+     */
+    post: operations['correctSpaceBiologicalSex']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/profile/equipment': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Declare the equipment I have
+     * @description HU-SP-013 criterion 2. The whole set, like `OP-IDN-046`: pieces that left are sealed, pieces that arrived are inserted, pieces that stayed keep the moment they were first declared. At least one piece and none exclusive. It is what the person has, not what exists: the codes are those of the equipment catalogue, but the list does not depend on it being published.
+     */
+    post: operations['declareSpaceAvailableEquipment']
     delete?: never
     options?: never
     head?: never
@@ -1939,6 +2204,8 @@ export interface paths {
      *     What comes back depends on the caller. A role holding `view_directory` reads the whole directory and every unanswered invitation. A coach reads only the relationships they hold or stand in for, and only the invitations they themselves sent.
      *
      *     HU-STUDIO-087. `guest_quota` is how full the gym is, counted over the whole organization whatever the caller may list: a coach is held to the same quota as everyone else and has to be told how much of it is left before inviting. Allfit fixes the number; Studio never changes it, and who set it is not part of the answer.
+     *
+     *     HU-STUDIO-082. `q` finds people by name inside the same directory: it narrows what the caller already reads and never widens it, so a coach finds only the people assigned to them. It ignores accents and case, and `%` and `_` are characters, never wildcards. It matches names only, so a search never returns an unanswered invitation, and `q` with `status=invited` is refused with `422`. No match is an empty `data` with `has_more: false`. A cursor resumes only the search it was issued under.
      */
     get: operations['listStudioOrganizationClients']
     put?: never
@@ -1967,6 +2234,152 @@ export interface paths {
      *     This is a report, never the source that decides an access. A reader about to open somebody's data resolves the policy at that moment, inside the transaction that writes the access record; what this returns is already the past by the time it is on screen.
      */
     get: operations['listStudioAuthorizedScopes']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-access-cases': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the historical access cases the caller may see
+     * @description Members with `manage_historical_access` see every case of the organization; anyone else sees only the cases that authorize them. Newest first. A case whose time ran out reads as `expired` even before anyone closes it, and can no longer be used.
+     */
+    get: operations['listHistoricalAccessCases']
+    put?: never
+    /**
+     * Open a time-boxed case to read a relationship the organization ended
+     * @description HU-STUDIO-061. An owner or administrator with `manage_historical_access` opens a case over one ended relationship of the organization, for a stated purpose, with a case reference and a justification, for one to twenty-four hours. It authorizes either the opener or the coach who held the relationship when it ended, while that member keeps an active owner, administrator or coach role. Never staff.
+     *
+     *     It needs a sign-in at most ten minutes old; otherwise 403 `reauthentication-required`, and the client signs in again through `/studio/v1/auth/start?reauthenticate=true`. A relationship that kept no frozen permission cannot be opened (409), and neither can a second open case for the same relationship, member and purpose; one whose time ran out is closed as expired first. The justification stays in the case: the events carry identifiers only.
+     */
+    post: operations['openHistoricalAccessCase']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-access-cases/{caseId}/closure': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Close a historical access case before its time runs out
+     * @description HU-STUDIO-063. A member with `manage_historical_access` closes the case; from then on it reads nothing. Closing a case that is already closed answers it as it stands, and one whose time ran out closes as expired. It needs no recent sign-in: ending access is never harder than granting it.
+     */
+    post: operations['closeHistoricalAccessCase']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read an ended relationship through a historical access case
+     * @description HU-STUDIO-062. Whose relationship it was, when it ended, the case, and the frozen categories that stayed readable after the end. Only the member the case authorizes, while it is open and that member still qualifies, with a sign-in at most ten minutes old. Any other case, relationship or caller reads as 404, and the attempt is recorded against the person. Every read is recorded before it answers, with the case it went through.
+     */
+    get: operations['getHistoricalRelationship']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/executions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the sessions an ended relationship froze, through a case
+     * @description HU-STUDIO-062. Her completed, valid sessions that ended by the cut, newest first: those of this relationship under `relationship_training`, and those she trained on her own under `prior_training_history`, while the frozen version keeps them readable. A session corrected after the cut is left out, and so is one she had hidden then or has hidden since. With no training category frozen the page is empty, and the attempt is recorded as refused.
+     */
+    get: operations['listFrozenExecutions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/executions/{executionId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read one session an ended relationship froze, through a case
+     * @description HU-STUDIO-062. The session as the list shows it, with its results. Never the coach's observations or the plan it fulfilled: neither stayed readable. 403 `scope-required` only when no training category was frozen; any session the list would not show reads as 404.
+     */
+    get: operations['getFrozenExecution']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/body-progress': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the body measurements an ended relationship froze, through a case
+     * @description HU-STUDIO-062. Her measurements recorded by the cut, newest first, with the fields the frozen version of `body_progress` keeps readable; a field it does not keep comes back null. A measurement recorded after the cut never shows, whatever day it claims. 403 `scope-required` when `body_progress` was not frozen readable.
+     */
+    get: operations['listFrozenBodyProgress']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/historical-relationships/{relationshipId}/nutrition/goal-versions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the goals an ended relationship proposed, through a case
+     * @description HU-STUDIO-070. What this relationship proposed by the cut, newest first, each with how it stood at the cut and what she had decided by then, in the fields the frozen version of `nutrition_guidance` keeps readable; a field it does not keep comes back null. Her own goals, another organization's and anything after the cut do not exist for the case. Needs a sign-in at most ten minutes old, as every read through a case. 403 `scope-required` when `nutrition_guidance` was not frozen readable.
+     */
+    get: operations['listFrozenNutritionGoalVersions']
     put?: never
     post?: never
     delete?: never
@@ -2262,6 +2675,76 @@ export interface paths {
     put?: never
     /** Revoke a pending Studio team invitation */
     post: operations['revokeStudioTeamInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/movements': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Search the global library and the organization's own movements
+     * @description HU-STUDIO-067. What the template editor calls while somebody types: the published global library and the organization's own movements together, each saying whose it is in `scope`. Another organization's movements never appear, not even one that gym planned for whoever is searching (T-MOV-1). Names and other names are matched anywhere, case-insensitively; accents are not folded. Archived movements of the organization appear only with `include_archived`, and then say so. Owners, admins and coaches search; anybody else in the organization answers 403, and somebody outside it 404.
+     */
+    get: operations['searchOrganizationMovements']
+    put?: never
+    /**
+     * Create a movement of the organization's own
+     * @description HU-STUDIO-064. Owners, admins and coaches name a movement the global library does not have. It is published at once and only this organization sees it. The name is unique within the organization regardless of case and spacing — a repeated one answers 409 `conflict` with `errors[0].code` `name-taken` — and may equal a global one. A variant is always of a published global movement. Muscles, instructions and media remain Allfit One's to curate, so a new movement has none.
+     */
+    post: operations['createOrganizationMovement']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/movements/{movementId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read one movement the organization can use
+     * @description A published global movement, or one of the organization's own in any state. Another organization's answers the same as one that does not exist. `name_locked` says whether the name and the discipline are frozen: always for a global movement, and for one of the organization's own once a published version uses it.
+     */
+    get: operations['readOrganizationMovement']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Edit a movement of the organization's own
+     * @description HU-STUDIO-065. The fields present replace what was there; a list replaces the whole list, and `variant: null` removes the variant. The caller names the `revision` she read in `expected_revision`; when the movement moved on meanwhile the answer is 409 `stale-draft`.
+     *
+     *     **Editing never reinterprets history.** Published versions and sessions keep only the movement's identifier, so once a published version uses it the discipline is fixed and the name accepts only changes of case and spacing; any other rename answers 409 `conflict` with `errors[0].code` `movement-in-use`. To call it something else, create another and archive this one. Other names, equipment and variant stay editable. An archived movement answers 409 `conflict` with `movement-archived`, a repeated name `name-taken`. A global movement or another organization's answers 404. Every change is kept as a revision with who made it.
+     */
+    patch: operations['updateOrganizationMovement']
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/movements/{movementId}/archival': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Archive a movement of the organization's own
+     * @description HU-STUDIO-066. Owners and admins retire a movement: new content no longer accepts it, and every version and session that used it keeps showing its name. A movement history references is never deleted. Archiving converges, so archiving it again answers the archived movement, and there is no way back. Coaches answer 403. This command carries no request body; supplying a payload is rejected with 415.
+     */
+    post: operations['archiveOrganizationMovement']
     delete?: never
     options?: never
     head?: never
@@ -3818,6 +4301,54 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/clients/{personId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Open the card of a client the caller attends
+     * @description HU-STUDIO-083. An index, not a copy of her data: who she is, since when the link exists, whether the caller holds her or covers for her, each category she shares with this relationship and the operations that read it, and the categories she withdrew. A category she never shared, or refused, appears nowhere: not as empty and not as locked. It carries no counts, so it never says whether there is anything behind a category. Opening it reads none of her data and writes no access event; each operation it points to records its own.
+     *
+     *     HU-STUDIO-084. A coach who attended her through his current membership and no longer does gets `kind: former` instead, for thirty days after he lost her: whether she left the organization (`relationship_ended`), his attendance ended while the link went on (`assignment_ended`), or his cover ran out (`substitution_ended`), and when. It never says who ended it or why, carries no name, and does not change if she later comes back with another coach.
+     *
+     *     Everybody else, including an owner or administrator who does not attend her, gets the same `404` as for somebody who does not exist.
+     */
+    get: operations['getStudioClientCard']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/today': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * What needs the caller's attention today
+     * @description HU-STUDIO-081. One notice per thing the caller's roles let her resolve, and none for what they do not: a notice she cannot act on is absent, not empty. Each counts everything it covers, lists at most five, and says which operation resolves it.
+     *
+     *     `client_invitations` needs `invite_clients` and, without `view_directory`, covers only the invitations she sent. `unassigned_relationships` needs `assign_professionals`, `termination_requests` needs `terminate_relationships`, `team_invitations` needs `invite`, `team` needs `manage_memberships`, `new_relationships` (the last seven days) needs `view_directory`, and `training` needs `observe_training`. Failed charges join when organization billing exists.
+     *
+     *     `training` lists the clients she attends who share `relationship_training` with this relationship and have sessions of their last closed week (Monday to Sunday in their program's timezone) left unlogged, or results finished in the last forty-eight hours. Each client evaluated is recorded in her access log, shown or not; a client who withdrew her training is neither evaluated nor mentioned. `empty` is true when nothing waits; `team` is a state and never makes it false.
+     */
+    get: operations['getStudioToday']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/clients/{personId}/executions': {
     parameters: {
       query?: never
@@ -4158,6 +4689,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/access-events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Who read her data, and when
+     * @description HU-STUDIO-083 c3. Every read of her data by somebody else in the last twenty-four months, newest first: the person who read and the organization they read for, whether a coach read as holder or as cover, the category and the version she accepted, and whether the read was allowed or refused. The Allfit One team's break-glass and support accesses are listed too, by name. Her own reads are not listed. Only her own log; nobody else's is ever listed, and reading it is not itself recorded.
+     */
+    get: operations['listMyAccessEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/visibility-denials': {
     parameters: {
       query?: never
@@ -4368,7 +4919,12 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** List live authorized client meals with field-level media redaction */
+    /**
+     * List the meals a client shares with the coach who attends her
+     * @description HU-STUDIO-068. Her meals between `from` and `to`, her local days, at most thirty-one of them, newest first, under `nutrition_intake`: only the fields its version shares, the rest null. `has_photo` says whether a meal has a photo only when she also shares `nutrition_media`; otherwise it is null, and the photo is fetched from its own route. The storage key never leaves the API. Her Space plan's window does not apply here.
+     *
+     *     The holder of her relationship or a cover she accepted reads it; anyone else, the owner and admins included, gets 404. With nothing shared, 403 `scope-required`. Every read is recorded before it answers.
+     */
     get: operations['listAuthorizedClientNutritionMeals']
     put?: never
     post?: never
@@ -4386,8 +4942,8 @@ export interface paths {
       cookie?: never
     }
     /**
-     * Stream one sanitized meal photo after rechecking live authorization
-     * @description Revalidates the complete professional context plus nutrition_intake/read and nutrition_media/read on every request, records ACCESS_EVENT, and streams the sanitized object without exposing media_ref or a signed storage URL.
+     * Stream one meal photo after rechecking what she shares
+     * @description HU-STUDIO-072. Rechecks the coach's assignment and both `nutrition_intake` and `nutrition_media` on every request, records the access, and streams the image through the API (`x-allfit-media-url-policy.studio_professional`): no redirect, no signed address. Every photo was sanitised to JPEG when she kept it. Anything short of a photo she shares, a missing permission included, is 404.
      */
     get: operations['getAuthorizedClientNutritionMealPhoto']
     put?: never
@@ -4405,7 +4961,10 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Aggregate nutrition only after applying live authorization */
+    /**
+     * Add up each day of a client's meals from what she shares
+     * @description HU-STUDIO-069. Every day between `from` and `to`, at most thirty-one, with how many meals she recorded and the total of each nutrient, added up only from what `nutrition_intake` shares. A day with nothing has no totals, not zeros; a version that shares no nutrients gives `nutrient_totals: null`, so a total never reveals what it hides. No streak and no hidden days: those are hers, in Space.
+     */
     get: operations['listAuthorizedClientNutritionDailySummaries']
     put?: never
     post?: never
@@ -4422,10 +4981,20 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** List authorized live or explicitly selected frozen guidance */
+    /**
+     * List the goals this relationship proposed, and her active goal
+     * @description HU-STUDIO-070. Under `nutrition_guidance`: what this relationship proposed, newest first, in any state and with what she decided; never her own goals nor another organization's. `active` is the goal she follows now, with its targets; it names its version and says `from_this_relationship` only when this relationship proposed it, and otherwise says nothing of who set it or why.
+     *
+     *     What an ended relationship proposed is read through a historical access case, under `/historical-relationships/{relationshipId}/nutrition/goal-versions`.
+     */
     get: operations['listAuthorizedClientNutritionGoalVersions']
     put?: never
-    /** Propose a nutrition goal version without activating it */
+    /**
+     * Propose a version of a client's nutrition goals for her to decide
+     * @description HU-STUDIO-071. The coach who attends her proposes daily targets, one to six nutrients the catalogue publishes, with a justification. Nothing changes until she accepts it in Space; her active goal stays as it is. A new proposal replaces the one this relationship still has waiting, which then reads `superseded`; ending the relationship cancels it.
+     *
+     *     It needs three things at once: `guide_nutrition` (403 `forbidden`), a verified nutrition credential in force (403 `credential-required`), and her guidance shared at `contribute` (403 `scope-required`). A target is a nutrient, never a food, a menu or a clinical indication. While her service is paused, 409 `service-paused`. The Command-Id is the proposal's id.
+     */
     post: operations['proposeClientNutritionGoalVersion']
     delete?: never
     options?: never
@@ -4722,7 +5291,7 @@ export interface paths {
     }
     /**
      * Read how the business is going
-     * @description Counts of people, gyms and money, each one carrying the period it was measured over. A figure the platform cannot compute is `not_modelled` with no value and a reason, never zero: payments have no tables yet, and Space keeps no session, so "people active this week" has no signal at all.
+     * @description Counts of people, gyms and money, each one carrying the period it was measured over. A figure the platform cannot compute is `not_modelled` with no value and a reason, never zero. Every figure is computed today: people active this week are the people who trained this week, and the money is what the stores reported as collected.
      *     A count of people below `minimum_aggregate` is `below_threshold` with no value, so no figure narrows the platform down to somebody. A true zero is published, because it singles nobody out. Nothing here names a person, so reading it records no access, and no figure leads to one.
      *     Requires `view_platform_metrics`.
      */
@@ -5110,7 +5679,11 @@ export interface paths {
       cookie?: never
     }
     get?: never
-    put?: never
+    /**
+     * Correct one of my health context claims
+     * @description TECH-326, ADR-052. The claim is corrected in place: type, description, area and dates are replaced and the earlier wording is not kept; something new is a new claim. Its id, provenance and recorded instant never change. Same validations as declaring. Someone else's claim and one that does not exist both answer 404. Under a legal hold over the person's health data, or while the claim's deletion waits, the answer is 409 and nothing changes.
+     */
+    put: operations['correctSpaceHealthContext']
     post?: never
     /**
      * Delete one of my health context claims
@@ -5203,6 +5776,102 @@ export interface paths {
      *     Converges: cancelling an already ended subscription answers `200` with no further effect. Subscribing again later creates a new subscription rather than reviving this one, so the record of what was charged stays intact.
      */
     post: operations['cancelSpaceSubscription']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * The plans this organization sells
+     * @description Every plan of the organization, drafts included, each with the price on sale and every price it ever had. What is on sale comes first, then by name.
+     *
+     *     **The whole team reads it.** A price is nobody's personal data, so a coach and staff read the plans too; only `manage_billing` changes them. A person with no membership is forbidden. A client sees what is offered in Space (`OP-PAY-011`), never the drafts.
+     */
+    get: operations['listStudioOrganizationPlans']
+    put?: never
+    /**
+     * Create a plan, with a name and no price
+     * @description A plan is a draft until its first version is published: the price lives on the version, and a draft cannot be sold to anybody. Two plans of one organization cannot share a name, compared without case: `409`.
+     *
+     *     Needs `manage_billing`, which the owner and the admin hold.
+     */
+    post: operations['createStudioOrganizationPlan']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans/{planId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /**
+     * Rename a plan, on sale or not
+     * @description A draft and a plan on sale are renamed alike, and the people subscribed to it read the new name. Renaming to the name it already has changes nothing. A name another plan of the organization has: `409`.
+     *
+     *     There is no `If-Match`: the name is the only field, so the last write wins and nothing else can be lost.
+     */
+    patch: operations['renameStudioOrganizationPlan']
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans/{planId}/versions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Put a price on sale
+     * @description Publishes a version with its amount, period and delivery, and **retires the version on sale in the same command**: a plan has one price on sale. Whoever subscribed to an earlier version keeps it — a published version never changes, and no subscription moves to another one.
+     *
+     *     Amounts are whole Colombian pesos in the minor unit (`120000 COP` is `12000000`), because Mercado Pago Colombia charges in COP. `in_person` plans are offered in Space; `remote` ones are paid through the link the organization sends, never in the app (`ADR-048`).
+     *
+     *     Publishing exactly the price already on sale changes nothing and answers `200`; a new version answers `201`. A replay answers what the first call answered.
+     */
+    post: operations['publishStudioPlanVersion']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/studio/v1/organizations/{organizationId}/plans/{planId}/versions/{planVersionId}/deprecation': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Take a price off sale
+     * @description Stops new subscriptions to this version. It **does not cancel, suspend or move** anybody already subscribed to it. Retiring the price on sale takes the plan off sale until another version is published.
+     *
+     *     Names a version rather than the plan: if somebody published a new price a moment earlier, retiring the old one changes nothing and the new one stays on sale. Retiring a version already retired converges. No body.
+     */
+    post: operations['deprecateStudioPlanVersion']
     delete?: never
     options?: never
     head?: never
@@ -5339,10 +6008,242 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/waitlist/signups': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Join the Allfit Space waitlist
+     * @description Called by space-web from its server, never by a browser. A new address answers 201 with its code. An address already on the list answers 202 with nothing about the sign-up behind it: its code and counter go to its inbox.
+     */
+    post: operations['joinSpaceWaitlist']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/confirmations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Confirm the email of a waitlist sign-up
+     * @description The page behind the confirmation link posts its token when the person presses the button. Opening the link changes nothing. A token that is unknown, voided or expired answers 404.
+     */
+    post: operations['confirmSpaceWaitlistEmail']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/email-requests': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ask for the waitlist email again
+     * @description Sends the confirmation email again to an unconfirmed address, or its link to a confirmed one. The answer is the same whether the address is on the list or not.
+     */
+    post: operations['requestSpaceWaitlistEmail']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/link-reads': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Read my waitlist link and counter
+     * @description Reads the code and the counter of the sign-up a private link belongs to. The token travels in the body because it is a bearer credential. The answer never names the people who joined with the code.
+     */
+    post: operations['readSpaceWaitlistLink']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/waitlist/departures': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Leave the waitlist
+     * @description Deletes the sign-up a private link belongs to, with every link it ever received. The people it invited stay on the list. A link whose sign-up already left answers like one that never existed.
+     */
+    post: operations['leaveSpaceWaitlist']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
   schemas: {
+    WaitlistSignupRequest: {
+      name: string
+      /** Format: email */
+      email: string
+      /** @enum {string} */
+      language: 'es' | 'en'
+      /**
+       * @description The person's authorization to process their data. Without it nothing is stored.
+       * @constant
+       */
+      consent: true
+      /** @description The version of the privacy policy the person authorized. */
+      policy_version: string
+      /** @description The code of whoever invited them. An unknown code is ignored. */
+      referral_code?: string
+      utm_source?: string
+      utm_medium?: string
+      utm_campaign?: string
+    }
+    WaitlistSignupJoined: {
+      /** @constant */
+      status: 'joined'
+      referral_code: string
+      referrals: number
+    }
+    WaitlistSignupAlreadyListed: {
+      /** @constant */
+      status: 'already_listed'
+    }
+    WaitlistConfirmationRequest: {
+      token: string
+    }
+    WaitlistConfirmation: {
+      /** @enum {string} */
+      status: 'confirmed' | 'already_confirmed'
+      founding_number?: components['schemas']['WaitlistFoundingNumber']
+    }
+    /** @description The Founding Member number of the sign-up, given to the first hundred to confirm. Absent for a sign-up that holds none. */
+    WaitlistFoundingNumber: number
+    WaitlistEmailRequest: {
+      /** Format: email */
+      email: string
+    }
+    WaitlistPrivateLinkRequest: {
+      token: string
+    }
+    WaitlistLink: {
+      referral_code: string
+      /** @description Sign-ups that joined with the code, confirmed and count. */
+      referrals: number
+      /** @enum {string} */
+      language: 'es' | 'en'
+      /** @description Whether this sign-up confirmed its own email. */
+      confirmed: boolean
+      founding_number?: components['schemas']['WaitlistFoundingNumber']
+    }
+    /** @description Where a sign-up came from. `source` is what its link named, trimmed and in lower case, and is null for every other kind: `referral` joined with somebody's code, `direct` with neither, and `other` only appears in the totals, for the channels folded past the twenty largest. */
+    BackofficeWaitlistChannel: {
+      /** @enum {string} */
+      kind: 'source' | 'referral' | 'direct' | 'other'
+      source: string | null
+    }
+    BackofficeWaitlistSignup: {
+      id: components['schemas']['Uuid']
+      name: string
+      /** Format: email */
+      email: string
+      /** @enum {string} */
+      language: 'es' | 'en'
+      referral_code: string
+      /** Format: date-time */
+      joined_at: string
+      /** Format: date-time */
+      confirmed_at: string | null
+      founding_number: number | null
+      channel: components['schemas']['BackofficeWaitlistChannel']
+      invited_by: {
+        name: string
+        referral_code: string
+      } | null
+      /**
+       * @description Why the sign-up does not count for whoever invited it. The reason is all that is said: never the connection or the device it was judged by.
+       * @enum {string|null}
+       */
+      discard_reason: 'self_referral' | 'same_device' | 'fraud' | null
+      /** @description The fraud mark that stands. Null once it is taken back. */
+      fraud: {
+        reason: string
+        /** Format: date-time */
+        marked_at: string
+        /**
+         * @description Why the sign-up did not count before the mark, and so what taking the mark back returns it to.
+         * @enum {string|null}
+         */
+        previous_discard_reason: 'self_referral' | 'same_device' | null
+      } | null
+      /** @description The withdrawal of the sign-up's last fraud mark. Null while a mark stands, and for a sign-up that was never marked. */
+      fraud_withdrawal: {
+        reason: string
+        /** Format: date-time */
+        withdrawn_at: string
+      } | null
+      /** @description Sign-ups that joined with this one's code, confirmed and count. */
+      referrals: number
+      /** @description How many of its referrals joined from this sign-up's own connection, or from the same connection as another of them. A signal, not a discard. */
+      referrals_sharing_connection: number
+      /** @description Whether the sign-up is linked to an Allfit Space account. Always false until `OP-WL-006` links them. */
+      has_space_account: boolean
+    }
+    BackofficeWaitlistSignupPage: {
+      data: components['schemas']['BackofficeWaitlistSignup'][]
+      page: components['schemas']['Page']
+    }
+    BackofficeWaitlistTotals: {
+      signups: number
+      confirmed: number
+      founding_members: number
+      marked_as_fraud: number
+      channels: {
+        channel: components['schemas']['BackofficeWaitlistChannel']
+        signups: number
+        confirmed: number
+      }[]
+    }
+    BackofficeWaitlistFraudMark: {
+      /** @description Why the sign-up is fraud, on one line. It stays in the record of the mark. Surrounding spaces are dropped. */
+      reason: string
+    }
+    BackofficeWaitlistFraudWithdrawal: {
+      /** @description Why the mark was a mistake, on one line. It stays in the record of the withdrawal. Surrounding spaces are dropped. */
+      reason: string
+    }
     /** @description One resource and field the version speaks about. An exclusion is stated rather than left out, because criterion 1 asks what a permission excludes and an absence cannot answer that. */
     ScopeResourceRule: {
       resource: string
@@ -5687,8 +6588,11 @@ export interface components {
     CredentialVerificationResult: 'verified' | 'rejected' | 'unverifiable'
     CredentialVerificationRequest: {
       request_id: components['schemas']['Uuid']
-      /** @enum {string} */
-      kind: 'initial' | 'renewal'
+      /**
+       * @description `name_change` (HU-BO-021 criterion 7): the holder changed her name while the credential had a verification in force. That verification stays intact and in force; the reviewer decides whether the credential still matches her.
+       * @enum {string}
+       */
+      kind: 'initial' | 'renewal' | 'name_change'
       /** Format: date-time */
       requested_at: string
       credential_id: components['schemas']['Uuid']
@@ -5748,7 +6652,7 @@ export interface components {
     CredentialVerificationOutcome: {
       request_id: components['schemas']['Uuid']
       /** @enum {string} */
-      kind: 'initial' | 'renewal'
+      kind: 'initial' | 'renewal' | 'name_change'
       /** @enum {string} */
       status: 'pending' | 'resolved' | 'cancelled'
       credential_id: components['schemas']['Uuid']
@@ -5861,7 +6765,9 @@ export interface components {
       purpose: components['schemas']['BreakGlassPurpose']
       case_reference: string
       sensitivity_tier: components['schemas']['BreakGlassTier']
+      /** @description 0 for every window asked for since ADR-046, because asking opens it. 1 or 2 only on files asked for before, which keep their quorum. */
       required_approvals: number
+      /** @description 60 for every window asked for since ADR-046; 30 or 15 on files asked for before. */
       requested_duration_minutes: number
       /** Format: date-time */
       requested_at: string
@@ -5878,13 +6784,12 @@ export interface components {
       reviewed_at: string | null
       /** @enum {string|null} */
       review_outcome: 'justified' | 'unjustified' | 'incident_opened' | null
+      /** @description Approvals recorded before ADR-046; empty on every window opened since. */
       approvals: components['schemas']['BreakGlassApproval'][]
       exercise_count: number
       /** @description Whether the caller opened this file. The Backoffice session carries no domain identifier, so the server answers this rather than the client re-deriving it from one. */
       viewer_is_requester: boolean
       /** @description A hint for the screen, never authority: it saves offering a button that would always be refused. Every command revalidates on its own. */
-      viewer_can_decide: boolean
-      /** @description A hint for the screen, on the same terms as `viewer_can_decide`. */
       viewer_can_exercise: boolean
     }
     BreakGlassRequestList: {
@@ -5897,16 +6802,18 @@ export interface components {
       purpose: components['schemas']['BreakGlassPurpose']
       case_reference: string
     }
-    BreakGlassDecision: {
-      /** @enum {string} */
-      decision: 'approved' | 'rejected'
-      reason_code: string
-    }
     BreakGlassExercise: {
       category: components['schemas']['BreakGlassCategory']
       resource_type: string
+      before?: components['schemas']['BreakGlassSessionCursor']
       /** Format: uuid */
       resource_id?: string | null
+    }
+    /** @description HU-BO-008: the last session a training read already showed. The read answers the hundred sessions older than it. Only a training category pages; both halves or neither. */
+    BreakGlassSessionCursor: {
+      /** Format: date-time */
+      started_at: string
+      id: components['schemas']['Uuid']
     }
     /** @description Every attempt is recorded before this answers, so `break_glass_event_id` is the evidence of this exact attempt. Only `allowed` carries content, and only for a category whose data the platform stores; the others answer `content_unavailable`. A category that returns content reads only its own kind of data, so pointing it at another is `denied` with `resource_out_of_scope`. */
     BreakGlassExerciseOutcome: {
@@ -6179,9 +7086,12 @@ export interface components {
      * @enum {string}
      */
     SupportBlockAvailability: 'available' | 'unknown' | 'not_modelled'
-    /** @description The minimised operational state. No name, no full contact and no identity provider subject appear here, by construction rather than by filtering. */
+    /** @description The operational state, with her name and full contact for an administrator (ADR-046 decision 4). No identity provider subject appears here, by construction rather than by filtering. */
     SupportPersonMetadata: {
       person_id: components['schemas']['Uuid']
+      display_name: string
+      contact_email: string | null
+      contact_phone: string | null
       account_status: string
       /** Format: date-time */
       created_at: string
@@ -6247,18 +7157,21 @@ export interface components {
       /** Format: date-time */
       until: string | null
     }
-    /** @description HU-BO-006 criterion 2: the identifier, the masked contact and the operational state of the account, and nothing else. */
+    /** @description Who she is, how to reach her and the state of her account: what an administrator needs to tell two people apart (ADR-046 decision 4). */
     SupportPersonMatch: {
       person_id: components['schemas']['Uuid']
+      display_name: string
+      contact_email: string | null
+      contact_phone: string | null
       account_status: string
-      contact_email_masked: string | null
-      contact_phone_masked: string | null
     }
     /** @description The outcome travels beside the items so a client cannot render an unexplained empty list. `HU-BO-006` criterion 3 is a contract obligation here, not a copy decision in one screen. */
     SupportPeopleSearch: {
       /** @enum {string} */
       outcome: 'found' | 'not_found'
       items: components['schemas']['SupportPersonMatch'][]
+      /** @description More people match than this page answers; a narrower search finds them. */
+      has_more: boolean
     }
     PlatformRoleAssignmentPage: {
       data: components['schemas']['PlatformRoleAssignment'][]
@@ -6302,6 +7215,8 @@ export interface components {
       discipline_code: string
       code: string
       name: string
+      /** @description The family of target a step of this type takes, read from its effective default result contract, the same one the template validator reads. Null when no default contract is in force, and then every target is refused, so an editor offers none rather than guessing. */
+      activity_family: components['schemas']['ActivityFamily'] | null
     }
     CatalogActivityTypeList: {
       items: components['schemas']['CatalogActivityType'][]
@@ -6429,17 +7344,21 @@ export interface components {
     PlatformRoleAssignment: {
       id: components['schemas']['UuidV7']
       person_id: components['schemas']['Uuid']
+      person_name: components['schemas']['PlatformAccessPersonName']
       /** @enum {string} */
       platform_role: 'allfit_admin'
       /** @enum {string} */
       status: 'active' | 'revoked'
       granted_by_person_id: components['schemas']['Uuid']
+      granted_by_name: components['schemas']['PlatformAccessPersonName']
       /** Format: date-time */
       granted_at: string
       revoked_by_person_id: components['schemas']['Uuid'] | null
       /** Format: date-time */
       revoked_at: string | null
     }
+    /** @description HU-BO-029: the person's name as `identity.people` holds it, so the Team screen says who holds access and who granted it. Null only when the person has no name on file. Reading the inventory leaves an access event on every person it names (ADR-046). */
+    PlatformAccessPersonName: string | null
     PlatformDutyGrant: {
       person_id: components['schemas']['Uuid']
       duty_code: components['schemas']['PlatformDutyCode']
@@ -6458,10 +7377,16 @@ export interface components {
     PlatformDutyAssignment: {
       id: components['schemas']['UuidV7']
       person_id: components['schemas']['Uuid']
+      person_name: components['schemas']['PlatformAccessPersonName']
       duty_code: components['schemas']['PlatformDutyCode']
       actor_mode: components['schemas']['PlatformActorMode']
       /** @enum {string} */
       status: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
+      /**
+       * @description `granted`: granted by another administrator for at most ninety days. `admin_role`: brought by the `allfit_admin` role (ADR-046); it has no end of its own, is never suspended, revoked or recertified alone, and ends when the role is withdrawn.
+       * @enum {string}
+       */
+      basis: 'granted' | 'admin_role'
       /** Format: date-time */
       valid_from: string
       /** Format: date-time */
@@ -6469,6 +7394,7 @@ export interface components {
       /** @constant */
       required_aal: 2
       granted_by_person_id: components['schemas']['Uuid']
+      granted_by_name: components['schemas']['PlatformAccessPersonName']
       recertified_by_person_id: components['schemas']['Uuid'] | null
       /** Format: date-time */
       recertified_at: string | null
@@ -6583,6 +7509,11 @@ export interface components {
       authenticated: true
       registration_status: components['schemas']['StudioRegistrationStatus']
       identity: components['schemas']['StudioAccountIdentity']
+      /**
+       * Format: date-time
+       * @description Until when this session's sign-in counts as recent, for operations that ask for one. Null when the identity provider did not say when the person authenticated.
+       */
+      recent_authentication_expires_at: string | null
       analytics: components['schemas']['AnalyticsIdentity']
     }
     StudioEntryContext: {
@@ -7211,6 +8142,78 @@ export interface components {
        */
       demo_url: string | null
     }
+    /** @description A movement as the template editor's picker shows it. `scope` says whose it is: the global library's or the organization's own. */
+    StudioMovement: {
+      /** Format: uuid */
+      id: string
+      discipline_code: string
+      name: string
+      scope: components['schemas']['MovementScope']
+      archived: boolean
+      /** @description Muscle codes, the primary one first. Empty for the organization's own. */
+      muscles: string[]
+      equipment: string[]
+      /** Format: uri */
+      demo_url: string | null
+    }
+    StudioMovementPage: {
+      data: components['schemas']['StudioMovement'][]
+      page: components['schemas']['Page']
+    }
+    /** @enum {string} */
+    MovementScope: 'global' | 'organization'
+    /** @enum {string} */
+    MovementRelation: 'variant' | 'regression' | 'progression'
+    OrganizationMovement: {
+      /** Format: uuid */
+      id: string
+      discipline_code: string
+      name: string
+      scope: components['schemas']['MovementScope']
+      archived: boolean
+      /** @description What an edit names in `expected_revision`. */
+      revision: number
+      /** @description Other names it goes by, in alphabetical order. */
+      aliases: string[]
+      /** @description Equipment codes, in the catalogue's order. */
+      equipment: string[]
+      muscles: string[]
+      variant_of: null | components['schemas']['MovementVariantOf']
+      /** @description Whether the name and the discipline are frozen: always for a global movement, and for the organization's own once a published version uses it. */
+      name_locked: boolean
+      /** Format: uri */
+      demo_url: string | null
+    }
+    /** @description The global movement this one is a variant, regression or progression of. */
+    MovementVariantOf: {
+      /** Format: uuid */
+      id: string
+      name: string
+      relation: components['schemas']['MovementRelation']
+      note: string | null
+    }
+    /** @description Of a published global movement, never of another of the organization's own. */
+    MovementVariantInput: {
+      movement_id: components['schemas']['Uuid']
+      relation: components['schemas']['MovementRelation']
+      note?: string | null
+    }
+    OrganizationMovementCreate: {
+      discipline_code: string
+      name: string
+      aliases?: string[]
+      equipment?: string[]
+      variant?: null | components['schemas']['MovementVariantInput']
+    }
+    /** @description `expected_revision` and at least one field to change. A list replaces the whole list; `variant: null` removes it. */
+    OrganizationMovementUpdate: {
+      expected_revision: number
+      discipline_code?: string
+      name?: string
+      aliases?: string[]
+      equipment?: string[]
+      variant?: null | components['schemas']['MovementVariantInput']
+    }
     CatalogueTerm: {
       code: string
       name: string
@@ -7447,6 +8450,9 @@ export interface components {
       | components['schemas']['SpaceTrainingGoalDeclaration']
       | components['schemas']['SpaceTrainingExperienceDeclaration']
       | components['schemas']['SpaceTrainingDisciplineDeclaration']
+      | components['schemas']['SpaceTrainingDaysDeclaration']
+      | components['schemas']['SpaceSessionDurationDeclaration']
+      | components['schemas']['SpaceTrainingPlaceDeclaration']
     /** @description Only one goal is principal, so declaring a second time replaces which one that is rather than adding to a set. */
     SpaceTrainingGoalDeclaration: {
       /**
@@ -7479,6 +8485,9 @@ export interface components {
       | components['schemas']['SpaceTrainingGoalClaim']
       | components['schemas']['SpaceTrainingExperienceClaim']
       | components['schemas']['SpaceTrainingDisciplineClaim']
+      | components['schemas']['SpaceTrainingDaysClaim']
+      | components['schemas']['SpaceSessionDurationClaim']
+      | components['schemas']['SpaceTrainingPlaceClaim']
     SpaceTrainingGoalClaim: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -7505,6 +8514,187 @@ export interface components {
       attribute_code: 'training_discipline'
       value_text: components['schemas']['TrainingDiscipline']
       superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    /**
+     * @description HU-SP-012 criterion 3. A string and not a number because the attribute is an enum in the catalogue: a numeric attribute has no range there, and nine days must be refused by the database, not only by a client.
+     * @enum {string}
+     */
+    TrainingDaysPerWeek: '1' | '2' | '3' | '4' | '5' | '6' | '7'
+    /**
+     * @description HU-SP-012 criterion 3, as ranges: what someone knows is how much fits, not an exact number. Nobody who programs training has validated the cuts yet.
+     * @enum {string}
+     */
+    SessionDuration: 'up_to_30_min' | '30_to_45_min' | '45_to_60_min' | 'over_60_min'
+    /**
+     * @description HU-SP-013 criterion 1. `multiple` is "several places", an answer and not the absence of one.
+     * @enum {string}
+     */
+    TrainingPlace: 'gym' | 'home' | 'outdoors' | 'multiple'
+    /**
+     * @description HU-SP-013 criterion 2. The codes of the equipment catalogue, listed here because the question cannot wait for that catalogue to be published.
+     * @enum {string}
+     */
+    AvailableEquipmentPiece:
+      | 'bodyweight'
+      | 'dumbbell'
+      | 'kettlebell'
+      | 'barbell'
+      | 'bench'
+      | 'pull_up_bar'
+      | 'cable'
+      | 'machine'
+      | 'cardio_machine'
+    /** @description Always ordered by code. */
+    AvailableEquipmentSet: components['schemas']['AvailableEquipmentPiece'][]
+    SpaceAvailableEquipmentDeclaration: {
+      /** @description The whole set; what is absent here is withdrawn. At least one piece. */
+      equipment: components['schemas']['AvailableEquipmentSet'] & unknown
+    }
+    /** @description The equipment in force after the command, which on a replay is simply the set in force. */
+    SpaceAvailableEquipment: {
+      equipment: components['schemas']['AvailableEquipmentSet']
+    }
+    SpaceTrainingDaysDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_days_per_week'
+      value_text: components['schemas']['TrainingDaysPerWeek']
+    }
+    SpaceSessionDurationDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'session_duration'
+      value_text: components['schemas']['SessionDuration']
+    }
+    SpaceTrainingPlaceDeclaration: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_place'
+      value_text: components['schemas']['TrainingPlace']
+    }
+    SpaceTrainingDaysClaim: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_days_per_week'
+      value_text: components['schemas']['TrainingDaysPerWeek']
+      superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    SpaceSessionDurationClaim: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'session_duration'
+      value_text: components['schemas']['SessionDuration']
+      superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    SpaceTrainingPlaceClaim: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      attribute_code: 'training_place'
+      value_text: components['schemas']['TrainingPlace']
+      superseded_claim_id: components['schemas']['SupersededClaimId']
+    }
+    SpaceIdentity: {
+      given_name: string
+      family_name: string
+      username: string | null
+      /** Format: date-time */
+      active_since: string
+      email: {
+        address: string | null
+        verified: boolean
+        /** @description The change under way, or null when there is none. */
+        pending: components['schemas']['SpaceEmailChange'] | null
+      }
+      phone: components['schemas']['SpaceContactPhone']
+      /** @description How the person signs in, by provider and link date; never the provider's subject. */
+      accounts: {
+        provider: string
+        /** Format: date-time */
+        linked_at: string
+      }[]
+    }
+    /** @description The contact phone, as she gave it; only she reads it unmasked. In V1 it is never verified (ADR-050). */
+    SpaceContactPhone: {
+      number: string | null
+      verified: boolean
+    }
+    /** @description Exactly one of `phone` or `email`. */
+    SpaceContactCorrection: {
+      /** @description E.164 once spaces, dashes and parentheses are dropped; null removes it. */
+      phone?: string | null
+      /** @description The new address. Trimmed and lower-cased; nothing changes until its code comes back. */
+      email?: string
+    }
+    SpaceEmailChange: {
+      address: string
+      /** @enum {string} */
+      status: 'awaiting_code' | 'applying'
+      /**
+       * Format: date-time
+       * @description When the code stops working; meaningless once applying.
+       */
+      expires_at: string
+    }
+    /** @description The new password follows the sign-up policy and differs from the current one. Neither is ever stored by Allfit. */
+    SpacePasswordChange: {
+      current_password: string
+      new_password: string
+    }
+    SpaceContactVerification: {
+      code: string
+    }
+    SpaceContactVerificationResult: {
+      /** @enum {string} */
+      outcome: 'applying'
+    }
+    SpaceOwnName: {
+      given_name: string
+      family_name: string
+      /** @description Lower-cased by the server; a letter first, then letters, digits or underscores. */
+      username: string
+    }
+    SpaceOwnBiologicalSex: {
+      /** @description Null is declining, a valid answer that clears the value. */
+      biological_sex: components['schemas']['BiologicalSex'] | null
+    }
+    SpaceProfileVersion: {
+      /** @description One member for a single-valued attribute; the whole set for a set. */
+      values: string[]
+      provenance: components['schemas']['Provenance']
+      /** Format: date-time */
+      valid_from: string
+    }
+    SpaceProfileAttribute: {
+      /** @description A code of the attribute catalogue, as a string so a new member does not break an older client, which should leave a code it does not know out. */
+      attribute_code: string
+      values: string[]
+      provenance: components['schemas']['Provenance']
+      /**
+       * @description Selection rule v1. What the person declared wins; without it, the most recent version of any provenance.
+       * @enum {string}
+       */
+      selected_because: 'declared_by_you' | 'most_recent'
+      /** Format: date-time */
+      valid_from: string
+      /** @description Every other live version, newest first. Never hidden, never deleted. */
+      alternatives: components['schemas']['SpaceProfileVersion'][]
+    }
+    SpaceFitnessProfile: {
+      biological_sex: components['schemas']['BiologicalSex'] | null
+      /** @description One entry per attribute with a live claim, ordered by code. An unanswered attribute is absent. */
+      attributes: components['schemas']['SpaceProfileAttribute'][]
     }
     /** @description The claim this one replaced, or null on a first declaration. Returned because it is the app's proof that a correction was recorded as a correction and not as an edit. */
     SupersededClaimId: components['schemas']['UuidV7'] | null
@@ -8445,7 +9635,7 @@ export interface components {
     UuidV4: string
     /** Format: uuid */
     UuidV7: string
-    IanaTimeZone: string | 'UTC' | unknown
+    IanaTimeZone: string
     /** @enum {string} */
     CompletenessLevel: 'partial' | 'summary' | 'detailed' | 'sensor_enriched'
     /** @enum {string} */
@@ -8463,6 +9653,217 @@ export interface components {
       | 'nutrition_media'
     /** @enum {string} */
     AccessLevel: 'read' | 'contribute'
+    /** @description The card of a client the caller attends (`attending`), or, for thirty days, why a coach who attended her no longer does (`former`). */
+    StudioClientCard:
+      | components['schemas']['StudioAttendedClientCard']
+      | components['schemas']['StudioFormerClientCard']
+    StudioAttendedClientCard: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: 'attending'
+      person_id: components['schemas']['Uuid']
+      display_name: string
+      relationship: {
+        id: components['schemas']['Uuid']
+        /** Format: date-time */
+        started_at: string
+      }
+      /** @description How the caller attends her. A cover ends on a day of the organization's calendar; a holder has no end. */
+      attendance: {
+        /** @enum {string} */
+        role: 'holder' | 'substitute'
+        /** Format: date */
+        ends_on: string | null
+      }
+      /** @description Each category she shares now, in the order of `ScopeCode`. Meal photos only appear while she also shares her meals. */
+      sections: components['schemas']['StudioClientCardSection'][]
+      /** @description Categories she withdrew and has not shared again. */
+      withdrawn: components['schemas']['StudioClientCardWithdrawal'][]
+    }
+    StudioClientCardSection: {
+      scope_code: components['schemas']['ScopeCode']
+      scope_version: number
+      access_level: components['schemas']['AccessLevel']
+      /** Format: date-time */
+      granted_at: string
+      /** @description The operations that read this category, each audited on its own. */
+      reads: components['schemas']['StudioClientCardRead'][]
+    }
+    /** @enum {string} */
+    StudioClientCardRead:
+      | 'getAuthorizedClientTrainingProfile'
+      | 'listAuthorizedClientExecutions'
+      | 'getAuthorizedClientProgress'
+      | 'listRelationshipAssignments'
+      | 'listAuthorizedClientBodyProgress'
+      | 'listAuthorizedClientBodyPhotos'
+      | 'listAuthorizedClientHealthContext'
+      | 'listAuthorizedClientNutritionMeals'
+      | 'listAuthorizedClientNutritionDailySummaries'
+      | 'listAuthorizedClientNutritionGoalVersions'
+      | 'getAuthorizedClientNutritionMealPhoto'
+    StudioClientCardWithdrawal: {
+      scope_code: components['schemas']['ScopeCode']
+      /** Format: date-time */
+      withdrawn_at: string
+    }
+    /** @description Why the caller stopped attending her. Nothing of hers but the id he asked for. */
+    StudioFormerClientCard: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: 'former'
+      person_id: components['schemas']['Uuid']
+      reason: components['schemas']['StudioClientLossReason']
+      /** Format: date-time */
+      lost_at: string
+    }
+    /**
+     * @description She left the organization (`relationship_ended`), the caller's attendance ended while the link went on (`assignment_ended`), or his cover ran out (`substitution_ended`).
+     * @enum {string}
+     */
+    StudioClientLossReason: 'relationship_ended' | 'assignment_ended' | 'substitution_ended'
+    StudioToday: {
+      organization_id: components['schemas']['Uuid']
+      /** Format: date-time */
+      generated_at: string
+      /** @description Nothing waits. `team` is a state and never makes it false. */
+      empty: boolean
+      /** @description Only the notices the caller's roles let her resolve. */
+      notices: {
+        client_invitations?: components['schemas']['StudioTodayInvitations']
+        unassigned_relationships?: components['schemas']['StudioTodayRelationships']
+        termination_requests?: components['schemas']['StudioTodayTerminationRequests']
+        team_invitations?: components['schemas']['StudioTodayInvitations']
+        team?: components['schemas']['StudioTodayTeam']
+        new_relationships?: components['schemas']['StudioTodayRelationships']
+        training?: components['schemas']['StudioTodayTraining']
+      }
+    }
+    /** @description The operation that resolves a notice, with the query it opens with. */
+    StudioTodayLink: {
+      /** @enum {string} */
+      operation_id:
+        | 'listStudioOrganizationClients'
+        | 'assignRelationshipHolder'
+        | 'terminateRelationship'
+        | 'listStudioTeamInvitations'
+        | 'listStudioOrganizationMemberships'
+        | 'getStudioClientCard'
+      query: {
+        [key: string]: string
+      }
+    }
+    /** @description Invitations still unanswered (`awaiting`) or lapsed in the last seven days (`lapsed`), newest first, with the contact masked. */
+    StudioTodayInvitations: {
+      count: number
+      awaiting: number
+      lapsed: number
+      items: {
+        invitation_id: components['schemas']['Uuid']
+        contact: string
+        /** @enum {string} */
+        state: 'awaiting' | 'lapsed'
+        /** Format: date-time */
+        created_at: string
+        /** Format: date-time */
+        expires_at: string
+        /** @description Team invitations only. */
+        proposed_role_code?: string
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    StudioTodayRelationships: {
+      count: number
+      items: {
+        relationship_id: components['schemas']['Uuid']
+        person_id: components['schemas']['Uuid']
+        display_name: string
+        /** Format: date-time */
+        started_at: string
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    StudioTodayTerminationRequests: {
+      count: number
+      items: {
+        request_id: components['schemas']['Uuid']
+        relationship_id: components['schemas']['Uuid']
+        person_id: components['schemas']['Uuid']
+        display_name: string
+        /** Format: date-time */
+        requested_at: string
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    /** @description Members with a role in force, by role. */
+    StudioTodayTeam: {
+      count: number
+      by_role: {
+        role_code: string
+        count: number
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    StudioTodayTraining: {
+      count: number
+      /** @description The most unlogged first. */
+      items: {
+        person_id: components['schemas']['Uuid']
+        display_name: string
+        relationship_id: components['schemas']['Uuid']
+        /** @description Her last closed week, when anything was due in it. */
+        closed_week: {
+          /** Format: date */
+          week_starts_on: string
+          planned: number
+          not_logged: number
+        } | null
+        /** @description What she finished inside the relationship in the last forty-eight hours. */
+        recent_results: {
+          count: number
+          /** Format: date-time */
+          last_ended_at: string | null
+        }
+      }[]
+      link: components['schemas']['StudioTodayLink']
+    }
+    /** @description One read of her data by somebody else. */
+    MyAccessEvent: {
+      /** Format: date-time */
+      occurred_at: string
+      actor: {
+        /**
+         * @description A professional of an organization, or the Allfit One team.
+         * @enum {string}
+         */
+        kind: 'professional' | 'allfit_team'
+        display_name: string
+      }
+      organization: {
+        id: components['schemas']['Uuid']
+        display_name: string
+      } | null
+      /**
+       * @description Whether the professional read as her holder or as a cover.
+       * @enum {string|null}
+       */
+      attendance: 'holder' | 'substitute' | null
+      /** @enum {string} */
+      access_mode: 'live' | 'frozen' | 'break_glass' | 'support_metadata'
+      scope_code: components['schemas']['ScopeCode'] | null
+      scope_version: number | null
+      resource: string
+      /** @enum {string} */
+      result: 'allowed' | 'denied'
+    }
+    MyAccessEventPage: {
+      data: components['schemas']['MyAccessEvent'][]
+      page: components['schemas']['Page']
+    }
     SessionTemplateCreate: {
       discipline_code: string
       title: string
@@ -9568,6 +10969,12 @@ export interface components {
      */
     CorrectionProposalStatus: 'pending' | 'accepted' | 'rejected' | 'expired' | 'cancelled'
     /**
+     * @description Why a proposal stopped waiting, as its proposer reads it: she corrected the session herself (`target_changed`), the session is no longer there for him (`session_unavailable`, whether she annulled it or hid it from the organization, which he is never told apart), or the relationship ended.
+     * @enum {string|null}
+     */
+    ProposedCorrectionCancelReason:
+      'target_changed' | 'session_unavailable' | 'relationship_terminated' | null
+    /**
      * @description Why a proposal stopped waiting: she corrected the session herself (`target_changed`), annulled it, hid it from the organization, or the relationship ended.
      * @enum {string|null}
      */
@@ -9615,7 +11022,7 @@ export interface components {
       proposed: components['schemas']['CorrectionValue']
       reason: string
       status: components['schemas']['CorrectionProposalStatus']
-      cancel_reason: components['schemas']['CorrectionCancelReason']
+      cancel_reason: components['schemas']['ProposedCorrectionCancelReason']
       /** Format: date-time */
       created_at: string
       /** Format: date-time */
@@ -10094,20 +11501,23 @@ export interface components {
       page: components['schemas']['Page']
     }
     /**
+     * @description A meal as the coach who attends her sees it: the fields her `nutrition_intake` version shares, the rest null. Never its storage key nor its revision.
      * @example {
      *       "id": "0190f2d6-68d0-7b4a-8d7f-d152223eed28",
      *       "occurred_at": "2026-07-28T12:30:00-05:00",
      *       "local_date": "2026-07-28",
      *       "timezone": "America/Bogota",
      *       "meal_type": "lunch",
-     *       "note": "Registro manual",
-     *       "revision_number": 0,
+     *       "note": "Con prisa",
+     *       "has_photo": true,
      *       "items": [
      *         {
      *           "position": 1,
      *           "name": "Pollo con arroz",
      *           "quantity": 320,
      *           "quantity_unit": "g",
+     *           "serving": null,
+     *           "origin": "typed",
      *           "nutrients": [
      *             {
      *               "nutrient_code": "protein",
@@ -10116,39 +11526,38 @@ export interface components {
      *             }
      *           ]
      *         }
-     *       ],
-     *       "photo": {
-     *         "href": "/studio/v1/organizations/018f6f8d-2b00-7a00-8000-000000000101/clients/018f6f8d-2b00-7a00-8000-000000000102/nutrition/meals/0190f2d6-68d0-7b4a-8d7f-d152223eed28/photo",
-     *         "method": "GET"
-     *       },
-     *       "applied_scopes": [
-     *         {
-     *           "code": "nutrition_intake",
-     *           "version": 1
-     *         },
-     *         {
-     *           "code": "nutrition_media",
-     *           "version": 1
-     *         }
      *       ]
      *     }
      */
-    AuthorizedNutritionMeal: {
+    ClientNutritionMeal: {
       id: components['schemas']['Uuid']
       /** Format: date-time */
       occurred_at: string
       /** Format: date */
       local_date: string
-      timezone: components['schemas']['IanaTimeZone']
-      meal_type: components['schemas']['MealType']
+      timezone: components['schemas']['IanaTimeZone'] | null
+      meal_type: components['schemas']['MealType'] | null
       note: string | null
-      revision_number: number
-      items: components['schemas']['NutritionMealItem'][]
-      photo: components['schemas']['AuthenticatedMediaLink'] | null
-      applied_scopes: components['schemas']['AppliedScope'][]
+      /** @description Whether the meal has a photo, said only when she also shares `nutrition_media`; null otherwise. The photo has its own route. */
+      has_photo: boolean | null
+      items: components['schemas']['ClientNutritionMealItem'][]
     }
-    AuthorizedNutritionMealPage: {
-      data: components['schemas']['AuthorizedNutritionMeal'][]
+    ClientNutritionMealItem: {
+      position: number
+      name: string | null
+      quantity: number | null
+      quantity_unit: string | null
+      serving: string | null
+      /** @enum {string|null} */
+      origin: 'typed' | 'catalog' | 'photo' | null
+      /** @description Null when her version shares no nutrient values. */
+      nutrients: components['schemas']['NutrientValue'][] | null
+    }
+    ClientNutritionMealPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      /** @description The `nutrition_media` version that said which meals have a photo, or null. */
+      photo_scope: components['schemas']['AppliedScope'] | null
+      data: components['schemas']['ClientNutritionMeal'][]
       page: components['schemas']['Page']
     }
     /**
@@ -10405,11 +11814,129 @@ export interface components {
       active: components['schemas']['NutritionGoalVersion'] | null
       proposals: components['schemas']['NutritionGoalVersion'][]
     }
-    NutritionGoalVersionPage: {
-      data: components['schemas']['NutritionGoalVersion'][]
-      page: components['schemas']['Page']
+    /**
+     * @example {
+     *       "local_date": "2026-07-28",
+     *       "meal_count": 3,
+     *       "nutrient_totals": [
+     *         {
+     *           "nutrient_code": "energy",
+     *           "value": 1840,
+     *           "unit": "kcal"
+     *         }
+     *       ]
+     *     }
+     */
+    ClientNutritionDailySummary: {
+      /** Format: date */
+      local_date: string
+      /** @description Null when her version does not share the day of a meal. */
+      meal_count: number | null
+      /** @description What she recorded and the coach may see, added up; empty on a day with nothing, null when her version shares no nutrient values. */
+      nutrient_totals: components['schemas']['NutrientValue'][] | null
+    }
+    ClientNutritionDailySummaryPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientNutritionDailySummary'][]
+    }
+    /** @description A target as her version shares it; a field it does not share is null. */
+    ClientNutritionGoalTarget: {
+      nutrient_code: components['schemas']['NutrientCode'] | null
+      /** @enum {string|null} */
+      mode: 'minimum' | 'maximum' | 'range' | 'exact' | null
+      minimum: number | null
+      maximum: number | null
+      exact: number | null
+      /** @enum {string|null} */
+      unit: 'kcal' | 'g' | 'ml' | null
+    }
+    ClientNutritionGoalDecision: {
+      /** @enum {string} */
+      decision: 'accepted' | 'rejected'
       /** Format: date-time */
-      frozen_at: string | null
+      decided_at: string
+    }
+    /**
+     * @description A version this relationship proposed. The author is named by id only, and the version number is never shown: it would count her own goals.
+     * @example {
+     *       "id": "0190f2d6-68d2-71cf-8247-527651199d86",
+     *       "status": "proposed",
+     *       "rationale": "Para tu fase de definición",
+     *       "author": {
+     *         "kind": "professional",
+     *         "person_id": "018f6f8d-2b00-7a00-8000-000000000103"
+     *       },
+     *       "targets": [
+     *         {
+     *           "nutrient_code": "protein",
+     *           "mode": "minimum",
+     *           "minimum": 140,
+     *           "maximum": null,
+     *           "exact": null,
+     *           "unit": "g"
+     *         }
+     *       ],
+     *       "created_at": "2026-07-28T17:30:00Z",
+     *       "activated_at": null,
+     *       "cancelled_at": null,
+     *       "decision": null
+     *     }
+     */
+    ClientNutritionGoalVersion: {
+      id: components['schemas']['Uuid']
+      status: components['schemas']['NutritionGoalStatus']
+      rationale: string | null
+      author: components['schemas']['ClientNutritionGoalAuthor']
+      targets: components['schemas']['ClientNutritionGoalTarget'][]
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      activated_at: string | null
+      /** Format: date-time */
+      cancelled_at: string | null
+      decision: components['schemas']['ClientNutritionGoalDecision'] | null
+    }
+    ClientNutritionGoalAuthor: {
+      /** @constant */
+      kind: 'professional'
+      person_id: components['schemas']['Uuid'] | null
+    }
+    /** @description The goal she follows now. Its version is named, and `from_this_relationship` is true, only when this relationship proposed it; otherwise nothing says who set it, why or which number it is. */
+    ClientActiveNutritionGoal: {
+      /** Format: uuid */
+      goal_version_id: string | null
+      from_this_relationship: boolean
+      /** Format: date-time */
+      activated_at: string | null
+      targets: components['schemas']['ClientNutritionGoalTarget'][]
+    }
+    ClientNutritionGoalHistory: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientNutritionGoalVersion'][]
+      page: components['schemas']['Page']
+      active: components['schemas']['ClientActiveNutritionGoal'] | null
+    }
+    /** @description A proposal of an ended relationship as it stood at the cut, in the fields the frozen version keeps readable; the rest null. */
+    FrozenNutritionGoalVersion: {
+      id: components['schemas']['Uuid']
+      /**
+       * @description Null when the frozen version does not keep her decisions readable.
+       * @enum {string|null}
+       */
+      status_at_cut: 'proposed' | 'accepted' | 'rejected' | 'superseded' | 'cancelled' | null
+      rationale: string | null
+      author: components['schemas']['ClientNutritionGoalAuthor']
+      targets: components['schemas']['ClientNutritionGoalTarget'][]
+      /** Format: date-time */
+      created_at: string
+      /** Format: date-time */
+      activated_at: string | null
+      decision: components['schemas']['ClientNutritionGoalDecision'] | null
+    }
+    FrozenNutritionGoalVersionPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['FrozenNutritionGoalVersion'][]
+      page: components['schemas']['Page']
     }
     /**
      * @example {
@@ -10426,21 +11953,6 @@ export interface components {
        * @description At most five minutes after issuance.
        */
       expires_at: string
-      /** @constant */
-      method: 'GET'
-    }
-    /**
-     * @example {
-     *       "href": "/studio/v1/organizations/018f6f8d-2b00-7a00-8000-000000000101/clients/018f6f8d-2b00-7a00-8000-000000000102/nutrition/meals/0190f2d6-68d0-7b4a-8d7f-d152223eed28/photo",
-     *       "method": "GET"
-     *     }
-     */
-    AuthenticatedMediaLink: {
-      /**
-       * Format: uri-reference
-       * @description Authenticated API URL; the bearer token and live authorization are required on every GET.
-       */
-      href: string
       /** @constant */
       method: 'GET'
     }
@@ -10608,6 +12120,126 @@ export interface components {
     }
     BodyPhotoPage: {
       data: components['schemas']['BodyPhoto'][]
+    }
+    /** @enum {string} */
+    HistoricalAccessPurpose:
+      | 'service_dispute'
+      | 'legal_or_regulatory_obligation'
+      | 'customer_support_request'
+      | 'security_investigation'
+      | 'authorized_quality_review'
+    HistoricalAccessCaseCreate: {
+      relationship_id: components['schemas']['Uuid']
+      /** @description The opener's own membership, or the membership of the coach who held the relationship when it ended. */
+      authorized_membership_id: components['schemas']['Uuid']
+      purpose: components['schemas']['HistoricalAccessPurpose']
+      /** @description The ticket, claim or file this case answers to. */
+      case_reference: string
+      justification: string
+      duration_hours: number
+    }
+    HistoricalCaseMember: {
+      membership_id: components['schemas']['Uuid']
+      given_name: string
+      family_name: string
+    }
+    HistoricalCasePerson: {
+      id: components['schemas']['Uuid']
+      given_name: string
+      family_name: string
+    }
+    /** @description One case and where it stands. `expired` is an open case whose time ran out: it reads nothing, whether or not anyone has closed it yet. */
+    HistoricalAccessCase: {
+      id: components['schemas']['Uuid']
+      organization_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      person: components['schemas']['HistoricalCasePerson']
+      /**
+       * Format: date-time
+       * @description When the relationship ended. Nothing after it is ever read.
+       */
+      cut_at: string
+      authorized: components['schemas']['HistoricalCaseMember']
+      opened_by: components['schemas']['HistoricalCaseMember']
+      purpose: components['schemas']['HistoricalAccessPurpose']
+      case_reference: string
+      justification: string
+      /** @enum {string} */
+      status: 'open' | 'closed' | 'expired'
+      /** Format: date-time */
+      opened_at: string
+      /** Format: date-time */
+      expires_at: string
+      /** Format: date-time */
+      closed_at: string | null
+      /** @enum {string|null} */
+      closed_reason:
+        'closed_by_manager' | 'expired' | 'grant_revoked' | 'membership_ineligible' | null
+      closed_by: components['schemas']['HistoricalCaseMember'] | null
+    }
+    HistoricalAccessCasePage: {
+      data: components['schemas']['HistoricalAccessCase'][]
+      page: components['schemas']['Page']
+    }
+    HistoricalRelationship: {
+      relationship: {
+        id: components['schemas']['Uuid']
+        person: components['schemas']['HistoricalCasePerson']
+        /** Format: date-time */
+        ended_at: string
+      }
+      case: components['schemas']['HistoricalAccessCase']
+      /** @description The frozen categories that stayed readable after the end. */
+      scopes: {
+        code: components['schemas']['ScopeCode']
+        version: number
+        /** Format: date-time */
+        frozen_at: string
+      }[]
+    }
+    FrozenExecutionSummary: {
+      id: components['schemas']['Uuid']
+      /** Format: date-time */
+      started_at: string
+      /** Format: date-time */
+      ended_at: string | null
+      timezone: components['schemas']['IanaTimeZone']
+      activity_type_code: string
+      activity_type_name: string
+      discipline_code: string
+      achieved_level: components['schemas']['CompletenessLevel'] | null
+      origin: components['schemas']['AuthorizedExecutionOrigin']
+      applied_scope: components['schemas']['AppliedScope']
+    }
+    FrozenExecutionPage: {
+      data: components['schemas']['FrozenExecutionSummary'][]
+      page: components['schemas']['Page']
+    }
+    /** @description One frozen session as the list shows it, with what was recorded in it. No observations and no planned session: neither stayed readable after the end. */
+    FrozenExecution: {
+      id: components['schemas']['Uuid']
+      /** Format: date-time */
+      started_at: string
+      /** Format: date-time */
+      ended_at: string | null
+      timezone: components['schemas']['IanaTimeZone']
+      activity_type_code: string
+      activity_type_name: string
+      discipline_code: string
+      achieved_level: components['schemas']['CompletenessLevel'] | null
+      origin: components['schemas']['AuthorizedExecutionOrigin']
+      applied_scope: components['schemas']['AppliedScope']
+      segments: components['schemas']['ExecutionDetailSegment'][]
+      strength_sets: components['schemas']['ExecutionDetailStrengthSet'][]
+      endurance_laps: components['schemas']['ExecutionDetailEnduranceLap'][]
+      interval_results: components['schemas']['ExecutionDetailIntervalResult'][]
+      round_results: components['schemas']['ExecutionDetailRoundResult'][]
+      mobility_results: components['schemas']['ExecutionDetailMobilityResult'][]
+    }
+    FrozenBodyProgressPage: {
+      applied_scope: components['schemas']['AppliedScope']
+      data: components['schemas']['ClientBodyProgressRecord'][]
+      page: components['schemas']['Page']
     }
     Problem: {
       /** Format: uri */
@@ -10982,8 +12614,20 @@ export interface components {
       prior_training_history?: components['schemas']['ExecutionDetail'][]
       /** @description Sessions trained under a gym, returned by a `relationship_training` read. */
       relationship_training?: components['schemas']['ExecutionDetail'][]
+      /** @description HU-BO-008, returned with either training category: sessions older than this page remain. The next read sends the last session shown as `before`, and is a read of its own, logged before it answers. */
+      has_older_sessions?: boolean
       /** @description HU-BO-008 criterion 3, returned with either training category: what is planned from two weeks back onwards, each with its programme by name only. Her own programmes come with `prior_training_history`, a gym's with `relationship_training`. Never the programme's content or the gym. */
       agenda?: components['schemas']['BreakGlassAgendaEntry'][]
+      /** @description HU-BO-008 criterion 4, returned with either training category: of the sessions the read returns, each one she hid from a gym and which gym, newest session first. A hiding she took back is not listed. It travels beside the sessions, never inside them, because the session shape is the one Studio reads too. */
+      hidden_sessions?: components['schemas']['BreakGlassHiddenSession'][]
+    }
+    BreakGlassHiddenSession: {
+      executed_session_id: components['schemas']['Uuid']
+      relationship_id: components['schemas']['Uuid']
+      organization_id: components['schemas']['Uuid']
+      organization_name: string
+      /** Format: date-time */
+      hidden_at: string
     }
     BreakGlassAgendaEntry: {
       /** Format: date-time */
@@ -11600,6 +13244,61 @@ export interface components {
       data: components['schemas']['OrganizationSubscription'][]
       page: components['schemas']['Page']
     }
+    /**
+     * @description How the plan is followed. `in_person` is offered and paid in Space; `remote` is paid only through the link the organization sends, because the app may not sell a service followed at a distance (`ADR-048`).
+     * @enum {string}
+     */
+    PlanDeliveryMode: 'in_person' | 'remote'
+    /** @description One price of a plan. Never edited once published. */
+    StudioPlanVersion: {
+      plan_version_id: components['schemas']['UuidV7']
+      version_number: number
+      /** @description In the currency's minor unit, so 120000 COP is 12000000. */
+      amount_minor: number
+      currency_code: string
+      billing_period: components['schemas']['BillingPeriod']
+      delivery_mode: components['schemas']['PlanDeliveryMode']
+      /**
+       * @description `published` is on sale; `deprecated` is kept for whoever pays it.
+       * @enum {string}
+       */
+      status: 'published' | 'deprecated'
+      /** Format: date-time */
+      published_at: string
+      /** Format: date-time */
+      deprecated_at: string | null
+    }
+    /** @description A plan as the team sees it. `status` is `draft` until a first version is published; `on_sale` says whether a version is on sale now, which is `current_version`. `versions` holds every price, newest first. */
+    StudioOrganizationPlan: {
+      plan_id: components['schemas']['UuidV7']
+      name: string
+      /** @enum {string} */
+      status: 'draft' | 'published'
+      on_sale: boolean
+      /** Format: date-time */
+      created_at: string
+      current_version: components['schemas']['StudioPlanVersion'] | null
+      versions: components['schemas']['StudioPlanVersion'][]
+    }
+    StudioOrganizationPlanPage: {
+      data: components['schemas']['StudioOrganizationPlan'][]
+      page: components['schemas']['Page']
+    }
+    StudioPlanName: {
+      /** @description Unique in the organization without regard to case; kept trimmed. */
+      name: string
+    }
+    StudioPlanVersionPublish: {
+      /** @description Whole pesos in the minor unit, so a multiple of 100. */
+      amount_minor: number
+      /**
+       * @description Mercado Pago Colombia charges in pesos, so COP is the only value.
+       * @enum {string}
+       */
+      currency_code: 'COP'
+      billing_period: components['schemas']['BillingPeriod']
+      delivery_mode: components['schemas']['PlanDeliveryMode']
+    }
     /** @description One bond between the caller and an organization. `previous_relationship_id` is set when she had another with the same organization before this one. */
     SpaceRelationship: {
       relationship_id: components['schemas']['UuidV7']
@@ -11797,6 +13496,26 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The actor cannot execute the operation, or their sign-in is more than ten minutes old and must be repeated */
+    HistoricalAccessForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
+    /** @description The actor cannot read through the case, their sign-in is more than ten minutes old, or no frozen category keeps this resource readable */
+    HistoricalReadForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['PrivateNoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description Required live grant is not effective */
     ScopeRequired: {
       headers: {
@@ -11924,6 +13643,35 @@ export interface components {
         'application/problem+json': components['schemas']['Problem']
       }
     }
+    /** @description The coach lacks `guide_nutrition` (`forbidden`), a verified nutrition credential in force (`credential-required`), or her guidance shared at `contribute` (`scope-required`) */
+    NutritionProposalForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
+    /** @description Her service with this organization is paused (`service-paused`), or the idempotency identity was reused or is still in progress (`conflict`, `idempotency-in-progress`) */
+    NutritionProposalConflict: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        'Retry-After': components['headers']['RetryAfter']
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "type": "https://errors.allfit.invalid/service-paused",
+         *       "title": "The person's service with this organization is paused",
+         *       "status": 409,
+         *       "request_id": "01JEXAMPLE0000000000000000"
+         *     }
+         */
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
     /** @description If-Match refers to a stale execution revision */
     StaleDraft: {
       headers: {
@@ -12030,6 +13778,12 @@ export interface components {
     }
   }
   parameters: {
+    /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+    WaitlistSecret: string
+    /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+    WaitlistVisitorAddress: string
+    /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+    WaitlistVisitorDevice: string
     BreakGlassRequestId: components['schemas']['UuidV7']
     /** @description Only your own requests. Absent means the whole tray. */
     BreakGlassMine: boolean
@@ -12039,6 +13793,11 @@ export interface components {
     /** @description Part of an organization's display name, matched literally. At least two characters, so a search is a question rather than a way to page everything. */
     OrganizationSearch: string
     OrganizationLifecycleFilter: components['schemas']['OrganizationLifecycleStatus']
+    /** @description Part of a sign-up's name, email or referral code, matched literally in any case. At least two characters, so a search is a question rather than a way to page everything. */
+    WaitlistSignupSearch: string
+    /** @description `discarded` is every sign-up that does not count for its inviter, whatever the reason. */
+    WaitlistSignupFilter: 'confirmed' | 'unconfirmed' | 'founding_members' | 'discarded'
+    WaitlistSignupId: components['schemas']['Uuid']
     /** @description The team member whose accesses are being reviewed. */
     AccessEventActor: components['schemas']['Uuid']
     /** @description The person whose data was accessed. */
@@ -12049,19 +13808,17 @@ export interface components {
     AccessEventTo: string
     /** @description The aggregate an event belongs to. Not every event is reachable from a person: a notification about an invitation belongs to the invitation. */
     SupportAggregateId: components['schemas']['Uuid']
-    /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
+    /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
     SupportCaseReference: string
     SupportPersonId: components['schemas']['Uuid']
-    /** @description Exactly one lookup parameter is accepted per search. */
-    SupportLookupIdentifier: components['schemas']['Uuid']
-    /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-    SupportLookupEmail: string
-    /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-    SupportLookupPhone: string
+    /** @description Part of a name, an email or a phone number, or a person's identifier. Matched as text: `%` and `_` are characters, never wildcards. */
+    SupportPeopleQuery: string
+    SupportPeopleLimit: number
     OnboardingAttemptId: components['schemas']['UuidV7']
     CredentialId: components['schemas']['UuidV7']
     Origin: string
     OrganizationId: components['schemas']['Uuid']
+    MovementId: components['schemas']['Uuid']
     SiteId: components['schemas']['Uuid']
     MembershipId: components['schemas']['Uuid']
     ProgramId: components['schemas']['Uuid']
@@ -12070,6 +13827,9 @@ export interface components {
     InvitationId: components['schemas']['UuidV7']
     BodyPhotoId: components['schemas']['Uuid']
     RelationshipId: components['schemas']['Uuid']
+    HistoricalAccessCaseId: components['schemas']['Uuid']
+    /** @description The open case this read goes through; the access record names it. */
+    HistoricalAccessCaseHeader: components['schemas']['Uuid']
     SubstitutionId: components['schemas']['Uuid']
     TerminationRequestId: components['schemas']['Uuid']
     PlannedSessionId: components['schemas']['Uuid']
@@ -12091,6 +13851,10 @@ export interface components {
     PlatformDutyStatusFilter: 'scheduled' | 'active' | 'suspended' | 'expired' | 'revoked'
     PlatformAssignmentId: components['schemas']['UuidV7']
     SubscriptionId: components['schemas']['UuidV7']
+    /** @description One of the plans an organization sells to its clients. */
+    OrganizationPlanId: components['schemas']['UuidV7']
+    /** @description One version, which is one price, of that plan. */
+    OrganizationPlanVersionId: components['schemas']['UuidV7']
     /** @description UUIDv4 reused only for HTTP retries of this operation. */
     IdempotencyKey: components['schemas']['UuidV4']
     /** @description UUIDv7 durable identity generated when the user intention is created. */
@@ -12111,8 +13875,6 @@ export interface components {
     OrganizationSiteIfMatch: string
     /** @description Strong ETag for the nutrition meal revision used as the command base. */
     NutritionMealIfMatch: string
-    /** @description Opaque case UUID. When present the endpoint uses only the frozen guidance projection. */
-    HistoricalAccessCase: components['schemas']['Uuid']
     IfNoneMatch: string
     FromDate: string
     /** @description Inclusive date; range from..to must not exceed 31 days. */
@@ -12795,6 +14557,54 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listStudioCatalogDisciplines: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Published disciplines ordered by their stable code */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CatalogDisciplineList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listStudioCatalogActivityTypes: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Published global activity types ordered by discipline and code */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CatalogActivityTypeList']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listBackofficeCatalogDisciplines: {
     parameters: {
       query?: never
@@ -12874,14 +14684,11 @@ export interface operations {
   searchBackofficeSupportPeople: {
     parameters: {
       query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
-        /** @description Exactly one lookup parameter is accepted per search. */
-        identifier?: components['parameters']['SupportLookupIdentifier']
-        /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-        email?: components['parameters']['SupportLookupEmail']
-        /** @description Exact match only. Exactly one lookup parameter is accepted per search. */
-        phone?: components['parameters']['SupportLookupPhone']
+        /** @description Part of a name, an email or a phone number, or a person's identifier. Matched as text: `%` and `_` are characters, never wildcards. */
+        q: components['parameters']['SupportPeopleQuery']
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
+        limit?: components['parameters']['SupportPeopleLimit']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -12891,7 +14698,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description The match, or an explicit not-found outcome. Never a bare empty list: the outcome says which of the two happened. */
+      /** @description The matches, or an explicit not-found outcome. Never a bare empty list: the outcome says which of the two happened. */
       200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
@@ -12910,9 +14717,9 @@ export interface operations {
   }
   readBackofficeSupportPersonMetadata: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -12944,9 +14751,9 @@ export interface operations {
   }
   readBackofficeSupportPersonPayments: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -12978,9 +14785,9 @@ export interface operations {
   }
   readBackofficeBillingFollowUp: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
         limit?: number
       }
       header: {
@@ -13452,6 +15259,151 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listBackofficeWaitlistSignups: {
+    parameters: {
+      query?: {
+        /** @description Part of a sign-up's name, email or referral code, matched literally in any case. At least two characters, so a search is a question rather than a way to page everything. */
+        q?: components['parameters']['WaitlistSignupSearch']
+        /** @description `discarded` is every sign-up that does not count for its inviter, whatever the reason. */
+        filter?: components['parameters']['WaitlistSignupFilter']
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sign-ups, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistSignupPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readBackofficeWaitlistTotals: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The totals of the whole list */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistTotals']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  markBackofficeWaitlistSignupAsFraud: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        signupId: components['parameters']['WaitlistSignupId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BackofficeWaitlistFraudMark']
+      }
+    }
+    responses: {
+      /** @description The sign-up as it now reads */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistSignup']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  withdrawBackofficeWaitlistFraudMark: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        signupId: components['parameters']['WaitlistSignupId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BackofficeWaitlistFraudWithdrawal']
+      }
+    }
+    responses: {
+      /** @description The sign-up as it now reads */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['BackofficeWaitlistSignup']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listBackofficeVerificationRequests: {
     parameters: {
       query?: {
@@ -13747,48 +15699,6 @@ export interface operations {
     responses: {
       /** @description The file, or the converged one for a repeated command */
       201: {
-        headers: {
-          'Cache-Control': components['headers']['NoStore']
-          'Idempotent-Replay': components['headers']['IdempotentReplay']
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': components['schemas']['BreakGlassRequest']
-        }
-      }
-      400: components['responses']['BadRequest']
-      401: components['responses']['Unauthenticated']
-      403: components['responses']['Forbidden']
-      404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
-      415: components['responses']['UnsupportedMediaType']
-      422: components['responses']['ValidationFailed']
-      503: components['responses']['UpstreamUnavailable']
-    }
-  }
-  decideBackofficeBreakGlass: {
-    parameters: {
-      query?: never
-      header: {
-        Origin: components['parameters']['Origin']
-        /** @description UUIDv4 reused only for HTTP retries of this operation. */
-        'Idempotency-Key': components['parameters']['IdempotencyKey']
-        /** @description UUIDv7 durable identity generated when the user intention is created. */
-        'Command-Id': components['parameters']['CommandId']
-      }
-      path: {
-        requestId: components['parameters']['BreakGlassRequestId']
-      }
-      cookie?: never
-    }
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['BreakGlassDecision']
-      }
-    }
-    responses: {
-      /** @description The file after the decision */
-      200: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
           'Idempotent-Replay': components['headers']['IdempotentReplay']
@@ -14392,6 +16302,291 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  readSpaceIdentity: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description My identity */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceIdentity']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceName: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceOwnName']
+      }
+    }
+    responses: {
+      /** @description The name in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceOwnName']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceContact: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceContactCorrection']
+      }
+    }
+    responses: {
+      /** @description The phone in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceContactPhone']
+        }
+      }
+      /** @description The email change waiting for its code */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceEmailChange']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  verifySpaceContact: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceContactVerification']
+      }
+    }
+    responses: {
+      /** @description The change is being applied */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceContactVerificationResult']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  changeSpacePassword: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpacePasswordChange']
+      }
+    }
+    responses: {
+      /** @description The password changed; the other sessions close in the background */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      429: components['responses']['RateLimited']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readSpaceFitnessProfile: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description My fitness profile */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceFitnessProfile']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  correctSpaceBiologicalSex: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceOwnBiologicalSex']
+      }
+    }
+    responses: {
+      /** @description The biological sex in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceOwnBiologicalSex']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  declareSpaceAvailableEquipment: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SpaceAvailableEquipmentDeclaration']
+      }
+    }
+    responses: {
+      /** @description The equipment in force after the command */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SpaceAvailableEquipment']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   completeSpaceOnboarding: {
     parameters: {
       query?: never
@@ -14777,7 +16972,10 @@ export interface operations {
   }
   startStudioAuthentication: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description `true` makes WorkOS ask for the credentials again, whatever session it already holds. The step-up screens use it when an operation answers `reauthentication-required`; the new sign-in counts as recent for ten minutes. */
+        reauthenticate?: boolean
+      }
       header?: never
       path?: never
       cookie?: never
@@ -14809,7 +17007,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Session created; redirect to Studio without credentials in the URL */
+      /** @description Session created; redirect to the Studio workspace without credentials in the URL. When the flow's state cookie is missing or expired (it lasts ten minutes), the code is not used, no session is created, and the redirect goes to the Studio landing with `?access=expired` instead. */
       303: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
@@ -15566,6 +17764,8 @@ export interface operations {
       query?: {
         /** @description Narrows to one group of entries. `invited` selects the unanswered ones. */
         status?: components['schemas']['ClientDirectoryGroup']
+        /** @description A name to find. Surrounding and repeated spaces are ignored; what remains must be 2 to 80 characters. */
+        q?: string
         limit?: number
         cursor?: components['parameters']['Cursor']
       }
@@ -15622,6 +17822,285 @@ export interface operations {
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listHistoricalAccessCases: {
+    parameters: {
+      query?: {
+        /** @description Only the cases over this relationship. */
+        relationship_id?: components['schemas']['Uuid']
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The cases the caller may see, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalAccessCasePage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  openHistoricalAccessCase: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HistoricalAccessCaseCreate']
+      }
+    }
+    responses: {
+      /** @description The case is open, or this command already opened it */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalAccessCase']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalAccessForbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  closeHistoricalAccessCase: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        caseId: components['parameters']['HistoricalAccessCaseId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The case as it stands once closed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalAccessCase']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getHistoricalRelationship: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The relationship as the case froze it */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HistoricalRelationship']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalAccessForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listFrozenExecutions: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen sessions, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenExecutionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalAccessForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getFrozenExecution: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+        executionId: components['parameters']['ExecutionId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen session and what was recorded in it */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenExecution']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalReadForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listFrozenBodyProgress: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen measurements, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenBodyProgressPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalReadForbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listFrozenNutritionGoalVersions: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header: {
+        /** @description The open case this read goes through; the access record names it. */
+        'X-Historical-Access-Case': components['parameters']['HistoricalAccessCaseHeader']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        relationshipId: components['parameters']['RelationshipId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The frozen proposals, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['FrozenNutritionGoalVersionPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['HistoricalReadForbidden']
+      404: components['responses']['NotFound']
       503: components['responses']['UpstreamUnavailable']
     }
   }
@@ -16172,6 +18651,190 @@ export interface operations {
       404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  searchOrganizationMovements: {
+    parameters: {
+      query?: {
+        q?: string
+        discipline?: string
+        include_archived?: boolean
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The movements that match, in name order */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioMovementPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  createOrganizationMovement: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OrganizationMovementCreate']
+      }
+    }
+    responses: {
+      /** @description The movement, as Studio reads it */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          Location: components['headers']['Location']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readOrganizationMovement: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        movementId: components['parameters']['MovementId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The movement */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  updateOrganizationMovement: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        movementId: components['parameters']['MovementId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OrganizationMovementUpdate']
+      }
+    }
+    responses: {
+      /** @description The movement after the edit */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  archiveOrganizationMovement: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        movementId: components['parameters']['MovementId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The archived movement, including convergent repeated commands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['OrganizationMovement']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
       503: components['responses']['UpstreamUnavailable']
     }
   }
@@ -19045,6 +21708,62 @@ export interface operations {
       428: components['responses']['PreconditionRequired']
     }
   }
+  getStudioClientCard: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        personId: components['parameters']['PersonId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Her card, or why the caller stopped attending her */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioClientCard']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getStudioToday: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description What waits on the caller */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioToday']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listAuthorizedClientExecutions: {
     parameters: {
       query?: {
@@ -19595,6 +22314,36 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listMyAccessEvents: {
+    parameters: {
+      query?: {
+        limit?: components['parameters']['Limit']
+        cursor?: components['parameters']['Cursor']
+        /** @description Only the reads made under this category. */
+        scope_code?: components['schemas']['ScopeCode']
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Reads of her data, newest first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MyAccessEventPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listMyVisibilityDenials: {
     parameters: {
       query?: {
@@ -20076,20 +22825,22 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized meal page */
+      /** @description Her meals, newest first */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['AuthorizedNutritionMealPage']
+          'application/json': components['schemas']['ClientNutritionMealPage']
         }
       }
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   getAuthorizedClientNutritionMealPhoto: {
@@ -20105,7 +22856,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Sanitized image bytes streamed through the authenticated API */
+      /** @description The photo, streamed through the API */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
@@ -20113,12 +22864,12 @@ export interface operations {
         }
         content: {
           'image/jpeg': string
-          'image/png': string
-          'image/webp': string
         }
       }
+      400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       404: components['responses']['NotFound']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listAuthorizedClientNutritionDailySummaries: {
@@ -20137,20 +22888,22 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized daily summaries */
+      /** @description Each day of the range, in order */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['NutritionDailySummaryPage']
+          'application/json': components['schemas']['ClientNutritionDailySummaryPage']
         }
       }
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   listAuthorizedClientNutritionGoalVersions: {
@@ -20159,10 +22912,7 @@ export interface operations {
         limit?: components['parameters']['Limit']
         cursor?: components['parameters']['Cursor']
       }
-      header?: {
-        /** @description Opaque case UUID. When present the endpoint uses only the frozen guidance projection. */
-        'X-Historical-Access-Case'?: components['parameters']['HistoricalAccessCase']
-      }
+      header?: never
       path: {
         organizationId: components['parameters']['OrganizationId']
         personId: components['parameters']['PersonId']
@@ -20171,19 +22921,22 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Authorized guidance versions */
+      /** @description This relationship's proposals and her active goal */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['NutritionGoalVersionPage']
+          'application/json': components['schemas']['ClientNutritionGoalHistory']
         }
       }
+      400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['ScopeRequired']
       404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   proposeClientNutritionGoalVersion: {
@@ -20207,24 +22960,25 @@ export interface operations {
       }
     }
     responses: {
-      /** @description Professional goal version proposed */
+      /** @description The proposal, waiting on her */
       201: {
         headers: {
           'Cache-Control': components['headers']['NoStore']
-          Location: components['headers']['Location']
           'Idempotent-Replay': components['headers']['IdempotentReplay']
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['NutritionGoalVersion']
+          'application/json': components['schemas']['ClientNutritionGoalVersion']
         }
       }
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
-      403: components['responses']['ScopeRequired']
+      403: components['responses']['NutritionProposalForbidden']
       404: components['responses']['NotFound']
-      409: components['responses']['Conflict']
+      409: components['responses']['NutritionProposalConflict']
+      415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
     }
   }
   readBackofficeGlobalCatalogue: {
@@ -20613,9 +23367,9 @@ export interface operations {
   }
   readBackofficeAccountRecovery: {
     parameters: {
-      query: {
-        /** @description The case this read belongs to. A structured reference rather than free prose, so the record can be followed back to a case months later. */
-        case_reference: components['parameters']['SupportCaseReference']
+      query?: {
+        /** @description The case this read belongs to, when there is one: optional since ADR-046 decision 5. A structured reference rather than free prose, so the record can be followed back to a case months later; free text is refused. */
+        case_reference?: components['parameters']['SupportCaseReference']
       }
       header: {
         Origin: components['parameters']['Origin']
@@ -21552,6 +24306,47 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  correctSpaceHealthContext: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        claimId: components['schemas']['UuidV7']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HealthContextClaimCreate']
+      }
+    }
+    responses: {
+      /** @description The claim as it now stands */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HealthContextClaim']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   deleteSpaceHealthContext: {
     parameters: {
       query?: never
@@ -21735,6 +24530,213 @@ export interface operations {
       503: components['responses']['UpstreamUnavailable']
     }
   }
+  listStudioOrganizationPlans: {
+    parameters: {
+      query?: {
+        limit?: number
+        cursor?: components['parameters']['Cursor']
+      }
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of the organization's plans */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlanPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  createStudioOrganizationPlan: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPlanName']
+      }
+    }
+    responses: {
+      /** @description The new draft */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  renameStudioOrganizationPlan: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        /** @description One of the plans an organization sells to its clients. */
+        planId: components['parameters']['OrganizationPlanId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPlanName']
+      }
+    }
+    responses: {
+      /** @description The plan with its name */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  publishStudioPlanVersion: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        /** @description One of the plans an organization sells to its clients. */
+        planId: components['parameters']['OrganizationPlanId']
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPlanVersionPublish']
+      }
+    }
+    responses: {
+      /** @description That price was already on sale; nothing changed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      /** @description The plan with its new price on sale */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  deprecateStudioPlanVersion: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        /** @description One of the plans an organization sells to its clients. */
+        planId: components['parameters']['OrganizationPlanId']
+        /** @description One version, which is one price, of that plan. */
+        planVersionId: components['parameters']['OrganizationPlanVersionId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The plan with that version retired */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioOrganizationPlan']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
   listStudioOrganizationSubscriptions: {
     parameters: {
       query?: {
@@ -21903,6 +24905,188 @@ export interface operations {
       403: components['responses']['Forbidden']
       422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  joinSpaceWaitlist: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistSignupRequest']
+      }
+    }
+    responses: {
+      /** @description The address joined the waitlist and its confirmation email is on its way */
+      201: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistSignupJoined']
+        }
+      }
+      /** @description The address was already on the waitlist; its link goes to its inbox */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistSignupAlreadyListed']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      422: components['responses']['ValidationFailed']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  confirmSpaceWaitlistEmail: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistConfirmationRequest']
+      }
+    }
+    responses: {
+      /** @description The email is confirmed, now or by an earlier use of the same link */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistConfirmation']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  requestSpaceWaitlistEmail: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistEmailRequest']
+      }
+    }
+    responses: {
+      /** @description Accepted, whether or not the address is on the waitlist */
+      202: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  readSpaceWaitlistLink: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistPrivateLinkRequest']
+      }
+    }
+    responses: {
+      /** @description The sign-up's own code, counter, state and Founding Member number */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WaitlistLink']
+        }
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
+    }
+  }
+  leaveSpaceWaitlist: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description The secret space-web shares with the API. Without it the waitlist routes answer 404, as if they did not exist. */
+        'X-Allfit-Waitlist-Secret': components['parameters']['WaitlistSecret']
+        /** @description The visitor's IP address as space-web saw it. It is believed only next to the secret, and stored only as a keyed hash. */
+        'X-Allfit-Visitor-Address': components['parameters']['WaitlistVisitorAddress']
+        /** @description The random identifier space-web keeps in a first-party cookie. Stored only as a keyed hash. */
+        'X-Allfit-Visitor-Device'?: components['parameters']['WaitlistVisitorDevice']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WaitlistPrivateLinkRequest']
+      }
+    }
+    responses: {
+      /** @description The sign-up was deleted */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      404: components['responses']['NotFound']
+      429: components['responses']['TooManyRequests']
     }
   }
 }

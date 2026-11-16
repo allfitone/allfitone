@@ -19,6 +19,7 @@ values
   ('019a9100-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019a9100-0000-7000-8000-000000000003', 'Auditor', 'Gamma', 'active'),
   ('019a9100-0000-7000-8000-000000000004', 'Operator', 'Delta', 'active'),
+  ('019a9100-0000-7000-8000-000000000005', 'Outsider', 'Epsilon', 'active'),
   ('019a9100-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
@@ -26,7 +27,9 @@ values
   ('019a9100-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha91', null),
   ('019a9100-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta91', null),
   ('019a9100-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma91',
-    '019a9100-0000-7000-8000-000000000003');
+    '019a9100-0000-7000-8000-000000000003'),
+  ('019a9100-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon91',
+    '019a9100-0000-7000-8000-000000000005');
 
 select support.bootstrap_backoffice_administrators(
   '019a9100-0000-7000-8000-000000000001', 'alpha91',
@@ -46,6 +49,10 @@ insert into identity.access_sessions (
   ('019a9100-0000-7000-8000-000000000023', '019a9100-0000-7000-8000-000000000013',
     'sid_gamma_91', 'backoffice', decode(repeat('b3', 32), 'hex'), 'v1.gamma91',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019a9100-0000-7000-8000-000000000025', '019a9100-0000-7000-8000-000000000015',
+    'sid_epsilon_91', 'backoffice', decode(repeat('b5', 32), 'hex'), 'v1.epsilon91',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
 select support.assign_platform_role(
@@ -55,16 +62,18 @@ select support.assign_platform_role(
   decode(repeat('61', 32), 'hex')
 );
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select * from privacy.page_access_events(
-    '019a9100-0000-7000-8000-000000000003', '019a9100-0000-7000-8000-000000000023',
+    '019a9100-0000-7000-8000-000000000005', '019a9100-0000-7000-8000-000000000025',
     null, null, null, null, 50, null, null
   ) $$,
   '42501',
   null,
-  'the base role alone cannot page the access log'
+  'a Backoffice session without the admin role cannot page the access log'
 );
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a9100-0000-7000-8000-000000000001', '019a9100-0000-7000-8000-000000000021',
   '019a9100-0000-7000-8000-000000000003', 'audit_platform_access',

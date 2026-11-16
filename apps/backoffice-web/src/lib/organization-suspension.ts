@@ -129,7 +129,7 @@ export function periodSentence(period: OrganizationSuspensionPeriod): string {
 export function suspensionMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Suspender o reactivar un gimnasio pide el deber «manage_organization_lifecycle». Los deberes vencen por diseño.',
+      'Suspender o reactivar un gimnasio pide el deber «manage_organization_lifecycle». Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'Solo se suspende un gimnasio que esté operando, y solo se reactiva uno suspendido. Un gimnasio sin reclamar, cancelado o cerrado no entra en este ciclo.',
     'not-found': 'Ese gimnasio no existe.',

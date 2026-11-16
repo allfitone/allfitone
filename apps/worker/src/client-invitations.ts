@@ -21,6 +21,7 @@
  */
 
 import {
+  emailBrandAssetUrl,
   NotificationDeliveryError,
   createInvitationToken,
   invitationTokenKey,
@@ -134,7 +135,7 @@ export function createClientInvitationBatchProcessor(dependencies: {
       const rendered = renderClientInvitationEmail({
         organizationName: delivery.organizationName,
         invitationUrl: invitationUrl.toString(),
-        brandAssetUrl: new URL('email/allfit-one-lockup-on-light.png', baseUrl).toString(),
+        brandAssetUrl: emailBrandAssetUrl(baseUrl),
         expiresAt: delivery.expiresAt,
       })
       await dependencies.email.send({

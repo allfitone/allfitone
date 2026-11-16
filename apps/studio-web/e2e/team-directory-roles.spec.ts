@@ -99,8 +99,14 @@ test('coach sees only the governed role catalog and never requests the team dire
   expect(
     await cards.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-role-card'))),
   ).toEqual(['owner', 'admin', 'coach', 'staff'])
-  await expect(page.locator('[data-role-card="owner"]')).toContainText('15 capacidades')
-  await expect(page.locator('[data-role-card="admin"]')).toContainText('13 capacidades')
+  /*
+   * What `organizations.role_capabilities` holds. `manage_content` went to
+   * owner and admin with the content block's migration, and `archive_movements`
+   * is theirs too; the simulator had left both out at one time, so a test could
+   * not do what production let an owner do.
+   */
+  await expect(page.locator('[data-role-card="owner"]')).toContainText('17 capacidades')
+  await expect(page.locator('[data-role-card="admin"]')).toContainText('15 capacidades')
   await expect(page.locator('[data-role-card="coach"]')).toContainText('8 capacidades')
   await expect(page.locator('[data-role-card="staff"]')).toContainText('3 capacidades')
   await expect(page.locator('[data-role-card="staff"]')).toContainText(
@@ -148,31 +154,42 @@ test('a solo owner keeps the invitation within reach and is not told about it ag
   await expect(page.getByText('Opcional', { exact: true })).toHaveCount(0)
 })
 
-test('reuses the fresh active-membership query when opening the matching filter', async ({
-  page,
-}) => {
+/**
+ * Each filter is its own query and is asked for once.
+ *
+ * This used to be proved across two screens: the landing read the active
+ * members for its own count, so opening the matching filter on the team screen
+ * found the answer already there. HU-STUDIO-081 replaced that landing with one
+ * read of what needs attention, which carries the team total itself — so the
+ * warm-up disappeared, and with it the only cross-screen version of this. The
+ * invariant did not move: going back to a filter already answered must not ask
+ * again.
+ */
+test('reuses a fresh active-membership query instead of asking for it twice', async ({ page }) => {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership],
     organizationMemberships: [activeTeamMember, terminatedTeamMember],
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}`)
+
+  const activeRequests = () =>
+    fixture.requests.filter((request) => {
+      if (!isOrganizationMembershipRequest(request)) return false
+      return new URLSearchParams(request.search).get('status') === 'active'
+    }).length
+
+  await page.goto(`/organizations/${activeMembership.organization_id}/team`)
+  await page.getByRole('button', { name: 'Activos' }).click()
   await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
+  const afterFirstOpen = activeRequests()
+  expect(afterFirstOpen).toBeGreaterThan(0)
 
-  const activeRequestsBeforeNavigation = fixture.requests.filter((request) => {
-    if (!isOrganizationMembershipRequest(request)) return false
-    return new URLSearchParams(request.search).get('status') === 'active'
-  }).length
-
-  await page.getByRole('link', { name: 'Ver equipo', exact: true }).click()
+  await page.getByRole('button', { name: 'Todos' }).click()
+  await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Activos' }).click()
   await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
 
-  const activeRequestsAfterNavigation = fixture.requests.filter((request) => {
-    if (!isOrganizationMembershipRequest(request)) return false
-    return new URLSearchParams(request.search).get('status') === 'active'
-  }).length
-  expect(activeRequestsAfterNavigation).toBe(activeRequestsBeforeNavigation)
+  expect(activeRequests()).toBe(afterFirstOpen)
 })
 
 test('coach with staff role regains the directory destinations', async ({ page }) => {

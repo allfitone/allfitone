@@ -130,6 +130,8 @@ describe('Backoffice authentication HTTP contract', () => {
       .find((value) => value.startsWith(`${BACKOFFICE_SESSION_COOKIE}=`))
     expect(session?.split('; ')).toContain(`Path=${BACKOFFICE_SESSION_COOKIE_PATH}`)
     expect(BACKOFFICE_SESSION_COOKIE_PATH).toBe('/backoffice/v1')
+    // Twelve hours, the same lifetime PostgreSQL gives the session row.
+    expect(session?.split('; ')).toContain('Max-Age=43200')
   })
 
   test('keeps the attempt cookie after a retryable wrong code and clears it at the terminal limit', async () => {

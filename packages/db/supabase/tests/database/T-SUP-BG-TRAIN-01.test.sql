@@ -18,7 +18,7 @@ values
   ('019a8200-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019a8200-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019a8200-0000-7000-8000-000000000003', 'Requester', 'Gamma', 'active'),
-  ('019a8200-0000-7000-8000-000000000004', 'Approver', 'Delta', 'active'),
+  ('019a8200-0000-7000-8000-000000000004', 'Admin', 'Delta', 'active'),
   ('019a8200-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active'),
   ('019a8200-0000-7000-8000-000000000008', 'Owner', 'Theta', 'active');
 
@@ -172,7 +172,7 @@ insert into execution.mobility_results (
   executed_session_id, sequence_position, side, hold_duration_seconds
 ) values ('019a8200-0000-7000-8000-000000000901', 1, 'left', 30);
 
--- One standard window for both training categories.
+-- One standard window for both training categories, open once asked for (ADR-046).
 select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019a8200-0000-7000-8000-000000000003', true);
 
@@ -182,13 +182,6 @@ select support.request_break_glass(
   'customer_support_request', 'CASE-2026-084',
   'c2000000-0000-4000-8000-000000000001', '019a8200-0000-7000-8000-000000000301',
   decode(repeat('a1', 32), 'hex')
-);
-select support.decide_break_glass(
-  '019a8200-0000-7000-8000-000000000004', '019a8200-0000-7000-8000-000000000024',
-  (select id from support.break_glass_requests where case_reference = 'CASE-2026-084'),
-  'approved', 'REASON-OK',
-  'c2000000-0000-4000-8000-000000000002', '019a8200-0000-7000-8000-000000000302',
-  decode(repeat('a2', 32), 'hex')
 );
 
 create temporary table own_read on commit drop as
@@ -285,7 +278,7 @@ select is(
   (select count(*)::integer from planning.planned_sessions
    where person_id = '019a8200-0000-7000-8000-000000000006'),
   0,
-  'T-SUP-BG-TRAIN-RLS-03 whoever approved the window sees none of it'
+  'T-SUP-BG-TRAIN-RLS-03 another administrator, who did not open the window, sees none of it'
 );
 select is(
   (select count(*)::integer from planning.program_assignments

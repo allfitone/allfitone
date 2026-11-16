@@ -9,6 +9,7 @@
  */
 
 import {
+  emailBrandAssetUrl,
   NotificationDeliveryError,
   createInvitationToken,
   invitationTokenKey,
@@ -122,7 +123,7 @@ export function createOwnershipInvitationBatchProcessor(dependencies: {
       const rendered = renderOwnershipInvitationEmail({
         organizationName: delivery.organizationName,
         invitationUrl: invitationUrl.toString(),
-        brandAssetUrl: new URL('email/allfit-one-lockup-on-light.png', baseUrl).toString(),
+        brandAssetUrl: emailBrandAssetUrl(baseUrl),
         expiresAt: delivery.expiresAt,
       })
       await dependencies.email.send({

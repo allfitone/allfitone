@@ -246,11 +246,12 @@ select is(
   'and says it once, however many times the declaration is retried'
 );
 
+-- ADR-052: she corrects what she said (T-IDN-HEALTH-CORRECT-01); whose and whence never move.
 select throws_ok(
-  $$ update identity.health_context_claims set description = 'Ya no duele'
+  $$ update identity.health_context_claims set provenance = 'professional_observation'
      where id = '019b6000-0000-7000-8000-000000000501' $$,
   '55000', null,
-  'a declared claim is never rewritten: it is deleted or kept'
+  'a declared claim never changes its origin: what it says is corrected, not who said it'
 );
 
 select throws_ok(
@@ -325,6 +326,7 @@ select throws_ok(
 select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019b6000-0000-7000-8000-000000000013', true);
 
+-- Asking opens the window, restricted or not (ADR-046 decision 2).
 create temporary table health_window on commit drop as
 select result from support.request_break_glass(
   '019b6000-0000-7000-8000-000000000013', '019b6000-0000-7000-8000-000000000213',
@@ -333,17 +335,6 @@ select result from support.request_break_glass(
   'b0000000-0000-4000-8000-000000000711', '019b6000-0000-7000-8000-000000000711',
   decode(repeat('71', 32), 'hex')
 );
-
-select support.decide_break_glass(
-  person_id, session_id, (select (result->>'id')::uuid from health_window), 'approved',
-  'REASON-OK', key, command, decode(repeat(hash_byte, 32), 'hex')
-)
-from (values
-  ('019b6000-0000-7000-8000-000000000014'::uuid, '019b6000-0000-7000-8000-000000000214'::uuid,
-    'b0000000-0000-4000-8000-000000000712'::uuid, '019b6000-0000-7000-8000-000000000712'::uuid, '72'),
-  ('019b6000-0000-7000-8000-000000000015'::uuid, '019b6000-0000-7000-8000-000000000215'::uuid,
-    'b0000000-0000-4000-8000-000000000713'::uuid, '019b6000-0000-7000-8000-000000000713'::uuid, '73')
-) as approval(person_id, session_id, key, command, hash_byte);
 
 create temporary table health_read on commit drop as
 select support.exercise_break_glass(
@@ -356,7 +347,7 @@ select results_eq(
   $$ select answer->>'outcome', jsonb_array_length(answer->'content'->'health_context')
      from health_read $$,
   $$ values ('allowed'::text, 3) $$,
-  'the approved window reads the subject''s three claims'
+  'the open window reads the subject''s three claims'
 );
 
 select ok(

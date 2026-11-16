@@ -33,7 +33,12 @@ const BEA = id(2)
 async function cleanup() {
   await admin.begin(async (tx) => {
     // Platform access history refuses deletion by trigger; only this fixture is removed.
+    // Replica mode also skips foreign keys, so the duties each role brings go explicitly.
     await tx`set local session_replication_role = replica`
+    await tx`delete from system.outbox_events where aggregate_type = 'platform_duty_assignment'
+      and aggregate_id in (select id from support.platform_duty_assignments
+        where person_id in (${ADA}::uuid, ${BEA}::uuid))`
+    await tx`delete from support.platform_duty_assignments where person_id in (${ADA}::uuid, ${BEA}::uuid)`
     await tx`delete from support.platform_role_assignments where person_id in (${ADA}::uuid, ${BEA}::uuid)`
     await tx`delete from identity.people where id in (${ADA}::uuid, ${BEA}::uuid, ${id(3)}::uuid)`
   })

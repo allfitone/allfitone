@@ -67,7 +67,7 @@ export function resendOutcomeMessage(result: BackofficeTeamInvitationResend): st
 export function teamInvitationsMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Ver y reenviar las invitaciones de equipo exige el deber de soporte vigente. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Ver y reenviar las invitaciones de equipo exige el deber de soporte vigente. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'not-found': 'Ese gimnasio no existe.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
     'upstream-unavailable': 'El servicio no respondió. Reintenta en un momento.',

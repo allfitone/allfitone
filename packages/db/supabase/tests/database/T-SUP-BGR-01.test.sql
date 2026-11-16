@@ -5,14 +5,16 @@
 -- that fires after, and until now nothing enforced it. `T-BGG-10` was named in the
 -- governance and asserted nowhere.
 --
--- **A case is reviewable once it was used, not once it was approved.** A window
+-- **A case is reviewable once it was used, not once it was opened.** A window
 -- somebody opened and never exercised read nothing, so there is nothing to judge; the
 -- obligation attaches to the first exercise and to no earlier moment.
 --
 -- **Independence is the whole value of the review.** The reviewer is not the
--- requester, not the subject, and not anybody who approved the case. The last one is
--- the one a CHECK cannot express, so it is the function's job and it is asserted here
--- against somebody who holds `audit_break_glass` and approved anyway.
+-- requester, not the subject, and not anybody who approved the case. Since ADR-046
+-- asking opens the window and nobody approves, but the cases approved before keep
+-- their approvers. That one is the rule a CHECK cannot express, so it is the
+-- function's job and it is asserted here, on such a case, against somebody who holds
+-- `audit_break_glass` and approved anyway.
 --
 -- **The twenty-four hours are an obligation, not a filter.** A late review is recorded
 -- and marked late. Refusing it would leave the case unreviewed for good, which is the
@@ -87,6 +89,7 @@ insert into identity.access_sessions (
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
+-- The role brings every duty (ADR-046); Eta keeps an AAL2 Backoffice session without it.
 select support.assign_platform_role(
   '019c1000-0000-7000-8000-000000000001', '019c1000-0000-7000-8000-000000000021',
   person_id, 'allfit_admin',
@@ -98,12 +101,12 @@ from (values
   ('019c1000-0000-7000-8000-000000000003'::uuid),
   ('019c1000-0000-7000-8000-000000000004'::uuid),
   ('019c1000-0000-7000-8000-000000000005'::uuid),
-  ('019c1000-0000-7000-8000-000000000007'::uuid),
   ('019c1000-0000-7000-8000-000000000008'::uuid)
 ) as candidates(person_id);
 
 -- Gamma requests and also audits: holding the auditing duty is not what makes a
--- reviewer independent, and asserting that needs somebody who holds both.
+-- reviewer independent, and asserting that needs somebody who holds both. Every grant
+-- below converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019c1000-0000-7000-8000-000000000001', '019c1000-0000-7000-8000-000000000021',
   '019c1000-0000-7000-8000-000000000003', 'request_break_glass',
@@ -152,9 +155,10 @@ select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019c1000-0000-7000-8000-000000000003', true);
 
 -- ---------------------------------------------------------------------------
--- Three cases: one used, one approved and never used, one used long ago
+-- Three cases: one used, one opened and never used, one used long ago
 -- ---------------------------------------------------------------------------
 
+-- Asking opens each of them (ADR-046 decision 2).
 select support.request_break_glass(
   '019c1000-0000-7000-8000-000000000003', '019c1000-0000-7000-8000-000000000023',
   '019c1000-0000-7000-8000-000000000006', array['prior_training_history'],
@@ -170,19 +174,30 @@ from (values
     '019c1000-0000-7000-8000-000000000303'::uuid, '83')
 ) as cases(case_reference, key, command, seed);
 
-select support.decide_break_glass(
-  '019c1000-0000-7000-8000-000000000004', '019c1000-0000-7000-8000-000000000024',
-  (select id from support.break_glass_requests where case_reference = cases.case_reference),
-  'approved', 'REASON-OK', key, command, decode(repeat(seed, 32), 'hex')
-)
-from (values
-  ('CASE-2026-R01', '22222222-2222-4222-8222-222222222211'::uuid,
-    '019c1000-0000-7000-8000-000000000311'::uuid, '91'),
-  ('CASE-2026-R02', '22222222-2222-4222-8222-222222222212'::uuid,
-    '019c1000-0000-7000-8000-000000000312'::uuid, '92'),
-  ('CASE-2026-R03', '22222222-2222-4222-8222-222222222213'::uuid,
-    '019c1000-0000-7000-8000-000000000313'::uuid, '93')
-) as cases(case_reference, key, command, seed);
+-- R05 was approved by Delta before ADR-046, written as it was then: standard, one
+-- approval, thirty minutes. Never exercised, so it never enters the queue below.
+insert into support.break_glass_requests (
+  requester_person_id, requester_duty_assignment_id, subject_person_id, categories,
+  purpose, case_reference, sensitivity_tier, required_approvals,
+  requested_duration_minutes, requested_at, request_expires_at, status,
+  window_starts_at, window_ends_at
+) select '019c1000-0000-7000-8000-000000000003', id,
+  '019c1000-0000-7000-8000-000000000006', array['prior_training_history'],
+  'customer_support_request', 'CASE-2026-R05', 'standard', 1, 30, now(),
+  now() + interval '30 minutes', 'approved', now(), now() + interval '30 minutes'
+from support.platform_duty_assignments
+where person_id = '019c1000-0000-7000-8000-000000000003'
+  and duty_code = 'request_break_glass' and status = 'active'
+limit 1;
+
+insert into support.break_glass_approvals (
+  request_id, approver_person_id, approver_duty_assignment_id, decision, reason_code
+) select file.id, duty.person_id, duty.id, 'approved', 'REASON-OK'
+from support.break_glass_requests as file, support.platform_duty_assignments as duty
+where file.case_reference = 'CASE-2026-R05'
+  and duty.person_id = '019c1000-0000-7000-8000-000000000004'
+  and duty.duty_code = 'approve_break_glass' and duty.status = 'active'
+limit 1;
 
 -- R01 is exercised for real, so its evidence is the evidence the product writes.
 select support.exercise_break_glass(
@@ -233,7 +248,7 @@ select throws_ok(
   ) $$,
   '42501',
   'this break-glass operation requires an effective duty',
-  'the base role alone does not review a case'
+  'a Backoffice session without the admin role does not review a case'
 );
 
 select throws_ok(
@@ -253,13 +268,13 @@ select throws_ok(
 select throws_ok(
   $$ select * from support.review_break_glass(
     '019c1000-0000-7000-8000-000000000004', '019c1000-0000-7000-8000-000000000024',
-    (select id from support.break_glass_requests where case_reference = 'CASE-2026-R01'),
+    (select id from support.break_glass_requests where case_reference = 'CASE-2026-R05'),
     'justified', '33333333-3333-4333-8333-333333333303',
     '019c1000-0000-7000-8000-000000000503', decode(repeat('a3', 32), 'hex')
   ) $$,
   '42501',
   'a break-glass case is reviewed by somebody who neither asked for it, approved it nor is its subject',
-  'whoever approved the case cannot also be the one who reviews it'
+  'whoever approved a case before ADR-046 cannot also be the one who reviews it'
 );
 
 -- ---------------------------------------------------------------------------
@@ -464,12 +479,6 @@ select support.request_break_glass(
   'customer_support_request', 'CASE-2026-R04',
   '22222222-2222-4222-8222-222222222204', '019c1000-0000-7000-8000-000000000304',
   decode(repeat('84', 32), 'hex')
-);
-select support.decide_break_glass(
-  '019c1000-0000-7000-8000-000000000004', '019c1000-0000-7000-8000-000000000024',
-  (select id from support.break_glass_requests where case_reference = 'CASE-2026-R04'),
-  'approved', 'REASON-OK', '22222222-2222-4222-8222-222222222214',
-  '019c1000-0000-7000-8000-000000000314', decode(repeat('94', 32), 'hex')
 );
 select support.exercise_break_glass(
   '019c1000-0000-7000-8000-000000000003', '019c1000-0000-7000-8000-000000000023',

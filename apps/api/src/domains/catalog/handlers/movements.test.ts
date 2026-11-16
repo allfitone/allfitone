@@ -98,7 +98,12 @@ function harness(overrides?: {
   }
   const verify: TokenVerifier =
     overrides?.verify ??
-    (async () => ({ subject: 'sub', sessionId: 'sid', surface: 'space' as const }))
+    (async () => ({
+      subject: 'sub',
+      sessionId: 'sid',
+      surface: 'space' as const,
+      authenticatedAt: null,
+    }))
   const app = new Hono()
   app.route('/catalog/v1', catalogMovementRoutes(service, verify, actors))
   return { app, asked }

@@ -7,7 +7,8 @@
  */
 
 export const TELEMETRY_NOTICE_VERSION = 'analytics-v1' as const
-export const ANALYTICS_PRIVACY_NOTICE_URL = 'https://www.allfit.one/privacy/analytics' as const
+// The notice lives with the terms and the privacy policy under www.allfit.one/legal.
+export const ANALYTICS_PRIVACY_NOTICE_URL = 'https://www.allfit.one/es/legal/analytics' as const
 
 export {
   createClientTelemetryRuntime,
@@ -199,6 +200,7 @@ export type TelemetryEvent =
           | 'backoffice_auth_cleanup'
           | 'correction_proposal_expiry'
           | 'invitation_delivery'
+          | 'media_disposal'
           | 'outbox_batch'
           | 'platform_duty_lapse'
           | 'privacy_disposition'
@@ -377,6 +379,7 @@ function validateSpecific(name: TelemetryEventName, properties: Record<string, u
             'backoffice_auth_cleanup',
             'correction_proposal_expiry',
             'invitation_delivery',
+            'media_disposal',
             'outbox_batch',
             'platform_duty_lapse',
             'privacy_disposition',

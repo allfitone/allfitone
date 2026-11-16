@@ -1,8 +1,11 @@
-import { createResendEmailSender, constantTimeBearerMatches } from '@allfitone/notifications'
+import { constantTimeBearerMatches, emailBrandAssetUrl } from '@allfitone/notifications'
 import {
   createAccountRecoveryDeliveryFromEnv,
+  createEmailChangeIdentityFromEnv,
+  createPasswordChangeIdentityFromEnv,
   createBackofficeAuthMaintenanceFromEnv,
 } from '@allfitone/auth-provider'
+import { createObjectStoreFromEnv, type ObjectStore } from '@allfitone/object-store'
 import { createPostgresQueue } from '@allfitone/queue'
 import type { TelemetryEventFor } from '@allfitone/telemetry'
 import { telemetryEnvironmentFromRuntime } from '@allfitone/telemetry/node'
@@ -34,6 +37,18 @@ import {
   createClientInvitationDeliveryDatabase,
 } from './client-invitations.js'
 import {
+  createWaitlistEmailBatchProcessor,
+  createWaitlistEmailDeliveryDatabase,
+} from './waitlist-emails.js'
+import {
+  createWaitlistFoundingEmailBatchProcessor,
+  createWaitlistFoundingEmailDatabase,
+} from './waitlist-founding-emails.js'
+import {
+  createWaitlistTeamNoticeBatchProcessor,
+  createWaitlistTeamNoticeDatabase,
+} from './waitlist-team-notices.js'
+import {
   createBackofficeAuthBatchProcessor,
   createBackofficeAuthCleanupDatabase,
   type BackofficeAuthBatchResult,
@@ -51,6 +66,18 @@ import {
   createPrivacyDispositionProcessor,
   type PrivacyDispositionResult,
 } from './privacy-dispositions.js'
+import {
+  createMediaDisposalDatabase,
+  createMediaDisposalProcessor,
+  type MediaDisposalResult,
+} from './media-disposals.js'
+import { createEmailSenderFromEnvironment } from './email.js'
+import { foundersChannelFromEnvironment } from './founders-channel.js'
+import { createEmailChangeBatchProcessor, createEmailChangeDatabase } from './email-change.js'
+import {
+  createPasswordChangeBatchProcessor,
+  createPasswordChangeDatabase,
+} from './password-change.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { workerOperationalLogs, workerTelemetry } from './telemetry.js'
 
@@ -63,6 +90,7 @@ export interface WorkerJobProcessors {
   platformDutyLapse(): Promise<PlatformDutyLapseResult>
   privacyDisposition(): Promise<PrivacyDispositionResult>
   correctionProposalExpiry(): Promise<CorrectionProposalExpiryResult>
+  mediaDisposal(): Promise<MediaDisposalResult>
   /** Leaves the run behind for the Backoffice diagnosis (HU-BO-031 c2). */
   recordJobRun(run: JobRun): Promise<void>
 }
@@ -74,6 +102,7 @@ export interface WorkerBatchResult {
   platformDuties: PlatformDutyLapseResult
   privacyDispositions: PrivacyDispositionResult
   correctionProposals: CorrectionProposalExpiryResult
+  mediaDisposals: MediaDisposalResult
 }
 
 type WorkerJob =
@@ -81,6 +110,7 @@ type WorkerJob =
   | 'backoffice_auth_cleanup'
   | 'correction_proposal_expiry'
   | 'invitation_delivery'
+  | 'media_disposal'
   | 'outbox_batch'
   | 'platform_duty_lapse'
   | 'privacy_disposition'
@@ -147,6 +177,14 @@ export function createWorkerApp(
         'correction_proposal_expiry',
         processors.correctionProposalExpiry,
       )
+      // Last: the only job that needs the store, so a store it cannot reach stops nothing else.
+      const mediaDisposals = await runJob(
+        telemetry,
+        logs,
+        record,
+        'media_disposal',
+        processors.mediaDisposal,
+      )
 
       const result: WorkerBatchResult = {
         invitations,
@@ -155,6 +193,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        mediaDisposals,
       }
       const jobs = [
         invitations,
@@ -163,6 +202,7 @@ export function createWorkerApp(
         platformDuties,
         privacyDispositions,
         correctionProposals,
+        mediaDisposals,
       ]
       const aggregateOutcome = jobs.some((job) => job.deadOrDelayed > 0) ? 'retrying' : 'completed'
       captureJob(
@@ -276,10 +316,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
   const queue = createPostgresQueue(sql, { visibilityTimeoutMs: 120_000, maxAttempts: 5 })
   const deliveryEnabled = process.env.STAFF_INVITATION_DELIVERY_ENABLED === 'true'
   const email = deliveryEnabled
-    ? createResendEmailSender({
-        apiKey: required('RESEND_API_KEY'),
-        from: required('RESEND_FROM_EMAIL'),
-      })
+    ? createEmailSenderFromEnvironment(process.env)
     : {
         send: async () => {
           throw new Error('Invitation delivery is disabled')
@@ -319,7 +356,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
    * trusted base, not a new setting: a second place to configure the same image
    * is a second place for it to be wrong.
    */
-  const brandAssetUrl = new URL('email/allfit-one-lockup-on-light.png', publicBaseUrl).toString()
+  const brandAssetUrl = emailBrandAssetUrl(publicBaseUrl)
   const reassignments = createReassignmentBatchProcessor({
     queue,
     email,
@@ -363,11 +400,68 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         },
     deliveryEnabled: recoveryEnabled,
   })
+  // Off until the environment says so: requests wait as «initiated», and nothing moves.
+  const emailChangeEnabled = deliveryEnabled && process.env.EMAIL_CHANGE_DELIVERY_ENABLED === 'true'
+  const emailChanges = emailChangeEnabled
+    ? createEmailChangeBatchProcessor({
+        queue,
+        database: createEmailChangeDatabase(sql),
+        identity: createEmailChangeIdentityFromEnv(),
+        email,
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  // Off until the environment says so: the change is in force, and the sessions wait.
+  const passwordChangeEnabled =
+    deliveryEnabled && process.env.PASSWORD_CHANGE_DELIVERY_ENABLED === 'true'
+  const passwordChanges = passwordChangeEnabled
+    ? createPasswordChangeBatchProcessor({
+        queue,
+        database: createPasswordChangeDatabase(sql),
+        identity: createPasswordChangeIdentityFromEnv(),
+        email,
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  let store: ObjectStore | undefined
+  const mediaDisposal = createMediaDisposalProcessor({
+    database: createMediaDisposalDatabase(sql),
+    store: () => (store ??= createObjectStoreFromEnv(process.env)),
+  })
   const subscriptionNotices = createSubscriptionNoticeBatchProcessor({
     queue,
     email,
     brandAssetUrl,
     deliveryEnabled,
+  })
+  // Off until space-web serves the pages these emails link to (TECH-296). Until then the
+  // events wait unclaimed, and the waitlist routes are closed anyway without their secret.
+  const waitlistEmailsEnabled =
+    deliveryEnabled && process.env.WAITLIST_EMAIL_DELIVERY_ENABLED === 'true'
+  const waitlistEmails = waitlistEmailsEnabled
+    ? createWaitlistEmailBatchProcessor({
+        queue,
+        database: createWaitlistEmailDeliveryDatabase(sql),
+        email,
+        publicBaseUrl: required('WAITLIST_PUBLIC_BASE_URL'),
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  // «Eres Founding Member» links to the same pages, so it rides the same switch.
+  const waitlistFoundingEmails = waitlistEmailsEnabled
+    ? createWaitlistFoundingEmailBatchProcessor({
+        queue,
+        database: createWaitlistFoundingEmailDatabase(sql),
+        email,
+        publicBaseUrl: required('WAITLIST_PUBLIC_BASE_URL'),
+        brandAssetUrl,
+      })
+    : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
+  // Not an email, so no delivery switch: the founders' channel address is what turns it on.
+  const waitlistTeamNotices = createWaitlistTeamNoticeBatchProcessor({
+    queue,
+    database: createWaitlistTeamNoticeDatabase(sql),
+    channel: foundersChannelFromEnvironment(process.env),
   })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
@@ -377,10 +471,10 @@ function processorsFromEnvironment(): WorkerJobProcessors {
       const ownership = await ownershipInvitations()
       const client = await clientInvitations()
       /*
-       * Reassignment and resignation notices, substitution questions, correction proposals and
-       * subscription notices ride the same job rather than a cron each: the same claim against the same
-       * outbox, and a separate schedule would be another thing to notice when it stops
-       * running.
+       * Reassignment and resignation notices, substitution questions, correction proposals,
+       * subscription notices, email and password changes and the team's waitlist notices
+       * ride the same job rather than a cron each: the same claim against the same outbox,
+       * and a separate schedule would be another thing to notice when it stops running.
        *
        * Summed by a fold and not by hand. With seven processors and four counters the
        * written-out version was twenty-four terms, and a sixth kind added to three of
@@ -395,6 +489,11 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await substitutions(),
         await correctionProposals(),
         await subscriptionNotices(),
+        await emailChanges(),
+        await passwordChanges(),
+        await waitlistEmails(),
+        await waitlistFoundingEmails(),
+        await waitlistTeamNotices(),
       ]
       return {
         ...batches.reduce(
@@ -414,6 +513,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     platformDutyLapse: createPlatformDutyLapseProcessor(sql),
     privacyDisposition: createPrivacyDispositionProcessor(sql),
     correctionProposalExpiry: createCorrectionProposalExpiryProcessor(sql),
+    mediaDisposal,
     recordJobRun: createJobRunRecorder(sql),
   }
   return cachedProcessors

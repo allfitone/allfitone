@@ -33,6 +33,9 @@ export type BackofficeOrganizationFile = AllfitV1Schemas['BackofficeOrganization
 export type OrganizationHandoverCreate = AllfitV1Schemas['OrganizationHandoverCreate']
 export type OrganizationGuestQuota = AllfitV1Schemas['OrganizationGuestQuota']
 export type OrganizationGuestQuotaDecision = AllfitV1Schemas['OrganizationGuestQuotaDecision']
+export type BackofficeWaitlistSignup = AllfitV1Schemas['BackofficeWaitlistSignup']
+export type BackofficeWaitlistSignupPage = AllfitV1Schemas['BackofficeWaitlistSignupPage']
+export type BackofficeWaitlistTotals = AllfitV1Schemas['BackofficeWaitlistTotals']
 export type BackofficeClientInvitation = AllfitV1Schemas['BackofficeClientInvitation']
 export type BackofficeClientInvitationList = AllfitV1Schemas['BackofficeClientInvitationList']
 export type BackofficeClientInvitationResend = AllfitV1Schemas['BackofficeClientInvitationResend']
@@ -167,21 +170,6 @@ export const backofficeApi = {
       { method: 'POST', headers: commandHeaders(command), body: '{}' },
     ),
 
-  grantPlatformDuty: (
-    input: { personId: string; dutyCode: PlatformDutyCode; validTo: string; reasonCode: string },
-    command: BackofficeCommand,
-  ) =>
-    requestJson<PlatformDutyAssignment>('/backoffice/v1/platform/duty-assignments', {
-      method: 'POST',
-      headers: commandHeaders(command),
-      body: JSON.stringify({
-        person_id: input.personId,
-        duty_code: input.dutyCode,
-        valid_to: input.validTo,
-        reason_code: input.reasonCode,
-      }),
-    }),
-
   suspendPlatformDuty: (assignmentId: string, command: BackofficeCommand) =>
     requestJson<PlatformDutyAssignment>(
       `/backoffice/v1/platform/duty-assignments/${assignmentId}/suspension`,
@@ -314,16 +302,13 @@ export const backofficeApi = {
       signal ? { signal } : {},
     ),
 
-  // The case reference travels on every support read: the server records it
-  // beside the query, so a read nobody can trace back to a case is refused.
-  searchSupportPeople: (
-    input: { caseReference: string; kind: 'identifier' | 'email' | 'phone'; value: string },
-    signal?: AbortSignal,
-  ) =>
+  // A support read names its case when there is one; an empty reference sends none,
+  // because `query` drops empty values.
+  searchSupportPeople: (input: { query: string; caseReference: string }, signal?: AbortSignal) =>
     requestJson<SupportPeopleSearch>(
       `/backoffice/v1/support/people${query({
+        q: input.query,
         case_reference: input.caseReference,
-        [input.kind]: input.value,
       })}`,
       signal ? { signal } : {},
     ),
@@ -627,6 +612,38 @@ export const backofficeApi = {
       },
     ),
 
+  waitlistSignups: (
+    filters: {
+      q?: string | undefined
+      filter?: string | undefined
+      cursor?: string | undefined
+    } = {},
+    signal?: AbortSignal,
+  ) =>
+    requestJson<BackofficeWaitlistSignupPage>(
+      `/backoffice/v1/waitlist/signups${query(filters)}`,
+      signal ? { signal } : {},
+    ),
+
+  waitlistTotals: (signal?: AbortSignal) =>
+    requestJson<BackofficeWaitlistTotals>(
+      '/backoffice/v1/waitlist/totals',
+      signal ? { signal } : {},
+    ),
+
+  markWaitlistSignupAsFraud: (signupId: string, reason: string, command: BackofficeCommand) =>
+    requestJson<BackofficeWaitlistSignup>(`/backoffice/v1/waitlist/signups/${signupId}/fraud`, {
+      method: 'POST',
+      headers: commandHeaders(command),
+      body: JSON.stringify({ reason }),
+    }),
+
+  withdrawWaitlistFraudMark: (signupId: string, reason: string, command: BackofficeCommand) =>
+    requestJson<BackofficeWaitlistSignup>(
+      `/backoffice/v1/waitlist/signups/${signupId}/fraud/withdrawal`,
+      { method: 'POST', headers: commandHeaders(command), body: JSON.stringify({ reason }) },
+    ),
+
   cancelOrganizationHandover: (organizationId: string, command: BackofficeCommand) =>
     requestJson<OrganizationHandover>(
       `/backoffice/v1/organizations/${organizationId}/cancellation`,
@@ -662,22 +679,16 @@ export const backofficeApi = {
       body: JSON.stringify(publication),
     }),
 
-  decideBreakGlass: (
-    requestId: string,
-    decision: { decision: 'approved' | 'rejected'; reason_code: string },
-    command: BackofficeCommand,
-  ) =>
-    requestJson<BreakGlassRequest>(`/backoffice/v1/break-glass/requests/${requestId}/decisions`, {
-      method: 'POST',
-      headers: commandHeaders(command),
-      body: JSON.stringify(decision),
-    }),
-
   // No command identifiers: each attempt is a new event rather than a command to
   // converge, so there is nothing to replay.
   exerciseBreakGlass: (
     requestId: string,
-    exercise: { category: string; resource_type: string; resource_id?: string },
+    exercise: {
+      category: string
+      resource_type: string
+      resource_id?: string
+      before?: { started_at: string; id: string }
+    },
   ) =>
     requestJson<BreakGlassExerciseOutcome>(
       `/backoffice/v1/break-glass/requests/${requestId}/reads`,

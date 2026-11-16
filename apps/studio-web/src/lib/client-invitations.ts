@@ -6,6 +6,14 @@
  * the `invite_clients` capability, and a copy of that mapping in the client is
  * a second source of truth that drifts silently the day the grant changes.
  */
+import {
+  CONTRIBUTE,
+  TRAINING_SCOPE,
+  isProposing,
+  noProgram,
+  proposalTimeZone,
+  type ProgramDraft,
+} from './invitation-program'
 import type { ClientInvitationCreate, OfferableScope, OrganizationRole } from './studio-api'
 
 const INVITE_CLIENTS = 'invite_clients'
@@ -27,6 +35,11 @@ export interface InvitationDraft {
   contact: string
   /** Scope codes the professional ticked, in catalogue order. */
   scopeCodes: string[]
+  /**
+   * The optional first program. Absent, or with no version chosen, means none
+   * is proposed and every scope stays at `read` as before.
+   */
+  program?: ProgramDraft
 }
 
 export type InvitationDraftErrors = Partial<Record<'contact' | 'scopes', string>>
@@ -61,6 +74,17 @@ export function validateDraft(draft: InvitationDraft): InvitationDraftErrors {
   }
   if (draft.scopeCodes.length === 0) {
     errors.scopes = 'Marca al menos un permiso. Una invitación que no pide nada no sirve de nada.'
+  } else if (
+    isProposing(draft.program ?? noProgram) &&
+    !draft.scopeCodes.includes(TRAINING_SCOPE)
+  ) {
+    /*
+     * The form ticks it when a program is chosen, so a reader should never see
+     * this. It is here because the invariant belongs to the draft and not to a
+     * component: a body that proposes a program without that scope is refused
+     * by PostgreSQL with a `22023` the screen cannot explain.
+     */
+    errors.scopes = 'El programa necesita el permiso de entrenamiento. Márcalo o quita el programa.'
   }
   return errors
 }
@@ -74,7 +98,10 @@ export function validateDraft(draft: InvitationDraft): InvitationDraftErrors {
 export function invitationBody(
   draft: InvitationDraft,
   catalog: readonly OfferableScope[],
+  timeZone: string = proposalTimeZone(),
 ): ClientInvitationCreate {
+  const program = draft.program ?? noProgram
+  const proposing = isProposing(program)
   const chosen = catalog.filter((scope) => draft.scopeCodes.includes(scope.scope_code))
   const scopes: ClientInvitationCreate['scopes'] = chosen.map((scope) => {
     // What the person will be shown, frozen into the invitation as it is sent.
@@ -86,12 +113,33 @@ export function invitationBody(
     }
     return {
       scope_code: scope.scope_code,
-      access_level: INVITATION_ACCESS_LEVEL,
+      /*
+       * `read`, except the one scope a proposed program cannot start without.
+       * Raising it here rather than offering a level per scope keeps the rule
+       * above intact: the professional never picks write access, a program
+       * does — and the form shows that scope ticked and says why, so nothing
+       * is asked for that the reader cannot see.
+       */
+      access_level:
+        proposing && scope.scope_code === TRAINING_SCOPE ? CONTRIBUTE : INVITATION_ACCESS_LEVEL,
       purpose: scope.default_purpose,
       presented_snapshot,
     }
   })
-  return { channel: 'email', contact: draft.contact.trim().toLowerCase(), scopes }
+  const body: ClientInvitationCreate = {
+    channel: 'email',
+    contact: draft.contact.trim().toLowerCase(),
+    scopes,
+  }
+  // All three or none: two of the three is a `22023` the screen cannot explain.
+  if (proposing) {
+    body.program = {
+      program_version_id: program.versionId,
+      starts_on: program.startsOn,
+      timezone: timeZone,
+    }
+  }
+  return body
 }
 
 /** Keeps the ticked scopes in catalogue order, whatever order they were ticked. */

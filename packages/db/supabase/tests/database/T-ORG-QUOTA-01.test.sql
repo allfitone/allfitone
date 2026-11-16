@@ -4,9 +4,8 @@
 -- file says so. Zero would stop it inviting anybody, and the gyms that exist today
 -- were all created without a number.
 --
--- **The commercial duty, and no other.** Whoever creates a gym holds the lifecycle
--- duty; whoever decides what it was sold holds the commercial one. Neither stands in
--- for the other, and the base role alone is not either of them.
+-- **The commercial duty.** Every admin holds it through the role (ADR-046). A Backoffice
+-- session without the role, never granted or since withdrawn, decides nothing.
 --
 -- **Lowering it never ends anything.** The relationship count and the invitation
 -- count are read before and after a quota is cut below them, and both are unchanged.
@@ -19,17 +18,17 @@
 
 begin;
 
-select plan(31);
+select plan(30);
 
 insert into identity.people (id, given_name, family_name, status, contact_email)
 values
   ('019ae000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active', null),
   ('019ae000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active', null),
   ('019ae000-0000-7000-8000-000000000003', 'Commercial', 'Gamma', 'active', null),
-  ('019ae000-0000-7000-8000-000000000004', 'Lifecycle', 'Delta', 'active', null),
+  ('019ae000-0000-7000-8000-000000000004', 'Withdrawn', 'Delta', 'active', null),
   ('019ae000-0000-7000-8000-000000000005', 'Support', 'Epsilon', 'active', null),
   ('019ae000-0000-7000-8000-000000000006', 'Owner', 'Zeta', 'active', 'owner.zeta@quota.test'),
-  ('019ae000-0000-7000-8000-000000000007', 'Badged', 'Eta', 'active', null),
+  ('019ae000-0000-7000-8000-000000000007', 'Outsider', 'Eta', 'active', null),
   ('019ae000-0000-7000-8000-000000000008', 'Client', 'Theta', 'active', null),
   ('019ae000-0000-7000-8000-000000000009', 'Client', 'Iota', 'active', null),
   ('019ae000-0000-7000-8000-000000000010', 'Client', 'Kappa', 'active', null),
@@ -102,12 +101,12 @@ from (values
     '019ae000-0000-7000-8000-000000000204'::uuid, 'c4'),
   ('019ae000-0000-7000-8000-000000000005'::uuid, '019ae000-0000-7000-8000-000000000105'::uuid,
     '019ae000-0000-7000-8000-000000000205'::uuid, 'c5'),
-  ('019ae000-0000-7000-8000-000000000007'::uuid, '019ae000-0000-7000-8000-000000000107'::uuid,
-    '019ae000-0000-7000-8000-000000000207'::uuid, 'c7'),
   ('019ae000-0000-7000-8000-000000000011'::uuid, '019ae000-0000-7000-8000-000000000111'::uuid,
     '019ae000-0000-7000-8000-000000000211'::uuid, 'd1')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Eta keeps a live Backoffice session and is never granted the role.
+-- Converges onto the duties the role already brings.
 select support.assign_platform_duty(
   '019ae000-0000-7000-8000-000000000001', '019ae000-0000-7000-8000-000000000041',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -116,13 +115,20 @@ select support.assign_platform_duty(
 from (values
   ('019ae000-0000-7000-8000-000000000003'::uuid, 'manage_platform_commercial',
     '019ae000-0000-7000-8000-000000000113'::uuid, '019ae000-0000-7000-8000-000000000213'::uuid, 'e3'),
-  ('019ae000-0000-7000-8000-000000000004'::uuid, 'manage_organization_lifecycle',
-    '019ae000-0000-7000-8000-000000000114'::uuid, '019ae000-0000-7000-8000-000000000214'::uuid, 'e4'),
   ('019ae000-0000-7000-8000-000000000005'::uuid, 'diagnose_support_metadata',
     '019ae000-0000-7000-8000-000000000115'::uuid, '019ae000-0000-7000-8000-000000000215'::uuid, 'e5'),
   ('019ae000-0000-7000-8000-000000000011'::uuid, 'manage_platform_commercial',
     '019ae000-0000-7000-8000-000000000121'::uuid, '019ae000-0000-7000-8000-000000000221'::uuid, 'f1')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
+
+-- Delta was an admin and no longer is: withdrawing the role revokes every duty it brought.
+select support.revoke_platform_role(
+  '019ae000-0000-7000-8000-000000000001', '019ae000-0000-7000-8000-000000000041',
+  (select id from support.platform_role_assignments
+    where person_id = '019ae000-0000-7000-8000-000000000004' and status = 'active'),
+  '019ae000-0000-7000-8000-000000000124', '019ae000-0000-7000-8000-000000000224',
+  decode(repeat('e4', 32), 'hex')
+);
 
 -- A gym with three clients: two with a live relationship and one that ended.
 insert into organizations.organizations (
@@ -216,7 +222,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone does not decide what a gym was sold'
+  'a Backoffice session without the admin role does not decide what a gym was sold'
 );
 
 select set_config('app.actor_person_id', '019ae000-0000-7000-8000-000000000004', true);
@@ -230,21 +236,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'whoever creates a gym does not thereby decide its commercial terms'
-);
-
-select set_config('app.actor_person_id', '019ae000-0000-7000-8000-000000000005', true);
-
-select throws_ok(
-  $$ select organizations.set_organization_guest_quota(
-    '019ae000-0000-7000-8000-000000000005', '019ae000-0000-7000-8000-000000000045',
-    '019ae000-0000-7000-8000-000000000301', 50, 'ACUERDO-2026-034',
-    '5f1b0003-0000-4000-8000-000000000003', '019ae000-0000-7000-8000-000000000903',
-    decode(repeat('73', 32), 'hex')
-  ) $$,
-  '42501',
-  null,
-  'nor does the duty that reads a gym''s file'
+  'nor does an admin whose role was withdrawn, with the duties and session it carried'
 );
 
 select set_config('app.actor_person_id', '019ae000-0000-7000-8000-000000000011', true);

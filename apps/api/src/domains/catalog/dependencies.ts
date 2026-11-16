@@ -19,6 +19,11 @@ import {
   type GlobalCatalogueCurationService,
 } from './application/global-catalogue.js'
 import { createGlobalCatalogueCurationDatabase } from './infrastructure/global-catalogue.js'
+import {
+  createOrganizationMovementService,
+  type OrganizationMovementService,
+} from './application/organization-movements.js'
+import { createOrganizationMovementDatabase } from './infrastructure/organization-movements.js'
 
 let cached: StudioCatalogService | undefined
 
@@ -63,4 +68,21 @@ export function movementLibraryService(): MovementLibraryService {
     mediaBaseUrl,
   })
   return cachedMovements
+}
+
+let cachedOrganizationMovements: OrganizationMovementService | undefined
+
+export function organizationMovementService(): OrganizationMovementService {
+  if (cachedOrganizationMovements) return cachedOrganizationMovements
+
+  // The same origin as the global library's: a gym's movement has no media of its own
+  // yet, but a global one in the same search does.
+  const mediaBaseUrl = process.env.CATALOG_MEDIA_BASE_URL
+  if (!mediaBaseUrl) throw new Error('CATALOG_MEDIA_BASE_URL is not set')
+
+  cachedOrganizationMovements = createOrganizationMovementService({
+    database: createOrganizationMovementDatabase(),
+    mediaBaseUrl,
+  })
+  return cachedOrganizationMovements
 }

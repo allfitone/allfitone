@@ -131,7 +131,7 @@ function formatDay(value: string | null | undefined): string {
 export function paymentsMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Ver lo que paga una persona pide el deber «view_billing_metadata», que es distinto del que abre su ficha. Los deberes vencen por diseño, así que puede que el tuyo ya no esté vigente.',
+      'Ver lo que paga una persona pide el deber «view_billing_metadata», que es distinto del que abre su ficha. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'invalid-request': 'Esta consulta necesita la referencia del caso que la justifica.',
     'not-found': 'No encontramos a esa persona.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',

@@ -12,6 +12,84 @@ describe('organization workspace navigation', () => {
     })
   })
 
+  test('resolves the content title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content`, organizationId)).toEqual({
+      title: 'Contenido',
+    })
+  })
+
+  test('resolves the new template title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId)).toEqual({
+      title: 'Nueva plantilla',
+    })
+  })
+
+  test('resolves the template draft title, without taking `new` for an id', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Plantilla' })
+    expect(resolveWorkspaceRoute(`${basePath}/content/templates/new`, organizationId).title).toBe(
+      'Nueva plantilla',
+    )
+  })
+
+  test('resolves the new program title', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/programs/new`, organizationId)).toEqual({
+      title: 'Nuevo programa',
+    })
+  })
+
+  test('resolves the program draft title, without taking `new` for an id', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000003`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Programa' })
+  })
+
+  test('resolves a published version’s title, for a template and for a program', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/templates/01991600-a000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de plantilla' })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/programs/01991600-9000-7000-8000-000000000001/versions/2`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Versión de programa' })
+  })
+
+  test('resolves the new movement title, and a movement’s, without taking `new` for an id', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/content/movements/new`, organizationId)).toEqual({
+      title: 'Nuevo movimiento',
+    })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/content/movements/01991600-c000-7000-8000-000000000003`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Movimiento' })
+  })
+
+  test('resolves the new plan title, and a plan’s, without taking `new` for an id', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/billing/plans/new`, organizationId)).toEqual({
+      title: 'Nuevo plan',
+    })
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/billing/plans/01991600-e000-7000-8000-000000000001`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Plan' })
+  })
+
   test('resolves the organization details title', () => {
     expect(resolveWorkspaceRoute(`${basePath}/organization`, organizationId)).toEqual({
       title: 'Organización',
@@ -92,10 +170,114 @@ describe('organization workspace navigation', () => {
     expect(resolveWorkspaceRoute(`${basePath}/clients/${relationshipId}`, organizationId)).toEqual({
       title: 'Vínculo',
     })
-    for (const segment of ['invitations', 'information-categories']) {
+    for (const segment of ['invitations', 'information-categories', 'people']) {
       expect(resolveWorkspaceRoute(`${basePath}/clients/${segment}`, organizationId)).not.toEqual({
         title: 'Vínculo',
       })
     }
+  })
+
+  /*
+   * The card and the relationship are two screens about the same person, and
+   * the shell's `h1` is the only thing that says which one is open. A new route
+   * that nobody registers here is titled "Studio", which fails silently: the
+   * screen renders and only the heading is wrong.
+   */
+  test('the training profile is titled by the category, under the card', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/profile`, organizationId),
+    ).toEqual({ title: 'Perfil de entrenamiento' })
+  })
+
+  test('her sessions are titled as executed, to tell them from the planned ones', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/executions`, organizationId),
+    ).toEqual({ title: 'Sesiones ejecutadas' })
+  })
+
+  test('one session opened in full is titled by what it adds', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    const executionId = '01991600-4000-7000-8000-0000000000bb'
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/clients/people/${personId}/executions/${executionId}`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Resultado de la sesión' })
+  })
+
+  test('her progress is titled by what it is', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/progress`, organizationId),
+    ).toEqual({ title: 'Progreso' })
+  })
+
+  test('her programs are titled Programas asignados, never Planes', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/programs`, organizationId),
+    ).toEqual({ title: 'Programas asignados' })
+  })
+
+  test('a person card is titled Ficha, not Vínculo and not Studio', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(resolveWorkspaceRoute(`${basePath}/clients/people/${personId}`, organizationId)).toEqual(
+      { title: 'Ficha' },
+    )
+  })
+
+  test('the historical access cases, and opening one, have their own titles', () => {
+    expect(resolveWorkspaceRoute(`${basePath}/historical-access-cases`, organizationId)).toEqual({
+      title: 'Casos de historial',
+    })
+    expect(
+      resolveWorkspaceRoute(`${basePath}/historical-access-cases/new`, organizationId),
+    ).toEqual({ title: 'Abrir un caso' })
+  })
+
+  test('reading through a case is titled by what it reads, without taking `new` for a case', () => {
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/historical-access-cases/01991600-7000-7000-8000-0000000000c1`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Historial congelado' })
+  })
+
+  test('her health context is titled by the category, under the card', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/clients/people/${personId}/health-context`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Contexto de salud' })
+  })
+
+  test('her body progress is titled apart from her training progress', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/body-progress`, organizationId),
+    ).toEqual({ title: 'Progreso corporal' })
+  })
+
+  test('what she eats is titled by her meals, under the card', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(`${basePath}/clients/people/${personId}/nutrition`, organizationId),
+    ).toEqual({ title: 'Comidas' })
+  })
+
+  test('her nutrition goals are titled apart from her meals', () => {
+    const personId = '01991600-3000-7000-8000-0000000000aa'
+    expect(
+      resolveWorkspaceRoute(
+        `${basePath}/clients/people/${personId}/nutrition-goals`,
+        organizationId,
+      ),
+    ).toEqual({ title: 'Objetivos nutricionales' })
   })
 })

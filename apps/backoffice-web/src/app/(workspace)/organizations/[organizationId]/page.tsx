@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { OrganizationFile } from '@/components/organization-file'
 
 export const metadata: Metadata = {
-  title: 'Ficha del gimnasio · Allfit Backoffice',
+  title: 'Ficha del gimnasio | Allfit Backoffice',
 }
 
 export default async function OrganizationFilePage({

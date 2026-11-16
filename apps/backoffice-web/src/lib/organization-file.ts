@@ -168,7 +168,7 @@ export function handsOverHere(file: OrganizationFile): boolean {
 export function fileMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'Tu sesión no tiene vigente un deber que permita abrir la ficha: soporte o ciclo de vida de gimnasios. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'Tu sesión no tiene vigente un deber que permita abrir la ficha: soporte o ciclo de vida de gimnasios. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     'not-found': 'Ese gimnasio no existe.',
     'invalid-request': 'La dirección de la ficha no se pudo leer. Ábrela desde el directorio.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',

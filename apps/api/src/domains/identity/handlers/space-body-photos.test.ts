@@ -61,7 +61,12 @@ const body = JSON.stringify({
   photo: { content_type: 'image/jpeg', content: Buffer.from([1, 2, 3]).toString('base64') },
 })
 
-const token: VerifiedToken = { subject: 'subject', sessionId: 'sid', surface: 'space' }
+const token: VerifiedToken = {
+  subject: 'subject',
+  sessionId: 'sid',
+  surface: 'space',
+  authenticatedAt: null,
+}
 
 function harness(service: Partial<BodyPhotoService> = {}) {
   const actors: SpaceActorResolver = {

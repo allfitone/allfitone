@@ -88,7 +88,7 @@ select set_config('app.actor_kind', 'person', true),
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000011', '019ad000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)),
+    null, 50, null, null, null, null)),
   3::bigint,
   'the owner reads every client of the organization'
 );
@@ -97,7 +97,7 @@ select is(
   (select array_agg(display_name order by sort_name)
      from relationships.list_organization_clients(
        '019ad000-0000-7000-8000-000000000011', '019ad000-0000-7000-8000-000000000101',
-       'active', 50, null, null, null)),
+       'active', 50, null, null, null, null)),
   array['Ana Alvarez', 'Bruno Bello'],
   'filtering by status returns only the active ones'
 );
@@ -108,7 +108,7 @@ select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000013',
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000013', '019ad000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)),
+    null, 50, null, null, null, null)),
   3::bigint,
   'staff reads the whole directory as well'
 );
@@ -120,7 +120,7 @@ select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000012',
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000012', '019ad000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)),
+    null, 50, null, null, null, null)),
   2::bigint,
   'the coach reads only the clients they were assigned'
 );
@@ -129,7 +129,7 @@ select is(
   (select array_agg(display_name order by sort_name)
      from relationships.list_organization_clients(
        '019ad000-0000-7000-8000-000000000012', '019ad000-0000-7000-8000-000000000101',
-       null, 50, null, null, null)),
+       null, 50, null, null, null, null)),
   array['Ana Alvarez', 'Bruno Bello'],
   'as holder for one and as accepted substitute for the other'
 );
@@ -143,7 +143,7 @@ update relationships.relationship_professional_assignments
 select is(
   (select count(*) from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000012', '019ad000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)),
+    null, 50, null, null, null, null)),
   1::bigint,
   'and loses the substituted client once the substitution ends'
 );
@@ -161,7 +161,7 @@ select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000014',
 select throws_ok(
   $$select * from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000014', '019ad000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)$$,
+    null, 50, null, null, null, null)$$,
   '42501',
   'client directory requires a directory capability',
   'a member with no directory capability is refused, not given an empty page'
@@ -173,7 +173,7 @@ select set_config('app.actor_person_id', '019ad000-0000-7000-8000-000000000011',
 select throws_ok(
   $$select * from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000012', '019ad000-0000-7000-8000-000000000101',
-    null, 50, null, null, null)$$,
+    null, 50, null, null, null, null)$$,
   '42501',
   'person actor mismatch',
   'the owner cannot run the directory as the coach'
@@ -182,7 +182,7 @@ select throws_ok(
 select throws_ok(
   $$select * from relationships.list_organization_clients(
     '019ad000-0000-7000-8000-000000000011', '019ad000-0000-7000-8000-000000000101',
-    null, 500, null, null, null)$$,
+    null, 500, null, null, null, null)$$,
   '22023',
   'invalid page limit',
   'an unbounded page is refused'

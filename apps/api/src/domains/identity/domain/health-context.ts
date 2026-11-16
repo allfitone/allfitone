@@ -70,6 +70,10 @@ export interface HealthContextDatabase {
     input: HealthContextHolder &
       HealthContextCommand & { claimId: string; claim: HealthContextDeclaration },
   ): Promise<HealthContextResult<HealthContextClaim>>
+  correct(
+    input: HealthContextHolder &
+      HealthContextCommand & { claimId: string; claim: HealthContextDeclaration },
+  ): Promise<HealthContextResult<HealthContextClaim>>
   delete(
     input: HealthContextHolder & HealthContextCommand & { claimId: string },
   ): Promise<HealthContextResult<HealthContextDeletion>>

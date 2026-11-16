@@ -14,12 +14,13 @@ const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844 },
 ]
 const PAGES = [
-  { path: '/es', heading: /ENTRENA/ },
-  { path: '/en', heading: /TRAIN/ },
-  { path: '/es/privacy', heading: /Política de tratamiento/ },
-  { path: '/en/privacy', heading: /Personal data processing/ },
-  { path: '/es/terms', heading: /Términos y condiciones/ },
-  { path: '/en/terms', heading: /Terms and conditions/ },
+  { path: '/es', heading: /SUPERA/ },
+  { path: '/en', heading: /BEAT/ },
+  { path: '/es/waitlist', heading: /LOS PRIMEROS 100/ },
+  { path: '/en/waitlist', heading: /THE FIRST 100/ },
+  // Opened without a token, an email link page shows its one public state.
+  { path: '/es/waitlist/leave', heading: 'Este enlace ya no sirve.' },
+  { path: '/en/waitlist/confirm', heading: 'This link no longer works.' },
 ]
 
 test.describe('language', () => {
@@ -33,12 +34,12 @@ test.describe('language', () => {
     }
   })
 
-  test('a page without a language opens in Spanish and keeps its path', async ({ browser }) => {
-    const context = await browser.newContext({ locale: 'en-US' })
-    const page = await context.newPage()
-    await page.goto('/privacy')
-    await expect(page).toHaveURL(/\/es\/privacy$/)
-    await context.close()
+  test('a page without a language opens in Spanish and keeps its path', async ({ request }) => {
+    const response = await request.get('/programs', {
+      headers: { 'accept-language': 'en-US' },
+      maxRedirects: 0,
+    })
+    expect(response.headers().location).toMatch(/\/es\/programs$/)
   })
 
   test('a language the site does not have is not found', async ({ page }) => {
@@ -47,9 +48,9 @@ test.describe('language', () => {
   })
 
   test('the switch keeps the visitor on the same page', async ({ page }) => {
-    await page.goto('/es/terms')
+    await page.goto('/es')
     await page.getByRole('link', { name: 'EN', exact: true }).click()
-    await expect(page).toHaveURL(/\/en\/terms$/)
+    await expect(page).toHaveURL(/\/en$/)
   })
 })
 
@@ -59,9 +60,87 @@ test('the stores read as coming soon while there is no link', async ({ page }) =
   await expect(page.getByRole('link', { name: /App Store|Google Play/ })).toHaveCount(0)
 })
 
-test('the legal pages say they are drafts', async ({ page }) => {
-  await page.goto('/es/privacy')
-  await expect(page.getByText('Versión preliminar')).toBeVisible()
+// Fragments are part of the address, so they are named in English like every route.
+test('every section link in the header lands on its section, named in English', async ({
+  page,
+}) => {
+  for (const path of ['/es', '/en']) {
+    await page.goto(path)
+    const hrefs = await page
+      .locator('header a[href^="#"]')
+      .evaluateAll((links) => links.map((link) => link.getAttribute('href')))
+    expect(hrefs).toEqual(['#app', '#programs', '#privacy', '#gyms'])
+    for (const href of hrefs) await expect(page.locator(`section${href ?? ''}`)).toHaveCount(1)
+    await expect(page.locator('a.skip')).toHaveAttribute('href', '#content')
+    await expect(page.locator('main#content')).toHaveCount(1)
+  }
+})
+
+test('the share story moves only when the visitor picks a step', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/es')
+  const story = page.locator('#records-story')
+  await story.scrollIntoViewIfNeeded()
+  // It used to advance on its own every 2.8 s, with no way to pause it (WCAG 2.2.2).
+  await page.waitForTimeout(3500)
+  await expect(story).toHaveAttribute('data-step', '0')
+
+  const choose = page.getByRole('button', { name: /ELIGES/ })
+  await choose.click()
+  await expect(story).toHaveAttribute('data-step', '1')
+  await expect(choose).toHaveAttribute('aria-current', 'step')
+})
+
+test('the footer opens Allfit One and Allfit Studio side by side, in new tabs', async ({
+  page,
+}) => {
+  await page.goto('/es')
+  const footer = page.getByRole('contentinfo')
+  const family = footer.getByRole('link', { name: /^Allfit (One|Studio)\b/ })
+  await expect(family).toHaveCount(2)
+  await expect(family.nth(0)).toHaveAttribute('href', 'https://www.allfit.one/es')
+  await expect(family.nth(1)).toHaveAttribute('href', 'https://studio.allfit.one/es')
+  for (const link of await family.all()) {
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  }
+  // Side by side: the two share a row, apart from the legal links.
+  const [one, studio] = await Promise.all([
+    family.nth(0).boundingBox(),
+    family.nth(1).boundingBox(),
+  ])
+  expect(Math.abs((one?.y ?? 0) - (studio?.y ?? -100))).toBeLessThan(4)
+})
+
+test.describe('legal documents', () => {
+  test('the footer opens the three legal documents on www.allfit.one, in new tabs', async ({
+    page,
+  }) => {
+    await page.goto('/en')
+    const footer = page.getByRole('contentinfo')
+    for (const [name, document] of [
+      ['Terms', 'terms'],
+      ['Privacy', 'privacy'],
+      ['Analytics', 'analytics'],
+    ] as const) {
+      const link = footer.getByRole('link', { name: `${name} Opens in a new tab.`, exact: true })
+      await expect(link).toHaveAttribute('href', `https://www.allfit.one/en/legal/${document}`)
+      await expect(link).toHaveAttribute('target', '_blank')
+      await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    }
+  })
+
+  test('the former legal pages redirect there for good', async ({ request }) => {
+    for (const [from, to] of [
+      ['/es/terms', 'https://www.allfit.one/es/legal/terms'],
+      ['/en/privacy', 'https://www.allfit.one/en/legal/privacy'],
+      ['/privacy', 'https://www.allfit.one/es/legal/privacy'],
+    ] as const) {
+      const response = await request.get(from, { maxRedirects: 0 })
+      expect(response.status(), from).toBe(308)
+      expect(response.headers().location).toBe(to)
+    }
+  })
 })
 
 test.describe('search engines', () => {
@@ -91,24 +170,17 @@ test.describe('search engines', () => {
     })
   })
 
-  test('a legal draft shares its own title but stays out of the index', async ({ request }) => {
-    const html = await (await request.get('/en/terms')).text()
-
-    expect(html).toContain('<meta name="robots" content="noindex, follow"/>')
-    expect(html).toContain(`<link rel="canonical" href="${SITE}/en/terms"/>`)
-    expect(html).toContain(`<meta property="og:url" content="${SITE}/en/terms"/>`)
-    expect(html).toContain(
-      '<meta property="og:title" content="Terms and conditions · Allfit Space"/>',
-    )
-  })
-
-  test('robots.txt and the sitemap point at the landing only', async ({ request }) => {
+  test('robots.txt and the sitemap point at the landing and the waitlist only', async ({
+    request,
+  }) => {
     const robots = await (await request.get('/robots.txt')).text()
     expect(robots).toContain(`Sitemap: ${SITE}/sitemap.xml`)
 
     const sitemap = await (await request.get('/sitemap.xml')).text()
     expect(sitemap).toContain(`<loc>${SITE}/es</loc>`)
     expect(sitemap).toContain(`<loc>${SITE}/en</loc>`)
+    expect(sitemap).toContain(`<loc>${SITE}/es/waitlist</loc>`)
+    expect(sitemap).toContain(`<loc>${SITE}/en/waitlist</loc>`)
     expect(sitemap).toContain(`hreflang="x-default" href="${SITE}"`)
     expect(sitemap).not.toContain('/privacy')
     expect(sitemap).not.toContain('/terms')

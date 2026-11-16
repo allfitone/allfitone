@@ -2,7 +2,8 @@
 --
 -- Covers HU-BO-023: a published version is immutable, correcting one publishes
 -- the next, publishing does not reinterpret what was already recorded, and the
--- operation needs `curate_global_catalog` with AAL2 — never the base role alone.
+-- operation needs `curate_global_catalog` with AAL2, which every admin holds through the
+-- role (ADR-046) — never a Backoffice session without the role.
 
 begin;
 
@@ -12,14 +13,17 @@ insert into identity.people (id, given_name, family_name)
 values
   ('019a5000-0000-7000-8000-000000000001', 'Manager', 'Alpha'),
   ('019a5000-0000-7000-8000-000000000002', 'Manager', 'Beta'),
-  ('019a5000-0000-7000-8000-000000000003', 'Curator', 'Gamma');
+  ('019a5000-0000-7000-8000-000000000003', 'Curator', 'Gamma'),
+  ('019a5000-0000-7000-8000-000000000004', 'Outsider', 'Delta');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
   ('019a5000-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha', null),
   ('019a5000-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta', null),
   ('019a5000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma',
-    '019a5000-0000-7000-8000-000000000003');
+    '019a5000-0000-7000-8000-000000000003'),
+  ('019a5000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta',
+    '019a5000-0000-7000-8000-000000000004');
 
 select support.bootstrap_backoffice_administrators(
   '019a5000-0000-7000-8000-000000000001', 'alpha',
@@ -38,6 +42,10 @@ insert into identity.access_sessions (
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
   ('019a5000-0000-7000-8000-000000000023', '019a5000-0000-7000-8000-000000000013',
     'sid_gamma_3', 'backoffice', decode(repeat('c3', 32), 'hex'), 'v1.gamma',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019a5000-0000-7000-8000-000000000024', '019a5000-0000-7000-8000-000000000014',
+    'sid_delta_3', 'backoffice', decode(repeat('c4', 32), 'hex'), 'v1.delta',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
@@ -61,12 +69,12 @@ values (
 -- The API sets the actor context before every call; the catalogue policies read
 -- it, so the test has to establish it too or it would exercise a path nobody has.
 select set_config('app.actor_kind', 'support', true),
-       set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
+       set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000004', true);
 
--- T-DUTY-06 · the base role alone never publishes the global catalogue.
+-- T-DUTY-06 · a Backoffice session without the admin role never publishes the catalogue.
 select throws_ok(
   $$ select catalog.publish_result_contract(
-    '019a5000-0000-7000-8000-000000000003', '019a5000-0000-7000-8000-000000000023',
+    '019a5000-0000-7000-8000-000000000004', '019a5000-0000-7000-8000-000000000024',
     'test.backoffice_publication', 'strength', '{"kind":"envelope"}'::jsonb, '{"sets":1}'::jsonb,
     '[{"kind":"valid","payload":{"sets":2},"expected":"accepted"},
       {"kind":"invalid","payload":{},"expected":"missing_sets"}]'::jsonb,
@@ -76,9 +84,12 @@ select throws_ok(
   ) $$,
   '42501',
   'publishing the global catalogue requires an effective duty',
-  'a base role without curate_global_catalog cannot publish a contract'
+  'a Backoffice session without the admin role cannot publish a contract'
 );
 
+select set_config('app.actor_person_id', '019a5000-0000-7000-8000-000000000003', true);
+
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a5000-0000-7000-8000-000000000001', '019a5000-0000-7000-8000-000000000021',
   '019a5000-0000-7000-8000-000000000003', 'curate_global_catalog',

@@ -7,6 +7,7 @@ variables {
   instance_security_group_id = "sg-0instances0000000"
   certificate_arn            = "arn:aws:acm:us-east-1:000000000000:certificate/test"
   origin_verify_secret       = "only-for-the-test"
+  backoffice_origin          = "https://backoffice.allfit.one"
   apps = {
     api = {
       hosts        = ["api.allfit.one"]
@@ -125,5 +126,86 @@ run "drains_quickly" {
   assert {
     condition     = alltrue([for tg in aws_lb_target_group.app : tg.deregistration_delay == "30"])
     error_message = "No request lasts a second, so thirty seconds of draining is plenty."
+  }
+}
+
+run "one_address_cannot_keep_guessing_sign_ins" {
+  command = plan
+
+  assert {
+    condition     = aws_wafv2_web_acl.sign_in.scope == "REGIONAL" && length(aws_wafv2_web_acl.sign_in.default_action[0].allow) == 1
+    error_message = "The limits sit on the load balancer and let everything else through."
+  }
+
+  assert {
+    condition     = toset([for r in aws_wafv2_web_acl.sign_in.rule : r.name]) == toset(["backoffice-sign-in", "space-sign-in"])
+    error_message = "Backoffice and Space sign-ins each have their own limit."
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_wafv2_web_acl.sign_in.rule :
+      r.statement[0].rate_based_statement[0].aggregate_key_type == "IP"
+      && r.statement[0].rate_based_statement[0].evaluation_window_sec == 300
+    ])
+    error_message = "Each limit counts one address over five minutes."
+  }
+
+  assert {
+    condition = {
+      for r in aws_wafv2_web_acl.sign_in.rule : r.name => r.statement[0].rate_based_statement[0].limit
+    } == { "backoffice-sign-in" = 20, "space-sign-in" = 100 }
+    error_message = "Twenty Backoffice sign-in requests or a hundred Space ones per address, then a pause."
+  }
+
+  assert {
+    condition = alltrue([
+      for r in aws_wafv2_web_acl.sign_in.rule :
+      r.action[0].block[0].custom_response[0].response_code == 429
+      && r.action[0].block[0].custom_response[0].custom_response_body_key == "rate-limited"
+    ])
+    error_message = "A refused sign-in answers 429 rate-limited, as the API does."
+  }
+
+  assert {
+    condition = anytrue([
+      for r in aws_wafv2_web_acl.sign_in.rule :
+      r.name == "backoffice-sign-in" && contains(
+        [for h in r.action[0].block[0].custom_response[0].response_header : "${h.name}=${h.value}"],
+        "Access-Control-Allow-Origin=https://backoffice.allfit.one"
+      )
+    ])
+    error_message = "The Backoffice reads the refusal; without CORS it would see a network error."
+  }
+}
+
+run "the_limits_guard_the_load_balancer" {
+  command = plan
+
+  # Known at plan, so the association can be compared with what it points at.
+  override_resource {
+    target          = aws_lb.this
+    override_during = plan
+    values = {
+      arn = "arn:aws:elasticloadbalancing:us-east-1:000000000000:loadbalancer/app/allfit-test/0123456789abcdef"
+    }
+  }
+
+  override_resource {
+    target          = aws_wafv2_web_acl.sign_in
+    override_during = plan
+    values = {
+      arn = "arn:aws:wafv2:us-east-1:000000000000:regional/webacl/allfit-test-sign-in/00000000-0000-4000-8000-000000000000"
+    }
+  }
+
+  assert {
+    condition     = aws_wafv2_web_acl_association.load_balancer.resource_arn == aws_lb.this.arn
+    error_message = "The limits apply where the API is reached."
+  }
+
+  assert {
+    condition     = aws_wafv2_web_acl_association.load_balancer.web_acl_arn == aws_wafv2_web_acl.sign_in.arn
+    error_message = "The load balancer uses the sign-in limits."
   }
 }

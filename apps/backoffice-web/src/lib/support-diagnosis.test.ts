@@ -114,7 +114,7 @@ describe('technical diagnosis vocabulary', () => {
   })
 
   test('explains a refusal as an expired duty rather than a mistake', () => {
-    expect(supportDiagnosisMessage('forbidden')).toContain('vencen por diseño')
+    expect(supportDiagnosisMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(supportDiagnosisMessage('anything-else')).toBe('No se pudo leer el estado técnico.')
   })
 })
@@ -166,6 +166,7 @@ describe('what failed silently', () => {
 
   test('a job says when it last ran and how it went', () => {
     expect(jobLabel('privacy_disposition')).toBe('Eliminaciones de privacidad')
+    expect(jobLabel('media_disposal')).toBe('Borrado de fotos eliminadas')
     expect(jobLabel('something_new')).toBe('something_new')
     expect(jobHealthLine(job, NOW)).toBe('Corrió hace 1 min y terminó bien.')
     expect(

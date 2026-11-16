@@ -16,22 +16,53 @@ import {
   TEST_ANALYTICS_ID,
   activeCoach,
   activeMembership,
+  adaptedTemplate,
   activeTeamMember,
   coachedTeam,
   createStudioApiFixture,
+  emptyExecutionDetail,
+  enduranceExecutionDetail,
+  draftedProgram,
+  programVersionOne,
+  STRENGTH_GLOBAL_MOVEMENT_ID,
+  STRENGTH_OWN_MOVEMENT_ID,
+  MONTHLY_PLAN_ID,
+  activeSubscription,
   organizationWithLongSite,
   organizationWithoutSites,
   error,
   installStudioApiMock,
+  problem,
+  publishedTemplate,
+  unpublishedTemplate,
   professionalCredential,
   professionalPracticeOrganization,
   endedRelationshipState,
   professionalProfile,
   holderMembership,
   relationshipState,
+  clientCard,
+  clientExecutions,
+  clientCardWithoutSections,
+  emptyClientProgress,
+  emptyTrainingProfile,
+  narrowTrainingProfile,
+  coveredClientCard,
+  formerClientCard,
   secondActiveMembership,
+  studioTodayCoach,
+  studioTodayEmpty,
   terminatedMembership,
   terminatedTeamMember,
+  closedHistoricalCase,
+  endedRelationshipHistory,
+  expiredHistoricalCase,
+  openHistoricalCase,
+  narrowHealthContext,
+  NUTRITION_TODAY,
+  narrowNutritionMeals,
+  goalSharingClientCard,
+  nutritionProfessionalMe,
   type StudioApiFixture,
 } from './studio-api-mock'
 
@@ -78,14 +109,18 @@ async function settledByHeading(page: Page): Promise<void> {
 }
 
 /**
- * The overview renders whatever it was given, so an h1 is no evidence that the
- * load it was meant to carry arrived. The invitations register was swept
- * against its own failure state for exactly this reason: it had a heading.
+ * The panel renders whatever it was given, so an h1 is no evidence that the one
+ * read it exists for arrived — the `h1` is the organization's name, in the
+ * shell, and it is there before anything is asked. The invitations register was
+ * swept against its own failure state for exactly this reason: it had a
+ * heading.
+ *
+ * Six cards and not seven: the team is a state, rendered as a line.
  */
-async function settledByLoadedOverview(page: Page): Promise<void> {
+async function settledByToday(page: Page): Promise<void> {
   await settledByHeading(page)
-  await expect(page.getByRole('heading', { name: 'Requiere atención' })).toBeVisible()
-  await expect(page.locator('[data-overview-team-list] > li')).toHaveCount(5)
+  await expect(page.getByRole('heading', { name: /Personas sin profesional/ })).toBeVisible()
+  await expect(page.locator('[data-today-notice]')).toHaveCount(6)
 }
 
 /** Arranges a screen and waits until it is really on the page. */
@@ -123,6 +158,12 @@ async function settleAnimations(page: Page): Promise<void> {
 
 const workspace = `/organizations/${activeMembership.organization_id}`
 const relationshipId = relationshipState.relationship_id
+const clientCardPath = `${workspace}/clients/people/${clientCard.person_id}`
+const trainingProfilePath = `${clientCardPath}/profile`
+const executionsPath = `${clientCardPath}/executions`
+const progressPath = `${clientCardPath}/progress`
+const programsPath = `${clientCardPath}/programs`
+const executionDetailPath = `${executionsPath}/${clientExecutions[0]?.id ?? ''}`
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -254,6 +295,81 @@ const withoutActiveSpaces = () =>
 
 const asCoach = () => createStudioApiFixture({ memberships: [secondActiveMembership] })
 
+// Bruno's relationship ended, with the coach who held him at the cut: HU-061's form.
+const withEndedRelationship = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    relationshipHistory: structuredClone(endedRelationshipHistory),
+  })
+
+// The three states a case can be in, the expired one being the deadline at work.
+const withEveryCaseState = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    historicalCases: structuredClone([
+      openHistoricalCase,
+      expiredHistoricalCase,
+      closedHistoricalCase,
+    ]),
+  })
+
+// Reading through a case: the case in the path, the relationship it names in the query.
+const readingPath = (caseId: string) =>
+  `${workspace}/historical-access-cases/${caseId}?relationship=${openHistoricalCase.relationship_id}`
+
+/** HU-062 is on the page once every section it draws has answered. */
+const settledReading = (sections: number) => async (page: Page) => {
+  await settledByHeading(page)
+  await expect(page.locator('[data-historical-reading-section]')).toHaveCount(sections)
+  await expect(page.locator('[data-historical-reading-placeholder]')).toHaveCount(0)
+}
+
+/** HU-063's question, asked of the one open case. */
+const openCloseDialog = async (page: Page) => {
+  await page
+    .locator('[data-historical-case][data-historical-case-state="open"]')
+    .getByRole('button', { name: 'Cerrar el caso' })
+    .click()
+  await expect(page.getByRole('alertdialog')).toContainText('Un caso cerrado no se reabre')
+}
+
+/** Answers HU-061's form and sends it, then waits for what the screen says back. */
+const fillAndOpenCase = (said: string) => async (page: Page) => {
+  await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
+  await page.getByRole('radio', { name: 'A ti' }).check()
+  await page.getByRole('radio', { name: 'Disputa del servicio' }).check()
+  await page.getByLabel('Referencia del caso').fill('RAD-2026-114')
+  await page.getByLabel('Justificación').fill('Reclamo formal por el cobro de octubre.')
+  await page.getByLabel('Duración').click()
+  await page.getByRole('option', { name: '4 horas', exact: true }).click()
+  await page.getByRole('button', { name: 'Abrir el caso' }).click()
+  await expect(page.locator(said)).toBeVisible()
+}
+
+// One subscription paying, one paused and one ended: every state HU-078 names.
+const withEverySubscriptionState = () =>
+  createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: [
+      activeSubscription,
+      {
+        ...activeSubscription,
+        subscription_id: '01991600-7000-7000-8000-000000000602',
+        person_name: 'Bruno Bedoya',
+        status: 'suspended',
+        suspended_at: '2026-10-18T09:00:00.000Z',
+        current_period_end: '2026-11-01',
+      },
+      {
+        ...activeSubscription,
+        subscription_id: '01991600-7000-7000-8000-000000000603',
+        person_name: 'Carla Castro',
+        status: 'ended',
+        ended_at: '2026-10-19T09:00:00.000Z',
+      },
+    ],
+  })
+
 /** Holds one endpoint open so a pending stage can be audited before it resolves. */
 /**
  * The mock answers only POST on the invitations collection, so a GET falls
@@ -284,59 +400,6 @@ const withIssuedInvitations = () =>
                 issuedInvitation('decidida', 'completed', '2026-09-18T00:00:00.000Z'),
                 issuedInvitation('revocada', 'revoked', '2026-09-15T00:00:00.000Z'),
                 issuedInvitation('vencida', 'expired', '2026-08-30T00:00:00.000Z'),
-              ],
-              page: { next_cursor: null },
-            },
-          }
-        : undefined,
-  })
-
-const inDays = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString()
-
-const overviewMember = (id: string, display_name: string, joined_at: string, roles: string[]) => ({
-  membership_id: id,
-  display_name,
-  status: 'active',
-  joined_at,
-  ended_at: null,
-  roles,
-})
-
-/**
- * A workspace with something in it. The default fixture gives the overview one
- * active member and a 500 on the invitations GET, so the three sweeps had only
- * ever seen the emptiest version of the first screen a person lands on: no
- * "Requiere atención" card at all, and a recent-team list of one row that
- * cannot show what five rows do to a phone.
- */
-const withOverviewLoad = () =>
-  createStudioApiFixture({
-    memberships: [activeMembership, secondActiveMembership, terminatedMembership],
-    organizationMemberships: [
-      overviewMember('ov-1', 'Alejandro Rangel Buitrago', '2026-09-07T00:00:00.000Z', [
-        'owner',
-        'admin',
-      ]),
-      overviewMember('ov-2', 'María Fernanda Quintero', '2026-09-05T00:00:00.000Z', ['admin']),
-      overviewMember('ov-3', 'Jo Li', '2026-08-30T00:00:00.000Z', ['coach']),
-      overviewMember('ov-4', 'Bartholomew Featherstonehaugh', '2026-08-21T00:00:00.000Z', [
-        'staff',
-        'coach',
-      ]),
-      overviewMember('ov-5', 'Camila Torres', '2026-07-14T00:00:00.000Z', ['staff']),
-    ],
-    intercept: (request) =>
-      request.method === 'GET' && /\/invitations(\?|$)/.test(request.path)
-        ? {
-            status: 200,
-            body: {
-              // Relative, not fixed: the attention card only appears for a
-              // pending invitation expiring within seven days of now, so a
-              // literal date would quietly stop rendering the card it exists
-              // to cover on the day it passed.
-              data: [
-                issuedInvitation('proxima', 'pending', inDays(2)),
-                issuedInvitation('siguiente', 'pending', inDays(4)),
               ],
               page: { next_cursor: null },
             },
@@ -860,50 +923,102 @@ export const SCREENS: Screen[] = [
     },
   },
 
-  // --- `/organizations/[id]` · the workspace and the states that replace it ---
-  { stories: 'HU-004 / HU-006 · workspace and memberships', path: workspace, fixture: memberOfTwo },
+  // --- `/organizations/[id]` · HU-081 what needs attention today ---
   {
-    stories: 'HU-004 · workspace with a team and invitations to attend',
+    stories: 'HU-004 / HU-006 · workspace and memberships',
     path: workspace,
-    fixture: withOverviewLoad,
-    settled: settledByLoadedOverview,
+    fixture: memberOfTwo,
+    settled: settledByToday,
   },
   {
-    // The recent-team row stacks below 640px, and a single-member workspace
-    // cannot show whether five stacked rows still read as five people.
-    stories: 'HU-004 · workspace with a team and invitations on a phone',
+    /*
+     * Every notice a role can carry, at once — which is also the only arrangement
+     * that shows the three things the panel gets wrong on its own: two notices
+     * that count more than they list, a masked contact long enough to paint out
+     * of its cell, and a role code this app has no word for.
+     */
+    stories: 'HU-081 · everything that needs attention today',
     path: workspace,
-    fixture: withOverviewLoad,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByToday,
+  },
+  {
+    // Six notices stacked below 640px, where each row puts its subject over its
+    // reason. One notice cannot show whether the rhythm still holds a row
+    // together and apart from the next.
+    stories: 'HU-081 · everything that needs attention today, on a phone',
+    path: workspace,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
-    settled: settledByLoadedOverview,
+    settled: settledByToday,
   },
   {
-    // A coach reads neither the directory nor the invitation register, so the
-    // overview has nothing to count and orientation is the honest content.
-    stories: 'HU-018 · orientation for a role that reads nothing',
+    /*
+     * A coach resolves one thing, so one notice arrives and the other six are
+     * absent — not empty. This is the fourth criterion, and the only screen here
+     * that proves the panel asks no role of its own: nothing but the server's
+     * answer decides what it draws.
+     */
+    stories: 'HU-081 · a coach, for whom six of the seven notices are absent',
     path: `/organizations/${secondActiveMembership.organization_id}`,
-    fixture: () => createStudioApiFixture({ memberships: [secondActiveMembership] }),
-  },
-  {
-    // The workspace of someone whose organization is still only them.
-    stories: 'HU-004 · workspace with nobody else in the team',
-    path: workspace,
     fixture: () =>
-      createStudioApiFixture({ memberships: [activeMembership], organizationMemberships: [] }),
+      createStudioApiFixture({
+        memberships: [secondActiveMembership],
+        today: {
+          ...studioTodayCoach,
+          organization_id: secondActiveMembership.organization_id,
+        },
+      }),
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('Trabajas en solitario por ahora')).toBeVisible()
+      await expect(page.getByRole('heading', { name: /Tus clientes esta semana/ })).toBeVisible()
+      await expect(page.locator('[data-today-notice]')).toHaveCount(1)
     },
   },
   {
-    // The overview counts two registers. It reports the outage only when it has
-    // neither, which is why both reads fail here rather than one.
-    stories: 'HU-004 · the workspace could not read its own registers',
+    // Nothing waiting is said rather than left blank, and the team line is
+    // still under it: `team` is a state and never makes the day non-empty, so a
+    // panel that counted its own cards to decide this would get it wrong here.
+    stories: 'HU-081 · nothing waiting, which is said rather than left blank',
     path: workspace,
-    fixture: failingFor([activeMembership], /\/organizations\/[^/]+\/(memberships|invitations)$/),
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        today: { ...studioTodayEmpty, organization_id: activeMembership.organization_id },
+      }),
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('No pudimos cargar el estado de tu organización')).toBeVisible()
+      await expect(page.getByText('Nada espera por ti ahora')).toBeVisible()
+    },
+  },
+  {
+    // A membership that no longer reads this organization at all. The copy
+    // offers no way to ask again, because this screen grants nothing.
+    stories: 'HU-081 · a membership that may no longer read the organization',
+    path: workspace,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership], today: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No puedes ver el estado de esta organización')).toBeVisible()
+      /*
+       * The seventh criterion as an absence: a refusal must never turn into an
+       * action to ask for the permission again. Scope decisions happen inside
+       * accepting a new relationship and nowhere else, so there is nothing here
+       * to press — and an absence only stays true if something checks it.
+       */
+      await expect(page.getByRole('button', { name: /solicitar|permiso|pedir/i })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: /solicitar|permiso|pedir/i })).toHaveCount(0)
+    },
+  },
+  {
+    // The one read this screen makes, failing. One register, not two: the panel
+    // is a single answer now, so there is no half-loaded version of it.
+    stories: 'HU-081 · the panel could not be read',
+    path: workspace,
+    fixture: failingFor([activeMembership], /\/organizations\/[^/]+\/today$/),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar lo que necesita tu atención')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients` · HU-024 ---
@@ -930,6 +1045,34 @@ export const SCREENS: Screen[] = [
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Invitados' }).click()
       await expect(page.getByText(/correo-institucional-muy-largo/)).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-082. A search that matched nobody: the box carries a term and the
+     * register answers «nobody by that name», which has to read differently
+     * from an empty gym — the state right below this one.
+     */
+    stories: 'HU-082 · a search that found nobody',
+    path: `${workspace}/clients`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.locator('#client-directory-search').fill('zzz')
+      await expect(page.getByText('No encontramos a nadie con ese nombre')).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-082. Among invitations the route refuses a search, so the box is
+     * disabled with its reason beside it rather than removed. Disabled inputs
+     * are where contrast fails, which is why this state is swept.
+     */
+    stories: 'HU-082 · the search turned off among invitations',
+    path: `${workspace}/clients`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Invitados', exact: true }).click()
+      await expect(page.locator('#client-directory-search')).toBeDisabled()
     },
   },
   {
@@ -1312,6 +1455,565 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Pasa ahora mismo, sin preaviso/)).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/clients/people/[personId]` · HU-083 ---
+  {
+    /*
+     * The card as a coach normally meets it: two categories at two different
+     * levels and one she took back. Every panel on the screen at once, which is
+     * where they crowd each other if they are going to.
+     */
+    stories: 'HU-083 · a client card, with what she shares and what she took back',
+    path: clientCardPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Entrenamiento con nosotros' })).toBeVisible()
+      await expect(page.getByText('Lo que retiró')).toBeVisible()
+    },
+  },
+  {
+    // Read by somebody covering: the only state that carries an end date, and
+    // the one place a calendar day is rendered on this screen.
+    stories: 'HU-083 · a card read by somebody covering, with the day the cover ends',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: coveredClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Cubres hasta')).toBeVisible()
+    },
+  },
+  {
+    // Assigned to her and allowed nothing. A legitimate state, and it has to
+    // read as one rather than as a screen that failed to load.
+    stories: 'HU-083 · a client who has authorized nothing yet',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: clientCardWithoutSections,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no te autorizó ninguna categoría')).toBeVisible()
+    },
+  },
+  {
+    // Absent, or not the caller's to read — the operation answers the same for
+    // both, so the screen says the same for both.
+    stories: 'HU-083 · a card the caller does not attend',
+    path: clientCardPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta ficha')).toBeVisible()
+    },
+  },
+  {
+    // HU-084, as far as this operation answers it: thirty days of why, with no
+    // name and no reason beyond the three the contract lists.
+    stories: 'HU-084 · why the caller no longer attends her',
+    path: clientCardPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: formerClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Ya no la atiendes')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/profile` · HU-051 ---
+  {
+    /*
+     * The fullest the screen gets: a discipline, a goal, two experience claims
+     * in force at once, two emphasis zones as two claims, and one datum whose
+     * value the version withheld. Every row this screen can draw, at once.
+     */
+    stories: 'HU-051 · the training profile, with two claims in force at once',
+    path: trainingProfilePath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      /*
+       * Scoped to the group: two attributes carry that badge, because two of
+       * them hold two readable claims each. An unscoped match is a strict-mode
+       * violation rather than a failure of the screen.
+       */
+      const experience = page
+        .locator('[data-client-profile-group]')
+        .filter({ hasText: 'Experiencia de entrenamiento' })
+      await expect(experience).toContainText('Tiene experiencia')
+      await expect(experience).toContainText('2 vigentes')
+    },
+  },
+  {
+    // An older version of the same permission: fewer fields of the same person,
+    // and an origin that did not travel either.
+    stories: 'HU-051 · an older version of the permission, with fewer fields',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientTrainingProfile: narrowTrainingProfile,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sin origen disponible')).toBeVisible()
+    },
+  },
+  {
+    // She shares the category and nothing inside it. A state, and it has to read
+    // as one rather than as a screen that failed.
+    stories: 'HU-051 · the category shared with nothing in it',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientTrainingProfile: emptyTrainingProfile,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: a refusal, not an empty profile, and it names what it takes.
+    stories: 'HU-051 · without the training permission in force',
+    path: trainingProfilePath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientTrainingProfile: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-051 · a profile the caller does not attend',
+    path: trainingProfilePath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este perfil')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/executions` · HU-054 ---
+  {
+    /*
+     * A full page of sessions, mixing what she trained with us and what she
+     * trained alone, with a pager under it. Every shape a row can take is in the
+     * first five: ours with a plan, hers without one, one nobody closed, one
+     * with no completeness level, and one trained in another time zone.
+     */
+    stories: 'HU-054 · a page of her sessions, from two categories at once',
+    path: executionsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-execution]')).toHaveCount(25)
+      await expect(page.getByRole('button', { name: 'Ver más' })).toBeVisible()
+    },
+  },
+  {
+    // Nothing to show, which is the same answer for a person who trained nothing
+    // and for one who shares neither category. It has to read as a state.
+    stories: 'HU-054 · no sessions to show, for either of two reasons',
+    path: executionsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientExecutions: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay sesiones que podamos mostrarte')).toBeVisible()
+    },
+  },
+  {
+    // The list moved under the reader, so the cursor is no longer good. Starting
+    // over is the only honest recovery, and the pager is withdrawn meanwhile.
+    stories: 'HU-054 · the cursor the server will not read again',
+    path: executionsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], executionsCursor: 'stale' }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver más' }).click()
+      await expect(page.getByText('La lista cambió mientras la leías')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-054 · sessions of a person the caller does not attend',
+    path: executionsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos estas sesiones')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/progress` · HU-056 ---
+  {
+    /*
+     * The fullest the screen gets: four weeks, one of them with no volume
+     * because nothing in it was weighed, one with nothing trained at all, and
+     * four movements — one going up, one unchanged, one with nothing to compare
+     * against, one going down, and one of them a movement only she can name.
+     */
+    stories: 'HU-056 · her weeks and her movements, with the figures that are missing',
+    path: progressPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-progress-period]')).toHaveCount(4)
+      await expect(page.getByText('Sin peso registrado').first()).toBeVisible()
+    },
+  },
+  {
+    // The same window grouped by month, which is a different question and a
+    // different read.
+    stories: 'HU-056 · the same window grouped by month',
+    path: progressPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Por mes' }).click()
+      await expect(page.getByRole('heading', { name: 'Mes a mes' })).toBeVisible()
+    },
+  },
+  {
+    // Nothing trained in the whole window, said once rather than drawn as a
+    // dozen rows of zeros.
+    stories: 'HU-056 · a window with no training in it',
+    path: progressPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientProgress: emptyClientProgress,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada que medir')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1 at its edge: nothing to compute from, so a refusal rather
+    // than a window of zeros.
+    stories: 'HU-056 · neither permission, so nothing to compute from',
+    path: progressPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientProgress: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó nada con lo que medir')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-056 · progress of a person the caller does not attend',
+    path: progressPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este progreso')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-047 ---
+  {
+    // Three programs, each with its calendar: the longest page the client's
+    // screens draw, and the one where a session title somebody typed has to
+    // wrap inside its column instead of over the next one.
+    stories: 'HU-047 · the programs this relationship gave her',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+      await expect(
+        page.getByText('Ya no lo administramos: el plan quedó en sus manos'),
+      ).toBeVisible()
+    },
+  },
+  {
+    /*
+     * The dialog that moves a session, open, with the clock pinned inside the
+     * week the movable session lives in. Without pinning, the fixture's weeks
+     * are behind today and no day is a control at all — which is correct
+     * behaviour and shows nothing.
+     */
+    stories: 'HU-048 · the dialog that moves a session to another day of its week',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: async (page) => {
+      await page.clock.setFixedTime(new Date('2026-10-13T15:00:00.000Z'))
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .locator('[data-client-session-move]')
+        .click()
+      await expect(page.locator('[data-client-session-move-week]')).toBeVisible()
+    },
+  },
+  {
+    // The refusal that is not an error: somebody moved it meanwhile, and the
+    // answer carries the day it is on now. Swept because it is the one alert in
+    // Studio that reports a day rather than a failure.
+    stories: 'HU-048 · a session that moved while the dialog was open',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        rescheduleOutcome: 'stale-draft',
+      }),
+    setup: async (page) => {
+      await page.clock.setFixedTime(new Date('2026-10-13T15:00:00.000Z'))
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .locator('[data-client-session-move]')
+        .click()
+      await page.locator('[data-client-session-move-week] button').nth(5).click()
+      await page.getByRole('button', { name: 'Mover a ese día' }).click()
+      await expect(page.locator('[data-client-session-move-error]')).toBeVisible()
+    },
+  },
+  {
+    /*
+     * The dialog that stops a program, open. Swept because a dialog is the one
+     * surface a sweep misses by default: nothing on the page behind it says it
+     * exists, and it carries the two sentences the story turns on.
+     */
+    stories: 'HU-050 · the dialog that stops a program the organization manages',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .getByRole('button', { name: 'Cancelar este programa' })
+        .click()
+      await expect(page.locator('[data-client-program-cancel-dialog]')).toBeVisible()
+    },
+  },
+  {
+    // A program after it was stopped: the card stays, its state changed, and the
+    // sentence that says how many sessions stopped sits where the button was.
+    stories: 'HU-050 · a program after it was stopped',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      const program = page.locator('[data-client-program]').first()
+      await program.getByRole('button', { name: 'Cancelar este programa' }).click()
+      await page.getByRole('button', { name: 'Cancelar ahora' }).click()
+      await expect(program.locator('[data-client-program-cancel-outcome]')).toHaveText(
+        'Cancelado. Se detuvo 1 sesión futura.',
+      )
+    },
+  },
+  {
+    // The refusal a paused service answers, over the dialog that stays open.
+    stories: 'HU-050 · a paused service refuses the cancellation',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        cancelAssignmentOutcome: 'service-paused',
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('2 de 6 sesiones hechas')).toBeVisible()
+    },
+    reveal: async (page) => {
+      await page
+        .locator('[data-client-program]')
+        .first()
+        .getByRole('button', { name: 'Cancelar este programa' })
+        .click()
+      await page.getByRole('button', { name: 'Cancelar ahora' }).click()
+      await expect(page.locator('[data-client-program-cancel-error]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-047 · nothing assigned to her yet',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], relationshipAssignments: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no le asignamos ningún programa')).toBeVisible()
+    },
+  },
+  {
+    // Her training is not shared, so nothing is answered — which is a refusal
+    // and not an empty list.
+    stories: 'HU-047 · no training permission, so no programs to answer',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], relationshipAssignments: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 3: the link ended, so the detached program stops being visible.
+    stories: 'HU-047 · a coach who no longer attends her',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientCard: formerClientCard }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('sus programas dejan de verse desde aquí')).toBeVisible()
+    },
+  },
+  {
+    // Not attended, so not there — the same answer as for somebody absent.
+    stories: 'HU-047 · programs of a person the caller does not attend',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos estos programas')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-055 ---
+  {
+    // One session in full: two blocks, two families of results, and the notes
+    // on it. The richest single screen the client's card leads to.
+    stories: 'HU-055 · el resultado de una sesión',
+    path: executionDetailPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('8 repeticiones · 80 kg · RPE 8')).toBeVisible()
+    },
+  },
+  {
+    // A run: one family, and the four it recorded nothing in drawn nowhere.
+    stories: 'HU-055 · una sesión de carrera, con una sola familia',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientExecutionDetail: enduranceExecutionDetail,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Vuelta 1')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: nothing saved, and the two readings cannot be told apart.
+    stories: 'HU-055 · una sesión sin resultados guardados',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientExecutionDetail: emptyExecutionDetail,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay resultados guardados en esta sesión')).toBeVisible()
+    },
+  },
+  {
+    // The one 404 that stands for six reasons and names none.
+    stories: 'HU-055 · una sesión que no se puede abrir',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        executionDetailOutcome: 'not-found',
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta sesión')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-055 · no comparte ninguna de las dos categorías',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        executionDetailOutcome: 'scope-required',
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---
+  {
+    // The form that gives her a program, under her list. Two versions to pick
+    // from, so the select has something to open.
+    stories: 'HU-046 · asignarle un programa',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Asignarle un programa' })).toBeVisible()
+    },
+  },
+  {
+    // What assigning does, before the click. The longest dialog in Studio.
+    stories: 'HU-046 · lo que pasa al asignar',
+    path: programsPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('combobox', { name: 'Programa' }).click()
+      await page.getByRole('option', { name: /Bloque de fuerza/ }).click()
+      await page.locator('#client-program-start').fill('2026-12-01')
+      await page.getByRole('button', { name: 'Asignar el programa' }).click()
+      await expect(page.getByText('Toda su agenda queda sembrada ahora mismo')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: she shared her training only to read, so there is no form.
+    stories: 'HU-046 · autorizó su entrenamiento solo para leerlo',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: {
+          ...clientCard,
+          sections: clientCard.sections.map((section) =>
+            section.scope_code === 'relationship_training'
+              ? { ...section, access_level: 'read' }
+              : section,
+          ),
+        },
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('solo para leerlo')).toBeVisible()
+    },
+  },
+  {
+    // The gym has published nothing, which is fixed in the content section.
+    stories: 'HU-046 · todavía no hay ninguna versión publicada',
+    path: programsPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], organizationPrograms: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay ninguna versión publicada')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/clients/[relationshipId]/history` · HU-026 ---
   {
     // The timeline with every kind in it, including the handover whose two
@@ -1492,6 +2194,1216 @@ export const SCREENS: Screen[] = [
       await page.getByRole('checkbox', { name: /Progreso corporal/ }).click()
       await page.getByRole('button', { name: 'Enviar invitación' }).click()
       await expect(page.getByText('La invitación va en camino')).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-023 criteria 2, 6 and 7, which arrived after this screen shipped. The
+     * acting persona is the whole point: only `coach` holds `assign_programs`,
+     * so the five entries above — all inviting as the owner — see no program
+     * block at all, and auditing them alone would audit nothing of this.
+     */
+    stories: 'HU-023 · the program a coach may offer with an invitation',
+    path: `/organizations/${secondActiveMembership.organization_id}/clients/invitations/new`,
+    fixture: asCoach,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('combobox', { name: 'Programa' })).toBeVisible()
+    },
+  },
+  {
+    /*
+     * The state worth sweeping: a program chosen, which is what raises the
+     * training permission. Three things land at once — the date field, the
+     * sentence explaining the raise, and the level badge on the permission's
+     * own row — and the badge sits inside a flex label beside text that wraps,
+     * which is where a phone would show it squeezed.
+     */
+    stories: 'HU-023 · the warning that a program raises the permission',
+    path: `/organizations/${secondActiveMembership.organization_id}/clients/invitations/new`,
+    fixture: asCoach,
+    reveal: async (page) => {
+      await page.getByRole('combobox', { name: 'Programa' }).click()
+      await page.getByRole('option', { name: /Bloque de fuerza/ }).click()
+      await page.getByLabel('Empieza').fill('2030-06-01')
+      await expect(page.getByText(/pedirá permiso para registrar su entrenamiento/)).toBeVisible()
+    },
+  },
+  {
+    /*
+     * HU-013. The state worth sweeping is the dialog open: four paragraphs and
+     * a warning, which is the most text this product puts in front of one
+     * decision, and the only dialog whose own reader loses access by
+     * succeeding. The default fixture ships a live subscription, so the
+     * subscriptions are cleared — otherwise the button is disabled and the
+     * dialog never opens.
+     */
+    stories: 'HU-013 · the warning before closing the organization',
+    path: `${workspace}/organization`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSubscriptions = []
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Cerrar la organización', exact: true }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('incluida la tuya')
+    },
+  },
+  {
+    /*
+     * Blocked, which is the state most owners meet first: a gym with a live
+     * subscription cannot close, and the reason sits beside a disabled button
+     * rather than replacing it. The default fixture already has one.
+     */
+    stories: 'HU-013 · a closure a live subscription blocks',
+    path: `${workspace}/organization`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No puedes cerrarla todavía')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content` · HU-044 ---
+  {
+    /*
+     * The first screen of the content block, and the shape nine more inherit.
+     * The default tab carries the three living states at once — published with
+     * a retired version, a draft with nothing published, and an adaptation —
+     * which is what makes the state line worth auditing: it has to read as
+     * three different things in one column.
+     */
+    stories: 'HU-044 · the content a gym has made',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('tab', { name: 'Plantillas' })).toBeVisible()
+      await expect(page.getByText(/1 versión publicada · 1 retirada/)).toBeVisible()
+    },
+  },
+  {
+    // The versions open, which is the widest a card gets and the only place a
+    // retired version is named.
+    stories: 'HU-044 · the versions of a template',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page
+        .locator('[data-content-register-item]', { hasText: 'Fuerza tren superior' })
+        .getByRole('button', { name: /Ver versiones/ })
+        .click()
+      /*
+       * Scoped to the version row, and exact: the state line above says «1
+       * retirada», and `getByText` matches a substring without regard to case,
+       * so an unscoped assertion resolved to two elements.
+       */
+      await expect(
+        page.locator('[data-content-version-list] > li', { hasText: 'Retirada' }),
+      ).toBeVisible()
+    },
+  },
+  {
+    /*
+     * Both tabs are empty, which is the screen every gym meets first and the
+     * one that has to explain the order to work in: a program is built out of
+     * published template versions, so the templates tab says so.
+     */
+    stories: 'HU-044 · a gym that has made nothing yet',
+    path: `${workspace}/content`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = []
+      fixture.organizationPrograms = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Todavía no hay plantillas/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content`, movements tab · HU-067 ---
+  {
+    // Both libraries and an archived movement in one list: every badge the
+    // cards carry, side by side.
+    stories: 'HU-067 · the movements a gym can plan with',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Movimientos' }).click()
+      await page.getByRole('checkbox', { name: 'Incluir los archivados' }).click()
+      await expect(page.getByText('Zancada lateral con banda')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-067 · a search that finds nothing',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Movimientos' }).click()
+      await page.getByLabel('Buscar un movimiento').fill('rotacion')
+      await expect(page.getByText(/Ningún movimiento coincide/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/new` · HU-036 ---
+  {
+    // Submitted empty, so both field errors are on the page with the open form.
+    stories: 'HU-036 · a new template, and what it still needs',
+    path: `${workspace}/content/templates/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear plantilla' }).click()
+      await expect(page.getByText('Escribe el nombre de la plantilla.')).toBeVisible()
+    },
+  },
+  {
+    // Before Backoffice publishes a discipline nothing can be created, and the
+    // screen says why instead of offering an empty list.
+    stories: 'HU-036 · no discipline published yet',
+    path: `${workspace}/content/templates/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership], disciplines: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay disciplinas publicadas')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-036 · the server refused the template',
+    path: `${workspace}/content/templates/new`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        templateCreateOutcome: 'not-found',
+      }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina').click()
+      await page.getByRole('option', { name: 'Fuerza' }).click()
+      await page.getByLabel('Nombre').fill('Fuerza tren inferior')
+      await page.getByRole('button', { name: 'Crear plantilla' }).click()
+      await expect(page.getByText(/Tu rol ya no crea contenido/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/[templateId]` · HU-037 ---
+  {
+    // A strength step with its three sets: the widest the form gets.
+    stories: 'HU-037 · a draft with its steps',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+    },
+  },
+  {
+    // Four set fields in a row become one column, and the step's buttons wrap.
+    stories: 'HU-037 · a draft with its steps on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+    },
+  },
+  {
+    // Fresh from creation: no activity type yet, so no step can be added.
+    stories: 'HU-037 · a draft that has not chosen its activity type',
+    path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = fixture.organizationSessionTemplates.map((entry) => {
+        const template = entry as typeof unpublishedTemplate
+        return template.id === unpublishedTemplate.id
+          ? {
+              ...template,
+              draft: {
+                ...template.draft,
+                content: { ...template.draft.content, activity_type_id: null },
+              },
+            }
+          : entry
+      })
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Elige un tipo de actividad para poder agregar pasos.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · a value the server would refuse, named on its step',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Esfuerzo (RPE)').first().fill('12')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('Este paso todavía no se puede guardar')).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: the saved draft beside the unsaved one, and the choice.
+    stories: 'HU-037 · somebody else saved the draft first',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], draftSaveOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Mi versión')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · the server refused the draft',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'PUT'
+          ? {
+              status: 422,
+              body: problem('validation-failed', 422, {
+                errors: [{ code: 'movement', path: '/steps/0/movement_id', message: 'x' }],
+              }),
+            }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Otro nombre')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
+    },
+  },
+  {
+    // The picker holds the template's discipline, so mobility never shows here.
+    stories: 'HU-037 · choosing a step’s movement',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Cambiar el movimiento' }).click()
+      await expect(
+        page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · a template that is not this organization’s',
+    path: `${workspace}/content/templates/01991600-a000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta plantilla')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/templates/[templateId]`, publishing · HU-038 ---
+  {
+    stories: 'HU-038 · a version just published',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText(/Publicada la versión 3/)).toBeVisible()
+    },
+  },
+  {
+    // Criterion 3: the list of what an incomplete draft still lacks.
+    stories: 'HU-038 · a draft that is not complete yet',
+    path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-038 · unsaved work waits to be saved before publishing',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Fuerza tren superior · bloque 2')
+      await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/new` · HU-041 ---
+  {
+    stories: 'HU-041 · a new program, and the name it still needs',
+    path: `${workspace}/content/programs/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear programa' }).click()
+      await expect(page.getByText('Escribe el nombre del programa.')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/[programId]` · HU-041 ---
+  {
+    // Two weeks, and the retired version the draft keeps, said twice.
+    stories: 'HU-041 · a program by week, with a retired version kept',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    // Each session's two selects become one column, and its button wraps.
+    stories: 'HU-041 · a program by week on a phone',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    /*
+     * Criterion 1: the version named by number once a template is chosen. The
+     * list is closed again before the audit: an open Select carries the Design
+     * System's focus guards, which axe reports as `aria-hidden-focus`.
+     */
+    stories: 'HU-041 · choosing the exact version a session uses',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      const card = page.locator('[data-program-add-session]')
+      await card.getByLabel('Plantilla', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza tren superior' }).click()
+      await expect(card.getByLabel('Versión', { exact: true })).toContainText('Versión 2')
+    },
+  },
+  {
+    // A program with no sessions in an organization with nothing published.
+    stories: 'HU-041 · nothing published to compose with',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationSessionTemplates = []
+      fixture.organizationPrograms = [
+        {
+          ...draftedProgram,
+          draft: {
+            ...draftedProgram.draft,
+            content: { ...draftedProgram.draft.content, sessions: [] },
+            deprecated_template_version_ids: [],
+          },
+        },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay versiones de plantilla que usar')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-041 · somebody else saved the program first',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], programDraftSaveOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Mi versión del programa')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-041 · the server refused the program draft',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'PUT'
+          ? {
+              status: 422,
+              body: problem('validation-failed', 422, {
+                errors: [{ code: 'template-version', path: '/sessions/0', message: 'x' }],
+              }),
+            }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Otro nombre')
+      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/programs/[programId]`, publishing · HU-042 ---
+  {
+    // The retired version is warned about in the card that just published it.
+    stories: 'HU-042 · a program version just published',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText(/Publicada la versión 1/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-042 · an empty program that cannot be published yet',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        {
+          ...draftedProgram,
+          draft: {
+            ...draftedProgram.draft,
+            content: { ...draftedProgram.draft.content, sessions: [] },
+            deprecated_template_version_ids: [],
+          },
+        },
+      ]
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar versión' }).click()
+      await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-042 · unsaved work waits to be saved before publishing',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Hipertrofia · bloque 2')
+      await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/{templates,programs}/[id]/versions/[n]` · HU-045 ---
+  {
+    // The retired first version: the note, the details and a step's sets.
+    stories: 'HU-045 · a retired template version, read whole',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/1`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Serie 1: 10 repeticiones · 35 kg')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a template version on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Serie 1: 8 repeticiones · 40 kg')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a program version by week',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    // Each session's name, badge and link wrap inside a 390px card.
+    stories: 'HU-045 · a program version on a phone',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('heading', { name: 'Semana 2', exact: true })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a version that is not this organization’s',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/9`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos esta versión')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-045 · a version that could not be read',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/versions/2')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos abrir la versión')).toBeVisible()
+    },
+  },
+  // --- template version page and editor, starting from a version · HU-039 ---
+  {
+    stories: 'HU-039 · starting a draft from a version, said before the click',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Partir de esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('se pierde')
+    },
+  },
+  {
+    stories: 'HU-039 · a start from a version refused',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/derivation')
+          ? { status: 404, body: problem('not-found', 404) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Partir de esta versión' }).click()
+      await page.getByRole('button', { name: 'Reemplazar el borrador' }).click()
+      await expect(page.getByText('No se reemplazó el borrador')).toBeVisible()
+    },
+  },
+  // --- program version page, retiring · HU-043 ---
+  {
+    stories: 'HU-043 · retiring a program version, said before the click',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-043 · a program version just retired',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('Ya no se puede asignar a nadie más.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-043 · a coach, told who retires a program version',
+    path: `${workspace}/content/programs/${draftedProgram.id}/versions/1`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.organizationPrograms = [
+        { ...draftedProgram, status: 'published', versions: [programVersionOne] },
+      ]
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Retirar una versión corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
+  // --- template version page, retiring · HU-040 ---
+  {
+    stories: 'HU-040 · retiring a template version, said before the click',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-040 · a template version just retired',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('Esta versión está retirada')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-040 · a template version retirement refused',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/deprecation')
+          ? { status: 403, body: problem('forbidden', 403) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar esta versión' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByText('No se retiró')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-040 · a coach, told who retires a template version',
+    path: `${workspace}/content/templates/${publishedTemplate.id}/versions/2`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Retirar una versión corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1, where the draft is edited: it says what it was started from.
+    stories: 'HU-039 · a draft that says the version it came from',
+    path: `${workspace}/content/templates/${adaptedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Parte de una versión publicada\./)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-041 · a program that is not this organization’s',
+    path: `${workspace}/content/programs/01991600-9000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este programa')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/new` · HU-064 ---
+  {
+    stories: 'HU-064 · a new movement, and what it still needs',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear movimiento' }).click()
+      await expect(page.getByText('Escribe el nombre del movimiento.')).toBeVisible()
+    },
+  },
+  {
+    // The variant's three fields open under the field that chose it.
+    stories: 'HU-064 · a new movement that is a variant of a global one',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await page
+        .getByRole('dialog', { name: 'Elegir un movimiento' })
+        .getByRole('button', { name: 'Press de banca' })
+        .click()
+      await expect(page.getByLabel('Nota de la variante')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · choosing the global movement a variant is of',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await expect(
+        page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
+      ).toBeVisible()
+    },
+  },
+  {
+    // Criterion 4: the repeated name refused on the field, not duplicated.
+    stories: 'HU-064 · a name the organization already uses',
+    path: `${workspace}/content/movements/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Disciplina', { exact: true }).click()
+      await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
+      await page.getByLabel('Nombre', { exact: true }).fill('Remo con mancuerna a una mano')
+      await page.getByRole('button', { name: 'Crear movimiento' }).click()
+      await expect(
+        page.getByText('Ya hay un movimiento de tu organización con ese nombre.'),
+      ).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]` · HU-064 ---
+  {
+    stories: 'HU-064 · a movement of our own',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Solo lo ve tu organización/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · a movement of the global catalogue',
+    path: `${workspace}/content/movements/${STRENGTH_GLOBAL_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Un movimiento del catálogo de Allfit/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]`, editing · HU-065 ---
+  {
+    // The summary, then the edit form under it: the longest the page gets.
+    stories: 'HU-065 · a movement of ours to correct, on a phone',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1: the discipline disabled and the rename refused on the field.
+    stories: 'HU-065 · a movement a published version uses',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.movements = fixture.movements.map((entry) =>
+        entry.movement.id === STRENGTH_OWN_MOVEMENT_ID ? { ...entry, nameLocked: true } : entry,
+      )
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Nombre', { exact: true }).fill('Remo con kettlebell')
+      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await expect(page.getByText(/el nombre solo admite cambios de mayúsculas/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-065 · somebody else changed the movement first',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], movementEditOutcome: 'stale' }),
+    reveal: async (page) => {
+      await page.getByLabel('Otros nombres').fill('Remo unilateral')
+      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await expect(page.getByText(/Alguien cambió este movimiento/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-065 · an archived movement of ours, read and not edited',
+    path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000004`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/content/movements/[movementId]`, archiving · HU-066 ---
+  {
+    stories: 'HU-066 · archiving, said before the click',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se puede deshacer.')
+    },
+  },
+  {
+    stories: 'HU-066 · a movement just archived',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await page.getByRole('button', { name: 'Archivar ahora' }).click()
+      await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-066 · an archive refused',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/archival')
+          ? { status: 403, body: problem('forbidden', 403) }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Archivar', exact: true }).click()
+      await page.getByRole('button', { name: 'Archivar ahora' }).click()
+      await expect(page.getByText('No se archivó')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-066 · a coach, told who archives',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Archivar un movimiento corresponde a propietario y administración.'),
+      ).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-064 · a movement that is not this organization’s',
+    path: `${workspace}/content/movements/01991600-c000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este movimiento')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing`, plans · HU-077 ---
+  {
+    // An owner opens on who pays; the plans are the second tab.
+    stories: 'HU-077 · the plans tab beside the subscriptions',
+    path: `${workspace}/billing`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('tab', { name: 'Planes' }).click()
+      await expect(page.getByText('Mensual ilimitado')).toBeVisible()
+    },
+  },
+  {
+    // HU-078 criterion 2 as well: no subscriptions tab, and the reason why.
+    stories: 'HU-077 · the plans, for a role that does not see who pays',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Mensual ilimitado')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · the plans on a phone',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Anual con nutrición')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · no plan yet',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.organizationPlans = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no hay planes')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · the plans could not be read',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({
+        memberships: [{ ...activeMembership, roles: ['coach'] }],
+      })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/plans')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los planes')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/...`, create and rename · HU-074 ---
+  {
+    stories: 'HU-074 · a new plan, the name asked for',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Crear plan' }).click()
+      await expect(page.getByText('Escribe el nombre del plan.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a name the organization already uses',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('mensual ilimitado')
+      await page.getByRole('button', { name: 'Crear plan' }).click()
+      await expect(page.getByText(/Ya hay un plan con ese nombre/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a role that does not create plans',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Tu rol no crea planes')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, for an owner',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Guardar el nombre' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, on a phone',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-plan-summary]')).toContainText('Versión 2')
+    },
+  },
+  {
+    stories: 'HU-074 · a plan that is not this organization’s',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000999`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este plan')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/[planId]`, publish a price · HU-075 ---
+  {
+    stories: 'HU-075 · what replacing the price on sale changes, before the click',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('Se retira el precio')
+    },
+  },
+  {
+    stories: 'HU-075 · a remote first price, not chargeable yet',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000003`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('90000')
+      await page.getByRole('radio', { name: 'Remoto' }).click()
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('todavía no está disponible')
+    },
+  },
+  {
+    stories: 'HU-075 · the price on sale, and centavos, refused on the form',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('120000,50')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(page.getByText(/pesos enteros, sin centavos/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-075 · the publish refused, said in the dialog',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/versions')
+          ? { status: 409, body: error('conflict') }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await page.getByRole('button', { name: 'Publicar este precio' }).click()
+      await page.getByRole('button', { name: 'Publicar ahora' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se publicó')
+    },
+  },
+  // --- `/organizations/[id]/billing/plans/[planId]`, retire a price · HU-076 ---
+  {
+    stories: 'HU-076 · both halves of retiring, before the click',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('no se cancela, no se suspende')
+    },
+  },
+  {
+    stories: 'HU-076 · a plan off sale, with nothing to retire',
+    path: `${workspace}/billing/plans/01991600-e000-7000-8000-000000000002`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Ahora no tiene ningún precio a la venta.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-076 · the retirement refused, said in the dialog',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/deprecation')
+          ? { status: 403, body: error('forbidden') }
+          : undefined
+      return fixture
+    },
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await page.getByRole('button', { name: 'Retirar ahora' }).click()
+      await expect(page.getByRole('alertdialog')).toContainText('No se retiró')
+    },
+  },
+  // --- `/organizations/[id]/billing`, subscriptions · HU-078 ---
+  {
+    stories: 'HU-078 · who pays, in each of the three states',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    settled: async (page) => {
+      await settledByHeading(page)
+      // Rows on a desktop, cards on a phone: the sweep runs both.
+      await expect(page.locator(':is([data-billing-row], [data-billing-card])')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-078 · who pays, on a phone',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-billing-card]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-078 · nobody pays here yet',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [activeMembership], organizationSubscriptions: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía nadie paga aquí')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-078 · a state nobody is in',
+    path: `${workspace}/billing`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Terminadas' }).click()
+      await expect(page.getByText('Ningún plan ha terminado')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-078 · who pays could not be read',
+    path: `${workspace}/billing`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'GET' && request.path.endsWith('/subscriptions')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los cobros')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing`, pause and reactivate · HU-079 ---
+  {
+    stories: 'HU-079 · what pausing stops, and what it leaves alone',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="suspend"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Lo que no cambia')
+    },
+  },
+  {
+    stories: 'HU-079 · what reactivating gives back, and what it does not',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="reactivate"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Lo que cambió durante la pausa')
+    },
+  },
+  {
+    stories: 'HU-079 · a pause with no cause to close',
+    path: `${workspace}/billing`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        organizationSubscriptions: [{ ...activeSubscription, status: 'suspended' }],
+        subscriptionOutcome: 'no-cause',
+      }),
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="reactivate"]').click()
+      await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
+      await expect(page.locator('[data-billing-error]')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/billing`, end a plan · HU-080 ---
+  {
+    stories: 'HU-080 · what ending closes, and what stays standing',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="end"]').first().click()
+      await expect(page.getByRole('dialog')).toContainText('Sigue en pie la relación')
+    },
+  },
+  {
+    stories: 'HU-080 · ending a paused plan lifts the pause',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.locator('[data-billing-action="end"]').nth(1).click()
+      await expect(page.getByRole('dialog')).toContainText('levanta la pausa')
     },
   },
   // --- `/organizations/[id]/organization` · HU-011 ---
@@ -2157,6 +4069,14 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    stories: 'HU-002 · a sign-in that outlived its ten-minute state',
+    path: '/es?access=expired',
+    fixture: () => createStudioApiFixture({ signedOut: true }),
+    settled: async (page) => {
+      await expect(page.getByText('El acceso tardó demasiado')).toBeVisible()
+    },
+  },
+  {
     stories: 'HU-002 · closing your session in this tab',
     path: workspace,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
@@ -2219,4 +4139,675 @@ export const SCREENS: Screen[] = [
       await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
     },
   },
+  // --- `/organizations/[id]/historical-access-cases` · HU-061 ---
+  {
+    stories: 'HU-061 · the cases, open, expired and closed',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-061 · the cases, on a phone',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-061 · no case opened yet',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEndedRelationship,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Todavía no se ha abierto ningún caso')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a coach no case names',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No tienes casos')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · the cases could not be read',
+    path: `${workspace}/historical-access-cases`,
+    fixture: failingFor([activeMembership], /\/historical-access-cases$/),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos cargar los casos')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · opening a case',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Elegir a Bruno Bello' }).click()
+      await expect(page.getByRole('radio', { name: 'Diana Entrante' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · opening a case, on a phone',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case-picker-results] li')).toHaveCount(1)
+    },
+  },
+  {
+    stories: 'HU-061 · what the form still needs',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Abrir el caso' }).click()
+      await expect(page.getByText('Elige cuántas horas dura el caso.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a case refused, with both causes',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () => {
+      const fixture = withEndedRelationship()
+      fixture.historicalOpenOutcome = 'conflict'
+      return fixture
+    },
+    reveal: fillAndOpenCase('[data-historical-case-error]'),
+  },
+  {
+    stories: 'HU-061 · signing in again before opening',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () => {
+      const fixture = withEndedRelationship()
+      fixture.historicalOpenOutcome = 'reauthenticate'
+      return fixture
+    },
+    viewport: MOBILE,
+    reveal: fillAndOpenCase('[data-historical-case-reauthenticate]'),
+  },
+  {
+    stories: 'HU-061 · the form brought back after signing in again',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: withEndedRelationship,
+    setup: async (page) => {
+      await page.addInitScript((organizationId) => {
+        sessionStorage.setItem(
+          'allfit-historical-case-draft:v1',
+          JSON.stringify({
+            organizationId,
+            savedAt: Date.now(),
+            draft: {
+              relationship: {
+                id: '01991600-7000-7000-8000-000000000102',
+                name: 'Bruno Bello',
+                endedAt: '2025-06-30T22:41:19.204Z',
+              },
+              authorized: null,
+              purpose: 'legal_or_regulatory_obligation',
+              reference: 'OF-2026-0042',
+              justification: 'Requerimiento de la Superintendencia.',
+              hours: 6,
+            },
+          }),
+        )
+      }, activeMembership.organization_id)
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-case-restored]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-061 · a role that opens no case',
+    path: `${workspace}/historical-access-cases/new`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await expect(page.getByText('Tu rol no abre casos')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases/[caseId]` · HU-062 ---
+  {
+    stories: 'HU-062 · her history up to the cut',
+    path: readingPath(openHistoricalCase.id),
+    fixture: withEveryCaseState,
+    settled: settledReading(3),
+  },
+  {
+    stories: 'HU-062 · her history, on a phone',
+    path: readingPath(openHistoricalCase.id),
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: settledReading(3),
+  },
+  {
+    stories: 'HU-062 · a refused read, drawn as nothing',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.frozenRefused = ['body-progress']
+      fixture.frozenGoalVersions = []
+      return fixture
+    },
+    settled: async (page) => {
+      await settledReading(3)(page)
+      await expect(page.locator('[data-historical-reading-nothing]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-062 · signing in again before reading',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.historicalReadOutcome = 'reauthenticate'
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-reading-reauthenticate]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-062 · a case that no longer serves',
+    path: readingPath(expiredHistoricalCase.id),
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-historical-reading-gone]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-062 · the history could not be opened',
+    path: readingPath(openHistoricalCase.id),
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.intercept = (request) =>
+        /\/historical-relationships\/[^/]+$/.test(request.path)
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No pudimos abrir el historial')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/historical-access-cases`, closing · HU-063 ---
+  {
+    stories: 'HU-063 · closing a case: what stays, and that it never reopens',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    reveal: openCloseDialog,
+  },
+  {
+    stories: 'HU-063 · closing a case, on a phone',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    viewport: MOBILE,
+    reveal: openCloseDialog,
+  },
+  {
+    stories: 'HU-063 · a close refused inside the dialog',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () => {
+      const fixture = withEveryCaseState()
+      fixture.historicalCloseOutcome = 'forbidden'
+      return fixture
+    },
+    reveal: async (page) => {
+      await openCloseDialog(page)
+      await page.getByRole('button', { name: 'Cerrar ahora' }).click()
+      await expect(page.locator('[data-historical-case-close-error]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-063 · a case just closed',
+    path: `${workspace}/historical-access-cases`,
+    fixture: withEveryCaseState,
+    reveal: async (page) => {
+      await openCloseDialog(page)
+      await page.getByRole('button', { name: 'Cerrar ahora' }).click()
+      await expect(page.locator('[data-historical-cases-outcome]')).toContainText('Cerraste')
+    },
+  },
+  {
+    stories: 'HU-063 · closed for her, or for the member it named',
+    path: `${workspace}/historical-access-cases`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [activeMembership],
+        historicalCases: [
+          { ...closedHistoricalCase, closed_reason: 'grant_revoked', closed_by: null },
+          {
+            ...closedHistoricalCase,
+            id: '01991600-7000-7000-8000-0000000000c4',
+            closed_reason: 'membership_ineligible',
+            closed_by: null,
+          },
+        ],
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('dejó de poder recibirlo')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/health-context` · HU-053 ---
+  {
+    // Every section at once: what affects her today, a recovery and what ended.
+    stories: 'HU-053 · her health context, sorted by what holds today',
+    path: `${clientCardPath}/health-context`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-health-section]')).toHaveCount(3)
+    },
+  },
+  {
+    // A version that carries the type and the dates only: shorter rows, nothing filled in.
+    stories: 'HU-053 · a version that leaves out her words, the area and the origin',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientHealthContext: narrowHealthContext,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-health-claim]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-053 · the category shared with nothing in it',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientHealthContext: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-053 · without the health permission in force',
+    path: `${clientCardPath}/health-context`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientHealthContext: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su contexto de salud')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-053 · a health context the caller does not attend',
+    path: `${clientCardPath}/health-context`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este contexto de salud')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/body-progress` · HU-052 ---
+  {
+    // Three days of measurements and two photos, none of them open yet.
+    stories: 'HU-052 · her measurements by day, and the photos she shows',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-body-photo]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-052 · one photo open',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.locator('[data-authorized-photo-image]')).toBeVisible()
+    },
+  },
+  {
+    // The one answer for a photo gone, a revoked permission or an ended relationship.
+    stories: 'HU-052 · a photo it cannot show',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], bodyPhotoOutcome: 'unavailable' }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.getByText('No podemos mostrar esta foto')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-052 · the category shared with nothing in it',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientBodyProgress: [],
+        clientBodyPhotos: [],
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay nada de su progreso corporal')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-052 · without the body permission in force',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientBodyProgress: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su progreso corporal')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-052 · a body progress the caller does not attend',
+    path: `${clientCardPath}/body-progress`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este progreso corporal')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/people/[personId]/nutrition` · HU-068 ---
+  {
+    // Her last seven days, pinned so they hold the fixture's meals: two days, four meals.
+    stories: 'HU-068 · her meals of the last seven days, by her day',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-068 · her meals, on a phone',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    viewport: MOBILE,
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+    },
+  },
+  {
+    // The day and the foods' names only: shorter meals, nothing filled in.
+    stories: 'HU-068 · a version that leaves out the type, the hour and the amounts',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientNutritionMeals: narrowNutritionMeals,
+      }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-meal]')).toHaveCount(4)
+    },
+  },
+  {
+    stories: 'HU-068 · a range the form refuses before reading',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: pinNutritionClock,
+    reveal: async (page) => {
+      await page.getByLabel('Desde').fill('2026-06-01')
+      await page.getByRole('button', { name: 'Consultar' }).click()
+      await expect(page.locator('[data-client-nutrition-range-error]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-068 · days with nothing to show',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientNutritionMeals: [] }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No hay comidas suyas que podamos mostrarte')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-068 · without the meals permission in force',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientNutritionMeals: null }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó su registro de comidas')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-068 · meals the caller does not attend',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos este registro de comidas')).toBeVisible()
+    },
+  },
+  // --- the same screen, its days added up · HU-069 ---
+  {
+    // A version without nutrients: each day keeps its count, and no total is drawn.
+    stories: 'HU-069 · her days counted, with the totals withheld',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], nutritionTotalsShared: false }),
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-summary-day]')).toHaveCount(2)
+    },
+  },
+  {
+    stories: 'HU-069 · totals that could not be added up, above her meals',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [holderMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/nutrition/daily-summaries')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    setup: pinNutritionClock,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-summary-failure]')).toBeVisible()
+    },
+  },
+  // --- the same screen, the photo of a meal · HU-072 ---
+  {
+    stories: 'HU-072 · one meal photo open',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    setup: pinNutritionClock,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.locator('[data-authorized-photo-image]')).toBeVisible()
+    },
+  },
+  {
+    // The one answer for a photo gone, a revoked permission or an ended relationship.
+    stories: 'HU-072 · a meal photo it cannot show',
+    path: `${clientCardPath}/nutrition`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], mealPhotoOutcome: 'unavailable' }),
+    viewport: MOBILE,
+    setup: pinNutritionClock,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Ver la foto' }).first().click()
+      await expect(page.getByText('No podemos mostrar esta foto')).toBeVisible()
+    },
+  },
+  // --- the goals this relationship proposed her · HU-070 ---
+  {
+    stories: 'HU-070 · what this relationship proposed, and the goal she follows',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goal]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-070 · what this relationship proposed, on a phone',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+      }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goal]')).toHaveCount(3)
+    },
+  },
+  {
+    stories: 'HU-070 · nothing proposed yet',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        clientNutritionGoals: [],
+        clientActiveNutritionGoal: null,
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goals-nothing]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-070 · goals she does not share',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], clientNutritionGoals: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No te autorizó sus objetivos nutricionales')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-070 · goals of a client the caller does not attend',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership], clientCard: null }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No encontramos sus objetivos nutricionales')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-070 · goals that could not be read',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [holderMembership] })
+      fixture.intercept = (request) =>
+        request.path.endsWith('/nutrition/goals/versions')
+          ? { status: 503, body: problem('upstream-unavailable', 503) }
+          : undefined
+      return fixture
+    },
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goals-failure]')).toBeVisible()
+    },
+  },
+  // --- the same screen, proposing her goals · HU-071 ---
+  {
+    stories: 'HU-071 · what proposing still needs',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+      }),
+    viewport: MOBILE,
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.locator('[data-client-nutrition-goal-blockers]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-071 · the proposal, replacing the one still waiting',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        me: nutritionProfessionalMe,
+      }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Proponer objetivos' }).click()
+      await expect(page.locator('[data-goal-proposal-replaces]')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-071 · a proposal the form refuses, on a phone',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        me: nutritionProfessionalMe,
+      }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Proponer objetivos' }).click()
+      await page.getByRole('combobox', { name: 'Energía', exact: true }).click()
+      await page.getByRole('option', { name: 'Entre', exact: true }).click()
+      await page.getByLabel('Energía: desde (kcal)').fill('2400')
+      await page.getByLabel('Energía: hasta (kcal)').fill('2100')
+      await page.getByRole('button', { name: 'Enviar la propuesta' }).click()
+      await expect(page.getByText('«Hasta» no puede ser menor que «Desde».')).toBeVisible()
+    },
+  },
+  {
+    // The refusal the screen cannot prevent: no read tells a coach her service is paused.
+    stories: 'HU-071 · a proposal refused for a paused service',
+    path: `${clientCardPath}/nutrition-goals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: goalSharingClientCard,
+        me: nutritionProfessionalMe,
+        goalProposalOutcome: 'service-paused',
+      }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Proponer objetivos' }).click()
+      await page.getByRole('combobox', { name: 'Proteína', exact: true }).click()
+      await page.getByRole('option', { name: 'Al menos', exact: true }).click()
+      await page.getByLabel('Proteína: al menos (g)').fill('150')
+      await page.getByLabel('Por qué se lo propones').fill('Para sostener el bloque de fuerza.')
+      await page.getByRole('button', { name: 'Enviar la propuesta' }).click()
+      await expect(page.locator('[data-goal-proposal-refusal]')).toBeVisible()
+    },
+  },
 ]
+
+/** The nutrition screens read the last seven days, so the sweep pins which days those are. */
+async function pinNutritionClock(page: Page): Promise<void> {
+  await page.clock.setFixedTime(new Date(NUTRITION_TODAY))
+}

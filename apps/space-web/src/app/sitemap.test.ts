@@ -5,22 +5,24 @@ import { SITE_URL } from '@/lib/site'
 import sitemap from './sitemap'
 
 describe('sitemap', () => {
-  test('lists the landing once per language, with every alternate and its image', () => {
+  test('lists the landing and the waitlist once per language, with every alternate and its image', () => {
     const entries = sitemap()
 
-    expect(entries.map((entry) => entry.url)).toEqual([`${SITE_URL}/es`, `${SITE_URL}/en`])
+    expect(entries.map((entry) => entry.url)).toEqual([
+      `${SITE_URL}/es`,
+      `${SITE_URL}/en`,
+      `${SITE_URL}/es/waitlist`,
+      `${SITE_URL}/en/waitlist`,
+    ])
     for (const entry of entries) {
+      const path = entry.url.endsWith('/waitlist') ? '/waitlist' : ''
       expect(entry.alternates?.languages).toEqual({
-        es: `${SITE_URL}/es`,
-        en: `${SITE_URL}/en`,
-        'x-default': SITE_URL,
+        es: `${SITE_URL}/es${path}`,
+        en: `${SITE_URL}/en${path}`,
+        'x-default': `${SITE_URL}${path}`,
       })
       expect(entry.images).toEqual([`${SITE_URL}/images/og.jpg`])
       expect(entry.lastModified).toBeInstanceOf(Date)
     }
-  })
-
-  test('leaves out the legal drafts, which are not meant to be found yet', () => {
-    expect(sitemap().some((entry) => /\/(privacy|terms)$/.test(entry.url))).toBe(false)
   })
 })

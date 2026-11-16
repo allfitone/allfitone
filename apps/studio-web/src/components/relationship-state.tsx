@@ -58,6 +58,7 @@ import { RelationshipSubstitutionEnd } from './relationship-substitution-end'
 import { RelationshipSubstitutionPropose } from './relationship-substitution-propose'
 import { RelationshipTermination } from './relationship-termination'
 import { WorkspacePageHeader } from './workspace-page-header'
+import { formatCalendarDay } from '@/lib/calendar-day'
 import { clientInitials, seesEveryClient } from '@/lib/client-directory'
 import {
   assignableCoaches,
@@ -700,17 +701,4 @@ function substitutionStart(instant: string): string {
 
 function formatDate(value: string): string {
   return DATE_FORMATTER.format(new Date(value))
-}
-
-/**
- * `ends_on` is a day in the gym's calendar, not an instant, and it arrives as
- * `YYYY-MM-DD`. Handing that to `new Date` reads it as midnight UTC, which in
- * Colombia renders as **the day before** — a substitution ending on the 12th
- * would be shown ending on the 11th. Building the date from its parts keeps it
- * local.
- */
-function formatCalendarDay(value: string): string {
-  const [year, month, day] = value.split('-').map(Number)
-  if (!year || !month || !day) return value
-  return DATE_FORMATTER.format(new Date(year, month - 1, day))
 }

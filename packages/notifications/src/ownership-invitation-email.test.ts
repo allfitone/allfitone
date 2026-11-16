@@ -26,7 +26,7 @@ describe('ownership invitation email', () => {
 
     expect(html).not.toContain('en nombre de')
     expect(text).not.toContain('en nombre de')
-    expect(html).toContain('el equipo de Allfit preparó esta organización')
+    expect(html).toContain('el equipo de Allfit&nbsp;One preparó esta organización')
   })
 
   test('escapes the organization name and the link in every HTML context', () => {

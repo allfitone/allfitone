@@ -29,12 +29,18 @@ export type ApiErrorCode =
   | 'account-closed'
   /** Authenticated request is not allowed to perform this action. */
   | 'forbidden'
+  /** The operation needs a sign-in at most ten minutes old; sign in again (STUDIO-54..56). */
+  | 'reauthentication-required'
   /** The person has not accepted the consent this operation needs (ADR-041). */
   | 'consent-required'
   /** The person does not share the data scope this operation needs, at the level it needs. */
   | 'scope-required'
+  /** The operation needs a verified professional credential in force, and the actor has none. */
+  | 'credential-required'
   /** The chosen password was refused: too short, or known to be breached. */
   | 'weak-password'
+  /** The current password typed to change it is not the one in force (OP-IDN-066). */
+  | 'wrong-password'
   /** The command conflicts with durable state or a prior idempotent request. */
   | 'conflict'
   /** The write base revision is no longer current. */
@@ -71,9 +77,12 @@ const STATUS: Record<ApiErrorCode, ContentfulStatusCode> = {
   'registration-incomplete': 403,
   'account-closed': 403,
   forbidden: 403,
+  'reauthentication-required': 403,
   'consent-required': 403,
   'scope-required': 403,
+  'credential-required': 403,
   'weak-password': 422,
+  'wrong-password': 422,
   conflict: 409,
   'stale-draft': 409,
   'precondition-required': 428,
@@ -99,9 +108,12 @@ const TITLE: Record<ApiErrorCode, string> = {
   'registration-incomplete': 'Registration must be completed first',
   'account-closed': 'The account is closed',
   forbidden: 'The actor cannot execute this operation',
+  'reauthentication-required': 'A recent sign-in is required',
   'consent-required': 'Consent is required first',
   'scope-required': 'Required consent is not effective',
+  'credential-required': 'A verified professional credential is required',
   'weak-password': 'The password does not satisfy the security policy',
+  'wrong-password': 'The current password is not correct',
   conflict: 'The request conflicts with current state',
   'stale-draft': 'The local draft is stale',
   'precondition-required': 'If-Match is required',

@@ -21,6 +21,7 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 import {
   averageOfLogged,
   dayTitle,
+  daysBefore,
   eatenFor,
   emptyDaysNote,
   goalFigure,
@@ -242,6 +243,8 @@ export default function NutritionHistoryScreen() {
         {newestFirst.map((one) => {
           const dayMeals = meals.filter((meal) => meal.local_date === one.local_date)
           const title = dayTitle(one.local_date, today)
+          // «Hoy» and «Ayer» name the day without its date, so the line below adds it.
+          const relative = [0, 1].includes(daysBefore(one.local_date, today))
           const plain = `${WEEKDAYS[weekdayOf(one.local_date)] ?? ''} ${String(Number(one.local_date.slice(8)))}`
           return (
             <View
@@ -292,7 +295,7 @@ export default function NutritionHistoryScreen() {
                     ? 'Guardado: lo vuelves a ver con Pro'
                     : one.meal_count === 0
                       ? 'Sin registro'
-                      : `${title === 'Hoy' || title === 'Ayer' ? `${plain} · ` : ''}${String(one.meal_count)} ${one.meal_count === 1 ? 'comida' : 'comidas'}`}
+                      : `${relative ? `${plain} · ` : ''}${String(one.meal_count)} ${one.meal_count === 1 ? 'comida' : 'comidas'}`}
                 </Text>
               </View>
               {(one.meal_count ?? 0) > 0 ? (

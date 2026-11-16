@@ -39,21 +39,22 @@ values
 select throws_ok(
   $$ select support.bootstrap_backoffice_administrators(
     '019a2000-0000-7000-8000-000000000001', 'bootstrap_a',
-    '019a2000-0000-7000-8000-000000000002', 'bootstrap_b',
-    'https://issuer.test', clock_timestamp() + interval '91 days', 'CEREMONY-TOO-LONG'
+    '019a2000-0000-7000-8000-000000000001', 'bootstrap_b',
+    'https://issuer.test', clock_timestamp() + interval '30 days', 'CEREMONY-ONE-PERSON'
   ) $$,
   '22023',
-  null,
-  'bootstrap refuses authority lasting more than ninety days'
+  'invalid Backoffice bootstrap ceremony',
+  'bootstrap refuses a ceremony with one person in both seats'
 );
 
+-- ADR-046: the roles bring standing duties, so `p_valid_to` bounds nothing any more.
 select lives_ok(
   $$ select support.bootstrap_backoffice_administrators(
     '019a2000-0000-7000-8000-000000000001', 'bootstrap_a',
     '019a2000-0000-7000-8000-000000000002', 'bootstrap_b',
-    'https://issuer.test', clock_timestamp() + interval '30 days', 'CEREMONY-001'
+    'https://issuer.test', clock_timestamp() + interval '91 days', 'CEREMONY-001'
   ) $$,
-  'the protected bootstrap links two existing people and accounts atomically'
+  'the protected bootstrap links two existing people and accounts atomically, whatever p_valid_to says'
 );
 
 select is(
@@ -72,13 +73,16 @@ select is(
   'bootstrap creates two crossed base-role assignments'
 );
 
-select is(
-  (select count(*) from support.platform_duty_assignments
-    where person_id in ('019a2000-0000-7000-8000-000000000001', '019a2000-0000-7000-8000-000000000002')
-      and duty_code = 'manage_platform_access' and status = 'active'
-      and granted_by_person_id <> person_id),
-  2::bigint,
-  'bootstrap creates two crossed and temporary access-management duties'
+-- Thirteen duties each, granted by the other administrator, none of them temporary.
+select results_eq(
+  $$ select count(*), count(*) filter (
+       where basis = 'admin_role' and status = 'active'
+         and valid_to = '9999-12-31 00:00:00+00' and granted_by_person_id <> person_id)
+     from support.platform_duty_assignments
+     where person_id in ('019a2000-0000-7000-8000-000000000001',
+       '019a2000-0000-7000-8000-000000000002') $$,
+  $$ values (26::bigint, 26::bigint) $$,
+  'the crossed roles bring every duty, crossed and standing, and nothing else'
 );
 
 select ok(

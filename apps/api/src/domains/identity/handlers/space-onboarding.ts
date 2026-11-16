@@ -30,8 +30,11 @@ import type {
   MassUnit,
   PrimaryTrainingGoal,
   ProfileClaimDeclaration,
+  SessionDuration,
+  TrainingDaysPerWeek,
   TrainingDiscipline,
   TrainingExperience,
+  TrainingPlace,
 } from '../domain/index.js'
 import { fail, failPlanLimit, planLimitFeature } from '../../../platform/http/index.js'
 import {
@@ -496,6 +499,14 @@ const TRAINING_EXPERIENCE: readonly TrainingExperience[] = [
  * here is the honest answer rather than a gap.
  */
 const TRAINING_DISCIPLINES: readonly TrainingDiscipline[] = ['strength']
+const TRAINING_DAYS: readonly TrainingDaysPerWeek[] = ['1', '2', '3', '4', '5', '6', '7']
+const SESSION_DURATIONS: readonly SessionDuration[] = [
+  'up_to_30_min',
+  '30_to_45_min',
+  '45_to_60_min',
+  'over_60_min',
+]
+const TRAINING_PLACES: readonly TrainingPlace[] = ['gym', 'home', 'outdoors', 'multiple']
 
 /**
  * One variant per member of the attribute catalogue, and the pairing is checked
@@ -529,6 +540,18 @@ function readProfileClaim(body: unknown): ProfileClaimDeclaration | undefined {
     return TRAINING_DISCIPLINES.includes(value as TrainingDiscipline)
       ? { attributeCode: code, valueText: value as TrainingDiscipline }
       : undefined
+  }
+  if (code === 'training_days_per_week') {
+    const days = TRAINING_DAYS.find((known) => known === value)
+    return days ? { attributeCode: code, valueText: days } : undefined
+  }
+  if (code === 'session_duration') {
+    const duration = SESSION_DURATIONS.find((known) => known === value)
+    return duration ? { attributeCode: code, valueText: duration } : undefined
+  }
+  if (code === 'training_place') {
+    const place = TRAINING_PLACES.find((known) => known === value)
+    return place ? { attributeCode: code, valueText: place } : undefined
   }
   return undefined
 }

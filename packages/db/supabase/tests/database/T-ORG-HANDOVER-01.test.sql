@@ -27,7 +27,7 @@ values
   ('019ac000-0000-7000-8000-000000000001', 'Manager', 'Alpha', 'active'),
   ('019ac000-0000-7000-8000-000000000002', 'Manager', 'Beta', 'active'),
   ('019ac000-0000-7000-8000-000000000003', 'Lifecycle', 'Gamma', 'active'),
-  ('019ac000-0000-7000-8000-000000000004', 'Support', 'Delta', 'active'),
+  ('019ac000-0000-7000-8000-000000000004', 'Outsider', 'Delta', 'active'),
   ('019ac000-0000-7000-8000-000000000005', 'Owner', 'Epsilon', 'active'),
   ('019ac000-0000-7000-8000-000000000006', 'Stranger', 'Zeta', 'active'),
   ('019ac000-0000-7000-8000-000000000007', 'Member', 'Eta', 'active');
@@ -71,11 +71,11 @@ select support.assign_platform_role(
 )
 from (values
   ('019ac000-0000-7000-8000-000000000003'::uuid, '019ac000-0000-7000-8000-000000000103'::uuid,
-    '019ac000-0000-7000-8000-000000000203'::uuid, '63'),
-  ('019ac000-0000-7000-8000-000000000004'::uuid, '019ac000-0000-7000-8000-000000000104'::uuid,
-    '019ac000-0000-7000-8000-000000000204'::uuid, '64')
+    '019ac000-0000-7000-8000-000000000203'::uuid, '63')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Every admin holds every duty (ADR-046): Delta keeps a live Backoffice session and is
+-- never granted the role. Gamma's grant converges onto the duty the role brings.
 select support.assign_platform_duty(
   '019ac000-0000-7000-8000-000000000001', '019ac000-0000-7000-8000-000000000021',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -83,9 +83,7 @@ select support.assign_platform_duty(
 )
 from (values
   ('019ac000-0000-7000-8000-000000000003'::uuid, 'manage_organization_lifecycle',
-    '019ac000-0000-7000-8000-000000000113'::uuid, '019ac000-0000-7000-8000-000000000213'::uuid, '73'),
-  ('019ac000-0000-7000-8000-000000000004'::uuid, 'diagnose_support_metadata',
-    '019ac000-0000-7000-8000-000000000114'::uuid, '019ac000-0000-7000-8000-000000000214'::uuid, '74')
+    '019ac000-0000-7000-8000-000000000113'::uuid, '019ac000-0000-7000-8000-000000000213'::uuid, '73')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
 
 -- ---------------------------------------------------------------------------
@@ -122,7 +120,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the support duty does not create organizations'
+  'a Backoffice session without the admin role does not create organizations'
 );
 
 select throws_ok(
@@ -313,7 +311,8 @@ select throws_ok(
        '019ac000-0000-7000-8000-000000000421', '019ac000-0000-7000-8000-000000000400',
        '019ac000-0000-7000-8000-000000000410', '019ac000-0000-7000-8000-000000000003',
        (select assignment.id from support.platform_duty_assignments as assignment
-        where assignment.person_id = '019ac000-0000-7000-8000-000000000003'),
+        where assignment.person_id = '019ac000-0000-7000-8000-000000000003'
+          and assignment.duty_code = 'manage_organization_lifecycle'),
        'email', 'both@example.test', decode(repeat('b3', 32), 'hex'), 1,
        decode(repeat('b4', 32), 'hex'),
        '{"party_kind":"legal_entity","party_name":"Member Operated SAS","purpose":"studio_operations"}'::jsonb,
@@ -583,7 +582,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the support duty does not resend a handover'
+  'a Backoffice session without the admin role does not resend a handover'
 );
 
 -- ---------------------------------------------------------------------------
@@ -599,7 +598,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the support duty does not cancel an organization'
+  'a Backoffice session without the admin role does not cancel an organization'
 );
 
 select throws_ok(
@@ -696,7 +695,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the support duty does not read a handover'
+  'a Backoffice session without the admin role does not read a handover'
 );
 
 select ok(

@@ -6,8 +6,8 @@ Terraform for the AWS production environment. Operational policy lives in
 ```
 bootstrap/    state bucket, applied once with local state
 production/   the only environment
-modules/      network, budget, github-oidc, database,
-              registry, compute, certificate, edge, services, deploy-role
+modules/      network, budget, github-oidc, database, registry, compute,
+              certificate, email, edge, services, deploy-role
 docker/       images: node-service, next, migrator
 scripts/      what the deploy workflows run, with its tests
 ```

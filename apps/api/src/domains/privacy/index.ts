@@ -9,6 +9,7 @@
 export { backofficePrivacyRoutes } from './handlers/backoffice.js'
 export { spacePrivacyRoutes } from './handlers/space.js'
 export { studioPrivacyRoutes } from './handlers/studio.js'
+export { studioHistoricalAccessRoutes } from './handlers/studio-historical-access.js'
 export {
   accessLogService,
   erasureRequestService,

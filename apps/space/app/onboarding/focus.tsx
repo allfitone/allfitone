@@ -36,33 +36,23 @@ import { Button } from '@allfitone/react-native/button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native'
 
-import { BodyFigure } from '../../src/components/body-figure'
+import { FocusPicker } from '../../src/components/focus-picker'
 import { OnboardingHeader } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import {
   areasFor,
-  bodyGender,
   bodyScale,
   canSubmitFocus,
-  FOCUS_ZONES,
-  focusHint,
-  focusSummary,
-  INERT_SLUGS,
-  litSlugs,
   NOTHING_CHOSEN,
   selectionFromAreas,
   toggleFocus,
-  WHOLE_BODY,
-  zoneForSlug,
-  type BodySide,
-  type BodySlug,
+  type FocusChoice,
   type FocusSelection,
 } from '../../src/client/focus-form'
 
@@ -80,7 +70,6 @@ const CHROME_HEIGHT = 600
 
 export default function OnboardingFocus() {
   const router = useRouter()
-  const theme = useTheme()
   const { height } = useWindowDimensions()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
 
@@ -90,7 +79,6 @@ export default function OnboardingFocus() {
   const [sessionExpired, setSessionExpired] = useState(false)
   const [failure, setFailure] = useState<string | undefined>(undefined)
 
-  const gender = bodyGender(declaredSex)
   const scale = bodyScale(Math.max(0, height - CHROME_HEIGHT))
 
   useEffect(() => {
@@ -127,7 +115,6 @@ export default function OnboardingFocus() {
 
   const pressable = !submitting && !sessionExpired
   const submittable = canSubmitFocus({ selection, submitting, sessionExpired })
-  const hint = focusHint(selection)
 
   const submit = async () => {
     setSubmitting(true)
@@ -150,48 +137,8 @@ export default function OnboardingFocus() {
   }
 
   const choose = useCallback(
-    (choice: Parameters<typeof toggleFocus>[1]) => {
-      if (!pressable) return
-      setSelection((current) => toggleFocus(current, choice))
-    },
-    [pressable],
-  )
-
-  // Both faces are memoised, so their props have to keep their identity or the memo
-  // never hits and every tap redraws the face nobody touched.
-  const litFront = useMemo(() => litSlugs(selection, 'front'), [selection])
-  const litBack = useMemo(() => litSlugs(selection, 'back'), [selection])
-  const pressFront = useCallback(
-    (slug: BodySlug) => {
-      const zone = zoneForSlug(slug, 'front')
-      if (zone) choose(zone)
-    },
-    [choose],
-  )
-  const pressBack = useCallback(
-    (slug: BodySlug) => {
-      const zone = zoneForSlug(slug, 'back')
-      if (zone) choose(zone)
-    },
-    [choose],
-  )
-
-  const face = (side: BodySide) => (
-    <View style={styles.face}>
-      <BodyFigure
-        side={side}
-        gender={gender}
-        scale={scale}
-        lit={side === 'front' ? litFront : litBack}
-        // Inert through the figure rather than the library's `disabledParts`, which
-        // hardcodes a bone white with no prop to override it.
-        inert={INERT_SLUGS}
-        onPressSlug={side === 'front' ? pressFront : pressBack}
-      />
-      <Text role="body" size="xs" color="muted" style={styles.faceName}>
-        {side === 'front' ? 'FRENTE' : 'ESPALDA'}
-      </Text>
-    </View>
+    (choice: FocusChoice) => setSelection((current) => toggleFocus(current, choice)),
+    [],
   )
 
   return (
@@ -210,88 +157,13 @@ export default function OnboardingFocus() {
           Señala lo que más te importa. Es un énfasis: el resto del cuerpo sigue entrando.
         </Text>
 
-        <View style={styles.summary}>
-          <Text role="body" size="xs" color="muted">
-            FRENTE Y ESPALDA
-          </Text>
-          <Text role="body" size="xs" color={selection.zones.length ? 'accent' : 'muted'}>
-            {focusSummary(selection)}
-          </Text>
-        </View>
-
-        {/* Aligned on the feet: the library renders both sexes and both faces into
-            the same 400×200 box, so one scale is all it takes. */}
-        <View style={styles.faces}>
-          {face('front')}
-          {face('back')}
-        </View>
-
-        <View style={styles.chips}>
-          {FOCUS_ZONES.map((entry) => {
-            const on = selection.zones.includes(entry.zone)
-            return (
-              <Pressable
-                key={entry.zone}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: on, disabled: !pressable }}
-                accessibilityLabel={entry.name}
-                disabled={!pressable}
-                onPress={() => choose(entry.zone)}
-                hitSlop={8}
-                style={[
-                  styles.chip,
-                  {
-                    borderColor: on ? theme.color.border.accent : theme.color.border.subtle,
-                    backgroundColor: on
-                      ? theme.color.accent.tonal
-                      : theme.color.background.surfaceSubtle,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.dot,
-                    {
-                      backgroundColor: on ? theme.color.border.accent : theme.color.border.default,
-                    },
-                  ]}
-                />
-                <Text role="body" size="sm" color={on ? 'accent' : 'secondary'}>
-                  {entry.name}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
-
-        {/* Set apart from the zones on purpose: it is an answer of another kind,
-            not the eighth zone of the body. */}
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: selection.whole, disabled: !pressable }}
-          accessibilityLabel="Todo el cuerpo"
-          disabled={!pressable}
-          onPress={() => choose(WHOLE_BODY)}
-          style={[
-            styles.whole,
-            {
-              borderColor: selection.whole ? theme.color.border.accent : theme.color.border.default,
-              backgroundColor: selection.whole
-                ? theme.color.accent.tonal
-                : theme.color.background.surfaceSubtle,
-            },
-          ]}
-        >
-          <Text role="body" size="sm" color={selection.whole ? 'accent' : 'secondary'}>
-            Todo el cuerpo
-          </Text>
-        </Pressable>
-
-        {hint ? (
-          <Text role="body" size="xs" color="muted" style={styles.hint}>
-            {hint}
-          </Text>
-        ) : null}
+        <FocusPicker
+          selection={selection}
+          onChoose={choose}
+          declaredSex={declaredSex}
+          scale={scale}
+          pressable={pressable}
+        />
       </ScrollView>
 
       {/* Outside the scroll so the button sits in the same place on every step of
@@ -325,31 +197,6 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 4 },
   footer: { paddingTop: 4, paddingBottom: FOOTER_LIFT },
   lede: { marginTop: 9 },
-  summary: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
-  faces: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 4 },
-  face: { alignItems: 'center' },
-  faceName: { marginTop: 3, letterSpacing: 1.6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderWidth: 1.5,
-    borderRadius: 999,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  whole: {
-    alignSelf: 'flex-start',
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
-    borderRadius: 999,
-    marginTop: 8,
-  },
-  hint: { marginTop: 11 },
   submit: { marginTop: 10 },
   signIn: { marginTop: 10 },
 })

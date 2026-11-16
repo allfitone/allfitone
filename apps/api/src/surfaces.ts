@@ -20,9 +20,10 @@ import {
   catalogMovementRoutes,
   studioCatalogReadRoutes,
   studioCatalogRoutes,
+  studioMovementRoutes,
 } from './domains/catalog/index.js'
 import { spaceExecutionRoutes, studioExecutionRoutes } from './domains/execution/index.js'
-import { spaceNutritionRoutes } from './domains/nutrition/index.js'
+import { spaceNutritionRoutes, studioNutritionRoutes } from './domains/nutrition/index.js'
 import {
   backofficeAccountRecoveryRoutes,
   backofficeCredentialVerificationRoutes,
@@ -32,6 +33,8 @@ import {
   spaceBodyProgressRoutes,
   spaceBodyPhotoRoutes,
   spaceHealthContextRoutes,
+  spaceOwnProfileRoutes,
+  spacePasswordRoutes,
   spaceIdentityRoutes,
   spaceOnboardingRoutes,
   studioClientDataRoutes,
@@ -58,6 +61,7 @@ import { spacePlanningRoutes, studioPlanningRoutes } from './domains/planning/in
 import {
   backofficePrivacyRoutes,
   spacePrivacyRoutes,
+  studioHistoricalAccessRoutes,
   studioPrivacyRoutes,
 } from './domains/privacy/index.js'
 import { spaceRelationshipRoutes, studioRelationshipRoutes } from './domains/relationships/index.js'
@@ -66,6 +70,7 @@ import {
   backofficePlatformAccessRoutes,
   backofficeSupportMetadataRoutes,
 } from './domains/support/index.js'
+import { backofficeWaitlistRoutes, spaceWaitlistRoutes } from './domains/waitlist/index.js'
 import { clientTelemetryConfigRoutes } from './platform/telemetry/client-config.js'
 
 export function mountSurfaces(app: Hono): void {
@@ -95,7 +100,14 @@ export function mountSurfaces(app: Hono): void {
       origin: new URL(trustedStudioWebUrl()).origin,
       credentials: true,
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'Idempotency-Key', 'Command-Id', 'If-Match', 'If-None-Match'],
+      allowHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'Command-Id',
+        'If-Match',
+        'If-None-Match',
+        'X-Historical-Access-Case',
+      ],
       exposeHeaders: ['ETag', 'Server-Timing', 'Retry-After', 'Idempotent-Replay'],
       maxAge: 600,
     }),
@@ -113,19 +125,24 @@ export function mountSurfaces(app: Hono): void {
   app.route('/studio/v1', studioOwnershipInvitationRoutes())
   app.route('/studio/v1', studioClientInvitationRoutes())
   app.route('/studio/v1', studioPrivacyRoutes())
+  app.route('/studio/v1', studioHistoricalAccessRoutes())
   app.route('/studio/v1', studioOrganizationRoutes())
   app.route('/studio/v1', studioRelationshipRoutes())
   app.route('/studio/v1', studioCatalogRoutes())
   app.route('/studio/v1/catalog', studioCatalogReadRoutes())
+  app.route('/studio/v1', studioMovementRoutes())
   app.route('/studio/v1', studioPlanningRoutes())
   app.route('/studio/v1', studioExecutionRoutes())
   app.route('/studio/v1', studioClientDataRoutes())
+  app.route('/studio/v1', studioNutritionRoutes())
   app.route('/studio/v1', studioPaymentRoutes())
   app.route('/space/v1', spaceIdentityRoutes())
   app.route('/space/v1', spaceOnboardingRoutes())
   app.route('/space/v1', spaceBodyProgressRoutes())
   app.route('/space/v1', spaceBodyPhotoRoutes())
   app.route('/space/v1', spaceHealthContextRoutes())
+  app.route('/space/v1', spaceOwnProfileRoutes())
+  app.route('/space/v1', spacePasswordRoutes())
   app.route('/space/v1', spaceClientInvitationRoutes())
   app.route('/space/v1', spacePlanningRoutes())
   app.route('/space/v1', spaceExecutionRoutes())
@@ -134,6 +151,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/space/v1', spacePaymentRoutes())
   app.route('/space/v1', spaceRelationshipRoutes())
   app.route('/space/v1', spacePrivacyRoutes())
+  app.route('/space/v1', spaceWaitlistRoutes())
   app.route('/backoffice/v1', backofficeIdentityRoutes())
   app.route('/backoffice/v1', backofficeCredentialVerificationRoutes())
   app.route('/backoffice/v1', backofficeTeamInvitationRoutes())
@@ -148,6 +166,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/backoffice/v1/catalog', backofficeCatalogReadRoutes())
   app.route('/backoffice/v1', backofficeOrganizationRoutes())
   app.route('/backoffice/v1', backofficePlatformPlanRoutes())
+  app.route('/backoffice/v1', backofficeWaitlistRoutes())
 
   // Space reads the global catalogue here with a bearer token. A web product reads
   // it on its own surface, because its session cookie never travels to this path.

@@ -225,7 +225,7 @@ test('a withdrawn duty is explained as expiry by design', async ({ context, page
   await page.goto(PATH)
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test('an empty directory says there are no gyms yet rather than that a search failed', async ({

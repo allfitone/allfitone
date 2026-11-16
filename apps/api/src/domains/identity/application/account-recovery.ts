@@ -18,7 +18,7 @@ import type {
 export interface AccountRecoveryService {
   read(
     assistant: RecoveryAssistant,
-    input: { requestId: string; caseReference: string; personId: string },
+    input: { requestId: string; caseReference: string | null; personId: string },
   ): Promise<BackofficeAccountRecovery>
   start(
     assistant: RecoveryAssistant,

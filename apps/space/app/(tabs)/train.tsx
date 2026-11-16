@@ -90,20 +90,20 @@ type Sheeted =
   | { kind: 'program'; program: MyProgram }
   | { kind: 'removing'; program: MyProgram }
 
-type Segment = 'programas' | 'rutinas'
+type Segment = 'programs' | 'routines'
 
 /** Lo que ocupa la fotografía de un programa. Alta para que la imagen se vea, no se intuya. */
 const HERO = 190
 
 const SEGMENTS = [
-  { value: 'programas' as const, label: 'Programas' },
-  { value: 'rutinas' as const, label: 'Rutinas' },
+  { value: 'programs' as const, label: 'Programas' },
+  { value: 'routines' as const, label: 'Rutinas' },
 ]
 
 const FILTERS: readonly { value: RoutineFilter; label: string }[] = [
-  { value: 'todas', label: 'Todas' },
-  { value: 'en-programa', label: 'En programa' },
-  { value: 'sueltas', label: 'Sueltas' },
+  { value: 'all', label: 'Todas' },
+  { value: 'in-program', label: 'En programa' },
+  { value: 'standalone', label: 'Sueltas' },
 ]
 
 export default function Train() {
@@ -116,8 +116,8 @@ export default function Train() {
   const training = useMemo(() => createSpaceExecutionFlow(), [])
   const timezone = useMemo(() => deviceTimezone(), [])
 
-  const [segment, setSegment] = useState<Segment>('programas')
-  const [filter, setFilter] = useState<RoutineFilter>('todas')
+  const [segment, setSegment] = useState<Segment>('programs')
+  const [filter, setFilter] = useState<RoutineFilter>('all')
   const [plan, setPlan] = useState<WeekPlan | undefined>(undefined)
   const [mine, setMine] = useState<readonly MyProgram[]>([])
   const [routines, setRoutines] = useState<readonly MyRoutine[]>([])
@@ -304,8 +304,8 @@ export default function Train() {
             icon="create"
             size="sm"
             variant="secondary"
-            accessibilityLabel={segment === 'programas' ? 'Crear un programa' : 'Crear una rutina'}
-            onPress={() => router.push(segment === 'programas' ? '/programs/new' : '/routines/new')}
+            accessibilityLabel={segment === 'programs' ? 'Crear un programa' : 'Crear una rutina'}
+            onPress={() => router.push(segment === 'programs' ? '/programs/new' : '/routines/new')}
           />
         </View>
         <SegmentedControl
@@ -321,7 +321,7 @@ export default function Train() {
         />
         {/* Los filtros son cabecera, no lista: filtran lo que hay debajo, y uno que se
             va con el desplazamiento obliga a subir para cambiar de filtro. */}
-        {segment === 'rutinas' ? (
+        {segment === 'routines' ? (
           <View style={styles.filters}>
             {FILTERS.map((one) => (
               <Chip
@@ -345,7 +345,7 @@ export default function Train() {
           <InlineAlert tone="info" message={held} onDismiss={() => setHeld(undefined)} />
         ) : null}
 
-        {segment === 'programas' ? (
+        {segment === 'programs' ? (
           <>
             {current && cards.length > 0 ? (
               <CurrentProgram

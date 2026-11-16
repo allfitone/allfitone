@@ -90,8 +90,22 @@ export function methodHint(method: CredentialVerificationMethod): string {
   return METHOD_HINTS[method]
 }
 
+const KIND_LABELS: Record<CredentialVerificationRequest['kind'], string> = {
+  initial: 'Primera verificación',
+  renewal: 'Renovación',
+  // HU-BO-021 c7: her earlier verification stays in force while this one is decided.
+  name_change: 'Cambio de nombre',
+}
+
 export function kindLabel(kind: CredentialVerificationRequest['kind']): string {
-  return kind === 'renewal' ? 'Renovación' : 'Primera verificación'
+  return KIND_LABELS[kind]
+}
+
+/** What the reviewer compares when a review was reopened rather than asked for. */
+export function kindHint(kind: CredentialVerificationRequest['kind']): string | null {
+  return kind === 'name_change'
+    ? 'Cambió su nombre después de verificado. Confirma que el título sigue siendo suyo; la verificación anterior sigue vigente mientras decides.'
+    : null
 }
 
 export interface VerificationDraft {
@@ -241,13 +255,13 @@ export const RENEWAL_OPENED = 'Renovación abierta. La verificación anterior qu
 /** Reading the queue decides nothing, so a refusal there names the duty to ask for. */
 export function verificationQueueMessage(code: string): string {
   if (code !== 'forbidden') return verificationMessage(code)
-  return 'Leer la cola de verificación exige el deber «Verificar credenciales profesionales» vigente. Los deberes vencen por diseño: pide que te lo asignen en «Equipo de Allfit One».'
+  return 'Leer la cola de verificación exige el deber «Verificar credenciales profesionales» vigente. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.'
 }
 
 export function verificationMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:
-      'No puedes decidir esta verificación: tu deber de verificación no está vigente o tienes un conflicto con esta persona. Los deberes vencen por diseño: pide que te lo asignen de nuevo.',
+      'No puedes decidir esta verificación: tu deber de verificación no está vigente o tienes un conflicto con esta persona. Los deberes llegan con el rol de administrador: si se negó, tu rol ya no está vigente y otro administrador debe otorgártelo de nuevo.',
     conflict:
       'Esta solicitud ya no está pendiente: otra persona la decidió, o el título se retiró o se corrigió mientras la tenías abierta.',
     'not-found': 'Esa solicitud no existe.',

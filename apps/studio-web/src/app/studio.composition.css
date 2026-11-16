@@ -134,7 +134,9 @@
 [data-credential-actions],
 [data-card-footer-actions],
 [data-billing-actions],
-[data-profile-form-actions] {
+[data-profile-form-actions],
+[data-client-card-doors],
+[data-historical-case-actions] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -213,8 +215,11 @@
 [data-studio-form],
 [data-invitation-waiting],
 [data-team-page],
+[data-content-page],
+[data-content-panel],
 [data-client-page],
 [data-billing-page],
+[data-billing-panel],
 [data-authorized-scope-page],
 [data-client-invite-page],
 [data-team-section],
@@ -232,13 +237,31 @@
 [data-membership-list],
 [data-ready-later],
 [data-role-register],
+[data-content-register],
+[data-template-steps],
+[data-program-weeks],
+/* Wider than the gap inside a session, so each one reads as its own group. */
+[data-program-sessions],
 [data-category-register],
-[data-organization-overview],
+[data-today-panel],
 [data-organization-details],
 [data-profile-presentation],
 [data-account-map],
 [data-relationship-state],
-[data-relationship-history] {
+[data-relationship-history],
+[data-client-card-screen],
+[data-client-profile-screen],
+[data-client-executions-screen],
+[data-client-progress-screen],
+[data-client-programs-screen],
+[data-client-execution-detail-screen],
+[data-historical-cases-screen],
+[data-historical-reading],
+[data-historical-case-refusal],
+[data-client-health-screen],
+[data-client-body-screen],
+[data-client-nutrition-screen],
+[data-client-nutrition-goals-screen] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -296,6 +319,7 @@
 
 [data-studio-loading-body],
 [data-role-catalog-state],
+[data-content-catalog-state],
 [data-category-catalog-state],
 [data-session-ending-body],
 [data-organization-status-body] {
@@ -400,6 +424,57 @@
   width: 18%;
 }
 
+/* Measured at the narrowest the table ever draws, 44rem: the name asks for
+   264px, the two figures for 78px and 86px, and "Maximo estimado" for 161px —
+   its header, not its value. The slack goes to the name, the only value whose
+   length nobody chose. Without shares the four even quarters gave the name
+   213px and it painted over the column beside it. */
+[data-studio-register='client-progress-movements'] col:nth-child(1) {
+  width: 44%;
+}
+
+[data-studio-register='client-progress-movements'] col:nth-child(2),
+[data-studio-register='client-progress-movements'] col:nth-child(3) {
+  width: 14%;
+}
+
+[data-studio-register='client-progress-movements'] col:nth-child(4) {
+  width: 28%;
+}
+
+/* Measured at the narrowest the table ever draws, its own 44rem floor: the day
+   asks for 105px, and the state for 149px — the widest badge, "Programada" at
+   117px, over the 71px of "Ya la empezó", plus 32px of cell padding. The note
+   sits under the badge rather than beside it, which is what keeps that column
+   at 149 instead of the 228 the two would take in a row; only a started session
+   carries it, so at most one row in the calendar is two lines tall.
+
+   The slack goes to the title, the only value whose length nobody chose. */
+[data-studio-register='client-program-sessions'] col:nth-child(1) {
+  width: 16%;
+}
+
+[data-studio-register='client-program-sessions'] col:nth-child(2) {
+  width: 61%;
+}
+
+[data-studio-register='client-program-sessions'] col:nth-child(3) {
+  width: 23%;
+}
+
+/* A title somebody typed at any length takes a second line rather than the
+   next column. The cell inherits `nowrap` from the Design System, which is
+   right for a date and wrong here — and `overflow-wrap` because a 160-character
+   title can hold a word with nowhere the browser would break it.
+
+   It stays inline. As an `inline-block` it still wraps, but it generates one
+   box, so `getClientRects()` reports a single line however many it draws and
+   the test that watches this column goes blind. */
+[data-studio-register='client-program-sessions'] [data-client-program-session-title] {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 /* ------------------------------------------------------------------- grids */
 
 [data-studio-choice-grid] {
@@ -464,10 +539,14 @@
 [data-team-role-badges],
 [data-ready-confirmations],
 [data-team-section-navigation],
-[data-overview-team-roles],
-[data-overview-orientation-roles],
+[data-today-row-marks],
 [data-membership-roles],
 [data-role-disclosure],
+[data-content-disclosure],
+[data-template-step-actions],
+[data-program-session-actions],
+[data-movement-variant-actions],
+[data-movement-library-actions],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -490,7 +569,7 @@
 [data-client-identity],
 [data-billing-person],
 [data-authorized-scope-person],
-[data-overview-team-identity] {
+[data-today-row] {
   display: flex;
   min-width: 0;
   align-items: center;
@@ -519,7 +598,10 @@
    membership card is the common case: a person who has not left has no end
    date. `auto-fit` gives the pair the row and still splits it when a second
    arrives, and the `min()` keeps the track from outgrowing a narrow card. */
-[data-credential-details] {
+[data-credential-details],
+[data-version-details],
+[data-template-target-fields],
+[data-program-session-fields] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
   gap: var(--afo-space-4);
@@ -528,7 +610,8 @@
 [data-team-invitation-summary] > div,
 [data-client-invitation-summary] > div,
 [data-ownership-invitation-summary] > div,
-[data-credential-details] > div {
+[data-credential-details] > div,
+[data-version-details] > div {
   min-width: 0;
 }
 
@@ -548,7 +631,17 @@
 [data-billing-facts] dt,
 [data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
-[data-credential-details] dt {
+[data-credential-details] dt,
+[data-version-details] dt,
+[data-client-profile-group-name],
+[data-client-execution-facts] dt,
+[data-client-progress-facts] dt,
+[data-client-program-facts] dt,
+[data-historical-case-facts] dt,
+[data-client-health-section-name],
+[data-client-body-day-name],
+[data-client-nutrition-day-name],
+[data-client-nutrition-summary-day-name] {
   font-family: var(--afo-typography-label-font-family);
   font-size: var(--afo-font-size-xs);
   font-weight: var(--afo-typography-label-font-weight);
@@ -564,7 +657,8 @@
 /* CardContent pads sideways and nothing else, so the action sat against the
    last fact. The gap belongs to Studio's own element, not to the component. */
 [data-team-member-card] [data-team-invitation-actions],
-[data-billing-card] [data-billing-actions] {
+[data-billing-card] [data-billing-actions],
+[data-historical-case-actions] {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -572,7 +666,14 @@
 [data-client-facts],
 [data-billing-facts],
 [data-authorized-scope-facts],
-[data-relationship-facts] {
+[data-relationship-facts],
+[data-client-card-facts],
+[data-client-execution-facts],
+[data-client-progress-facts],
+[data-client-program-facts],
+[data-historical-case-facts],
+[data-client-body-facts],
+[data-client-nutrition-totals] {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
@@ -586,14 +687,13 @@
 
    No width of its own any more: the canvas is now the width this panel had
    asked for, so the exception it used to carry is the rule. */
-[data-organization-overview] {
+[data-today-panel] {
   grid-template-columns: minmax(0, 1fr);
 }
 
 /* The strip sizes to its stats. Stretched across the canvas, a single count
    floated alone in the middle of 1400px. Both axes are set because these sit
-   in a grid on the overview and in a flex column on the account page. */
-[data-overview-signals],
+   in a flex column on the account page and in a grid elsewhere. */
 [data-organization-signals],
 [data-profile-signals] {
   justify-self: start;
@@ -604,22 +704,21 @@
 
 /* Two or more stats take the canvas, so the strip's right edge lines up with
    the cards below it instead of stopping 576px short of them. The cap above
-   still applies to a lone stat — a staff member who reads the directory but not
-   the invitation register sees one count, and one number centred in 1024px is
-   what the cap was put there to prevent. */
-[data-overview-signals][data-signals-multiple],
+   still applies to a lone stat, and one number centred in 1024px is what the
+   cap was put there to prevent. */
 [data-organization-signals][data-signals-multiple],
 [data-profile-signals][data-signals-multiple] {
   min-width: 100%;
 }
 
-[data-overview-signals-placeholder] {
-  height: 4.5rem;
-  width: min(100%, 24rem);
+/* Two notices, which is what a coach who also administers usually has waiting.
+   A placeholder per notice, not one per row: the count inside each is exactly
+   what has not arrived yet. */
+[data-today-notice-placeholder] {
+  height: 9rem;
 }
 
-[data-overview-attention-list],
-[data-overview-team-list],
+[data-today-rows],
 [data-organization-site-list],
 [data-team-directory-card-list],
 [data-client-directory-card-list],
@@ -628,28 +727,51 @@
 [data-relationship-substitution-list],
 [data-relationship-grant-cards],
 [data-relationship-history-list],
-[data-role-capability-list] {
+[data-content-version-list],
+[data-movement-picker-results],
+[data-program-session],
+[data-movement-variant-fields],
+[data-role-capability-list],
+[data-client-card-section-list],
+[data-client-profile-group-list],
+[data-client-executions-list],
+[data-client-progress-period-cards],
+[data-client-progress-movement-cards],
+[data-historical-cases-list],
+[data-historical-case-picker],
+[data-historical-case-picker-results],
+[data-historical-entries],
+[data-historical-goal-targets],
+[data-client-health-section-list],
+[data-client-body-day-list],
+[data-client-body-photo-view],
+[data-client-nutrition-meal-photo-view],
+[data-client-nutrition-range],
+[data-client-nutrition-day-list],
+[data-client-nutrition-summary-list] {
   display: grid;
   gap: var(--afo-space-3);
 }
 
-[data-overview-attention-list] > li,
-[data-overview-team-list] > li,
 [data-organization-site-list] > li,
 [data-relationship-substitution-list] > li,
-[data-role-capability-list] > li {
+[data-content-version-list] > li,
+[data-movement-picker-results] > li,
+[data-role-capability-list] > li,
+[data-historical-case-picker-results] > li,
+[data-historical-case-chosen] {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: var(--afo-space-3);
 }
 
-[data-overview-attention-contact],
+[data-today-row-subject],
 [data-organization-site-identity],
 [data-relationship-substitution-identity],
 [data-relationship-grant-identity],
 [data-relationship-history-what],
-[data-overview-team-identity] {
+[data-historical-case-relationship] {
   min-width: 0;
   flex: 1;
 }
@@ -695,13 +817,72 @@
   }
 }
 
-[data-overview-attention-expiry] {
+/* Why the row is here, kept out of the subject's way. A masked contact or a
+   long name takes the leftover width; this keeps its own words whole. */
+[data-today-row-detail] {
   flex: none;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
 }
 
-[data-overview-team-placeholder] {
-  display: grid;
+/* A masked contact is one unbroken token — `b***@ejemplo.test` has nowhere the
+   browser will break it — so without this it paints out of its cell and over
+   whatever sits beside it, the same way the client directory found. */
+[data-today-row-subject] {
+  overflow-wrap: anywhere;
+}
+
+/* A row that leads somewhere still reads as a row, not as a link in a
+   paragraph: the Design System underlines anchors, and five underlined names
+   in a list made the list look like a menu. */
+[data-today-row-link] {
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-today-row-link]:hover [data-today-row-subject],
+[data-today-row-link]:focus-visible [data-today-row-subject] {
+  text-decoration: underline;
+}
+
+/* The count is the first thing the reader is after, so it sits with the title
+   rather than under it. Tabular figures keep 7 and 12 the same width down a
+   column of notices. */
+[data-today-notice-count] {
+  color: var(--afo-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* What the notice covers beyond the five rows above it. Set apart from the last
+   row by the gap the list uses, and quieter than a row, because it is a
+   remainder and not another item. */
+[data-today-remainder] {
+  display: block;
+  margin-block-start: var(--afo-space-3);
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* How the team stands, which the contract calls a state: it never makes the day
+   non-empty. A hairline and a line of text, not a sixth card — the page keeps
+   one rank for what waits on somebody and a quieter one for how things are. */
+[data-today-state] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--afo-space-3);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-today-state-figure] {
+  min-width: 0;
+  color: var(--afo-color-text-muted);
+}
+
+[data-today-state-detail]::before {
+  content: ' · ';
 }
 
 /* CardContent pads sideways only, so the badge row and the sentence under it
@@ -736,7 +917,8 @@
    with one gap owns the spacing on both, which also matches the 20px the
    section leaves above the trigger. */
 [data-credential-history],
-[data-membership-history] {
+[data-membership-history],
+[data-content-archive] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -745,7 +927,8 @@
 /* Both roots are grids now, so without this the trigger stretches to the whole
    canvas — 1024px of ghost button for a six-word label. */
 [data-credential-history] > [data-history-trigger],
-[data-membership-history] > [data-history-trigger] {
+[data-membership-history] > [data-history-trigger],
+[data-content-archive] > [data-history-trigger] {
   justify-self: start;
 }
 
@@ -793,6 +976,8 @@
 
 [data-team-directory-note],
 [data-client-directory-note],
+[data-client-directory-search],
+[data-movement-search],
 [data-guest-quota-summary],
 [data-billing-note],
 [data-authorized-scope-note],
@@ -805,23 +990,28 @@
 /* `min(24rem, 100%)` and not a bare `24rem`: a fixed minimum cannot shrink, so
    below 384px the track kept its width and the cards ran out of the screen with
    their badges cut off. */
-[data-role-register] {
+[data-role-register],
+[data-content-register] {
   grid-template-columns: repeat(auto-fit, minmax(min(24rem, 100%), 1fr));
 }
 
 /* Roles read as a matrix, so paired cards end on the same line and their
    disclosure rows sit on one baseline whatever the policy note costs. */
-[data-role-card] {
+[data-role-card],
+[data-content-card] {
   display: grid;
 }
 
-[data-role-card-body] {
+[data-role-card-body],
+[data-content-card-body] {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: var(--afo-space-3);
 }
 
-[data-role-disclosure] {
+[data-role-disclosure],
+[data-content-disclosure] {
   justify-content: space-between;
   margin-block-start: auto;
   padding-block-start: var(--afo-space-4);
@@ -912,7 +1102,8 @@
   top: var(--afo-space-5);
 }
 
-[data-trajectory-body] {
+[data-trajectory-body],
+[data-goal-proposal-form] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -1034,11 +1225,15 @@
   [data-studio-field-grid],
   [data-profile-field-grid],
   [data-relationship-substitution-dates],
+  [data-client-nutrition-range-dates],
   [data-membership-context-grid],
   [data-credential-grid],
   [data-team-invitation-summary],
   [data-client-invitation-summary],
-  [data-credential-details] {
+  [data-credential-details],
+  [data-version-details],
+  [data-template-target-fields],
+  [data-program-session-fields] {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1079,10 +1274,21 @@
     flex: 1;
   }
 
+  /* Stacked rather than sharing the row, which is where this parts from the
+     action rows above. Two doors side by side on a phone leave each one about
+     forty per cent of the card and a label that breaks mid-word; one over the
+     other, each the card's width, reads as two things to open. */
+  [data-client-card-doors] {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
   /* The same rule, reached differently: these triggers are not in an action
      row, they are direct children of the collapsible, so they take the width
      themselves. */
   [data-membership-history] > [data-history-trigger],
+  [data-content-archive] > [data-history-trigger],
   [data-credential-history] > [data-history-trigger] {
     width: 100%;
     justify-self: stretch;
@@ -1095,12 +1301,11 @@
   /* Stacked, an item's own lines have to sit closer together than the gap to
      the next item. At one rhythm for both, two invitations of two lines each
      read as four invitations of one. Inner 4px, outer 20px. */
-  [data-overview-attention-list],
-  [data-overview-team-list] {
+  [data-today-rows] {
     gap: var(--afo-space-5);
   }
 
-  [data-overview-attention-list] > li {
+  [data-today-row] {
     align-items: flex-start;
     flex-direction: column;
     gap: var(--afo-space-1);
@@ -1124,29 +1329,11 @@
     flex-direction: column;
   }
 
-  /* The avatar belongs beside the name, not stranded on a line of its own.
-     `start`, not `center`: the avatar now labels a block of three lines, and
-     centring floats it to the middle of that block, away from the name. */
-  [data-overview-team-list] > li {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: var(--afo-space-2) var(--afo-space-3);
-  }
-
-  /* Column two, not the whole row. Spanning both columns put the roles under
-     the avatar, on a left edge nothing else in the row shares, so the badge
-     that says who a person is read as belonging to no one. */
-  [data-overview-team-list] > li > [data-overview-team-roles] {
-    grid-column: 2;
-  }
-
-  /* Name over date, not name beside date. Side by side at 320px a two-word
-     name broke mid-word and took its row to 137px next to neighbours of 79. */
-  [data-overview-team-identity] {
+  /* The figure and the way in stack, in that order. Side by side at 320px the
+     button took half the line and the sentence about the team broke mid-word. */
+  [data-today-state] {
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--afo-space-1);
   }
 }
 
@@ -1159,39 +1346,25 @@
 }
 
 /*
- * The open panel sits at the top, away from the collapsed control, because the
- * access landing puts its primary action low: a bottom-anchored panel covers
- * "Crear mi espacio" at 1280x720 and 390x844, and nobody should have to answer a
- * question about optional analytics before they can sign in.
+ * The open panel is a compact bar along the bottom edge. At the top it sat on
+ * the landing's heading and the client's sheet — on a phone the first screen
+ * was the question and not the product — and a box in the corner covered the
+ * way in. The bar stays below both at every width, and while it is open the
+ * page gains room at its end, so nothing has to be answered to be reached.
  *
- * Centred rather than tucked left, which was where it started. Left put it on
- * top of the wordmark at every width; centred clears the wordmark and the
- * heading at 1440, 1280 and 768. Below roughly 420px the panel spans the width
- * whatever it does, so no placement clears the header there.
- *
- * `width` rather than `max-width` alone: a centred element with an auto width
- * collapses to the space between its left edge and the viewport.
+ * Centred by its auto margins: with both insets set, the width resolves to
+ * `max-width` and the margins share what is left.
  */
 [data-analytics-controls][data-expanded='true'] {
-  top: 16px;
-  right: auto;
-  bottom: auto;
-  left: 50%;
-  width: min(390px, calc(100vw - 32px));
-  transform: translateX(-50%);
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-width: 64rem;
+  margin-inline: auto;
 }
 
-/*
- * The landing's site header is fixed and carries the language switch. On a
- * phone the panel spans it, and from 60rem the section links fill its middle,
- * so in both the panel opens below the 5.25rem bar, where the page scrolls out
- * from under it. In between the bar holds only the wordmark and the switch, at
- * its two ends, and the usual place clears both and the headline beneath.
- */
-@media (max-width: 39.99rem), (min-width: 60rem) {
-  :root:has([data-studio-site]) [data-analytics-controls][data-expanded='true'] {
-    top: calc(5.25rem + 16px);
-  }
+:root:has([data-analytics-controls][data-expanded='true']) body {
+  padding-block-end: 17rem;
 }
 
 [data-analytics-panel] {
@@ -1222,10 +1395,74 @@
   text-underline-offset: 3px;
 }
 
+/* The terms and the privacy policy, linked inside the activation's confirmations. */
+[data-legal-link] {
+  color: var(--afo-color-text-accent);
+  font-weight: var(--afo-font-weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 [data-analytics-actions] {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* From a tablet up, the notice link and the two choices sit beside the text. */
+@media (min-width: 40rem) {
+  :root:has([data-analytics-controls][data-expanded='true']) body {
+    padding-block-end: 12rem;
+  }
+
+  [data-analytics-panel] {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: var(--afo-space-4);
+  }
+
+  [data-analytics-panel]
+    > :is([data-analytics-title], [data-analytics-text], [data-analytics-signal]) {
+    grid-column: 1 / -1;
+  }
+
+  [data-analytics-actions] {
+    justify-content: end;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root:has([data-analytics-controls][data-expanded='true']) body {
+    padding-block-end: 8rem;
+  }
+
+  [data-analytics-panel] {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: var(--afo-space-6);
+    row-gap: 2px;
+    padding: 14px 16px 14px 20px;
+  }
+
+  [data-analytics-panel] > [data-analytics-title] {
+    grid-area: 1 / 1;
+  }
+
+  [data-analytics-panel] > [data-analytics-text] {
+    grid-area: 2 / 1;
+  }
+
+  [data-analytics-notice-link] {
+    grid-area: 1 / 2 / 3;
+  }
+
+  [data-analytics-actions] {
+    grid-area: 1 / 3 / 3;
+  }
+
+  [data-analytics-panel] > [data-analytics-signal] {
+    grid-area: 1 / 3 / 3;
+    max-width: 30ch;
+  }
 }
 
 /* Label above value, the same pairing the rest of Studio uses. The grid stays
@@ -1274,7 +1511,11 @@
    the row, and inline it ran straight into the name with nothing between. */
 [data-organization-site-identity],
 [data-relationship-substitution-identity],
-[data-relationship-grant-identity] {
+[data-relationship-grant-identity],
+[data-client-health-claim],
+[data-client-body-photo-identity],
+[data-client-nutrition-item],
+[data-client-nutrition-goal-targets] {
   display: grid;
   gap: var(--afo-space-1);
 }
@@ -1283,7 +1524,12 @@
    a section they had no space between them and read as one block. The button
    sizes to its label rather than stretching the width of the alert. */
 [data-site-form-refusal],
-[data-organization-form-refusal] {
+[data-organization-form-refusal],
+[data-template-create-refusal],
+[data-template-save-bar],
+[data-program-create-refusal],
+[data-program-save-bar],
+[data-version-refusal] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-5);
@@ -1292,7 +1538,8 @@
 /* Status and the way to change it share the card's action slot. They are two
    different kinds of thing, so they get space between them, and they wrap
    rather than push the card's title out of its own box on a narrow screen. */
-[data-organization-identity-action] {
+[data-organization-identity-action],
+[data-movement-badges] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -1330,13 +1577,32 @@
 }
 
 [data-organization-details-placeholder],
-[data-relationship-header-placeholder] {
+[data-relationship-header-placeholder],
+[data-client-card-header-placeholder],
+[data-client-profile-header-placeholder],
+[data-client-executions-header-placeholder],
+[data-client-progress-header-placeholder],
+[data-client-programs-header-placeholder],
+[data-client-execution-detail-header-placeholder],
+[data-client-health-header-placeholder],
+[data-client-body-header-placeholder] {
   height: 4.5rem;
   width: min(100%, 24rem);
 }
 
 [data-organization-card-placeholder],
-[data-relationship-card-placeholder] {
+[data-relationship-card-placeholder],
+[data-client-card-panel-placeholder],
+[data-client-profile-panel-placeholder],
+[data-client-executions-panel-placeholder],
+[data-client-progress-panel-placeholder],
+[data-client-programs-panel-placeholder],
+[data-client-execution-detail-panel-placeholder],
+[data-client-health-panel-placeholder],
+[data-client-body-panel-placeholder],
+[data-authorized-photo-placeholder],
+[data-client-nutrition-panel-placeholder],
+[data-client-nutrition-goals-placeholder] {
   height: 12rem;
 }
 
@@ -1369,8 +1635,10 @@
   margin-block-start: var(--afo-space-3);
 }
 
+/* Content's header carries two actions, and a shrinking box stacked them. */
 [data-organization-site-edit],
-[data-organization-edit] {
+[data-organization-edit],
+[data-page-header-actions] {
   flex: none;
 }
 
@@ -1415,6 +1683,28 @@
   text-decoration-color: currentcolor;
 }
 
+/*
+ * The hour that opens a session, in her list. Same mechanism as
+ * `data-client-reference` above and the same correct token — with no rule at
+ * all it rendered as the browser's blue underlined link, which reads as a
+ * reference to somewhere else rather than as the row opening.
+ *
+ * It keeps the row's own size and weight, because the hour is the row's title:
+ * what changes is that it is underlined, and the underline darkens when
+ * pointed at. Deliberately not folded into the `data-client-open` rule, which
+ * still carries the token that does not exist — that one is STUDIO-157.
+ */
+[data-client-execution-open] {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--afo-color-border-default);
+  text-underline-offset: 3px;
+}
+
+[data-client-execution-open]:hover {
+  text-decoration-color: currentcolor;
+}
+
 /* One link per line: on a phone the two of them in a row left the second one
    broken mid-word. */
 @media (max-width: 640px) {
@@ -1439,7 +1729,8 @@
 
 /* The person, then the facts about her. CardContent pads sideways only, so
    without this the name sat flush on the first label. */
-[data-relationship-subject] {
+[data-relationship-subject],
+[data-client-card-subject] {
   margin-block-end: var(--afo-space-4);
 }
 
@@ -1448,7 +1739,486 @@
   gap: 0;
 }
 
-[data-relationship-subheading] {
+/* A period or a movement **as a card**, for the widths where six columns do not
+   fit. Hairlines rather than boxes: the panel is already a card.
+   
+   Scoped to the card list on purpose. The same attribute is on the table row,
+   so that one selector serves both presentations in a test — and unscoped, this
+   `display: grid` landed on a `<tr>` and stacked every cell onto its own line. */
+[data-client-progress-period-cards] [data-client-progress-period],
+[data-client-progress-movement-cards] [data-client-progress-movement] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-progress-period-cards] > li:first-child [data-client-progress-period],
+[data-client-progress-movement-cards] > li:first-child [data-client-progress-movement] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-progress-movement-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-progress-period-name],
+[data-client-progress-movement-name] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A share cannot hold a name somebody typed at any length, so the longest one
+   takes a second line rather than the next column. The cell inherits
+   `nowrap` from the Design System, which is right for a figure and wrong here. */
+[data-client-progress-movement-name] {
+  white-space: normal;
+}
+
+[data-client-progress-period-name] {
+  margin: 0;
+  font-size: var(--afo-font-size-md);
+}
+
+/* The one movement whose name is hers alone reads as a description rather than
+   as a name, because that is what it is. */
+[data-client-progress-movement-name][data-unnamed] {
+  font-weight: var(--afo-font-weight-regular);
+  font-style: italic;
+  color: var(--afo-color-text-muted);
+}
+
+/* A missing figure is a sentence, not a number, so it is not read as one. */
+[data-client-progress-volume] {
+  overflow-wrap: anywhere;
+}
+
+/* One session: the hour leads, where it came from sits beside it, and the facts
+   about it step down below. Separated by hairlines rather than boxed, because a
+   card per session would make twenty-five boxes out of one list. */
+[data-client-execution],
+[data-historical-case],
+[data-historical-entry],
+[data-client-body-photo],
+[data-client-nutrition-meal],
+[data-client-nutrition-goal] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-executions-list] > li:first-child [data-client-execution],
+[data-historical-cases-list] > li:first-child [data-historical-case],
+[data-historical-entries] > li:first-child [data-historical-entry],
+[data-client-body-photo-list] > li:first-child [data-client-body-photo],
+[data-client-nutrition-meal-list] > li:first-child [data-client-nutrition-meal],
+[data-client-nutrition-goal-list] > li:first-child [data-client-nutrition-goal] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-execution-head],
+[data-historical-case-head],
+[data-historical-entry-head],
+[data-client-body-photo-head],
+[data-client-nutrition-meal-head],
+[data-client-nutrition-range-actions],
+[data-client-nutrition-goal-head],
+[data-goal-proposal-controls] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-execution-when],
+[data-historical-case-person],
+[data-historical-entry-title],
+[data-client-body-photo-title],
+[data-client-health-claim-heading],
+[data-client-health-claim-description],
+[data-client-nutrition-meal-title],
+[data-client-nutrition-meal-note],
+[data-client-nutrition-item-line],
+[data-client-nutrition-goal-title],
+[data-client-nutrition-goal-rationale] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-execution-what],
+[data-historical-case-window],
+[data-historical-entry-line],
+[data-historical-case-reason],
+[data-client-health-claim-description],
+[data-client-health-claim-meta],
+[data-client-nutrition-meal-note],
+[data-client-nutrition-goal-rationale],
+[data-client-nutrition-goal-decision],
+[data-client-nutrition-goals-none] {
+  margin: 0;
+}
+
+/* Whatever follows the list stands off it. The pager had this air and the
+   notice did not, so the warning sat flush against the last session. */
+[data-client-executions-more],
+[data-client-executions-stale-cursor],
+[data-historical-cases-more],
+[data-historical-entries-more],
+[data-historical-reading-record],
+[data-client-health-more],
+[data-client-health-more-failure],
+[data-client-body-more],
+[data-client-body-more-failure],
+[data-client-nutrition-more],
+[data-client-nutrition-more-failure],
+[data-client-nutrition-goals-more],
+[data-client-nutrition-goals-more-failure] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* One program per card, because a program is a whole object — its identity, how
+   it stands, and a calendar of its own. This is the one list on the client's
+   screens where a card per item is right rather than extravagant: the sessions
+   inside it are already a list, and hairlines between them would leave no way
+   to read where one program ends and the next begins. */
+[data-client-programs-list] {
+  display: grid;
+  gap: var(--afo-space-5);
+  min-width: 0;
+}
+
+/* A grid item never shrinks below its own content unless it is told to, and
+   the content here is a register that declares `min-width: 44rem`. Without
+   these the track grew to the table's demand, the list grew with it and the
+   whole screen — page header included — sat 372px wider than a phone, with the
+   register never finding out it did not fit. Every step from the item down to
+   the element the hook measures has to be allowed to be narrow. */
+[data-client-programs-list] > li,
+[data-client-program],
+[data-client-program-calendar] {
+  min-width: 0;
+}
+
+/* The day of a session that can be moved, which is the control that moves it.
+   No fourth column: this register is measured at eight widths, and a column
+   would widen the table it already struggles to fit.
+
+   Same treatment the executions list settled on for the row that opens, and for
+   the same reason: as the Design System's `link` it rendered accented and
+   underlined, which reads as a reference to somewhere else rather than as this
+   row's own day. It keeps the row's size and weight — in the cards the `strong`
+   around it is the card's title — and the underline darkens when pointed at.
+   The padding and height of a button are what have to go: inside a table cell
+   they pushed the row 14px taller than the ones that cannot move. */
+[data-client-session-move] {
+  /* Measured against the plain day beside it, not guessed: as the Design
+     System's `link` the control kept `inline-flex`, a 44px minimum height, a
+     transparent 1px border, a pill radius and — the part that shows — a
+     shadow. The variant asks for `shadow-none` and the base rule wins. */
+  display: inline;
+  min-height: 0;
+  height: auto;
+  padding: 0;
+  gap: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--afo-color-border-default);
+  text-underline-offset: 3px;
+}
+
+[data-client-session-move]:hover {
+  text-decoration-color: currentcolor;
+}
+
+/* Seven days wrap rather than scroll: at 390px a row of seven never fits, and a
+   sideways scroll inside a dialog is a control nobody finds. */
+[data-client-session-move-week] {
+  flex-wrap: wrap;
+}
+
+/* The way to stop the program, under the calendar it stops.
+
+   16px, which is the gap the card already puts between its facts and its
+   calendar — measured, not chosen: the block has no margin of its own and sat
+   flush against the table, so the button read as part of the last row. */
+[data-client-program-cancel] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* The title leads and the state sits beside it, wrapping under it where there
+   is no room rather than squeezing the title. */
+[data-client-program-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-program-title] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The calendar stands off the facts above it. Same air the card's doors take
+   from the facts they follow. */
+[data-client-program-calendar],
+[data-client-program-no-sessions] {
+  margin-block-start: var(--afo-space-4);
+}
+
+[data-client-program-no-sessions] {
+  margin-block-end: 0;
+  color: var(--afo-color-text-muted);
+}
+
+/* A session **as a card**, for the widths where three columns do not fit.
+   Scoped to the card list on purpose: the same attribute is on the table row,
+   so one selector serves both presentations in a test — and unscoped, this
+   `display: grid` would land on a `<tr>` and stack every cell onto its own
+   line. The progress screen learned this first. */
+[data-client-program-session-cards] {
+  display: grid;
+  gap: var(--afo-space-3);
+}
+
+[data-client-program-session-cards] [data-client-program-session] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-program-session-cards] > li:first-child [data-client-program-session] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-program-session-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-program-session-cards] [data-client-program-session-title] {
+  margin: 0;
+}
+
+/* The badge and the note read as one value, and the note drops under the badge
+   rather than widening the column that holds them. */
+[data-client-program-session-state] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-2);
+  min-width: 0;
+}
+
+[data-client-program-session-started] {
+  font-size: var(--afo-font-size-xs);
+  color: var(--afo-color-text-muted);
+}
+
+/* Whatever follows the list stands off it, pager and notice alike. */
+[data-client-programs-more],
+[data-client-programs-stale-cursor] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* One session in full: its results by family, and the notes on it. Hairlines
+   between rows rather than a card each, because a session can hold twenty. */
+[data-client-execution-result-list],
+[data-client-execution-observation-list] {
+  display: grid;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-execution-result],
+[data-client-execution-observation] {
+  display: grid;
+  gap: var(--afo-space-2);
+  min-width: 0;
+  padding-block-start: var(--afo-space-3);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-execution-result-list] > li:first-child [data-client-execution-result],
+[data-client-execution-observation-list] > li:first-child [data-client-execution-observation] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-execution-summary-head],
+[data-client-execution-result-head],
+[data-client-execution-observation-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+/* A movement name is typed by somebody, so it wraps rather than pushing the
+   badge beside it off the row. */
+[data-client-execution-result-name],
+[data-client-execution-observation-author] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-execution-result-detail],
+[data-client-execution-observation-content] {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The form that gives her a program. A grid child that holds a select and a
+   date input, so it is allowed to be narrower than its widest control. */
+[data-client-program-assignment] {
+  min-width: 0;
+}
+
+/* What came of pressing the button stands off the form it came from. */
+[data-client-program-assignment-outcome] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* The register's live region sits above the cases and is empty until a close
+   lands; only then does it take room, so the first case is not pushed down. */
+[data-historical-cases-outcome]:not(:empty) {
+  margin-block-end: var(--afo-space-4);
+}
+
+[data-client-program-assignment-loading] {
+  margin: 0;
+  color: var(--afo-color-text-muted);
+}
+
+/* One attribute: its name, then the claims in force for it. Hairlines rather
+   than boxes — the panel is already a card, and a card per attribute would make
+   eight boxes out of one list. */
+[data-client-profile-group],
+[data-client-health-section],
+[data-client-body-day],
+[data-client-nutrition-day],
+[data-client-nutrition-summary-day] {
+  display: grid;
+  gap: var(--afo-space-2);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+[data-client-profile-group]:first-child,
+[data-client-health-section]:first-child,
+[data-client-body-day]:first-child,
+[data-client-nutrition-day]:first-child,
+[data-client-nutrition-summary-day]:first-child {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+/* The doors stand off the facts they follow, the way a footer would have. */
+[data-client-card-doors] {
+  margin-block-start: var(--afo-space-4);
+}
+
+/* Drawn as the same label every other value on the product carries, so the
+   hierarchy here is the claim's value and not its name. Its own rule only
+   places the badge that explains why more than one line follows. */
+[data-client-profile-group-name],
+[data-client-health-section-name],
+[data-client-body-day-name],
+[data-client-nutrition-day-name],
+[data-client-nutrition-summary-day-name] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  margin: 0;
+}
+
+[data-client-profile-claims],
+[data-client-health-claims],
+[data-client-body-photo-list],
+[data-client-nutrition-meal-list],
+[data-client-nutrition-item-list],
+[data-client-nutrition-goal-list] {
+  display: grid;
+  gap: var(--afo-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The value leads; where it came from and since when step down beside it, and
+   wrap under it when the line runs out. */
+[data-client-profile-claim],
+[data-client-nutrition-meal-identity] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--afo-space-1) var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-profile-claim] > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-client-profile-origin],
+[data-client-profile-since],
+[data-client-profile-unreadable],
+[data-client-health-claim-meta],
+[data-client-body-photo-shared],
+[data-client-nutrition-meal-time],
+[data-client-nutrition-meal-photo],
+[data-client-nutrition-item-nutrients],
+[data-client-nutrition-range-note],
+[data-client-nutrition-summary-meals],
+[data-client-nutrition-goal-decision],
+[data-goal-proposal-unit],
+[data-goal-proposal-joiner] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-client-profile-unreadable] {
+  margin: 0;
+}
+
+/* A sentence, the date it happened, and the way back — stacked, and each as
+   wide as it needs rather than as wide as the card. */
+[data-client-card-loss] {
+  display: grid;
+  justify-items: start;
+  gap: var(--afo-space-4);
+}
+
+[data-client-card-loss-reason] {
+  margin: 0;
+}
+
+[data-relationship-subheading],
+[data-organization-closure-title] {
   margin: 0;
   font-size: var(--afo-font-size-lg);
 }
@@ -1463,25 +2233,40 @@
    `justify-items: start` porque el botón se dimensiona a su etiqueta: estirado
    de lado a lado se leería como el siguiente paso de la página en vez de como
    lo que es. */
-[data-relationship-termination] {
+[data-relationship-termination],
+[data-organization-closure] {
   display: grid;
   justify-items: start;
   gap: var(--afo-space-2);
 }
 
-[data-relationship-termination-lead] {
+[data-relationship-termination-lead],
+[data-organization-closure-lead] {
   max-width: 62ch;
   margin-block: 0;
   color: var(--afo-color-text-muted);
 }
 
-[data-relationship-termination] > [data-relationship-terminate] {
+[data-relationship-termination] > [data-relationship-terminate],
+[data-organization-closure] > [data-organization-close] {
   margin-block-start: var(--afo-space-3);
+}
+
+/* El motivo del bloqueo toma el ancho: es una alerta, no una etiqueta, y con
+   `justify-items: start` encima se encogeria a su texto y se leeria como un
+   badge en vez de como lo que impide cerrar. */
+[data-organization-closure] > [data-organization-closure-blocked] {
+  justify-self: stretch;
 }
 
 /* Lo que se conserva, lo que se deja de ver y bajo qué condición se lee: una
    sola frase dentro del diálogo, al mismo ancho que la pregunta. */
-[data-relationship-termination-kept] {
+[data-relationship-termination-kept],
+[data-organization-closure-effect],
+[data-organization-closure-kept],
+[data-organization-closure-evidence],
+[data-organization-closure-atomic],
+[data-organization-closed-kept] {
   margin-block: 0;
 }
 
@@ -1526,7 +2311,8 @@
    `[data-relationship-substitution-window]` for the sentence that states a
    cover's days, and a grid rule under that name turned the sentence into two
    columns. */
-[data-relationship-substitution-dates] {
+[data-relationship-substitution-dates],
+[data-client-nutrition-range-dates] {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--afo-space-4);
@@ -1620,14 +2406,31 @@
   color: var(--afo-color-text-primary);
 }
 
-/* The footer's privacy entry opens a panel, so it is a button set like its links.
-   The link variant leaves the browser's own button face, so it is cleared here. */
-[data-studio-footer-action] {
-  padding: 0;
-  background: none;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
+/* The Design System fills its default button with the accent gradient. The
+   landing keeps it a flat cyan, as the Space landing's buttons are. The
+   landing marks its own actions with data-studio-action, since composition CSS
+   may not select the Design System's data-slot. */
+:is([data-studio-site], :root:has([data-studio-site]) [data-analytics-controls])
+  [data-studio-action][data-variant='default'] {
+  background: var(--afo-color-action-primary);
+}
+
+:is([data-studio-site], :root:has([data-studio-site]) [data-analytics-controls])
+  [data-studio-action][data-variant='default']:hover {
+  background: var(--afo-color-action-primary-hover);
+}
+
+/* Allfit One and Allfit Space, side by side at the start of the footer bar. */
+[data-studio-footer-family] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-3);
+}
+
+/* The Design System's outline button loses its own border colour to the
+   transparent one it also carries, so the outlined Space button sets it here. */
+[data-studio-footer-family] [data-variant='outline'] {
+  border-color: var(--border);
 }
 
 /* ------------------------------------------------------------------ type */
@@ -1636,7 +2439,9 @@
   margin: 0;
   font-family: var(--afo-font-family-display);
   font-weight: 800;
-  line-height: 0.86;
+  /* Barlow's accented capitals reach 0.885em: below 0.92 the accent on Ó, É
+     or Ú touches the line above. */
+  line-height: 0.92;
   letter-spacing: -0.01em;
   text-transform: uppercase;
   text-wrap: balance;
@@ -1646,16 +2451,19 @@
   font-size: clamp(3.5rem, 11vw, 7.5rem);
 }
 
+/* Every section title stays a step below the hero's, so the page has one
+   headline. At 7.5rem two of them outsized it at 1440. */
 [data-studio-display='section'] {
-  font-size: clamp(3rem, 8.4vw, 7.5rem);
+  font-size: clamp(3rem, 6vw, 5.25rem);
 }
 
-/* Each line rises out of its own mask, as the Space titles do. */
+/* Each line rises out of its own mask, as the Space titles do. The mask reaches
+   above the line, without moving it, so the accents on capitals are never cut. */
 [data-studio-display-line] {
   display: block;
   overflow: clip;
-  padding-block-end: 0.05em;
-  margin-block-end: -0.05em;
+  padding-block: 0.1em 0.05em;
+  margin-block: -0.1em -0.05em;
 }
 
 [data-studio-display-line] > span {
@@ -1668,6 +2476,25 @@
 
 [data-studio-display-line][data-tone='accent'] {
   color: var(--afo-color-text-accent);
+}
+
+/* No word left alone on a paragraph's last line, and no heading that ends on one. */
+[data-studio-site] p {
+  text-wrap: pretty;
+}
+
+[data-studio-site] h3 {
+  text-wrap: balance;
+}
+
+[data-studio-site] ::selection {
+  background: color-mix(in srgb, var(--afo-color-action-primary) 45%, transparent);
+}
+
+/* Scrolled, the shared header is 86% white; over the dark privacy band that
+   reads as a grey slab, so the landing's header stays solid white. */
+[data-studio-header][data-scrolled='true'] {
+  background-color: var(--afo-site-surface);
 }
 
 [data-studio-lead] {
@@ -1704,8 +2531,9 @@
 /* ------------------------------------------------------------------ hero */
 
 [data-studio-hero] {
-  /* Clears the fixed header and the band the consent panel opens over. */
-  padding-block: clamp(9.5rem, 24vh, 13.5rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
+  /* Clears the fixed 5.25rem header with room to spare, and no more: the way in
+     has to stay above the consent bar at 1280x720. */
+  padding-block: clamp(7rem, 15vh, 10rem) clamp(var(--afo-space-20), 9vw, 8.5rem);
   overflow: clip;
 }
 
@@ -1717,7 +2545,7 @@
 
 [data-studio-hero-copy] {
   display: grid;
-  gap: var(--afo-space-8);
+  gap: var(--afo-space-6);
   justify-items: start;
 }
 
@@ -1741,13 +2569,26 @@
   gap: var(--afo-space-3);
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) strong {
+:is(
+    [data-studio-sheet-head],
+    [data-studio-object-person],
+    [data-studio-object-heading],
+    [data-historical-case-relationship]
+  )
+  strong {
   display: block;
   font-size: var(--afo-font-size-sm);
   font-weight: 700;
 }
 
-:is([data-studio-sheet-head], [data-studio-object-person], [data-studio-object-heading]) small {
+:is(
+    [data-studio-sheet-head],
+    [data-studio-object-person],
+    [data-studio-object-heading],
+    [data-historical-case-relationship]
+  )
+  small,
+[data-billing-amount] {
   display: block;
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-xs);
@@ -1758,11 +2599,7 @@
   padding: var(--afo-space-6);
   border: 1px solid var(--afo-color-border-subtle);
   border-radius: var(--studio-card-radius);
-  background: linear-gradient(
-    180deg,
-    var(--afo-color-background-surface-subtle) 0%,
-    var(--afo-color-background-surface) 70%
-  );
+  background: var(--afo-color-background-surface);
   box-shadow: var(--studio-object-shadow);
 }
 
@@ -1889,29 +2726,11 @@
   overflow: clip;
   border: 1px solid var(--afo-color-border-subtle);
   border-radius: var(--studio-card-radius);
-  background: linear-gradient(
-    180deg,
-    var(--afo-color-neutral-mist) 0%,
-    var(--afo-color-background-surface) 100%
-  );
-}
-
-/* The step's place in the sequence, drawn in outline like Space's ticker ghosts. */
-[data-studio-step-index] {
-  position: absolute;
-  top: var(--afo-space-5);
-  right: var(--afo-space-6);
-  color: transparent;
-  font-family: var(--afo-font-family-display);
-  font-size: 4rem;
-  font-weight: 800;
-  line-height: 1;
-  -webkit-text-stroke: 1.5px var(--afo-color-border-default);
+  background: var(--afo-color-background-surface-subtle);
 }
 
 [data-studio-step] h3 {
   margin: 0;
-  padding-inline-end: 5rem;
   font-family: var(--afo-font-family-display);
   font-size: clamp(1.875rem, 2.5vw, 2.375rem);
   font-weight: 800;
@@ -1947,14 +2766,6 @@
   border-radius: var(--studio-object-radius);
   background: var(--afo-color-background-surface);
   box-shadow: var(--studio-object-shadow);
-}
-
-[data-studio-object][data-afo-theme='dark'] {
-  background: linear-gradient(
-    180deg,
-    var(--afo-color-background-surface-subtle) 0%,
-    var(--afo-color-background-surface) 70%
-  );
 }
 
 [data-studio-object-heading] {
@@ -2184,11 +2995,6 @@
   gap: var(--afo-space-8);
 }
 
-/* Two long lines; at the section size they would break into four. */
-[data-studio-privacy-copy] [data-studio-display] {
-  font-size: clamp(3rem, 6.4vw, 6.25rem);
-}
-
 [data-studio-privacy-stage] {
   display: flex;
   justify-content: center;
@@ -2218,18 +3024,6 @@
   border-top: 1px solid var(--afo-color-border-subtle);
 }
 
-[data-studio-pillar-icon] {
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  margin-block-end: var(--afo-space-2);
-  border: 1px solid var(--afo-color-accent-tonal-border);
-  border-radius: var(--afo-radius-full);
-  background: var(--afo-color-accent-tonal);
-  color: var(--afo-color-text-accent);
-}
-
 [data-studio-pillar] h3 {
   margin: 0;
   font-size: var(--afo-font-size-xl);
@@ -2245,8 +3039,8 @@
 
 /* --------------------------------------------------------------- modules */
 
-/* A numbered ledger — the order is the order of the workspace navigation these
-   modules become — beside a drawing of that workspace, open on Personas. */
+/* A plain list, in the order of the workspace navigation these modules become,
+   beside a drawing of that workspace, open on Personas. */
 [data-studio-modules-grid] {
   display: grid;
   gap: var(--afo-space-12);
@@ -2259,41 +3053,16 @@
   padding: 0;
   border-bottom: 1px solid var(--afo-color-border-subtle);
   list-style: none;
-  counter-reset: studio-module;
 }
 
 [data-studio-module] {
   display: grid;
-  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
-  column-gap: var(--afo-space-4);
-  row-gap: var(--afo-space-1);
-  align-items: center;
+  gap: var(--afo-space-1);
   padding-block: var(--afo-space-5);
   border-top: 1px solid var(--afo-color-border-subtle);
 }
 
-[data-studio-module]::before {
-  content: counter(studio-module, decimal-leading-zero);
-  counter-increment: studio-module;
-  grid-row: 1 / 3;
-  grid-column: 1;
-  align-self: start;
-  padding-block-start: 0.2em;
-  color: var(--afo-color-text-muted);
-  font-family: var(--afo-font-family-display);
-  font-size: var(--afo-font-size-lg);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-[data-studio-module-upcoming]::before {
-  content: '+';
-  counter-increment: none;
-}
-
 [data-studio-module] h3 {
-  grid-row: 1;
-  grid-column: 2;
   margin: 0;
   font-family: var(--afo-font-family-display);
   font-size: clamp(1.75rem, 2.6vw, 2.5rem);
@@ -2302,35 +3071,12 @@
   text-transform: uppercase;
 }
 
-[data-studio-module-upcoming] h3 {
-  color: var(--afo-color-text-muted);
-}
-
 [data-studio-module] p {
-  grid-row: 2;
-  grid-column: 2;
   margin: 0;
   max-width: 44ch;
   color: var(--afo-color-text-secondary);
   font-size: var(--afo-font-size-sm);
   line-height: 1.55;
-}
-
-[data-studio-module-icon] {
-  display: grid;
-  grid-row: 1 / 3;
-  grid-column: 3;
-  place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: var(--afo-radius-full);
-  background: var(--afo-color-accent-tonal);
-  color: var(--afo-color-text-accent);
-}
-
-[data-studio-module-upcoming] [data-studio-module-icon] {
-  background: var(--afo-color-neutral-mist);
-  color: var(--afo-color-text-muted);
 }
 
 [data-studio-workspace] {
@@ -2493,10 +3239,6 @@
   gap: var(--afo-space-10);
 }
 
-[data-studio-closing] [data-studio-display] {
-  font-size: clamp(3rem, 6.4vw, 6.25rem);
-}
-
 [data-studio-closing-actions] {
   display: flex;
   flex-wrap: wrap;
@@ -2511,74 +3253,20 @@
 
 /* ---------------------------------------------------------------- motion */
 
-/* The same motion as the Space landing: the hero enters once, on load; every
-   section below reveals the first time it scrolls into view — titles rise out
-   of their masks, cards uncover from the top, the rest lifts in — and a light
-   follows the pointer over the step cards. Reveals are transitions armed by
-   `[data-motion='on']`, so without JavaScript the page is simply whole. The
-   `data-i` indices stagger siblings; inline styles are off limits here. */
-[data-studio-scroll-progress] {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 60;
-  height: 2px;
-  background: var(--afo-color-action-primary);
-  transform-origin: 0 50%;
-  transform: scaleX(var(--studio-progress, 0));
-}
-
-[data-reveal][data-i='1'] {
-  --i: 1;
-}
-
-[data-reveal][data-i='2'] {
-  --i: 2;
-}
-
-[data-reveal][data-i='3'] {
-  --i: 3;
-}
-
-[data-reveal][data-i='4'] {
-  --i: 4;
-}
-
-[data-reveal][data-i='5'] {
-  --i: 5;
-}
-
-[data-studio-step][data-spotlight] {
-  isolation: isolate;
-}
-
-[data-studio-step][data-spotlight]::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(
-    520px circle at var(--mx, 50%) var(--my, 0%),
-    color-mix(in srgb, var(--afo-color-action-primary) 14%, transparent),
-    transparent 46%
-  );
-  opacity: 0;
-  transition: opacity 0.5s var(--studio-ease);
-}
-
-[data-studio-step][data-spotlight]:hover::before {
-  opacity: 1;
-}
-
-/* One orchestrated entrance and nothing else: the hero title rises, the client's
-   sheet arrives, then what they logged fills in row by row. */
+/* The same motion as the Space landing, spent once per section. The hero enters
+   on load: its title rises, the client's sheet arrives, then what they logged
+   fills in row by row. Below it, each section title rises out of its masks the
+   first time it scrolls into view and one object follows it — the steps, the
+   sharing card, the workspace. Everything else stays still. Reveals are
+   transitions armed by `[data-motion='on']`, so without JavaScript the page is
+   simply whole. */
 @media (prefers-reduced-motion: no-preference) {
   [data-studio-site][data-motion='on'] [data-reveal] {
     opacity: 0;
     transform: translate3d(0, 36px, 0);
     transition:
-      opacity 0.9s var(--studio-ease),
-      transform 1.1s var(--studio-ease);
-    transition-delay: calc(var(--i, 0) * 90ms);
+      opacity 0.9s var(--studio-ease) 200ms,
+      transform 1.1s var(--studio-ease) 200ms;
   }
 
   [data-studio-site][data-motion='on'] [data-reveal='mask'] {
@@ -2603,8 +3291,7 @@
     opacity: 1;
     transform: none;
     clip-path: inset(18% 0 0 0 round var(--studio-card-radius));
-    transition: clip-path 1.2s var(--studio-ease);
-    transition-delay: calc(var(--i, 0) * 110ms);
+    transition: clip-path 1.2s var(--studio-ease) 200ms;
   }
 
   [data-studio-site][data-motion='on'] [data-reveal].is-in {
@@ -2623,7 +3310,7 @@
     clip-path: inset(0 0 0 0 round var(--studio-card-radius));
   }
 
-  /* The week fills in after its card has uncovered. */
+  /* The week fills in after the steps have uncovered. */
   [data-studio-site][data-motion='on'] [data-reveal='card'] [data-studio-week-fill] {
     transform: scaleY(0);
     transform-origin: 50% 100%;
@@ -2632,14 +3319,6 @@
 
   [data-studio-site][data-motion='on'] [data-reveal='card'].is-in [data-studio-week-fill] {
     transform: none;
-  }
-
-  [data-studio-step-stage] > [data-studio-object] {
-    transition: transform 0.9s var(--studio-ease);
-  }
-
-  [data-studio-step]:hover [data-studio-step-stage] > [data-studio-object] {
-    transform: translate3d(0, -4%, 0);
   }
 
   [data-studio-display='hero'] [data-studio-display-line] > span {
@@ -2663,6 +3342,10 @@
 
   [data-studio-display-line][data-line='2'] > span {
     animation-delay: 220ms;
+  }
+
+  [data-studio-display-line][data-line='3'] > span {
+    animation-delay: 330ms;
   }
 
   [data-studio-sheet-row][data-row='1']
@@ -2753,7 +3436,8 @@
   }
 
   [data-studio-display='hero'] {
-    font-size: clamp(4.5rem, 7vw, 7.25rem);
+    /* Four lines beside the sheet: still a step above the section titles. */
+    font-size: clamp(4.5rem, 6.2vw, 6.75rem);
   }
 
   [data-studio-steps] {
@@ -2764,6 +3448,13 @@
 @media (max-width: 59.99rem) {
   [data-studio-header-action] {
     display: none;
+  }
+}
+
+/* Below the button rather than beside it, the closing note centres with it. */
+@media (max-width: 39.99rem) {
+  [data-studio-closing-actions] [data-studio-note] {
+    text-align: center;
   }
 }
 
@@ -2780,4 +3471,31 @@
   [data-studio-space] {
     padding: var(--afo-space-6);
   }
+}
+
+/* A photo she shows, drawn from bytes in memory while it is open. Its own rule
+   because no other screen draws an image: never wider than a phone's column, and
+   its own height, so a portrait is not stretched into the card's width. */
+[data-authorized-photo-image] {
+  display: block;
+  max-inline-size: min(100%, 22rem);
+  block-size: auto;
+  border-radius: var(--afo-radius-md);
+}
+
+/* The days asked for. Stretched across the canvas, two dates became two fields a
+   screen wide; the cap keeps each one the size of a date. */
+[data-client-nutrition-range] {
+  max-inline-size: min(100%, 32rem);
+}
+
+/* A target is a short number beside its kind. At full width each row took three
+   lines, and the six rows ran past the dialog twice; the select keeps one width
+   so changing the kind does not move the values beside it. */
+[data-goal-proposal-mode] {
+  inline-size: 9rem;
+}
+
+[data-goal-proposal-amount] {
+  inline-size: 6rem;
 }

@@ -4,7 +4,8 @@
 -- and archiving withdraws an entry from search without breaking what already used it.
 --
 -- **Only the platform publishes.** Publishing and archiving need `curate_global_catalog`
--- with AAL2; the base role is not enough. The commands accept no scope and no owner, so
+-- with AAL2, which every admin holds through the role (ADR-046); a Backoffice session
+-- without the role is not enough. The commands accept no scope and no owner, so
 -- there is no way to push a gym's private content into the global catalogue, and
 -- archiving a private entry through these routes does not find it.
 --
@@ -24,14 +25,17 @@ values
   ('019b2000-0000-7000-8000-000000000001', 'Manager', 'Alpha'),
   ('019b2000-0000-7000-8000-000000000002', 'Manager', 'Beta'),
   ('019b2000-0000-7000-8000-000000000003', 'Curator', 'Gamma'),
-  ('019b2000-0000-7000-8000-000000000004', 'Owner', 'Delta');
+  ('019b2000-0000-7000-8000-000000000004', 'Owner', 'Delta'),
+  ('019b2000-0000-7000-8000-000000000005', 'Outsider', 'Epsilon');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
   ('019b2000-0000-7000-8000-000000000011', 'workos', 'https://issuer.test', 'alpha_cat', null),
   ('019b2000-0000-7000-8000-000000000012', 'workos', 'https://issuer.test', 'beta_cat', null),
   ('019b2000-0000-7000-8000-000000000013', 'workos', 'https://issuer.test', 'gamma_cat',
-    '019b2000-0000-7000-8000-000000000003');
+    '019b2000-0000-7000-8000-000000000003'),
+  ('019b2000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon_cat',
+    '019b2000-0000-7000-8000-000000000005');
 
 select support.bootstrap_backoffice_administrators(
   '019b2000-0000-7000-8000-000000000001', 'alpha_cat',
@@ -51,6 +55,10 @@ insert into identity.access_sessions (
   ('019b2000-0000-7000-8000-000000000023', '019b2000-0000-7000-8000-000000000013',
     'sid_gamma_cat', 'backoffice', decode(repeat('e3', 32), 'hex'), 'v1.gamma',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019b2000-0000-7000-8000-000000000025', '019b2000-0000-7000-8000-000000000015',
+    'sid_epsilon_cat', 'backoffice', decode(repeat('e5', 32), 'hex'), 'v1.epsilon',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
 select support.assign_platform_role(
@@ -61,31 +69,35 @@ select support.assign_platform_role(
 );
 
 select set_config('app.actor_kind', 'support', true),
-       set_config('app.actor_person_id', '019b2000-0000-7000-8000-000000000003', true);
+       set_config('app.actor_person_id', '019b2000-0000-7000-8000-000000000005', true);
 
 -- ---------------------------------------------------------------------------
 -- Only the platform, and only with the duty in force
 -- ---------------------------------------------------------------------------
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
   $$ select catalog.list_global_catalog(
-    '019b2000-0000-7000-8000-000000000003', '019b2000-0000-7000-8000-000000000023'
+    '019b2000-0000-7000-8000-000000000005', '019b2000-0000-7000-8000-000000000025'
   ) $$,
   '42501', null,
-  'the base role does not read the global catalogue with its drafts'
+  'a Backoffice session without the admin role does not read the global catalogue with its drafts'
 );
 
 select throws_ok(
   $$ select * from catalog.publish_discipline(
-    '019b2000-0000-7000-8000-000000000003', '019b2000-0000-7000-8000-000000000023',
+    '019b2000-0000-7000-8000-000000000005', '019b2000-0000-7000-8000-000000000025',
     'test_global_yoga', 'Yoga',
     'c0000000-0000-4000-8000-000000000001', '019b2000-0000-7000-8000-000000000601',
     decode(repeat('51', 32), 'hex')
   ) $$,
   '42501', null,
-  'the base role does not publish a discipline'
+  'a Backoffice session without the admin role does not publish a discipline'
 );
 
+select set_config('app.actor_person_id', '019b2000-0000-7000-8000-000000000003', true);
+
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019b2000-0000-7000-8000-000000000001', '019b2000-0000-7000-8000-000000000021',
   '019b2000-0000-7000-8000-000000000003', 'curate_global_catalog',

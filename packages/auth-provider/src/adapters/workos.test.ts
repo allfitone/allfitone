@@ -121,7 +121,34 @@ describe('verifyAccessToken', () => {
       subject: 'user_01ABC',
       sessionId: 'session_01XYZ',
       surface: 'studio',
+      authenticatedAt: null,
     })
+  })
+
+  test('says when the person last actively authenticated, from auth_time', async () => {
+    const token = await mintToken({
+      sub: 'user_01ABC',
+      sid: 'session_01XYZ',
+      extraClaims: { auth_time: 1_735_680_000 },
+    })
+
+    const verified = await provider.verifyAccessToken(token, 'studio')
+
+    expect(verified.authenticatedAt).toEqual(new Date(1_735_680_000_000))
+  })
+
+  test('reads a malformed auth_time as no authentication instant at all', async () => {
+    for (const authTime of ['1735680000', -5, 1.5, null]) {
+      const token = await mintToken({
+        sub: 'user_01ABC',
+        sid: 'session_01XYZ',
+        extraClaims: { auth_time: authTime },
+      })
+
+      const verified = await provider.verifyAccessToken(token, 'studio')
+
+      expect(verified.authenticatedAt).toBeNull()
+    }
   })
 
   test('never exposes authorization claims, even when the token carries them', async () => {
@@ -139,7 +166,12 @@ describe('verifyAccessToken', () => {
 
     const verified = await provider.verifyAccessToken(token, 'studio')
 
-    expect(Object.keys(verified).sort()).toEqual(['sessionId', 'subject', 'surface'])
+    expect(Object.keys(verified).sort()).toEqual([
+      'authenticatedAt',
+      'sessionId',
+      'subject',
+      'surface',
+    ])
     expect(JSON.stringify(verified)).not.toContain('admin')
     expect(JSON.stringify(verified)).not.toContain('org_01DEF')
   })
@@ -545,6 +577,30 @@ describe('revokeSessions', () => {
     expect(calls.map((c) => c.method)).toEqual(['listSessions', 'revokeSession', 'revokeSession'])
     expect(calls[1]?.args).toEqual({ sessionId: 's_1' })
     expect(calls[2]?.args).toEqual({ sessionId: 's_2' })
+  })
+
+  test('keeps the session it is told to keep, and closes the rest', async () => {
+    const { provider, calls } = providerWith()
+
+    await provider.revokeSessions('user_01FAKE', 's_1')
+
+    expect(calls.map((c) => c.method)).toEqual(['listSessions', 'revokeSession'])
+    expect(calls[1]?.args).toEqual({ sessionId: 's_2' })
+  })
+})
+
+describe('updateEmail', () => {
+  test('changes the sign-in address already verified: Allfit proved the mailbox', async () => {
+    const { provider, calls } = providerWith()
+
+    await provider.updateEmail('user_01FAKE', 'nueva@example.test')
+
+    expect(calls).toEqual([
+      {
+        method: 'updateUser',
+        args: { userId: 'user_01FAKE', email: 'nueva@example.test', emailVerified: true },
+      },
+    ])
   })
 })
 

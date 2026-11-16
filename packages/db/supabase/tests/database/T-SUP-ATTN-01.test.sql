@@ -6,8 +6,11 @@
 -- **A counter is shown only to whoever resolves it.** Each notice is gated by the
 -- duty of the screen it leads to. A notice the operator could not act on is
 -- withheld — never zero, which would say nothing is pending — and an operator whose
--- duties act on no notice is refused the panel, because the base role authorizes
--- nothing by itself.
+-- duties act on no notice is refused the panel.
+--
+-- **Since ADR-046 every admin holds every duty**, so an admin is shown every notice and
+-- no admin can be built who is withheld one. What is left to refuse is a Backoffice
+-- session without the admin role, which is refused the whole panel.
 --
 -- **Counters reveal nobody.** No name, no contact, no organization, no aggregate
 -- identifier and no payload leave through it, so reading it records no access: there
@@ -51,8 +54,8 @@ values
   ('019ae000-0000-7000-8000-000000000003', 'Support', 'Gamma', 'active', null),
   ('019ae000-0000-7000-8000-000000000004', 'Lifecycle', 'Delta', 'active', null),
   ('019ae000-0000-7000-8000-000000000005', 'Verifier', 'Epsilon', 'active', null),
-  ('019ae000-0000-7000-8000-000000000006', 'Badged', 'Zeta', 'active', null),
-  ('019ae000-0000-7000-8000-000000000007', 'Auditor', 'Eta', 'active', null),
+  ('019ae000-0000-7000-8000-000000000006', 'Outsider', 'Zeta', 'active', null),
+  ('019ae000-0000-7000-8000-000000000007', 'Former', 'Eta', 'active', null),
   ('019ae000-0000-7000-8000-000000000008', 'Secreto', 'Theta', 'active', 'secreto@example.test'),
   ('019ae000-0000-7000-8000-000000000009', 'Renueva', 'Iota', 'active', null),
   ('019ae000-0000-7000-8000-000000000010', 'Billing', 'Kappa', 'active', null);
@@ -117,14 +120,14 @@ from (values
     '019ae000-0000-7000-8000-000000000204'::uuid, '64'),
   ('019ae000-0000-7000-8000-000000000005'::uuid, '019ae000-0000-7000-8000-000000000105'::uuid,
     '019ae000-0000-7000-8000-000000000205'::uuid, '65'),
-  ('019ae000-0000-7000-8000-000000000006'::uuid, '019ae000-0000-7000-8000-000000000106'::uuid,
-    '019ae000-0000-7000-8000-000000000206'::uuid, '66'),
   ('019ae000-0000-7000-8000-000000000007'::uuid, '019ae000-0000-7000-8000-000000000107'::uuid,
     '019ae000-0000-7000-8000-000000000207'::uuid, '67'),
   ('019ae000-0000-7000-8000-000000000010'::uuid, '019ae000-0000-7000-8000-000000000110'::uuid,
     '019ae000-0000-7000-8000-000000000210'::uuid, '6a')
 ) as grant_row(person_id, key, command, hash_byte);
 
+-- Zeta keeps a Backoffice session and is never granted the role. Each grant below
+-- converges onto the duty the role already brings; they name who works which screen.
 select support.assign_platform_duty(
   '019ae000-0000-7000-8000-000000000001', '019ae000-0000-7000-8000-000000000041',
   person_id, duty_code, clock_timestamp(), clock_timestamp() + interval '30 days',
@@ -137,8 +140,6 @@ from (values
     '019ae000-0000-7000-8000-000000000114'::uuid, '019ae000-0000-7000-8000-000000000214'::uuid, '74'),
   ('019ae000-0000-7000-8000-000000000005'::uuid, 'verify_professional_credentials',
     '019ae000-0000-7000-8000-000000000115'::uuid, '019ae000-0000-7000-8000-000000000215'::uuid, '75'),
-  ('019ae000-0000-7000-8000-000000000007'::uuid, 'audit_platform_access',
-    '019ae000-0000-7000-8000-000000000117'::uuid, '019ae000-0000-7000-8000-000000000217'::uuid, '77'),
   ('019ae000-0000-7000-8000-000000000010'::uuid, 'view_billing_metadata',
     '019ae000-0000-7000-8000-000000000120'::uuid, '019ae000-0000-7000-8000-000000000220'::uuid, '7a')
 ) as duty_row(person_id, duty_code, key, command, hash_byte);
@@ -153,7 +154,16 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'the base role alone does not open the panel'
+  'a Backoffice session without the admin role does not open the panel'
+);
+
+-- Withdrawing the role takes every duty with it, and with them every notice.
+select support.revoke_platform_role(
+  '019ae000-0000-7000-8000-000000000001', '019ae000-0000-7000-8000-000000000041',
+  (select id from support.platform_role_assignments
+    where person_id = '019ae000-0000-7000-8000-000000000007' and status = 'active'),
+  '019ae000-0000-7000-8000-000000000108', '019ae000-0000-7000-8000-000000000208',
+  decode(repeat('68', 32), 'hex')
 );
 
 select throws_ok(
@@ -162,7 +172,7 @@ select throws_ok(
   ) $$,
   '42501',
   null,
-  'a duty that resolves no notice does not open the panel'
+  'nor does an administrator whose role was withdrawn'
 );
 
 select throws_ok(
@@ -457,13 +467,14 @@ select ok(
   'whoever holds the billing duty is told what needs attention about the money'
 );
 
+-- No admin is withheld a notice since ADR-046; the refusal is the panel's, above.
 select ok(
-  (select bool_and(panel->'billing'->>'availability' = 'withheld')
+  (select bool_and(panels.panel->'billing' = b.panel->'billing')
    from (
      select panel from support_after union all select panel from lifecycle_after
      union all select panel from verifier_after
-   ) as panels),
-  'and whoever does not hold it is told nothing, never zero'
+   ) as panels, billing_after as b),
+  'every other admin is told the same, because the role brings the billing duty'
 );
 
 select results_eq(
@@ -495,14 +506,11 @@ select ok(
 );
 
 select ok(
-  (select panel->'credential_verifications'->>'availability' = 'withheld'
-     and panel->'credential_verifications'->'pending_count' = 'null'::jsonb
-     and panel->'unclaimed_organizations'->>'availability' = 'withheld'
-     and panel->'unclaimed_organizations'->'count' = 'null'::jsonb
-     and panel->'repeated_failures'->>'availability' = 'withheld'
-     and panel->'repeated_failures'->'groups' = 'null'::jsonb
+  (select panel->'credential_verifications'->>'availability' = 'available'
+     and panel->'unclaimed_organizations'->>'availability' = 'available'
+     and panel->'repeated_failures'->>'availability' = 'available'
    from billing_after),
-  'the billing duty opens the panel and sees none of the notices it cannot resolve'
+  'whoever works the billing screen is shown every other notice too: an admin resolves them all'
 );
 
 -- ---------------------------------------------------------------------------
@@ -534,11 +542,10 @@ select is(
 );
 
 select ok(
-  (select bool_and(panel->'credential_verifications'->>'availability' = 'withheld'
-                   and panel->'credential_verifications'->'pending_count' = 'null'::jsonb
-                   and panel->'credential_verifications'->'renewals_due_count' = 'null'::jsonb)
-   from (select panel from support_after union all select panel from lifecycle_after) as panels),
-  'without the verification duty the count is withheld, not zero'
+  (select bool_and(panels.panel->'credential_verifications' = v.panel->'credential_verifications')
+   from (select panel from support_after union all select panel from lifecycle_after) as panels,
+     verifier_after as v),
+  'every admin reads the same credential counts, because the role brings the verification duty'
 );
 
 -- ---------------------------------------------------------------------------
@@ -569,11 +576,9 @@ select ok(
 );
 
 select ok(
-  (select panel->'unclaimed_organizations'->>'availability' = 'withheld'
-     and panel->'unclaimed_organizations'->'count' = 'null'::jsonb
-     and panel->'unclaimed_organizations'->'needs_follow_up_count' = 'null'::jsonb
-   from verifier_after),
-  'a verifier does not see the gyms, because nothing about them is theirs to resolve'
+  (select v.panel->'unclaimed_organizations' = l.panel->'unclaimed_organizations'
+   from verifier_after as v, lifecycle_after as l),
+  'and whoever works verifications sees the same gyms, because the role brings the lifecycle duty'
 );
 
 -- ---------------------------------------------------------------------------
@@ -634,11 +639,10 @@ select ok(
 );
 
 select ok(
-  (select bool_and(panel->'repeated_failures'->>'availability' = 'withheld'
-                   and panel->'repeated_failures'->'groups' = 'null'::jsonb
-                   and panel->'repeated_failures'->'open_circuits' = 'null'::jsonb)
-   from (select panel from lifecycle_after union all select panel from verifier_after) as panels),
-  'without the diagnosis duty the errors are withheld'
+  (select bool_and(panels.panel->'repeated_failures' = s.panel->'repeated_failures')
+   from (select panel from lifecycle_after union all select panel from verifier_after) as panels,
+     support_after as s),
+  'every admin reads the same repeated errors, because the role brings the diagnosis duty'
 );
 
 -- ---------------------------------------------------------------------------

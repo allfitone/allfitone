@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test'
 import {
   BREAK_GLASS_PEER_ID,
   activeSession,
-  breakGlassFile,
   createBackofficeFixture,
+  legacyPendingBreakGlass,
   mockBackofficeApi,
   openBreakGlassWindow,
 } from './backoffice-api-mock'
@@ -46,18 +46,21 @@ test('the tier is a consequence of the scope, never a field to choose', async ({
 
   await page.getByRole('checkbox', { name: 'Guía nutricional' }).click()
   await expect(
-    page.getByText(/hace falta una aprobación y la ventana dura 30 minutos/),
+    page.getByText(/Alcance estándar: la ventana se abre al pedirla y dura 60 minutos/),
   ).toBeVisible()
 
-  // Adding a stricter category makes the window stricter. That is the only way to
-  // move the tier: there is no control for it, for the approvals or for the minutes.
+  // A stricter category moves the tier, and nothing else: every window opens when asked
+  // for and lasts an hour (ADR-046). There is no control for the tier or the minutes.
   await page.getByRole('checkbox', { name: 'Contexto de salud' }).click()
-  await expect(page.getByText(/dos personas distintas y la ventana dura 15 minutos/)).toBeVisible()
+  await expect(
+    page.getByText(/Alcance restringido: la ventana se abre al pedirla y dura 60 minutos/),
+  ).toBeVisible()
+  await expect(page.locator('[data-break-glass-consequence]')).not.toContainText('aprobación')
   await expect(page.getByRole('combobox', { name: /Alcance|Aprobaciones|Duración/ })).toHaveCount(0)
   await expect(page.getByRole('textbox', { name: /Aprobaciones|Duración|Minutos/ })).toHaveCount(0)
 })
 
-test('asks for a window without naming the tier, the quorum or the duration', async ({
+test('asking opens the window at once, without naming the tier or the duration', async ({
   context,
   page,
 }) => {
@@ -73,7 +76,11 @@ test('asks for a window without naming the tier, the quorum or the duration', as
   await page.getByRole('checkbox', { name: 'Contexto de salud' }).click()
   await page.getByRole('button', { name: 'Pedir la ventana' }).click()
 
-  await expect(page.getByText(/Necesita aprobación de otra persona/)).toBeVisible()
+  await expect(page.getByText(/Ventana abierta por 60 minutos/)).toBeVisible()
+  // The requester reads at once: nobody else has to approve it first.
+  await expect(page.getByText('Ventana abierta', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Quedan (59|60) minutos de ventana/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Leer contexto de salud' })).toBeVisible()
 
   const posted = fixture.requests.filter(
     (request) =>
@@ -83,8 +90,8 @@ test('asks for a window without naming the tier, the quorum or the duration', as
   const body = posted[0]?.body as Record<string, unknown>
   expect(body.case_reference).toBe('CASE-2026-777')
   expect(body.categories).toEqual(['health_context'])
-  // The three derived facts are the server's. Sending them would be a second source
-  // of truth for how expensive an exceptional access is.
+  // The derived facts are the server's. Sending them would be a second source of
+  // truth for what an exceptional access is.
   expect(body).not.toHaveProperty('sensitivity_tier')
   expect(body).not.toHaveProperty('required_approvals')
   expect(body).not.toHaveProperty('requested_duration_minutes')
@@ -113,12 +120,15 @@ test('refuses a request with no scope instead of sending one', async ({ context,
   ).toHaveLength(0)
 })
 
-test('one approval does not open a window that needs two', async ({ context, page }) => {
+test('nobody is asked to approve a window: another admin sees it open, with nothing to decide', async ({
+  context,
+  page,
+}) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),
     breakGlass: {
       files: [
-        breakGlassFile({
+        openBreakGlassWindow(40, {
           requester_person_id: BREAK_GLASS_PEER_ID,
           categories: ['health_context'],
           case_reference: 'CASE-2026-779',
@@ -130,114 +140,35 @@ test('one approval does not open a window that needs two', async ({ context, pag
   await mockBackofficeApi(context, fixture)
 
   await page.goto(PATH)
-  await expect(page.getByText('0 de 2 aprobaciones. Faltan 2.')).toBeVisible()
 
-  // Approving needs a reason first: the approver says why.
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toBeDisabled()
-  await chooseReason(page, 'Motivo de la aprobación', 'El caso justifica leer estos datos')
-  await page.getByRole('button', { name: 'Aprobar' }).click()
-
-  await expect(page.getByText(/Falta otra persona para que la ventana se abra/)).toBeVisible()
-  // Still waiting, and no longer this operator's to decide: the second approval has
-  // to come from somebody else.
-  await expect(page.getByText('Esperando aprobación')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /Leer / })).toHaveCount(0)
-  expect(fixture.breakGlass?.files[0]?.status).toBe('requested')
-  expect(fixture.breakGlass?.files[0]?.window_ends_at).toBeNull()
-})
-
-test('a completed quorum opens the window and says how long it has left', async ({
-  context,
-  page,
-}) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    breakGlass: {
-      files: [
-        breakGlassFile({
-          requester_person_id: BREAK_GLASS_PEER_ID,
-          categories: ['nutrition_guidance'],
-          viewer_is_requester: false,
-        }),
-      ],
-    },
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto(PATH)
-  await chooseReason(page, 'Motivo de la aprobación', 'La persona pidió la ayuda que lo requiere')
-  await page.getByRole('button', { name: 'Aprobar' }).click()
-
-  await expect(page.getByText('La ventana quedó abierta.')).toBeVisible()
-  const decision = fixture.requests.find((request) => request.path.endsWith('/decisions'))
-  expect(decision?.body).toEqual({ decision: 'approved', reason_code: 'APPROVED-PERSON-ASKED' })
-  await expect(page.getByText('Ventana abierta')).toBeVisible()
-  await expect(
-    page.getByText(/Quedan \d+ minutos de ventana\. No se puede extender\./),
-  ).toBeVisible()
-  // There is no extension, so there is no button offering one.
-  await expect(page.getByRole('button', { name: /Extender|Ampliar|Renovar/ })).toHaveCount(0)
-})
-
-test('a rejection is final and offers no second chance', async ({ context, page }) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    breakGlass: {
-      files: [
-        breakGlassFile({
-          requester_person_id: BREAK_GLASS_PEER_ID,
-          viewer_is_requester: false,
-        }),
-      ],
-    },
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto(PATH)
-  await page.getByRole('button', { name: 'Rechazar' }).click()
-  const dialog = page.getByRole('alertdialog')
-  await expect(dialog.getByRole('button', { name: 'Rechazar la solicitud' })).toBeDisabled()
-  await chooseReason(page, 'Motivo del rechazo', 'Pide más categorías de las necesarias')
-  await dialog.getByRole('button', { name: 'Rechazar la solicitud' }).click()
-
-  await expect(page.getByText(/El rechazo es definitivo/)).toBeVisible()
-  const decision = fixture.requests.find((request) => request.path.endsWith('/decisions'))
-  expect(decision?.body).toEqual({ decision: 'rejected', reason_code: 'REJECTED-TOO-BROAD' })
-  await expect(page.getByText('Rechazada', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toHaveCount(0)
-})
-
-test('leaving a request waiting from the rejection dialog decides nothing', async ({
-  context,
-  page,
-}) => {
-  const fixture = createBackofficeFixture({
-    session: activeSession(),
-    breakGlass: {
-      files: [
-        breakGlassFile({
-          requester_person_id: BREAK_GLASS_PEER_ID,
-          viewer_is_requester: false,
-        }),
-      ],
-    },
-  })
-  await mockBackofficeApi(context, fixture)
-
-  await page.goto(PATH)
-  await page.getByRole('button', { name: 'Rechazar' }).click()
-
-  const dialog = page.getByRole('alertdialog')
-  // The dialog says what the rejection is before anything is sent: final.
-  await expect(dialog).toContainText('definitivo')
-  await dialog.getByRole('button', { name: 'Dejarla en espera' }).click()
-
-  await expect(dialog).toBeHidden()
-  await expect(page.getByText('Esperando aprobación')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Aprobar' })).toBeVisible()
+  await expect(page.getByText('Ventana abierta', { exact: true })).toBeVisible()
+  await expect(page.locator('[data-break-glass-file]')).toContainText('Restringido · 60 minutos')
+  for (const name of ['Aprobar', 'Rechazar', /Leer /]) {
+    await expect(page.getByRole('button', { name })).toHaveCount(0)
+  }
+  await expect(page.getByRole('combobox', { name: /Motivo/ })).toHaveCount(0)
   expect(fixture.requests.filter((request) => request.path.endsWith('/decisions'))).toHaveLength(0)
-  expect(fixture.breakGlass?.files[0]?.status).toBe('requested')
+})
+
+test('a request from before the change that never opened says so, and offers nothing', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      breakGlass: { files: [legacyPendingBreakGlass({ case_reference: 'CASE-2026-780' })] },
+    }),
+  )
+
+  await page.goto(PATH)
+
+  await expect(page.getByText('Pedida antes del cambio, sin abrir')).toBeVisible()
+  await expect(page.locator('[data-break-glass-window]')).toHaveCount(0)
+  for (const name of ['Aprobar', 'Rechazar', /Leer /, 'Cerrar la ventana']) {
+    await expect(page.getByRole('button', { name })).toHaveCount(0)
+  }
 })
 
 test('a window says how much is left and where it closes', async ({ context, page }) => {
@@ -528,6 +459,7 @@ test('an authorised read of nutrition intake shows what the person ate and what 
               nutrients: [
                 { nutrient_code: 'energy', value: 195, unit: 'kcal' },
                 { nutrient_code: 'carbohydrates', value: 42, unit: 'g' },
+                { nutrient_code: 'sodium', value: 410, unit: 'mg' },
               ],
             },
           ],
@@ -553,6 +485,9 @@ test('an authorised read of nutrition intake shows what the person ate and what 
   await expect(dinner).toContainText('Con poca sal')
   await expect(dinner).toContainText('Tiene foto; no se muestra aquí')
   await expect(meals.getByRole('img')).toHaveCount(0)
+  // HU-BO-009: beyond the summary, every nutrient it recorded, sodium included.
+  await dinner.getByText('Ver los 4 nutrientes').click()
+  await expect(dinner.locator('[data-break-glass-meal-nutrients]')).toContainText('Sodio: 410 mg')
   const region = page.getByRole('region', { name: 'Comidas de la persona' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
 
@@ -667,6 +602,16 @@ test('an authorised read of prior training shows each session and what it held',
           ],
         },
       ],
+      // HU-BO-008 c4: she hid the strength session from one gym.
+      hiddenSessions: [
+        {
+          executed_session_id: '019a8000-0000-7000-8000-000000000a01',
+          relationship_id: '019a8000-0000-7000-8000-000000000b01',
+          organization_id: '019a8000-0000-7000-8000-000000000c01',
+          organization_name: 'Gimnasio Uno',
+          hidden_at: '2026-09-16T12:00:00+00:00',
+        },
+      ],
     },
   })
   await mockBackofficeApi(context, fixture)
@@ -686,8 +631,12 @@ test('an authorised read of prior training shows each session and what it held',
   await expect(strength).toContainText('2 series · 14 repeticiones · hasta 85 kg')
   await expect(strength).toContainText('Completada · sin validar')
   await expect(strength).toContainText('Sin nivel certificado')
+  await expect(strength.locator('[data-break-glass-hidden-from]')).toHaveText(
+    'Oculta a Gimnasio Uno',
+  )
   const run = sessions.getByRole('row', { name: /Sesión de resistencia/ })
   await expect(run).toContainText('2 tramos · 2 km · 10:45')
+  await expect(run.locator('[data-break-glass-hidden-from]')).toHaveCount(0)
   const region = page.getByRole('region', { name: 'Sesiones de entrenamiento de la persona' })
   expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
 
@@ -701,6 +650,73 @@ test('an authorised read of prior training shows each session and what it held',
   await page.getByRole('alertdialog').getByRole('button', { name: 'Cerrar ahora' }).click()
   await expect(page.getByText(/Ninguna lectura entrega contenido desde ahora/)).toBeVisible()
   await expect(sessions).toHaveCount(0)
+})
+
+test('reaches the sessions older than the first page, each page a read of its own', async ({
+  context,
+  page,
+}) => {
+  // HU-BO-008: a read answers a hundred; the rest are a click away, never out of reach.
+  const trained = (id: string, name: string, startedAt: string) => ({
+    id,
+    activity_type_code: 'strength_session',
+    activity_type_name: name,
+    discipline_code: 'strength',
+    started_at: startedAt,
+    ended_at: null,
+    timezone: 'America/Bogota',
+    status: 'completed' as const,
+    validation_status: 'pending' as const,
+    requested_level: 'summary' as const,
+    achieved_level: null,
+    revision_number: 1,
+    capture_source: 'manual' as const,
+    contract: { id: '019c0000-0000-7000-8000-000000000031', version: 1 },
+    segments: [],
+    strength_sets: [],
+    endurance_laps: [],
+  })
+  const newest = trained(
+    '019a8000-0000-7000-8000-000000000a21',
+    'Sesión reciente',
+    '2026-09-15T12:00:00+00:00',
+  )
+  const oldest = trained(
+    '019a8000-0000-7000-8000-000000000a22',
+    'Sesión antigua',
+    '2025-03-01T12:00:00+00:00',
+  )
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    breakGlass: {
+      files: [openBreakGlassWindow(10, { categories: ['prior_training_history'] })],
+      sessions: [newest],
+      olderSessions: [oldest],
+    },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Leer historial previo de entrenamiento' }).click()
+
+  const sessions = page.getByRole('table', { name: 'Sesiones de entrenamiento de la persona' })
+  await expect(sessions.getByRole('row', { name: /Sesión reciente/ })).toBeVisible()
+  await expect(sessions.getByRole('row', { name: /Sesión antigua/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Ver sesiones anteriores' }).click()
+
+  await expect(sessions.getByRole('row', { name: /Sesión antigua/ })).toBeVisible()
+  await expect(sessions.getByRole('row', { name: /Sesión reciente/ })).toBeVisible()
+  // Nothing older remains, so nothing more is offered.
+  await expect(page.getByRole('button', { name: 'Ver sesiones anteriores' })).toHaveCount(0)
+
+  const reads = fixture.requests.filter((request) => request.path.endsWith('/reads'))
+  expect(reads).toHaveLength(2)
+  expect(reads[1]?.body).toEqual({
+    category: 'prior_training_history',
+    resource_type: 'execution.executed_sessions',
+    before: { started_at: newest.started_at, id: newest.id },
+  })
 })
 
 test('a session opens to each thing it recorded, and the agenda names each programme', async ({
@@ -1059,7 +1075,7 @@ test('a withdrawn duty is explained as expiry by design, not as an error', async
   await page.goto(PATH)
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test('an empty tray says what will appear rather than nothing at all', async ({
@@ -1074,17 +1090,8 @@ test('an empty tray says what will appear rather than nothing at all', async ({
   await page.goto(PATH)
 
   await expect(page.getByText('No hay expedientes')).toBeVisible()
-  await expect(page.getByText(/con su quórum, su ventana y cuántas veces se ejerció/)).toBeVisible()
+  await expect(page.getByText(/con el tiempo que les queda y cuántas veces se/)).toBeVisible()
 })
-
-async function chooseReason(
-  page: import('@playwright/test').Page,
-  label: string,
-  reason: string,
-): Promise<void> {
-  await page.getByRole('combobox', { name: label }).click()
-  await page.getByRole('option', { name: reason, exact: true }).click()
-}
 
 // The subject was typed as an identifier; the person's card now starts the request.
 test("a request started from the person's card arrives with the subject and the case", async ({

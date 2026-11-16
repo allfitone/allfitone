@@ -3,6 +3,11 @@
 /**
  * Who pays the organization, and the three things it can do about it.
  *
+ * `HU-STUDIO-078`, criterion by criterion: (1) the state column and its filter; (2) the
+ * tab only `manage_billing` sees; (3) no training data, pinned by a test on the columns;
+ * (4) the first payment and why each one was suspended need Mercado Pago, and
+ * `OrganizationSubscription` has no field for either yet.
+ *
  * Two rules worth knowing before editing.
  *
  * **Pausing is not revoking.** The command opens a reversible cause and touches no
@@ -12,8 +17,9 @@
  * does something it does not.
  *
  * **`manage_billing` or nothing.** A coach with that client assigned reads the same answer
- * as a stranger — the payment state of a person is not a training fact — so the screen is
- * closed for anybody without the capability, and PostgreSQL closes it again underneath.
+ * as a stranger — the payment state of a person is not a training fact — so the Cobros
+ * page shows this tab only to whoever holds the capability, and PostgreSQL closes it
+ * again underneath.
  *
  * The list is never held long. The catalogue says it is "nunca cacheable para decidir
  * suspensión", and the reason is concrete: suspending on a stale row is how somebody loses
@@ -51,12 +57,12 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
-import { WorkspacePageHeader } from './workspace-page-header'
 import {
   actionLabel,
   availableActions,
   canManageBilling,
   confirmationDescription,
+  confirmationDetails,
   confirmationTitle,
   formatAmount,
   formatPeriod,
@@ -172,22 +178,6 @@ export function OrganizationSubscriptions() {
     setFilter(nextFilter)
   }
 
-  if (!rolesQuery.isPending && !canManage) {
-    return (
-      <section data-billing-page aria-label="Cobros de la organización">
-        <WorkspacePageHeader description="Los cobros están disponibles para quienes administran la facturación de la organización." />
-        <Alert variant="warning">
-          <AlertTitle>No tienes acceso a los cobros</AlertTitle>
-          <AlertDescription>
-            Tu rol en {current.display_name} no incluye administrar cobros y suscripciones. Lo que
-            paga una persona no es un dato de entrenamiento, así que no se comparte con quien la
-            atiende.
-          </AlertDescription>
-        </Alert>
-      </section>
-    )
-  }
-
   const tableState = loading
     ? {
         state: 'loading' as const,
@@ -220,11 +210,7 @@ export function OrganizationSubscriptions() {
           : undefined
 
   return (
-    <section ref={measuredRef} data-billing-page aria-label="Cobros de la organización">
-      <WorkspacePageHeader
-        description={`Consulta quién paga ${current.display_name} y en qué plan está cada persona.`}
-      />
-
+    <section ref={measuredRef} data-billing-panel aria-label="Suscripciones">
       <ToggleGroup
         value={[filter]}
         onValueChange={changeFilter}
@@ -366,6 +352,9 @@ export function OrganizationSubscriptions() {
                 </DialogTitle>
                 <DialogDescription>{confirmationDescription(pending.action)}</DialogDescription>
               </DialogHeader>
+              {confirmationDetails(pending.action, pending.subscription.status).map((line) => (
+                <p key={line}>{line}</p>
+              ))}
 
               {refusal ? (
                 <Alert variant="danger" live="assertive" data-billing-error>

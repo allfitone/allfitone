@@ -137,7 +137,8 @@ describe('access log presentation rules', () => {
   })
 
   test('explains the basis for the read rather than naming the mode', () => {
-    expect(modeBasis('break_glass')).toContain('ventana excepcional aprobada por otra persona')
+    expect(modeBasis('break_glass')).toContain('otra persona la revisa después')
+    expect(modeBasis('break_glass')).not.toContain('aprobada')
     expect(modeBasis('frozen')).toContain('histórico que quedó congelado')
     expect(modeBasis('live')).toContain('permiso vigente')
     expect(modeBasis('organization_operational')).toContain('no una lectura de datos de salud')
@@ -149,7 +150,7 @@ describe('access log presentation rules', () => {
   })
 
   test('explains a refusal as an expired duty rather than a mistake', () => {
-    expect(accessLogMessage('forbidden')).toContain('vencen por diseño')
+    expect(accessLogMessage('forbidden')).toContain('llegan con el rol de administrador')
     // A rejected filter is explained by what ignoring it would have done.
     expect(accessLogMessage('invalid-request')).toContain('ampliaría la consulta')
     expect(accessLogMessage('anything-else')).toBe('No se pudo completar la consulta.')

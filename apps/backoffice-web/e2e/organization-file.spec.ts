@@ -126,7 +126,7 @@ test('an independent professional’s name and home address stay out of the file
       ...organizationFileRecord().organization,
       display_name: 'Consultorio Solo',
       type_code: 'professional_practice',
-      type_name: 'Práctica profesional',
+      type_name: 'Profesional independiente',
       party_kind: 'natural_person',
       legal_name: null,
     },
@@ -186,7 +186,7 @@ test('a withdrawn duty is explained as expiry by design', async ({ context, page
   await page.goto('/organizations/019a9100-0000-7000-8000-000000009999')
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/Los deberes vencen por diseño/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test('an unknown gym says it does not exist', async ({ context, page }) => {

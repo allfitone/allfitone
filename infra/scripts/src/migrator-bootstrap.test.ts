@@ -24,7 +24,6 @@ afterEach(() => rmSync(stubDirectory, { recursive: true, force: true }))
 const ceremony = {
   SUBJECT_A: 'user_01AAAAAAAAAAAAAAAAAAAAAAAA',
   SUBJECT_B: 'user_01BBBBBBBBBBBBBBBBBBBBBBBB',
-  DUTY_DAYS: '90',
   CEREMONY_REFERENCE: 'TECH-41',
 }
 
@@ -50,7 +49,7 @@ describe('migrate bootstrap', () => {
     const args = recorded('args')
     expect(args).toContain(`subject_a=${ceremony.SUBJECT_A}`)
     expect(args).toContain(`subject_b=${ceremony.SUBJECT_B}`)
-    expect(args).toContain('duty_days=90')
+    expect(args).not.toContain('duty_days')
     expect(args).toContain('ceremony=TECH-41')
     expect(args).toContain('ON_ERROR_STOP=1')
 
@@ -62,7 +61,7 @@ describe('migrate bootstrap', () => {
   })
 
   test('refuses to start without both administrators and a ceremony reference', () => {
-    for (const missing of ['SUBJECT_A', 'SUBJECT_B', 'CEREMONY_REFERENCE', 'DUTY_DAYS']) {
+    for (const missing of ['SUBJECT_A', 'SUBJECT_B', 'CEREMONY_REFERENCE']) {
       const input: Record<string, string> = { ...ceremony }
       delete input[missing]
       const run = bootstrap(input)
@@ -72,12 +71,12 @@ describe('migrate bootstrap', () => {
     }
   })
 
-  test('refuses a duty longer than the 90 days ADR-028 allows', () => {
-    for (const days of ['0', '91', 'ninety']) {
-      const run = bootstrap({ ...ceremony, DUTY_DAYS: days })
+  test('grants only the roles: the role brings duties with no end of their own (ADR-046)', () => {
+    // A DUTY_DAYS left in an old runbook neither bounds nor blocks the ceremony.
+    const run = bootstrap({ ...ceremony, DUTY_DAYS: '91' })
 
-      expect(run.exitCode).not.toBe(0)
-      expect(existsSync(join(stubDirectory, 'args'))).toBe(false)
-    }
+    expect(run.exitCode).toBe(0)
+    expect(recorded('args')).not.toContain('duty_days')
+    expect(recorded('stdin')).not.toContain('make_interval')
   })
 })

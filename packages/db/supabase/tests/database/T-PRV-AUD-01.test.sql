@@ -8,7 +8,8 @@
 -- window is disqualified from auditing that window, and stays a perfectly good
 -- auditor for every other one. A global exclusion would be easier to write and
 -- would quietly make the whole log unauditable for anyone who ever approved
--- anything.
+-- anything. Since ADR-046 asking opens the window and nobody approves, but the
+-- windows approved before keep their approvers, and those stay disqualified.
 --
 -- The withheld rows are counted rather than silently dropped, and the count is a
 -- second closed query instead of a column on the rows. An auditor who filters
@@ -33,7 +34,8 @@ values
   ('019a9000-0000-7000-8000-000000000004', 'Operator', 'Delta', 'active'),
   ('019a9000-0000-7000-8000-000000000005', 'Approver', 'Epsilon', 'active'),
   ('019a9000-0000-7000-8000-000000000006', 'Subject', 'Zeta', 'active'),
-  ('019a9000-0000-7000-8000-000000000007', 'Subject', 'Eta', 'active');
+  ('019a9000-0000-7000-8000-000000000007', 'Subject', 'Eta', 'active'),
+  ('019a9000-0000-7000-8000-000000000008', 'Outsider', 'Theta', 'active');
 
 insert into identity.access_accounts (id, provider, issuer, subject, person_id)
 values
@@ -44,7 +46,9 @@ values
   ('019a9000-0000-7000-8000-000000000014', 'workos', 'https://issuer.test', 'delta9',
     '019a9000-0000-7000-8000-000000000004'),
   ('019a9000-0000-7000-8000-000000000015', 'workos', 'https://issuer.test', 'epsilon9',
-    '019a9000-0000-7000-8000-000000000005');
+    '019a9000-0000-7000-8000-000000000005'),
+  ('019a9000-0000-7000-8000-000000000018', 'workos', 'https://issuer.test', 'theta9',
+    '019a9000-0000-7000-8000-000000000008');
 
 select support.bootstrap_backoffice_administrators(
   '019a9000-0000-7000-8000-000000000001', 'alpha9',
@@ -72,6 +76,10 @@ insert into identity.access_sessions (
   ('019a9000-0000-7000-8000-000000000025', '019a9000-0000-7000-8000-000000000015',
     'sid_epsilon_9', 'backoffice', decode(repeat('a5', 32), 'hex'), 'v1.epsilon',
     clock_timestamp() + interval '5 minutes', 2, 'password_totp',
+    clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours'),
+  ('019a9000-0000-7000-8000-000000000028', '019a9000-0000-7000-8000-000000000018',
+    'sid_theta_9', 'backoffice', decode(repeat('a8', 32), 'hex'), 'v1.theta',
+    clock_timestamp() + interval '5 minutes', 2, 'password_totp',
     clock_timestamp(), clock_timestamp(), clock_timestamp() + interval '8 hours');
 
 select support.assign_platform_role(
@@ -94,19 +102,21 @@ select support.assign_platform_role(
 );
 
 -- ---------------------------------------------------------------------------
--- Criterion 5 — the base role is never enough, and a duty is not a rank
+-- Criterion 5 — the log is read through the admin role, never a session without it
 -- ---------------------------------------------------------------------------
 
+-- Every admin holds every duty (ADR-046): the refusal left is a session without the role.
 select throws_ok(
-  $$ select * from privacy.list_access_events(
-    '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, null, null, 50
+  $$ select * from privacy.page_access_events(
+    '019a9000-0000-7000-8000-000000000008', '019a9000-0000-7000-8000-000000000028',
+    null, null, null, null, 50, null, null
   ) $$,
   '42501',
   null,
-  'the base role alone cannot read the access log'
+  'a Backoffice session without the admin role cannot read the access log'
 );
 
+-- Converges onto the duty the role already brings.
 select support.assign_platform_duty(
   '019a9000-0000-7000-8000-000000000001', '019a9000-0000-7000-8000-000000000021',
   '019a9000-0000-7000-8000-000000000004', 'request_break_glass',
@@ -116,13 +126,13 @@ select support.assign_platform_duty(
 );
 
 select throws_ok(
-  $$ select * from privacy.list_access_events(
-    '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000024',
-    null, null, null, null, 50
+  $$ select privacy.count_withheld_access_events(
+    '019a9000-0000-7000-8000-000000000008', '019a9000-0000-7000-8000-000000000028',
+    null, null, null, null
   ) $$,
   '42501',
   null,
-  'another effective duty does not stand in for the audit duty'
+  'nor count what the log withholds'
 );
 
 select support.assign_platform_duty(
@@ -169,9 +179,9 @@ insert into privacy.access_events (
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, null, null, 50
+    null, null, null, null, 50, null, null
   )),
   2,
   'the auditor reads the log'
@@ -183,9 +193,9 @@ select ok(
      and row.resource = 'support.person_operational_state'
      and row.result = 'allowed'
      and row.occurred_at is not null
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     '019a9000-0000-7000-8000-000000000004', null, null, null, 50
+     '019a9000-0000-7000-8000-000000000004', null, null, null, 50, null, null
    ) as row),
   'each row says who accessed, what resource, about whom and when'
 );
@@ -200,11 +210,19 @@ select is(
   (select pg_get_function_result(p.oid)
    from pg_proc as p
    join pg_namespace as n on n.oid = p.pronamespace
-   where n.nspname = 'privacy' and p.proname = 'list_access_events'),
-  'TABLE(actor_person_id uuid, subject_person_id uuid, resource text, resource_id uuid,'
+   where n.nspname = 'privacy' and p.proname = 'page_access_events'),
+  'TABLE(access_event_id uuid, actor_person_id uuid, subject_person_id uuid, resource text,'
+    || ' resource_id uuid,'
     || ' purpose text, result text, scope_code text, scope_version integer,'
     || ' access_mode privacy.access_mode, occurred_at timestamp with time zone)',
   'the projection carries the record of the access and nothing that was read'
+);
+
+-- The unpaged read the API stopped calling in `20261104100400` is gone, so no second
+-- door to the log stays open beside the one that is maintained.
+select hasnt_function(
+  'privacy', 'list_access_events',
+  'the old unpaged read of the log no longer exists'
 );
 
 -- ---------------------------------------------------------------------------
@@ -212,46 +230,46 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    '019a9000-0000-7000-8000-000000000005', null, null, null, 50
+    '019a9000-0000-7000-8000-000000000005', null, null, null, 50, null, null
   )),
   1,
   'filtering by team member narrows the log'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, '019a9000-0000-7000-8000-000000000006', null, null, 50
+    null, '019a9000-0000-7000-8000-000000000006', null, null, 50, null, null
   )),
   1,
   'filtering by affected person narrows the log'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, clock_timestamp() - interval '2 hours', null, 50
+    null, null, clock_timestamp() - interval '2 hours', null, 50, null, null
   )),
   1,
   'filtering by date narrows the log'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
     '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000007',
-    null, null, 50
+    null, null, 50, null, null
   )),
   0,
   'the filters combine rather than widening each other'
 );
 
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
     '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-    null, null, null, null, 1
+    null, null, null, null, 1, null, null
   )),
   1,
   'the page size is the caller-supplied limit, applied in the database'
@@ -272,7 +290,7 @@ select support.assign_platform_duty(
 select set_config('app.actor_kind', 'support', true),
        set_config('app.actor_person_id', '019a9000-0000-7000-8000-000000000003', true);
 
--- Case A: the auditor is the requester, and the approver approved it.
+-- Case A: the auditor is the requester, and asking opened it (ADR-046 decision 2).
 create temp table audit_cases on commit drop as
 select (opened.result->>'id')::uuid as own_case
 from support.request_break_glass(
@@ -283,37 +301,42 @@ from support.request_break_glass(
   decode(repeat('71', 32), 'hex')
 ) as opened;
 
-select support.decide_break_glass(
-  '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-  (select own_case from audit_cases), 'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111402', '019a9000-0000-7000-8000-000000000302',
-  decode(repeat('72', 32), 'hex')
-);
 select support.exercise_break_glass(
   '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
   (select own_case from audit_cases), 'relationship_training',
   'execution.executed_sessions', null
 );
 
--- Case B: somebody else's, which the auditor never touched.
+-- Case B: somebody else's, which the auditor never touched. Epsilon approved it before
+-- ADR-046, so it is written as it was then: standard, one approval, thirty minutes.
 select set_config('app.actor_person_id', '019a9000-0000-7000-8000-000000000004', true);
 
-create temp table other_cases on commit drop as
-select (opened.result->>'id')::uuid as other_case
-from support.request_break_glass(
-  '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000024',
+insert into support.break_glass_requests (
+  requester_person_id, requester_duty_assignment_id, subject_person_id, categories,
+  purpose, case_reference, sensitivity_tier, required_approvals,
+  requested_duration_minutes, requested_at, request_expires_at, status,
+  window_starts_at, window_ends_at
+) select '019a9000-0000-7000-8000-000000000004', id,
   '019a9000-0000-7000-8000-000000000007', array['relationship_training'],
-  'security_investigation', 'CASE-2026-B01',
-  '11111111-1111-4111-8111-111111111403', '019a9000-0000-7000-8000-000000000303',
-  decode(repeat('73', 32), 'hex')
-) as opened;
+  'security_investigation', 'CASE-2026-B01', 'standard', 1, 30, now(),
+  now() + interval '30 minutes', 'approved', now(), now() + interval '30 minutes'
+from support.platform_duty_assignments
+where person_id = '019a9000-0000-7000-8000-000000000004'
+  and duty_code = 'request_break_glass' and status = 'active'
+limit 1;
 
-select support.decide_break_glass(
-  '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-  (select other_case from other_cases), 'approved', 'REASON-OK',
-  '11111111-1111-4111-8111-111111111404', '019a9000-0000-7000-8000-000000000304',
-  decode(repeat('74', 32), 'hex')
-);
+create temp table other_cases on commit drop as
+select id as other_case from support.break_glass_requests
+where case_reference = 'CASE-2026-B01';
+
+insert into support.break_glass_approvals (
+  request_id, approver_person_id, approver_duty_assignment_id, decision, reason_code
+) select (select other_case from other_cases), duty.person_id, duty.id, 'approved', 'REASON-OK'
+from support.platform_duty_assignments as duty
+where duty.person_id = '019a9000-0000-7000-8000-000000000005'
+  and duty.duty_code = 'approve_break_glass' and duty.status = 'active'
+limit 1;
+
 select support.exercise_break_glass(
   '019a9000-0000-7000-8000-000000000004', '019a9000-0000-7000-8000-000000000024',
   (select other_case from other_cases), 'relationship_training',
@@ -322,9 +345,9 @@ select support.exercise_break_glass(
 
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
    where row.access_mode = 'break_glass'),
   1,
@@ -333,9 +356,9 @@ select is(
 
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
    where row.actor_person_id = '019a9000-0000-7000-8000-000000000003'),
   0,
@@ -354,9 +377,9 @@ select is(
 -- The case that matters most: filtered down to only their own window, the list is
 -- empty. Without the count they would read that as "nobody touched this person".
 select is(
-  (select count(*)::integer from privacy.list_access_events(
+  (select count(*)::integer from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-     '019a9000-0000-7000-8000-000000000003', null, null, null, 50
+     '019a9000-0000-7000-8000-000000000003', null, null, null, 50, null, null
    ))
     + privacy.count_withheld_access_events(
       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
@@ -369,44 +392,28 @@ select is(
 -- The approver is disqualified from the case they approved, and only that one.
 select is(
   (select count(*)::integer
-   from privacy.list_access_events(
+   from privacy.page_access_events(
      '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-     null, null, null, null, 50
+     null, null, null, null, 50, null, null
    ) as row
-   where row.access_mode = 'break_glass'),
+   where row.access_mode = 'break_glass'
+     and row.actor_person_id = '019a9000-0000-7000-8000-000000000004'),
   0,
-  'whoever approved a window cannot audit it either'
+  'whoever approved a window before ADR-046 cannot audit it either'
 );
 
--- The paged read (HU-BO-030) is the read the API serves now. It must withhold exactly
--- what the list withholds, so it is compared row for row for both disqualified auditors.
-select results_eq(
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.page_access_events(
-       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-       null, null, null, null, 200, null, null
-     ) $$,
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.list_access_events(
-       '019a9000-0000-7000-8000-000000000003', '019a9000-0000-7000-8000-000000000023',
-       null, null, null, null, 200
-     ) $$,
-  'the paged log withholds the requester''s own window exactly as the list does'
+select is(
+  (select count(*)::integer
+   from privacy.page_access_events(
+     '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
+     null, null, null, null, 50, null, null
+   ) as row
+   where row.access_mode = 'break_glass'
+     and row.actor_person_id = '019a9000-0000-7000-8000-000000000003'),
+  1,
+  'and stays an auditor of the window nobody approved'
 );
 
-select results_eq(
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.page_access_events(
-       '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-       null, null, null, null, 200, null, null
-     ) $$,
-  $$ select actor_person_id, subject_person_id, resource, occurred_at
-     from privacy.list_access_events(
-       '019a9000-0000-7000-8000-000000000005', '019a9000-0000-7000-8000-000000000025',
-       null, null, null, null, 200
-     ) $$,
-  'and the approver''s, row for row'
-);
 
 -- ---------------------------------------------------------------------------
 -- Criterion 4 — the log cannot be edited or deleted, by anyone
@@ -435,7 +442,7 @@ select throws_ok(
 select ok(
   has_function_privilege(
     'allfit_api',
-    'privacy.list_access_events(uuid,uuid,uuid,uuid,timestamptz,timestamptz,integer)',
+    'privacy.page_access_events(uuid,uuid,uuid,uuid,timestamptz,timestamptz,integer,timestamptz,uuid)',
     'EXECUTE'
   )
     and has_function_privilege(

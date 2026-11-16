@@ -69,10 +69,9 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeStructuredData(structuredData(lang)) }}
         />
-        <a className="skip" href="#contenido">
+        <a className="skip" href="#content">
           {copy.nav.skip}
         </a>
-        <div className="progress" aria-hidden="true" />
         {children}
         <Motion />
       </body>

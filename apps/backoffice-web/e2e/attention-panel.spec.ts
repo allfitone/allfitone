@@ -196,7 +196,7 @@ test('nothing pending is said plainly rather than left as an empty board', async
   await expect(page.getByText('Pendiente', { exact: true })).toHaveCount(0)
 })
 
-test('an operator whose duties resolve no notice is told the base role grants nothing', async ({
+test('an operator refused every notice is told the duties come with the admin role', async ({
   context,
   page,
 }) => {
@@ -211,7 +211,7 @@ test('an operator whose duties resolve no notice is told the base role grants no
   await page.goto('/panel')
 
   await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
-  await expect(page.getByText(/no basta por sí solo/)).toBeVisible()
+  await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
 test('the Backoffice starts on the panel', async ({ context, page }) => {

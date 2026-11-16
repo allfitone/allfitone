@@ -50,7 +50,6 @@ import { ApiError } from '../../src/client'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import { goalsFor } from '../../src/client/discipline-form'
-import type { TrainingDiscipline } from '../../src/client/onboarding'
 import {
   bodyVariant,
   canSubmitGoal,
@@ -61,81 +60,13 @@ import {
 } from '../../src/client/goal-form'
 import { GoalRow, GoalStage } from '../../src/components/goal-stage'
 
-import loseWeightMaleBefore from '../../assets/images/goal/goal-lose-weight-male-before.webp'
-import loseWeightMaleAfter from '../../assets/images/goal/goal-lose-weight-male-after.webp'
-import loseWeightFemaleBefore from '../../assets/images/goal/goal-lose-weight-female-before.webp'
-import loseWeightFemaleAfter from '../../assets/images/goal/goal-lose-weight-female-after.webp'
-import buildMuscleMaleBefore from '../../assets/images/goal/goal-build-muscle-male-before.webp'
-import buildMuscleMaleAfter from '../../assets/images/goal/goal-build-muscle-male-after.webp'
-import buildMuscleFemaleBefore from '../../assets/images/goal/goal-build-muscle-female-before.webp'
-import buildMuscleFemaleAfter from '../../assets/images/goal/goal-build-muscle-female-after.webp'
-import getFitMaleBefore from '../../assets/images/goal/goal-get-fit-male-before.webp'
-import getFitMaleAfter from '../../assets/images/goal/goal-get-fit-male-after.webp'
-import getFitFemaleBefore from '../../assets/images/goal/goal-get-fit-female-before.webp'
-import getFitFemaleAfter from '../../assets/images/goal/goal-get-fit-female-after.webp'
-import runARaceMaleBefore from '../../assets/images/goal/goal-run-a-race-male-before.webp'
-import runARaceMaleAfter from '../../assets/images/goal/goal-run-a-race-male-after.webp'
-import runARaceFemaleBefore from '../../assets/images/goal/goal-run-a-race-female-before.webp'
-import runARaceFemaleAfter from '../../assets/images/goal/goal-run-a-race-female-after.webp'
-import maintainMaleSingle from '../../assets/images/goal/goal-maintain-male-single.webp'
-import maintainFemaleSingle from '../../assets/images/goal/goal-maintain-female-single.webp'
+import { GOAL_ARTWORK as GOALS } from '../../src/components/goal-artwork'
 
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
 
 const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tu respuesta.'
 const UNREACHABLE = 'No pudimos guardar tu respuesta. Inténtalo otra vez.'
-
-/**
- * Copy and artwork per goal. The icon names come from the design system, whose
- * catalogue owns what an icon means; the app never decides that.
- */
-const GOALS: Record<
-  TrainingGoal,
-  {
-    name: string
-    why: string
-    icon: 'weight' | 'training' | 'activity' | 'race' | 'heart'
-    male: { before: number; after: number | null }
-    female: { before: number; after: number | null }
-  }
-> = {
-  lose_weight: {
-    name: 'Bajar de peso',
-    why: 'Reduce grasa corporal y mejora tu composición.',
-    icon: 'weight',
-    male: { before: loseWeightMaleBefore, after: loseWeightMaleAfter },
-    female: { before: loseWeightFemaleBefore, after: loseWeightFemaleAfter },
-  },
-  build_muscle: {
-    name: 'Construir músculo',
-    why: 'Aumenta tu masa muscular y tu fuerza.',
-    icon: 'training',
-    male: { before: buildMuscleMaleBefore, after: buildMuscleMaleAfter },
-    female: { before: buildMuscleFemaleBefore, after: buildMuscleFemaleAfter },
-  },
-  get_fit: {
-    name: 'Ponerme en forma',
-    why: 'Mejora tu condición física y energía diaria.',
-    icon: 'activity',
-    male: { before: getFitMaleBefore, after: getFitMaleAfter },
-    female: { before: getFitFemaleBefore, after: getFitFemaleAfter },
-  },
-  run_a_race: {
-    name: 'Correr una carrera',
-    why: 'Prepárate para completar tu próxima carrera.',
-    icon: 'race',
-    male: { before: runARaceMaleBefore, after: runARaceMaleAfter },
-    female: { before: runARaceFemaleBefore, after: runARaceFemaleAfter },
-  },
-  maintain: {
-    name: 'Mantenerme',
-    why: 'Mantén tu estado actual y hábitos saludables.',
-    icon: 'heart',
-    male: { before: maintainMaleSingle, after: null },
-    female: { before: maintainFemaleSingle, after: null },
-  },
-}
 
 export default function OnboardingTrainingGoal() {
   const router = useRouter()
@@ -144,7 +75,6 @@ export default function OnboardingTrainingGoal() {
 
   const [rowWidth, setRowWidth] = useState(0)
   const [goal, setGoal] = useState<TrainingGoal | undefined>(undefined)
-  const [discipline, setDiscipline] = useState<TrainingDiscipline | null>(null)
   const [declaredSex, setDeclaredSex] = useState<'male' | 'female' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
@@ -152,9 +82,8 @@ export default function OnboardingTrainingGoal() {
   const reduceMotion = useReducedMotion()
   const [entering, setEntering] = useState(false)
 
-  // The discipline decides which goals exist here — with strength there is no point
-  // offering a race — and that is why it is asked one step earlier.
-  const offered = useMemo(() => goalsFor(discipline, TRAINING_GOALS), [discipline])
+  // Strength's goals: nobody is asked for a discipline, and strength does not chase a race.
+  const offered = useMemo(() => goalsFor(TRAINING_GOALS), [])
 
   /**
    * Las figuras de todos los objetivos que se ofrecen, para que el escenario las tenga
@@ -199,7 +128,6 @@ export default function OnboardingTrainingGoal() {
           return
         }
         setDeclaredSex(current.answers.biological_sex.value ?? null)
-        setDiscipline(current.answers.training_discipline.value ?? null)
         const declared = current.answers.primary_training_goal.value
         if (declared) setGoal(declared)
 

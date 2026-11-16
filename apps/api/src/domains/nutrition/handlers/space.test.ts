@@ -77,7 +77,12 @@ function harness(overrides: Partial<SpaceNutritionService> = {}, actorFails = fa
     '/space/v1',
     spaceNutritionRoutes(
       service,
-      async () => ({ subject: 'sub', sessionId: 'sid', surface: 'space' as const }),
+      async () => ({
+        subject: 'sub',
+        sessionId: 'sid',
+        surface: 'space' as const,
+        authenticatedAt: null,
+      }),
       actors,
     ),
   )

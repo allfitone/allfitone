@@ -5,7 +5,7 @@ import { BusinessPanel } from '@/components/business-panel'
 import { OperatorPanel } from '@/components/operator-panel'
 
 export const metadata: Metadata = {
-  title: 'Inicio · Allfit Backoffice',
+  title: 'Inicio | Allfit Backoffice',
 }
 
 /**

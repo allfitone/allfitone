@@ -42,8 +42,27 @@
  * find-in-page and leave it to be matched by anything querying the document
  * rather than the accessibility tree.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
+
+/**
+ * Before the browser paints, so the first decision lands in the frame the
+ * register first draws in.
+ *
+ * It matters for a register that mounts with its table already in the tree —
+ * one inside a panel that is itself only rendered once the data arrived. There
+ * the observers below never fire for the first decision: nothing resized and
+ * nothing was added, the table was simply there from the first commit. A
+ * passive effect would decide after that frame had painted, and a table
+ * demanding 44rem would flash inside a 316px container on a phone. The register
+ * sweep caught exactly that, at a different width on every run.
+ *
+ * `useLayoutEffect` is the one hook React warns about on the server, where it
+ * cannot run. There is nothing to run there either — the node arrives through a
+ * callback ref, which is a client-side event — so on the server this is the
+ * passive one and the warning never comes up.
+ */
+const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
 /**
  * How much wider than the width that failed the register has to be before the
@@ -62,7 +81,7 @@ export function useCompactTable<T extends HTMLElement = HTMLElement>(): {
 
   const measuredRef = useCallback((next: T | null) => setNode(next), [])
 
-  useEffect(() => {
+  useBeforePaint(() => {
     if (!node) return
 
     let sizes: ResizeObserver | null = null
