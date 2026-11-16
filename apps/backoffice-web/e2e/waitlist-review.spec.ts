@@ -280,6 +280,9 @@ test('each sign-up says whether it already has its account', async ({ context, p
   await expect(page.getByRole('columnheader', { name: 'Con cuenta' })).toBeVisible()
   await expect(row(page, 'Bruno Díaz').locator('[data-waitlist-account]')).toHaveText('No')
   await expect(row(page, 'Elena Mora').locator('[data-waitlist-account]')).toHaveText('Sí')
+  await expect(
+    page.locator('[data-waitlist-figure="with_account"] [data-waitlist-value]'),
+  ).toHaveText('1')
 })
 
 test('marking fraud says what it will do, asks for the reason and reads the list again', async ({

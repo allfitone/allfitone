@@ -211,7 +211,7 @@ export function waitlistAnswer(shown: number, hasMore: boolean, filters: Waitlis
 }
 
 export interface TotalFigure {
-  key: 'signups' | 'confirmed' | 'founding_members' | 'marked_as_fraud'
+  key: 'signups' | 'confirmed' | 'with_account' | 'founding_members' | 'marked_as_fraud'
   label: string
   value: string
   note: string
@@ -240,6 +240,12 @@ export function totalFigures(totals: WaitlistTotals): TotalFigure[] {
       note: confirmedShare
         ? `${confirmedShare} de los inscritos.`
         : 'Nadie se ha inscrito todavía.',
+    },
+    {
+      key: 'with_account',
+      label: 'Con cuenta',
+      value: String(totals.with_account),
+      note: 'Ya crearon su cuenta de Allfit Space.',
     },
     {
       key: 'founding_members',

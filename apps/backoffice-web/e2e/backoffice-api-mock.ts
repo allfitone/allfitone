@@ -3039,6 +3039,7 @@ async function routeWaitlist(
       confirmed: all.filter((row) => row.confirmed_at !== null).length,
       founding_members: all.filter((row) => row.founding_number !== null).length,
       marked_as_fraud: all.filter((row) => row.discard_reason === 'fraud').length,
+      with_account: all.filter((row) => row.has_space_account).length,
       channels: [...channels.entries()]
         .map(([key, counted]) => ({ channel: JSON.parse(key) as unknown, ...counted }))
         .sort((left, right) => right.signups - left.signups),
