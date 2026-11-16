@@ -37,6 +37,10 @@ import {
   createClientInvitationDeliveryDatabase,
 } from './client-invitations.js'
 import {
+  createWaitlistAccountLinkBatchProcessor,
+  createWaitlistAccountLinkDatabase,
+} from './waitlist-account-links.js'
+import {
   createWaitlistEmailBatchProcessor,
   createWaitlistEmailDeliveryDatabase,
 } from './waitlist-emails.js'
@@ -463,6 +467,11 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     database: createWaitlistTeamNoticeDatabase(sql),
     channel: foundersChannelFromEnvironment(process.env),
   })
+  // Sends nothing to anybody, so no switch: it only joins a sign-up to its account.
+  const waitlistAccountLinks = createWaitlistAccountLinkBatchProcessor({
+    queue,
+    database: createWaitlistAccountLinkDatabase(sql),
+  })
   cachedProcessors = {
     // One delivery job for every kind: the same switch and the same expiry, which the
     // team batch already runs for every pending invitation whatever it proposes.
@@ -491,6 +500,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         await subscriptionNotices(),
         await emailChanges(),
         await passwordChanges(),
+        // First: a link may confirm a sign-up, and the emails below then go out now.
+        await waitlistAccountLinks(),
         await waitlistEmails(),
         await waitlistFoundingEmails(),
         await waitlistTeamNotices(),
