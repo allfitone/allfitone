@@ -6136,6 +6136,8 @@ export interface components {
       status: 'joined'
       referral_code: string
       referrals: number
+      /** @description The referrals among them that the rewards count: an account created after the launch and three workouts or meals in its first 14 days. Zero for everybody before the launch. */
+      active_referrals: number
     }
     WaitlistSignupAlreadyListed: {
       /** @constant */
@@ -6162,6 +6164,8 @@ export interface components {
       referral_code: string
       /** @description Sign-ups that joined with the code, confirmed and count. */
       referrals: number
+      /** @description The referrals among them that the rewards count: an account created after the launch and three workouts or meals in its first 14 days. Zero for everybody before the launch. */
+      active_referrals: number
       /** @enum {string} */
       language: 'es' | 'en'
       /** @description Whether this sign-up confirmed its own email. */
