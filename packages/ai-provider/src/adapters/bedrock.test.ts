@@ -58,6 +58,21 @@ const answered =
       metrics: { latencyMs: 12 },
     })
 
+/** A model that calls the tool with `input`, as Converse reports it. */
+const called =
+  (input: unknown, stopReason = 'tool_use') =>
+  () =>
+    Response.json({
+      output: {
+        message: {
+          role: 'assistant',
+          content: [{ toolUse: { toolUseId: 'tooluse_1', name: 'answer', input } }],
+        },
+      },
+      stopReason,
+      usage: { inputTokens: 20, outputTokens: 8, totalTokens: 28 },
+    })
+
 const failed = (status: number, type: string) => () =>
   Response.json(
     { message: 'no' },
@@ -183,5 +198,47 @@ describe('the Bedrock model (ADR-045)', () => {
 
     expect(await outcome(model.answer(asking(optional(12))))).toBe('answered')
     expect(bedrock.received).toHaveLength(1)
+  })
+
+  test('T-AIP-UNIT-12 a model without structured output is asked through one tool it must call', async () => {
+    const asTool = (endpoint: string) =>
+      createBedrockModel({
+        region: 'us-east-1',
+        endpoint,
+        credentials: { accessKeyId: 'AKIAEXAMPLE', secretAccessKey: 'secret' },
+        shape: 'tool',
+      })
+
+    let bedrock = fakeBedrock(called({ dish: 'ajiaco', grams: 350 }))
+    expect(await asTool(bedrock.endpoint).answer(request())).toEqual({
+      value: { dish: 'ajiaco', grams: 350 },
+      usage: { inputTokens: 20, outputTokens: 8 },
+    })
+    const [call] = bedrock.received
+    expect(call?.body.outputConfig).toBeUndefined()
+    expect(call?.body.toolConfig).toMatchObject({
+      tools: [
+        {
+          toolSpec: {
+            name: 'answer',
+            inputSchema: {
+              json: { type: 'object', required: ['dish'], additionalProperties: false },
+            },
+          },
+        },
+      ],
+      toolChoice: { tool: { name: 'answer' } },
+    })
+    await server?.stop(true)
+
+    for (const reply of [
+      called({ plate: 'ajiaco' }),
+      called({ dish: 'aji' }, 'max_tokens'),
+      answered('ajiaco'),
+    ]) {
+      bedrock = fakeBedrock(reply)
+      expect(await outcome(asTool(bedrock.endpoint).answer(request()))).toBe('invalid-answer')
+      await server?.stop(true)
+    }
   })
 })

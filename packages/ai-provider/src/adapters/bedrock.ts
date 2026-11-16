@@ -14,6 +14,9 @@
  *   here and `rejected` before anything is sent, as is a schema JSON Schema cannot say.
  * - **A schema Bedrock has not seen is compiled first**, which can take 90 seconds, and
  *   then kept for 24 hours. A task's deadline has to allow for that first request.
+ * - **Not every model has structured output.** Amazon Nova refuses it, so `shape: 'tool'`
+ *   asks for the same schema as the input of one tool the model must call. Nothing holds
+ *   the model to it there but the check made here, and the limits above do not apply.
  * - **Errors** are sorted by what Bedrock says: no access, an invalid request or no such
  *   model is `rejected`; throttling, a busy or failing model and a deadline are
  *   `unavailable`.
@@ -38,6 +41,8 @@ import {
   ResourceNotFoundException,
   ValidationException,
   type ContentBlock,
+  type ConverseCommandInput,
+  type ToolInputSchema,
 } from '@aws-sdk/client-bedrock-runtime'
 import { NodeHttpHandler } from '@smithy/node-http-handler'
 import { z } from 'zod'
@@ -54,6 +59,8 @@ export interface BedrockSettings {
     { readonly accessKeyId: string; readonly secretAccessKey: string } | undefined
   /** Converse needs a ceiling; an answer that reaches it is cut, and so not an answer. */
   readonly maxOutputTokens?: number | undefined
+  /** How the schema is asked: Bedrock's structured output (the default), or one tool. */
+  readonly shape?: 'output' | 'tool' | undefined
 }
 
 const CONNECT_TIMEOUT_MS = 3_000
@@ -69,11 +76,12 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
     maxAttempts: ATTEMPTS,
     requestHandler: new NodeHttpHandler({ connectionTimeout: CONNECT_TIMEOUT_MS }),
   })
+  const asTool = settings.shape === 'tool'
   return {
     async answer(request) {
-      const schema = jsonSchema(request.schema)
+      const schema = jsonSchema(request.schema, !asTool)
       const deadline = AbortSignal.timeout(request.timeoutMs)
-      let text: string
+      let raw: unknown
       let usage: Usage | null
       try {
         const response = await client.send(
@@ -81,35 +89,62 @@ export function createBedrockModel(settings: BedrockSettings): LanguageModel {
             modelId: request.model,
             messages: [{ role: 'user', content: request.parts.map(content) }],
             inferenceConfig: { maxTokens: settings.maxOutputTokens ?? MAX_OUTPUT_TOKENS },
-            outputConfig: {
-              textFormat: {
-                type: 'json_schema',
-                structure: { jsonSchema: { name: 'answer', schema } },
-              },
-            },
+            ...(asTool ? throughTool(schema) : throughOutput(schema)),
           }),
           { abortSignal: request.signal ? AbortSignal.any([request.signal, deadline]) : deadline },
         )
-        if (response.stopReason !== 'end_turn') {
+        if (response.stopReason !== (asTool ? 'tool_use' : 'end_turn')) {
           throw new ModelError('invalid-answer', `stopped: ${String(response.stopReason)}`)
         }
-        text = (response.output?.message?.content ?? []).map((block) => block.text ?? '').join('')
+        const blocks = response.output?.message?.content ?? []
+        raw = asTool
+          ? blocks.find((block) => block.toolUse)?.toolUse?.input
+          : parsed(blocks.map((block) => block.text ?? '').join(''))
         const { inputTokens, outputTokens } = response.usage ?? {}
         const counted = inputTokens !== undefined && outputTokens !== undefined
         usage = counted ? { inputTokens, outputTokens } : null
       } catch (cause) {
         throw cause instanceof ModelError ? cause : failed(cause)
       }
-      let raw: unknown
-      try {
-        raw = JSON.parse(text)
-      } catch {
-        throw new ModelError('invalid-answer', 'the answer was not JSON')
-      }
-      const parsed = request.schema.safeParse(raw)
-      if (!parsed.success) throw new ModelError('invalid-answer', shapeReason(parsed.error))
-      return { value: parsed.data, usage }
+      const checked = request.schema.safeParse(raw)
+      if (!checked.success) throw new ModelError('invalid-answer', shapeReason(checked.error))
+      return { value: checked.data, usage }
     },
+  }
+}
+
+const ANSWER = 'answer'
+
+function throughOutput(schema: string): Pick<ConverseCommandInput, 'outputConfig'> {
+  return {
+    outputConfig: {
+      textFormat: { type: 'json_schema', structure: { jsonSchema: { name: ANSWER, schema } } },
+    },
+  }
+}
+
+function throughTool(schema: string): Pick<ConverseCommandInput, 'toolConfig'> {
+  return {
+    toolConfig: {
+      tools: [
+        {
+          toolSpec: {
+            name: ANSWER,
+            description: 'Gives the answer in the shape asked for.',
+            inputSchema: { json: JSON.parse(schema) as ToolInputSchema.JsonMember['json'] },
+          },
+        },
+      ],
+      toolChoice: { tool: { name: ANSWER } },
+    },
+  }
+}
+
+function parsed(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new ModelError('invalid-answer', 'the answer was not JSON')
   }
 }
 
@@ -120,7 +155,7 @@ function content(part: Part): ContentBlock {
 }
 
 /** The schema as Bedrock reads it: JSON Schema 2020-12, without the `$schema` marker. */
-function jsonSchema(schema: z.ZodType): string {
+function jsonSchema(schema: z.ZodType, structuredOutput: boolean): string {
   let written: Record<string, unknown>
   try {
     written = z.toJSONSchema(schema)
@@ -131,7 +166,7 @@ function jsonSchema(schema: z.ZodType): string {
     )
   }
   const { $schema: _marker, ...rest } = written
-  const optional = optionalIn(rest)
+  const optional = structuredOutput ? optionalIn(rest) : 0
   if (optional > MAX_OPTIONAL) {
     throw new ModelError(
       'rejected',

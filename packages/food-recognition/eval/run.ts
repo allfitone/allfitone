@@ -6,7 +6,8 @@
  *
  * Run: `bun run eval [model …]` (the pinned model by default). A Gateway slug such as
  * `google/gemini-3.5-flash-lite` needs `AI_GATEWAY_API_KEY`; `bedrock:<model id>` asks
- * Amazon Bedrock with the local AWS credentials, in `AWS_REGION` or `us-east-1` (ADR-045).
+ * Amazon Bedrock with the local AWS credentials, in `AWS_REGION` or `us-east-1` (ADR-045),
+ * and `bedrock-tool:<model id>` asks a model without structured output, such as Nova.
  * Passing on Bedrock is a measurement, not a switch: production changes only with its own
  * consent version and decision.
  *
@@ -46,11 +47,12 @@ interface Asked {
 
 /** The port and the exact id each argument names: Bedrock by prefix, the Gateway otherwise. */
 function modelFor(name: string): Asked {
-  if (name.startsWith('bedrock:')) {
+  const bedrock = /^bedrock(-tool)?:(.+)$/.exec(name)
+  if (bedrock) {
     const region = process.env.AWS_REGION?.trim() || 'us-east-1'
     return {
-      port: createBedrockModel({ region }),
-      id: name.slice('bedrock:'.length),
+      port: createBedrockModel({ region, shape: bedrock[1] ? 'tool' : 'output' }),
+      id: bedrock[2] ?? '',
       timeoutMs: 150_000,
       atOnce: 3,
     }
