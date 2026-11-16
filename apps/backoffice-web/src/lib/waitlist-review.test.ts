@@ -218,6 +218,15 @@ describe('what marking fraud does, said before it is done', () => {
     ])
   })
 
+  test('a Founding Member with an account loses a number nobody inherits', () => {
+    expect(fraudConsequences(signup({ has_space_account: true }))[1]).toBe(
+      'Pierde el número 2 de Founding Member. Ya tiene cuenta, así que nadie lo hereda: el número queda sin dueño.',
+    )
+    expect(fraudOutcomeMessage(signup({ has_space_account: true }))).toBe(
+      'La inscripción de Bruno Díaz quedó marcada como fraude. Perdió el número 2 de Founding Member, que queda sin dueño. Ya no suma como referido de Ana Ruiz.',
+    )
+  })
+
   test('a sign-up nobody invited and without a number only loses the chance of one', () => {
     expect(fraudConsequences(signup({ invited_by: null, founding_number: null }))).toEqual([
       'No recibirá un número de Founding Member.',
@@ -257,9 +266,26 @@ describe('what taking a mark back does, said before it is done', () => {
         reason: 'Correos en serie desde un mismo equipo',
         marked_at: '2026-11-14T16:00:00.000Z',
         previous_discard_reason: null,
+        withheld_founding_number: null,
       },
       ...overrides,
     })
+
+  test('a number the mark withheld is the one that comes back', () => {
+    const consequences = withdrawalConsequences(
+      marked({
+        has_space_account: true,
+        fraud: {
+          reason: 'Cuentas en serie desde un mismo equipo',
+          marked_at: '2026-11-14T16:00:00.000Z',
+          previous_discard_reason: null,
+          withheld_founding_number: 2,
+        },
+      }),
+    )
+    expect(consequences[1]).toBe('Recupera el número 2 de Founding Member, que nadie más tomó.')
+    expect(consequences.join(' ')).not.toContain('fila')
+  })
 
   test('a confirmed referral counts again and waits in line for a number', () => {
     expect(withdrawalConsequences(marked())).toEqual([
@@ -276,6 +302,7 @@ describe('what taking a mark back does, said before it is done', () => {
           reason: 'Mismo equipo que otra inscripción',
           marked_at: '2026-11-14T16:00:00.000Z',
           previous_discard_reason: 'same_device',
+          withheld_founding_number: null,
         },
       }),
     )
