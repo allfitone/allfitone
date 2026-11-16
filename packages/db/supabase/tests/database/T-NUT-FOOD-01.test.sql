@@ -9,7 +9,7 @@
 -- Escritas antes de las funciones y vistas fallar.
 begin;
 
-select plan(22);
+select plan(23);
 
 insert into identity.people (id, given_name, family_name, status)
 values ('019f1300-0000-7000-8000-000000000001', 'Quien', 'Come', 'active'),
@@ -109,6 +109,12 @@ select is(
   (nutrition.accept_recognition_consent('019f1300-0000-7000-8000-000000000001', '2026-10-04',
      'f6111111-1111-4111-8111-111111111402', '019f1300-0000-7000-8000-000000000402', decode(repeat('42', 32), 'hex'))->>'accepted_version'),
   '2026-10-04', 'T-NUT-CONSENT-04 accepting again with the same key answers the same, once');
+
+-- Another vendor is another text (ADR-045): the one that names Anthropic on Amazon Bedrock.
+select is(
+  (nutrition.accept_recognition_consent('019f1300-0000-7000-8000-000000000001', '2026-11-15',
+     'f6111111-1111-4111-8111-111111111408', '019f1300-0000-7000-8000-000000000408', decode(repeat('48', 32), 'hex'))->>'accepted_version'),
+  '2026-11-15', 'T-NUT-CONSENT-07 the text for another vendor is accepted, and is then the one kept');
 
 -- ———————————————————————————————— de dónde sale cada ítem (ADR-041 §6)
 
