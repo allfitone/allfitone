@@ -513,19 +513,36 @@ export function createIdentityOnboardingDatabase(): IdentityOnboardingDatabase {
     async activatePerson(input) {
       return sql.begin(async (transaction) => {
         await setAccountActor(transaction, input.accountId)
-        const [row] = await transaction<{ person_id: string }[]>`
-          select identity.activate_person(
-            ${input.accountId}::uuid,
-            ${input.attemptId}::uuid,
-            ${input.givenName},
-            ${input.familyName},
-            ${input.termsAccepted},
-            ${input.privacyNoticeAccepted},
-            ${input.idempotencyKey}::uuid,
-            ${input.commandId}::uuid,
-            ${input.requestHash}
-          ) as person_id
-        `
+        // The store is an argument only when there is one: without it the call is
+        // the one a database that has not run the store's migration still answers.
+        const [row] = input.store
+          ? await transaction<{ person_id: string }[]>`
+              select identity.activate_person(
+                ${input.accountId}::uuid,
+                ${input.attemptId}::uuid,
+                ${input.givenName},
+                ${input.familyName},
+                ${input.termsAccepted},
+                ${input.privacyNoticeAccepted},
+                ${input.idempotencyKey}::uuid,
+                ${input.commandId}::uuid,
+                ${input.requestHash},
+                ${input.store}
+              ) as person_id
+            `
+          : await transaction<{ person_id: string }[]>`
+              select identity.activate_person(
+                ${input.accountId}::uuid,
+                ${input.attemptId}::uuid,
+                ${input.givenName},
+                ${input.familyName},
+                ${input.termsAccepted},
+                ${input.privacyNoticeAccepted},
+                ${input.idempotencyKey}::uuid,
+                ${input.commandId}::uuid,
+                ${input.requestHash}
+              ) as person_id
+            `
         if (!row) throw new Error('PostgreSQL did not activate the person')
         return row.person_id
       })

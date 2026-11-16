@@ -152,17 +152,20 @@ describe('the totals', () => {
       confirmed: 180,
       founding_members: 100,
       marked_as_fraud: 3,
+      with_account: 60,
       channels: [],
     })
 
     expect(figures.map((figure) => [figure.label, figure.value])).toEqual([
       ['Inscritos', '240'],
       ['Confirmaron su correo', '180'],
+      ['Con cuenta', '60'],
       ['Founding Members', '100 de 100'],
       ['Marcadas como fraude', '3'],
     ])
     expect(figures[1]?.note).toBe('75 % de los inscritos.')
-    expect(figures[2]?.note).toBe('Los cien números están tomados.')
+    expect(figures[2]?.note).toBe('Ya crearon su cuenta de Allfit Space.')
+    expect(figures[3]?.note).toBe('Los cien números están tomados.')
   })
 
   test('the numbers still free are said, and an empty list divides nothing', () => {
@@ -171,19 +174,21 @@ describe('the totals', () => {
       confirmed: 0,
       founding_members: 0,
       marked_as_fraud: 0,
+      with_account: 0,
       channels: [],
     })
     expect(empty[1]?.note).toBe('Nadie se ha inscrito todavía.')
-    expect(empty[2]?.note).toBe('Quedan 100 números libres.')
+    expect(empty[3]?.note).toBe('Quedan 100 números libres.')
 
     const one = totalFigures({
       signups: 120,
       confirmed: 110,
       founding_members: 99,
       marked_as_fraud: 0,
+      with_account: 0,
       channels: [],
     })
-    expect(one[2]?.note).toBe('Queda 1 número libre.')
+    expect(one[3]?.note).toBe('Queda 1 número libre.')
     expect(shareLabel(1, 0)).toBeUndefined()
     expect(shareLabel(1, 3)).toBe('33 %')
   })

@@ -282,9 +282,14 @@ export interface IdentityOnboardingDatabase {
       familyName: string
       termsAccepted: boolean
       privacyNoticeAccepted: boolean
+      /** The store of the phone the onboarding was completed on, when the app says. */
+      store?: ActivationStore
     },
   ): Promise<string>
 }
+
+export const ACTIVATION_STORES = ['app_store', 'google_play'] as const
+export type ActivationStore = (typeof ACTIVATION_STORES)[number]
 
 export interface CommandContext {
   idempotencyKey: string

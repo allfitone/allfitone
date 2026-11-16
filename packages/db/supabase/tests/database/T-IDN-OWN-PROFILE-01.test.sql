@@ -199,6 +199,7 @@ select is(
     'family_name', 'Rojas',
     'username', 'camilarojas',
     'active_since', '2026-07-03T10:05:00+00:00',
+    'founding_member_number', null,
     'email', jsonb_build_object('address', 'camila@example.test', 'verified', true,
       'pending', null),
     'phone', jsonb_build_object('number', '+573105550142', 'verified', false),

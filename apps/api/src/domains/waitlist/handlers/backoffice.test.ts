@@ -78,6 +78,7 @@ const totals: AllfitV1Schemas['BackofficeWaitlistTotals'] = {
   confirmed: 4,
   founding_members: 4,
   marked_as_fraud: 0,
+  with_account: 2,
   channels: [
     { channel: { kind: 'referral', source: null }, signups: 3, confirmed: 1 },
     { channel: { kind: 'direct', source: null }, signups: 2, confirmed: 2 },

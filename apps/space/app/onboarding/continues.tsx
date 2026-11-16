@@ -41,7 +41,7 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { Image, StyleSheet, useWindowDimensions, View } from 'react-native'
+import { Image, Platform, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { OnboardingBack } from '../../src/components/onboarding-header'
@@ -52,6 +52,7 @@ import { lastRevisitableStep, TODAY } from '../../src/client/onboarding-steps'
 import {
   canActivate,
   completionFor,
+  storeOf,
   welcomeVariant,
   type DeclaredIdentity,
 } from '../../src/client/welcome-form'
@@ -132,7 +133,7 @@ export default function OnboardingContinues() {
     setActivating(true)
     setFailure(undefined)
     try {
-      await flow.activate(completionFor(identity))
+      await flow.activate(completionFor(identity, storeOf(Platform.OS)))
       setActivated(true)
       // An invitation waiting on her address is shown once, before Hoy (INV-3).
       const pending = await invitations.listMine().catch(() => [])
