@@ -11826,6 +11826,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         description:
           "Only on `plan-limit-reached`: the function of the plan catalogue that the person's plan does not open or whose limit was reached (DT-018).",
       },
+      renews_at: {
+        type: 'string',
+        format: 'date-time',
+        description:
+          "Only on `rate-limited` from the assistant: when the person's ceiling of the week renews, the next Monday at midnight in her zone.",
+      },
       current_state: {
         description: 'Current server draft returned only for stale-draft conflicts.',
         oneOf: [
@@ -21419,6 +21425,126 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       utm_campaign: {
         type: 'string',
         maxLength: 64,
+      },
+    },
+  },
+  WeeklySummary: {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+      'week_starts_on',
+      'overview',
+      'training',
+      'nutrition',
+      'changes',
+      'sources',
+      'model',
+      'generated_at',
+    ],
+    properties: {
+      week_starts_on: {
+        type: 'string',
+        format: 'date',
+      },
+      overview: {
+        type: 'string',
+        minLength: 1,
+        maxLength: 400,
+      },
+      training: {
+        type: ['string', 'null'],
+        maxLength: 900,
+        description: 'Null when she logged no session that week.',
+      },
+      nutrition: {
+        type: ['string', 'null'],
+        maxLength: 900,
+        description: 'Null when she logged no meal that week.',
+      },
+      changes: {
+        type: ['string', 'null'],
+        maxLength: 900,
+        description: 'Against the week before; null when that week has nothing to compare.',
+      },
+      sources: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 3,
+        uniqueItems: true,
+        description: 'Which of her data the summary was written from.',
+        items: {
+          type: 'string',
+          enum: ['training', 'nutrition', 'nutrition_goal'],
+        },
+      },
+      model: {
+        type: 'string',
+        minLength: 3,
+        maxLength: 200,
+        description: 'The exact model that wrote it, with its route (ADR-018).',
+      },
+      generated_at: {
+        type: 'string',
+        format: 'date-time',
+      },
+    },
+  },
+  WeeklySummaryAnswer: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['outcome', 'summary'],
+    properties: {
+      outcome: {
+        type: 'string',
+        enum: ['summarized', 'nothing-logged'],
+      },
+      summary: {
+        description: 'Null exactly when the week has nothing logged.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/WeeklySummary',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  WeeklySummaryPage: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['data', 'page'],
+    properties: {
+      data: {
+        type: 'array',
+        maxItems: 50,
+        items: {
+          $ref: '#/components/schemas/WeeklySummary',
+        },
+      },
+      page: {
+        $ref: '#/components/schemas/Page',
+      },
+    },
+  },
+  WeeklySummaryRequest: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['week_starts_on', 'timezone', 'language'],
+    properties: {
+      week_starts_on: {
+        type: 'string',
+        format: 'date',
+        description: 'The Monday of the week, in `timezone`: the current week or the one before.',
+      },
+      timezone: {
+        $ref: '#/components/schemas/IanaTimeZone',
+      },
+      language: {
+        type: 'string',
+        enum: ['es', 'en'],
+        description: 'The language the summary is written in.',
       },
     },
   },

@@ -75,7 +75,7 @@ const code = async (response: Response) =>
   ((await response.json()) as { type: string }).type.split('/').at(-1)
 
 describe('the Space intelligence surface honours the contract', () => {
-  test('T-ITL-API-01 declares the consent operations, each once', () => {
+  test('T-ITL-API-01 declares the consent and the summary operations, each once', () => {
     const declared = allfitV1ContractManifest.operations
       .filter((operation) => operation.path.startsWith('/space/v1/intelligence'))
       .map((operation) => `${operation.allfitOperation} ${operation.method} ${operation.path}`)
@@ -83,6 +83,9 @@ describe('the Space intelligence surface honours the contract', () => {
       'OP-ITL-001 PUT /space/v1/intelligence/consent',
       'OP-ITL-002 POST /space/v1/intelligence/consent/withdrawal',
       'OP-ITL-003 GET /space/v1/intelligence/consent',
+      'OP-ITL-004 POST /space/v1/intelligence/weekly-summaries',
+      'OP-ITL-005 GET /space/v1/intelligence/weekly-summaries',
+      'OP-ITL-006 DELETE /space/v1/intelligence/weekly-summaries/{weekStartsOn}',
     ])
   })
 

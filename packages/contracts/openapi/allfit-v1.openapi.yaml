@@ -12365,6 +12365,166 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /space/v1/intelligence/weekly-summaries:
+    get:
+      tags: [Space Intelligence]
+      operationId: listWeeklySummaries
+      x-allfit-operation: OP-ITL-005
+      x-allfit-cache: private, no-store
+      summary: List the person's weekly summaries, the latest week first
+      description: >-
+        HU-SP-127. One summary is kept for each week she asked about (ADR-053,
+        decision 8). They stay hers without Pro and without the consent: neither
+        is asked for here. No organisation and no professional reads them.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: cursor
+          in: query
+          required: false
+          description: The `next_cursor` from a previous page. Opaque.
+          schema:
+            type: string
+            minLength: 16
+            maxLength: 1024
+      responses:
+        '200':
+          description: A page of her summaries, the latest week first
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySummaryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    post:
+      tags: [Space Intelligence]
+      operationId: requestWeeklySummary
+      x-allfit-operation: OP-ITL-004
+      x-allfit-cache: no-store
+      summary: Ask for the summary of a week of training and nutrition
+      description: >-
+        HU-SP-126. The week runs from Monday to Sunday in the zone the device names,
+        and is the current one or the one before; any other date is 422. Asking again
+        replaces the summary of that week.
+
+
+        Everything that can refuse does so before anything of hers is read, and
+        nothing is sent to a model. Without Pro: 403 `plan-limit-reached` with
+        `feature` `weekly_summary`. Without the consent in force: 403
+        `consent-required`. Over the ceiling of her week: 429 `rate-limited` with
+        `renews_at`.
+
+
+        A week with nothing logged answers 200 with `outcome` `nothing-logged` and no
+        summary, and no model is asked. When the model does not answer, or its answer
+        is not one a person may be shown, the answer is 503 and nothing is kept: no
+        text is made up in its place, and the try does not count toward the ceiling.
+
+
+        A model answers in seconds, not milliseconds. The same request sent again
+        while it is asked is 409 `idempotency-in-progress`; sent again afterwards it
+        answers what it answered, and 410 if she deleted that summary since. Trying
+        again after a failure is a new command, with a new `Idempotency-Key` and
+        `Command-Id`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeeklySummaryRequest'
+      responses:
+        '200':
+          description: The summary of the week, or that the week has nothing logged
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySummaryAnswer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/WeeklySummaryForbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/CommandEffectDisposed'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/WeeklySummaryCeilingReached'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
+  /space/v1/intelligence/weekly-summaries/{weekStartsOn}:
+    delete:
+      tags: [Space Intelligence]
+      operationId: deleteWeeklySummary
+      x-allfit-operation: OP-ITL-006
+      x-allfit-cache: no-store
+      summary: Delete the summary of one week
+      description: >-
+        HU-SP-127. Only the summary goes: no session and no meal is touched, and the
+        record that a model was asked stays. Deleting is never limited by a plan or
+        by the consent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekStartsOn
+          in: path
+          required: true
+          description: The Monday the week starts on.
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      responses:
+        '204':
+          description: The summary is gone
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /space/v1/nutrition/daily-summaries:
     get:
       tags: [Space Nutrition]
@@ -16688,6 +16848,53 @@ components:
               - code: required
                 path: /strength_sets/0/achieved_reps
                 message: The detailed contract requires achieved repetitions.
+    WeeklySummaryForbidden:
+      description: The person may not ask for a summary; nothing of hers was read
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            planLimitReached:
+              summary: The weekly summary comes with Pro
+              value:
+                type: https://errors.allfit.invalid/plan-limit-reached
+                title: The plan does not include this function
+                status: 403
+                feature: weekly_summary
+                request_id: 01JEXAMPLE0000000000000000
+            consentRequired:
+              summary: She does not hold the AI consent in force
+              value:
+                type: https://errors.allfit.invalid/consent-required
+                title: Consent is required first
+                status: 403
+                request_id: 01JEXAMPLE0000000000000000
+            registrationIncomplete:
+              summary: The account has not finished registering
+              value:
+                type: https://errors.allfit.invalid/registration-incomplete
+                title: Registration is incomplete
+                status: 403
+                request_id: 01JEXAMPLE0000000000000000
+    WeeklySummaryCeilingReached:
+      description: The person reached the ceiling of her week; nothing of hers was read
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://errors.allfit.invalid/rate-limited
+            title: Too many requests
+            status: 429
+            renews_at: '2026-11-23T05:00:00Z'
+            request_id: 01JEXAMPLE0000000000000000
     CommandEffectDisposed:
       description: The command already ran but its effect was disposed
       headers:
@@ -28287,6 +28494,93 @@ components:
           type: string
           pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
 
+    WeeklySummaryRequest:
+      type: object
+      additionalProperties: false
+      required: [week_starts_on, timezone, language]
+      properties:
+        week_starts_on:
+          type: string
+          format: date
+          description: >-
+            The Monday of the week, in `timezone`: the current week or the one before.
+        timezone:
+          $ref: '#/components/schemas/IanaTimeZone'
+        language:
+          type: string
+          enum: [es, en]
+          description: The language the summary is written in.
+
+    WeeklySummary:
+      type: object
+      additionalProperties: false
+      required:
+        [week_starts_on, overview, training, nutrition, changes, sources, model, generated_at]
+      properties:
+        week_starts_on:
+          type: string
+          format: date
+        overview:
+          type: string
+          minLength: 1
+          maxLength: 400
+        training:
+          type: [string, 'null']
+          maxLength: 900
+          description: Null when she logged no session that week.
+        nutrition:
+          type: [string, 'null']
+          maxLength: 900
+          description: Null when she logged no meal that week.
+        changes:
+          type: [string, 'null']
+          maxLength: 900
+          description: Against the week before; null when that week has nothing to compare.
+        sources:
+          type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          description: Which of her data the summary was written from.
+          items:
+            type: string
+            enum: [training, nutrition, nutrition_goal]
+        model:
+          type: string
+          minLength: 3
+          maxLength: 200
+          description: The exact model that wrote it, with its route (ADR-018).
+        generated_at:
+          type: string
+          format: date-time
+
+    WeeklySummaryAnswer:
+      type: object
+      additionalProperties: false
+      required: [outcome, summary]
+      properties:
+        outcome:
+          type: string
+          enum: [summarized, nothing-logged]
+        summary:
+          description: Null exactly when the week has nothing logged.
+          oneOf:
+            - $ref: '#/components/schemas/WeeklySummary'
+            - type: 'null'
+
+    WeeklySummaryPage:
+      type: object
+      additionalProperties: false
+      required: [data, page]
+      properties:
+        data:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/WeeklySummary'
+        page:
+          $ref: '#/components/schemas/Page'
+
     NutritionMealPage:
       type: object
       additionalProperties: false
@@ -29727,6 +30021,12 @@ components:
           description: >-
             Only on `plan-limit-reached`: the function of the plan catalogue that the
             person's plan does not open or whose limit was reached (DT-018).
+        renews_at:
+          type: string
+          format: date-time
+          description: >-
+            Only on `rate-limited` from the assistant: when the person's ceiling of
+            the week renews, the next Monday at midnight in her zone.
         current_state:
           description: Current server draft returned only for stale-draft conflicts.
           oneOf:

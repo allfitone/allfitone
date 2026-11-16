@@ -4888,6 +4888,56 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/space/v1/intelligence/weekly-summaries': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List the person's weekly summaries, the latest week first
+     * @description HU-SP-127. One summary is kept for each week she asked about (ADR-053, decision 8). They stay hers without Pro and without the consent: neither is asked for here. No organisation and no professional reads them.
+     */
+    get: operations['listWeeklySummaries']
+    put?: never
+    /**
+     * Ask for the summary of a week of training and nutrition
+     * @description HU-SP-126. The week runs from Monday to Sunday in the zone the device names, and is the current one or the one before; any other date is 422. Asking again replaces the summary of that week.
+     *
+     *     Everything that can refuse does so before anything of hers is read, and nothing is sent to a model. Without Pro: 403 `plan-limit-reached` with `feature` `weekly_summary`. Without the consent in force: 403 `consent-required`. Over the ceiling of her week: 429 `rate-limited` with `renews_at`.
+     *
+     *     A week with nothing logged answers 200 with `outcome` `nothing-logged` and no summary, and no model is asked. When the model does not answer, or its answer is not one a person may be shown, the answer is 503 and nothing is kept: no text is made up in its place, and the try does not count toward the ceiling.
+     *
+     *     A model answers in seconds, not milliseconds. The same request sent again while it is asked is 409 `idempotency-in-progress`; sent again afterwards it answers what it answered, and 410 if she deleted that summary since. Trying again after a failure is a new command, with a new `Idempotency-Key` and `Command-Id`.
+     */
+    post: operations['requestWeeklySummary']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/space/v1/intelligence/weekly-summaries/{weekStartsOn}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete the summary of one week
+     * @description HU-SP-127. Only the summary goes: no session and no meal is touched, and the record that a model was asked stays. Deleting is never limited by a plan or by the consent.
+     */
+    delete: operations['deleteWeeklySummary']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/space/v1/nutrition/daily-summaries': {
     parameters: {
       query?: never
@@ -11571,6 +11621,46 @@ export interface components {
     IntelligenceConsentGive: {
       version: string
     }
+    WeeklySummaryRequest: {
+      /**
+       * Format: date
+       * @description The Monday of the week, in `timezone`: the current week or the one before.
+       */
+      week_starts_on: string
+      timezone: components['schemas']['IanaTimeZone']
+      /**
+       * @description The language the summary is written in.
+       * @enum {string}
+       */
+      language: 'es' | 'en'
+    }
+    WeeklySummary: {
+      /** Format: date */
+      week_starts_on: string
+      overview: string
+      /** @description Null when she logged no session that week. */
+      training: string | null
+      /** @description Null when she logged no meal that week. */
+      nutrition: string | null
+      /** @description Against the week before; null when that week has nothing to compare. */
+      changes: string | null
+      /** @description Which of her data the summary was written from. */
+      sources: ('training' | 'nutrition' | 'nutrition_goal')[]
+      /** @description The exact model that wrote it, with its route (ADR-018). */
+      model: string
+      /** Format: date-time */
+      generated_at: string
+    }
+    WeeklySummaryAnswer: {
+      /** @enum {string} */
+      outcome: 'summarized' | 'nothing-logged'
+      /** @description Null exactly when the week has nothing logged. */
+      summary: components['schemas']['WeeklySummary'] | null
+    }
+    WeeklySummaryPage: {
+      data: components['schemas']['WeeklySummary'][]
+      page: components['schemas']['Page']
+    }
     NutritionMealPage: {
       data: components['schemas']['NutritionMeal'][]
       page: components['schemas']['Page']
@@ -12329,6 +12419,11 @@ export interface components {
       errors?: components['schemas']['ValidationIssue'][]
       /** @description Only on `plan-limit-reached`: the function of the plan catalogue that the person's plan does not open or whose limit was reached (DT-018). */
       feature?: string
+      /**
+       * Format: date-time
+       * @description Only on `rate-limited` from the assistant: when the person's ceiling of the week renews, the next Monday at midnight in her zone.
+       */
+      renews_at?: string
       /** @description Current server draft returned only for stale-draft conflicts. */
       current_state?:
         | components['schemas']['SessionTemplateDraft']
@@ -13828,6 +13923,35 @@ export interface components {
          *           "message": "The detailed contract requires achieved repetitions."
          *         }
          *       ]
+         *     }
+         */
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
+    /** @description The person may not ask for a summary; nothing of hers was read */
+    WeeklySummaryForbidden: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        [name: string]: unknown
+      }
+      content: {
+        'application/problem+json': components['schemas']['Problem']
+      }
+    }
+    /** @description The person reached the ceiling of her week; nothing of hers was read */
+    WeeklySummaryCeilingReached: {
+      headers: {
+        'Cache-Control': components['headers']['NoStore']
+        [name: string]: unknown
+      }
+      content: {
+        /**
+         * @example {
+         *       "type": "https://errors.allfit.invalid/rate-limited",
+         *       "title": "Too many requests",
+         *       "status": 429,
+         *       "renews_at": "2026-11-23T05:00:00Z",
+         *       "request_id": "01JEXAMPLE0000000000000000"
          *     }
          */
         'application/problem+json': components['schemas']['Problem']
@@ -22846,6 +22970,107 @@ export interface operations {
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
+      409: components['responses']['Conflict']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  listWeeklySummaries: {
+    parameters: {
+      query?: {
+        limit?: number
+        /** @description The `next_cursor` from a previous page. Opaque. */
+        cursor?: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description A page of her summaries, the latest week first */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WeeklySummaryPage']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  requestWeeklySummary: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WeeklySummaryRequest']
+      }
+    }
+    responses: {
+      /** @description The summary of the week, or that the week has nothing logged */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WeeklySummaryAnswer']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['WeeklySummaryForbidden']
+      409: components['responses']['Conflict']
+      410: components['responses']['CommandEffectDisposed']
+      415: components['responses']['UnsupportedMediaType']
+      422: components['responses']['ValidationFailed']
+      429: components['responses']['WeeklySummaryCeilingReached']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  deleteWeeklySummary: {
+    parameters: {
+      query?: never
+      header: {
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path: {
+        /** @description The Monday the week starts on. */
+        weekStartsOn: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The summary is gone */
+      204: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['Forbidden']
+      404: components['responses']['NotFound']
       409: components['responses']['Conflict']
       503: components['responses']['UpstreamUnavailable']
     }
