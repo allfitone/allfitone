@@ -264,6 +264,8 @@ function Section({
 export const CONSENT_TEXTS: Readonly<Record<string, string>> = {
   '2026-10-04':
     'Para reconocer los alimentos, la foto se envía a Google (Gemini) a través de Vercel, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit, y tú revisas todo antes de guardar.',
+  '2026-11-15':
+    'Para reconocer los alimentos, la foto se envía a Claude, un modelo de Anthropic que funciona en Amazon Web Services, en Estados Unidos, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit One, y tú revisas todo antes de guardar.',
 }
 
 export function ConsentSheet({
