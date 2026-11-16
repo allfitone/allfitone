@@ -48,6 +48,8 @@ export interface WaitlistReferralStatus {
   referralUrl: string
   /** People who signed up through them and confirmed their email. */
   referrals: number
+  /** Those among them the rewards count. Nobody before the launch. */
+  activeReferrals: number
   /** The private «mi link» page. Its token is a bearer credential. */
   referralsPageUrl: string
   /** The page that leaves the list. It carries the same private token. */
@@ -61,9 +63,21 @@ interface WaitlistRecipient extends WaitlistReferralStatus {
   brandAssetUrl: string
 }
 
+// The same four levels as space-web's landing: a package cannot import an app.
+const REFERRAL_LEVELS = [5, 15, 30, 100] as const
+
 const WORDS = {
   es: {
     registered: (count: number) => `Registrados con tu link: ${count}.`,
+    active: (count: number, missing: number, reward: string) =>
+      `Activos: ${count}. ${missing === 1 ? 'Te falta 1' : `Te faltan ${missing}`} para ${reward}.`,
+    activeAll: (count: number) => `Activos: ${count}. Alcanzaste todos los niveles.`,
+    rewards: {
+      5: '1 mes de Allfit Pro',
+      15: '2 meses de Allfit Pro',
+      30: '3 meses de Allfit Pro',
+      100: '1 año de Allfit Pro y merch de Allfit One',
+    },
     rewardRule:
       'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
     codeLabel: 'TU CÓDIGO',
@@ -115,6 +129,15 @@ const WORDS = {
   },
   en: {
     registered: (count: number) => `Signed up with your link: ${count}.`,
+    active: (count: number, missing: number, reward: string) =>
+      `Active: ${count}. ${missing} more for ${reward}.`,
+    activeAll: (count: number) => `Active: ${count}. You reached every level.`,
+    rewards: {
+      5: '1 month of Allfit Pro',
+      15: '2 months of Allfit Pro',
+      30: '3 months of Allfit Pro',
+      100: '1 year of Allfit Pro and Allfit One merch',
+    },
     rewardRule:
       'Allfit Pro rewards count active referrals: from launch, they create an account and log 3 workouts or meals in their first 14 days.',
     codeLabel: 'YOUR CODE',
@@ -310,12 +333,22 @@ function leaveSentence(input: WaitlistRecipient): string {
   )
 }
 
+/** «Activos: 3. Te faltan 2 para 1 mes de Allfit Pro.»: the active count and its next level. */
+function activeLine(input: WaitlistRecipient): string {
+  const words = WORDS[input.language]
+  const level = REFERRAL_LEVELS.find((candidate) => candidate > input.activeReferrals)
+  return level === undefined
+    ? words.activeAll(input.activeReferrals)
+    : words.active(input.activeReferrals, level - input.activeReferrals, words.rewards[level])
+}
+
 function referralLines(input: WaitlistRecipient): string {
   const words = WORDS[input.language]
   return [
     `${words.text.code}: ${input.code}`,
     `${words.text.link}: ${input.referralUrl}`,
     words.registered(input.referrals),
+    activeLine(input),
     words.rewardRule,
     `${words.text.privatePage}: ${input.referralsPageUrl}`,
   ].join('\n')
@@ -341,7 +374,7 @@ function referralRows(
     },
     {
       label: words.referralsLabel,
-      html: `<p style="margin:0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${c.textOnInverse};">${escapeHtml(words.registered(input.referrals))}</p><p style="margin:8px 0 0;font-family:${BODY_FONT};font-size:14px;font-weight:400;line-height:1.5;color:${c.textOnInverseMuted};">${escapeHtml(words.rewardRule)}</p>${privateLink}`,
+      html: `<p style="margin:0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${c.textOnInverse};">${escapeHtml(words.registered(input.referrals))}</p><p style="margin:4px 0 0;font-family:${BODY_FONT};font-size:16px;font-weight:600;line-height:1.4;color:${c.textOnInverse};">${escapeHtml(activeLine(input))}</p><p style="margin:8px 0 0;font-family:${BODY_FONT};font-size:14px;font-weight:400;line-height:1.5;color:${c.textOnInverseMuted};">${escapeHtml(words.rewardRule)}</p>${privateLink}`,
     },
   ]
 }

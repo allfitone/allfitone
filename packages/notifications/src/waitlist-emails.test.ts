@@ -14,6 +14,7 @@ const BASE = {
   code: 'LAURA7K',
   referralUrl: 'https://space.allfit.one/es/waitlist?ref=LAURA7K',
   referrals: 0,
+  activeReferrals: 0,
   referralsPageUrl: 'https://space.allfit.one/es/waitlist/me?token=private-token',
   leaveUrl: 'https://space.allfit.one/es/waitlist/leave#token=private-token',
   brandAssetUrl: 'https://studio.allfit.one/email/allfit-one-lockup-on-light.png',
@@ -217,7 +218,45 @@ describe('waitlist referral count', () => {
 
     expect(html).not.toMatch(/height="6" bgcolor/)
     expect(readable(html)).not.toContain('Llevas')
-    expect(readable(html)).not.toContain('1 mes de Allfit Pro')
+  })
+
+  // TECH-334: the level is said beside the active count, never beside the sign-ups.
+  test('says the active count and how many it lacks for the next level', () => {
+    const lines: [number, string][] = [
+      [0, 'Activos: 0. Te faltan 5 para 1 mes de Allfit Pro.'],
+      [4, 'Activos: 4. Te falta 1 para 1 mes de Allfit Pro.'],
+      [5, 'Activos: 5. Te faltan 10 para 2 meses de Allfit Pro.'],
+      [15, 'Activos: 15. Te faltan 15 para 3 meses de Allfit Pro.'],
+      [30, 'Activos: 30. Te faltan 70 para 1 año de Allfit Pro y merch de Allfit One.'],
+      [100, 'Activos: 100. Alcanzaste todos los niveles.'],
+      [140, 'Activos: 140. Alcanzaste todos los niveles.'],
+    ]
+    for (const [activeReferrals, line] of lines) {
+      const { text, html } = renderWaitlistLinkEmail({
+        ...BASE,
+        referrals: 140,
+        activeReferrals,
+        language: 'es',
+      })
+      expect(readable(html)).toContain(line)
+      expect(text).toContain(line)
+    }
+  })
+
+  test('says it in English, in every email that shows the counter', () => {
+    const input = { ...BASE, referrals: 9, activeReferrals: 4, language: 'en' as const }
+    const line = 'Active: 4. 1 more for 1 month of Allfit Pro.'
+    const emails = [
+      renderWaitlistLinkEmail(input),
+      renderWaitlistFoundingEmail({ ...input, foundingNumber: 37 }),
+    ]
+    for (const { text, html } of emails) {
+      expect(readable(html)).toContain(line)
+      expect(text).toContain(line)
+    }
+    expect(renderWaitlistLinkEmail({ ...input, activeReferrals: 100 }).text).toContain(
+      'Active: 100. You reached every level.',
+    )
   })
 })
 
