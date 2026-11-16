@@ -6218,7 +6218,7 @@ export interface components {
       referrals: number
       /** @description How many of its referrals joined from this sign-up's own connection, or from the same connection as another of them. A signal, not a discard. */
       referrals_sharing_connection: number
-      /** @description Whether the sign-up is linked to an Allfit Space account. Always false until `OP-WL-006` links them. */
+      /** @description Whether the sign-up is linked to an Allfit Space account: its person finished the onboarding with the sign-up's email (`OP-WL-006`). */
       has_space_account: boolean
     }
     BackofficeWaitlistSignupPage: {
@@ -6230,6 +6230,8 @@ export interface components {
       confirmed: number
       founding_members: number
       marked_as_fraud: number
+      /** @description Sign-ups linked to an Allfit Space account (`OP-WL-006`). */
+      with_account: number
       channels: {
         channel: components['schemas']['BackofficeWaitlistChannel']
         signups: number
@@ -7667,7 +7669,11 @@ export interface components {
     SpaceFocusAreas: {
       areas: components['schemas']['FocusAreaSet']
     }
-    /** @description The acceptances are `true` and nothing else: a `false` is not a way to decline here, it is an attempt to activate without accepting, and the database refuses it. Declining happens at the terms step, by not going on. */
+    /**
+     * @description The acceptances are `true` and nothing else: a `false` is not a way to decline here, it is an attempt to activate without accepting, and the database refuses it. Declining happens at the terms step, by not going on.
+     *
+     *     `store` is the store of the phone the app runs on, and the app sends it whenever it knows it. It is kept with the attempt and, when the person was on the Allfit Space waitlist, copied to her sign-up (`OP-WL-006`): a referral reward is an offer code of that store. Left out, nothing is recorded.
+     */
     SpaceOnboardingCompletion: {
       given_name: string
       family_name: string
@@ -7675,6 +7681,7 @@ export interface components {
       terms_accepted: true
       /** @constant */
       privacy_notice_accepted: true
+      store?: components['schemas']['SpaceProStore']
     }
     /** @description The Fitness ID, the same one on every retry. */
     SpaceActivatedPerson: {
@@ -8611,6 +8618,8 @@ export interface components {
       username: string | null
       /** Format: date-time */
       active_since: string
+      /** @description The person's Founding Member number, or null when she holds none. It is hers from the moment her waitlist sign-up is linked to this account (`OP-WL-006`, HU-SP-119) and it never changes afterwards. */
+      founding_member_number: number | null
       email: {
         address: string | null
         verified: boolean
