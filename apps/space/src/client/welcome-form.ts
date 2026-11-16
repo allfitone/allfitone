@@ -29,13 +29,23 @@ export function welcomeVariant(biologicalSex: 'male' | 'female' | null): 'male' 
  * Both acceptances are `true` and nothing else. Declining happens by not going on,
  * so there is no path here that sends `false`.
  */
-export function completionFor(identity: DeclaredIdentity): OnboardingCompletion {
+export function completionFor(
+  identity: DeclaredIdentity,
+  store?: OnboardingCompletion['store'],
+): OnboardingCompletion {
   return {
     given_name: identity.given_name,
     family_name: identity.family_name,
     terms_accepted: true,
     privacy_notice_accepted: true,
+    ...(store ? { store } : {}),
   }
+}
+
+/** The store of the phone the app runs on. The web has none, and names none. */
+export function storeOf(os: string): OnboardingCompletion['store'] {
+  if (os === 'ios') return 'app_store'
+  return os === 'android' ? 'google_play' : undefined
 }
 
 export interface ActivationState {
