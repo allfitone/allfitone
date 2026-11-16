@@ -23,6 +23,7 @@ import {
   studioMovementRoutes,
 } from './domains/catalog/index.js'
 import { spaceExecutionRoutes, studioExecutionRoutes } from './domains/execution/index.js'
+import { spaceIntelligenceRoutes } from './domains/intelligence/index.js'
 import { spaceNutritionRoutes, studioNutritionRoutes } from './domains/nutrition/index.js'
 import {
   backofficeAccountRecoveryRoutes,
@@ -147,6 +148,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/space/v1', spacePlanningRoutes())
   app.route('/space/v1', spaceExecutionRoutes())
   app.route('/space/v1', spaceNutritionRoutes())
+  app.route('/space/v1', spaceIntelligenceRoutes())
   app.route('/space/v1', spaceProRoutes())
   app.route('/space/v1', spacePaymentRoutes())
   app.route('/space/v1', spaceRelationshipRoutes())
