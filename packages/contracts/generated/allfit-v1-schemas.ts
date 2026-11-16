@@ -1945,7 +1945,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: ['object', 'null'],
         additionalProperties: false,
         description: 'The fraud mark that stands. Null once it is taken back.',
-        required: ['reason', 'marked_at', 'previous_discard_reason'],
+        required: ['reason', 'marked_at', 'previous_discard_reason', 'withheld_founding_number'],
         properties: {
           reason: {
             type: 'string',
@@ -1959,6 +1959,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
             enum: ['self_referral', 'same_device', null],
             description:
               'Why the sign-up did not count before the mark, and so what taking the mark back returns it to.',
+          },
+          withheld_founding_number: {
+            type: ['integer', 'null'],
+            minimum: 1,
+            maximum: 100,
+            description:
+              'The Founding Member number the mark took from a sign-up that had its account. Nobody inherits it, and taking the mark back returns it.',
           },
         },
       },
@@ -1992,7 +1999,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       has_space_account: {
         type: 'boolean',
         description:
-          'Whether the sign-up is linked to an Allfit Space account. Always false until `OP-WL-006` links them.',
+          "Whether the sign-up is linked to an Allfit Space account: its person finished the onboarding with the sign-up's email (`OP-WL-006`).",
       },
     },
   },
@@ -2015,7 +2022,14 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
   BackofficeWaitlistTotals: {
     type: 'object',
     additionalProperties: false,
-    required: ['signups', 'confirmed', 'founding_members', 'marked_as_fraud', 'channels'],
+    required: [
+      'signups',
+      'confirmed',
+      'founding_members',
+      'marked_as_fraud',
+      'with_account',
+      'channels',
+    ],
     properties: {
       signups: {
         type: 'integer',
@@ -2033,6 +2047,11 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       marked_as_fraud: {
         type: 'integer',
         minimum: 0,
+      },
+      with_account: {
+        type: 'integer',
+        minimum: 0,
+        description: 'Sign-ups linked to an Allfit Space account (`OP-WL-006`).',
       },
       channels: {
         type: 'array',
@@ -15562,6 +15581,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       'family_name',
       'username',
       'active_since',
+      'founding_member_number',
       'email',
       'phone',
       'accounts',
@@ -15579,6 +15599,13 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       active_since: {
         type: 'string',
         format: 'date-time',
+      },
+      founding_member_number: {
+        type: ['integer', 'null'],
+        minimum: 1,
+        maximum: 100,
+        description:
+          "The person's Founding Member number, or null when she holds none. It is hers from the moment her waitlist sign-up is linked to this account (`OP-WL-006`, HU-SP-119) and it never changes afterwards.",
       },
       email: {
         type: 'object',
@@ -16093,9 +16120,12 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'boolean',
         const: true,
       },
+      store: {
+        $ref: '#/components/schemas/SpaceProStore',
+      },
     },
     description:
-      'The acceptances are `true` and nothing else: a `false` is not a way to decline here, it is an attempt to activate without accepting, and the database refuses it. Declining happens at the terms step, by not going on.',
+      'The acceptances are `true` and nothing else: a `false` is not a way to decline here, it is an attempt to activate without accepting, and the database refuses it. Declining happens at the terms step, by not going on.\n\n`store` is the store of the phone the app runs on, and the app sends it whenever it knows it. It is kept with the attempt and, when the person was on the Allfit Space waitlist, copied to her sign-up (`OP-WL-006`): a referral reward is an offer code of that store. Left out, nothing is recorded.',
   },
   SpaceOnboardingSkip: {
     type: 'object',

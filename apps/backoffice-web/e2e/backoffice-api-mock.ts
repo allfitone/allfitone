@@ -604,6 +604,7 @@ export interface WaitlistSignupFixture {
     reason: string
     marked_at: string
     previous_discard_reason: 'self_referral' | 'same_device' | null
+    withheld_founding_number: number | null
   } | null
   fraud_withdrawal: { reason: string; withdrawn_at: string } | null
   referrals_sharing_connection: number
@@ -3039,6 +3040,7 @@ async function routeWaitlist(
       confirmed: all.filter((row) => row.confirmed_at !== null).length,
       founding_members: all.filter((row) => row.founding_number !== null).length,
       marked_as_fraud: all.filter((row) => row.discard_reason === 'fraud').length,
+      with_account: all.filter((row) => row.has_space_account).length,
       channels: [...channels.entries()]
         .map(([key, counted]) => ({ channel: JSON.parse(key) as unknown, ...counted }))
         .sort((left, right) => right.signups - left.signups),
@@ -3126,11 +3128,13 @@ async function routeWaitlist(
       return
     }
     if (!replay) {
-      const released = row.founding_number
+      // With an account the number is withheld: nobody inherits it.
+      const released = row.has_space_account ? null : row.founding_number
       row.fraud = {
         reason,
         marked_at: '2026-11-14T18:00:00.000Z',
         previous_discard_reason: row.discard_reason === 'fraud' ? null : row.discard_reason,
+        withheld_founding_number: row.has_space_account ? row.founding_number : null,
       }
       row.fraud_withdrawal = null
       row.discard_reason = 'fraud'
@@ -3186,6 +3190,7 @@ async function routeWaitlist(
     }
     if (!replay) {
       row.discard_reason = row.fraud?.previous_discard_reason ?? null
+      const returned = row.fraud?.withheld_founding_number ?? null
       row.fraud = null
       row.fraud_withdrawal = { reason, withdrawn_at: '2026-11-14T19:00:00.000Z' }
       waitlistWithdrawalKeys.set(row.id, key)
@@ -3195,7 +3200,8 @@ async function routeWaitlist(
         (number) => !held.has(number),
       )
       const next = nextInLineForNumber(all)
-      if (free !== undefined && next) next.founding_number = free
+      if (returned !== null) row.founding_number = returned
+      else if (free !== undefined && next) next.founding_number = free
     }
     if (waitlist.loseNextWithdrawalAnswer) {
       waitlist.loseNextWithdrawalAnswer = false

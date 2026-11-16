@@ -570,14 +570,26 @@
   width: 100%;
 }
 
-/* Four figures side by side when there is room. Each is a number with what it counts
-   under it, so none is read without its meaning. */
+/* Five figures in one row, then three and two, then one under another: a row that wraps
+   on its own leaves the last figure alone. Each is a number with what it counts under it. */
 [data-waitlist-figures] {
   display: grid;
   gap: 24px;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: start;
   margin: 0;
+}
+
+@container waitlist (max-width: 1040px) {
+  [data-waitlist-figures] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container waitlist (max-width: 600px) {
+  [data-waitlist-figures] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 [data-waitlist-figure] {

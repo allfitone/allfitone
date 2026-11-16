@@ -1117,6 +1117,25 @@ describe('POST /space/v1/onboarding-attempts/{id}/completion', () => {
     expect(await response.json()).toEqual({ person_id: '019ff100-0000-7000-8000-0000000000aa' })
   })
 
+  test('T-WL-API-03 carries the store the app names, and none when it names none', async () => {
+    const stores: unknown[] = []
+    const app = appWith({
+      complete: async (_token, input) => {
+        stores.push('store' in input ? input.store : 'absent')
+        return '019ff100-0000-7000-8000-0000000000ac'
+      },
+    })
+
+    const answers = [
+      await post(app, route(), { body: { ...body, store: 'app_store' } }),
+      await post(app, route(), { body: { ...body, store: 'google_play' } }),
+      await post(app, route(), { body }),
+    ]
+
+    expect(answers.map((response) => response.status)).toEqual([200, 200, 200])
+    expect(stores).toEqual(['app_store', 'google_play', 'absent'])
+  })
+
   test('refuses an acceptance that is not true, without reaching the service', async () => {
     let called = false
     const app = appWith({
@@ -1136,6 +1155,10 @@ describe('POST /space/v1/onboarding-attempts/{id}/completion', () => {
       { ...body, family_name: '' },
       { given_name: 'Ada', family_name: 'Lovelace', terms_accepted: true },
       { ...body, extra: 1 },
+      // A store is one of the two, or it is not sent at all.
+      { ...body, store: 'galaxy_store' },
+      { ...body, store: null },
+      { ...body, store: '' },
     ]
 
     for (const invalid of bodies) {

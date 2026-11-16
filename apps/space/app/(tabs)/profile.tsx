@@ -20,6 +20,7 @@
  * decides which is which.
  */
 
+import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
@@ -34,6 +35,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 
 import { createSpaceExecutionFlow } from '../../src/client/execution-transport'
 import { forgetExerciseLibrary } from '../../src/client/exercise-library'
+import { foundingMemberLabel } from '../../src/client/fitness-profile'
+import { readIdentity } from '../../src/client/profile-transport'
 import { gymsOf, sourceLine, type ProStatus } from '../../src/client/pro'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
 import { initialsOf, paymentsCaption, planCaption } from '../../src/client/profile'
@@ -50,6 +53,8 @@ const LOCAL_ONLY =
 
 export interface ProfileSources {
   readonly readName: () => Promise<string>
+  /** The badge already worded; undefined for somebody who holds no number. */
+  readonly readFounding: () => Promise<string | undefined>
   readonly readPlan: () => Promise<ProStatus>
   /** The latest weight, already worded; undefined when none was ever recorded. */
   readonly readWeight: () => Promise<string | undefined>
@@ -63,6 +68,8 @@ export default function ProfileRoute() {
     return {
       readName: () =>
         training.readToday(deviceTimezone()).then((today) => today.profile.given_name),
+      readFounding: () =>
+        readIdentity().then((identity) => foundingMemberLabel(identity.founding_member_number)),
       readPlan: () => pro.read(),
       readWeight: () =>
         readBodyRecords().then((records) => {
@@ -80,6 +87,7 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
   const router = useRouter()
   const theme = useTheme()
   const [name, setName] = useState('')
+  const [founding, setFounding] = useState<string | undefined>(undefined)
   const [plan, setPlan] = useState<ProStatus | undefined>(undefined)
   const [weight, setWeight] = useState<string | undefined>(undefined)
 
@@ -90,6 +98,10 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
       sources
         .readName()
         .then((read) => active && setName(read))
+        .catch(() => undefined)
+      sources
+        .readFounding()
+        .then((read) => active && setFounding(read))
         .catch(() => undefined)
       sources
         .readPlan()
@@ -176,6 +188,11 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
             <Text role="body" size="xs" color="secondary">
               Fitness ID activo
             </Text>
+            {founding ? (
+              <View style={styles.founding}>
+                <Badge label={founding} tone="accent" />
+              </View>
+            ) : null}
           </View>
         </View>
 
@@ -389,6 +406,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   grow: { flex: 1, gap: 3 },
+  founding: { alignSelf: 'flex-start', marginTop: 5 },
   signOut: {
     flexDirection: 'row',
     alignItems: 'center',

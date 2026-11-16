@@ -15,6 +15,7 @@
  * password (`HU-SP-005`, TECH-325) opens its own screen.
  */
 
+import { Badge } from '@allfitone/react-native/badge'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
@@ -30,6 +31,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import {
   activeSince,
   emailRow,
+  foundingMemberLabel,
   identityInitials,
   type ContactState,
   type EmailRowState,
@@ -93,6 +95,7 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
   }, [applying, identity, sources])
 
   const fullName = identity ? `${identity.given_name} ${identity.family_name}` : ''
+  const founding = foundingMemberLabel(identity?.founding_member_number)
 
   return (
     <Screen edges={['top', 'bottom']}>
@@ -141,6 +144,11 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
                     <Text role="control" size="md" color="accent">
                       {`@${identity.username}`}
                     </Text>
+                  ) : null}
+                  {founding ? (
+                    <View style={styles.founding}>
+                      <Badge label={founding} tone="accent" />
+                    </View>
                   ) : null}
                 </View>
               </View>
@@ -387,6 +395,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   grow: { flex: 1, gap: 2 },
+  founding: { alignSelf: 'flex-start', marginTop: 8 },
   rule: { height: 1 },
   facts: { flexDirection: 'row', gap: 16 },
   group: { gap: 10 },

@@ -36,6 +36,7 @@ import type {
   TrainingExperience,
   TrainingPlace,
 } from '../domain/index.js'
+import { ACTIVATION_STORES, type ActivationStore } from '../domain/index.js'
 import { fail, failPlanLimit, planLimitFeature } from '../../../platform/http/index.js'
 import {
   OnboardingPreconditionError,
@@ -604,10 +605,16 @@ function readCompletion(body: unknown):
       familyName: string
       termsAccepted: boolean
       privacyNoticeAccepted: boolean
+      store?: ActivationStore
     }
   | undefined {
   if (typeof body !== 'object' || body === null) return undefined
-  const keys = Object.keys(body).sort()
+  // The store is the one optional field: sent, it is one of the two; never null.
+  const store = 'store' in body ? activationStore(body.store) : undefined
+  if ('store' in body && !store) return undefined
+  const keys = Object.keys(body)
+    .filter((key) => key !== 'store')
+    .sort()
   if (keys.length !== 4) return undefined
   if (keys[0] !== 'family_name' || keys[1] !== 'given_name') return undefined
   if (keys[2] !== 'privacy_notice_accepted' || keys[3] !== 'terms_accepted') return undefined
@@ -628,7 +635,17 @@ function readCompletion(body: unknown):
   const familyName = trimmedName(family)
   if (!givenName || !familyName) return undefined
   if (terms !== true || privacy !== true) return undefined
-  return { givenName, familyName, termsAccepted: true, privacyNoticeAccepted: true }
+  return {
+    givenName,
+    familyName,
+    termsAccepted: true,
+    privacyNoticeAccepted: true,
+    ...(store ? { store } : {}),
+  }
+}
+
+function activationStore(value: unknown): ActivationStore | undefined {
+  return ACTIVATION_STORES.find((store) => store === value)
 }
 
 const MASS_UNITS: readonly MassUnit[] = ['kg', 'lb']

@@ -211,7 +211,7 @@ export function waitlistAnswer(shown: number, hasMore: boolean, filters: Waitlis
 }
 
 export interface TotalFigure {
-  key: 'signups' | 'confirmed' | 'founding_members' | 'marked_as_fraud'
+  key: 'signups' | 'confirmed' | 'with_account' | 'founding_members' | 'marked_as_fraud'
   label: string
   value: string
   note: string
@@ -240,6 +240,12 @@ export function totalFigures(totals: WaitlistTotals): TotalFigure[] {
       note: confirmedShare
         ? `${confirmedShare} de los inscritos.`
         : 'Nadie se ha inscrito todavía.',
+    },
+    {
+      key: 'with_account',
+      label: 'Con cuenta',
+      value: String(totals.with_account),
+      note: 'Ya crearon su cuenta de Allfit Space.',
     },
     {
       key: 'founding_members',
@@ -291,7 +297,9 @@ export function fraudConsequences(signup: WaitlistSignup): string[] {
   }
   if (signup.founding_number !== null) {
     consequences.push(
-      `Pierde el número ${signup.founding_number} de Founding Member, que pasa a la siguiente persona confirmada que espera uno.`,
+      signup.has_space_account
+        ? `Pierde el número ${signup.founding_number} de Founding Member. Ya tiene cuenta, así que nadie lo hereda: el número queda sin dueño.`
+        : `Pierde el número ${signup.founding_number} de Founding Member, que pasa a la siguiente persona confirmada que espera uno.`,
     )
   } else {
     consequences.push('No recibirá un número de Founding Member.')
@@ -307,7 +315,9 @@ export function fraudOutcomeMessage(before: WaitlistSignup): string {
   const parts = [`La inscripción de ${before.name} quedó marcada como fraude.`]
   if (before.founding_number !== null) {
     parts.push(
-      `Su número ${before.founding_number} quedó libre para la siguiente persona confirmada.`,
+      before.has_space_account
+        ? `Perdió el número ${before.founding_number} de Founding Member, que queda sin dueño.`
+        : `Su número ${before.founding_number} quedó libre para la siguiente persona confirmada.`,
     )
   }
   if (before.invited_by && before.discard_reason === null && before.confirmed_at !== null) {
@@ -342,11 +352,17 @@ export function withdrawalConsequences(signup: WaitlistSignup): string[] {
       )
     }
   }
-  consequences.push(
-    signup.confirmed_at === null
-      ? 'Podrá recibir un número de Founding Member cuando confirme su correo.'
-      : 'Vuelve a la fila de Founding Members y recibe el siguiente número que quede libre; el que tenía antes de la marca no se le reserva.',
-  )
+  // A withheld number went to nobody, so it is the one that comes back.
+  const withheld = signup.fraud?.withheld_founding_number ?? null
+  if (withheld !== null) {
+    consequences.push(`Recupera el número ${withheld} de Founding Member, que nadie más tomó.`)
+  } else {
+    consequences.push(
+      signup.confirmed_at === null
+        ? 'Podrá recibir un número de Founding Member cuando confirme su correo.'
+        : 'Vuelve a la fila de Founding Members y recibe el siguiente número que quede libre; el que tenía antes de la marca no se le reserva.',
+    )
+  }
   consequences.push('Queda registrado con tu nombre y con el motivo.')
   return consequences
 }

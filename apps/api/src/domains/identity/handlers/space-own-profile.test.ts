@@ -24,6 +24,7 @@ const identity: AllfitV1Schemas['SpaceIdentity'] = {
   family_name: 'Rojas',
   username: 'camilarojas',
   active_since: '2026-07-03T10:05:00.000Z',
+  founding_member_number: 37,
   email: { address: 'camila@example.test', verified: true, pending: null },
   phone: { number: '+573105550142', verified: false },
   accounts: [{ provider: 'workos', linked_at: '2026-07-03T10:00:00.000Z' }],

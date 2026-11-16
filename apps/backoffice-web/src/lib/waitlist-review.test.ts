@@ -152,17 +152,20 @@ describe('the totals', () => {
       confirmed: 180,
       founding_members: 100,
       marked_as_fraud: 3,
+      with_account: 60,
       channels: [],
     })
 
     expect(figures.map((figure) => [figure.label, figure.value])).toEqual([
       ['Inscritos', '240'],
       ['Confirmaron su correo', '180'],
+      ['Con cuenta', '60'],
       ['Founding Members', '100 de 100'],
       ['Marcadas como fraude', '3'],
     ])
     expect(figures[1]?.note).toBe('75 % de los inscritos.')
-    expect(figures[2]?.note).toBe('Los cien números están tomados.')
+    expect(figures[2]?.note).toBe('Ya crearon su cuenta de Allfit Space.')
+    expect(figures[3]?.note).toBe('Los cien números están tomados.')
   })
 
   test('the numbers still free are said, and an empty list divides nothing', () => {
@@ -171,19 +174,21 @@ describe('the totals', () => {
       confirmed: 0,
       founding_members: 0,
       marked_as_fraud: 0,
+      with_account: 0,
       channels: [],
     })
     expect(empty[1]?.note).toBe('Nadie se ha inscrito todavía.')
-    expect(empty[2]?.note).toBe('Quedan 100 números libres.')
+    expect(empty[3]?.note).toBe('Quedan 100 números libres.')
 
     const one = totalFigures({
       signups: 120,
       confirmed: 110,
       founding_members: 99,
       marked_as_fraud: 0,
+      with_account: 0,
       channels: [],
     })
-    expect(one[2]?.note).toBe('Queda 1 número libre.')
+    expect(one[3]?.note).toBe('Queda 1 número libre.')
     expect(shareLabel(1, 0)).toBeUndefined()
     expect(shareLabel(1, 3)).toBe('33 %')
   })
@@ -211,6 +216,15 @@ describe('what marking fraud does, said before it is done', () => {
       'Pierde el número 2 de Founding Member, que pasa a la siguiente persona confirmada que espera uno.',
       'Queda registrado con tu nombre y con el motivo. La marca se puede quitar después.',
     ])
+  })
+
+  test('a Founding Member with an account loses a number nobody inherits', () => {
+    expect(fraudConsequences(signup({ has_space_account: true }))[1]).toBe(
+      'Pierde el número 2 de Founding Member. Ya tiene cuenta, así que nadie lo hereda: el número queda sin dueño.',
+    )
+    expect(fraudOutcomeMessage(signup({ has_space_account: true }))).toBe(
+      'La inscripción de Bruno Díaz quedó marcada como fraude. Perdió el número 2 de Founding Member, que queda sin dueño. Ya no suma como referido de Ana Ruiz.',
+    )
   })
 
   test('a sign-up nobody invited and without a number only loses the chance of one', () => {
@@ -252,9 +266,26 @@ describe('what taking a mark back does, said before it is done', () => {
         reason: 'Correos en serie desde un mismo equipo',
         marked_at: '2026-11-14T16:00:00.000Z',
         previous_discard_reason: null,
+        withheld_founding_number: null,
       },
       ...overrides,
     })
+
+  test('a number the mark withheld is the one that comes back', () => {
+    const consequences = withdrawalConsequences(
+      marked({
+        has_space_account: true,
+        fraud: {
+          reason: 'Cuentas en serie desde un mismo equipo',
+          marked_at: '2026-11-14T16:00:00.000Z',
+          previous_discard_reason: null,
+          withheld_founding_number: 2,
+        },
+      }),
+    )
+    expect(consequences[1]).toBe('Recupera el número 2 de Founding Member, que nadie más tomó.')
+    expect(consequences.join(' ')).not.toContain('fila')
+  })
 
   test('a confirmed referral counts again and waits in line for a number', () => {
     expect(withdrawalConsequences(marked())).toEqual([
@@ -271,6 +302,7 @@ describe('what taking a mark back does, said before it is done', () => {
           reason: 'Mismo equipo que otra inscripción',
           marked_at: '2026-11-14T16:00:00.000Z',
           previous_discard_reason: 'same_device',
+          withheld_founding_number: null,
         },
       }),
     )
