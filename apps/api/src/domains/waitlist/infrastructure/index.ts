@@ -21,6 +21,8 @@ type JoinRow = {
   outcome: 'joined' | 'already_listed' | 'rate_limited'
   referral_code: string | null
   referrals: number | null
+  // Absent until the migration that adds it runs: the API deploys first.
+  active_referrals?: number | null
 }
 
 export function createWaitlistDatabase(): WaitlistDatabase {
@@ -40,7 +42,12 @@ export function createWaitlistDatabase(): WaitlistDatabase {
       if (!row) throw new Error('PostgreSQL did not answer the waitlist sign-up')
       if (row.outcome !== 'joined') return { outcome: row.outcome }
       if (!row.referral_code) throw new Error('A waitlist sign-up came back without its code')
-      return { outcome: 'joined', referralCode: row.referral_code, referrals: row.referrals ?? 0 }
+      return {
+        outcome: 'joined',
+        referralCode: row.referral_code,
+        referrals: row.referrals ?? 0,
+        activeReferrals: row.active_referrals ?? 0,
+      }
     },
 
     async confirm(tokenHash, connection): Promise<WaitlistConfirmationResult> {
@@ -76,6 +83,7 @@ export function createWaitlistDatabase(): WaitlistDatabase {
           outcome: 'found' | 'invalid' | 'rate_limited'
           referral_code: string | null
           referrals: number | null
+          active_referrals?: number | null
           language: WaitlistLanguage | null
           confirmed: boolean | null
           founding_number?: number | null
@@ -90,6 +98,7 @@ export function createWaitlistDatabase(): WaitlistDatabase {
         outcome: 'found',
         referralCode: row.referral_code,
         referrals: row.referrals ?? 0,
+        activeReferrals: row.active_referrals ?? 0,
         language: row.language,
         confirmed: row.confirmed === true,
         ...foundingNumberOf(row.founding_number),

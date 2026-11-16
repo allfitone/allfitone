@@ -53,7 +53,7 @@ function setup(overrides: Partial<WaitlistService> = {}, environment = ENVIRONME
   const service: WaitlistService = {
     join: async (input, visitor): Promise<WaitlistJoinResult> => {
       calls.join.push({ input, visitor })
-      return { outcome: 'joined', referralCode: 'KEVN7QHX', referrals: 0 }
+      return { outcome: 'joined', referralCode: 'KEVN7QHX', referrals: 0, activeReferrals: 0 }
     },
     confirm: async (token, visitor) => {
       calls.confirm.push({ token, visitor })
@@ -69,6 +69,7 @@ function setup(overrides: Partial<WaitlistService> = {}, environment = ENVIRONME
         outcome: 'found',
         referralCode: 'KEVN7QHX',
         referrals: 4,
+        activeReferrals: 1,
         language: 'es',
         confirmed: true,
       }
@@ -147,6 +148,7 @@ describe('T-WL-API-01 joining (OP-WL-001)', () => {
       status: 'joined',
       referral_code: 'KEVN7QHX',
       referrals: 0,
+      active_referrals: 0,
     })
     expect(calls.join).toEqual([
       {
@@ -328,6 +330,7 @@ describe('T-WL-API-01 reading «mi link» (OP-WL-004)', () => {
     expect(await response.json()).toEqual({
       referral_code: 'KEVN7QHX',
       referrals: 4,
+      active_referrals: 1,
       language: 'es',
       confirmed: true,
     })
@@ -340,6 +343,7 @@ describe('T-WL-API-01 reading «mi link» (OP-WL-004)', () => {
         outcome: 'found',
         referralCode: 'KEVN7QHX',
         referrals: 4,
+        activeReferrals: 2,
         language: 'es',
         confirmed: true,
         foundingNumber: 37,
@@ -351,6 +355,7 @@ describe('T-WL-API-01 reading «mi link» (OP-WL-004)', () => {
     expect(await response.json()).toEqual({
       referral_code: 'KEVN7QHX',
       referrals: 4,
+      active_referrals: 2,
       language: 'es',
       confirmed: true,
       founding_number: 37,

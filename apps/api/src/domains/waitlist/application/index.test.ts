@@ -40,7 +40,7 @@ function setup(environment: NodeJS.ProcessEnv = ENVIRONMENT) {
     join: async (_input, fingerprints, tokens) => {
       seen.fingerprints.push(fingerprints)
       seen.tokens.push(tokens)
-      return { outcome: 'joined', referralCode: 'KEVN7QHX', referrals: 0 }
+      return { outcome: 'joined', referralCode: 'KEVN7QHX', referrals: 0, activeReferrals: 0 }
     },
     confirm: async (hash, connection) => {
       seen.confirmed.push({ hash, connection })
