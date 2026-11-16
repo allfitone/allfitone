@@ -8,7 +8,7 @@ import { createMemoryObjectStore } from '@allfitone/object-store'
 
 import type { MealRow, NutritionDatabase, PhotoSanitizer } from '../domain/index.js'
 import { PhotoRejected, type NutritionFood } from '../domain/index.js'
-import { ConsentRequired, CURRENT_CONSENT_VERSION, createSpaceNutritionService } from './index.js'
+import { ConsentRequired, createSpaceNutritionService } from './index.js'
 
 const PERSON = '019f1000-0000-7000-8000-000000000001'
 const MEAL = '019f1000-0000-7000-8000-000000000101'
@@ -27,10 +27,14 @@ const row = (overrides: Partial<MealRow> = {}): MealRow => ({
   ...overrides,
 })
 
+/** The consent text that names where the harness's recogniser would send a photo. */
+const CURRENT_CONSENT_VERSION = '2026-10-04'
+
 function harness(
   database: Partial<NutritionDatabase> = {},
   sanitizer?: PhotoSanitizer,
   recognizer: MemoryRecognizer = createMemoryRecognizer('google/gemini-3.5-flash-lite'),
+  consent = CURRENT_CONSENT_VERSION,
 ) {
   const store = createMemoryObjectStore()
   const sealed: string[] = []
@@ -48,7 +52,7 @@ function harness(
   } as NutritionDatabase
   const clean: PhotoSanitizer = sanitizer ?? { sanitize: async () => new Uint8Array([9, 9]) }
   return {
-    service: createSpaceNutritionService(db, store, clean, recognizer),
+    service: createSpaceNutritionService(db, store, clean, { recognizer, consent }),
     store,
     sealed,
     recognizer,
@@ -389,6 +393,20 @@ describe('recognising a photo (ADR-041, OP-NUT-016)', () => {
       accepted_version: null,
       accepted_at: null,
     })
+  })
+
+  test('T-NUT-API-UNIT-32 a recogniser that sends the photo elsewhere asks for its own consent', async () => {
+    // Accepted: the text that names the first vendor. Configured: a recogniser under another.
+    const { service, recognizer } = harness(consented, undefined, undefined, '2026-11-15')
+    expect(await service.readConsent({ personId: PERSON, requestId: '' })).toMatchObject({
+      current_version: '2026-11-15',
+      accepted_version: CURRENT_CONSENT_VERSION,
+    })
+    expect(service.recognize({ personId: PERSON, photo, requestId: '' })).rejects.toBeInstanceOf(
+      ConsentRequired,
+    )
+    await Promise.resolve()
+    expect(recognizer.seen).toHaveLength(0)
   })
 
   test("T-NUT-API-UNIT-19 the model's estimate is used only where the catalogue has no food, and says so", async () => {

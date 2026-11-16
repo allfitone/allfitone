@@ -77,6 +77,20 @@ describe('the recogniser over the model port (ADR-041, ADR-045)', () => {
     ])
   })
 
+  test('T-REC-UNIT-16 a meal records the route and the model, while the adapter is asked for its own id', async () => {
+    const model = createMemoryModel()
+    model.willAnswer(ANSWER)
+    const recognizer = createFoodRecognizer(model, {
+      model: 'us.anthropic.claude-sonnet-4-6',
+      recordedAs: 'bedrock/us.anthropic.claude-sonnet-4-6',
+      timeoutMs: 20_000,
+    })
+
+    expect((await recognizer.recognize(JPEG)).model).toBe('bedrock/us.anthropic.claude-sonnet-4-6')
+    expect(model.seen[0]?.model).toBe('us.anthropic.claude-sonnet-4-6')
+    expect(model.seen[0]?.timeoutMs).toBe(20_000)
+  })
+
   test('T-REC-UNIT-13 a model failure is a recognition failure, and an empty plate is nothing recognised', async () => {
     const model = createMemoryModel()
     const recognizer = createFoodRecognizer(model, { model: MODEL, timeoutMs: 60_000 })

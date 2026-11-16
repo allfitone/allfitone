@@ -247,6 +247,21 @@ export function placeLabels(
 }
 
 /** The meal the hour suggests: what the pill shows before anyone touches it. */
+/**
+ * What to ask before a photo is recognised. A consent version is a text, the one that
+ * names where the photo goes, so a build that does not hold the current text asks nothing.
+ */
+export function consentToAsk(
+  consent: RecognitionConsent,
+  texts: Readonly<Record<string, string>>,
+): 'accepted' | 'unknown' | { readonly version: string; readonly text: string } {
+  if (consent.accepted_version === consent.current_version) return 'accepted'
+  const text = Object.hasOwn(texts, consent.current_version)
+    ? texts[consent.current_version]
+    : undefined
+  return text ? { version: consent.current_version, text } : 'unknown'
+}
+
 export function mealTypeForHour(hour: number): MealType {
   if (hour < 11) return 'breakfast'
   if (hour < 16) return 'lunch'

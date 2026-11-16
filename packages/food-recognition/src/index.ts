@@ -13,4 +13,4 @@ export {
 } from './port.js'
 export { createFoodRecognizer, type RecognizerSettings } from './recognizer.js'
 export { createMemoryRecognizer, type MemoryRecognizer } from './adapters/memory.js'
-export { createFoodRecognizerFromEnv, DEFAULT_MODEL } from './factory.js'
+export { createFoodRecognitionFromEnv, DEFAULT_MODEL, type FoodRecognition } from './factory.js'

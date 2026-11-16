@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { unitChoices } from './amount'
 import {
   captureTotals,
+  consentToAsk,
   creditsOpenFoodFacts,
   fromFood,
   fromRecognition,
@@ -263,6 +264,29 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
       { left: 0, top: 114 },
       { left: 230, top: 328 },
     ])
+  })
+
+  test('T-SPC-UNIT-340 the consent asked is the text of the current version, and none is asked without its text', () => {
+    const texts = { '2026-10-04': 'la primera', '2026-11-15': 'la segunda' }
+    const state = (accepted: string | null, current: string) => ({
+      current_version: current,
+      accepted_version: accepted,
+      accepted_at: accepted ? '2026-11-15T12:00:00Z' : null,
+    })
+
+    expect(consentToAsk(state('2026-11-15', '2026-11-15'), texts)).toBe('accepted')
+    expect(consentToAsk(state(null, '2026-10-04'), texts)).toEqual({
+      version: '2026-10-04',
+      text: 'la primera',
+    })
+    // Accepted under the text that named another vendor: asked again, with the new text.
+    expect(consentToAsk(state('2026-10-04', '2026-11-15'), texts)).toEqual({
+      version: '2026-11-15',
+      text: 'la segunda',
+    })
+    // A build older than the text cannot show it, so it cannot ask for it either.
+    expect(consentToAsk(state('2026-11-15', '2027-01-01'), texts)).toBe('unknown')
+    expect(consentToAsk(state(null, 'toString'), texts)).toBe('unknown')
   })
 
   test('T-SPC-UNIT-228 the meal is guessed by the hour, as the pill says', () => {

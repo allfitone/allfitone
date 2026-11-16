@@ -3,7 +3,7 @@
  *
  * The task owns what makes it this task: the prompt, the answer's shape, the checks on
  * what may reach a diary and the eval. Which vendor answers is the port's business, so
- * the same recogniser runs on the Gateway in production and on Bedrock in the eval.
+ * the same recogniser runs on the Gateway and on Bedrock, in production and in the eval.
  *
  * - **The schema is checked twice**: by the model port, for shape, and by `checkAnswer`,
  *   for what may reach a diary.
@@ -26,8 +26,10 @@ import { RECOGNITION_PROMPT } from './prompt.js'
 import { checkAnswer } from './validate.js'
 
 export interface RecognizerSettings {
-  /** The exact model, as the port's adapter names it; it is what the meal records. */
+  /** The exact model, as the port's adapter names it. */
   readonly model: string
+  /** What the meal records, when it says more than the adapter's own id: the route too. */
+  readonly recordedAs?: string | undefined
   readonly timeoutMs?: number | undefined
 }
 
@@ -88,7 +90,7 @@ export function createFoodRecognizer(
           },
         })),
       }
-      return { ...checkAnswer(ours), model: settings.model }
+      return { ...checkAnswer(ours), model: settings.recordedAs ?? settings.model }
     },
   }
 }
