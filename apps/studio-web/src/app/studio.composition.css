@@ -2160,6 +2160,11 @@
 [data-client-body-photo-list],
 [data-client-nutrition-meal-list],
 [data-client-nutrition-item-list],
+/* The only one of these inside an Alert, and the only list in the file that was
+   left out of this rule: unregistered it kept the browser's bullets and
+   indent, which no other list in Studio does. The sweep could not see it —
+   bullets break neither axe nor the measure. */
+[data-client-nutrition-goal-blocker-list],
 [data-client-nutrition-goal-list] {
   display: grid;
   gap: var(--afo-space-3);
