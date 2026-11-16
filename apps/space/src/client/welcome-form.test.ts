@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
-import { canActivate, completionFor, welcomeVariant } from './welcome-form'
+import { canActivate, completionFor, storeOf, welcomeVariant } from './welcome-form'
 
 describe('welcomeVariant', () => {
   it('shows the woman only when female was declared', () => {
@@ -21,6 +21,14 @@ describe('completionFor', () => {
       terms_accepted: true,
       privacy_notice_accepted: true,
     })
+  })
+
+  it('names the store of the phone, and sends none where there is no store', () => {
+    const ada = { given_name: 'Ada', family_name: 'Lovelace' }
+
+    expect(completionFor(ada, storeOf('ios')).store).toBe('app_store')
+    expect(completionFor(ada, storeOf('android')).store).toBe('google_play')
+    expect('store' in completionFor(ada, storeOf('web'))).toBe(false)
   })
 })
 

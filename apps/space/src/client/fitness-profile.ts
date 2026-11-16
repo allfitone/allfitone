@@ -250,6 +250,12 @@ export function identityInitials(given: string, family: string): string {
   return [given, family].map((part) => part.trim().charAt(0).toUpperCase()).join('')
 }
 
+/** «Founding Member #037»: three digits, as the emails and the waitlist page write it. */
+export function foundingMemberLabel(value: number | null | undefined): string | undefined {
+  if (typeof value !== 'number') return undefined
+  return `Founding Member #${String(value).padStart(3, '0')}`
+}
+
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 /** «3 jul 2026», on the calendar of the device. */

@@ -19,6 +19,7 @@ import {
   daysLine,
   fewEquipmentAtHome,
   fitnessSections,
+  foundingMemberLabel,
   identityInitials,
   nameProblem,
   provenanceLine,
@@ -178,6 +179,13 @@ describe('«Identidad y acceso»', () => {
     expect(identityInitials('Camila', 'Rojas Díaz')).toBe('CR')
     expect(identityInitials('', '')).toBe('')
     expect(activeSince('2026-07-03T10:05:00.000Z')).toBe('3 jul 2026')
+  })
+
+  test('T-SPC-UNIT-FP-22 the Founding Member badge writes its number in three digits', () => {
+    expect(foundingMemberLabel(37)).toBe('Founding Member #037')
+    expect(foundingMemberLabel(100)).toBe('Founding Member #100')
+    expect(foundingMemberLabel(null)).toBeUndefined()
+    expect(foundingMemberLabel(undefined)).toBeUndefined()
   })
 
   test('T-SPC-UNIT-FP-12 a name is checked the way the server checks it', () => {
