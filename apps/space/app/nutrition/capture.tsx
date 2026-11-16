@@ -47,6 +47,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import {
   captureTotals,
+  consentToAsk,
   creditsOpenFoodFacts,
   fromFood,
   fromRecognition,
@@ -69,7 +70,12 @@ import { openItem, takeItemOutcome } from '../../src/client/item-handover'
 import { handOverSavedMeal } from '../../src/client/saved-meal'
 import { deviceTimezone } from '../../src/client/timezone'
 import { sendMealPhoto } from '../../src/client/meal-photos'
-import { ConsentSheet, FoodTile, MealMenu } from '../../src/components/capture-sheets'
+import {
+  CONSENT_TEXTS,
+  ConsentSheet,
+  FoodTile,
+  MealMenu,
+} from '../../src/components/capture-sheets'
 import { FIGURE_TRACKING, macroColor, MEAL_ICON } from '../../src/components/nutrition-ui'
 import { preparePhoto } from '../../src/components/prepare-photo'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
@@ -84,6 +90,8 @@ interface Photo {
 
 const RECOGNITION_FAILED =
   'No pudimos reconocer la foto. Búscalos en «Alimentos»; la foto se queda con la comida.'
+const CONSENT_TEXT_MISSING =
+  'Actualiza la app para reconocer tu comida con una foto. Mientras tanto, búscala en «Alimentos».'
 const SAVE_FAILED = 'No pudimos guardar la comida. Inténtalo otra vez.'
 // A label is about this size (tile, name, kcal); the gap keeps two from touching.
 const LABEL_SIZE = { width: 200, height: 52 }
@@ -145,6 +153,8 @@ export default function CaptureScreen() {
   const [recognizedBy, setRecognizedBy] = useState<string | null>(null)
   const [menu, setMenu] = useState(false)
   const [consentAsked, setConsentAsked] = useState(false)
+  // The version asked and the text shown for it, which is what gets accepted.
+  const [consent, setConsent] = useState({ version: '', text: '' })
   const [consentBusy, setConsentBusy] = useState(false)
   const [targets, setTargets] = useState<readonly GoalTarget[]>([])
   const [leaving, setLeaving] = useState(false)
@@ -208,9 +218,17 @@ export default function CaptureScreen() {
     setPhase('recognizing')
     const mine = (attempt.current += 1)
     try {
-      const consent = await flow.readConsent()
-      if (consent.accepted_version !== consent.current_version) {
-        if (mine === attempt.current) setConsentAsked(true)
+      const ask = consentToAsk(await flow.readConsent(), CONSENT_TEXTS)
+      if (ask !== 'accepted') {
+        if (mine !== attempt.current) return
+        if (ask === 'unknown') {
+          setPhase('camera')
+          setTab('foods')
+          setFailure(CONSENT_TEXT_MISSING)
+        } else {
+          setConsent(ask)
+          setConsentAsked(true)
+        }
         return
       }
       const recognition = await flow.recognize({
@@ -268,8 +286,7 @@ export default function CaptureScreen() {
   const acceptConsent = async () => {
     setConsentBusy(true)
     try {
-      const consent = await flow.readConsent()
-      await flow.acceptConsent(consent.current_version)
+      await flow.acceptConsent(consent.version)
       setConsentAsked(false)
       if (photo) await recognise(photo)
     } catch {
@@ -595,6 +612,7 @@ export default function CaptureScreen() {
       </Sheet>
       <ConsentSheet
         visible={consentAsked}
+        text={consent.text}
         busy={consentBusy}
         onAccept={() => void acceptConsent()}
         onDecline={() => {

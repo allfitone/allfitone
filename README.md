@@ -191,10 +191,16 @@ apps/
   backoffice-web/ Client of /backoffice/v1
   space/          Expo · client of /space/v1
 packages/
-  auth-provider/  Port and adapter for the identity provider
-  queue/          Port and adapter for the job queue
-  contracts/      OpenAPI specification and generated DTOs
-  db/             Migrations, schema and types
+  ai-provider/      Port and adapters for the model vendors (AI Gateway, Bedrock)
+  auth-provider/    Port and adapter for the identity provider
+  contracts/        OpenAPI specification and generated DTOs
+  db/               Migrations, schema and types
+  food-recognition/ Meal-photo recognition, a task over the model port
+  notifications/    Notification ports and provider adapters
+  object-store/     Port and adapter for private objects
+  queue/            Port and adapter for the job queue
+  store-billing/    Port and adapters for App Store and Google Play
+  telemetry/        Closed telemetry contracts and provider-neutral ports
 ```
 
 `apps/` are things that **run**. `packages/` are things that get **used**.
@@ -223,6 +229,8 @@ Enforced in `eslint.config.js`; they fail CI, not code review:
 3. `packages/` never depends on the hosting provider.
 4. An app never imports from another app.
 5. A handler never executes SQL.
+6. Only `packages/ai-provider` imports a model SDK: the AI SDK, Bedrock or any
+   vendor's own (ADR-045).
 
 `AGENTS.md` section 5 documents what these do **not** cover yet.
 

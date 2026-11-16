@@ -260,16 +260,23 @@ function Section({
 
 // ———————————————————————————————————————— consent
 
-export const CONSENT_TEXT =
-  'Para reconocer los alimentos, la foto se envía a Google (Gemini) a través de Vercel, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit, y tú revisas todo antes de guardar.'
+/** Each consent version is a text: the one that names where the photo goes (ADR-045). */
+export const CONSENT_TEXTS: Readonly<Record<string, string>> = {
+  '2026-10-04':
+    'Para reconocer los alimentos, la foto se envía a Google (Gemini) a través de Vercel, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit, y tú revisas todo antes de guardar.',
+  '2026-11-15':
+    'Para reconocer los alimentos, la foto se envía a Claude, un modelo de Anthropic que funciona en Amazon Web Services, en Estados Unidos, sin su ubicación ni sus datos de cámara. No se guarda allá ni se usa para entrenar modelos. Las calorías salen del catálogo de Allfit One, y tú revisas todo antes de guardar.',
+}
 
 export function ConsentSheet({
   visible,
+  text,
   busy,
   onAccept,
   onDecline,
 }: {
   readonly visible: boolean
+  readonly text: string
   readonly busy: boolean
   readonly onAccept: () => void
   readonly onDecline: () => void
@@ -285,7 +292,7 @@ export function ConsentSheet({
           Reconocer tu comida
         </Text>
         <Text role="body" size="md" color="secondary" align="center">
-          {CONSENT_TEXT}
+          {text}
         </Text>
         <Button label="Aceptar y reconocer" loading={busy} onPress={onAccept} />
         <Button label="Ahora no" variant="ghost" disabled={busy} onPress={onDecline} />
