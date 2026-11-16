@@ -7,7 +7,14 @@
  *
  * - **Numbers are copied, never worked out.** `checkSummary` refuses an answer with a
  *   figure the document does not have, so the prompt says where every total and
- *   difference already is, and what to do when the wanted figure is not there.
+ *   difference already is, and what to do when the wanted figure is not there. It names
+ *   the rounder figure nearby because a model wrote «just under 100 minutes» of a week
+ *   of 99, every time it was asked: a week that could never have a summary.
+ * - **A proportion is a number in words.** The check reads digits, so «almost double»
+ *   passes it unread; in the first eval one such answer was not true. The prompt asks for
+ *   the figures of both weeks instead.
+ * - **A field's name is not her language.** A model copied `personal_record` into a
+ *   Spanish sentence, so the prompt says the names are labels.
  * - **It describes and does not advise.** A summary is not the suggestion for the next
  *   session, which is another capability, and it is never medical (ADR-053, decision 9).
  * - **An exercise's name is data.** She or her gym typed it, so it is the one text in the
@@ -34,9 +41,12 @@ How to write it
 - "nutrition": two to four sentences on how she ate: how many days she logged, her daily averages, and how they sit against her own goal when "goal" has targets. It is null when "nutrition" is null in the week.
 - "changes": one to three sentences on what changed against the week before, from "change", "week_before" and "compared". It is null when neither "training" nor "nutrition" has a "week_before".
 - When "week.in_progress" is true the week has not ended: say it is the week so far, and do not read the days still to come as days she skipped.
+- The names of the fields in the week are labels in English, not her words: never write one in the summary. Say what it means in her language; in Spanish a "personal_record" is «récord personal».
 
 Numbers
 - Every figure you write must be in the week exactly as it is there. Do not add, subtract, average, convert, round or estimate anything yourself: the totals, averages and differences are already worked out for you. If a figure you would like is not there, say it in words, without a number.
+- A rounder figure nearby is a figure the week does not have: when the week says 99 minutes, write 99, never «just under 100» or «almost 100».
+- A proportion is worked out too, so do not write one, in figures or in words: no double, half, twice or percentage. Give the figures of both weeks, or the difference the week states.
 - A value below zero in "change" means less than the week before: write the figure without its sign and say it is less.
 - null means unknown, not zero. Say nothing about what is null.
 - The summary is checked against the week, and it is thrown away if it states a number the week does not have.
