@@ -151,6 +151,8 @@ export interface WeekDocument {
   readonly week: {
     readonly from: string
     readonly to: string
+    /** Always seven. It is stated so a summary may say «6 of 7 days». */
+    readonly days: 7
     /** True when the week has not ended: the summary says «so far». */
     readonly in_progress: boolean
   }

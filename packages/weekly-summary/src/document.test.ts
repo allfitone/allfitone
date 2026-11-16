@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { documentOf, sourcesOf } from './document.js'
+import { numbersOf, strangers } from './numbers.js'
 import type { ExerciseLogged, NutritionDayLogged, SessionLogged, WeeksLogged } from './port.js'
 
 const SQUAT = '019f5000-0000-7000-8000-000000000001'
@@ -55,7 +56,18 @@ describe('the document a model is shown', () => {
 
   test('T-WSM-UNIT-13: the week runs from its Monday to its Sunday', () => {
     const document = documentOf(logged({ sessions: [session('2026-11-09')] }), 'es')
-    expect(document?.week).toEqual({ from: '2026-11-09', to: '2026-11-15', in_progress: false })
+    expect(document?.week).toEqual({
+      from: '2026-11-09',
+      to: '2026-11-15',
+      days: 7,
+      in_progress: false,
+    })
+  })
+
+  test('T-WSM-UNIT-56: the week says how many days it has, so «6 de 7 días» can be said', () => {
+    const six = ['09', '10', '11', '12', '13', '14'].map((at) => day(`2026-11-${at}`))
+    const document = documentOf(logged({ nutritionDays: six }), 'es')
+    expect(strangers('Registraste 6 de 7 días.', numbersOf(document))).toEqual([])
   })
 
   test('T-WSM-UNIT-14: training adds up the sessions of the week, and only those', () => {

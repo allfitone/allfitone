@@ -181,7 +181,7 @@ export function documentOf(logged: WeeksLogged, language: Language): WeekDocumen
 
   return {
     language,
-    week: { from, to, in_progress: logged.inProgress },
+    week: { from, to, days: 7, in_progress: logged.inProgress },
     training:
       thisWeek === null
         ? null

@@ -79,13 +79,13 @@ describe('what a summary must hold to be shown', () => {
 
   test('T-WSM-UNIT-30: a refusal is closed and says which rule, never the text', () => {
     try {
-      checkSummary({ ...answer, overview: 'Entrenaste 7 veces.' }, document())
+      checkSummary({ ...answer, overview: 'Entrenaste 37 veces.' }, document())
       throw new Error('it was not refused')
     } catch (cause) {
       expect(cause).toBeInstanceOf(SummaryError)
       expect((cause as SummaryError).failure).toBe('refused')
       expect((cause as SummaryError).reason).toBe('unknown-number')
-      expect((cause as SummaryError).message).not.toContain('7 veces')
+      expect((cause as SummaryError).message).not.toContain('37 veces')
     }
   })
 
@@ -183,7 +183,7 @@ describe('what a summary must hold to be shown', () => {
   })
 
   test('T-WSM-UNIT-41: every broken rule is reported, in the order they are checked', () => {
-    const broken = { ...answer, overview: 'Entrenaste 7 veces, mira www.example.com.' }
+    const broken = { ...answer, overview: 'Entrenaste 37 veces, mira www.example.com.' }
     expect(reasons(broken)).toEqual(['link', 'unknown-number'])
   })
 })
