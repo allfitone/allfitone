@@ -110,7 +110,8 @@ test('T-WRK-WL-02 a confirmed address gets its link in its own language, and no 
   } = confirmation({
     kind: 'link',
     language: 'en',
-    referrals: 4,
+    referrals: 9,
+    activeReferrals: 4,
   })
 
   await processor(link, { sent })()
@@ -118,6 +119,8 @@ test('T-WRK-WL-02 a confirmed address gets its link in its own language, and no 
   expect(sent[0]?.subject).toBe('Your Allfit Space waitlist link')
   expect(sent[0]?.text).toContain('http://localhost:3002/en/waitlist?ref=KEVN7QHX')
   expect(sent[0]?.text).toContain('http://localhost:3002/en/waitlist/referrals#token=')
+  expect(sent[0]?.text).toContain('Signed up with your link: 9.')
+  expect(sent[0]?.text).toContain('Active: 4. 1 more for 1 month of Allfit Pro.')
   expect(sent[0]?.text).toContain('http://localhost:3002/en/waitlist/leave#token=')
   expect(sent[0]?.text).not.toContain('waitlist/confirm')
 })
