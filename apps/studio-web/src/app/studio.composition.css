@@ -873,7 +873,7 @@
   justify-content: space-between;
   gap: var(--afo-space-3);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-today-state-figure] {
@@ -1053,7 +1053,7 @@
   gap: var(--afo-space-2);
   margin-block-start: var(--afo-space-3);
   padding-inline-start: var(--afo-space-4);
-  border-inline-start: 2px solid var(--afo-color-border);
+  border-inline-start: 2px solid var(--afo-color-border-default);
 }
 
 [data-category-client-label],
@@ -1116,7 +1116,7 @@
   gap: var(--afo-space-4);
   margin-block-start: var(--afo-space-6);
   padding-block-start: var(--afo-space-5);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 /* The alert carries its own frame, so it is set off by space and not by a
@@ -1644,9 +1644,11 @@
   display: grid;
   justify-items: start;
   gap: var(--afo-space-2);
-  margin-block-start: var(--afo-space-7);
+  /* 24px, the rung the scale actually has: it jumps from 6 to 8, so the 7 that
+     stood here was no value at all and the margin computed to zero. */
+  margin-block-start: var(--afo-space-6);
   padding-block-start: var(--afo-space-6);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-site-status-title] {
@@ -1755,7 +1757,7 @@
   gap: var(--afo-space-3);
   margin-block-start: var(--afo-space-6);
   padding-block-start: var(--afo-space-5);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 /* The person, then the facts about her. CardContent pads sideways only, so
@@ -1781,7 +1783,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-progress-period-cards] > li:first-child [data-client-progress-period],
@@ -1841,7 +1843,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-executions-list] > li:first-child [data-client-execution],
@@ -2030,7 +2032,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-program-session-cards] > li:first-child [data-client-program-session] {
@@ -2087,7 +2089,7 @@
   gap: var(--afo-space-2);
   min-width: 0;
   padding-block-start: var(--afo-space-3);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-execution-result-list] > li:first-child [data-client-execution-result],
@@ -2154,7 +2156,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-profile-group]:first-child,
@@ -2398,7 +2400,7 @@
 [data-client-open] {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--afo-color-border);
+  text-decoration-color: var(--afo-color-border-default);
   text-underline-offset: 3px;
 }
 
