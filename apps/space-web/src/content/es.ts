@@ -12,7 +12,7 @@ export const es = {
     description:
       'App de entrenamiento y nutrición: sigue un programa para tu objetivo, supera tus series de la vez anterior y lleva tus comidas frente a tu meta. Gratis.',
     shareImageAlt:
-      'Una atleta prepara un peso muerto con la barra cargada en un gimnasio en penumbra.',
+      'Allfit Space, app de entrenamiento y nutrición: tres pantallas de la app con una sesión en curso, el entrenamiento de hoy y las comidas del día.',
   },
   nav: {
     skip: 'Saltar al contenido',
@@ -223,6 +223,8 @@ export const es = {
       title: 'Lista de espera | Allfit Space',
       description:
         'Únete a la lista de espera de Allfit Space: las primeras 100 personas que confirmen su correo serán Founding Members, y cada persona que invites te acerca a meses de Allfit Pro.',
+      shareImageAlt:
+        'Lista de espera de Allfit Space: tres pantallas de la app con una sesión en curso, el entrenamiento de hoy y las comidas del día.',
     },
     title: ['LOS PRIMEROS 100 SON', 'FOUNDING MEMBERS.'],
     highlight: 'FOUNDING MEMBERS',

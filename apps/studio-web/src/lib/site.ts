@@ -25,10 +25,17 @@ export const ORGANIZATION_ID = `${PARENT_SITE_URL}/#organization`
 
 const OG_LOCALES = { es: 'es_CO', en: 'en_US' } as const satisfies Record<Locale, string>
 
-/** The landing's hero, captured in each language, that a shared link is previewed with. */
+// Apps keep a preview by its image's address, so a file never changes in place:
+// its name carries a hash of its content, and a new picture is a new name.
+const SHARE_IMAGES = {
+  es: 'landing-es.8911874d.png',
+  en: 'landing-en.757b7e1b.png',
+} as const satisfies Record<Locale, string>
+
+/** The image a shared link is previewed with: the logo over the landing's title. */
 export function shareImage(locale: Locale) {
   return {
-    url: `${SITE_URL}/images/og-${locale}.png`,
+    url: `${SITE_URL}/images/share/${SHARE_IMAGES[locale]}`,
     width: 1200,
     height: 630,
     type: 'image/png',

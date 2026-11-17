@@ -8,7 +8,7 @@ export const en: Dictionary = {
     description:
       'Bring your clients, their training programs and every session they log into one panel. For personal trainers, studios and gyms.',
     shareImageAlt:
-      'Allfit Studio’s front page: “Your clients train. You see every session.”, beside a client’s sheet comparing what was planned with what was logged.',
+      'Allfit Studio, software for personal trainers and gyms: a client’s sheet compares what was planned with what was logged, between the week’s sessions and what a client shares.',
   },
   nav: {
     label: 'Main',

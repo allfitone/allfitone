@@ -154,8 +154,25 @@ test.describe('search engines', () => {
     expect(html).toContain(`<link rel="alternate" hrefLang="en" href="${SITE}/en"/>`)
     expect(html).toContain(`<link rel="alternate" hrefLang="x-default" href="${SITE}"/>`)
     expect(html).toContain(`<meta property="og:url" content="${SITE}/es"/>`)
-    expect(html).toContain(`<meta property="og:image" content="${SITE}/images/og.jpg"/>`)
+    expect(html).toContain(`<meta property="og:image" content="${SITE}/images/share/home-es.`)
     expect(html).toContain('<meta property="og:image:alt"')
+  })
+
+  test('each page is previewed with its own image, and the image exists', async ({ request }) => {
+    for (const [path, name] of [
+      ['/es', 'home-es'],
+      ['/en', 'home-en'],
+      ['/es/waitlist', 'waitlist-es'],
+      ['/en/waitlist', 'waitlist-en'],
+    ] as const) {
+      const html = await (await request.get(path)).text()
+      const address = /<meta property="og:image" content="([^"]+)"/.exec(html)?.[1] ?? ''
+      expect(address).toContain(`${SITE}/images/share/${name}.`)
+
+      const image = await request.get(address.slice(SITE.length))
+      expect(image.status()).toBe(200)
+      expect(image.headers()['content-type']).toBe('image/png')
+    }
   })
 
   test('the landing describes the app as Allfit One’s', async ({ request }) => {

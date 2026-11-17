@@ -7,7 +7,8 @@ export const en: Dictionary = {
     title: 'Allfit Space | Training and nutrition app',
     description:
       "Training and nutrition app: follow a programme for your goal, beat last time's sets and track your meals against your target. Free.",
-    shareImageAlt: 'An athlete sets up a deadlift with a loaded barbell in a dimly lit gym.',
+    shareImageAlt:
+      "Allfit Space, training and nutrition app: three screens of the app with a session in progress, today's workout and the day's meals.",
   },
   nav: {
     skip: 'Skip to content',
@@ -210,6 +211,8 @@ export const en: Dictionary = {
       title: 'Waitlist | Allfit Space',
       description:
         'Join the Allfit Space waitlist: the first 100 people to confirm their email become Founding Members, and everyone you invite brings you closer to months of Allfit Pro.',
+      shareImageAlt:
+        "Allfit Space waitlist: three screens of the app with a session in progress, today's workout and the day's meals.",
     },
     title: ['THE FIRST 100 ARE', 'FOUNDING MEMBERS.'],
     highlight: 'FOUNDING MEMBERS',

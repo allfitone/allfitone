@@ -18,7 +18,7 @@ test('the landing can be indexed and names every version of itself', async ({ re
   expect(html).toContain(`<link rel="alternate" hrefLang="en" href="${SITE}/en"/>`)
   expect(html).toContain(`<link rel="alternate" hrefLang="x-default" href="${SITE}"/>`)
   expect(html).toContain(`<meta property="og:url" content="${SITE}/es"/>`)
-  expect(html).toContain(`<meta property="og:image" content="${SITE}/images/og-es.png"/>`)
+  expect(html).toContain(`<meta property="og:image" content="${SITE}/images/share/landing-es.`)
   expect(html).toContain('<meta property="og:image:alt"')
 })
 
@@ -57,7 +57,11 @@ test('robots.txt blocks nothing and the sitemap lists the landing only', async (
 
 test('the image a shared link is previewed with exists', async ({ request }) => {
   for (const locale of ['es', 'en']) {
-    const image = await request.get(`/images/og-${locale}.png`)
+    const html = await (await request.get(`/${locale}`)).text()
+    const address = /<meta property="og:image" content="([^"]+)"/.exec(html)?.[1] ?? ''
+    expect(address).toContain(`${SITE}/images/share/landing-${locale}.`)
+
+    const image = await request.get(address.slice(SITE.length))
     expect(image.status()).toBe(200)
     expect(image.headers()['content-type']).toBe('image/png')
   }

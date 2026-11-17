@@ -11,7 +11,7 @@
 import { dictionaryFor } from '@/content'
 
 import type { Locale } from './locale'
-import { ORGANIZATION_ID, PARENT_SITE_URL, SITE_NAME, SITE_URL } from './site'
+import { ORGANIZATION_ID, PARENT_SITE_URL, shareImage, SITE_NAME, SITE_URL } from './site'
 
 export function structuredData(locale: Locale) {
   const { meta } = dictionaryFor(locale)
@@ -38,7 +38,7 @@ export function structuredData(locale: Locale) {
         name: SITE_NAME,
         url: `${SITE_URL}/${locale}`,
         description: meta.description,
-        image: `${SITE_URL}/images/og.jpg`,
+        image: shareImage(locale).url,
         applicationCategory: 'HealthApplication',
         operatingSystem: 'iOS, Android',
         inLanguage: locale,

@@ -1,8 +1,15 @@
 import { describe, expect, test } from 'bun:test'
+import { createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 import { dictionaryFor } from '@/content'
 
+import { LOCALES } from './locale'
 import { alternates, pageMetadata, shareImage, SITE_URL } from './site'
+
+const PUBLIC_DIRECTORY = fileURLToPath(new URL('../../public', import.meta.url))
+const SHARE_PAGES = ['home', 'waitlist'] as const
 
 describe('alternates', () => {
   test('a page names itself, its translation and the address that picks a language', () => {
@@ -45,8 +52,49 @@ describe('pageMetadata', () => {
     })
   })
 
-  test('the shared image is described in the language of the page', () => {
-    expect(shareImage('es').alt).toBe(dictionaryFor('es').meta.shareImageAlt)
-    expect(shareImage('en').alt).toBe(dictionaryFor('en').meta.shareImageAlt)
+  test('a page of the waitlist is shared with the waitlist’s image', () => {
+    const metadata = pageMetadata(
+      'es',
+      '/waitlist',
+      { title: 'Lista de espera | Allfit Space', description: 'Únete a la lista.' },
+      'waitlist',
+    )
+
+    expect(metadata.openGraph.images).toEqual([shareImage('es', 'waitlist')])
+    expect(metadata.twitter.images).toEqual([shareImage('es', 'waitlist')])
+  })
+})
+
+describe('shareImage', () => {
+  test('each page has its own image in each language, described in that language', () => {
+    const urls = LOCALES.flatMap((locale) =>
+      SHARE_PAGES.map((page) => shareImage(locale, page).url),
+    )
+    expect(new Set(urls).size).toBe(urls.length)
+
+    for (const locale of LOCALES) {
+      const copy = dictionaryFor(locale)
+      expect(shareImage(locale).alt).toBe(copy.meta.shareImageAlt)
+      expect(shareImage(locale, 'waitlist').alt).toBe(copy.waitlistPage.meta.shareImageAlt)
+    }
+  })
+
+  // Apps keep a preview by its image's address: a changed picture must take a new name.
+  test('every image holds the content its name promises, at the size it declares', () => {
+    for (const locale of LOCALES) {
+      for (const page of SHARE_PAGES) {
+        const image = shareImage(locale, page)
+        const path = new URL(image.url).pathname
+        const content = readFileSync(`${PUBLIC_DIRECTORY}${path}`)
+        const hash = createHash('sha256').update(content).digest('hex').slice(0, 8)
+
+        expect(path).toEndWith(`.${hash}.png`)
+        // A PNG gives its width and height as two 32-bit numbers from byte 16.
+        expect([content.readUInt32BE(16), content.readUInt32BE(20)]).toEqual([
+          image.width,
+          image.height,
+        ])
+      }
+    }
   })
 })
