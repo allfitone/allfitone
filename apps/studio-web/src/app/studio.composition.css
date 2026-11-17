@@ -1104,7 +1104,8 @@
 
 [data-trajectory-body],
 [data-goal-proposal-form],
-[data-client-observation-correction-form] {
+[data-client-observation-correction-form],
+[data-client-correction-proposal-form] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -1134,11 +1135,13 @@
 
 /* The live region stays empty until a correction lands; only then does it take
    room, so a row that was never corrected is not taller than its neighbours. */
-[data-client-observation-correction-outcome] {
+[data-client-observation-correction-outcome],
+[data-client-correction-outcome] {
   margin: 0;
 }
 
-[data-client-observation-correction-outcome]:not(:empty) {
+[data-client-observation-correction-outcome]:not(:empty),
+[data-client-correction-outcome]:not(:empty) {
   margin-block-start: var(--afo-space-2);
 }
 
@@ -1147,6 +1150,8 @@
    kept. All three read as a caption. */
 [data-client-observation-kind-note],
 [data-client-observation-correction-outcome],
+[data-client-correction-outcome],
+[data-client-correction-declared],
 [data-client-execution-observations-none] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);

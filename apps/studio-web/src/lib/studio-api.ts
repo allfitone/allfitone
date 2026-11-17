@@ -138,6 +138,11 @@ export type ObservationProvenance = AllfitV1Schemas['ProfessionalObservationProv
 export type ProfessionalObservationCreate = AllfitV1Schemas['ProfessionalObservationCreate']
 export type ProfessionalObservationRevisionCreate =
   AllfitV1Schemas['ProfessionalObservationRevisionCreate']
+export type CorrectionField = AllfitV1Schemas['CorrectionField']
+export type CorrectionProposalStatus = AllfitV1Schemas['CorrectionProposalStatus']
+export type CorrectionProposalCreate = AllfitV1Schemas['CorrectionProposalCreate']
+export type ProposedCorrection = AllfitV1Schemas['ProposedCorrection']
+export type ProposedCorrectionPage = AllfitV1Schemas['ProposedCorrectionPage']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -1245,6 +1250,64 @@ export const studioApi = {
         ...(signal ? { signal } : {}),
       },
     ),
+
+  /**
+   * `OP-EXE-012`. Proposes a new value for **one field of one set she
+   * declared** — the repetitions, the load or the RPE. Proposing changes
+   * nothing: the value moves only if she accepts it, within thirty days, and
+   * her silence is not acceptance.
+   *
+   * Needs her training at `contribute` (403 `scope-required`) and the
+   * `propose_corrections` capability (403 `forbidden`, a different refusal:
+   * one is hers to grant, the other the organization's). What a device
+   * captured or anybody observed is not hers to change, and a value equal to
+   * what she declared changes nothing: both answer 422. A session she annulled
+   * or hid, and a relationship that ended, answer 404.
+   *
+   * **The 409 stands for three facts the contract does not tell apart**: that
+   * field already waits on her for a proposal, she has no address to be told
+   * about one, or the proposal was already settled.
+   */
+  proposeClientCorrection: (
+    organizationId: string,
+    personId: string,
+    body: CorrectionProposalCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProposedCorrection>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/correction-proposals`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-EXE-020`. The corrections this caller proposed in this organization,
+   * soonest to expire first. Never her value, and `target` is null once the
+   * caller stops attending her — each professional sees only their own.
+   *
+   * One page holds at most a hundred, so a screen that uses it to mark a field
+   * as already waiting is doing so on a best-effort basis: past a hundred
+   * pending proposals the 409 is what catches a duplicate, and it always was.
+   */
+  listProposedCorrections: (
+    organizationId: string,
+    query: { status?: CorrectionProposalStatus; limit?: number },
+    signal?: AbortSignal,
+  ) => {
+    const search = new URLSearchParams()
+    if (query.status) search.set('status', query.status)
+    if (query.limit !== undefined) search.set('limit', String(query.limit))
+    const suffix = search.size > 0 ? `?${search.toString()}` : ''
+    return request<ProposedCorrectionPage>(
+      `/studio/v1/organizations/${organizationId}/correction-proposals${suffix}`,
+      signal ? { signal } : {},
+    )
+  },
 
   /**
    * `OP-PLN-012`. Moves one session of a managed program to another day of its

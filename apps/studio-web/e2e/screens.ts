@@ -165,6 +165,23 @@ const progressPath = `${clientCardPath}/progress`
 const programsPath = `${clientCardPath}/programs`
 const executionDetailPath = `${executionsPath}/${clientExecutions[0]?.id ?? ''}`
 
+/** Una propuesta de este profesional esperando respuesta sobre la primera serie. */
+function waitingProposal() {
+  return {
+    id: '01991600-7000-7000-8000-00000000e801',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 1 },
+    field: 'achieved_reps',
+    proposed: { value: 9, unit: null },
+    reason: 'Conté nueve repeticiones, no ocho.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-11-15T16:00:00.000Z',
+    expires_at: '2026-12-15T16:00:00.000Z',
+    settled_at: null,
+  }
+}
+
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
   const cover = (id: string, name: string, status: string, from: string, to: string) => ({
@@ -2041,6 +2058,48 @@ export const SCREENS: Screen[] = [
       await page.getByLabel('Motivo del cambio').fill('No había anotado la carga exacta.')
       await page.getByRole('button', { name: 'Guardar la corrección' }).click()
       await expect(page.locator('[data-client-observation-correction-moved]')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-059 ---
+  {
+    // The dialog that proposes a correction: three fields, her own value under
+    // the one in hand, and above them the sentence that nothing of hers moves.
+    stories: 'HU-059 · proponer una corrección sobre una serie',
+    path: executionDetailPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-client-correction-propose]').first().click()
+      await expect(page.getByLabel('Por qué se lo propones')).toBeVisible()
+    },
+  },
+  {
+    // A field that already waits on her: the form is not drawn for it, and the
+    // alert carries the deadline and what expiring means.
+    stories: 'HU-059 · ese dato ya está esperando su respuesta',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        proposedCorrections: [waitingProposal()],
+      }),
+    reveal: async (page) => {
+      await page.locator('[data-client-correction-propose]').first().click()
+      await expect(page.locator('[data-client-correction-waiting]')).toBeVisible()
+    },
+  },
+  {
+    // The refusal of his role, which is not the refusal of her permission: a
+    // danger alert inside a dialog, where contrast is hardest to hold.
+    stories: 'HU-059 · su rol no incluye proponer correcciones',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], proposalOutcome: 'forbidden' }),
+    reveal: async (page) => {
+      await page.locator('[data-client-correction-propose]').first().click()
+      await page.getByLabel('Repeticiones que propones').fill('9')
+      await page.getByLabel('Por qué se lo propones').fill('Conté nueve, no ocho.')
+      await page.getByRole('button', { name: 'Enviar la propuesta' }).click()
+      await expect(page.locator('[data-client-correction-failure]')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---

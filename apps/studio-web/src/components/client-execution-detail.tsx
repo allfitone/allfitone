@@ -69,17 +69,25 @@ import {
   strengthLine,
   type ResultFamily,
 } from '@/lib/client-execution-detail'
+import { ClientCorrectionProposal } from './client-correction-proposal'
 import { ClientObservationCorrection } from './client-observation-correction'
 import { ClientObservationForm } from './client-observation-form'
+import { canProposeCorrection } from '@/lib/client-correction-proposal'
 import { observationCategories, observationCorrectable } from '@/lib/client-observation'
 import { executionWhen, levelLabel, originLabel } from '@/lib/client-executions'
 import { readerTimeZone } from '@/lib/reader-zone'
-import type { AuthorizedExecution, ProfessionalObservation } from '@/lib/studio-api'
+import type {
+  AuthorizedExecution,
+  ExecutionDetailStrengthSet,
+  ProfessionalObservation,
+  ProposedCorrection,
+} from '@/lib/studio-api'
 import {
   clientCardQueryOptions,
   clientExecutionQueryOptions,
   isStudioForbidden,
   isStudioNotFound,
+  proposedCorrectionsQueryOptions,
 } from '@/lib/studio-query'
 
 export function ClientExecutionDetailScreen() {
@@ -95,6 +103,13 @@ export function ClientExecutionDetailScreen() {
    * no access event, which is why a second read here is affordable.
    */
   const cardQuery = useQuery(clientCardQueryOptions(organizationId, params.personId))
+  /*
+   * The caller's own pending proposals, so a field that already waits on her is
+   * not offered twice. `OP-EXE-020` holds none of her data and writes no access
+   * record, and one page caps at a hundred — past that the 409 is what prevents
+   * a duplicate, as it always was.
+   */
+  const proposalsQuery = useQuery(proposedCorrectionsQueryOptions(organizationId))
   const executionsPath = clientExecutionsPath(organizationId, params.personId)
   const cardPath = clientCardPath(organizationId, params.personId)
 
@@ -110,6 +125,13 @@ export function ClientExecutionDetailScreen() {
   const card = cardQuery.data
   const offers =
     card && card.kind === 'attending' ? observationCategories(execution, card.sections) : []
+  /*
+   * Proposing needs only her training at the writing level — health context has
+   * nothing to do with what she recorded — and it reaches a session she trained
+   * on her own as well, so where the session came from is not a condition.
+   */
+  const mayPropose = card?.kind === 'attending' && canProposeCorrection(card.sections)
+  const pendingProposals: readonly ProposedCorrection[] = proposalsQuery.data?.data ?? []
 
   return (
     <div data-client-execution-detail-screen>
@@ -216,6 +238,21 @@ export function ClientExecutionDetailScreen() {
             family={entry.family}
             title={entry.title}
             note={entry.note}
+            /* Only a strength set takes a proposal, and only while she shares
+               her training at the writing level. */
+            action={
+              mayPropose
+                ? (set) => (
+                    <ClientCorrectionProposal
+                      set={set}
+                      pending={pendingProposals}
+                      executionId={params.executionId}
+                      organizationId={organizationId}
+                      personId={params.personId}
+                    />
+                  )
+                : undefined
+            }
           />
         ))
       )}
@@ -297,12 +334,15 @@ function ResultPanel({
   family,
   title,
   note,
+  action,
 }: {
   execution: AuthorizedExecution
   family: ResultFamily
   title: string
   /** Said only where the family's name does not explain itself. */
   note: string | null
+  /** What a row of this family offers, when it offers anything. */
+  action?: ((set: ExecutionDetailStrengthSet) => ReactNode) | undefined
 }) {
   const rows = familyRows(execution, family)
   return (
@@ -327,6 +367,7 @@ function ResultPanel({
                   ) : null}
                 </div>
                 {row.detail ? <p data-client-execution-result-detail>{row.detail}</p> : null}
+                {action && row.set ? action(row.set) : null}
               </article>
             </li>
           ))}
@@ -341,6 +382,8 @@ interface ResultRow {
   readonly name: string
   readonly detail: string
   readonly block: string | null
+  /** Only a strength set has one: the three fields a proposal can point at. */
+  readonly set: ExecutionDetailStrengthSet | null
 }
 
 /**
@@ -358,6 +401,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `${String(set.order)}. ${set.movement_name}`,
       detail: strengthLine(set),
       block: block(set.segment_position),
+      set,
     }))
   }
   if (family === 'endurance') {
@@ -366,6 +410,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `Vuelta ${String(lap.lap_number)}`,
       detail: enduranceLine(lap),
       block: block(lap.segment_position),
+      set: null,
     }))
   }
   if (family === 'interval') {
@@ -374,6 +419,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `Intervalo ${String(interval.interval_number)}`,
       detail: intervalLine(interval),
       block: block(interval.segment_position),
+      set: null,
     }))
   }
   if (family === 'round') {
@@ -382,6 +428,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `Ronda ${String(round.round_number)}`,
       detail: roundLine(round),
       block: block(round.segment_position),
+      set: null,
     }))
   }
   return execution.mobility_results.map((result, index) => ({
@@ -389,6 +436,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
     name: `${String(result.sequence_position)}. ${result.movement_name}`,
     detail: mobilityLine(result),
     block: block(result.segment_position),
+    set: null,
   }))
 }
 
