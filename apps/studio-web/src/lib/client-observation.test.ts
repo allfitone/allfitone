@@ -4,8 +4,15 @@ import {
   observationCategories,
   observationCategoryNote,
   observationContentProblem,
+  observationCorrectable,
+  observationCorrectionFailure,
+  observationCorrectionNote,
+  observationCorrectionOutcome,
+  observationCorrectionProblem,
+  observationFromConflict,
   observationOutcome,
   observationProvenanceNote,
+  observationReasonProblem,
   observationWriteFailure,
   type ObservationCategoryOffer,
 } from './client-observation.js'
@@ -168,23 +175,24 @@ describe('what the form refuses before asking', () => {
   })
 })
 
-describe('what is said once it is written', () => {
-  function written(overrides: Partial<ProfessionalObservation> = {}): ProfessionalObservation {
-    return {
-      id: '01991600-7000-7000-8000-0000000000b1',
-      execution_id: '01991600-7000-7000-8000-0000000000c1',
-      category: 'training',
-      provenance: 'professional_observation',
-      content: 'La técnica bajó en las dos últimas series.',
-      revision_number: 0,
-      created_at: '2026-11-16T15:00:00.000Z',
-      revised_at: null,
-      author_name: 'Kevin Clavijo',
-      authored_by_me: true,
-      ...overrides,
-    }
+/** One as the command writes it: revision 1, never revised, and his own. */
+function written(overrides: Partial<ProfessionalObservation> = {}): ProfessionalObservation {
+  return {
+    id: '01991600-7000-7000-8000-0000000000b1',
+    execution_id: '01991600-7000-7000-8000-0000000000c1',
+    category: 'training',
+    provenance: 'professional_observation',
+    content: 'La técnica bajó en las dos últimas series.',
+    revision_number: 1,
+    created_at: '2026-11-16T15:00:00.000Z',
+    revised_at: null,
+    author_name: 'Kevin Clavijo',
+    authored_by_me: true,
+    ...overrides,
   }
+}
 
+describe('what is said once it is written', () => {
   test('says it was added, and under which category', () => {
     expect(observationOutcome(written())).toBe('Quedó tu observación sobre cómo entrenó.')
     expect(observationOutcome(written({ category: 'health' }))).toBe(
@@ -239,5 +247,123 @@ describe('what each refusal means', () => {
     expect(observationWriteFailure(0, undefined, 'training')).toBe(
       'No pudimos guardar la observación. No quedó nada escrito; vuelve a intentarlo.',
     )
+  })
+})
+
+describe('who may correct an observation', () => {
+  const open: readonly ObservationCategoryOffer[] = [
+    { category: 'training', state: 'open' },
+    { category: 'health', state: 'open' },
+  ]
+
+  test('his own, under a category still open to him', () => {
+    expect(observationCorrectable(open, written())).toBe(true)
+    expect(observationCorrectable(open, written({ category: 'health' }))).toBe(true)
+  })
+
+  /* Criteria 1 and 2: somebody else's is not his to change, and the contract
+     answers the same 404 for it as for one he no longer reaches. */
+  test('never another professional’s', () => {
+    expect(observationCorrectable(open, written({ authored_by_me: false }))).toBe(false)
+  })
+
+  /* Criterion 4, decided before asking: a relationship that ended leaves no
+     offer at all, and a category she took down to reading leaves none open. */
+  test('not once the category stopped being open to him', () => {
+    expect(observationCorrectable([], written())).toBe(false)
+    expect(observationCorrectable([{ category: 'training', state: 'read-only' }], written())).toBe(
+      false,
+    )
+    expect(
+      observationCorrectable(
+        [{ category: 'training', state: 'open' }],
+        written({ category: 'health' }),
+      ),
+    ).toBe(false)
+  })
+})
+
+describe('what a correction will not send', () => {
+  test('nothing written, and more than the column holds', () => {
+    expect(observationCorrectionProblem('   ', 'antes')).toBe('empty')
+    expect(observationCorrectionProblem('a'.repeat(2001), 'antes')).toBe('too-long')
+    expect(observationCorrectionProblem('a'.repeat(2000), 'antes')).toBeNull()
+  })
+
+  /* The server refuses this one too, and «no se guardó» would read like a
+     failure where nothing was asked for. */
+  test('a text that did not change, whitespace aside', () => {
+    expect(observationCorrectionProblem('Lo mismo.', 'Lo mismo.')).toBe('unchanged')
+    expect(observationCorrectionProblem('  Lo mismo. ', 'Lo mismo.')).toBe('unchanged')
+    expect(observationCorrectionProblem('Otra cosa.', 'Lo mismo.')).toBeNull()
+  })
+
+  test('the reason is required, and has its own shorter limit', () => {
+    expect(observationReasonProblem(' ')).toBe('empty')
+    expect(observationReasonProblem('a'.repeat(501))).toBe('too-long')
+    expect(observationReasonProblem('a'.repeat(500))).toBeNull()
+  })
+})
+
+describe('what a correction says it keeps', () => {
+  test('the old text with the reason, and what never moves', () => {
+    expect(observationCorrectionNote('professional_observation')).toContain('texto anterior')
+    expect(observationCorrectionNote('professional_observation')).toContain('no cambian')
+  })
+
+  /* Criterion 4 of the story: correcting her words does not sign them. */
+  test('correcting a transcription does not make it his', () => {
+    const note = observationCorrectionNote('person_declared')
+    expect(note).toContain('no te vuelve su autor')
+    expect(note).toContain('quien lo capturó')
+  })
+
+  test('says it landed, and a transcription says whose it stays', () => {
+    expect(observationCorrectionOutcome(written())).toBe(
+      'Quedó corregida. Se guardó el texto anterior con tu motivo.',
+    )
+    expect(observationCorrectionOutcome(written({ provenance: 'person_declared' }))).toContain(
+      'sigue siendo suyo',
+    )
+  })
+})
+
+describe('what a refused correction means', () => {
+  test('403 names the category whose level is gone', () => {
+    expect(observationCorrectionFailure(403, 'scope-required', 'training')).toContain(
+      'su entrenamiento en nivel de registro',
+    )
+    expect(observationCorrectionFailure(403, 'scope-required', 'health')).toContain(
+      'su contexto de salud en nivel de registro',
+    )
+  })
+
+  test('a paused service says where it is resolved, which is not here', () => {
+    expect(observationCorrectionFailure(409, 'service-paused', 'training')).toContain(
+      'reactivándolo o terminando el vínculo',
+    )
+  })
+
+  test('404 is one he can no longer correct', () => {
+    expect(observationCorrectionFailure(404, 'not-found', 'training')).toContain(
+      'el vínculo con ella terminó',
+    )
+  })
+
+  test('anything else says the observation stayed as it was', () => {
+    expect(observationCorrectionFailure(503, 'upstream-unavailable', 'training')).toContain(
+      'quedó como estaba',
+    )
+    expect(observationCorrectionFailure(0, undefined, 'training')).toContain('quedó como estaba')
+  })
+})
+
+describe('the observation a conflict hands back', () => {
+  test('read when it is one, and treated as absent when it is not', () => {
+    const current = written({ content: 'Lo que dice ahora.', revision_number: 2 })
+    expect(observationFromConflict(current)?.content).toBe('Lo que dice ahora.')
+    expect(observationFromConflict(undefined)).toBeUndefined()
+    expect(observationFromConflict({ content: 'sin revisión' })).toBeUndefined()
+    expect(observationFromConflict({ revision_number: 2 })).toBeUndefined()
   })
 })

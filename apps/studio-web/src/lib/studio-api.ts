@@ -136,6 +136,8 @@ export type PlannedSessionReschedule = AllfitV1Schemas['PlannedSessionReschedule
 export type ObservationCategory = AllfitV1Schemas['ProfessionalObservationCategory']
 export type ObservationProvenance = AllfitV1Schemas['ProfessionalObservationProvenance']
 export type ProfessionalObservationCreate = AllfitV1Schemas['ProfessionalObservationCreate']
+export type ProfessionalObservationRevisionCreate =
+  AllfitV1Schemas['ProfessionalObservationRevisionCreate']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -1204,6 +1206,38 @@ export const studioApi = {
   ) =>
     request<ProfessionalObservation>(
       `/studio/v1/organizations/${organizationId}/clients/${personId}/observations`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-EXE-011`. Corrects an observation **of this caller's own**: anybody
+   * else's, and one he no longer reaches because the relationship ended, answer
+   * 404 — the same answer, because which of the two it was is not his to know.
+   *
+   * The original text is kept with the reason, and neither can be rewritten
+   * later. Who wrote it, on which session and under which category never move:
+   * correcting a transcription does not turn her words into his reading.
+   *
+   * The caller sends the `revision_number` he read as `expected_revision`. One
+   * that moved meanwhile answers 409 `stale-draft` **carrying the observation
+   * as it stands**, so the screen can show it rather than overwrite it. Needs
+   * the category at `contribute` (403 `scope-required`), and a correction that
+   * changes nothing is refused 422.
+   */
+  reviseClientObservation: (
+    organizationId: string,
+    observationId: string,
+    body: ProfessionalObservationRevisionCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProfessionalObservation>(
+      `/studio/v1/organizations/${organizationId}/observations/${observationId}/revisions`,
       {
         method: 'POST',
         headers: commandHeaders(command),

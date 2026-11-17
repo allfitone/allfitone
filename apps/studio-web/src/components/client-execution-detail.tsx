@@ -49,6 +49,7 @@ import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import type { ReactNode } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
@@ -68,8 +69,9 @@ import {
   strengthLine,
   type ResultFamily,
 } from '@/lib/client-execution-detail'
+import { ClientObservationCorrection } from './client-observation-correction'
 import { ClientObservationForm } from './client-observation-form'
-import { observationCategories } from '@/lib/client-observation'
+import { observationCategories, observationCorrectable } from '@/lib/client-observation'
 import { executionWhen, levelLabel, originLabel } from '@/lib/client-executions'
 import { readerTimeZone } from '@/lib/reader-zone'
 import type { AuthorizedExecution, ProfessionalObservation } from '@/lib/studio-api'
@@ -239,7 +241,21 @@ export function ClientExecutionDetailScreen() {
               <ul data-client-execution-observation-list>
                 {observations.map((note) => (
                   <li key={note.id}>
-                    <ObservationRow observation={note} />
+                    <ObservationRow
+                      observation={note}
+                      /* Only his own, and only while her category is still open
+                         to him: the other rows have nothing to press. */
+                      correction={
+                        observationCorrectable(offers, note) ? (
+                          <ClientObservationCorrection
+                            observation={note}
+                            executionId={params.executionId}
+                            organizationId={organizationId}
+                            personId={params.personId}
+                          />
+                        ) : null
+                      }
+                    />
                   </li>
                 ))}
               </ul>
@@ -376,7 +392,13 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
   }))
 }
 
-function ObservationRow({ observation }: { observation: ProfessionalObservation }) {
+function ObservationRow({
+  observation,
+  correction,
+}: {
+  observation: ProfessionalObservation
+  correction: ReactNode
+}) {
   const revised = observationRevisionNote(observation)
   return (
     <article data-client-execution-observation>
@@ -389,6 +411,9 @@ function ObservationRow({ observation }: { observation: ProfessionalObservation 
         ) : null}
       </div>
       <p data-client-execution-observation-content>{observation.content}</p>
+      {/* Under the text it corrects, not in the head: the action belongs to the
+          observation, and the head is where the row says whose it is. */}
+      {correction}
     </article>
   )
 }

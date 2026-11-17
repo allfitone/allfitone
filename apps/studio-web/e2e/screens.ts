@@ -1991,7 +1991,7 @@ export const SCREENS: Screen[] = [
         observationOutcome: 'scope-required',
       }),
     reveal: async (page) => {
-      await page.getByLabel('Tu observación').fill('Bajó la cadera antes de lo que debáa.')
+      await page.getByLabel('Tu observación').fill('Bajó la cadera antes de lo que debía.')
       await page.getByRole('button', { name: 'Guardar observación' }).click()
       await expect(page.locator('[data-client-observation-failure]')).toBeVisible()
     },
@@ -2012,6 +2012,35 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No puedes anotar en esta sesión')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-058 ---
+  {
+    // The dialog that corrects his own observation: two fields, and above them
+    // what the correction keeps and what it cannot move. A dialog over the
+    // longest screen in the product, which is where an overlay has to hold its
+    // contrast in both themes.
+    stories: 'HU-058 · corregir mi propia observación',
+    path: executionDetailPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-client-observation-correct]').click()
+      await expect(page.getByLabel('Motivo del cambio')).toBeVisible()
+    },
+  },
+  {
+    // The 409 that is not a failure: he corrected it from somewhere else, and
+    // the dialog shows what it says now without throwing away what he typed.
+    stories: 'HU-058 · la observación ya cambió desde otro lado',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], revisionOutcome: 'stale-draft' }),
+    reveal: async (page) => {
+      await page.locator('[data-client-observation-correct]').click()
+      await page.getByLabel('Tu observación corregida').fill('Le subí la carga de 60 a 62,5 kg.')
+      await page.getByLabel('Motivo del cambio').fill('No había anotado la carga exacta.')
+      await page.getByRole('button', { name: 'Guardar la corrección' }).click()
+      await expect(page.locator('[data-client-observation-correction-moved]')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---

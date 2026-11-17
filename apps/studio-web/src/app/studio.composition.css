@@ -1103,7 +1103,8 @@
 }
 
 [data-trajectory-body],
-[data-goal-proposal-form] {
+[data-goal-proposal-form],
+[data-client-observation-correction-form] {
   display: grid;
   gap: var(--afo-space-4);
 }
@@ -1131,9 +1132,21 @@
   gap: var(--afo-space-3);
 }
 
+/* The live region stays empty until a correction lands; only then does it take
+   room, so a row that was never corrected is not taller than its neighbours. */
+[data-client-observation-correction-outcome] {
+  margin: 0;
+}
+
+[data-client-observation-correction-outcome]:not(:empty) {
+  margin-block-start: var(--afo-space-2);
+}
+
 /* The note under a single category, where there is no field set to carry it,
-   and the line that stands in for an empty list. Both read as a caption. */
+   the line that stands in for an empty list, and what a correction says it
+   kept. All three read as a caption. */
 [data-client-observation-kind-note],
+[data-client-observation-correction-outcome],
 [data-client-execution-observations-none] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
