@@ -83,6 +83,25 @@ export interface StudioApiFixture {
   observationOutcome:
     'recorded' | 'scope-required' | 'service-paused' | 'execution' | 'not-found' | 'unavailable'
   /**
+   * Which answer `OP-EXE-011` gives. `revised` is the success and the only one
+   * that writes: the simulator replaces the text in the session, bumps the
+   * revision and stamps `revised_at`, the way the column requires — the first
+   * version is revision 1 with no stamp, and every later one carries both.
+   *
+   * `stale-draft` is the 409 that **carries the observation as it stands**,
+   * which is what lets the screen show the other text instead of overwriting
+   * it. `not-found` is the one answer for «not yours» and «the relationship
+   * ended», which the contract does not tell apart.
+   */
+  revisionOutcome:
+    | 'revised'
+    | 'stale-draft'
+    | 'scope-required'
+    | 'service-paused'
+    | 'invalid'
+    | 'not-found'
+    | 'unavailable'
+  /**
    * How her training is going. `null` is the `403` `scope-required` the route
    * answers when she shares neither category — with nothing to compute from, it
    * refuses rather than answering zeros.
@@ -1366,9 +1385,9 @@ export const clientExecutionDetail = {
       category: 'training',
       provenance: 'professional_observation',
       content: 'Mantuvo la profundidad en las dos primeras series y la perdió en la tercera.',
-      revision_number: 0,
+      // Never revised, as the column states it: the first version is revision 1.
+      revision_number: 1,
       created_at: '2026-07-28T13:00:00.000Z',
-      // Never revised, so null — the previous value contradicted its own revision 0.
       revised_at: null,
       author_name: 'Diana Entrante',
       authored_by_me: false,
@@ -3198,6 +3217,7 @@ export function createStudioApiFixture(
     clientExecutionDetail: structuredClone(clientExecutionDetail),
     executionDetailOutcome: 'ok',
     observationOutcome: 'recorded',
+    revisionOutcome: 'revised',
     clientProgress: structuredClone(clientProgress),
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
@@ -4728,7 +4748,8 @@ function defaultResponse(
       category: sent['category'],
       provenance: sent['provenance'],
       content: String(sent['content'] ?? ''),
-      revision_number: 0,
+      // What the command writes: revision 1, never revised.
+      revision_number: 1,
       created_at: '2026-11-16T15:00:00.000Z',
       revised_at: null,
       author_name: 'Camila Titular',
@@ -4739,6 +4760,66 @@ function defaultResponse(
     const existing = Array.isArray(detail['observations']) ? detail['observations'] : []
     detail['observations'] = [...existing, written]
     return { status: 201, body: written }
+  }
+  const revision = /^\/studio\/v1\/organizations\/[^/]+\/observations\/([^/]+)\/revisions$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && revision) {
+    const outcome = fixture.revisionOutcome
+    const detail = objectValue(fixture.clientExecutionDetail)
+    const notes = Array.isArray(detail['observations']) ? detail['observations'] : []
+    const found = notes.find((note) => objectValue(note)['id'] === revision[1])
+    if (found === undefined || outcome === 'not-found') {
+      return { status: 404, body: error('not-found') }
+    }
+    const target = objectValue(found)
+    if (outcome === 'scope-required') {
+      // The level is per category, so the refusal names the one this row is under.
+      const category = target['category'] === 'health' ? 'health_context' : 'relationship_training'
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: category, level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'unavailable') return { status: 503, body: error('upstream-unavailable') }
+    if (outcome === 'invalid') {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'content', path: '/content' }],
+        }),
+      }
+    }
+    /*
+     * The 409 that is not an error: he corrected it from somewhere else, and
+     * the answer hands back the observation as it stands. A revision further on
+     * than the one sent, with other text, so the screen has something to show.
+     */
+    if (outcome === 'stale-draft') {
+      const moved = {
+        ...target,
+        content: 'La corregí desde el celular y quedó así.',
+        revision_number: Number(target['revision_number'] ?? 1) + 1,
+        revised_at: '2026-11-17T10:00:00.000Z',
+      }
+      return { status: 409, body: problem('stale-draft', 409, { current_state: moved }) }
+    }
+
+    const sent = objectValue(request.body)
+    if (Number(sent['expected_revision']) !== Number(target['revision_number'])) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: { ...target } }) }
+    }
+    // Corrected where it is read from, so the re-read shows the new text.
+    target['content'] = String(sent['content'] ?? target['content'])
+    target['revision_number'] = Number(target['revision_number'] ?? 1) + 1
+    target['revised_at'] = '2026-11-17T16:00:00.000Z'
+    return { status: 201, body: { ...target } }
   }
   if (
     request.method === 'GET' &&

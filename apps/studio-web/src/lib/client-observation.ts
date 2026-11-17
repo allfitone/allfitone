@@ -1,5 +1,25 @@
 /**
- * Leaving a professional observation on a session: `HU-STUDIO-057`.
+ * Leaving a professional observation on a session, and correcting one's own:
+ * `HU-STUDIO-057` and `HU-STUDIO-058`.
+ *
+ * Both stories act on the same object, so they share this module — and the same
+ * 2 000-character limit, which is the column's and not a choice.
+ *
+ * **Correcting one (`HU-STUDIO-058`)** turns on who may do it and what the
+ * correction cannot move:
+ *
+ * 1. **Only its author**, and only while he still attends her with her category
+ *    at the writing level. Anybody else's observation and one he no longer
+ *    reaches answer the same 404, so the control is offered only where it can
+ *    work — the screen decides from what it already read.
+ * 2. **Nothing of hers is correctable here.** What she declared and what a
+ *    device captured are not observations; a correction reaches one row of this
+ *    list and nothing else on the session.
+ * 3. **The old text is kept with the reason**, which is why the reason is
+ *    required rather than optional: without it the history says what changed
+ *    and never why.
+ * 4. **A transcription stays hers.** Correcting what she said does not make the
+ *    coach its author: provenance, session and category never move.
  *
  * Its four criteria, and who holds each one:
  *
@@ -36,6 +56,9 @@ import type {
 
 /** The column holds 2 000 characters, and the API refuses 2 001. */
 const CONTENT_LIMIT = 2000
+
+/** The reason for a correction has its own, shorter column. */
+export const REASON_LIMIT = 500
 
 /**
  * What the picker can show for one category.
@@ -146,4 +169,109 @@ export function observationWriteFailure(
     return 'No pudimos guardar la observación ahora mismo. No quedó nada escrito; vuelve a intentarlo.'
   }
   return 'No pudimos guardar la observación. No quedó nada escrito; vuelve a intentarlo.'
+}
+
+/**
+ * Whether this reader may correct this observation.
+ *
+ * Two conditions and not one: **his own** (`authored_by_me`, which the contract
+ * says is what makes it correctable) **and** the category still open to him.
+ * The second is what carries the fourth criterion — a relationship that ended
+ * leaves no offer at all, so the control disappears with it rather than waiting
+ * for a 404 to say so.
+ */
+export function observationCorrectable(
+  offers: readonly ObservationCategoryOffer[],
+  observation: Pick<ProfessionalObservation, 'authored_by_me' | 'category'>,
+): boolean {
+  if (!observation.authored_by_me) return false
+  return offers.some((offer) => offer.category === observation.category && offer.state === 'open')
+}
+
+/**
+ * What the correction will not send, before anybody presses anything.
+ *
+ * `unchanged` is a refusal the server makes too, and it is caught here because
+ * «no se guardó» on a correction that changed nothing reads like a failure when
+ * it is a no-op.
+ */
+export function observationCorrectionProblem(
+  content: string,
+  original: string,
+): 'empty' | 'too-long' | 'unchanged' | null {
+  const written = content.trim()
+  if (written.length === 0) return 'empty'
+  if (written.length > CONTENT_LIMIT) return 'too-long'
+  return written === original.trim() ? 'unchanged' : null
+}
+
+/** The reason is required: the history keeps what changed, and this is the why. */
+export function observationReasonProblem(reason: string): 'empty' | 'too-long' | null {
+  const written = reason.trim()
+  if (written.length === 0) return 'empty'
+  return written.length > REASON_LIMIT ? 'too-long' : null
+}
+
+/** What a correction cannot move, said where it is made. */
+export function observationCorrectionNote(provenance: ObservationProvenance): string {
+  if (provenance === 'person_declared') {
+    return 'Esto lo dijo ella y tú lo transcribiste. Corregirlo no te vuelve su autor: el dato sigue siendo suyo y tú sigues siendo quien lo capturó.'
+  }
+  return 'Se guarda el texto anterior junto con tu motivo, y eso ya no se puede editar. Quién la escribió, sobre qué sesión y bajo qué categoría no cambian.'
+}
+
+/** What was corrected, said back. */
+export function observationCorrectionOutcome(observation: ProfessionalObservation): string {
+  if (observation.provenance === 'person_declared') {
+    return 'Quedó corregida la transcripción. Se guardó el texto anterior con tu motivo, y el dato sigue siendo suyo.'
+  }
+  return 'Quedó corregida. Se guardó el texto anterior con tu motivo.'
+}
+
+/**
+ * What a refusal of the correction means, in the coach's words.
+ *
+ * `stale-draft` is not here: it is not a failure, it hands back the observation
+ * as it stands and the screen shows it. The 404 covers «no longer yours to
+ * correct» without telling the two causes apart, because the contract does not
+ * — and the control is only offered on his own, so the relationship ending
+ * while the screen was open is the case worth naming.
+ */
+export function observationCorrectionFailure(
+  status: number,
+  code: string | undefined,
+  category: ObservationCategory,
+): string {
+  if (status === 403) {
+    const which = category === 'health' ? 'su contexto de salud' : 'su entrenamiento'
+    return `No se corrigió: ya no tienes ${which} en nivel de registro. Ella decide ese permiso.`
+  }
+  if (status === 409 && code === 'service-paused') {
+    return 'No se corrigió: su servicio con la organización está pausado. Eso se resuelve reactivándolo o terminando el vínculo, no observación por observación.'
+  }
+  if (status === 404) {
+    return 'No se corrigió: ya no puedes corregir esta observación. Pasa cuando el vínculo con ella terminó mientras tenías la pantalla abierta.'
+  }
+  if (status === 422) {
+    return 'No se corrigió: la corrección no se pudo aplicar. Vuelve a cargar la sesión para verla como está ahora.'
+  }
+  if (status === 503) {
+    return 'No pudimos guardar la corrección ahora mismo. La observación quedó como estaba; vuelve a intentarlo.'
+  }
+  return 'No pudimos guardar la corrección. La observación quedó como estaba; vuelve a intentarlo.'
+}
+
+/**
+ * The observation a `stale-draft` hands back, when it is one.
+ *
+ * `current_state` is typed `unknown` because a problem document may carry
+ * anything, and here the contract is narrower than the server: it lists three
+ * draft shapes and not this one. A shape that is not an observation is treated
+ * as absent rather than rendered half-read.
+ */
+export function observationFromConflict(value: unknown): ProfessionalObservation | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  if (!('content' in value) || typeof value.content !== 'string') return undefined
+  if (!('revision_number' in value) || typeof value.revision_number !== 'number') return undefined
+  return value as ProfessionalObservation
 }

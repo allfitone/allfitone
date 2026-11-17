@@ -60,12 +60,13 @@ const observation = (partial: Partial<ProfessionalObservation> = {}): Profession
   ({
     id: 'o1',
     execution_id: '0190a0b1-2c3d-7e4f-8a9b-0c1d2e3f4a5b',
-    category: 'relationship_training',
-    provenance: 'professional',
+    category: 'training',
+    provenance: 'professional_observation',
     content: 'Buena técnica en la última serie.',
-    revision_number: 0,
+    // Never revised, as the column states it: revision 1 with no `revised_at`.
+    revision_number: 1,
     created_at: '2026-07-27T08:00:00.000Z',
-    revised_at: '2026-07-27T08:00:00.000Z',
+    revised_at: null,
     author_name: 'Carlos Coach',
     authored_by_me: false,
     ...partial,
@@ -312,11 +313,20 @@ describe('the observations on the session', () => {
     expect(sorted.map((entry) => entry.id)).toEqual(['a', 'b'])
   })
 
-  test('one that was corrected after being written says so', () => {
-    expect(observationRevisionNote(observation({ revision_number: 0 }))).toBeNull()
-    expect(observationRevisionNote(observation({ revision_number: 2 }))).toBe(
-      'Corregida después de escribirse',
-    )
+  /*
+   * The first version is revision 1, so the test cannot ask about 0: the
+   * column forbids it, and asserting it hid that every observation was being
+   * marked as corrected.
+   */
+  test('one that was corrected after being written says so, and a fresh one does not', () => {
+    expect(
+      observationRevisionNote(observation({ revision_number: 1, revised_at: null })),
+    ).toBeNull()
+    expect(
+      observationRevisionNote(
+        observation({ revision_number: 2, revised_at: '2026-07-29T09:00:00.000Z' }),
+      ),
+    ).toBe('Corregida después de escribirse')
   })
 
   test('the reader sees «tú» on their own', () => {
