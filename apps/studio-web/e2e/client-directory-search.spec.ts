@@ -110,5 +110,12 @@ test('asks for nothing until the term is long enough', async ({ page }) => {
 
   await page.locator(SEARCH).fill('an')
   await expect(page.getByText('Bruno Bello')).toHaveCount(0)
-  expect(asked.length).toBeGreaterThan(0)
+  /*
+   * Polled, not read once: the list empties on the query's pending state, and
+   * `page.on('request')` reaches this process out of band with the DOM. Under
+   * load the row can be gone before the request event arrives, which fails a
+   * single read while the request was in fact sent. The claim is unchanged — a
+   * request must exist — it is only allowed to arrive.
+   */
+  await expect.poll(() => asked.length).toBeGreaterThan(0)
 })

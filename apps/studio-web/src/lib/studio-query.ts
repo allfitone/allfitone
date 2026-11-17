@@ -172,6 +172,12 @@ export const studioQueryKeys = {
    * accident; whoever wants it refreshed has to name it.
    */
   today: (organizationId: string) => [...ROOT_KEY, 'today', organizationId] as const,
+  /*
+   * The caller's own proposals, not anybody's data: no person in the key,
+   * because the answer holds none. `OP-EXE-020` answers `private-no-store`.
+   */
+  proposedCorrections: (organizationId: string, status: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'proposed-corrections', status] as const,
   clientTrainingProfile: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
   clientProgress: (
@@ -476,6 +482,24 @@ export function clientCardQueryOptions(organizationId: string, personId: string)
   return queryOptions({
     queryKey: studioQueryKeys.clientCard(organizationId, personId),
     queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
+/**
+ * The corrections this caller has waiting on a client's answer.
+ *
+ * `private-no-store`, so nothing is kept: `staleTime` and `gcTime` at zero,
+ * the same terms as her card. A session screen reads it to mark a field that
+ * already waits on her, which is a courtesy and not the rule — one page holds
+ * a hundred, and the 409 is what actually prevents a duplicate.
+ */
+export function proposedCorrectionsQueryOptions(organizationId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.proposedCorrections(organizationId, 'pending'),
+    queryFn: ({ signal }) =>
+      studioApi.listProposedCorrections(organizationId, { status: 'pending', limit: 100 }, signal),
     staleTime: 0,
     gcTime: 0,
   })
