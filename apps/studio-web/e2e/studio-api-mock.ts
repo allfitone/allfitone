@@ -75,6 +75,14 @@ export interface StudioApiFixture {
    */
   executionDetailOutcome: 'ok' | 'not-found' | 'scope-required'
   /**
+   * Which answer `OP-EXE-010` gives. `recorded` is the success and the only one
+   * that writes: the simulator appends the observation to the session, with the
+   * `Command-Id` as its id — which is what the contract says that header is —
+   * so the re-read shows it where a coach just put it.
+   */
+  observationOutcome:
+    'recorded' | 'scope-required' | 'service-paused' | 'execution' | 'not-found' | 'unavailable'
+  /**
    * How her training is going. `null` is the `403` `scope-required` the route
    * answers when she shares neither category — with nothing to compute from, it
    * refuses rather than answering zeros.
@@ -1355,20 +1363,21 @@ export const clientExecutionDetail = {
     {
       id: '019f4900-0000-7000-8000-00000000d801',
       execution_id: clientExecutions[0]?.id,
-      category: 'relationship_training',
-      provenance: 'professional',
+      category: 'training',
+      provenance: 'professional_observation',
       content: 'Mantuvo la profundidad en las dos primeras series y la perdió en la tercera.',
       revision_number: 0,
       created_at: '2026-07-28T13:00:00.000Z',
-      revised_at: '2026-07-28T13:00:00.000Z',
+      // Never revised, so null — the previous value contradicted its own revision 0.
+      revised_at: null,
       author_name: 'Diana Entrante',
       authored_by_me: false,
     },
     {
       id: '019f4900-0000-7000-8000-00000000d802',
       execution_id: clientExecutions[0]?.id,
-      category: 'relationship_training',
-      provenance: 'professional',
+      category: 'training',
+      provenance: 'professional_observation',
       content: 'Le subí la carga para la próxima semana.',
       revision_number: 2,
       created_at: '2026-07-28T14:30:00.000Z',
@@ -3188,6 +3197,7 @@ export function createStudioApiFixture(
     executionsCursor: 'ok',
     clientExecutionDetail: structuredClone(clientExecutionDetail),
     executionDetailOutcome: 'ok',
+    observationOutcome: 'recorded',
     clientProgress: structuredClone(clientProgress),
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
@@ -4677,6 +4687,58 @@ function defaultResponse(
       status: 200,
       body: { ...(fixture.clientProgress as Record<string, unknown>), period },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/observations$/.test(request.path)
+  ) {
+    const outcome = fixture.observationOutcome
+    const sent = objectValue(request.body)
+    if (outcome === 'scope-required') {
+      // The level is per category, so the refusal names the one that was sent.
+      const category = sent['category'] === 'health' ? 'health_context' : 'relationship_training'
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: category, level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    if (outcome === 'execution') {
+      // A session this relationship did not produce cannot be written on.
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'execution', path: '/execution_id' }],
+        }),
+      }
+    }
+
+    const written = {
+      id: request.headers['command-id'] ?? '01991600-7000-7000-8000-00000000d901',
+      execution_id: String(sent['execution_id'] ?? ''),
+      category: sent['category'],
+      provenance: sent['provenance'],
+      content: String(sent['content'] ?? ''),
+      revision_number: 0,
+      created_at: '2026-11-16T15:00:00.000Z',
+      revised_at: null,
+      author_name: 'Camila Titular',
+      authored_by_me: true,
+    }
+    // Written where it will be read from, so the re-read shows it.
+    const detail = objectValue(fixture.clientExecutionDetail)
+    const existing = Array.isArray(detail['observations']) ? detail['observations'] : []
+    detail['observations'] = [...existing, written]
+    return { status: 201, body: written }
   }
   if (
     request.method === 'GET' &&

@@ -873,7 +873,7 @@
   justify-content: space-between;
   gap: var(--afo-space-3);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border-subtle);
+  border-block-start: 1px solid var(--afo-color-border);
 }
 
 [data-today-state-figure] {
@@ -1106,6 +1106,37 @@
 [data-goal-proposal-form] {
   display: grid;
   gap: var(--afo-space-4);
+}
+
+/* The form that leaves an observation on a session: four stacked blocks in the
+   proposal form's rhythm, under a hairline set at the distance the substitution
+   block already uses for a section appended to a card. */
+[data-client-observation-form] {
+  display: grid;
+  gap: var(--afo-space-4);
+  margin-block-start: var(--afo-space-6);
+  padding-block-start: var(--afo-space-5);
+  border-block-start: 1px solid var(--afo-color-border);
+}
+
+/* The alert carries its own frame, so it is set off by space and not by a
+   hairline: a rule above a box would separate the same thing twice. */
+[data-client-observation-read-only] {
+  margin-block-start: var(--afo-space-6);
+}
+
+[data-client-observation-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-3);
+}
+
+/* The note under a single category, where there is no field set to carry it,
+   and the line that stands in for an empty list. Both read as a caption. */
+[data-client-observation-kind-note],
+[data-client-execution-observations-none] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
 }
 
 [data-profile-combobox-option] {
