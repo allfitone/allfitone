@@ -68,10 +68,13 @@ import {
   strengthLine,
   type ResultFamily,
 } from '@/lib/client-execution-detail'
+import { ClientObservationForm } from './client-observation-form'
+import { observationCategories } from '@/lib/client-observation'
 import { executionWhen, levelLabel, originLabel } from '@/lib/client-executions'
 import { readerTimeZone } from '@/lib/reader-zone'
 import type { AuthorizedExecution, ProfessionalObservation } from '@/lib/studio-api'
 import {
+  clientCardQueryOptions,
   clientExecutionQueryOptions,
   isStudioForbidden,
   isStudioNotFound,
@@ -84,6 +87,12 @@ export function ClientExecutionDetailScreen() {
   const query = useQuery(
     clientExecutionQueryOptions(organizationId, params.personId, params.executionId),
   )
+  /*
+   * Her card as well, for the two levels the observation form needs. It costs a
+   * round trip and nothing else: `OP-REL-019` reads none of her data and writes
+   * no access event, which is why a second read here is affordable.
+   */
+  const cardQuery = useQuery(clientCardQueryOptions(organizationId, params.personId))
   const executionsPath = clientExecutionsPath(organizationId, params.personId)
   const cardPath = clientCardPath(organizationId, params.personId)
 
@@ -96,6 +105,9 @@ export function ClientExecutionDetailScreen() {
   const when = executionWhen(execution, readerTimeZone())
   const families = recordedFamilies(execution)
   const observations = observationsOldestFirst(execution.observations)
+  const card = cardQuery.data
+  const offers =
+    card && card.kind === 'attending' ? observationCategories(execution, card.sections) : []
 
   return (
     <div data-client-execution-detail-screen>
@@ -206,7 +218,9 @@ export function ClientExecutionDetailScreen() {
         ))
       )}
 
-      {observations.length > 0 ? (
+      {/* The card now holds the form as well, so it stays even with nothing
+          written: a coach who may annotate needs somewhere to do it. */}
+      {observations.length > 0 || offers.length > 0 ? (
         <Card data-client-execution-observations>
           <CardHeader>
             <CardTitle role="heading" aria-level={2}>
@@ -221,13 +235,25 @@ export function ClientExecutionDetailScreen() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul data-client-execution-observation-list>
-              {observations.map((note) => (
-                <li key={note.id}>
-                  <ObservationRow observation={note} />
-                </li>
-              ))}
-            </ul>
+            {observations.length > 0 ? (
+              <ul data-client-execution-observation-list>
+                {observations.map((note) => (
+                  <li key={note.id}>
+                    <ObservationRow observation={note} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p data-client-execution-observations-none>
+                Todavía nadie de este vínculo anotó nada sobre esta sesión.
+              </p>
+            )}
+            <ClientObservationForm
+              offers={offers}
+              executionId={params.executionId}
+              organizationId={organizationId}
+              personId={params.personId}
+            />
           </CardContent>
         </Card>
       ) : null}

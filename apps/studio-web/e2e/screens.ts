@@ -1957,6 +1957,63 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
     },
   },
+  // --- `.../executions/[executionId]` · HU-057 ---
+  {
+    // Both categories at the writing level, so the picker has two options. The
+    // default card holds only one, and one category draws no picker at all.
+    stories: 'HU-057 · anotar una observación sobre la sesión',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: {
+          ...clientCard,
+          sections: clientCard.sections.map((section) => ({
+            ...section,
+            access_level: 'contribute',
+          })),
+        },
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Dolor o limitación' })).toBeVisible()
+    },
+  },
+  {
+    // She withdrew the level while the form was open: a danger alert at the
+    // foot of the longest screen in the product, which is where an overlay
+    // audit has to be able to reach it.
+    stories: 'HU-057 · le rechazan la observación por el permiso',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        observationOutcome: 'scope-required',
+      }),
+    reveal: async (page) => {
+      await page.getByLabel('Tu observación').fill('Bajó la cadera antes de lo que debáa.')
+      await page.getByRole('button', { name: 'Guardar observación' }).click()
+      await expect(page.locator('[data-client-observation-failure]')).toBeVisible()
+    },
+  },
+  {
+    // Nothing to write with, and the reason said rather than left out: the
+    // level is hers to raise.
+    stories: 'HU-057 · no puede anotar en esta sesión',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: {
+          ...clientCard,
+          sections: clientCard.sections.map((section) => ({ ...section, access_level: 'read' })),
+        },
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No puedes anotar en esta sesión')).toBeVisible()
+    },
+  },
   // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---
   {
     // The form that gives her a program, under her list. Two versions to pick
@@ -4114,11 +4171,21 @@ export const SCREENS: Screen[] = [
           key,
           JSON.stringify({ version: 1, status: 'ended', endedAt: Date.now(), reason: 'manual' }),
         )
-        // Writing storage from the tab that owns it fires no event, so the guard's
-        // cross-tab listener has to be handed the one the browser sends elsewhere.
-        window.dispatchEvent(new StorageEvent('storage', { key }))
       }, SESSION_STORAGE_KEY)
-      await expect(page.locator('[data-session-closing]')).toBeVisible()
+      /*
+       * Writing storage from the tab that owns it fires no event, so the guard's
+       * cross-tab listener has to be handed the one the browser sends elsewhere
+       * — and it is sent until it lands. The server already renders the
+       * heading, so `settled` says nothing about whether React has attached
+       * that listener, and an event sent before it exists is lost for good.
+       */
+      await expect(async () => {
+        await page.evaluate(
+          (key) => window.dispatchEvent(new StorageEvent('storage', { key })),
+          SESSION_STORAGE_KEY,
+        )
+        await expect(page.locator('[data-session-closing]')).toBeVisible({ timeout: 250 })
+      }).toPass({ timeout: 10_000 })
     },
   },
   {

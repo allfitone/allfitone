@@ -133,6 +133,9 @@ export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
 export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
 export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
 export type PlannedSessionReschedule = AllfitV1Schemas['PlannedSessionReschedule']
+export type ObservationCategory = AllfitV1Schemas['ProfessionalObservationCategory']
+export type ObservationProvenance = AllfitV1Schemas['ProfessionalObservationProvenance']
+export type ProfessionalObservationCreate = AllfitV1Schemas['ProfessionalObservationCreate']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -1173,6 +1176,38 @@ export const studioApi = {
       {
         method: 'POST',
         headers: commandHeaders(command),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-EXE-010`. Writes this caller's reading of one finished session that
+   * this relationship produced. **It adds and never edits**: what she declared
+   * stays as it is, and the observation sits beside it.
+   *
+   * Two categories with two different grants: `training` needs
+   * `relationship_training` at `contribute`, and `health` — pain, a limitation
+   * — needs `health_context` at `contribute`. Either missing answers 403
+   * `scope-required` naming the category; a session this relationship did not
+   * produce answers 422, and a paused service 409 `service-paused`.
+   *
+   * **The `Command-Id` is the observation's own id**, which the contract says
+   * outright. So a retry of the same intent cannot create a second one, and the
+   * answer's `id` is the header that was sent.
+   */
+  recordClientObservation: (
+    organizationId: string,
+    personId: string,
+    body: ProfessionalObservationCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProfessionalObservation>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/observations`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
         ...(signal ? { signal } : {}),
       },
     ),
