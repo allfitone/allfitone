@@ -41,3 +41,50 @@ export function paymentsCaption(status: ProStatus): string {
     ? `Tus cobros de Allfit Pro con ${storeName(subscription.store)}`
     : 'Tus cobros de Allfit Pro'
 }
+
+/** What a profile row ends in: it opens, it is not built yet, it is live, or nothing. */
+export type ProfileRowEnd = 'open' | 'soon' | 'active' | 'none'
+
+export type ProfileRowTrailing =
+  | { readonly kind: 'chevron' }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'badge'; readonly label: 'Pronto' }
+  | {
+      readonly kind: 'badge'
+      readonly label: 'Activo'
+      readonly tone: 'success'
+      readonly variant: 'tonal'
+      readonly dot: true
+    }
+
+/**
+ * How a profile row is drawn with the design system's row. Only a row with somewhere
+ * to go opens; the glyph is grey unless the row shows a figure, which lights it, or is
+ * about pain, which is health data and stays red.
+ */
+export function profileRowLook({
+  end,
+  opens,
+  value,
+  alert,
+}: {
+  readonly end: ProfileRowEnd
+  readonly opens: boolean
+  readonly value?: string | undefined
+  readonly alert?: boolean | undefined
+}): {
+  readonly opens: boolean
+  readonly iconTone: 'quiet' | 'danger' | undefined
+  readonly trailing: ProfileRowTrailing
+} {
+  const iconTone = alert ? 'danger' : value ? undefined : 'quiet'
+  const live = end === 'open' && opens
+  const trailing: ProfileRowTrailing = live
+    ? { kind: 'chevron' }
+    : end === 'soon'
+      ? { kind: 'badge', label: 'Pronto' }
+      : end === 'active'
+        ? { kind: 'badge', label: 'Activo', tone: 'success', variant: 'tonal', dot: true }
+        : { kind: 'none' }
+  return { opens: live, iconTone, trailing }
+}

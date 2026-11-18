@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import type { ProStatus, SubscriptionSource } from './pro'
-import { initialsOf, paymentsCaption, planCaption } from './profile'
+import { initialsOf, paymentsCaption, planCaption, profileRowLook } from './profile'
 
 const subscription: SubscriptionSource = {
   kind: 'subscription',
@@ -56,5 +56,44 @@ describe('what the profile says', () => {
       paymentsCaption(status({ effective_source: 'subscription', sources: [subscription] })),
     ).toBe('Tus cobros de Allfit Pro con Apple')
     expect(paymentsCaption(status({}))).toBe('Tus cobros de Allfit Pro')
+  })
+})
+
+describe('how each profile row is drawn with the design system row (TECH-327)', () => {
+  test('T-SPC-UNIT-339 a row opens only when it has somewhere to go', () => {
+    expect(profileRowLook({ end: 'open', opens: true })).toEqual({
+      opens: true,
+      iconTone: 'quiet',
+      trailing: { kind: 'chevron' },
+    })
+    expect(profileRowLook({ end: 'open', opens: false }).opens).toBe(false)
+    expect(profileRowLook({ end: 'none', opens: true })).toEqual({
+      opens: false,
+      iconTone: 'quiet',
+      trailing: { kind: 'none' },
+    })
+  })
+
+  test('T-SPC-UNIT-340 a part not built yet says «Pronto» in the outlined badge', () => {
+    expect(profileRowLook({ end: 'soon', opens: true })).toEqual({
+      opens: false,
+      iconTone: 'quiet',
+      trailing: { kind: 'badge', label: 'Pronto' },
+    })
+  })
+
+  test('T-SPC-UNIT-341 a live state is the tonal badge in caps with its dot', () => {
+    expect(profileRowLook({ end: 'active', opens: false }).trailing).toEqual({
+      kind: 'badge',
+      label: 'Activo',
+      tone: 'success',
+      variant: 'tonal',
+      dot: true,
+    })
+  })
+
+  test('T-SPC-UNIT-342 a figure lights the glyph in the accent and the pain row stays red', () => {
+    expect(profileRowLook({ end: 'open', opens: true, value: '70,0 kg' }).iconTone).toBeUndefined()
+    expect(profileRowLook({ end: 'open', opens: true, alert: true }).iconTone).toBe('danger')
   })
 })
