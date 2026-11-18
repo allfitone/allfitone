@@ -11,12 +11,13 @@
  */
 
 import type { IconName } from '@allfitone/icons'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { LinearGradient } from 'expo-linear-gradient'
 import type { ReactNode } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 import { featureIcon, featureSentence, type ProFeature } from '../client/pro'
 
@@ -190,46 +191,21 @@ export interface PanelLink {
   readonly onPress: () => void
 }
 
-/** The ways out of a screen, in one panel divided by hairlines. */
+/** The ways out of a screen: the design system's rows on one grouped card. */
 export function LinkPanel({ links }: { readonly links: readonly PanelLink[] }) {
-  const theme = useTheme()
   return (
-    <View
-      style={[
-        styles.panel,
-        { backgroundColor: theme.color.background.surface, borderColor: theme.color.border.subtle },
-      ]}
-    >
-      {links.map((link, index) => (
-        <Pressable
+    <ContentGroup>
+      {links.map((link) => (
+        <ContentRow
           key={link.title}
-          accessibilityRole="button"
-          accessibilityLabel={`${link.title}. ${link.caption}`}
+          icon={link.icon}
+          iconTone="quiet"
+          name={link.title}
+          caption={link.caption}
           onPress={link.onPress}
-          style={({ pressed }) => [
-            styles.link,
-            index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
-            pressed && styles.pressed,
-          ]}
-        >
-          <FoundationIcon
-            name={link.icon}
-            size="md"
-            color={theme.color.icon.secondary}
-            decorative
-          />
-          <View style={styles.grow}>
-            <Text role="control" size="sm">
-              {link.title}
-            </Text>
-            <Text role="body" size="xs" color="muted">
-              {link.caption}
-            </Text>
-          </View>
-          <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-        </Pressable>
+        />
       ))}
-    </View>
+    </ContentGroup>
   )
 }
 
@@ -299,9 +275,6 @@ const styles = StyleSheet.create({
   fact: { gap: 3 },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
   grow: { flex: 1 },
-  panel: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 18 },
-  link: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 },
-  pressed: { opacity: 0.6 },
   note: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   noteGlyph: {
     width: 34,
