@@ -14,6 +14,7 @@ export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignm
 export type PrescriptionAdjustmentKind = AllfitV1Schemas['PrescriptionAdjustmentKind']
 export type PrescriptionRevision = AllfitV1Schemas['PrescriptionRevision']
 export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
+export type AssignmentPrescription = AllfitV1Schemas['AssignmentPrescription']
 
 export interface PlanningCommand {
   idempotencyKey: string
@@ -149,6 +150,13 @@ export interface PlanningDatabase {
     limit: number
     cursor?: { updatedAt: string; id: string }
   }): Promise<PlanningPage<RelationshipAssignment>>
+  /** OP-PLN-037. Her training too: logged before anything is returned, like OP-PLN-018. */
+  readAssignmentPrescription(input: {
+    personId: string
+    organizationId: string
+    assignmentId: string
+    requestId: string
+  }): Promise<AssignmentPrescription>
   listSessionTemplates(input: {
     personId: string
     organizationId: string

@@ -555,6 +555,24 @@ export function studioPlanningRoutes(
     },
   )
 
+  routes.get('/organizations/:organizationId/assignments/:assignmentId/prescription', async (c) => {
+    const ids = assignmentPath(c, studioOrigin)
+    if (ids instanceof Response) return ids
+    try {
+      const actor = await studioActor(c, sessions)
+      if (actor instanceof Response) return actor
+      const resource = await planning().readAssignmentPrescription(actor, {
+        ...ids,
+        requestId: randomUUID(),
+      })
+      // Her training under a live grant, adjustments included: never kept to decide later.
+      c.header('Cache-Control', 'private, no-store')
+      return c.json(resource)
+    } catch (error) {
+      return operationFailure(c, error)
+    }
+  })
+
   routes.post(
     '/organizations/:organizationId/assignments/:assignmentId/cancellation',
     async (c) => {
