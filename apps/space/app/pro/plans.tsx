@@ -25,15 +25,7 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import {
-  Image,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native'
+import { Image, Linking, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native'
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -273,31 +265,25 @@ export function ProPlans({
           {note}
         </Text>
         <View style={styles.links}>
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            label="Restaurar compras"
+            variant="ghost"
+            size="sm"
             disabled={purchase.busy}
             onPress={() => void purchase.restore()}
-          >
-            <Text role="control" size="xs">
-              Restaurar compras
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="link"
+          />
+          <Button
+            label="Términos"
+            variant="ghost"
+            size="sm"
             onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
-          >
-            <Text role="control" size="xs">
-              Términos
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="link"
+          />
+          <Button
+            label="Privacidad"
+            variant="ghost"
+            size="sm"
             onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
-          >
-            <Text role="control" size="xs">
-              Privacidad
-            </Text>
-          </Pressable>
+          />
         </View>
       </View>
     </Screen>
@@ -338,5 +324,5 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     gap: 10,
   },
-  links: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 18 },
+  links: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
 })
