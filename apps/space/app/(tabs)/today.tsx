@@ -524,11 +524,10 @@ export default function Today() {
                 <View key={group.weekStartsOn} style={styles.historyGroup}>
                   <HistoryGroupHeader label={group.label} />
                   <HistoryPanel>
-                    {group.items.map((item, index) => (
+                    {group.items.map((item) => (
                       <HistoryRow
                         key={item.executed_session_id}
                         item={item}
-                        first={index === 0}
                         size="home"
                         onPress={() =>
                           router.push({

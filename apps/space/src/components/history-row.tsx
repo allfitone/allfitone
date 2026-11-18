@@ -19,6 +19,7 @@
  * them today, and when something does, the row already knows where they go.
  */
 
+import { ContentGroup } from '@allfitone/react-native/content-row'
 import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -42,19 +43,9 @@ export interface HistoryTag {
   readonly icon?: IconName
 }
 
-/** The box a week's sessions sit in, with its rim and its ground. */
+/** The box a week's sessions sit in: the design system's grouped card, which rules them. */
 export function HistoryPanel({ children }: { readonly children: ReactNode }) {
-  const theme = useTheme()
-  return (
-    <View
-      style={[
-        styles.panel,
-        { backgroundColor: theme.color.background.surface, borderColor: theme.color.border.subtle },
-      ]}
-    >
-      {children}
-    </View>
-  )
+  return <ContentGroup>{children}</ContentGroup>
 }
 
 /** «SEMANA PASADA» on the left and, when it says something, «2 de 3» on the right. */
@@ -83,15 +74,12 @@ export function HistoryGroupHeader({
 
 export function HistoryRow({
   item,
-  first,
   size,
   tag,
   extra,
   onPress,
 }: {
   readonly item: HistoryItem
-  /** The first in its panel has no rule above it: that rule is the panel's rim. */
-  readonly first: boolean
   readonly size: HistoryRowSize
   readonly tag?: HistoryTag
   readonly extra?: string
@@ -116,12 +104,7 @@ export function HistoryRow({
       style={({ pressed }) => [
         styles.row,
         { opacity: pressed ? 0.7 : 1 },
-        {
-          minHeight: measure.row,
-          gap: 12,
-          borderTopWidth: first ? 0 : StyleSheet.hairlineWidth,
-          borderTopColor: theme.color.border.subtle,
-        },
+        { minHeight: measure.row, gap: 12 },
       ]}
     >
       <View
@@ -218,7 +201,6 @@ export function HistoryRow({
 }
 
 const styles = StyleSheet.create({
-  panel: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
   groupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -272,11 +272,10 @@ export default function HistoryScreen() {
                 }
               />
               <HistoryPanel>
-                {group.items.map((item, index) => (
+                {group.items.map((item) => (
                   <HistoryRow
                     key={item.executed_session_id}
                     item={item}
-                    first={index === 0}
                     size="list"
                     onPress={() =>
                       router.push({
