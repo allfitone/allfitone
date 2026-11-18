@@ -58,6 +58,11 @@ export interface StudioPlanningService {
   ) => infer R
     ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
     : never
+  readAssignmentPrescription: PlanningDatabase['readAssignmentPrescription'] extends (
+    input: infer I,
+  ) => infer R
+    ? (actor: AccountActor, input: Omit<I, 'personId'>) => R
+    : never
   reschedulePlannedSession: PlanningDatabase['reschedulePlannedSession'] extends (
     input: infer I,
   ) => infer R
@@ -118,6 +123,8 @@ export function createStudioPlanningService(database: PlanningDatabase): StudioP
       database.assignProgram({ personId: personId(actor), ...input }),
     listRelationshipAssignments: (actor, input) =>
       database.listRelationshipAssignments({ personId: personId(actor), ...input }),
+    readAssignmentPrescription: (actor, input) =>
+      database.readAssignmentPrescription({ personId: personId(actor), ...input }),
     reschedulePlannedSession: (actor, input) =>
       database.reschedulePlannedSession({ personId: personId(actor), ...input }),
     revisePrescription: (actor, input) =>

@@ -1879,6 +1879,14 @@ export const allfitV1ContractManifest = {
     },
     {
       method: 'GET',
+      path: '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/prescription',
+      operationId: 'readAssignmentPrescription',
+      allfitOperation: 'OP-PLN-037',
+      responses: ['200', '400', '401', '403', '404', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'GET',
       path: '/studio/v1/organizations/{organizationId}/authorized-scopes',
       operationId: 'listStudioAuthorizedScopes',
       allfitOperation: 'OP-PRV-023',

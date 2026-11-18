@@ -189,9 +189,27 @@ const relationshipAssignment: AllfitV1Schemas['RelationshipAssignment'] = {
   ],
   adjustments: [prescriptionRevision],
 }
+const assignmentPrescription: AllfitV1Schemas['AssignmentPrescription'] = {
+  assignment_id: ASSIGNMENT_ID,
+  program_version_id: PROGRAM_VERSION_ID,
+  routines: [
+    {
+      template_version_id: TEMPLATE_VERSION_ID,
+      title: 'Strength A',
+      steps: [
+        {
+          planned_step_id: PLANNED_STEP_ID,
+          step: plannedStep,
+          adjustments: [prescriptionRevision],
+        },
+      ],
+    },
+  ],
+}
 const SESSION_PATH = `/organizations/${ORGANIZATION_ID}/planned-sessions/${PLANNED_SESSION_ID}`
 const REVISIONS_PATH = `/organizations/${ORGANIZATION_ID}/assignments/${ASSIGNMENT_ID}/prescription-revisions`
 const CANCELLATION_PATH = `/organizations/${ORGANIZATION_ID}/assignments/${ASSIGNMENT_ID}/cancellation`
+const PRESCRIPTION_PATH = `/organizations/${ORGANIZATION_ID}/assignments/${ASSIGNMENT_ID}/prescription`
 const rescheduleBody = { scheduled_on: '2026-08-19', expected_revision: 0 }
 const revisionBody = {
   planned_step_id: PLANNED_STEP_ID,
@@ -212,6 +230,8 @@ interface CapturedCall {
 }
 
 interface EndpointCase {
+  // Set when the operation's number is already the id of another test here.
+  id?: string
   operation: string
   method: string
   path: string
@@ -259,6 +279,8 @@ describe('Studio planning API contract', () => {
       'OP-PLN-012',
       'OP-PLN-013',
       'OP-PLN-014',
+      // What the assigned version asks for, with the id an adjustment names.
+      'OP-PLN-037',
       'OP-PLN-019',
       'OP-PLN-020',
       'OP-PLN-021',
@@ -517,10 +539,22 @@ describe('Studio planning API contract', () => {
       expectedInput: { organizationId: ORGANIZATION_ID, assignmentId: ASSIGNMENT_ID },
       expectedHeaders: { 'cache-control': 'no-store' },
     },
+    {
+      id: 'T-PLN-API-187',
+      operation: 'OP-PLN-037',
+      method: 'GET',
+      service: 'readAssignmentPrescription',
+      status: 200,
+      path: PRESCRIPTION_PATH,
+      expectedId: ASSIGNMENT_ID,
+      expectedInput: { organizationId: ORGANIZATION_ID, assignmentId: ASSIGNMENT_ID },
+      expectedHeaders: { 'cache-control': 'private, no-store' },
+    },
   ]
 
   for (const endpoint of endpoints) {
-    test(`T-PLN-API-${endpoint.operation.slice(-3)} exercises ${endpoint.operation} status, DTO, headers and input`, async () => {
+    const id = endpoint.id ?? `T-PLN-API-${endpoint.operation.slice(-3)}`
+    test(`${id} exercises ${endpoint.operation} status, DTO, headers and input`, async () => {
       const calls: CapturedCall[] = []
       const response = await studioPlanningRoutes(planningService(calls), sessionService()).request(
         endpoint.path,
@@ -672,6 +706,7 @@ describe('Studio planning API contract', () => {
       'OP-PLN-012': ['200', '400', '401', '403', '404', '409', '415', '422', '503'],
       'OP-PLN-013': ['201', '400', '401', '403', '404', '409', '415', '422', '503'],
       'OP-PLN-014': ['200', '400', '401', '403', '404', '409', '503'],
+      'OP-PLN-037': ['200', '400', '401', '403', '404', '503'],
     }
     for (const [operationId, statuses] of Object.entries(expected)) {
       const operation = allfitV1ContractManifest.operations.find(
@@ -1083,6 +1118,45 @@ describe('Studio planning API contract', () => {
     expect(unmanaged.status).toBe(409)
   })
 
+  test('T-PLN-API-188 the prescription read names the missing grant, hides what the coach does not attend, and validates the path', async () => {
+    const ungranted = await studioPlanningRoutes(
+      planningService([], {
+        failure: Object.assign(new Error('the person does not share her training at this level'), {
+          code: 'AF430',
+          detail: 'relationship_training:read',
+        }),
+      }),
+      sessionService(),
+    ).request(PRESCRIPTION_PATH, requestInit({ method: 'GET' }))
+    expect(ungranted.status).toBe(403)
+    expect(ungranted.headers.get('cache-control')).toBe('no-store')
+    expect(await ungranted.json()).toMatchObject({
+      type: 'https://errors.allfit.invalid/scope-required',
+      required_scope: { code: 'relationship_training', level: 'read' },
+    })
+
+    const absent = await studioPlanningRoutes(
+      planningService([], { failure: databaseError('P0002') }),
+      sessionService(),
+    ).request(PRESCRIPTION_PATH, requestInit({ method: 'GET' }))
+    expect(absent.status).toBe(404)
+    expect(absent.headers.get('content-type')).toContain('application/problem+json')
+
+    const calls: CapturedCall[] = []
+    const app = studioPlanningRoutes(planningService(calls), sessionService())
+    const malformed = await app.request(
+      `/organizations/${ORGANIZATION_ID}/assignments/not-an-id/prescription`,
+      requestInit({ method: 'GET' }),
+    )
+    const foreignOrigin = await app.request(PRESCRIPTION_PATH, {
+      method: 'GET',
+      headers: { ...commandHeaders(), origin: 'https://elsewhere.example.test' },
+    })
+    expect(malformed.status).toBe(400)
+    expect(foreignOrigin.status).toBe(403)
+    expect(calls).toHaveLength(0)
+  })
+
   test('T-PLN-API-181 lets Studio send a move from the browser', async () => {
     const response = await studioPlanningRoutes(planningService([]), sessionService()).request(
       SESSION_PATH,
@@ -1164,6 +1238,8 @@ function requestInit(input: {
 function responseResourceId(value: unknown): unknown {
   if (typeof value !== 'object' || value === null) return undefined
   if ('id' in value) return value.id
+  // A document about an assignment carries no id of its own: the assignment names it.
+  if ('assignment_id' in value) return value.assignment_id
   if ('data' in value && Array.isArray(value.data)) return value.data[0]?.id
   return undefined
 }
@@ -1260,6 +1336,14 @@ function planningService(
       if (errors.failure) return Promise.reject(errors.failure)
       calls.push({ operation: 'readProgramVersion', input: input as Record<string, unknown> })
       return Promise.resolve(programVersion)
+    },
+    readAssignmentPrescription: (_actor, input) => {
+      if (errors.failure) return Promise.reject(errors.failure)
+      calls.push({
+        operation: 'readAssignmentPrescription',
+        input: input as Record<string, unknown>,
+      })
+      return Promise.resolve(assignmentPrescription)
     },
   }
 }

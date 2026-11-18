@@ -6186,6 +6186,10 @@ export type Database = {
           result: Json
         }[]
       }
+      assigned_routine_item: {
+        Args: { p_assignment_id: string; p_template_version_id: string }
+        Returns: Json
+      }
       assigned_step_family: {
         Args: { p_assignment_id: string; p_step_id: string }
         Returns: string
@@ -6616,6 +6620,14 @@ export type Database = {
           replayed: boolean
           result: Json
         }[]
+      }
+      read_assignment_prescription: {
+        Args: {
+          p_assignment_id: string
+          p_organization_id: string
+          p_person_id: string
+        }
+        Returns: Json
       }
       read_current_assignment: {
         Args: { p_person_id: string }
