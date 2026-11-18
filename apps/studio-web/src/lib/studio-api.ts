@@ -133,6 +133,17 @@ export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
 export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
 export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
 export type PlannedSessionReschedule = AllfitV1Schemas['PlannedSessionReschedule']
+export type ObservationCategory = AllfitV1Schemas['ProfessionalObservationCategory']
+export type ObservationProvenance = AllfitV1Schemas['ProfessionalObservationProvenance']
+export type ProfessionalObservationCreate = AllfitV1Schemas['ProfessionalObservationCreate']
+export type ProfessionalObservationRevisionCreate =
+  AllfitV1Schemas['ProfessionalObservationRevisionCreate']
+export type CorrectionField = AllfitV1Schemas['CorrectionField']
+export type CorrectionProposalStatus = AllfitV1Schemas['CorrectionProposalStatus']
+export type CorrectionProposalCreate = AllfitV1Schemas['CorrectionProposalCreate']
+export type ProposedCorrection = AllfitV1Schemas['ProposedCorrection']
+export type ProposedCorrectionCancelReason = AllfitV1Schemas['ProposedCorrectionCancelReason']
+export type ProposedCorrectionPage = AllfitV1Schemas['ProposedCorrectionPage']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
 export type OrganizationSite = AllfitV1Schemas['OrganizationSite']
@@ -1176,6 +1187,129 @@ export const studioApi = {
         ...(signal ? { signal } : {}),
       },
     ),
+
+  /**
+   * `OP-EXE-010`. Writes this caller's reading of one finished session that
+   * this relationship produced. **It adds and never edits**: what she declared
+   * stays as it is, and the observation sits beside it.
+   *
+   * Two categories with two different grants: `training` needs
+   * `relationship_training` at `contribute`, and `health` — pain, a limitation
+   * — needs `health_context` at `contribute`. Either missing answers 403
+   * `scope-required` naming the category; a session this relationship did not
+   * produce answers 422, and a paused service 409 `service-paused`.
+   *
+   * **The `Command-Id` is the observation's own id**, which the contract says
+   * outright. So a retry of the same intent cannot create a second one, and the
+   * answer's `id` is the header that was sent.
+   */
+  recordClientObservation: (
+    organizationId: string,
+    personId: string,
+    body: ProfessionalObservationCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProfessionalObservation>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/observations`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-EXE-011`. Corrects an observation **of this caller's own**: anybody
+   * else's, and one he no longer reaches because the relationship ended, answer
+   * 404 — the same answer, because which of the two it was is not his to know.
+   *
+   * The original text is kept with the reason, and neither can be rewritten
+   * later. Who wrote it, on which session and under which category never move:
+   * correcting a transcription does not turn her words into his reading.
+   *
+   * The caller sends the `revision_number` he read as `expected_revision`. One
+   * that moved meanwhile answers 409 `stale-draft` **carrying the observation
+   * as it stands**, so the screen can show it rather than overwrite it. Needs
+   * the category at `contribute` (403 `scope-required`), and a correction that
+   * changes nothing is refused 422.
+   */
+  reviseClientObservation: (
+    organizationId: string,
+    observationId: string,
+    body: ProfessionalObservationRevisionCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProfessionalObservation>(
+      `/studio/v1/organizations/${organizationId}/observations/${observationId}/revisions`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-EXE-012`. Proposes a new value for **one field of one set she
+   * declared** — the repetitions, the load or the RPE. Proposing changes
+   * nothing: the value moves only if she accepts it, within thirty days, and
+   * her silence is not acceptance.
+   *
+   * Needs her training at `contribute` (403 `scope-required`) and the
+   * `propose_corrections` capability (403 `forbidden`, a different refusal:
+   * one is hers to grant, the other the organization's). What a device
+   * captured or anybody observed is not hers to change, and a value equal to
+   * what she declared changes nothing: both answer 422. A session she annulled
+   * or hid, and a relationship that ended, answer 404.
+   *
+   * **The 409 stands for three facts the contract does not tell apart**: that
+   * field already waits on her for a proposal, she has no address to be told
+   * about one, or the proposal was already settled.
+   */
+  proposeClientCorrection: (
+    organizationId: string,
+    personId: string,
+    body: CorrectionProposalCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<ProposedCorrection>(
+      `/studio/v1/organizations/${organizationId}/clients/${personId}/correction-proposals`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-EXE-020`. The corrections this caller proposed in this organization,
+   * soonest to expire first. Never her value, and `target` is null once the
+   * caller stops attending her — each professional sees only their own.
+   *
+   * One page holds at most a hundred, so a screen that uses it to mark a field
+   * as already waiting is doing so on a best-effort basis: past a hundred
+   * pending proposals the 409 is what catches a duplicate, and it always was.
+   */
+  listProposedCorrections: (
+    organizationId: string,
+    query: { status?: CorrectionProposalStatus; limit?: number; cursor?: string },
+    signal?: AbortSignal,
+  ) => {
+    const search = new URLSearchParams()
+    if (query.status) search.set('status', query.status)
+    if (query.limit !== undefined) search.set('limit', String(query.limit))
+    if (query.cursor) search.set('cursor', query.cursor)
+    const suffix = search.size > 0 ? `?${search.toString()}` : ''
+    return request<ProposedCorrectionPage>(
+      `/studio/v1/organizations/${organizationId}/correction-proposals${suffix}`,
+      signal ? { signal } : {},
+    )
+  },
 
   /**
    * `OP-PLN-012`. Moves one session of a managed program to another day of its

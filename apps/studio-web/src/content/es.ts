@@ -15,7 +15,7 @@ export const es = {
     description:
       'Reúne a tus clientes, sus programas de entrenamiento y cada sesión que registran en un solo panel. Para entrenadores personales, estudios y gimnasios.',
     shareImageAlt:
-      'Portada de Allfit Studio: «Tus clientes entrenan. Tú ves cada sesión.», junto a la ficha de una persona que compara lo planeado con lo que registró.',
+      'Allfit Studio, software para entrenadores y gimnasios: la ficha de una persona compara lo planeado con lo que registró, entre las sesiones de la semana y lo que un cliente comparte.',
   },
   nav: {
     label: 'Principal',

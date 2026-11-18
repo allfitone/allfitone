@@ -75,6 +75,61 @@ export interface StudioApiFixture {
    */
   executionDetailOutcome: 'ok' | 'not-found' | 'scope-required'
   /**
+   * Which answer `OP-EXE-010` gives. `recorded` is the success and the only one
+   * that writes: the simulator appends the observation to the session, with the
+   * `Command-Id` as its id — which is what the contract says that header is —
+   * so the re-read shows it where a coach just put it.
+   */
+  observationOutcome:
+    'recorded' | 'scope-required' | 'service-paused' | 'execution' | 'not-found' | 'unavailable'
+  /**
+   * Which answer `OP-EXE-011` gives. `revised` is the success and the only one
+   * that writes: the simulator replaces the text in the session, bumps the
+   * revision and stamps `revised_at`, the way the column requires — the first
+   * version is revision 1 with no stamp, and every later one carries both.
+   *
+   * `stale-draft` is the 409 that **carries the observation as it stands**,
+   * which is what lets the screen show the other text instead of overwriting
+   * it. `not-found` is the one answer for «not yours» and «the relationship
+   * ended», which the contract does not tell apart.
+   */
+  /**
+   * Which answer `OP-EXE-012` gives. `proposed` is the success and the only one
+   * that writes: the simulator adds the proposal to `proposedCorrections`, the
+   * way the command does, so the re-read marks the field as waiting.
+   *
+   * `conflict` is the 409 that stands for three facts at once — a field already
+   * waiting, no address to tell her at, a settled proposal — and `forbidden` the
+   * 403 for a role without `propose_corrections`, which is **not** the same
+   * refusal as `scope-required`: one is hers to grant, the other the
+   * organization's. `not-declared` is the 422 for a value that is not hers.
+   */
+  proposalOutcome:
+    | 'proposed'
+    | 'conflict'
+    | 'service-paused'
+    | 'scope-required'
+    | 'forbidden'
+    | 'not-declared'
+    | 'not-found'
+    | 'unavailable'
+  /** What `OP-EXE-020` answers: the caller's own proposals, soonest to expire first. */
+  proposedCorrections: unknown[]
+  /**
+   * Which answer `OP-EXE-020` gives. `ok` serves `proposedCorrections`;
+   * `forbidden` is the 403 of a membership that is no longer active here, which
+   * is the only way this read can be refused — it holds none of her data.
+   */
+  proposalRegisterOutcome: 'ok' | 'forbidden' | 'unavailable'
+  revisionOutcome:
+    | 'revised'
+    | 'stale-draft'
+    | 'scope-required'
+    | 'service-paused'
+    | 'invalid'
+    | 'not-found'
+    | 'unavailable'
+  /**
    * How her training is going. `null` is the `403` `scope-required` the route
    * answers when she shares neither category — with nothing to compute from, it
    * refuses rather than answering zeros.
@@ -1355,20 +1410,21 @@ export const clientExecutionDetail = {
     {
       id: '019f4900-0000-7000-8000-00000000d801',
       execution_id: clientExecutions[0]?.id,
-      category: 'relationship_training',
-      provenance: 'professional',
+      category: 'training',
+      provenance: 'professional_observation',
       content: 'Mantuvo la profundidad en las dos primeras series y la perdió en la tercera.',
-      revision_number: 0,
+      // Never revised, as the column states it: the first version is revision 1.
+      revision_number: 1,
       created_at: '2026-07-28T13:00:00.000Z',
-      revised_at: '2026-07-28T13:00:00.000Z',
+      revised_at: null,
       author_name: 'Diana Entrante',
       authored_by_me: false,
     },
     {
       id: '019f4900-0000-7000-8000-00000000d802',
       execution_id: clientExecutions[0]?.id,
-      category: 'relationship_training',
-      provenance: 'professional',
+      category: 'training',
+      provenance: 'professional_observation',
       content: 'Le subí la carga para la próxima semana.',
       revision_number: 2,
       created_at: '2026-07-28T14:30:00.000Z',
@@ -1823,6 +1879,85 @@ export const emptyTrainingProfile = {
 }
 
 /** Attended, and she has shared nothing: being assigned asks her for nothing. */
+/**
+ * Las cinco respuestas que una propuesta puede tener, una de cada.
+ *
+ * La que espera vence en 2027 para que no se vuelva `expired` con el tiempo —
+ * una fecha pasada en un fixture que pretende estar esperando es justo el valor
+ * cómodo que esconde el defecto. La vencida lleva su fecha en el pasado y su
+ * `status` sigue diciendo `pending`: el servidor la computa, y así la prueba
+ * comprueba que el simulador también.
+ */
+export const proposedCorrections = [
+  {
+    id: '01991600-7000-7000-8000-00000000e801',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 1 },
+    field: 'achieved_reps',
+    proposed: { value: 9, unit: null },
+    reason: 'Conté nueve repeticiones, no ocho.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-11-16T16:00:00.000Z',
+    expires_at: '2027-01-16T16:00:00.000Z',
+    settled_at: null,
+  },
+  {
+    id: '01991600-7000-7000-8000-00000000e802',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 2 },
+    field: 'load',
+    proposed: { value: 62.5, unit: 'kg' },
+    reason: 'La barra pesaba 2,5 kg más de lo anotado.',
+    status: 'accepted',
+    cancel_reason: null,
+    created_at: '2026-10-01T16:00:00.000Z',
+    expires_at: '2026-10-31T16:00:00.000Z',
+    settled_at: '2026-10-03T10:00:00.000Z',
+  },
+  {
+    id: '01991600-7000-7000-8000-00000000e803',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 2 },
+    field: 'rpe',
+    proposed: { value: 7, unit: null },
+    reason: 'Se veía más cómoda que un 9.',
+    status: 'rejected',
+    cancel_reason: null,
+    created_at: '2026-10-02T16:00:00.000Z',
+    expires_at: '2026-11-01T16:00:00.000Z',
+    settled_at: '2026-10-04T10:00:00.000Z',
+  },
+  {
+    // Su `status` dice `pending` y su fecha ya pasó: el servidor la lee vencida.
+    id: '01991600-7000-7000-8000-00000000e804',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 3 },
+    field: 'achieved_reps',
+    proposed: { value: 2, unit: null },
+    reason: 'Me parece que fueron dos.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-09-01T16:00:00.000Z',
+    expires_at: '2026-10-01T16:00:00.000Z',
+    settled_at: null,
+  },
+  {
+    // Sin `target`: ya no alcanza esa sesión, así que la fila no lleva a nada.
+    id: '01991600-7000-7000-8000-00000000e805',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: null,
+    field: 'load',
+    proposed: { value: 70, unit: 'kg' },
+    reason: 'Creo que subió a 70 en la última.',
+    status: 'cancelled',
+    cancel_reason: 'session_unavailable',
+    created_at: '2026-09-02T16:00:00.000Z',
+    expires_at: '2026-10-02T16:00:00.000Z',
+    settled_at: '2026-09-10T10:00:00.000Z',
+  },
+]
+
 export const clientCardWithoutSections = {
   ...clientCard,
   sections: [],
@@ -3188,6 +3323,11 @@ export function createStudioApiFixture(
     executionsCursor: 'ok',
     clientExecutionDetail: structuredClone(clientExecutionDetail),
     executionDetailOutcome: 'ok',
+    observationOutcome: 'recorded',
+    revisionOutcome: 'revised',
+    proposalOutcome: 'proposed',
+    proposedCorrections: [],
+    proposalRegisterOutcome: 'ok',
     clientProgress: structuredClone(clientProgress),
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
@@ -4677,6 +4817,226 @@ function defaultResponse(
       status: 200,
       body: { ...(fixture.clientProgress as Record<string, unknown>), period },
     }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/observations$/.test(request.path)
+  ) {
+    const outcome = fixture.observationOutcome
+    const sent = objectValue(request.body)
+    if (outcome === 'scope-required') {
+      // The level is per category, so the refusal names the one that was sent.
+      const category = sent['category'] === 'health' ? 'health_context' : 'relationship_training'
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: category, level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    if (outcome === 'execution') {
+      // A session this relationship did not produce cannot be written on.
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'execution', path: '/execution_id' }],
+        }),
+      }
+    }
+
+    const written = {
+      id: request.headers['command-id'] ?? '01991600-7000-7000-8000-00000000d901',
+      execution_id: String(sent['execution_id'] ?? ''),
+      category: sent['category'],
+      provenance: sent['provenance'],
+      content: String(sent['content'] ?? ''),
+      // What the command writes: revision 1, never revised.
+      revision_number: 1,
+      created_at: '2026-11-16T15:00:00.000Z',
+      revised_at: null,
+      author_name: 'Camila Titular',
+      authored_by_me: true,
+    }
+    // Written where it will be read from, so the re-read shows it.
+    const detail = objectValue(fixture.clientExecutionDetail)
+    const existing = Array.isArray(detail['observations']) ? detail['observations'] : []
+    detail['observations'] = [...existing, written]
+    return { status: 201, body: written }
+  }
+  const revision = /^\/studio\/v1\/organizations\/[^/]+\/observations\/([^/]+)\/revisions$/.exec(
+    request.path,
+  )
+  if (request.method === 'POST' && revision) {
+    const outcome = fixture.revisionOutcome
+    const detail = objectValue(fixture.clientExecutionDetail)
+    const notes = Array.isArray(detail['observations']) ? detail['observations'] : []
+    const found = notes.find((note) => objectValue(note)['id'] === revision[1])
+    if (found === undefined || outcome === 'not-found') {
+      return { status: 404, body: error('not-found') }
+    }
+    const target = objectValue(found)
+    if (outcome === 'scope-required') {
+      // The level is per category, so the refusal names the one this row is under.
+      const category = target['category'] === 'health' ? 'health_context' : 'relationship_training'
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: category, level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'unavailable') return { status: 503, body: error('upstream-unavailable') }
+    if (outcome === 'invalid') {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'content', path: '/content' }],
+        }),
+      }
+    }
+    /*
+     * The 409 that is not an error: he corrected it from somewhere else, and
+     * the answer hands back the observation as it stands. A revision further on
+     * than the one sent, with other text, so the screen has something to show.
+     */
+    if (outcome === 'stale-draft') {
+      const moved = {
+        ...target,
+        content: 'La corregí desde el celular y quedó así.',
+        revision_number: Number(target['revision_number'] ?? 1) + 1,
+        revised_at: '2026-11-17T10:00:00.000Z',
+      }
+      return { status: 409, body: problem('stale-draft', 409, { current_state: moved }) }
+    }
+
+    const sent = objectValue(request.body)
+    if (Number(sent['expected_revision']) !== Number(target['revision_number'])) {
+      return { status: 409, body: problem('stale-draft', 409, { current_state: { ...target } }) }
+    }
+    // Corrected where it is read from, so the re-read shows the new text.
+    target['content'] = String(sent['content'] ?? target['content'])
+    target['revision_number'] = Number(target['revision_number'] ?? 1) + 1
+    target['revised_at'] = '2026-11-17T16:00:00.000Z'
+    return { status: 201, body: { ...target } }
+  }
+  if (
+    request.method === 'GET' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/correction-proposals$/.test(request.path)
+  ) {
+    const params = new URLSearchParams(request.search)
+    if (fixture.proposalRegisterOutcome === 'forbidden') {
+      return { status: 403, body: error('forbidden') }
+    }
+    if (fixture.proposalRegisterOutcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    const wanted = params.get('status')
+    if (
+      wanted !== null &&
+      !['pending', 'accepted', 'rejected', 'expired', 'cancelled'].includes(wanted)
+    ) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, { errors: [{ code: 'status', path: '/status' }] }),
+      }
+    }
+    /*
+     * The operation's own rules, where the simulator can apply them: the
+     * caller's own, soonest to expire first, and **a pending proposal past its
+     * date reads `expired`** — the filter uses that computed state, so asking
+     * for `pending` leaves it out and asking for `expired` includes it.
+     */
+    const now = Date.now()
+    const stateOf = (note: Record<string, unknown>) =>
+      note['status'] === 'pending' && Date.parse(String(note['expires_at'])) <= now
+        ? 'expired'
+        : String(note['status'])
+    const proposals = [...fixture.proposedCorrections]
+      .map(objectValue)
+      .map((note): Record<string, unknown> => ({ ...note, status: stateOf(note) }))
+      .filter((note) => wanted === null || note['status'] === wanted)
+      .toSorted((left, right) =>
+        String(left['expires_at']).localeCompare(String(right['expires_at'])),
+      )
+    const limit = Number(params.get('limit') ?? '25')
+    const offset = Number((params.get('cursor') ?? 'proposal-offset-0').split('-').at(-1))
+    const page = proposals.slice(offset, offset + limit)
+    const hasMore = offset + limit < proposals.length
+    return {
+      status: 200,
+      body: {
+        data: page,
+        page: {
+          has_more: hasMore,
+          next_cursor: hasMore ? `proposal-offset-${String(offset + limit)}` : null,
+        },
+      },
+    }
+  }
+  if (
+    request.method === 'POST' &&
+    /^\/studio\/v1\/organizations\/[^/]+\/clients\/[^/]+\/correction-proposals$/.test(request.path)
+  ) {
+    const outcome = fixture.proposalOutcome
+    const sent = objectValue(request.body)
+    if (outcome === 'scope-required') {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    // Not the same refusal: this one is the role, not the level she granted.
+    if (outcome === 'forbidden') return { status: 403, body: error('forbidden') }
+    if (outcome === 'service-paused') return { status: 409, body: error('service-paused') }
+    if (outcome === 'conflict') return { status: 409, body: error('conflict') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') return { status: 503, body: error('upstream-unavailable') }
+    if (outcome === 'not-declared') {
+      // What a device captured or anybody observed is not hers to change.
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, {
+          errors: [{ code: 'execution', path: '/execution_id' }],
+        }),
+      }
+    }
+
+    const proposed = {
+      id: request.headers['command-id'] ?? '01991600-7000-7000-8000-00000000e901',
+      client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+      target: {
+        execution_id: String(sent['execution_id'] ?? ''),
+        set_order: Number(sent['set_order'] ?? 1),
+      },
+      field: sent['field'],
+      proposed: { value: Number(sent['value'] ?? 0), unit: sent['unit'] ?? null },
+      reason: String(sent['reason'] ?? ''),
+      status: 'pending',
+      cancel_reason: null,
+      created_at: '2026-11-17T16:00:00.000Z',
+      expires_at: '2026-12-17T16:00:00.000Z',
+      settled_at: null,
+    }
+    // Added where it is read from, so the field reads as waiting afterwards.
+    fixture.proposedCorrections = [...fixture.proposedCorrections, proposed]
+    return { status: 201, body: proposed }
   }
   if (
     request.method === 'GET' &&

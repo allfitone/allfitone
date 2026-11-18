@@ -41,14 +41,25 @@ export function alternates(
   }
 }
 
-/** The photograph a shared link is previewed with, described in the page's language. */
-export function shareImage(locale: Locale) {
+// Apps keep a preview by its image's address, so a file never changes in place:
+// its name carries a hash of its content, and a new picture is a new name.
+const SHARE_IMAGES = {
+  home: { es: 'home-es.1d6591eb.png', en: 'home-en.44ec3be8.png' },
+  waitlist: { es: 'waitlist-es.1bef3dd5.png', en: 'waitlist-en.d725065b.png' },
+} as const satisfies Record<string, Record<Locale, string>>
+
+/** The pages previewed with an image of their own: each says its page's title. */
+export type SharePage = keyof typeof SHARE_IMAGES
+
+/** The image a shared link to a page is previewed with, described in its language. */
+export function shareImage(locale: Locale, page: SharePage = 'home') {
+  const copy = dictionaryFor(locale)
   return {
-    url: `${SITE_URL}/images/og.jpg`,
+    url: `${SITE_URL}/images/share/${SHARE_IMAGES[page][locale]}`,
     width: 1200,
     height: 630,
-    type: 'image/jpeg',
-    alt: dictionaryFor(locale).meta.shareImageAlt,
+    type: 'image/png',
+    alt: page === 'waitlist' ? copy.waitlistPage.meta.shareImageAlt : copy.meta.shareImageAlt,
   }
 }
 
@@ -58,9 +69,14 @@ interface PageWords {
 }
 
 /** Everything a page says about itself, in one language. */
-export function pageMetadata(locale: Locale, path: string, { title, description }: PageWords) {
+export function pageMetadata(
+  locale: Locale,
+  path: string,
+  { title, description }: PageWords,
+  page: SharePage = 'home',
+) {
   const { canonical, languages } = alternates(locale, path)
-  const image = shareImage(locale)
+  const image = shareImage(locale, page)
   return {
     title,
     description,
@@ -87,7 +103,7 @@ export function pageMetadata(locale: Locale, path: string, { title, description 
  */
 export function privatePageMetadata(locale: Locale, path: string, words: PageWords) {
   return {
-    ...pageMetadata(locale, path, words),
+    ...pageMetadata(locale, path, words, 'waitlist'),
     robots: { index: false, follow: false },
     referrer: 'no-referrer',
   } satisfies Metadata

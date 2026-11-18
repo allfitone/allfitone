@@ -1,11 +1,15 @@
--- T-PLN-MANAGE-01 — OP-PLN-012, OP-PLN-013 and OP-PLN-014 (HU-STUDIO-048, 049, 050).
+-- T-PLN-MANAGE-01 — OP-PLN-012, OP-PLN-013, OP-PLN-014 and OP-PLN-037 (HU-STUDIO-048, 049, 050).
 --
--- While the gym manages a program it gave, the coach moves a session and adjusts the
--- prescription for this one person, and the gym can stop the program. What has to hold:
+-- While the gym manages a program it gave, the coach moves a session, adjusts the
+-- prescription for this one person and stops the program. What has to hold:
 --
 --   · Only while the gym manages it, and only the coach who attends the person (holder or
---     accepted cover) with the person's training shared at `contribute`; the admin and
---     the owner may also cancel. Missing the permission says which one.
+--     accepted cover) with the person's training shared at `contribute`. An administrator
+--     or an owner who does not attend her does none of it. Missing the permission says
+--     which one.
+--   · The coach reads what the assigned version asks for, step by step, with the id an
+--     adjustment names and the adjustments in force — before the first one exists. The
+--     read needs her training shared at `read`, and leaves a trace.
 --   · A session moves inside its week, never into the past, never once started, and the
 --     revision the coach read must still be current. Its content never changes.
 --   · An adjustment lives on the assignment, typed and authored; the published routine
@@ -15,7 +19,7 @@
 --     assignment itself stay. Cancelling again converges.
 begin;
 
-select plan(102);
+select plan(126);
 
 insert into identity.people (id, given_name, family_name, status)
 values
@@ -342,6 +346,27 @@ returns text language sql as $$
     'select * from pg_temp.cancel(%L, %L, %L, gen_random_uuid())', actor, org, assignment))
 $$;
 
+create function pg_temp.prescription(actor uuid, org uuid, assignment uuid)
+returns jsonb language sql as $$
+  select planning.read_assignment_prescription(actor, org, assignment)
+$$;
+
+create function pg_temp.try_prescription(actor uuid, org uuid, assignment uuid)
+returns text language sql as $$
+  select pg_temp.failure(format('select pg_temp.prescription(%L, %L, %L)', actor, org, assignment))
+$$;
+
+-- The traces Camilo's reads of Ana's training left, by the grant and version they relied on.
+create function pg_temp.traces() returns integer language sql as $$
+  select count(*)::integer from privacy.access_events
+  where subject_person_id = '019f4100-0000-7000-8000-000000000001'
+    and relationship_id = '019f4100-0000-7000-8000-000000000701'
+    and data_grant_id = '019f4100-0000-7000-8000-000000000a01'
+    and scope_code = 'relationship_training' and scope_version = 4
+    and access_mode = 'live' and resource = 'planning.program_assignments'
+    and actor_membership_id = '019f4100-0000-7000-8000-000000000212'
+$$;
+
 -- ———————————————————————————————————— Camilo gives Ana the program; she starts its first session
 
 set local role allfit_api;
@@ -653,6 +678,108 @@ select is(
      from jsonb_array_elements(:'listed'::jsonb->'sessions') as session where session->>'id' = :'w2d1'),
   '1', 'T-PLN-MANAGE-INT-40 with the revision each one is at');
 
+-- ———————————————————————————————————— OP-PLN-037 · what the assigned version asks for
+
+reset role;
+select pg_temp.traces() as traced_before \gset
+set local role allfit_api;
+
+select pg_temp.prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+  :'a1') as prescribed \gset
+
+select is(
+  (select (:'prescribed'::jsonb->>'assignment_id') || ' ' || (:'prescribed'::jsonb->>'program_version_id')),
+  :'a1' || ' 019f4100-0000-7000-8000-000000000332',
+  'T-PLN-MANAGE-API-04 the holder reads what the version she assigned asks for');
+select is(
+  (select jsonb_agg(jsonb_build_array(routine->>'template_version_id', routine->>'title'))
+     from jsonb_array_elements(:'prescribed'::jsonb->'routines') as routine),
+  '[["019f4100-0000-7000-8000-000000000312","Fuerza A"]]'::jsonb,
+  'T-PLN-MANAGE-INT-57 a routine the program repeats is read once');
+select is(
+  (select jsonb_agg(jsonb_build_array(item->>'planned_step_id', item->'step'->>'position',
+                                      item->'step'->'target'->>'family') order by position)
+     from jsonb_array_elements(:'prescribed'::jsonb->'routines'->0->'steps')
+          with ordinality as entry (item, position)),
+  '[["019f4100-0000-7000-8000-000000000313","1","strength"],["019f4100-0000-7000-8000-000000000314","2","endurance"]]'::jsonb,
+  'T-PLN-MANAGE-INT-58 each step carries the id an adjustment names, in the routine''s order');
+select is(
+  (select (item->'step'->'target'->>'target_sets') || ' ' || (
+            select jsonb_agg(planned->'target_load_value' order by (planned->>'set_order')::integer)
+            from jsonb_array_elements(item->'step'->'target'->'sets') as planned)::text
+     from jsonb_array_elements(:'prescribed'::jsonb->'routines'->0->'steps') as item
+    where item->>'planned_step_id' = '019f4100-0000-7000-8000-000000000313'),
+  '3 [20, 60, 60]', 'T-PLN-MANAGE-INT-59 the step is read as the routine published it, not as adjusted');
+select is(
+  (select jsonb_object_agg(item->>'planned_step_id', (
+            select jsonb_agg(jsonb_build_array(adjustment->>'kind', adjustment->>'value')
+                             order by adjustment->>'kind')
+            from jsonb_array_elements(item->'adjustments') as adjustment))
+     from jsonb_array_elements(:'prescribed'::jsonb->'routines'->0->'steps') as item),
+  '{"019f4100-0000-7000-8000-000000000313": [["target_load","75"],["target_reps","10"],["target_sets","4"]],
+    "019f4100-0000-7000-8000-000000000314": [["notes","Suave, sin pasar de zona 2"],["target_distance","1200"]]}'::jsonb,
+  'T-PLN-MANAGE-INT-60 the adjustments in force sit on the step they adjust, the latest of each kind');
+
+-- A2 was never adjusted: no other read of Studio names its steps, so the first could not be made.
+select pg_temp.prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+  :'a2')->'routines'->0->'steps' as untouched \gset
+select is(
+  (select jsonb_agg(jsonb_build_array(item->>'planned_step_id', item->'adjustments') order by position)
+     from jsonb_array_elements(:'untouched'::jsonb) with ordinality as entry (item, position)),
+  '[["019f4100-0000-7000-8000-000000000313", []], ["019f4100-0000-7000-8000-000000000314", []]]'::jsonb,
+  'T-PLN-MANAGE-INT-61 a program nobody adjusted already names its steps');
+select is(
+  (select result->>'planned_step_id' from pg_temp.revise('019f4100-0000-7000-8000-000000000012',
+     '019f4100-0000-7000-8000-000000000101', :'a2', (:'untouched'::jsonb->0->>'planned_step_id')::uuid,
+     'target_sets', '5', null, 'b0000000-0000-4000-8000-000000000027')),
+  '019f4100-0000-7000-8000-000000000313', 'T-PLN-MANAGE-INT-62 and the first adjustment takes the id as it was read');
+
+reset role;
+select is(pg_temp.traces() - :traced_before, 2,
+  'T-PLN-MANAGE-RLS-37 each read leaves a trace with the grant and the version it relied on');
+set local role allfit_api;
+
+select set_config('app.request_id', '', true);
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  '22023 ', 'T-PLN-MANAGE-RLS-38 a read that cannot be traced does not happen');
+
+select pg_temp.act('019f4100-0000-7000-8000-000000000013');
+select is(
+  pg_temp.prescription('019f4100-0000-7000-8000-000000000013', '019f4100-0000-7000-8000-000000000101', :'a1')->>'assignment_id',
+  :'a1', 'T-PLN-MANAGE-RLS-39 the accepted cover reads it too');
+select pg_temp.act('019f4100-0000-7000-8000-000000000015');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000015', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-40 a coach who does not attend her does not find it');
+select pg_temp.act('019f4100-0000-7000-8000-000000000016');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000016', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-41 nor does the administrator: attending her is what opens her training');
+select pg_temp.act('019f4100-0000-7000-8000-000000000011');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000011', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-42 nor the owner');
+select pg_temp.act('019f4100-0000-7000-8000-000000000022');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000022', '019f4100-0000-7000-8000-000000000102', :'a1'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-43 another gym''s coach does not find it through her own gym');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000022', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  '42501 ', 'T-PLN-MANAGE-RLS-44 and a gym she does not belong to tells her nothing');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000022', '019f4100-0000-7000-8000-000000000101',
+  '019f4100-0000-7000-8000-000000000999'),
+  '42501 ', 'T-PLN-MANAGE-RLS-51 not even which assignments exist: an id nobody has answers the same');
+select pg_temp.act('019f4100-0000-7000-8000-000000000012');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+  '019f4100-0000-7000-8000-000000000901'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-45 her own program is not the gym''s to read');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+  '019f4100-0000-7000-8000-000000000999'),
+  'P0002 ', 'T-PLN-MANAGE-INT-63 an assignment that does not exist is not found');
+select is(
+  pg_temp.prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+    '019f4100-0000-7000-8000-000000000911')->>'assignment_id',
+  '019f4100-0000-7000-8000-000000000911', 'T-PLN-MANAGE-RLS-46 reading her training is enough to read what was prescribed');
+select is(
+  pg_temp.prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+    '019f4100-0000-7000-8000-000000000921')->>'assignment_id',
+  '019f4100-0000-7000-8000-000000000921', 'T-PLN-MANAGE-INT-64 a program the gym stopped managing is still read while the relationship lasts');
+
 -- ———————————————————————————————————— Row policies, directly
 
 reset role;
@@ -762,28 +889,40 @@ select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000017', '019f4100-0
 select pg_temp.act('019f4100-0000-7000-8000-000000000015');
 select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000015', '019f4100-0000-7000-8000-000000000101', :'a1'),
   'P0002 ', 'T-PLN-MANAGE-RLS-28 a coach who does not attend her does not find it');
-select pg_temp.act('019f4100-0000-7000-8000-000000000021');
-select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000021', '019f4100-0000-7000-8000-000000000102', :'a1'),
-  'P0002 ', 'T-PLN-MANAGE-RLS-29 another gym''s owner does not find it through her own gym');
+-- Her coach at the other gym: an owner no longer reaches the lookup this one is about.
+select pg_temp.act('019f4100-0000-7000-8000-000000000022');
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000022', '019f4100-0000-7000-8000-000000000102', :'a1'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-29 another gym''s coach does not find it through her own gym');
+-- Stopping her program is training, and training is for who attends her: no read of
+-- Studio gives anybody else the assignment to name.
 select pg_temp.act('019f4100-0000-7000-8000-000000000016');
-select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000016', '019f4100-0000-7000-8000-000000000101',
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000016', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  '42501 ', 'T-PLN-MANAGE-RLS-30 the administrator does not stop a program');
+select pg_temp.act('019f4100-0000-7000-8000-000000000011');
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000011', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  '42501 ', 'T-PLN-MANAGE-RLS-32 nor does the owner');
+select pg_temp.act('019f4100-0000-7000-8000-000000000018');
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000018', '019f4100-0000-7000-8000-000000000101', :'a1'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-49 and an administrator who coaches, but not her, does not find it');
+select pg_temp.act('019f4100-0000-7000-8000-000000000012');
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
   '019f4100-0000-7000-8000-000000000911'),
-  'AF430 relationship_training:contribute', 'T-PLN-MANAGE-RLS-30 without the permission at contribute not even the administrator cancels');
-select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000016', '019f4100-0000-7000-8000-000000000101',
+  'AF430 relationship_training:contribute', 'T-PLN-MANAGE-RLS-50 reading her training is not enough to stop her program');
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
   '019f4100-0000-7000-8000-000000000921'),
   '55000 ', 'T-PLN-MANAGE-INT-41 a program the gym stopped managing is not its to cancel');
-select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000016', '019f4100-0000-7000-8000-000000000101',
+select is(pg_temp.try_cancel('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
   '019f4100-0000-7000-8000-000000000901'),
   'P0002 ', 'T-PLN-MANAGE-RLS-31 nor is her own');
 
 -- psql unsets a variable a NULL lands in; a missing document must fail by name instead.
 select coalesce(result, 'null'::jsonb) as cancelled, replayed::text as cancelled_replayed
-from pg_temp.cancel('019f4100-0000-7000-8000-000000000016', '019f4100-0000-7000-8000-000000000101', :'a1',
+from pg_temp.cancel('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101', :'a1',
   'b0000000-0000-4000-8000-000000000031') \gset
 
 select is(
   (select (:'cancelled'::jsonb->>'status') || ' ' || (:'cancelled'::jsonb->>'sessions_cancelled')),
-  'cancelled 3', 'T-PLN-MANAGE-API-03 the administrator cancels, and three sessions still to come stop');
+  'cancelled 3', 'T-PLN-MANAGE-API-03 the holder cancels, and three sessions still to come stop');
 select is(:'cancelled_replayed'::text, 'false', 'T-PLN-MANAGE-IDEM-05 the first cancellation is not a replay');
 
 reset role;
@@ -813,15 +952,15 @@ select is(
   6, 'T-PLN-MANAGE-INT-46 and so do the adjustments');
 set local role allfit_api;
 
-select pg_temp.act('019f4100-0000-7000-8000-000000000012');
+select pg_temp.act('019f4100-0000-7000-8000-000000000013');
 select is(
   (select (result->>'sessions_cancelled') || ' ' || replayed::text
-     from pg_temp.cancel('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101', :'a1',
+     from pg_temp.cancel('019f4100-0000-7000-8000-000000000013', '019f4100-0000-7000-8000-000000000101', :'a1',
        'b0000000-0000-4000-8000-000000000032')),
-  '3 false', 'T-PLN-MANAGE-IDEM-06 cancelling again converges on the same cancellation');
-select pg_temp.act('019f4100-0000-7000-8000-000000000016');
+  '3 false', 'T-PLN-MANAGE-IDEM-06 the cover cancelling again converges on the same cancellation');
+select pg_temp.act('019f4100-0000-7000-8000-000000000012');
 select is(
-  (select replayed::text from pg_temp.cancel('019f4100-0000-7000-8000-000000000016',
+  (select replayed::text from pg_temp.cancel('019f4100-0000-7000-8000-000000000012',
      '019f4100-0000-7000-8000-000000000101', :'a1', 'b0000000-0000-4000-8000-000000000031')),
   'true', 'T-PLN-MANAGE-IDEM-07 and retrying the same command replays it');
 
@@ -852,12 +991,6 @@ select is(
     where assignment_id = :'a1'),
   0, 'T-PLN-MANAGE-INT-51 Ana no longer finds it among the programs she follows');
 
-select pg_temp.act('019f4100-0000-7000-8000-000000000011');
-select is(
-  (select result->>'status' from pg_temp.cancel('019f4100-0000-7000-8000-000000000011',
-     '019f4100-0000-7000-8000-000000000101', :'a2', 'b0000000-0000-4000-8000-000000000033')),
-  'cancelled', 'T-PLN-MANAGE-RLS-32 the owner cancels too');
-
 -- ———————————————————————————————————— Adjustments outlive the relationship
 
 select pg_temp.act('019f4100-0000-7000-8000-000000000012');
@@ -869,6 +1002,10 @@ select relationships.terminate_relationship(
   '019f4100-0000-7000-8000-000000000011', '019f4100-0000-7000-8000-000000000101',
   '019f4100-0000-7000-8000-000000000701', null, 'b0000000-0000-4000-8000-000000000042',
   'b0000000-0000-4000-8000-000000000042', extensions.digest('terminate', 'sha256'));
+
+select pg_temp.act('019f4100-0000-7000-8000-000000000012');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101', :'a3'),
+  'P0002 ', 'T-PLN-MANAGE-RLS-47 once the relationship ends the gym no longer reads her program');
 
 reset role;
 select is(
@@ -904,6 +1041,9 @@ select pg_temp.act('019f4100-0000-7000-8000-000000000012');
 select is(pg_temp.try_reschedule('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
   '019f4100-0000-7000-8000-000000000912', (:'week2'::date + 2), 0),
   'AF430 relationship_training:contribute', 'T-PLN-MANAGE-RLS-36 planned_sessions_select_lookup: with nothing shared the coach is told which permission is missing');
+select is(pg_temp.try_prescription('019f4100-0000-7000-8000-000000000012', '019f4100-0000-7000-8000-000000000101',
+  '019f4100-0000-7000-8000-000000000911'),
+  'AF430 relationship_training:read', 'T-PLN-MANAGE-RLS-48 and so is the read of what was prescribed');
 
 select * from finish();
 rollback;

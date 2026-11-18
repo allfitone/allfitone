@@ -86,7 +86,7 @@ test('the consultations are underlined at rest, in a colour of their own', async
     }),
   )
 
-  expect(styles).toHaveLength(2)
+  expect(styles).toHaveLength(3)
   for (const link of styles) {
     expect(link.decoration, `"${link.text}" no está subrayado en reposo`).toContain('underline')
     expect(
@@ -97,15 +97,15 @@ test('the consultations are underlined at rest, in a colour of their own', async
 })
 
 /**
- * The third criterion: both references stay reachable from where a person looks
- * for them. "Categorías de información" had no click test at all before this —
- * it was reachable only by typing the URL.
+ * The third criterion: every reference stays reachable from where a person
+ * looks for it. "Categorías de información" had no click test at all before
+ * this — it was reachable only by typing the URL.
  */
-test('the two consultations are reachable by clicking, from the directory', async ({ page }) => {
+test('the three consultations are reachable by clicking, from the directory', async ({ page }) => {
   await open(page)
 
   const references = page.getByRole('navigation', { name: 'Consultas sobre los clientes' })
-  await expect(references.getByRole('link')).toHaveCount(2)
+  await expect(references.getByRole('link')).toHaveCount(3)
 
   await references.getByRole('link', { name: 'Categorías de información' }).click()
   await expect(page).toHaveURL(new RegExp(`${ORG}/clients/information-categories$`))
@@ -118,6 +118,15 @@ test('the two consultations are reachable by clicking, from the directory', asyn
     .click()
   await expect(page).toHaveURL(new RegExp(`${ORG}/clients/authorizations$`))
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autorizaciones')
+
+  // The third is the only one about the reader's own work, not about a client.
+  await page.goBack()
+  await page
+    .getByRole('navigation', { name: 'Consultas sobre los clientes' })
+    .getByRole('link', { name: 'Mis propuestas de corrección' })
+    .click()
+  await expect(page).toHaveURL(new RegExp(`${ORG}/clients/correction-proposals$`))
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Propuestas de corrección')
 })
 
 /**
@@ -141,7 +150,7 @@ test('on a phone no reference is cut off or clipped', async ({ page }) => {
     })
   })
 
-  expect(measurements).toHaveLength(2)
+  expect(measurements).toHaveLength(3)
   for (const link of measurements) {
     expect(link.clipped, `"${link.text}" quedó recortado`).toBe(false)
     expect(link.insideViewport, `"${link.text}" se sale de la pantalla`).toBe(true)
@@ -156,13 +165,15 @@ test('on a phone no reference is cut off or clipped', async ({ page }) => {
 })
 
 /**
- * Neither consultation depends on being able to invite: a coach who only
- * attends clients still needs to know what may be asked of them.
+ * No consultation depends on being able to invite: a coach who only attends
+ * clients still needs to know what may be asked of them — and the register of
+ * what he proposed is his own work, which invites have nothing to do with.
  */
-test('a role without the invite action keeps both consultations', async ({ page }) => {
+test('a role without the invite action keeps the three consultations', async ({ page }) => {
   await open(page, secondActiveMembership)
 
   const references = page.getByRole('navigation', { name: 'Consultas sobre los clientes' })
   await expect(references.getByRole('link', { name: 'Categorías de información' })).toBeVisible()
   await expect(references.getByRole('link', { name: 'Autorizaciones' })).toBeVisible()
+  await expect(references.getByRole('link', { name: 'Mis propuestas de corrección' })).toBeVisible()
 })

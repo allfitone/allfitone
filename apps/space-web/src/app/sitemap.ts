@@ -9,12 +9,12 @@ import { WAITLIST_PATH } from '@/lib/waitlist'
  * legal documents live on www.allfit.one, whose own sitemap lists them.
  */
 const PAGES = [
-  { path: '', updated: new Date('2026-11-09'), priority: 1 },
-  { path: WAITLIST_PATH, updated: new Date('2026-11-09'), priority: 0.8 },
+  { path: '', share: 'home', updated: new Date('2026-11-09'), priority: 1 },
+  { path: WAITLIST_PATH, share: 'waitlist', updated: new Date('2026-11-09'), priority: 0.8 },
 ] as const
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return PAGES.flatMap(({ path, updated, priority }) =>
+  return PAGES.flatMap(({ path, share, updated, priority }) =>
     LOCALES.map((locale) => {
       const { canonical, languages } = alternates(locale, path)
       return {
@@ -23,7 +23,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
         changeFrequency: 'monthly' as const,
         priority,
         alternates: { languages },
-        images: [shareImage(locale).url],
+        images: [shareImage(locale, share).url],
       }
     }),
   )

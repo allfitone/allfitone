@@ -50,6 +50,7 @@ import {
   type ClientNutritionMealPage,
   type ClientNutritionDailySummaryPage,
   type ClientNutritionGoalHistory,
+  type CorrectionProposalStatus,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
 
@@ -172,6 +173,21 @@ export const studioQueryKeys = {
    * accident; whoever wants it refreshed has to name it.
    */
   today: (organizationId: string) => [...ROOT_KEY, 'today', organizationId] as const,
+  /*
+   * The caller's own proposals, not anybody's data: no person in the key,
+   * because the answer holds none. `OP-EXE-020` answers `private-no-store`.
+   */
+  proposedCorrections: (organizationId: string, status: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'proposed-corrections', status] as const,
+  proposedCorrectionsPage: (organizationId: string, status: string, limit: number) =>
+    [
+      ...ROOT_KEY,
+      'organization',
+      organizationId,
+      'proposed-corrections-page',
+      status,
+      limit,
+    ] as const,
   clientTrainingProfile: (organizationId: string, personId: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'client-training-profile', personId] as const,
   clientProgress: (
@@ -476,6 +492,60 @@ export function clientCardQueryOptions(organizationId: string, personId: string)
   return queryOptions({
     queryKey: studioQueryKeys.clientCard(organizationId, personId),
     queryFn: ({ signal }) => studioApi.clientCard(organizationId, personId, signal),
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
+/**
+ * The corrections this caller has waiting on a client's answer.
+ *
+ * `private-no-store`, so nothing is kept: `staleTime` and `gcTime` at zero,
+ * the same terms as her card. A session screen reads it to mark a field that
+ * already waits on her, which is a courtesy and not the rule — one page holds
+ * a hundred, and the 409 is what actually prevents a duplicate.
+ */
+export function proposedCorrectionsQueryOptions(organizationId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.proposedCorrections(organizationId, 'pending'),
+    queryFn: ({ signal }) =>
+      studioApi.listProposedCorrections(organizationId, { status: 'pending', limit: 100 }, signal),
+    staleTime: 0,
+    gcTime: 0,
+  })
+}
+
+/**
+ * The register of corrections this caller proposed, soonest to expire first.
+ *
+ * `private-no-store`, so nothing is kept. **Unlike every other list on a client
+ * screen, this one may refresh by itself**: `OP-EXE-020` holds none of her data
+ * and writes no access record, so a refetch costs her nothing — and the whole
+ * point of the screen is whether she has answered yet.
+ *
+ * `status` is the server's own word for the state, never recomputed here: a
+ * proposal past its thirty days reads `expired` whether or not a sweep has
+ * marked it, and asking for `pending` leaves it out.
+ */
+export function proposedCorrectionsRegisterQueryOptions(
+  organizationId: string,
+  status: CorrectionProposalStatus | 'all',
+  limit: number,
+) {
+  return infiniteQueryOptions({
+    queryKey: studioQueryKeys.proposedCorrectionsPage(organizationId, status, limit),
+    queryFn: ({ pageParam, signal }) =>
+      studioApi.listProposedCorrections(
+        organizationId,
+        {
+          limit,
+          ...(status === 'all' ? {} : { status }),
+          ...(pageParam ? { cursor: pageParam } : {}),
+        },
+        signal,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: nextPageCursor,
     staleTime: 0,
     gcTime: 0,
   })

@@ -3385,6 +3385,28 @@ export interface paths {
     patch: operations['reschedulePlannedSession']
     trace?: never
   }
+  '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/prescription': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Read what the assigned version asks for, step by step
+     * @description HU-STUDIO-049. What the coach adjusts: each routine the assigned version composes, once, with its steps as they were published and, on each step, the adjustments in force for this person. `planned_step_id` is what `revisePrescription` takes, and it is here before any adjustment exists. The version is the one the person was given, never a newer one. A step is not rewritten by what was adjusted: `step` is the routine as published and `adjustments` the latest revision of each kind, which is what Space trains on top of it.
+     *
+     *     The assignment is one `listRelationshipAssignments` listed, and the rule is the same: the caller must hold or cover the relationship it came from and the person must share `relationship_training` at least at `read`; without the grant the answer is 403 `scope-required` naming it. Each read is logged with the grant and scope version it relied on before anything is returned, and the person can see it. A program the organization stopped managing, or cancelled, is still read while the relationship lasts. The person's own program, another organization's, and one of a relationship the caller does not attend — an administrator or owner included — answer 404.
+     */
+    get: operations['readAssignmentPrescription']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/organizations/{organizationId}/assignments/{assignmentId}/prescription-revisions': {
     parameters: {
       query?: never
@@ -3418,9 +3440,9 @@ export interface paths {
     put?: never
     /**
      * Stop a program the organization manages
-     * @description HU-STUDIO-050. The coach who attends the person, or an administrator or owner of the organization without attending her, stops a program it still manages. The assignment ends and its management period closes as cancelled; the sessions from today on that nobody started are cancelled. Past sessions, what the person trained and the assignment itself stay (T-ASG-5). Cancelling again answers the same cancellation.
+     * @description HU-STUDIO-050. The coach who holds the relationship, or a cover the person accepted, stops a program the organization still manages. The assignment ends and its management period closes as cancelled; the sessions from today on that nobody started are cancelled. Past sessions, what the person trained and the assignment itself stay (T-ASG-5). Cancelling again answers the same cancellation.
      *
-     *     Everyone needs the person's `relationship_training` grant at `contribute`; without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`. While her service with the organization is paused the answer is 409 `service-paused`: a paused service is stopped by reactivating it or by ending the relationship, not program by program. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one the caller cannot reach answers 404.
+     *     The person must share `relationship_training` at `contribute`; without it the answer is 403 `scope-required`. Stopping a program is for who attends the person: an administrator, an owner or staff who do not coach answer 403 `forbidden`, and an organization whose coach left reassigns the relationship first. While her service with the organization is paused the answer is 409 `service-paused`: a paused service is stopped by reactivating it or by ending the relationship, not program by program. A program the organization no longer manages answers 409 `conflict`; the person's own program, another organization's, or one of a relationship the caller does not attend answers 404.
      */
     post: operations['cancelProgramAssignment']
     delete?: never
@@ -10423,6 +10445,7 @@ export interface components {
      *     }
      */
     PrescriptionRevisionCreate: {
+      /** @description A step of the assigned version, as `readAssignmentPrescription` names it. */
       planned_step_id: components['schemas']['Uuid']
       kind: components['schemas']['PrescriptionAdjustmentKind']
       /** @description Typed by `kind`: an integer for counts, seconds for durations, a number for load, distance, pace and effort, and text for the side and a note. */
@@ -10439,6 +10462,26 @@ export interface components {
       unit_code: string | null
       /** Format: date-time */
       revised_at: string
+    }
+    AssignmentPrescription: {
+      assignment_id: components['schemas']['Uuid']
+      program_version_id: components['schemas']['Uuid']
+      /** @description The routines the assigned version composes, each once, in the order the program first uses them. A session of the assignment names its routine by `template_version_id`. */
+      routines: components['schemas']['AssignmentPrescriptionRoutine'][]
+    }
+    AssignmentPrescriptionRoutine: {
+      template_version_id: components['schemas']['Uuid']
+      title: string
+      /** @description In the routine's own order. */
+      steps: components['schemas']['AssignmentPrescriptionStep'][]
+    }
+    AssignmentPrescriptionStep: {
+      /** @description What `revisePrescription` takes to adjust this step. */
+      planned_step_id: components['schemas']['Uuid']
+      /** @description The step as its routine published it, untouched by any adjustment. */
+      step: components['schemas']['PlannedStepContent']
+      /** @description The revisions in force on this step for this person, the latest of each kind, by kind. Empty until the step is adjusted. */
+      adjustments: components['schemas']['PrescriptionRevision'][]
     }
     AssignmentCancellation: {
       id: components['schemas']['Uuid']
@@ -20309,6 +20352,35 @@ export interface operations {
       409: components['responses']['ManagedSessionConflict']
       415: components['responses']['UnsupportedMediaType']
       422: components['responses']['ValidationFailed']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  readAssignmentPrescription: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        organizationId: components['parameters']['OrganizationId']
+        assignmentId: components['parameters']['AssignmentId']
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The assigned version's routines, their steps and the adjustments in force */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AssignmentPrescription']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['ScopeRequired']
+      404: components['responses']['NotFound']
       503: components['responses']['UpstreamUnavailable']
     }
   }

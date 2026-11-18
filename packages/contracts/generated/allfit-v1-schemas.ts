@@ -435,6 +435,70 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  AssignmentPrescription: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['assignment_id', 'program_version_id', 'routines'],
+    properties: {
+      assignment_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      program_version_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      routines: {
+        type: 'array',
+        description:
+          'The routines the assigned version composes, each once, in the order the program first uses them. A session of the assignment names its routine by `template_version_id`.',
+        items: {
+          $ref: '#/components/schemas/AssignmentPrescriptionRoutine',
+        },
+      },
+    },
+  },
+  AssignmentPrescriptionRoutine: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['template_version_id', 'title', 'steps'],
+    properties: {
+      template_version_id: {
+        $ref: '#/components/schemas/Uuid',
+      },
+      title: {
+        type: 'string',
+      },
+      steps: {
+        type: 'array',
+        description: "In the routine's own order.",
+        items: {
+          $ref: '#/components/schemas/AssignmentPrescriptionStep',
+        },
+      },
+    },
+  },
+  AssignmentPrescriptionStep: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['planned_step_id', 'step', 'adjustments'],
+    properties: {
+      planned_step_id: {
+        $ref: '#/components/schemas/Uuid',
+        description: 'What `revisePrescription` takes to adjust this step.',
+      },
+      step: {
+        $ref: '#/components/schemas/PlannedStepContent',
+        description: 'The step as its routine published it, untouched by any adjustment.',
+      },
+      adjustments: {
+        type: 'array',
+        description:
+          'The revisions in force on this step for this person, the latest of each kind, by kind. Empty until the step is adjusted.',
+        items: {
+          $ref: '#/components/schemas/PrescriptionRevision',
+        },
+      },
+    },
+  },
   AssignmentStatus: {
     type: 'string',
     enum: ['proposed', 'active', 'ended'],
@@ -11748,6 +11812,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
     properties: {
       planned_step_id: {
         $ref: '#/components/schemas/Uuid',
+        description: 'A step of the assigned version, as `readAssignmentPrescription` names it.',
       },
       kind: {
         $ref: '#/components/schemas/PrescriptionAdjustmentKind',
