@@ -127,6 +127,16 @@ export function resolveWorkspaceRoute(
     return { title: 'Programas asignados' }
   }
   /*
+   * "Prescripción" because that is what the operation and the story call it:
+   * what the routine asks of this person, which is not the programme and not
+   * the routine the gym published.
+   */
+  if (
+    /^\/organizations\/[^/]+\/clients\/people\/[^/]+\/programs\/[^/]+\/prescription$/.test(pathname)
+  ) {
+    return { title: 'Prescripción' }
+  }
+  /*
    * "Vínculo" because that is the word the directory already uses for this
    * thing — "Vínculo desde", "vínculos finalizados". The segment cannot be
    * `invitations`, `information-categories`, `authorizations`,

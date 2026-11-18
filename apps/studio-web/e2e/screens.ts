@@ -31,6 +31,7 @@ import {
   organizationWithLongSite,
   organizationWithoutSites,
   error,
+  assignmentPrescription,
   installStudioApiMock,
   proposedCorrections,
   problem,
@@ -164,6 +165,7 @@ const trainingProfilePath = `${clientCardPath}/profile`
 const executionsPath = `${clientCardPath}/executions`
 const progressPath = `${clientCardPath}/progress`
 const programsPath = `${clientCardPath}/programs`
+const prescriptionPath = `${programsPath}/${assignmentPrescription.assignment_id}/prescription`
 const executionDetailPath = `${executionsPath}/${clientExecutions[0]?.id ?? ''}`
 
 /** Una propuesta de este profesional esperando respuesta sobre la primera serie. */
@@ -2059,6 +2061,44 @@ export const SCREENS: Screen[] = [
       await page.getByLabel('Motivo del cambio').fill('No había anotado la carga exacta.')
       await page.getByRole('button', { name: 'Guardar la corrección' }).click()
       await expect(page.locator('[data-client-observation-correction-moved]')).toBeVisible()
+    },
+  },
+  // --- `.../programs/[assignmentId]/prescription` · HU-049 ---
+  {
+    // Dos rutinas y las cuatro familias de paso a la vez: lo que la rutina pide
+    // y lo ajustado, uno junto al otro. Es la pantalla con más pares de datos
+    // por fila del producto, y donde un ancho de móvil aprieta primero.
+    stories: 'HU-049 · la prescripción que le dimos',
+    path: prescriptionPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('La rutina pide 40 kg')).toBeVisible()
+    },
+  },
+  {
+    // El diálogo que ajusta: el selector de objetivo, el valor con su unidad, y
+    // arriba la frase de que la rutina del gimnasio no cambia.
+    stories: 'HU-049 · ajustar un objetivo para ella',
+    path: prescriptionPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-client-prescription-adjust-open]').first().click()
+      await expect(page.getByLabel('Series')).toBeVisible()
+    },
+  },
+  {
+    // El cuarto criterio llegando del servidor: el gimnasio ya no administra el
+    // programa, así que se lee y no se ajusta.
+    stories: 'HU-049 · el gimnasio ya no administra este programa',
+    path: prescriptionPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], prescriptionOutcome: 'conflict' }),
+    reveal: async (page) => {
+      await page.locator('[data-client-prescription-adjust-open]').first().click()
+      await page.getByLabel('Series').fill('5')
+      await page.getByRole('button', { name: 'Guardar el ajuste' }).click()
+      await expect(page.locator('[data-client-prescription-write-failure]')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/correction-proposals` · HU-060 ---

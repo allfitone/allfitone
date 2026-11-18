@@ -222,6 +222,7 @@
 [data-billing-panel],
 [data-authorized-scope-page],
 [data-correction-proposal-page],
+[data-client-prescription-screen],
 [data-client-invite-page],
 [data-team-section],
 [data-profile-section],
@@ -751,7 +752,10 @@
 [data-client-nutrition-day-list],
 [data-client-nutrition-summary-list],
 [data-correction-proposal-list],
-[data-correction-proposal-loading] {
+[data-correction-proposal-loading],
+[data-client-prescription-step-list],
+[data-client-prescription-loading],
+[data-client-prescription-form] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -3635,4 +3639,115 @@
 [data-correction-proposal-pagination] {
   display: flex;
   justify-content: center;
+}
+
+/* La cabecera de la prescripción: el título, la frase que dice que la rutina del
+   gimnasio no cambia, y la vuelta. En columna, con el ritmo de una cabecera de
+   página. */
+[data-client-prescription-head] {
+  display: grid;
+  justify-items: start;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-prescription-note],
+[data-client-prescription-empty],
+[data-client-prescription-step-none],
+[data-client-prescription-outcome] {
+  margin: 0;
+  min-width: 0;
+  max-width: 68ch;
+  overflow-wrap: anywhere;
+}
+
+[data-client-prescription-note] {
+  color: var(--afo-color-text-muted);
+}
+
+/* Un paso: filete y espacio, como las filas de una sesión. Una tarjeta por paso
+   haría veinte cajas de una rutina. */
+[data-client-prescription-step] {
+  display: grid;
+  gap: var(--afo-space-3);
+  min-width: 0;
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-client-prescription-step-list] > li:first-child [data-client-prescription-step] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+[data-client-prescription-step-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-client-prescription-step-name] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Lo que pide la rutina y lo ajustado, uno debajo del otro y nunca fundidos:
+   es el primer criterio dibujado. */
+[data-client-prescription-targets] {
+  display: grid;
+  gap: var(--afo-space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+[data-client-prescription-target] {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) 1fr;
+  gap: var(--afo-space-2) var(--afo-space-4);
+  min-width: 0;
+}
+
+[data-client-prescription-target] > dt {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-client-prescription-target] > dd {
+  display: grid;
+  gap: var(--afo-space-1);
+  margin: 0;
+  min-width: 0;
+}
+
+[data-client-prescription-published],
+[data-client-prescription-published-note] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-client-prescription-adjust-open],
+[data-client-prescription-back],
+[data-client-program-prescription] {
+  justify-self: start;
+}
+
+[data-client-prescription-outcome]:not(:empty) {
+  margin-block-start: var(--afo-space-2);
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-client-prescription-placeholder] {
+  height: 160px;
+}
+
+@media (max-width: 640px) {
+  /* A 390 px dos columnas dejan al valor sin medida: el objetivo pasa a ser
+     una etiqueta encima de lo que dice. */
+  [data-client-prescription-target] {
+    grid-template-columns: 1fr;
+    gap: var(--afo-space-1);
+  }
 }
