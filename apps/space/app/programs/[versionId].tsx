@@ -39,13 +39,14 @@ import { Button } from '@allfitone/react-native/button'
 import { Scrim } from '@allfitone/react-native/gradient'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
+import { Switch } from '@allfitone/react-native/switch'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ApiError } from '../../src/client'
@@ -340,23 +341,14 @@ export default function ProgramVersion() {
                 },
               ]}
             >
-              <View style={styles.adoptText}>
-                <Text role="control" size="sm">
-                  Usar también su meta de nutrición
-                </Text>
-                <Text role="body" size="xs" color="muted">
-                  Reemplaza tu meta actual; la anterior queda en el historial
-                </Text>
-              </View>
               <Switch
-                accessibilityLabel="Usar también su meta de nutrición"
+                label="Usar también su meta de nutrición"
                 value={adoptNutrition}
-                onValueChange={setAdoptNutrition}
-                trackColor={{
-                  true: theme.color.icon.accent,
-                  false: theme.color.background.surfaceMuted,
-                }}
+                onChange={setAdoptNutrition}
               />
+              <Text role="body" size="xs" color="muted">
+                Reemplaza tu meta actual; la anterior queda en el historial
+              </Text>
             </View>
           ) : null}
           <Button
@@ -423,15 +415,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   adopt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    gap: 2,
     borderRadius: 18,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  adoptText: { flex: 1, gap: 2 },
   // The footer grows by the switch; the list ends above it, not under it.
   contentWithAdopt: { paddingBottom: 270 },
 })
