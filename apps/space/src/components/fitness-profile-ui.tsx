@@ -11,15 +11,17 @@
  * so the four questions the onboarding never asked are found here.
  */
 
+import { Badge } from '@allfitone/react-native/badge'
+import { ContentGroup } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
-import { Children, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import { SectionLabel } from './pro-ui'
 
-/** A section: its name, then its rows in one rounded panel. */
+/** A section: its name, then its rows on the design system's grouped card. */
 export function FitnessGroup({
   label,
   children,
@@ -27,41 +29,17 @@ export function FitnessGroup({
   readonly label: string
   readonly children: ReactNode
 }) {
-  const theme = useTheme()
   return (
     <View style={styles.group}>
       <SectionLabel>{label}</SectionLabel>
-      <View
-        style={[
-          styles.panel,
-          {
-            backgroundColor: theme.color.background.surface,
-            borderColor: theme.color.border.subtle,
-          },
-        ]}
-      >
-        {Children.toArray(children).map((row, index) => (
-          <View key={index}>
-            {index > 0 ? (
-              <View style={[styles.rule, { backgroundColor: theme.color.border.subtle }]} />
-            ) : null}
-            {row}
-          </View>
-        ))}
-      </View>
+      <ContentGroup>{children}</ContentGroup>
     </View>
   )
 }
 
+/** Where a datum came from, as the DS's quiet tonal badge in sentence case. */
 export function OriginPill({ label }: { readonly label: string }) {
-  const theme = useTheme()
-  return (
-    <View style={[styles.pill, { backgroundColor: theme.color.background.surfaceMuted }]}>
-      <Text role="control" size="xs" color="secondary">
-        {label}
-      </Text>
-    </View>
-  )
+  return <Badge label={label} variant="tonal" uppercase={false} />
 }
 
 /** One datum. Pressing it edits; pressing «+1 versión» shows the others. */
@@ -96,7 +74,7 @@ export function FitnessDatum({
         <Text role="body" size="xs" color="secondary">
           {title}
         </Text>
-        <Text role="control" size="md" color={answered ? 'primary' : 'muted'}>
+        <Text role="control" size="sm" color={answered ? 'primary' : 'muted'}>
           {value ?? 'Sin responder'}
         </Text>
         <View style={styles.origin}>
@@ -146,18 +124,14 @@ export function FormNote({ text, boxed }: { readonly text: string; readonly boxe
 
 const styles = StyleSheet.create({
   group: { gap: 10 },
-  panel: { borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
-  rule: { height: 1, marginHorizontal: 16 },
   datum: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
     paddingVertical: 14,
   },
   grow: { flex: 1, gap: 3 },
   origin: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
-  pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   pressed: { opacity: 0.7 },
   note: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14 },
 })
