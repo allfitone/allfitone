@@ -15,6 +15,7 @@ import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
@@ -49,7 +50,6 @@ import {
   FeatureList,
   LinkPanel,
   MembershipCard,
-  Note,
   SectionLabel,
   type CardFact,
   type PanelLink,
@@ -162,7 +162,7 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
             <MembershipCard pro={status.is_pro} source={sourceLine(status)} facts={facts} />
 
             {status.effective_source === 'organization' && gym ? (
-              <Note icon="info">
+              <Note size="md" icon="info">
                 Lo tienes mientras sigas en {gym.organization_name} y el gimnasio esté activo. Si
                 eso cambia, pasas al plan gratis sin perder nada.
               </Note>
@@ -186,7 +186,9 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
             {links.length > 0 ? <LinkPanel links={links} /> : null}
 
             {!status.is_pro ? (
-              <Note icon="organization">Si un gimnasio te invita, entras con Pro sin pagar.</Note>
+              <Note size="md" icon="organization">
+                Si un gimnasio te invita, entras con Pro sin pagar.
+              </Note>
             ) : null}
 
             {subscription ? (
@@ -296,7 +298,7 @@ function CancelSheet({
           </Text>
         </View>
         {KEEPS.map(([icon, line]) => (
-          <Note key={line} icon={icon}>
+          <Note key={line} size="md" icon={icon}>
             {line}
           </Note>
         ))}

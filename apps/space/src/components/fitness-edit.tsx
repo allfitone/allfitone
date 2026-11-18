@@ -59,7 +59,7 @@ import {
 import type { SexAnswer } from '../client/sex-form'
 import { EditScreen } from './edit-screen'
 import { ExperiencePicker } from './experience-picker'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 import { FocusPicker } from './focus-picker'
 import { GOAL_ARTWORK } from './goal-artwork'
 import { GoalRow, GoalStage } from './goal-stage'
@@ -296,7 +296,7 @@ export function SexEditScreen({ sources }: { readonly sources: FitnessEditSource
           declineNote="Todo funciona igual, con estimaciones menos ajustadas."
         />
       </View>
-      <FormNote text="Cambiarlo no reescribe lo que ya registraste." />
+      <Note>Cambiarlo no reescribe lo que ya registraste.</Note>
     </EditScreen>
   )
 }
@@ -352,7 +352,10 @@ export function VersionsScreen({
         ))}
       </View>
       {versions ? (
-        <FormNote text="Lo que observó tu coach nunca aparece como si lo hubieras dicho tú. Las demás versiones no se ocultan ni se borran." />
+        <Note>
+          Lo que observó tu coach nunca aparece como si lo hubieras dicho tú. Las demás versiones no
+          se ocultan ni se borran.
+        </Note>
       ) : null}
     </EditScreen>
   )

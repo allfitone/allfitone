@@ -13,10 +13,10 @@
 import type { IconName } from '@allfitone/icons'
 import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
+import { Note } from '@allfitone/react-native/note'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { LinearGradient } from 'expo-linear-gradient'
-import type { ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import { featureIcon, featureSentence, type ProFeature } from '../client/pro'
@@ -150,7 +150,7 @@ export function FeatureList({
   const theme = useTheme()
   if (features.length === 0) {
     return (
-      <Note icon="explore" accent>
+      <Note icon="explore" size="md" tile>
         {waiting}
       </Note>
     )
@@ -169,15 +169,9 @@ export function FeatureList({
             index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
           ]}
         >
-          <FoundationIcon
-            name={featureIcon(feature.code)}
-            size="sm"
-            color={pro ? theme.color.icon.accent : theme.color.icon.secondary}
-            decorative
-          />
-          <Text role="body" size="sm" style={styles.grow}>
+          <Note icon={featureIcon(feature.code)} size="md" accent={pro}>
             {sentence}
-          </Text>
+          </Note>
         </View>
       ))}
     </View>
@@ -209,44 +203,6 @@ export function LinkPanel({ links }: { readonly links: readonly PanelLink[] }) {
   )
 }
 
-/** A line with an icon: what a card would say, without the card. */
-export function Note({
-  icon,
-  accent,
-  children,
-}: {
-  readonly icon: IconName
-  readonly accent?: boolean
-  readonly children: ReactNode
-}) {
-  const theme = useTheme()
-  return (
-    <View style={styles.note}>
-      <View
-        style={[
-          styles.noteGlyph,
-          accent
-            ? {
-                backgroundColor: theme.color.accent.tonal,
-                borderColor: theme.color.accent.tonalBorder,
-              }
-            : styles.noteGlyphPlain,
-        ]}
-      >
-        <FoundationIcon
-          name={icon}
-          size="sm"
-          color={accent ? theme.color.icon.accent : theme.color.icon.secondary}
-          decorative
-        />
-      </View>
-      <Text role="body" size="sm" color="secondary" style={styles.grow}>
-        {children}
-      </Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   card: {
     borderRadius: 26,
@@ -273,16 +229,6 @@ const styles = StyleSheet.create({
   cardMiddle: { gap: 4 },
   facts: { flexDirection: 'row', gap: 26 },
   fact: { gap: 3 },
-  feature: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  feature: { paddingVertical: 11 },
   grow: { flex: 1 },
-  note: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  noteGlyph: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteGlyphPlain: { width: 20, height: 20, borderWidth: 0 },
 })

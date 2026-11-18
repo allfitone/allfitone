@@ -104,24 +104,6 @@ export function FitnessDatum({
   )
 }
 
-/** A quiet note under a form: what happens, or what it is for. */
-export function FormNote({ text, boxed }: { readonly text: string; readonly boxed?: boolean }) {
-  const theme = useTheme()
-  return (
-    <View
-      style={[
-        styles.note,
-        boxed && { backgroundColor: theme.color.background.surfaceMuted, padding: 14 },
-      ]}
-    >
-      <FoundationIcon name="info" size="xs" color={theme.color.icon.secondary} decorative />
-      <Text role="body" size="xs" color="secondary" style={styles.grow}>
-        {text}
-      </Text>
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   group: { gap: 10 },
   datum: {
@@ -133,5 +115,4 @@ const styles = StyleSheet.create({
   grow: { flex: 1, gap: 3 },
   origin: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
   pressed: { opacity: 0.7 },
-  note: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14 },
 })

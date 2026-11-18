@@ -92,7 +92,7 @@ import {
 } from '../client/profile-transport'
 import { selectionTick } from '../client/selection-tick'
 import { EditHeader, EditScreen } from './edit-screen'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 export interface HealthSources {
   readonly list: () => Promise<HealthPage>
@@ -436,7 +436,7 @@ export function HealthFormScreen({
         </>
       ) : null}
 
-      <FormNote text={PRIVACY_NOTE} />
+      <Note>{PRIVACY_NOTE}</Note>
     </EditScreen>
   )
 }
@@ -612,7 +612,7 @@ export function HealthDetailScreen({
           />
         ) : null}
         {note ? <InlineAlert message={note} tone="info" /> : null}
-        {claim ? <FormNote text={`Corregirlo cambia este registro. ${PRIVACY_NOTE}`} /> : null}
+        {claim ? <Note>{`Corregirlo cambia este registro. ${PRIVACY_NOTE}`}</Note> : null}
       </ScrollView>
       {claim && claim.provenance === 'person_declared' ? (
         <View style={styles.footer}>

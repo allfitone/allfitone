@@ -64,7 +64,7 @@ import {
 } from '../client/profile-transport'
 import { EditHeader, EditScreen } from './edit-screen'
 import { EmailChangeProgress } from './email-change-progress'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 export interface IdentitySources {
   readonly readIdentity: () => Promise<SpaceIdentity>
@@ -335,7 +335,7 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
               />
             </View>
           </View>
-          <FormNote text="Solo el número, sin el indicativo: lo eliges a la izquierda." />
+          <Note>Solo el número, sin el indicativo: lo eliges a la izquierda.</Note>
           {identity.phone.number ? (
             <View style={styles.start}>
               <Button
@@ -533,9 +533,12 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
             autoFocus
             {...fieldError}
           />
-          <FormNote text="Te enviaremos un código a ese correo. Hasta que lo confirmes, sigues entrando con el actual." />
+          <Note>
+            Te enviaremos un código a ese correo. Hasta que lo confirmes, sigues entrando con el
+            actual.
+          </Note>
           {replacedCodeNote(identity.email.pending) ? (
-            <FormNote text={replacedCodeNote(identity.email.pending) ?? ''} boxed />
+            <Note boxed>{replacedCodeNote(identity.email.pending) ?? ''}</Note>
           ) : null}
         </>
       ) : null}
@@ -681,7 +684,7 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
       onSave={waiting || applying ? () => void confirm() : undefined}
     >
       {applying ? (
-        <FormNote text="Cuando termine, entras con el correo nuevo y cerramos tus otras sesiones." />
+        <Note>Cuando termine, entras con el correo nuevo y cerramos tus otras sesiones.</Note>
       ) : null}
       {waiting ? (
         <>
@@ -698,7 +701,10 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
             autoFocus
             editable={!saving}
           />
-          <FormNote text="Al confirmarlo, entras con el correo nuevo y cerramos tus otras sesiones. Avisaremos al correo anterior." />
+          <Note>
+            Al confirmarlo, entras con el correo nuevo y cerramos tus otras sesiones. Avisaremos al
+            correo anterior.
+          </Note>
           {notice ? <InlineAlert message={notice} tone="success" /> : null}
           <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">

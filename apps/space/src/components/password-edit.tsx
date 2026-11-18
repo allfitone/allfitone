@@ -32,7 +32,7 @@ import {
 import { changePassword } from '../client/profile-transport'
 import { EditHeader, EditScreen } from './edit-screen'
 import { Ring } from './email-change-progress'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 export interface PasswordSources {
   readonly changePassword: (current: string, next: string) => Promise<void>
@@ -120,7 +120,10 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
       <RequirementList
         requirements={PASSWORD_RULES.map(({ rule, label }) => ({ label, met: checks[rule] }))}
       />
-      <FormNote text="Al cambiarla cerramos tus sesiones en otros teléfonos. En este sigues dentro, y te avisamos por correo." />
+      <Note>
+        Al cambiarla cerramos tus sesiones en otros teléfonos. En este sigues dentro, y te avisamos
+        por correo.
+      </Note>
     </EditScreen>
   )
 }

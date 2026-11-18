@@ -9,6 +9,7 @@
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -32,7 +33,7 @@ import {
   type ProStatus,
 } from '../../src/client/pro'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
-import { Note, SectionLabel } from '../../src/components/pro-ui'
+import { SectionLabel } from '../../src/components/pro-ui'
 
 const UNAVAILABLE = 'No pudimos cargar tus pagos. Revisa tu conexión e inténtalo de nuevo.'
 
@@ -98,7 +99,9 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
         {failure ? <InlineAlert message={failure} /> : null}
 
         {payments && list.length === 0 ? (
-          <Note icon="history">Todavía no hay cobros de Allfit Pro.</Note>
+          <Note size="md" icon="history">
+            Todavía no hay cobros de Allfit Pro.
+          </Note>
         ) : null}
 
         {fee ? (
@@ -195,7 +198,7 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
           </View>
         ) : null}
 
-        <Note icon="locked">
+        <Note size="md" icon="locked">
           Tus recibos y tu tarjeta están en tu cuenta de {store ? storeName(store) : 'la tienda'}.
           Allfit nunca ve tu tarjeta.
         </Note>

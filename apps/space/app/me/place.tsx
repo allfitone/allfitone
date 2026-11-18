@@ -37,7 +37,7 @@ import {
   readFitnessProfile,
   type ClaimCode,
 } from '../../src/client/profile-transport'
-import { FormNote } from '../../src/components/fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 const SAVE_FAILED = 'No pudimos guardarlo. Inténtalo otra vez.'
 const PLACE_ICON: Record<TrainingPlace, IconName> = {
@@ -189,10 +189,9 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
         ))}
 
         {fewEquipmentAtHome(place, equipment) ? (
-          <FormNote
-            boxed
-            text="Entrenas en casa con poco equipo: tu plan se apoya en tu peso y en lo que marcaste."
-          />
+          <Note boxed>
+            Entrenas en casa con poco equipo: tu plan se apoya en tu peso y en lo que marcaste.
+          </Note>
         ) : null}
         {failure ? <InlineAlert message={failure} /> : null}
       </ScrollView>

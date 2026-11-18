@@ -39,7 +39,7 @@ import {
   type SpaceIdentity,
 } from '../../src/client/fitness-profile'
 import { phoneLine } from '../../src/client/phone-countries'
-import { FormNote } from '../../src/components/fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 import { LIVE_IDENTITY, type IdentitySources } from '../../src/components/identity-edit'
 import { SectionLabel } from '../../src/components/pro-ui'
 
@@ -230,7 +230,7 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
               </Panel>
             </View>
 
-            <FormNote text="Tus permisos y tus gimnasios tienen su propio lugar en Perfil." />
+            <Note>Tus permisos y tus gimnasios tienen su propio lugar en Perfil.</Note>
           </>
         ) : null}
       </ScrollView>
