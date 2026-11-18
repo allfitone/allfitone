@@ -221,6 +221,7 @@
 [data-billing-page],
 [data-billing-panel],
 [data-authorized-scope-page],
+[data-correction-proposal-page],
 [data-client-invite-page],
 [data-team-section],
 [data-profile-section],
@@ -748,7 +749,9 @@
 [data-client-nutrition-meal-photo-view],
 [data-client-nutrition-range],
 [data-client-nutrition-day-list],
-[data-client-nutrition-summary-list] {
+[data-client-nutrition-summary-list],
+[data-correction-proposal-list],
+[data-correction-proposal-loading] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -3554,4 +3557,82 @@
 
 [data-goal-proposal-amount] {
   inline-size: 6rem;
+}
+
+/* Una propuesta del registro: hairlines and space, como las filas de una
+   sesión — la página ya es una página, y una tarjeta por propuesta haría
+   veinticinco cajas de una lista. El estado se lee en la cabecera; lo demás
+   son frases, que es por lo que esto no es una tabla. */
+[data-correction-proposal] {
+  display: grid;
+  gap: var(--afo-space-2);
+  min-width: 0;
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-correction-proposal-list] > li:first-child [data-correction-proposal] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+/* Seis filtros envuelven en vez de estrecharse: a 390 px una fila de seis
+   encoge cada botón hasta que los rótulos se tocan, y el barrido de maquetación
+   lo mide — dos textos a menos de 1 px se leen como uno. Es el mismo remedio
+   que la semana de siete días del diálogo de reprogramar. */
+[data-correction-proposal-filter] {
+  flex-wrap: wrap;
+}
+
+[data-correction-proposal-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-correction-proposal-client] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-correction-proposal-what],
+[data-correction-proposal-state],
+[data-correction-proposal-cancel],
+[data-correction-proposal-unreachable],
+[data-correction-proposal-when],
+[data-correction-proposal-reason] {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Lo que él escribió y ella leyó, citado: es la única voz de otra pantalla que
+   aparece aquí, y la sangría lo dice sin repetirlo en palabras. */
+[data-correction-proposal-reason] {
+  padding-inline-start: var(--afo-space-4);
+  border-inline-start: 2px solid var(--afo-color-border-default);
+  color: var(--afo-color-text-muted);
+}
+
+[data-correction-proposal-when],
+[data-correction-proposal-cancel],
+[data-correction-proposal-unreachable] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* El enlace a la sesión es una acción de fila: se queda a su ancho. */
+[data-correction-proposal-session] {
+  justify-self: start;
+}
+
+[data-correction-proposal-placeholder] {
+  height: 96px;
+}
+
+[data-correction-proposal-pagination] {
+  display: flex;
+  justify-content: center;
 }
