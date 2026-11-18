@@ -247,9 +247,24 @@ locals {
   # A `us.` profile answers from any of these and never leaves the country (ADR-042).
   food_recognition_regions = ["us-east-1", "us-east-2", "us-west-2"]
 
-  food_recognition_profile_arn = "arn:aws:bedrock:${var.region}:${var.account_id}:inference-profile/${local.food_recognition_profile}"
+  # The weekly summary of Space is written on Bedrock too (ADR-053). Pinned after the eval
+  # in packages/weekly-summary passed with this model; it changes only after it passes again.
+  weekly_summary_profile = "us.anthropic.claude-sonnet-4-6"
+  weekly_summary_model   = "anthropic.claude-sonnet-4-6"
 
-  # The API's own role: ask that one model, through that one profile, and nothing else.
+  # What the API may ask follows the pins above: a model pinned there needs no line here.
+  api_model_profile_arns = distinct([
+    for profile in [local.food_recognition_profile, local.weekly_summary_profile] :
+    "arn:aws:bedrock:${var.region}:${var.account_id}:inference-profile/${profile}"
+  ])
+  api_model_arns = distinct(flatten([
+    for model in [local.food_recognition_model, local.weekly_summary_model] : [
+      for region in local.food_recognition_regions :
+      "arn:aws:bedrock:${region}::foundation-model/${model}"
+    ]
+  ]))
+
+  # The API's own role: ask the pinned models, through their profiles, and nothing else.
   api_task_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -257,18 +272,15 @@ locals {
         Sid      = "AskThroughTheProfile"
         Effect   = "Allow"
         Action   = "bedrock:InvokeModel"
-        Resource = local.food_recognition_profile_arn
+        Resource = local.api_model_profile_arns
       },
       {
-        Sid    = "TheModelOnlyThroughTheProfile"
-        Effect = "Allow"
-        Action = "bedrock:InvokeModel"
-        Resource = [
-          for region in local.food_recognition_regions :
-          "arn:aws:bedrock:${region}::foundation-model/${local.food_recognition_model}"
-        ]
+        Sid      = "TheModelOnlyThroughTheProfile"
+        Effect   = "Allow"
+        Action   = "bedrock:InvokeModel"
+        Resource = local.api_model_arns
         Condition = {
-          StringLike = { "bedrock:InferenceProfileArn" = local.food_recognition_profile_arn }
+          StringLike = { "bedrock:InferenceProfileArn" = local.api_model_profile_arns }
         }
       },
     ]
@@ -299,9 +311,11 @@ module "services" {
         PORT                    = "8080"
         FOOD_RECOGNITION_MODEL  = "bedrock/${local.food_recognition_profile}"
         FOOD_RECOGNITION_REGION = var.region
+        WEEKLY_SUMMARY_MODEL    = "bedrock/${local.weekly_summary_profile}"
+        WEEKLY_SUMMARY_REGION   = var.region
       }
       health_command = null
-      # Bedrock with no key: the role asks the model that recognises food and nothing else.
+      # Bedrock with no key: the role asks the models pinned above and nothing else.
       task_role_policy = local.api_task_policy
     }
     worker = {
