@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { SITE_URL } from '@/lib/site'
+import { shareImage, SITE_URL } from '@/lib/site'
 
 import sitemap from './sitemap'
 
@@ -15,13 +15,15 @@ describe('sitemap', () => {
       `${SITE_URL}/en/waitlist`,
     ])
     for (const entry of entries) {
-      const path = entry.url.endsWith('/waitlist') ? '/waitlist' : ''
+      const waitlist = entry.url.endsWith('/waitlist')
+      const path = waitlist ? '/waitlist' : ''
+      const locale = entry.url.startsWith(`${SITE_URL}/es`) ? 'es' : 'en'
       expect(entry.alternates?.languages).toEqual({
         es: `${SITE_URL}/es${path}`,
         en: `${SITE_URL}/en${path}`,
         'x-default': `${SITE_URL}${path}`,
       })
-      expect(entry.images).toEqual([`${SITE_URL}/images/og.jpg`])
+      expect(entry.images).toEqual([shareImage(locale, waitlist ? 'waitlist' : 'home').url])
       expect(entry.lastModified).toBeInstanceOf(Date)
     }
   })

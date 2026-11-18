@@ -273,9 +273,15 @@ export function observationsOldestFirst(
   return [...observations].sort((left, right) => left.created_at.localeCompare(right.created_at))
 }
 
-/** Said under an observation that was edited after it was written. */
+/**
+ * Said under an observation that was edited after it was written.
+ *
+ * `revised_at` and not the revision number: the first version is revision **1**,
+ * not 0, so counting from zero marks every observation as corrected. The column
+ * ties the two together — revision 1 is exactly the one with no `revised_at`.
+ */
 export function observationRevisionNote(observation: ProfessionalObservation): string | null {
-  return observation.revision_number > 0 ? 'Corregida después de escribirse' : null
+  return observation.revised_at === null ? null : 'Corregida después de escribirse'
 }
 
 /** Who wrote it, saying «tú» where it was this coach. */

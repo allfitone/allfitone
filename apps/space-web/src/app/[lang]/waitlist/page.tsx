@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: LocaleParams): Promise<Metada
   const { lang } = await params
   if (!isLocale(lang)) return {}
   const { meta } = dictionaryFor(lang).waitlistPage
-  return pageMetadata(lang, WAITLIST_PATH, meta)
+  return pageMetadata(lang, WAITLIST_PATH, meta, 'waitlist')
 }
 
 export default async function WaitlistPage({ params }: LocaleParams) {

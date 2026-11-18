@@ -49,6 +49,7 @@ import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import type { ReactNode } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
@@ -68,13 +69,25 @@ import {
   strengthLine,
   type ResultFamily,
 } from '@/lib/client-execution-detail'
+import { ClientCorrectionProposal } from './client-correction-proposal'
+import { ClientObservationCorrection } from './client-observation-correction'
+import { ClientObservationForm } from './client-observation-form'
+import { canProposeCorrection } from '@/lib/client-correction-proposal'
+import { observationCategories, observationCorrectable } from '@/lib/client-observation'
 import { executionWhen, levelLabel, originLabel } from '@/lib/client-executions'
 import { readerTimeZone } from '@/lib/reader-zone'
-import type { AuthorizedExecution, ProfessionalObservation } from '@/lib/studio-api'
+import type {
+  AuthorizedExecution,
+  ExecutionDetailStrengthSet,
+  ProfessionalObservation,
+  ProposedCorrection,
+} from '@/lib/studio-api'
 import {
+  clientCardQueryOptions,
   clientExecutionQueryOptions,
   isStudioForbidden,
   isStudioNotFound,
+  proposedCorrectionsQueryOptions,
 } from '@/lib/studio-query'
 
 export function ClientExecutionDetailScreen() {
@@ -84,6 +97,19 @@ export function ClientExecutionDetailScreen() {
   const query = useQuery(
     clientExecutionQueryOptions(organizationId, params.personId, params.executionId),
   )
+  /*
+   * Her card as well, for the two levels the observation form needs. It costs a
+   * round trip and nothing else: `OP-REL-019` reads none of her data and writes
+   * no access event, which is why a second read here is affordable.
+   */
+  const cardQuery = useQuery(clientCardQueryOptions(organizationId, params.personId))
+  /*
+   * The caller's own pending proposals, so a field that already waits on her is
+   * not offered twice. `OP-EXE-020` holds none of her data and writes no access
+   * record, and one page caps at a hundred — past that the 409 is what prevents
+   * a duplicate, as it always was.
+   */
+  const proposalsQuery = useQuery(proposedCorrectionsQueryOptions(organizationId))
   const executionsPath = clientExecutionsPath(organizationId, params.personId)
   const cardPath = clientCardPath(organizationId, params.personId)
 
@@ -96,6 +122,16 @@ export function ClientExecutionDetailScreen() {
   const when = executionWhen(execution, readerTimeZone())
   const families = recordedFamilies(execution)
   const observations = observationsOldestFirst(execution.observations)
+  const card = cardQuery.data
+  const offers =
+    card && card.kind === 'attending' ? observationCategories(execution, card.sections) : []
+  /*
+   * Proposing needs only her training at the writing level — health context has
+   * nothing to do with what she recorded — and it reaches a session she trained
+   * on her own as well, so where the session came from is not a condition.
+   */
+  const mayPropose = card?.kind === 'attending' && canProposeCorrection(card.sections)
+  const pendingProposals: readonly ProposedCorrection[] = proposalsQuery.data?.data ?? []
 
   return (
     <div data-client-execution-detail-screen>
@@ -202,11 +238,28 @@ export function ClientExecutionDetailScreen() {
             family={entry.family}
             title={entry.title}
             note={entry.note}
+            /* Only a strength set takes a proposal, and only while she shares
+               her training at the writing level. */
+            action={
+              mayPropose
+                ? (set) => (
+                    <ClientCorrectionProposal
+                      set={set}
+                      pending={pendingProposals}
+                      executionId={params.executionId}
+                      organizationId={organizationId}
+                      personId={params.personId}
+                    />
+                  )
+                : undefined
+            }
           />
         ))
       )}
 
-      {observations.length > 0 ? (
+      {/* The card now holds the form as well, so it stays even with nothing
+          written: a coach who may annotate needs somewhere to do it. */}
+      {observations.length > 0 || offers.length > 0 ? (
         <Card data-client-execution-observations>
           <CardHeader>
             <CardTitle role="heading" aria-level={2}>
@@ -221,13 +274,39 @@ export function ClientExecutionDetailScreen() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ul data-client-execution-observation-list>
-              {observations.map((note) => (
-                <li key={note.id}>
-                  <ObservationRow observation={note} />
-                </li>
-              ))}
-            </ul>
+            {observations.length > 0 ? (
+              <ul data-client-execution-observation-list>
+                {observations.map((note) => (
+                  <li key={note.id}>
+                    <ObservationRow
+                      observation={note}
+                      /* Only his own, and only while her category is still open
+                         to him: the other rows have nothing to press. */
+                      correction={
+                        observationCorrectable(offers, note) ? (
+                          <ClientObservationCorrection
+                            observation={note}
+                            executionId={params.executionId}
+                            organizationId={organizationId}
+                            personId={params.personId}
+                          />
+                        ) : null
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p data-client-execution-observations-none>
+                Todavía nadie de este vínculo anotó nada sobre esta sesión.
+              </p>
+            )}
+            <ClientObservationForm
+              offers={offers}
+              executionId={params.executionId}
+              organizationId={organizationId}
+              personId={params.personId}
+            />
           </CardContent>
         </Card>
       ) : null}
@@ -255,12 +334,15 @@ function ResultPanel({
   family,
   title,
   note,
+  action,
 }: {
   execution: AuthorizedExecution
   family: ResultFamily
   title: string
   /** Said only where the family's name does not explain itself. */
   note: string | null
+  /** What a row of this family offers, when it offers anything. */
+  action?: ((set: ExecutionDetailStrengthSet) => ReactNode) | undefined
 }) {
   const rows = familyRows(execution, family)
   return (
@@ -285,6 +367,7 @@ function ResultPanel({
                   ) : null}
                 </div>
                 {row.detail ? <p data-client-execution-result-detail>{row.detail}</p> : null}
+                {action && row.set ? action(row.set) : null}
               </article>
             </li>
           ))}
@@ -299,6 +382,8 @@ interface ResultRow {
   readonly name: string
   readonly detail: string
   readonly block: string | null
+  /** Only a strength set has one: the three fields a proposal can point at. */
+  readonly set: ExecutionDetailStrengthSet | null
 }
 
 /**
@@ -316,6 +401,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `${String(set.order)}. ${set.movement_name}`,
       detail: strengthLine(set),
       block: block(set.segment_position),
+      set,
     }))
   }
   if (family === 'endurance') {
@@ -324,6 +410,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `Vuelta ${String(lap.lap_number)}`,
       detail: enduranceLine(lap),
       block: block(lap.segment_position),
+      set: null,
     }))
   }
   if (family === 'interval') {
@@ -332,6 +419,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `Intervalo ${String(interval.interval_number)}`,
       detail: intervalLine(interval),
       block: block(interval.segment_position),
+      set: null,
     }))
   }
   if (family === 'round') {
@@ -340,6 +428,7 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
       name: `Ronda ${String(round.round_number)}`,
       detail: roundLine(round),
       block: block(round.segment_position),
+      set: null,
     }))
   }
   return execution.mobility_results.map((result, index) => ({
@@ -347,10 +436,17 @@ function familyRows(execution: AuthorizedExecution, family: ResultFamily): reado
     name: `${String(result.sequence_position)}. ${result.movement_name}`,
     detail: mobilityLine(result),
     block: block(result.segment_position),
+    set: null,
   }))
 }
 
-function ObservationRow({ observation }: { observation: ProfessionalObservation }) {
+function ObservationRow({
+  observation,
+  correction,
+}: {
+  observation: ProfessionalObservation
+  correction: ReactNode
+}) {
   const revised = observationRevisionNote(observation)
   return (
     <article data-client-execution-observation>
@@ -363,6 +459,9 @@ function ObservationRow({ observation }: { observation: ProfessionalObservation 
         ) : null}
       </div>
       <p data-client-execution-observation-content>{observation.content}</p>
+      {/* Under the text it corrects, not in the head: the action belongs to the
+          observation, and the head is where the row says whose it is. */}
+      {correction}
     </article>
   )
 }

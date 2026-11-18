@@ -179,7 +179,9 @@ test('the notes on the session read oldest first, and say who wrote them', async
   await expect(notes).toHaveCount(2)
   await expect(notes.nth(0)).toContainText('Diana Entrante')
   await expect(notes.nth(0)).toContainText('Mantuvo la profundidad')
-  // The reader sees «tú» on their own, and a corrected one says so.
+  // The reader sees «tú» on their own, and a corrected one says so — only one.
+  // The first version is revision 1, so counting from zero marked them all.
+  await expect(notes.nth(0)).not.toContainText('Corregida después de escribirse')
   await expect(notes.nth(1)).toContainText('Tú')
   await expect(notes.nth(1)).toContainText('Corregida después de escribirse')
 })

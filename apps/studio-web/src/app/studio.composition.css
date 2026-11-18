@@ -221,6 +221,7 @@
 [data-billing-page],
 [data-billing-panel],
 [data-authorized-scope-page],
+[data-correction-proposal-page],
 [data-client-invite-page],
 [data-team-section],
 [data-profile-section],
@@ -748,7 +749,9 @@
 [data-client-nutrition-meal-photo-view],
 [data-client-nutrition-range],
 [data-client-nutrition-day-list],
-[data-client-nutrition-summary-list] {
+[data-client-nutrition-summary-list],
+[data-correction-proposal-list],
+[data-correction-proposal-loading] {
   display: grid;
   gap: var(--afo-space-3);
 }
@@ -1053,7 +1056,7 @@
   gap: var(--afo-space-2);
   margin-block-start: var(--afo-space-3);
   padding-inline-start: var(--afo-space-4);
-  border-inline-start: 2px solid var(--afo-color-border);
+  border-inline-start: 2px solid var(--afo-color-border-default);
 }
 
 [data-category-client-label],
@@ -1103,9 +1106,58 @@
 }
 
 [data-trajectory-body],
-[data-goal-proposal-form] {
+[data-goal-proposal-form],
+[data-client-observation-correction-form],
+[data-client-correction-proposal-form] {
   display: grid;
   gap: var(--afo-space-4);
+}
+
+/* The form that leaves an observation on a session: four stacked blocks in the
+   proposal form's rhythm, under a hairline set at the distance the substitution
+   block already uses for a section appended to a card. */
+[data-client-observation-form] {
+  display: grid;
+  gap: var(--afo-space-4);
+  margin-block-start: var(--afo-space-6);
+  padding-block-start: var(--afo-space-5);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+/* The alert carries its own frame, so it is set off by space and not by a
+   hairline: a rule above a box would separate the same thing twice. */
+[data-client-observation-read-only] {
+  margin-block-start: var(--afo-space-6);
+}
+
+[data-client-observation-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-3);
+}
+
+/* The live region stays empty until a correction lands; only then does it take
+   room, so a row that was never corrected is not taller than its neighbours. */
+[data-client-observation-correction-outcome],
+[data-client-correction-outcome] {
+  margin: 0;
+}
+
+[data-client-observation-correction-outcome]:not(:empty),
+[data-client-correction-outcome]:not(:empty) {
+  margin-block-start: var(--afo-space-2);
+}
+
+/* The note under a single category, where there is no field set to carry it,
+   the line that stands in for an empty list, and what a correction says it
+   kept. All three read as a caption. */
+[data-client-observation-kind-note],
+[data-client-observation-correction-outcome],
+[data-client-correction-outcome],
+[data-client-correction-declared],
+[data-client-execution-observations-none] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
 }
 
 [data-profile-combobox-option] {
@@ -1613,9 +1665,11 @@
   display: grid;
   justify-items: start;
   gap: var(--afo-space-2);
-  margin-block-start: var(--afo-space-7);
+  /* 24px, the rung the scale actually has: it jumps from 6 to 8, so the 7 that
+     stood here was no value at all and the margin computed to zero. */
+  margin-block-start: var(--afo-space-6);
   padding-block-start: var(--afo-space-6);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-site-status-title] {
@@ -1724,7 +1778,7 @@
   gap: var(--afo-space-3);
   margin-block-start: var(--afo-space-6);
   padding-block-start: var(--afo-space-5);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 /* The person, then the facts about her. CardContent pads sideways only, so
@@ -1750,7 +1804,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-progress-period-cards] > li:first-child [data-client-progress-period],
@@ -1810,7 +1864,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-executions-list] > li:first-child [data-client-execution],
@@ -1999,7 +2053,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-program-session-cards] > li:first-child [data-client-program-session] {
@@ -2056,7 +2110,7 @@
   gap: var(--afo-space-2);
   min-width: 0;
   padding-block-start: var(--afo-space-3);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-execution-result-list] > li:first-child [data-client-execution-result],
@@ -2123,7 +2177,7 @@
   display: grid;
   gap: var(--afo-space-2);
   padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 [data-client-profile-group]:first-child,
@@ -2160,6 +2214,11 @@
 [data-client-body-photo-list],
 [data-client-nutrition-meal-list],
 [data-client-nutrition-item-list],
+/* The only one of these inside an Alert, and the only list in the file that was
+   left out of this rule: unregistered it kept the browser's bullets and
+   indent, which no other list in Studio does. The sweep could not see it —
+   bullets break neither axe nor the measure. */
+[data-client-nutrition-goal-blocker-list],
 [data-client-nutrition-goal-list] {
   display: grid;
   gap: var(--afo-space-3);
@@ -2362,7 +2421,7 @@
 [data-client-open] {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: var(--afo-color-border);
+  text-decoration-color: var(--afo-color-border-default);
   text-underline-offset: 3px;
 }
 
@@ -3498,4 +3557,82 @@
 
 [data-goal-proposal-amount] {
   inline-size: 6rem;
+}
+
+/* Una propuesta del registro: hairlines and space, como las filas de una
+   sesión — la página ya es una página, y una tarjeta por propuesta haría
+   veinticinco cajas de una lista. El estado se lee en la cabecera; lo demás
+   son frases, que es por lo que esto no es una tabla. */
+[data-correction-proposal] {
+  display: grid;
+  gap: var(--afo-space-2);
+  min-width: 0;
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-correction-proposal-list] > li:first-child [data-correction-proposal] {
+  padding-block-start: 0;
+  border-block-start: none;
+}
+
+/* Seis filtros envuelven en vez de estrecharse: a 390 px una fila de seis
+   encoge cada botón hasta que los rótulos se tocan, y el barrido de maquetación
+   lo mide — dos textos a menos de 1 px se leen como uno. Es el mismo remedio
+   que la semana de siete días del diálogo de reprogramar. */
+[data-correction-proposal-filter] {
+  flex-wrap: wrap;
+}
+
+[data-correction-proposal-head] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-correction-proposal-client] {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+[data-correction-proposal-what],
+[data-correction-proposal-state],
+[data-correction-proposal-cancel],
+[data-correction-proposal-unreachable],
+[data-correction-proposal-when],
+[data-correction-proposal-reason] {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Lo que él escribió y ella leyó, citado: es la única voz de otra pantalla que
+   aparece aquí, y la sangría lo dice sin repetirlo en palabras. */
+[data-correction-proposal-reason] {
+  padding-inline-start: var(--afo-space-4);
+  border-inline-start: 2px solid var(--afo-color-border-default);
+  color: var(--afo-color-text-muted);
+}
+
+[data-correction-proposal-when],
+[data-correction-proposal-cancel],
+[data-correction-proposal-unreachable] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* El enlace a la sesión es una acción de fila: se queda a su ancho. */
+[data-correction-proposal-session] {
+  justify-self: start;
+}
+
+[data-correction-proposal-placeholder] {
+  height: 96px;
+}
+
+[data-correction-proposal-pagination] {
+  display: flex;
+  justify-content: center;
 }

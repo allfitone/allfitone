@@ -248,10 +248,11 @@ async function start(tx: Transaction) {
     ${START}::uuid, ${START}::uuid, extensions.digest('start', 'sha256'))`
 }
 
+// Who attends her cancels: an owner who does not coach is refused (OP-PLN-014).
 async function cancel(tx: Transaction) {
-  await actAs(tx, OWNER)
+  await actAs(tx, COACH)
   return tx`select * from planning.cancel_managed_assignment(
-    ${OWNER}::uuid, ${ORGANIZATION}::uuid, ${ASSIGNMENT}::uuid,
+    ${COACH}::uuid, ${ORGANIZATION}::uuid, ${ASSIGNMENT}::uuid,
     ${CANCEL}::uuid, ${CANCEL}::uuid, extensions.digest('cancel', 'sha256'))`
 }
 

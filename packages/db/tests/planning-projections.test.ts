@@ -196,6 +196,7 @@ interface Projections {
   relationshipAssignmentPage: unknown[]
   rescheduledSession: unknown
   prescriptionRevision: unknown
+  assignmentPrescription: unknown
   assignmentCancellation: unknown
   cancelledAssignmentPage: unknown[]
 }
@@ -451,6 +452,16 @@ beforeAll(async () => {
   )
   projections.prescriptionRevision = revisionRow?.result
 
+  // Read after the adjustment, so the step it names carries a revision too.
+  const [prescriptionRow] = await actorTransaction(
+    (transaction) => transaction`
+      select planning.read_assignment_prescription(
+        ${PERSON_ID}::uuid, ${ORGANIZATION_ID}::uuid, ${managed?.id}::uuid) as result
+    `,
+    nextRequestId(),
+  )
+  projections.assignmentPrescription = prescriptionRow?.result
+
   const cancelled = nextCommand()
   const [cancellationRow] = await actorTransaction(
     (transaction) => transaction`
@@ -529,6 +540,7 @@ describe('Planning projections against the OpenAPI contract', () => {
       'RelationshipAssignment',
       'RelationshipAssignmentSession',
       'PrescriptionRevision',
+      'AssignmentPrescription',
       'AssignmentCancellation',
     ]) {
       expect(validator.getSchema(`allfit-v1#/components/schemas/${schemaName}`)).toBeDefined()
@@ -638,6 +650,20 @@ describe('Planning projections against the OpenAPI contract', () => {
     for (const item of projections.relationshipAssignmentPage) {
       assertMatchesContract('RelationshipAssignment', item)
     }
+  })
+
+  test('T-PLN-API-186 what the assigned version asks for satisfies the contract, step ids and adjustment included', () => {
+    assertMatchesContract('AssignmentPrescription', projections.assignmentPrescription)
+    const adjusted = projections.prescriptionRevision as { id: string; planned_step_id: string }
+    const read = projections.assignmentPrescription as {
+      routines: { steps: { planned_step_id: string; adjustments: { id: string }[] }[] }[]
+    }
+    const steps = read.routines.flatMap((routine) => routine.steps)
+    expect(steps.length).toBeGreaterThan(0)
+    // The id an adjustment was sent with is the id this read hands out.
+    expect(steps.find((step) => step.planned_step_id === adjusted.planned_step_id)).toMatchObject({
+      adjustments: [{ id: adjusted.id }],
+    })
   })
 
   test('T-PLN-API-185 a cancelled assignment with its adjustment still satisfies the contract', () => {

@@ -4,6 +4,7 @@ import { database } from '../../../platform/db/index.js'
 import { measureStudioRequestPhase } from '../../../platform/observability/index.js'
 import type {
   AssignmentCancellation,
+  AssignmentPrescription,
   PlanningCommandResult,
   PlanningDatabase,
   Program,
@@ -222,6 +223,16 @@ export function createPlanningDatabase(): PlanningDatabase {
           )
         `
         return page(rows, input.limit)
+      }),
+    readAssignmentPrescription: (input) =>
+      query(sql, input.personId, input.requestId, async (transaction) => {
+        const [row] = await transaction<{ result: AssignmentPrescription }[]>`
+          select planning.read_assignment_prescription(
+            ${input.personId}::uuid, ${input.organizationId}::uuid, ${input.assignmentId}::uuid
+          ) as result
+        `
+        if (!row) throw new Error('PostgreSQL did not return the assignment prescription')
+        return row.result
       }),
     readSessionTemplateDraft: (input) =>
       query(sql, input.personId, input.requestId, async (transaction) => {

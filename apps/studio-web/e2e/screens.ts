@@ -32,6 +32,7 @@ import {
   organizationWithoutSites,
   error,
   installStudioApiMock,
+  proposedCorrections,
   problem,
   publishedTemplate,
   unpublishedTemplate,
@@ -164,6 +165,23 @@ const executionsPath = `${clientCardPath}/executions`
 const progressPath = `${clientCardPath}/progress`
 const programsPath = `${clientCardPath}/programs`
 const executionDetailPath = `${executionsPath}/${clientExecutions[0]?.id ?? ''}`
+
+/** Una propuesta de este profesional esperando respuesta sobre la primera serie. */
+function waitingProposal() {
+  return {
+    id: '01991600-7000-7000-8000-00000000e801',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 1 },
+    field: 'achieved_reps',
+    proposed: { value: 9, unit: null },
+    reason: 'Conté nueve repeticiones, no ocho.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-11-15T16:00:00.000Z',
+    expires_at: '2026-12-15T16:00:00.000Z',
+    settled_at: null,
+  }
+}
 
 /** Una corriendo y dos terminadas: el vínculo que ya acumuló historia. */
 function coversWithHistory() {
@@ -1955,6 +1973,163 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('No te autorizó su entrenamiento')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-057 ---
+  {
+    // Both categories at the writing level, so the picker has two options. The
+    // default card holds only one, and one category draws no picker at all.
+    stories: 'HU-057 · anotar una observación sobre la sesión',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: {
+          ...clientCard,
+          sections: clientCard.sections.map((section) => ({
+            ...section,
+            access_level: 'contribute',
+          })),
+        },
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Dolor o limitación' })).toBeVisible()
+    },
+  },
+  {
+    // She withdrew the level while the form was open: a danger alert at the
+    // foot of the longest screen in the product, which is where an overlay
+    // audit has to be able to reach it.
+    stories: 'HU-057 · le rechazan la observación por el permiso',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        observationOutcome: 'scope-required',
+      }),
+    reveal: async (page) => {
+      await page.getByLabel('Tu observación').fill('Bajó la cadera antes de lo que debía.')
+      await page.getByRole('button', { name: 'Guardar observación' }).click()
+      await expect(page.locator('[data-client-observation-failure]')).toBeVisible()
+    },
+  },
+  {
+    // Nothing to write with, and the reason said rather than left out: the
+    // level is hers to raise.
+    stories: 'HU-057 · no puede anotar en esta sesión',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        clientCard: {
+          ...clientCard,
+          sections: clientCard.sections.map((section) => ({ ...section, access_level: 'read' })),
+        },
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('No puedes anotar en esta sesión')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-058 ---
+  {
+    // The dialog that corrects his own observation: two fields, and above them
+    // what the correction keeps and what it cannot move. A dialog over the
+    // longest screen in the product, which is where an overlay has to hold its
+    // contrast in both themes.
+    stories: 'HU-058 · corregir mi propia observación',
+    path: executionDetailPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-client-observation-correct]').click()
+      await expect(page.getByLabel('Motivo del cambio')).toBeVisible()
+    },
+  },
+  {
+    // The 409 that is not a failure: he corrected it from somewhere else, and
+    // the dialog shows what it says now without throwing away what he typed.
+    stories: 'HU-058 · la observación ya cambió desde otro lado',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], revisionOutcome: 'stale-draft' }),
+    reveal: async (page) => {
+      await page.locator('[data-client-observation-correct]').click()
+      await page.getByLabel('Tu observación corregida').fill('Le subí la carga de 60 a 62,5 kg.')
+      await page.getByLabel('Motivo del cambio').fill('No había anotado la carga exacta.')
+      await page.getByRole('button', { name: 'Guardar la corrección' }).click()
+      await expect(page.locator('[data-client-observation-correction-moved]')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/correction-proposals` · HU-060 ---
+  {
+    // Las cinco respuestas que una propuesta puede tener, a la vez: es la única
+    // forma de ver que los cinco estados se distinguen entre sí, y la fila más
+    // larga de la pantalla es la que cita el motivo que ella leyó.
+    stories: 'HU-060 · ver mis propuestas de corrección',
+    path: `${workspace}/clients/correction-proposals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        proposedCorrections: structuredClone(proposedCorrections),
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Esperando su respuesta')).toBeVisible()
+    },
+  },
+  {
+    // Sin ninguna propuesta: dice dónde se proponen, en vez de leerse como un
+    // error. Es el estado que un administrador que no atiende a nadie ve siempre.
+    stories: 'HU-060 · todavía no has propuesto ninguna',
+    path: `${workspace}/clients/correction-proposals`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], proposedCorrections: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Nada que seguir por ahora')).toBeVisible()
+    },
+  },
+  // --- `.../executions/[executionId]` · HU-059 ---
+  {
+    // The dialog that proposes a correction: three fields, her own value under
+    // the one in hand, and above them the sentence that nothing of hers moves.
+    stories: 'HU-059 · proponer una corrección sobre una serie',
+    path: executionDetailPath,
+    fixture: () => createStudioApiFixture({ memberships: [holderMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-client-correction-propose]').first().click()
+      await expect(page.getByLabel('Por qué se lo propones')).toBeVisible()
+    },
+  },
+  {
+    // A field that already waits on her: the form is not drawn for it, and the
+    // alert carries the deadline and what expiring means.
+    stories: 'HU-059 · ese dato ya está esperando su respuesta',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        proposedCorrections: [waitingProposal()],
+      }),
+    reveal: async (page) => {
+      await page.locator('[data-client-correction-propose]').first().click()
+      await expect(page.locator('[data-client-correction-waiting]')).toBeVisible()
+    },
+  },
+  {
+    // The refusal of his role, which is not the refusal of her permission: a
+    // danger alert inside a dialog, where contrast is hardest to hold.
+    stories: 'HU-059 · su rol no incluye proponer correcciones',
+    path: executionDetailPath,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], proposalOutcome: 'forbidden' }),
+    reveal: async (page) => {
+      await page.locator('[data-client-correction-propose]').first().click()
+      await page.getByLabel('Repeticiones que propones').fill('9')
+      await page.getByLabel('Por qué se lo propones').fill('Conté nueve, no ocho.')
+      await page.getByRole('button', { name: 'Enviar la propuesta' }).click()
+      await expect(page.locator('[data-client-correction-failure]')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/clients/people/[personId]/programs` · HU-046 ---
@@ -4114,11 +4289,21 @@ export const SCREENS: Screen[] = [
           key,
           JSON.stringify({ version: 1, status: 'ended', endedAt: Date.now(), reason: 'manual' }),
         )
-        // Writing storage from the tab that owns it fires no event, so the guard's
-        // cross-tab listener has to be handed the one the browser sends elsewhere.
-        window.dispatchEvent(new StorageEvent('storage', { key }))
       }, SESSION_STORAGE_KEY)
-      await expect(page.locator('[data-session-closing]')).toBeVisible()
+      /*
+       * Writing storage from the tab that owns it fires no event, so the guard's
+       * cross-tab listener has to be handed the one the browser sends elsewhere
+       * — and it is sent until it lands. The server already renders the
+       * heading, so `settled` says nothing about whether React has attached
+       * that listener, and an event sent before it exists is lost for good.
+       */
+      await expect(async () => {
+        await page.evaluate(
+          (key) => window.dispatchEvent(new StorageEvent('storage', { key })),
+          SESSION_STORAGE_KEY,
+        )
+        await expect(page.locator('[data-session-closing]')).toBeVisible({ timeout: 250 })
+      }).toPass({ timeout: 10_000 })
     },
   },
   {

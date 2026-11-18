@@ -373,6 +373,14 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
         >
           Autorizaciones
         </Link>
+        {/* The third of the cross-client consultations, and the only one about
+            the reader's own work rather than about the clients. */}
+        <Link
+          data-client-reference
+          href={`/organizations/${current.organization_id}/clients/correction-proposals`}
+        >
+          Mis propuestas de corrección
+        </Link>
       </nav>
     </section>
   )
