@@ -386,6 +386,34 @@ variables, telemetry events, AWS resources and consent codes use neutral terms
 (`ai-provider`, `intelligence`). What a model produced records the exact model
 that produced it, never a brand (ADR-018, ADR-045).
 
+### Design tokens
+
+**An `--afo-*` token an app's stylesheet reads must exist in the version that
+app installs.** `bun run check:design-tokens` enforces it, inside `bun run
+lint`, and it fails CI rather than code review.
+
+The reason it needs a gate: a `var()` with no value is invalid at
+computed-value time, which drops the **whole declaration**. The property then
+falls back to its initial value — `border-style: none`, `margin: 0` — so the
+rule silently does nothing. Nothing else catches it. Two invented tokens
+(`--afo-color-border`, which does not exist beside `-subtle`/`-default`/
+`-strong`, and `--afo-space-7`, a rung the scale does not have) left ten Studio
+screens without their separators from the day they were written, through the
+build, the type check, the lint and 2 400 end-to-end tests.
+
+Two consequences worth knowing:
+
+- **Each app is checked against its own copy.** The web apps run different
+  `@allfitone/react` versions, so a token that exists in the newest is not
+  necessarily available where it is used.
+- **`var(--afo-x, fallback)` is legitimate**, and so is a variable the
+  stylesheet defines for itself. A fallback is what makes an absent token
+  harmless.
+
+Read a value from the token source before using it, never from memory: the
+Design System's own `Separator` resolves `bg-border` to
+`--afo-color-border-subtle`, which is what a hairline uses.
+
 ---
 
 ## 10. Quality bar
