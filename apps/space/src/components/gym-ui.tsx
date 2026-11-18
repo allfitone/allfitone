@@ -4,6 +4,7 @@
  */
 
 import type { IconName } from '@allfitone/icons'
+import { ContentGroup } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -53,76 +54,9 @@ export function GymMark({ name, size = 44 }: { readonly name: string; readonly s
   )
 }
 
-/** A glyph in a quiet square, a title and a line under it, and whatever ends the row. */
-export function GlyphRow({
-  icon,
-  title,
-  caption,
-  accent,
-  children,
-}: {
-  readonly icon: IconName
-  readonly title: string
-  readonly caption?: string | undefined
-  readonly accent?: boolean
-  readonly children?: ReactNode
-}) {
-  const theme = useTheme()
-  return (
-    <View style={styles.row}>
-      <View
-        style={[
-          styles.glyph,
-          {
-            backgroundColor: accent
-              ? theme.color.accent.tonal
-              : theme.color.background.surfaceMuted,
-          },
-        ]}
-      >
-        <FoundationIcon
-          name={icon}
-          size="sm"
-          color={accent ? theme.color.icon.accent : theme.color.icon.secondary}
-          decorative
-        />
-      </View>
-      <View style={styles.grow}>
-        <Text role="control" size="sm">
-          {title}
-        </Text>
-        {caption ? (
-          <Text role="body" size="xs" color="muted">
-            {caption}
-          </Text>
-        ) : null}
-      </View>
-      {children}
-    </View>
-  )
-}
-
-/** A card holding rows divided by a hairline. */
+/** A card holding rows divided by a hairline: the design system's grouped card. */
 export function RowCard({ children }: { readonly children: ReactNode }) {
-  const theme = useTheme()
-  const rows = Array.isArray(children) ? children.filter(Boolean) : [children]
-  return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: theme.color.background.surface, borderColor: theme.color.border.subtle },
-      ]}
-    >
-      {rows.map((row, index) => (
-        <View
-          key={index}
-          style={index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle }}
-        >
-          {row}
-        </View>
-      ))}
-    </View>
-  )
+  return <ContentGroup>{children}</ContentGroup>
 }
 
 // Asked once per launch: every onboarding step shows the same answer.
@@ -219,6 +153,7 @@ export function PendingInvitationCard({ style }: { readonly style?: StyleProp<Vi
 }
 
 const styles = StyleSheet.create({
+  card: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 2 },
   invitation: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   pressed: { opacity: 0.6 },
   waiting: {
@@ -243,5 +178,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   grow: { flex: 1, gap: 2 },
-  card: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 2 },
 })

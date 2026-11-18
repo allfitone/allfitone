@@ -20,6 +20,7 @@ import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
@@ -695,12 +696,9 @@ export function ProgramEditor({
         {/* Only while the week is empty. It answers «what is this screen» and stops
             answering it the moment somebody has plainly worked it out. */}
         {summary.daysPerWeek > 0 ? null : (
-          <View style={[styles.notice, { backgroundColor: theme.color.background.surfaceSubtle }]}>
-            <FoundationIcon name="info" size="sm" color={theme.color.icon.secondary} decorative />
-            <Text role="body" size="sm" color="secondary" style={styles.noticeText}>
-              {WHAT_A_PROGRAM_IS}
-            </Text>
-          </View>
+          <Note size="md" boxed>
+            {WHAT_A_PROGRAM_IS}
+          </Note>
         )}
       </ScrollView>
 

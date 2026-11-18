@@ -16,6 +16,7 @@
  */
 
 import { IconButton } from '@allfitone/react-native/icon-button'
+import { DatumRow } from '@allfitone/react-native/datum-row'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
@@ -28,7 +29,7 @@ import { readBodyRecords } from '../../src/client/body-transport'
 import { fitnessSections, type Editor, type FitnessProfile } from '../../src/client/fitness-profile'
 import type { BiologicalSex } from '../../src/client/onboarding'
 import { readFitnessProfile } from '../../src/client/profile-transport'
-import { FitnessDatum, FitnessGroup } from '../../src/components/fitness-profile-ui'
+import { FitnessGroup } from '../../src/components/fitness-profile-ui'
 
 const UNREADABLE = 'No pudimos leer tu perfil. Revisa tu conexión e inténtalo otra vez.'
 const SEX_NAME: Record<BiologicalSex, string> = { female: 'Femenino', male: 'Masculino' }
@@ -101,16 +102,21 @@ export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSou
           ? sections.map((section) => (
               <FitnessGroup key={section.title} label={section.title}>
                 {section.rows.map((row) => (
-                  <FitnessDatum
+                  <DatumRow
                     key={row.code}
-                    title={row.title}
-                    value={row.value}
-                    provenance={row.provenance}
-                    versions={row.versions}
+                    label={row.title}
+                    {...(row.value === undefined ? {} : { value: row.value })}
+                    {...(row.provenance === undefined ? {} : { origin: row.provenance })}
+                    {...(row.versions === undefined
+                      ? {}
+                      : {
+                          versions: {
+                            label: row.versions,
+                            onPress: () =>
+                              router.push({ pathname: '/me/versions', params: { code: row.code } }),
+                          },
+                        })}
                     onPress={() => router.push(EDITOR_ROUTE[row.editor])}
-                    onVersions={() =>
-                      router.push({ pathname: '/me/versions', params: { code: row.code } })
-                    }
                   />
                 ))}
               </FitnessGroup>
@@ -119,22 +125,22 @@ export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSou
 
         {profile ? (
           <FitnessGroup label="Tu cuerpo">
-            <FitnessDatum
-              title="Sexo biológico"
-              value={sex ? SEX_NAME[sex] : undefined}
-              provenance="Declarado por ti · solo para cálculos"
+            <DatumRow
+              label="Sexo biológico"
+              {...(sex ? { value: SEX_NAME[sex] } : {})}
+              origin="Declarado por ti · solo para cálculos"
               onPress={() => router.push('/me/sex')}
             />
-            <FitnessDatum
-              title="Peso"
-              value={weight ? `${tenths(weight.value)} kg` : undefined}
-              provenance="Declarado por ti"
+            <DatumRow
+              label="Peso"
+              {...(weight ? { value: `${tenths(weight.value)} kg` } : {})}
+              origin="Declarado por ti"
               onPress={() => router.push('/body')}
             />
-            <FitnessDatum
-              title="Estatura"
-              value={height ? `${decimal(height.value)} cm` : undefined}
-              provenance="Declarado por ti"
+            <DatumRow
+              label="Estatura"
+              {...(height ? { value: `${decimal(height.value)} cm` } : {})}
+              origin="Declarado por ti"
               onPress={() => router.push('/body')}
             />
           </FitnessGroup>

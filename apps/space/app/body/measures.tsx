@@ -16,8 +16,8 @@
 import { Button } from '@allfitone/react-native/button'
 import { Chip } from '@allfitone/react-native/chip'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -227,12 +227,9 @@ export default function MeasuresScreen() {
       />
 
       <View style={styles.bottom}>
-        <View style={[styles.how, { backgroundColor: theme.color.background.surface }]}>
-          <FoundationIcon name="info" size="sm" color={theme.color.icon.accent} decorative />
-          <Text role="body" size="xs" color="secondary" style={styles.grow}>
-            {measure.how}
-          </Text>
-        </View>
+        <Note boxed accent>
+          {measure.how}
+        </Note>
         {failure ? <InlineAlert message={failure} /> : null}
         <View style={styles.actions}>
           <Button label="Saltar" variant="secondary" onPress={advance} style={styles.skip} />

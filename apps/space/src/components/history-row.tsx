@@ -2,41 +2,28 @@
  * A finished session as the history shows it (H-2 on Hoy, H-6 on its own screen).
  *
  * One component for both because the two must never disagree about what a session
- * looks like: the row on Hoy is the same row the full history scrolls through, a few
- * points larger. `size` is the only difference, and it is the design's.
+ * looks like: the row on Hoy is the same row the full history scrolls through. It is
+ * the design system's `ContentRow`, with the date as its end and the name as a poster.
  *
  * **The thumbnail is the routine's cover**, the photograph Hoy and the share card show
  * for it, so a session looks the same wherever it appears. A trophy sits on its corner
  * when the session set a record. A free session has no routine and shows the bolt the
  * free-training offer uses, so the two read as the same thing.
  *
- * **Every line is a step of the type scale**, never a size of its own, so a row reads
- * at the same sizes as the rest of the app. The name is `md`: at the design's 20 a long
- * routine name was louder than what was done.
- *
  * **Ready for what has no data yet.** A session hidden from a gym and a coach's note
  * (ADR-037) take a `tag` beside the name and an `extra` line in muted ink; nothing sends
  * them today, and when something does, the row already knows where they go.
  */
 
-import { ContentGroup } from '@allfitone/react-native/content-row'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
-import { withAlpha } from '@allfitone/react-native/tokens'
 import { Image } from 'expo-image'
 import type { ReactNode } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 import { dayParts, historyDetail, recordsLine, type HistoryItem } from '../client/history'
-
-/** Hoy's thumbnail is a step larger than the full list's, as H-2 and H-6 draw it. */
-const SIZES = {
-  home: { thumb: 58, radius: 16, badge: 20, row: 76 },
-  list: { thumb: 54, radius: 15, badge: 19, row: 74 },
-} as const
-
-export type HistoryRowSize = keyof typeof SIZES
 
 export interface HistoryTag {
   readonly label: string
@@ -74,129 +61,49 @@ export function HistoryGroupHeader({
 
 export function HistoryRow({
   item,
-  size,
   tag,
   extra,
   onPress,
 }: {
   readonly item: HistoryItem
-  readonly size: HistoryRowSize
   readonly tag?: HistoryTag
   readonly extra?: string
   /** Opens the session's detail (FIN-18). */
   readonly onPress?: () => void
 }) {
   const theme = useTheme()
-  const measure = SIZES[size]
   const { weekday, day } = dayParts(item.trained_on)
   const records = recordsLine(item.record_count)
-  const name = (item.title ?? (item.is_free ? 'Entreno libre' : 'Sesión')).toUpperCase()
+  const name = item.title ?? (item.is_free ? 'Entreno libre' : 'Sesión')
   const detail = historyDetail(item)
   const below = records ?? extra
 
   return (
-    <Pressable
-      accessible
-      accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={[name, detail, below, `${weekday} ${day}`].filter(Boolean).join(', ')}
-      disabled={!onPress}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        { opacity: pressed ? 0.7 : 1 },
-        { minHeight: measure.row, gap: 12 },
-      ]}
-    >
-      <View
-        style={[
-          styles.thumb,
-          {
-            width: measure.thumb,
-            height: measure.thumb,
-            borderRadius: measure.radius,
-            backgroundColor: theme.color.background.surfaceMuted,
-          },
-        ]}
-      >
-        {item.thumbnail_url ? (
-          <Image
-            source={item.thumbnail_url}
-            style={[StyleSheet.absoluteFill, { borderRadius: measure.radius }]}
-            contentFit="cover"
-          />
-        ) : (
-          <FoundationIcon
-            name={item.is_free ? 'freestyle' : 'training'}
-            customSize={22}
-            color={theme.color.icon.accent}
-            decorative
-          />
-        )}
-        {item.record_count > 0 ? (
-          <View
-            style={[
-              styles.badge,
-              {
-                width: measure.badge,
-                height: measure.badge,
-                borderRadius: measure.badge / 2,
-                backgroundColor: theme.color.icon.accent,
-                borderColor: theme.color.background.surface,
-              },
-            ]}
-          >
+    <ContentRow
+      name={name}
+      nameStyle="poster"
+      caption={detail}
+      {...(below === undefined ? {} : { note: below, noteTone: records ? 'accent' : 'quiet' })}
+      {...(tag === undefined ? {} : { tag: tag.label, tagTone: 'neutral' })}
+      preview={
+        <View style={[styles.thumb, { backgroundColor: theme.color.background.surfaceMuted }]}>
+          {item.thumbnail_url ? (
+            <Image source={item.thumbnail_url} style={StyleSheet.absoluteFill} contentFit="cover" />
+          ) : (
             <FoundationIcon
-              name="record"
-              customSize={measure.badge / 2}
-              color={theme.color.text.inverse}
+              name={item.is_free ? 'freestyle' : 'training'}
+              customSize={22}
+              color={theme.color.icon.accent}
               decorative
             />
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.body}>
-        <View style={styles.title}>
-          <Text role="poster" size="md" uppercase numberOfLines={1} style={styles.shrink}>
-            {name}
-          </Text>
-          {tag ? (
-            <View
-              style={[styles.tag, { backgroundColor: withAlpha(theme.color.text.secondary, 0.12) }]}
-            >
-              {tag.icon ? (
-                <FoundationIcon
-                  name={tag.icon}
-                  customSize={10}
-                  color={theme.color.text.secondary}
-                  decorative
-                />
-              ) : null}
-              <Text role="eyebrow" size="2xs" color="secondary" uppercase>
-                {tag.label}
-              </Text>
-            </View>
-          ) : null}
+          )}
         </View>
-        <Text role="body" size="sm" color="secondary" numberOfLines={1}>
-          {detail}
-        </Text>
-        {below ? (
-          <Text role="control" size="xs" color={records ? 'accent' : 'muted'} numberOfLines={1}>
-            {below}
-          </Text>
-        ) : null}
-      </View>
-
-      <View style={styles.day}>
-        <Text role="eyebrow" size="xs" color="muted" uppercase>
-          {weekday}
-        </Text>
-        <Text role="poster" size="xl">
-          {day}
-        </Text>
-      </View>
-    </Pressable>
+      }
+      {...(item.record_count > 0 ? { previewMark: 'record' as const } : {})}
+      trailing={{ kind: 'date', weekday, day }}
+      accessibilityLabel={[name, detail, below, `${weekday} ${day}`].filter(Boolean).join(', ')}
+      {...(onPress === undefined ? {} : { onPress })}
+    />
   )
 }
 
@@ -207,26 +114,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 2,
   },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9 },
-  thumb: { alignItems: 'center', justifyContent: 'center', overflow: 'visible' },
-  badge: {
-    position: 'absolute',
-    right: -2,
-    bottom: -2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-  },
-  body: { flex: 1, gap: 3 },
-  title: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  shrink: { flexShrink: 1 },
-  tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  day: { alignItems: 'center', minWidth: 36 },
+  thumb: { flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
 })

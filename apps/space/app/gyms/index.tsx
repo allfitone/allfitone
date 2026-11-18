@@ -12,6 +12,7 @@ import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Monogram } from '@allfitone/react-native/monogram'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -187,13 +188,10 @@ export default function Gyms() {
           </Section>
         ) : null}
 
-        <View style={styles.note}>
-          <FoundationIcon name="info" size="sm" color={theme.color.icon.secondary} decorative />
-          <Text role="body" size="xs" color="muted" style={styles.grow}>
-            Si un gimnasio te invita, la invitación te espera en Hoy. Aceptar no comparte nada por
-            sí solo.
-          </Text>
-        </View>
+        <Note>
+          Si un gimnasio te invita, la invitación te espera en Hoy. Aceptar no comparte nada por sí
+          solo.
+        </Note>
       </ScrollView>
     </Screen>
   )

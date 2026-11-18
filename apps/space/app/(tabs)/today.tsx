@@ -528,7 +528,6 @@ export default function Today() {
                       <HistoryRow
                         key={item.executed_session_id}
                         item={item}
-                        size="home"
                         onPress={() =>
                           router.push({
                             pathname: '/history/[executionId]',

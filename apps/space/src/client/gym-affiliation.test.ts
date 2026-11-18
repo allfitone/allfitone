@@ -5,6 +5,7 @@ import {
   accessLevelLabel,
   createInvitationFlow,
   decisionFailure,
+  decisionOf,
   historyLine,
   invitationExpiry,
   pendingCovers,
@@ -234,5 +235,13 @@ describe('why answering an invitation did not land', () => {
     const generic = 'No pudimos guardar tus decisiones. Revisa tu conexión e inténtalo de nuevo.'
     expect(decisionFailure(new ApiError('unavailable'))).toBe(generic)
     expect(decisionFailure(new Error('offline'))).toBe(generic)
+  })
+})
+
+describe('the answer a yes/no control gives back (TECH-327)', () => {
+  test('T-SPC-UNIT-343 only «accepted» accepts; anything else is a no', () => {
+    expect(decisionOf('accepted')).toBe('accepted')
+    expect(decisionOf('rejected')).toBe('rejected')
+    expect(decisionOf('')).toBe('rejected')
   })
 })

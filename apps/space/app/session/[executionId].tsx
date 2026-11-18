@@ -43,6 +43,7 @@ import { badgeToneColor, identityTone, type BadgeTone } from '@allfitone/react-n
 import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
@@ -692,12 +693,9 @@ export default function Session() {
 
       {editing ? (
         <View style={styles.past}>
-          <View style={[styles.notice, { backgroundColor: theme.color.background.surfaceMuted }]}>
-            <FoundationIcon name="info" size="sm" color={theme.color.icon.secondary} decorative />
-            <Text role="body" size="sm" color="secondary" style={styles.noticeText}>
-              Es un entreno pasado. Al guardar se recalculan tus récords, tu racha y tus totales.
-            </Text>
-          </View>
+          <Note size="md" boxed>
+            Es un entreno pasado. Al guardar se recalculan tus récords, tu racha y tus totales.
+          </Note>
           {times ? (
             <View
               style={[

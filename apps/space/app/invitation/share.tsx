@@ -12,8 +12,8 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { Screen } from '@allfitone/react-native/screen'
-import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
@@ -23,12 +23,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import {
   accessLevelLabel,
+  type Decision,
+  decisionOf,
   scopeDescription,
   scopeTitle,
-  type Decision,
 } from '../../src/client/gym-affiliation'
 import { currentDraft } from '../../src/client/invitation-draft'
-import { GlyphRow, GymMark, RowCard, scopeIcon } from '../../src/components/gym-ui'
+import { GymMark, RowCard, scopeIcon } from '../../src/components/gym-ui'
 
 const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = [
   { value: 'rejected', label: 'No' },
@@ -82,22 +83,22 @@ export default function InvitationShare() {
             const description = scopeDescription(option)
             return (
               <View key={option.scope_code} style={styles.option}>
-                <GlyphRow
+                <ContentRow
                   icon={scopeIcon(option.scope_code)}
-                  title={title}
+                  iconTone="quiet"
+                  name={title}
                   caption={accessLevelLabel(option.offered_access_level)}
-                >
-                  <SegmentedControl
-                    items={ANSWER}
-                    value={draft.scopes[option.scope_code] ?? 'rejected'}
-                    accessibilityLabel={`Compartir ${title}`}
-                    onChange={(value) => {
-                      draft.scopes[option.scope_code] = value
+                  trailing={{
+                    kind: 'choice',
+                    items: ANSWER,
+                    value: draft.scopes[option.scope_code] ?? 'rejected',
+                    accessibilityLabel: `Compartir ${title}`,
+                    onChange: (value) => {
+                      draft.scopes[option.scope_code] = decisionOf(value)
                       redraw((tick) => tick + 1)
-                    }}
-                    style={styles.answer}
-                  />
-                </GlyphRow>
+                    },
+                  }}
+                />
                 {description ? (
                   <Text role="body" size="xs" color="secondary" style={styles.detail}>
                     {description}

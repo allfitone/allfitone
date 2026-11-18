@@ -22,6 +22,11 @@ export type InvitationDecisionResult = AllfitV1Schemas['ClientInvitationDecision
 export type InvitationDecisionBody = AllfitV1Schemas['ClientInvitationDecisionCreate']
 export type Decision = 'accepted' | 'rejected'
 
+/** What a yes/no control gave back, as a decision: only «accepted» accepts. */
+export function decisionOf(value: string): Decision {
+  return value === 'accepted' ? 'accepted' : 'rejected'
+}
+
 /** How an invitation is named: the emailed token, or the id of a pending one. */
 export type InvitationKey = { readonly token: string } | { readonly invitationId: string }
 

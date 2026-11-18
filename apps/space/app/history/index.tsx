@@ -276,7 +276,6 @@ export default function HistoryScreen() {
                   <HistoryRow
                     key={item.executed_session_id}
                     item={item}
-                    size="list"
                     onPress={() =>
                       router.push({
                         pathname: '/history/[executionId]',

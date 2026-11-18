@@ -7,13 +7,14 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { GlyphRow, GymMark, RowCard } from '../../src/components/gym-ui'
+import { GymMark, RowCard } from '../../src/components/gym-ui'
 
 export default function InvitationDone() {
   const router = useRouter()
@@ -40,15 +41,11 @@ export default function InvitationDone() {
         </Text>
         <View style={styles.rows}>
           <RowCard>
-            <GlyphRow
-              icon="favourite"
-              title="Allfit Pro activo"
-              caption={`Incluido por ${gym}`}
-              accent
-            />
-            <GlyphRow
+            <ContentRow icon="favourite" name="Allfit Pro activo" caption={`Incluido por ${gym}`} />
+            <ContentRow
               icon="permissions"
-              title={`Compartes ${shared} de ${asked} categorías`}
+              iconTone="quiet"
+              name={`Compartes ${shared} de ${asked} categorías`}
               caption="Las cambias cuando quieras en Perfil"
             />
           </RowCard>

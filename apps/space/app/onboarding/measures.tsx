@@ -31,13 +31,12 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { WheelPicker } from '@allfitone/react-native/wheel-picker'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
@@ -84,7 +83,6 @@ const UNIT_SUFFIX: Record<MeasureUnit, string> = { kg: 'kg', lb: 'lb', cm: 'cm',
 
 export default function OnboardingMeasures() {
   const router = useRouter()
-  const theme = useTheme()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
 
   const [weightKg, setWeightKg] = useState(RESTING_WEIGHT_KG)
@@ -268,12 +266,7 @@ export default function OnboardingMeasures() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <View style={styles.note}>
-          <FoundationIcon name="info" size="sm" color={theme.color.text.muted} decorative />
-          <Text role="body" size="xs" color="muted" style={styles.noteText}>
-            Es tu primer registro de progreso. Podrás actualizarlo cuando quieras.
-          </Text>
-        </View>
+        <Note>Es tu primer registro de progreso. Podrás actualizarlo cuando quieras.</Note>
 
         {failure ? <InlineAlert message={failure} style={styles.alert} /> : null}
 
