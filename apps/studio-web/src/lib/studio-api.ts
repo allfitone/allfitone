@@ -142,6 +142,7 @@ export type CorrectionField = AllfitV1Schemas['CorrectionField']
 export type CorrectionProposalStatus = AllfitV1Schemas['CorrectionProposalStatus']
 export type CorrectionProposalCreate = AllfitV1Schemas['CorrectionProposalCreate']
 export type ProposedCorrection = AllfitV1Schemas['ProposedCorrection']
+export type ProposedCorrectionCancelReason = AllfitV1Schemas['ProposedCorrectionCancelReason']
 export type ProposedCorrectionPage = AllfitV1Schemas['ProposedCorrectionPage']
 export type Organization = AllfitV1Schemas['Organization']
 export type OrganizationUpdate = AllfitV1Schemas['OrganizationUpdate']
@@ -1296,12 +1297,13 @@ export const studioApi = {
    */
   listProposedCorrections: (
     organizationId: string,
-    query: { status?: CorrectionProposalStatus; limit?: number },
+    query: { status?: CorrectionProposalStatus; limit?: number; cursor?: string },
     signal?: AbortSignal,
   ) => {
     const search = new URLSearchParams()
     if (query.status) search.set('status', query.status)
     if (query.limit !== undefined) search.set('limit', String(query.limit))
+    if (query.cursor) search.set('cursor', query.cursor)
     const suffix = search.size > 0 ? `?${search.toString()}` : ''
     return request<ProposedCorrectionPage>(
       `/studio/v1/organizations/${organizationId}/correction-proposals${suffix}`,

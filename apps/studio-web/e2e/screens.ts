@@ -32,6 +32,7 @@ import {
   organizationWithoutSites,
   error,
   installStudioApiMock,
+  proposedCorrections,
   problem,
   publishedTemplate,
   unpublishedTemplate,
@@ -2058,6 +2059,35 @@ export const SCREENS: Screen[] = [
       await page.getByLabel('Motivo del cambio').fill('No había anotado la carga exacta.')
       await page.getByRole('button', { name: 'Guardar la corrección' }).click()
       await expect(page.locator('[data-client-observation-correction-moved]')).toBeVisible()
+    },
+  },
+  // --- `/organizations/[id]/clients/correction-proposals` · HU-060 ---
+  {
+    // Las cinco respuestas que una propuesta puede tener, a la vez: es la única
+    // forma de ver que los cinco estados se distinguen entre sí, y la fila más
+    // larga de la pantalla es la que cita el motivo que ella leyó.
+    stories: 'HU-060 · ver mis propuestas de corrección',
+    path: `${workspace}/clients/correction-proposals`,
+    fixture: () =>
+      createStudioApiFixture({
+        memberships: [holderMembership],
+        proposedCorrections: structuredClone(proposedCorrections),
+      }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Esperando su respuesta')).toBeVisible()
+    },
+  },
+  {
+    // Sin ninguna propuesta: dice dónde se proponen, en vez de leerse como un
+    // error. Es el estado que un administrador que no atiende a nadie ve siempre.
+    stories: 'HU-060 · todavía no has propuesto ninguna',
+    path: `${workspace}/clients/correction-proposals`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [holderMembership], proposedCorrections: [] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Nada que seguir por ahora')).toBeVisible()
     },
   },
   // --- `.../executions/[executionId]` · HU-059 ---

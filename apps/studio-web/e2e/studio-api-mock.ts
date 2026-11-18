@@ -115,6 +115,12 @@ export interface StudioApiFixture {
     | 'unavailable'
   /** What `OP-EXE-020` answers: the caller's own proposals, soonest to expire first. */
   proposedCorrections: unknown[]
+  /**
+   * Which answer `OP-EXE-020` gives. `ok` serves `proposedCorrections`;
+   * `forbidden` is the 403 of a membership that is no longer active here, which
+   * is the only way this read can be refused — it holds none of her data.
+   */
+  proposalRegisterOutcome: 'ok' | 'forbidden' | 'unavailable'
   revisionOutcome:
     | 'revised'
     | 'stale-draft'
@@ -1873,6 +1879,85 @@ export const emptyTrainingProfile = {
 }
 
 /** Attended, and she has shared nothing: being assigned asks her for nothing. */
+/**
+ * Las cinco respuestas que una propuesta puede tener, una de cada.
+ *
+ * La que espera vence en 2027 para que no se vuelva `expired` con el tiempo —
+ * una fecha pasada en un fixture que pretende estar esperando es justo el valor
+ * cómodo que esconde el defecto. La vencida lleva su fecha en el pasado y su
+ * `status` sigue diciendo `pending`: el servidor la computa, y así la prueba
+ * comprueba que el simulador también.
+ */
+export const proposedCorrections = [
+  {
+    id: '01991600-7000-7000-8000-00000000e801',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 1 },
+    field: 'achieved_reps',
+    proposed: { value: 9, unit: null },
+    reason: 'Conté nueve repeticiones, no ocho.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-11-16T16:00:00.000Z',
+    expires_at: '2027-01-16T16:00:00.000Z',
+    settled_at: null,
+  },
+  {
+    id: '01991600-7000-7000-8000-00000000e802',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 2 },
+    field: 'load',
+    proposed: { value: 62.5, unit: 'kg' },
+    reason: 'La barra pesaba 2,5 kg más de lo anotado.',
+    status: 'accepted',
+    cancel_reason: null,
+    created_at: '2026-10-01T16:00:00.000Z',
+    expires_at: '2026-10-31T16:00:00.000Z',
+    settled_at: '2026-10-03T10:00:00.000Z',
+  },
+  {
+    id: '01991600-7000-7000-8000-00000000e803',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 2 },
+    field: 'rpe',
+    proposed: { value: 7, unit: null },
+    reason: 'Se veía más cómoda que un 9.',
+    status: 'rejected',
+    cancel_reason: null,
+    created_at: '2026-10-02T16:00:00.000Z',
+    expires_at: '2026-11-01T16:00:00.000Z',
+    settled_at: '2026-10-04T10:00:00.000Z',
+  },
+  {
+    // Su `status` dice `pending` y su fecha ya pasó: el servidor la lee vencida.
+    id: '01991600-7000-7000-8000-00000000e804',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: { execution_id: clientExecutions[0]?.id ?? '', set_order: 3 },
+    field: 'achieved_reps',
+    proposed: { value: 2, unit: null },
+    reason: 'Me parece que fueron dos.',
+    status: 'pending',
+    cancel_reason: null,
+    created_at: '2026-09-01T16:00:00.000Z',
+    expires_at: '2026-10-01T16:00:00.000Z',
+    settled_at: null,
+  },
+  {
+    // Sin `target`: ya no alcanza esa sesión, así que la fila no lleva a nada.
+    id: '01991600-7000-7000-8000-00000000e805',
+    client: { person_id: clientCard.person_id, name: 'Camila Cliente' },
+    target: null,
+    field: 'load',
+    proposed: { value: 70, unit: 'kg' },
+    reason: 'Creo que subió a 70 en la última.',
+    status: 'cancelled',
+    cancel_reason: 'session_unavailable',
+    created_at: '2026-09-02T16:00:00.000Z',
+    expires_at: '2026-10-02T16:00:00.000Z',
+    settled_at: '2026-09-10T10:00:00.000Z',
+  },
+]
+
 export const clientCardWithoutSections = {
   ...clientCard,
   sections: [],
@@ -3242,6 +3327,7 @@ export function createStudioApiFixture(
     revisionOutcome: 'revised',
     proposalOutcome: 'proposed',
     proposedCorrections: [],
+    proposalRegisterOutcome: 'ok',
     clientProgress: structuredClone(clientProgress),
     relationshipAssignments: structuredClone(relationshipAssignments),
     assignmentsCursor: 'ok',
@@ -4849,14 +4935,54 @@ function defaultResponse(
     request.method === 'GET' &&
     /^\/studio\/v1\/organizations\/[^/]+\/correction-proposals$/.test(request.path)
   ) {
-    // The caller's own, soonest to expire first, as the operation orders them.
-    const proposals = [...fixture.proposedCorrections].map(objectValue)
-    proposals.sort((left, right) =>
-      String(left['expires_at']).localeCompare(String(right['expires_at'])),
-    )
+    const params = new URLSearchParams(request.search)
+    if (fixture.proposalRegisterOutcome === 'forbidden') {
+      return { status: 403, body: error('forbidden') }
+    }
+    if (fixture.proposalRegisterOutcome === 'unavailable') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    const wanted = params.get('status')
+    if (
+      wanted !== null &&
+      !['pending', 'accepted', 'rejected', 'expired', 'cancelled'].includes(wanted)
+    ) {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, { errors: [{ code: 'status', path: '/status' }] }),
+      }
+    }
+    /*
+     * The operation's own rules, where the simulator can apply them: the
+     * caller's own, soonest to expire first, and **a pending proposal past its
+     * date reads `expired`** — the filter uses that computed state, so asking
+     * for `pending` leaves it out and asking for `expired` includes it.
+     */
+    const now = Date.now()
+    const stateOf = (note: Record<string, unknown>) =>
+      note['status'] === 'pending' && Date.parse(String(note['expires_at'])) <= now
+        ? 'expired'
+        : String(note['status'])
+    const proposals = [...fixture.proposedCorrections]
+      .map(objectValue)
+      .map((note): Record<string, unknown> => ({ ...note, status: stateOf(note) }))
+      .filter((note) => wanted === null || note['status'] === wanted)
+      .toSorted((left, right) =>
+        String(left['expires_at']).localeCompare(String(right['expires_at'])),
+      )
+    const limit = Number(params.get('limit') ?? '25')
+    const offset = Number((params.get('cursor') ?? 'proposal-offset-0').split('-').at(-1))
+    const page = proposals.slice(offset, offset + limit)
+    const hasMore = offset + limit < proposals.length
     return {
       status: 200,
-      body: { data: proposals, page: { has_more: false, next_cursor: null } },
+      body: {
+        data: page,
+        page: {
+          has_more: hasMore,
+          next_cursor: hasMore ? `proposal-offset-${String(offset + limit)}` : null,
+        },
+      },
     }
   }
   if (
