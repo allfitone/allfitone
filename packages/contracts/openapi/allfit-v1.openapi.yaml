@@ -8743,22 +8743,25 @@ paths:
       x-allfit-cache: no-store
       summary: Stop a program the organization manages
       description: >-
-        HU-STUDIO-050. The coach who attends the person, or an administrator or owner
-        of the organization without attending her, stops a program it still manages.
-        The assignment ends and its management period closes as cancelled; the
-        sessions from today on that nobody started are cancelled. Past sessions, what
-        the person trained and the assignment itself stay (T-ASG-5). Cancelling again
-        answers the same cancellation.
+        HU-STUDIO-050. The coach who holds the relationship, or a cover the person
+        accepted, stops a program the organization still manages. The assignment ends
+        and its management period closes as cancelled; the sessions from today on that
+        nobody started are cancelled. Past sessions, what the person trained and the
+        assignment itself stay (T-ASG-5). Cancelling again answers the same
+        cancellation.
 
 
-        Everyone needs the person's `relationship_training` grant at `contribute`;
-        without it the answer is 403 `scope-required`. Staff answer 403 `forbidden`.
+        The person must share `relationship_training` at `contribute`; without it the
+        answer is 403 `scope-required`. Stopping a program is for who attends the
+        person: an administrator, an owner or staff who do not coach answer 403
+        `forbidden`, and an organization whose coach left reassigns the relationship
+        first.
         While her service with the organization is paused the answer is 409
         `service-paused`: a paused service is stopped by reactivating it or by ending
         the relationship, not program by program.
         A program the organization no longer manages answers 409 `conflict`; the
-        person's own program, another organization's, or one the caller cannot reach
-        answers 404.
+        person's own program, another organization's, or one of a relationship the
+        caller does not attend answers 404.
       security:
         - cookieAuth: []
       parameters:
