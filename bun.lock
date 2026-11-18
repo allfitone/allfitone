@@ -37,6 +37,7 @@
         "@allfitone/queue": "workspace:*",
         "@allfitone/store-billing": "workspace:*",
         "@allfitone/telemetry": "workspace:*",
+        "@allfitone/weekly-summary": "workspace:*",
         "@hono/node-server": "^1.13.0",
         "hono": "^4.6.0",
         "postgres": "3.4.9",
@@ -238,6 +239,14 @@
         "posthog-react-native": "4.63.2",
       },
     },
+    "packages/weekly-summary": {
+      "name": "@allfitone/weekly-summary",
+      "version": "0.0.0",
+      "dependencies": {
+        "@allfitone/ai-provider": "workspace:*",
+        "zod": "4.6.5",
+      },
+    },
   },
   "overrides": {
     "react": "19.2.3",
@@ -295,6 +304,8 @@
     "@allfitone/telemetry": ["@allfitone/telemetry@workspace:packages/telemetry"],
 
     "@allfitone/tokens": ["@allfitone/tokens@0.4.1", "", {}, "sha512-+W6u6SHUii7yQ7GwcaxX1hCSzJt/EThSjmKL6HsPNDDZaPLOPSW7MJao+Tcgsdgo1yDW128TmxYYYYtnOaX/Bg=="],
+
+    "@allfitone/weekly-summary": ["@allfitone/weekly-summary@workspace:packages/weekly-summary"],
 
     "@allfitone/worker": ["@allfitone/worker@workspace:apps/worker"],
 

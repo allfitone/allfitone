@@ -1,0 +1,27 @@
+{
+  "name": "@allfitone/weekly-summary",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The summary of a person's week of training and nutrition, a task over the model port",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src",
+    "eval": "bun --env-file=../../.env.local eval/run.ts"
+  },
+  "dependencies": {
+    "@allfitone/ai-provider": "workspace:*",
+    "zod": "4.6.5"
+  }
+}
