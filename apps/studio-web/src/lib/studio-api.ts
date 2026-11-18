@@ -130,6 +130,12 @@ export type RelationshipSubstitutionTermination =
   AllfitV1Schemas['RelationshipSubstitutionTermination']
 export type RelationshipAssignmentPage = AllfitV1Schemas['RelationshipAssignmentPage']
 export type RelationshipAssignment = AllfitV1Schemas['RelationshipAssignment']
+export type AssignmentPrescription = AllfitV1Schemas['AssignmentPrescription']
+export type AssignmentPrescriptionRoutine = AllfitV1Schemas['AssignmentPrescriptionRoutine']
+export type AssignmentPrescriptionStep = AllfitV1Schemas['AssignmentPrescriptionStep']
+export type PrescriptionAdjustmentKind = AllfitV1Schemas['PrescriptionAdjustmentKind']
+export type PrescriptionRevision = AllfitV1Schemas['PrescriptionRevision']
+export type PrescriptionRevisionCreate = AllfitV1Schemas['PrescriptionRevisionCreate']
 export type RelationshipAssignmentSession = AllfitV1Schemas['RelationshipAssignmentSession']
 export type AssignmentCancellation = AllfitV1Schemas['AssignmentCancellation']
 export type PlannedSessionReschedule = AllfitV1Schemas['PlannedSessionReschedule']
@@ -1244,6 +1250,63 @@ export const studioApi = {
   ) =>
     request<ProfessionalObservation>(
       `/studio/v1/organizations/${organizationId}/observations/${observationId}/revisions`,
+      {
+        method: 'POST',
+        headers: commandHeaders(command),
+        body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
+      },
+    ),
+
+  /**
+   * `OP-PLN-037`. What the version she was given asks for, routine by routine,
+   * **with the `planned_step_id` that `revisePrescription` takes** — and it is
+   * there before any adjustment exists, which is what makes a first adjustment
+   * possible at all.
+   *
+   * `step` is the routine **as published**, untouched by anything adjusted, and
+   * `adjustments` are the revisions in force for this person, the latest of each
+   * kind. The two are separate on purpose: Space trains the adjustment on top of
+   * the step, and a screen that rewrote one with the other would hide which is
+   * which.
+   *
+   * Same reach as the assignment list: the caller holds or covers the
+   * relationship and she shares `relationship_training` at least at `read`,
+   * else 403 `scope-required`. **Each read is logged with the grant it relied
+   * on**, so nothing here is prefetched. A program the organization stopped
+   * managing is still read; adjusting it is what stops.
+   */
+  readAssignmentPrescription: (
+    organizationId: string,
+    assignmentId: string,
+    signal?: AbortSignal,
+  ) =>
+    request<AssignmentPrescription>(
+      `/studio/v1/organizations/${organizationId}/assignments/${assignmentId}/prescription`,
+      signal ? { signal } : {},
+    ),
+
+  /**
+   * `OP-PLN-013`. Adjusts **one target of one step** of the version she was
+   * given, for her alone: the published routine and programme do not move
+   * (T-ASG-7), and the adjustment outlives the management period, so a detached
+   * programme keeps it.
+   *
+   * Each revision is kept with the assignment that made it and never rewritten;
+   * the latest of each kind is the one in force. A kind its step's family does
+   * not take answers 422 `kind`, a step outside the assigned version 422
+   * `planned-step`, and **only while the organization manages the programme**,
+   * else 409 `conflict`.
+   */
+  revisePrescription: (
+    organizationId: string,
+    assignmentId: string,
+    body: PrescriptionRevisionCreate,
+    command: CommandHeaders,
+    signal?: AbortSignal,
+  ) =>
+    request<PrescriptionRevision>(
+      `/studio/v1/organizations/${organizationId}/assignments/${assignmentId}/prescription-revisions`,
       {
         method: 'POST',
         headers: commandHeaders(command),

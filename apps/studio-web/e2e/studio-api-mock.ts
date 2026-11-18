@@ -113,6 +113,20 @@ export interface StudioApiFixture {
     | 'not-declared'
     | 'not-found'
     | 'unavailable'
+  /** What `OP-PLN-037` answers: the assigned version's routines and their steps. */
+  assignmentPrescription: unknown
+  /**
+   * Which answer `OP-PLN-013` gives. `revised` is the success and the only one
+   * that writes: the simulator replaces the revision in force for that step and
+   * kind, the way the command does, so the re-read shows it.
+   *
+   * `conflict` is the fourth criterion arriving from the server — the
+   * organization no longer manages the programme, so it reads and does not
+   * adjust. `kind` is the 422 of a kind its family does not take, which the
+   * screen tries not to reach.
+   */
+  prescriptionOutcome:
+    'revised' | 'conflict' | 'scope-required' | 'forbidden' | 'kind' | 'not-found' | 'unavailable'
   /** What `OP-EXE-020` answers: the caller's own proposals, soonest to expire first. */
   proposedCorrections: unknown[]
   /**
@@ -1653,9 +1667,12 @@ const plannedSession = (
   on: string,
   status: string,
   started = false,
+  // Which routine the session instantiates. The prescription lists the routines
+  // the version composes, so the two reads have to name the same ones.
+  templateVersionId = '019f4900-0000-7000-8000-00000000d001',
 ) => ({
   id,
-  template_version_id: '019f4900-0000-7000-8000-00000000d001',
+  template_version_id: templateVersionId,
   title,
   week_starts_on: week,
   program_day: day,
@@ -1699,6 +1716,8 @@ export const relationshipAssignments = [
         3,
         '2026-10-07',
         'completed',
+        false,
+        '019f4900-0000-7000-8000-00000000d002',
       ),
       plannedSession(
         '019f4900-0000-7000-8000-00000000a003',
@@ -1957,6 +1976,160 @@ export const proposedCorrections = [
     settled_at: '2026-09-10T10:00:00.000Z',
   },
 ]
+
+/**
+ * Lo que la versión asignada pide, paso por paso: `OP-PLN-037`.
+ *
+ * Los ids de paso son **los mismos** que nombran los ajustes de
+ * `relationshipAssignments`, porque las dos lecturas hablan de lo mismo y un
+ * fixture que las contradijera escondería el defecto en vez de encontrarlo.
+ *
+ * Dos rutinas, las que las sesiones de esa asignación instancian. La segunda
+ * existe para que cada familia tenga un paso: una pantalla que ofreciera RPE en
+ * un paso de resistencia pasaría inadvertida con solo fuerza.
+ */
+export const assignmentPrescription = {
+  assignment_id: '019f4900-0000-7000-8000-00000000e001',
+  program_version_id: '019f4900-0000-7000-8000-00000000f001',
+  routines: [
+    {
+      template_version_id: '019f4900-0000-7000-8000-00000000d001',
+      title: 'Tren inferior',
+      steps: [
+        {
+          // El que ya tiene la carga ajustada a 42,5 kg.
+          planned_step_id: '019f4900-0000-7000-8000-00000000c001',
+          step: {
+            position: 1,
+            movement_id: '019f4900-0000-7000-8000-00000000c701',
+            movement_name: 'Sentadilla trasera',
+            activity_type_id: null,
+            notes: null,
+            superset_group: null,
+            target: {
+              family: 'strength',
+              sets: [{ set_order: 1, kind: 'normal', target_reps: 8 }],
+              target_sets: 4,
+              target_reps: 6,
+              target_load_value: 40,
+              target_load_unit_code: 'kg',
+              target_rpe: 8,
+              target_rest_seconds: 150,
+            },
+          },
+          adjustments: [
+            {
+              id: '019f4900-0000-7000-8000-00000000b001',
+              assignment_id: '019f4900-0000-7000-8000-00000000e001',
+              planned_step_id: '019f4900-0000-7000-8000-00000000c001',
+              kind: 'target_load',
+              value: 42.5,
+              unit_code: 'kg',
+              revised_at: '2026-10-08T16:00:00.000Z',
+            },
+          ],
+        },
+        {
+          // El que ya tiene las repeticiones ajustadas a 8.
+          planned_step_id: '019f4900-0000-7000-8000-00000000c002',
+          step: {
+            position: 2,
+            movement_id: '019f4900-0000-7000-8000-00000000c702',
+            movement_name: 'Peso muerto rumano',
+            activity_type_id: null,
+            notes: null,
+            superset_group: null,
+            target: {
+              family: 'strength',
+              sets: [{ set_order: 1, kind: 'normal', target_reps: 10 }],
+              target_sets: 3,
+              target_reps: 10,
+              target_load_value: null,
+              target_load_unit_code: null,
+              target_rpe: null,
+              target_rest_seconds: null,
+            },
+          },
+          adjustments: [
+            {
+              id: '019f4900-0000-7000-8000-00000000b002',
+              assignment_id: '019f4900-0000-7000-8000-00000000e001',
+              planned_step_id: '019f4900-0000-7000-8000-00000000c002',
+              kind: 'target_reps',
+              value: 8,
+              unit_code: null,
+              revised_at: '2026-10-19T11:30:00.000Z',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      template_version_id: '019f4900-0000-7000-8000-00000000d002',
+      title: 'Tren superior',
+      steps: [
+        {
+          planned_step_id: '019f4900-0000-7000-8000-00000000c003',
+          step: {
+            position: 1,
+            movement_id: '019f4900-0000-7000-8000-00000000c703',
+            movement_name: 'Remo en trote',
+            activity_type_id: '019f4900-0000-7000-8000-00000000c801',
+            notes: null,
+            superset_group: null,
+            target: {
+              family: 'endurance',
+              target_distance_value: 5,
+              target_distance_unit_code: 'km',
+              target_duration_seconds: 1800,
+              target_pace_seconds_per_unit: null,
+              target_pace_unit_code: null,
+            },
+          },
+          adjustments: [],
+        },
+        {
+          planned_step_id: '019f4900-0000-7000-8000-00000000c004',
+          step: {
+            position: 2,
+            movement_id: '019f4900-0000-7000-8000-00000000c704',
+            movement_name: 'Intervalos en bicicleta',
+            activity_type_id: '019f4900-0000-7000-8000-00000000c802',
+            notes: null,
+            superset_group: null,
+            target: {
+              family: 'interval',
+              rounds: 8,
+              work_duration_seconds: 30,
+              rest_duration_seconds: 30,
+              target_rpe: 7,
+            },
+          },
+          adjustments: [],
+        },
+        {
+          planned_step_id: '019f4900-0000-7000-8000-00000000c005',
+          step: {
+            position: 3,
+            movement_id: '019f4900-0000-7000-8000-00000000c705',
+            movement_name: 'Apertura de cadera',
+            activity_type_id: '019f4900-0000-7000-8000-00000000c803',
+            notes: null,
+            superset_group: null,
+            target: {
+              family: 'mobility',
+              sequence_position: 1,
+              side: 'bilateral',
+              hold_duration_seconds: 30,
+              target_repetitions: null,
+            },
+          },
+          adjustments: [],
+        },
+      ],
+    },
+  ],
+}
 
 export const clientCardWithoutSections = {
   ...clientCard,
@@ -3326,6 +3499,8 @@ export function createStudioApiFixture(
     observationOutcome: 'recorded',
     revisionOutcome: 'revised',
     proposalOutcome: 'proposed',
+    assignmentPrescription: structuredClone(assignmentPrescription),
+    prescriptionOutcome: 'revised',
     proposedCorrections: [],
     proposalRegisterOutcome: 'ok',
     clientProgress: structuredClone(clientProgress),
@@ -5225,6 +5400,75 @@ function defaultResponse(
     found['scheduled_on'] = String(sent['scheduled_on'] ?? found['scheduled_on'])
     found['revision_number'] = Number(found['revision_number'] ?? 0) + 1
     return { status: 200, body: { ...found } }
+  }
+  const prescription =
+    /^\/studio\/v1\/organizations\/[^/]+\/assignments\/([^/]+)\/prescription$/.exec(request.path)
+  if (request.method === 'GET' && prescription) {
+    const answer = fixture.assignmentPrescription
+    if (!answer) return { status: 404, body: error('not-found') }
+    return { status: 200, body: answer }
+  }
+  const prescriptionRevision =
+    /^\/studio\/v1\/organizations\/[^/]+\/assignments\/([^/]+)\/prescription-revisions$/.exec(
+      request.path,
+    )
+  if (request.method === 'POST' && prescriptionRevision) {
+    const outcome = fixture.prescriptionOutcome
+    if (outcome === 'scope-required') {
+      return {
+        status: 403,
+        body: {
+          type: 'https://errors.allfit.invalid/scope-required',
+          title: 'Required consent is not effective',
+          status: 403,
+          required_scope: { code: 'relationship_training', level: 'contribute' },
+        },
+      }
+    }
+    if (outcome === 'forbidden') return { status: 403, body: error('forbidden') }
+    // The fourth criterion: a programme the organization stopped managing reads
+    // and does not adjust.
+    if (outcome === 'conflict') return { status: 409, body: error('conflict') }
+    if (outcome === 'not-found') return { status: 404, body: error('not-found') }
+    if (outcome === 'unavailable') return { status: 503, body: error('upstream-unavailable') }
+    if (outcome === 'kind') {
+      return {
+        status: 422,
+        body: problem('validation-failed', 422, { errors: [{ code: 'kind', path: '/kind' }] }),
+      }
+    }
+
+    const sent = objectValue(request.body)
+    const written = {
+      id: request.headers['command-id'] ?? '01991600-7000-7000-8000-00000000f901',
+      assignment_id: prescriptionRevision[1] ?? '',
+      planned_step_id: String(sent['planned_step_id'] ?? ''),
+      kind: sent['kind'],
+      value: sent['value'],
+      unit_code: sent['unit_code'] ?? null,
+      revised_at: '2026-11-18T16:00:00.000Z',
+    }
+    /*
+     * The latest of each kind is the one in force, so the simulator replaces it
+     * where the screen reads it from — a revision appended beside the old one
+     * would let a screen that takes the first element look right and be wrong.
+     */
+    const answer = objectValue(fixture.assignmentPrescription)
+    const routines = Array.isArray(answer['routines']) ? answer['routines'] : []
+    for (const routine of routines) {
+      const steps = objectValue(routine)['steps']
+      if (!Array.isArray(steps)) continue
+      for (const candidate of steps) {
+        const step = objectValue(candidate)
+        if (step['planned_step_id'] !== written.planned_step_id) continue
+        const held = Array.isArray(step['adjustments']) ? step['adjustments'] : []
+        step['adjustments'] = [
+          ...held.filter((entry) => objectValue(entry)['kind'] !== written.kind),
+          written,
+        ]
+      }
+    }
+    return { status: 201, body: written }
   }
   const cancellation =
     /^\/studio\/v1\/organizations\/[^/]+\/assignments\/([^/]+)\/cancellation$/.exec(request.path)

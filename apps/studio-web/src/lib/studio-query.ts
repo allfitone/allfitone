@@ -177,6 +177,8 @@ export const studioQueryKeys = {
    * The caller's own proposals, not anybody's data: no person in the key,
    * because the answer holds none. `OP-EXE-020` answers `private-no-store`.
    */
+  assignmentPrescription: (organizationId: string, assignmentId: string) =>
+    [...ROOT_KEY, 'organization', organizationId, 'assignment-prescription', assignmentId] as const,
   proposedCorrections: (organizationId: string, status: string) =>
     [...ROOT_KEY, 'organization', organizationId, 'proposed-corrections', status] as const,
   proposedCorrectionsPage: (organizationId: string, status: string, limit: number) =>
@@ -512,6 +514,27 @@ export function proposedCorrectionsQueryOptions(organizationId: string) {
       studioApi.listProposedCorrections(organizationId, { status: 'pending', limit: 100 }, signal),
     staleTime: 0,
     gcTime: 0,
+  })
+}
+
+/**
+ * What the version she was given asks for, step by step, with the ids a
+ * revision takes.
+ *
+ * `private-no-store` and **audited**: `OP-PLN-037` writes a line in her access
+ * log with the grant it relied on before answering. So it is read once, when
+ * somebody opens the screen, and never refreshed on its own — a refetch on
+ * focus would put an access there that the coach never made.
+ */
+export function assignmentPrescriptionQueryOptions(organizationId: string, assignmentId: string) {
+  return queryOptions({
+    queryKey: studioQueryKeys.assignmentPrescription(organizationId, assignmentId),
+    queryFn: ({ signal }) =>
+      studioApi.readAssignmentPrescription(organizationId, assignmentId, signal),
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }
 

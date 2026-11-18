@@ -62,7 +62,7 @@ import { ClientSessionReschedule } from './client-session-reschedule'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { formatCalendarDay } from '@/lib/calendar-day'
-import { clientCardPath } from '@/lib/client-card'
+import { clientProgramsPath, clientCardPath } from '@/lib/client-card'
 import {
   assignPermission,
   assignPermissionNote,
@@ -198,6 +198,7 @@ export function ClientProgramsScreen() {
                 <AssignmentPanel
                   assignment={assignment}
                   organizationId={organizationId}
+                  personId={params.personId}
                   relationshipId={card.relationship.id}
                   permission={permission}
                 />
@@ -268,11 +269,13 @@ export function ClientProgramsScreen() {
 function AssignmentPanel({
   assignment,
   organizationId,
+  personId,
   relationshipId,
   permission,
 }: {
   assignment: RelationshipAssignment
   organizationId: string
+  personId: string
   relationshipId: string
   permission: AssignPermission
 }) {
@@ -281,6 +284,9 @@ function AssignmentPanel({
   const span = spanLine(assignment)
   const adjustments = adjustmentsLine(assignment)
   const running = assignmentIsRunning(assignment.status)
+  // Null once the organization stops managing it: the prescription is still
+  // read, and adjusting it is what stops.
+  const managed = assignment.management !== null
 
   return (
     <Card data-client-program>
@@ -322,7 +328,6 @@ function AssignmentPanel({
           <dt>Administración</dt>
           <dd data-client-program-managed>{managedLine(assignment)}</dd>
 
-          {/* What was adjusted is deliberately not said: see `client-programs.ts`. */}
           {adjustments ? (
             <>
               <dt>Ajustes</dt>
@@ -330,6 +335,18 @@ function AssignmentPanel({
             </>
           ) : null}
         </dl>
+
+        {/* Where what was adjusted can finally be read: the list says how many
+            and when, and the prescription says which step and to what. */}
+        <Link
+          href={`${clientProgramsPath(organizationId, personId)}/${assignment.id}/prescription`}
+          data-slot="button"
+          data-variant="outline"
+          data-client-program-prescription
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          {managed ? 'Ver y ajustar la prescripción' : 'Ver la prescripción'}
+        </Link>
 
         {sessions.length === 0 ? (
           <p data-client-program-no-sessions>
