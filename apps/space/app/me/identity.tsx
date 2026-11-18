@@ -22,6 +22,7 @@ import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import type { IconName } from '@allfitone/icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -122,7 +123,10 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
                   FITNESS ID
                 </Text>
                 <View
-                  style={[styles.active, { backgroundColor: `${theme.color.status.success}24` }]}
+                  style={[
+                    styles.active,
+                    { backgroundColor: withAlpha(theme.color.status.success, 0.14) },
+                  ]}
                 >
                   <View style={[styles.dot, { backgroundColor: theme.color.status.success }]} />
                   <Text role="control" size="xs" color="success">

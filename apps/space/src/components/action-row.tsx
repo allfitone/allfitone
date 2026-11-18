@@ -9,6 +9,7 @@
 import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 export function ActionRow({
@@ -36,9 +37,11 @@ export function ActionRow({
         styles.row,
         {
           backgroundColor: danger
-            ? `${theme.color.status.danger}14`
+            ? withAlpha(theme.color.status.danger, 0.08)
             : theme.color.background.surfaceSubtle,
-          borderColor: danger ? `${theme.color.status.danger}55` : theme.color.border.subtle,
+          borderColor: danger
+            ? withAlpha(theme.color.status.danger, 1 / 3)
+            : theme.color.border.subtle,
           opacity: pressed ? 0.7 : 1,
         },
       ]}
@@ -48,7 +51,7 @@ export function ActionRow({
           styles.tile,
           {
             backgroundColor: danger
-              ? `${theme.color.status.danger}26`
+              ? withAlpha(theme.color.status.danger, 0.15)
               : theme.color.background.surfaceMuted,
           },
         ]}

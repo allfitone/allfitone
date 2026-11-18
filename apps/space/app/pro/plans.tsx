@@ -22,6 +22,7 @@ import { Scrim } from '@allfitone/react-native/gradient'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { transparent, withAlpha } from '@allfitone/react-native/tokens'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
@@ -190,8 +191,8 @@ export function ProPlans({
             style={[
               styles.free,
               {
-                borderColor: `${theme.color.status.success}40`,
-                backgroundColor: `${theme.color.status.success}12`,
+                borderColor: withAlpha(theme.color.status.success, 0.25),
+                backgroundColor: withAlpha(theme.color.status.success, 0.07),
               },
             ]}
           >
@@ -245,7 +246,7 @@ export function ProPlans({
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
         <LinearGradient
-          colors={[`${canvas}00`, canvas]}
+          colors={[transparent(canvas), canvas]}
           locations={[0, 0.22]}
           style={StyleSheet.absoluteFill}
         />

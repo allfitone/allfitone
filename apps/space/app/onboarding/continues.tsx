@@ -38,6 +38,7 @@ import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { transparent, withAlpha } from '@allfitone/react-native/tokens'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
@@ -167,7 +168,14 @@ export default function OnboardingContinues() {
       {/* What lets the copy sit on the photograph: it lifts off the top so the status
           bar stays legible, stays clear through the figure, and closes to the canvas. */}
       <LinearGradient
-        colors={[`${canvas}73`, `${canvas}00`, `${canvas}00`, `${canvas}E6`, canvas, canvas]}
+        colors={[
+          withAlpha(canvas, 0.45),
+          transparent(canvas),
+          transparent(canvas),
+          withAlpha(canvas, 0.9),
+          canvas,
+          canvas,
+        ]}
         locations={[0, 0.2, 0.42, 0.82, VEIL_CLOSE, 1]}
         style={[styles.veil, { height: height * VEIL_SHARE }]}
         pointerEvents="none"

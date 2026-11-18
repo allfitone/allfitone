@@ -12,6 +12,7 @@ import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import type { IconName } from '@allfitone/icons'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
@@ -168,7 +169,7 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
                       index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
                     ]}
                   >
-                    <View style={[styles.badge, { backgroundColor: `${tint}1F` }]}>
+                    <View style={[styles.badge, { backgroundColor: withAlpha(tint, 0.12) }]}>
                       <FoundationIcon
                         name={paid ? 'check' : 'close'}
                         size="sm"

@@ -25,6 +25,7 @@ import { Sheet } from '@allfitone/react-native/sheet'
 import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { BlurView } from 'expo-blur'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
@@ -897,7 +898,10 @@ function ProVeil({
       </View>
       <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
       <View
-        style={[StyleSheet.absoluteFill, { backgroundColor: `${theme.color.background.canvas}66` }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: withAlpha(theme.color.background.canvas, 0.4) },
+        ]}
       />
       <View style={styles.veil}>
         <View

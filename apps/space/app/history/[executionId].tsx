@@ -23,6 +23,7 @@ import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -274,7 +275,10 @@ export default function FinishedSessionScreen() {
             <Animated.View key="deleted" entering={FORWARD} style={styles.deleted}>
               <Animated.View
                 entering={FadeIn.duration(260).delay(80).reduceMotion(ReduceMotion.System)}
-                style={[styles.doneMark, { backgroundColor: `${theme.color.status.success}26` }]}
+                style={[
+                  styles.doneMark,
+                  { backgroundColor: withAlpha(theme.color.status.success, 0.15) },
+                ]}
               >
                 <FoundationIcon
                   name="check"

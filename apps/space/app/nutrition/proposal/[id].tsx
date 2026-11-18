@@ -13,6 +13,7 @@ import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
@@ -129,8 +130,8 @@ export default function ProposalScreen() {
           style={[
             styles.card,
             {
-              backgroundColor: `${theme.color.icon.accent}14`,
-              borderColor: `${theme.color.icon.accent}55`,
+              backgroundColor: withAlpha(theme.color.icon.accent, 0.08),
+              borderColor: withAlpha(theme.color.icon.accent, 1 / 3),
             },
           ]}
         >

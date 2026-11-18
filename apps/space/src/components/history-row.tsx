@@ -22,6 +22,7 @@
 import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { Image } from 'expo-image'
 import type { ReactNode } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
@@ -177,7 +178,9 @@ export function HistoryRow({
             {name}
           </Text>
           {tag ? (
-            <View style={[styles.tag, { backgroundColor: `${theme.color.text.secondary}1F` }]}>
+            <View
+              style={[styles.tag, { backgroundColor: withAlpha(theme.color.text.secondary, 0.12) }]}
+            >
               {tag.icon ? (
                 <FoundationIcon
                   name={tag.icon}

@@ -18,6 +18,7 @@ import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera'
 import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
@@ -152,7 +153,10 @@ export default function BodyPhotoScreen() {
             contentFit="cover"
           />
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: `${theme.color.icon.accent}33` }]}
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: withAlpha(theme.color.icon.accent, 0.2) },
+            ]}
           />
         </View>
       ) : null}

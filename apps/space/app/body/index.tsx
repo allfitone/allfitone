@@ -27,7 +27,7 @@ import { SelectableTile } from '@allfitone/react-native/selectable-tile'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
-import { semanticMotion } from '@allfitone/react-native/tokens'
+import { semanticMotion, withAlpha } from '@allfitone/react-native/tokens'
 import type { IconName } from '@allfitone/icons'
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
@@ -888,7 +888,10 @@ function Locked({
       </View>
       <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
       <View
-        style={[StyleSheet.absoluteFill, { backgroundColor: `${theme.color.background.canvas}59` }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: withAlpha(theme.color.background.canvas, 0.35) },
+        ]}
       />
       <View style={styles.lockedOffer}>
         <View
@@ -973,7 +976,12 @@ function Choice({
         },
       ]}
     >
-      <View style={[styles.choiceIcon, { backgroundColor: `${tone}1F`, borderColor: `${tone}59` }]}>
+      <View
+        style={[
+          styles.choiceIcon,
+          { backgroundColor: withAlpha(tone, 0.12), borderColor: withAlpha(tone, 0.35) },
+        ]}
+      >
         <FoundationIcon name={icon} size="md" color={tone} decorative />
       </View>
       <View style={styles.grow}>

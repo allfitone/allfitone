@@ -18,6 +18,7 @@ import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
@@ -218,7 +219,7 @@ export default function MealDetailScreen() {
           <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: `${theme.color.background.canvas}59` },
+              { backgroundColor: withAlpha(theme.color.background.canvas, 0.35) },
             ]}
           />
           <View style={[styles.heroTop, { paddingTop: insets.top + 8 }]}>
@@ -233,7 +234,12 @@ export default function MealDetailScreen() {
             />
           </View>
           <View style={styles.heroBottom}>
-            <View style={[styles.when, { backgroundColor: `${theme.color.background.canvas}CC` }]}>
+            <View
+              style={[
+                styles.when,
+                { backgroundColor: withAlpha(theme.color.background.canvas, 0.8) },
+              ]}
+            >
               <FoundationIcon name="time" size="xs" color={theme.color.icon.primary} decorative />
               <Text role="control" size="xs">
                 {when}
@@ -440,7 +446,10 @@ export default function MealDetailScreen() {
             <Animated.View key="deleted" entering={FORWARD} style={styles.deleted}>
               <Animated.View
                 entering={FadeIn.duration(260).delay(80).reduceMotion(ReduceMotion.System)}
-                style={[styles.doneMark, { backgroundColor: `${theme.color.status.success}26` }]}
+                style={[
+                  styles.doneMark,
+                  { backgroundColor: withAlpha(theme.color.status.success, 0.15) },
+                ]}
               >
                 <FoundationIcon
                   name="check"

@@ -14,6 +14,7 @@ import { GlassPanel } from '@allfitone/react-native/glass'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { transparent, withAlpha } from '@allfitone/react-native/tokens'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Image } from 'expo-image'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -258,9 +259,9 @@ export function ProTeaser({ onPress }: { readonly onPress: () => void }) {
       <Animated.View pointerEvents="none" style={[styles.shine, sweep]}>
         <LinearGradient
           colors={[
-            `${theme.color.icon.accent}00`,
-            `${theme.color.icon.accent}2E`,
-            `${theme.color.icon.accent}00`,
+            transparent(theme.color.icon.accent),
+            withAlpha(theme.color.icon.accent, 0.18),
+            transparent(theme.color.icon.accent),
           ]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
