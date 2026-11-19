@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 #
-# One-off task that brings the RDS schema up to date. The database is private,
-# so migrations run from inside the VPC, as an ECS task, instead of from a CI
-# runner on the internet.
+# One-off task that brings the RDS schema up to date and loads the curated
+# content. The database is private, so both run from inside the VPC, as an ECS
+# task, instead of from a CI runner on the internet.
 #
 #   docker build -f infra/docker/migrator.Dockerfile -t allfitone-migrator .
 #
@@ -23,6 +23,8 @@ RUN apt-get update \
  && npm cache clean --force
 WORKDIR /db
 COPY --chown=node:node packages/db/supabase ./supabase
+# The curated content and the order `migrate curate` loads it in. Not the importers beside it.
+COPY --chown=node:node packages/db/curation/RUN_ORDER packages/db/curation/*.sql ./curation/
 COPY --chmod=755 infra/docker/migrator.sh /usr/local/bin/migrate
 USER node
 ENTRYPOINT ["migrate"]

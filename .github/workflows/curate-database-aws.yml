@@ -1,0 +1,94 @@
+# Loads the curated content into the RDS database in AWS. Dispatched by hand, never on merge.
+#
+# Curation is content, not schema: the catalogue of movements and programs, the foods,
+# the packaged products and the goal references in `packages/db/curation`. Every script
+# is rerunnable, so dispatching this again after one changes is the whole procedure.
+#
+# The scripts run first against a local database built from the migrations alone, as
+# production is, and twice, because a rerun is what production does next. Then the
+# migrator task runs them inside the VPC, in the order of
+# `packages/db/curation/RUN_ORDER`.
+#
+# The migrator must carry this commit's scripts and the database its migrations.
+# `Deploy AWS` registers the migrator with every release, so dispatch this after that
+# run has finished, and after `Deploy database (AWS)` when the commit brings migrations.
+
+name: Curate database (AWS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: >-
+          Script numbers to run, separated by spaces (for example: 001 003).
+          Empty runs every script.
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+
+# Shared with `Deploy database (AWS)`: content never loads while the schema is moving.
+concurrency:
+  group: database-aws-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  CLUSTER: allfitone-production
+  FAMILY: allfitone-production-migrator
+  LOG_GROUP: /allfitone-production/migrator
+
+jobs:
+  curate:
+    name: Curate production (AWS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require main
+        run: test "$GITHUB_REF_NAME" = main
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.16
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Start local Supabase
+        run: bun run db:start
+
+      # Production loads no seed, so the rehearsal does not either.
+      - name: Reset local database without the seed
+        run: bunx supabase db reset --local --no-seed --workdir packages/db
+
+      - name: Rehearse the curation
+        run: bun test packages/db/tests/curation.test.ts
+
+      - name: Stop local Supabase
+        if: always()
+        run: bun run db:stop
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Require the migrator of this commit
+        run: |
+          image=$(aws ecs describe-task-definition --task-definition "$FAMILY" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          if [ "${image##*:}" != "$GITHUB_SHA" ]; then
+            echo "::error::The migrator runs ${image##*:}, not $GITHUB_SHA. Wait for Deploy AWS on this commit to finish."
+            exit 1
+          fi
+
+      - name: Curate
+        env:
+          CURATION_ONLY: ${{ inputs.only }}
+        run: bash infra/scripts/run-migrator.sh curate

@@ -12,6 +12,9 @@
 #   bootstrap  the first two Backoffice administrators, each granted by the other;
 #              the role brings every duty (ADR-046). SUBJECT_A, SUBJECT_B: WorkOS
 #              user ids; CEREMONY_REFERENCE: the approving ticket, without personal data
+#   curate the curated content of packages/db/curation, in the order of its RUN_ORDER.
+#          Every script is rerunnable. CURATION_ONLY narrows the run to some numbers,
+#          separated by spaces: "001 003"
 #
 # INCLUDE_ALL=true applies migrations older than the newest one applied. It is
 # a decision, not a retry: read `plan` first, as in deploy-database-aws.yml.
@@ -74,8 +77,37 @@ commit;
 \echo allfit_admin granted to :person_a and :person_b
 SQL
     ;;
+  curate)
+    curation="${CURATION_DIR:-/db/curation}"
+    [ -r "$curation/RUN_ORDER" ] || { echo "missing from the image: RUN_ORDER" >&2; exit 66; }
+    order=$(grep -v -e '^#' -e '^[[:space:]]*$' "$curation/RUN_ORDER")
+    numbers=" $(printf '%s\n' $order | sed 's/_.*//' | tr '\n' ' ')"
+
+    # Nothing runs until every listed script is here and every number asked for names one.
+    for script in $order; do
+      [ -r "$curation/$script" ] || { echo "missing from the image: $script" >&2; exit 66; }
+    done
+    for number in ${CURATION_ONLY:-}; do
+      case "$numbers" in
+        *" $number "*) ;;
+        *) echo "no curation script is numbered $number" >&2; exit 64 ;;
+      esac
+    done
+
+    for script in $order; do
+      number="${script%%_*}"
+      case " ${CURATION_ONLY:-$number} " in
+        *" $number "*) ;;
+        *) echo "skipped $script"; continue ;;
+      esac
+      echo "running $script"
+      # Each script is its own transaction, so one that fails leaves nothing half written.
+      psql "$url" --set=ON_ERROR_STOP=1 --quiet --file="$curation/$script"
+    done
+    echo "curation finished"
+    ;;
   *)
-    echo "usage: migrate plan|push|test|bootstrap" >&2
+    echo "usage: migrate plan|push|test|bootstrap|curate" >&2
     exit 64
     ;;
 esac

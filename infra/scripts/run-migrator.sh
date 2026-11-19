@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 #
-# Runs one migrator command (plan | push | test) as an ECS task and waits for it:
+# Runs one migrator command (plan | push | test | curate) as an ECS task and waits for it:
 #
 #   CLUSTER=... FAMILY=... LOG_GROUP=... bash infra/scripts/run-migrator.sh plan
+#
+# INCLUDE_ALL is the push decision; CURATION_ONLY narrows a curation to some script
+# numbers, separated by spaces.
 #
 # RDS is private, so the migrator runs inside the VPC. This copies its log into
 # the job and exits with the task's own exit code, so a failed migration fails
@@ -10,11 +13,20 @@
 
 set -euo pipefail
 
-command="${1:?usage: run-migrator.sh plan|push|test}"
+command="${1:?usage: run-migrator.sh plan|push|test|curate}"
 : "${CLUSTER:?}" "${FAMILY:?}" "${LOG_GROUP:?}"
 
-overrides=$(printf '{"containerOverrides":[{"name":"migrator","command":["%s"],"environment":[{"name":"INCLUDE_ALL","value":"%s"}]}]}' \
-  "$command" "${INCLUDE_ALL:-false}")
+# Spliced into the JSON below, so it may only be what a list of numbers is made of.
+only="${CURATION_ONLY:-}"
+case "$only" in
+  *[!0-9\ ]*)
+    echo "::error::CURATION_ONLY takes script numbers separated by spaces" >&2
+    exit 64
+    ;;
+esac
+
+overrides=$(printf '{"containerOverrides":[{"name":"migrator","command":["%s"],"environment":[{"name":"INCLUDE_ALL","value":"%s"},{"name":"CURATION_ONLY","value":"%s"}]}]}' \
+  "$command" "${INCLUDE_ALL:-false}" "$only")
 
 task=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$FAMILY" \
   --overrides "$overrides" --query 'tasks[0].taskArn' --output text)
