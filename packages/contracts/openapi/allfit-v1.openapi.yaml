@@ -16816,8 +16816,8 @@ components:
           minimum: 0
           description: >-
             The referrals among them that the rewards count: an account created after
-            the launch and three workouts or meals in its first 14 days. Zero for
-            everybody before the launch.
+            the launch and workouts or meals logged on five different days of its
+            first 14 days. Zero for everybody before the launch.
     WaitlistSignupAlreadyListed:
       type: object
       additionalProperties: false
@@ -16884,8 +16884,8 @@ components:
           minimum: 0
           description: >-
             The referrals among them that the rewards count: an account created after
-            the launch and three workouts or meals in its first 14 days. Zero for
-            everybody before the launch.
+            the launch and workouts or meals logged on five different days of its
+            first 14 days. Zero for everybody before the launch.
         language:
           type: string
           enum: [es, en]
