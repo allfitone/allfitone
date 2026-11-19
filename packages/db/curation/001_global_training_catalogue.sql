@@ -8,8 +8,9 @@
 -- Running it twice changes nothing the second time. That property is the whole
 -- point, and it is what the test asserts.
 --
--- Run it as a role that can write the catalogue — `postgres` locally and in
--- production. Row security is bypassed by that role, so nothing here loosens a
+-- Run it as a role that can write the catalogue: `postgres` locally, and the master in
+-- production, where `migrate curate` runs every script here in the order of
+-- `RUN_ORDER`. Row security is bypassed by that role, so nothing here loosens a
 -- policy: the runtime role still has no privilege on these tables and still reaches
 -- the catalogue only through `planning.read_program_catalogue`.
 --

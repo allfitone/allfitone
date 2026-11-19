@@ -37,3 +37,7 @@ change to a task definition reaches the services with the next deploy.
 
 Migrations run only by hand: dispatch `Deploy database (AWS)` once `Deploy AWS`
 has finished for that commit.
+
+The curated content of `packages/db/curation` — the catalogue, the foods, the
+products — loads only by hand too: dispatch `Curate database (AWS)` after both.
+Every script is rerunnable.
