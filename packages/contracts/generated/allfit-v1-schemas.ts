@@ -19422,6 +19422,23 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
           },
         },
       },
+      indicators: {
+        description:
+          "How the organization is doing: only the indicators the caller's roles open. States, never work waiting.",
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          training_adherence: {
+            $ref: '#/components/schemas/StudioTodayTrainingAdherence',
+          },
+          relationship_changes: {
+            $ref: '#/components/schemas/StudioTodayRelationshipChanges',
+          },
+          professional_load: {
+            $ref: '#/components/schemas/StudioTodayProfessionalLoad',
+          },
+        },
+      },
     },
   },
   StudioTodayInvitations: {
@@ -19502,6 +19519,79 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'object',
         additionalProperties: {
           type: 'string',
+        },
+      },
+    },
+  },
+  StudioTodayProfessionalLoad: {
+    description:
+      'The live relationships each coach holds today. Every member with the coach role in force is counted, the ones who hold nobody included; covering somebody is not holding. Most clients first.',
+    type: 'object',
+    additionalProperties: false,
+    required: ['count', 'unassigned', 'items'],
+    properties: {
+      count: {
+        description: 'Every coach, listed or not.',
+        type: 'integer',
+        minimum: 0,
+      },
+      unassigned: {
+        description: 'Live relationships with no holder in effect.',
+        type: 'integer',
+        minimum: 0,
+      },
+      items: {
+        type: 'array',
+        maxItems: 12,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['membership_id', 'display_name', 'clients'],
+          properties: {
+            membership_id: {
+              $ref: '#/components/schemas/Uuid',
+            },
+            display_name: {
+              type: 'string',
+            },
+            clients: {
+              type: 'integer',
+              minimum: 0,
+            },
+          },
+        },
+      },
+    },
+  },
+  StudioTodayRelationshipChanges: {
+    description:
+      "Relationships begun and ended in each of the last six months of the viewer's timezone, this month last. Counts only.",
+    type: 'object',
+    additionalProperties: false,
+    required: ['months'],
+    properties: {
+      months: {
+        type: 'array',
+        minItems: 6,
+        maxItems: 6,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['month', 'started', 'ended'],
+          properties: {
+            month: {
+              type: 'string',
+              pattern: '^\\d{4}-(?:0[1-9]|1[0-2])$',
+            },
+            started: {
+              type: 'integer',
+              minimum: 0,
+            },
+            ended: {
+              type: 'integer',
+              minimum: 0,
+            },
+          },
         },
       },
     },
@@ -19692,6 +19782,45 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       link: {
         $ref: '#/components/schemas/StudioTodayLink',
+      },
+    },
+  },
+  StudioTodayTrainingAdherence: {
+    description:
+      "What the clients the caller attends who share `relationship_training` had due and logged, summed over eight closed weeks, oldest first. A week closes in the program's timezone and the eight end at the latest one closed for every client summed. Cancelled and paused sessions were never due; an annulled session is not logged, and neither is one the client hid from this relationship. A week with nothing due says 0 and 0, which is not a rate of zero. Only sums: no name and no figure of one person.",
+    type: 'object',
+    additionalProperties: false,
+    required: ['clients', 'weeks'],
+    properties: {
+      clients: {
+        description: 'How many clients the sums cover.',
+        type: 'integer',
+        minimum: 0,
+      },
+      weeks: {
+        type: 'array',
+        minItems: 8,
+        maxItems: 8,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['week_starts_on', 'planned', 'logged'],
+          properties: {
+            week_starts_on: {
+              description: 'The Monday the week begins on.',
+              type: 'string',
+              format: 'date',
+            },
+            planned: {
+              type: 'integer',
+              minimum: 0,
+            },
+            logged: {
+              type: 'integer',
+              minimum: 0,
+            },
+          },
+        },
       },
     },
   },

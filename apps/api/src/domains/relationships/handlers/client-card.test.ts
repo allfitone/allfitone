@@ -324,4 +324,95 @@ describe('OP-REL-020: what needs attention today', () => {
     )
     expect(badPath.status).toBe(400)
   })
+
+  test('T-REL-TODAY-API-04 the indicators travel as PostgreSQL gave them', async () => {
+    const indicators: NonNullable<StudioToday['indicators']> = {
+      training_adherence: {
+        clients: 6,
+        weeks: [
+          { week_starts_on: '2026-09-14', planned: 14, logged: 11 },
+          { week_starts_on: '2026-09-21', planned: 0, logged: 0 },
+          { week_starts_on: '2026-09-28', planned: 12, logged: 12 },
+          { week_starts_on: '2026-10-05', planned: 13, logged: 9 },
+          { week_starts_on: '2026-10-12', planned: 14, logged: 10 },
+          { week_starts_on: '2026-10-19', planned: 14, logged: 13 },
+          { week_starts_on: '2026-10-26', planned: 12, logged: 8 },
+          { week_starts_on: '2026-11-02', planned: 14, logged: 12 },
+        ],
+      },
+      relationship_changes: {
+        months: [
+          { month: '2026-06', started: 4, ended: 1 },
+          { month: '2026-07', started: 2, ended: 3 },
+          { month: '2026-08', started: 0, ended: 0 },
+          { month: '2026-09', started: 5, ended: 1 },
+          { month: '2026-10', started: 3, ended: 2 },
+          { month: '2026-11', started: 1, ended: 0 },
+        ],
+      },
+      professional_load: {
+        count: 2,
+        unassigned: 1,
+        items: [
+          {
+            membership_id: '019ae700-0000-7000-8000-000000000212',
+            display_name: 'Laura Gómez',
+            clients: 14,
+          },
+          {
+            membership_id: '019ae700-0000-7000-8000-000000000213',
+            display_name: 'Andrés Ruiz',
+            clients: 0,
+          },
+        ],
+      },
+    }
+    const response = await todayApp({ read: async () => ({ ...TODAY, indicators }) }).request(
+      TODAY_PATH,
+      { headers: HEADERS },
+    )
+    const body = (await response.json()) as { indicators: unknown }
+    assertMatchesContract('StudioToday', body)
+    expect(body.indicators).toEqual(indicators)
+
+    // A caller whose roles open none of them still gets the block, empty.
+    const none = await todayApp({ read: async () => ({ ...TODAY, indicators: {} }) }).request(
+      TODAY_PATH,
+      { headers: HEADERS },
+    )
+    const empty = (await none.json()) as { indicators: unknown }
+    assertMatchesContract('StudioToday', empty)
+    expect(empty.indicators).toEqual({})
+  })
+
+  test('T-REL-TODAY-API-05 the timezone of the viewer reaches the read, or none does', async () => {
+    const zones: (string | null)[] = []
+    const app = todayApp({
+      read: async (_actor, query) => {
+        zones.push(query.timezone)
+        return TODAY
+      },
+    })
+    await app.request(`${TODAY_PATH}?timezone=America/Bogota`, { headers: HEADERS })
+    await app.request(`${TODAY_PATH}?timezone=UTC`, { headers: HEADERS })
+    await app.request(TODAY_PATH, { headers: HEADERS })
+    expect(zones).toEqual(['America/Bogota', 'UTC', null])
+  })
+
+  test('T-REL-TODAY-API-06 what is no timezone is refused before anything is read', async () => {
+    let reads = 0
+    const app = todayApp({
+      read: async () => {
+        reads += 1
+        return TODAY
+      },
+    })
+    for (const zone of ['Bogota', 'America/Bogota;drop', '', `Area/${'x'.repeat(100)}`]) {
+      const response = await app.request(`${TODAY_PATH}?timezone=${encodeURIComponent(zone)}`, {
+        headers: HEADERS,
+      })
+      expect(response.status).toBe(422)
+    }
+    expect(reads).toBe(0)
+  })
 })

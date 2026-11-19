@@ -56,6 +56,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const DIRECTORY_GROUPS = new Set<DirectoryGroup>(['active', 'invited', 'terminated'])
+// The shape `IanaTimeZone` declares. Whether the zone exists is PostgreSQL's to say.
+const IANA_TIME_ZONE = /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+-]+)+)$/
+
+function isIanaTimeZone(value: string): boolean {
+  return value.length <= 100 && IANA_TIME_ZONE.test(value)
+}
 const CALENDAR_DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 
 /**
@@ -209,10 +215,18 @@ export function studioRelationshipRoutes(injected: StudioRelationshipDependencie
     const organizationId = c.req.param('organizationId')
     if (!UUID.test(organizationId)) return fail(c, 'invalid-request')
 
+    // The viewer's, and optional: what is counted by month is left out without it.
+    const timezone = c.req.query('timezone') ?? null
+    if (timezone !== null && !isIanaTimeZone(timezone)) return fail(c, 'validation-failed')
+
     try {
       const actor = await studioActor(c, sessions())
       if (actor instanceof Response) return actor
-      const summary = await today().read(actor, { organizationId, requestId: randomUUID() })
+      const summary = await today().read(actor, {
+        organizationId,
+        requestId: randomUUID(),
+        timezone,
+      })
       return c.json(presentToday(summary))
     } catch (error) {
       return failure(c, error)
