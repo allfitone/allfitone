@@ -1,0 +1,11 @@
+# The order `migrate curate` runs the curation in, one script per line.
+#
+# 003 goes before 002: a demonstration is skipped while its movement is not there yet.
+001_global_training_catalogue.sql
+003_movement_wave_1.sql
+002_movement_demonstrations.sql
+004_program_covers.sql
+005_food_catalogue.sql
+006_off_products.sql
+007_goal_references.sql
+008_program_access.sql
