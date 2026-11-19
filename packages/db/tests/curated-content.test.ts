@@ -11,6 +11,9 @@
  * its movement is not there yet, so on a fresh database the script that brings the
  * movements has to come before the one that brings their demonstrations. Run by
  * number, the first pass leaves 34 demonstrations out of 388 and says nothing.
+ *
+ * The file is not called `curation` on purpose. The unit run of this package is
+ * `bun test curation`, which matches any path holding that word, and it has no database.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'

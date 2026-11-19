@@ -68,7 +68,7 @@ jobs:
         run: bunx supabase db reset --local --no-seed --workdir packages/db
 
       - name: Rehearse the curation
-        run: bun test packages/db/tests/curation.test.ts
+        run: bun test packages/db/tests/curated-content.test.ts
 
       - name: Stop local Supabase
         if: always()
