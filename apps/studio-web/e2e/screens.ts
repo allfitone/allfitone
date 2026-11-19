@@ -117,7 +117,8 @@ async function settledByHeading(page: Page): Promise<void> {
  * swept against its own failure state for exactly this reason: it had a
  * heading.
  *
- * Six cards and not seven: the team is a state, rendered as a line.
+ * Six cards and not seven: the team is a state, drawn as a flat panel under
+ * the board and never as a notice.
  */
 async function settledByToday(page: Page): Promise<void> {
   await settledByHeading(page)
@@ -963,9 +964,9 @@ export const SCREENS: Screen[] = [
     settled: settledByToday,
   },
   {
-    // Six notices stacked below 640px, where each row puts its subject over its
-    // reason. One notice cannot show whether the rhythm still holds a row
-    // together and apart from the next.
+    // Below 640px the board is one column and the scoreboard counts two to a
+    // line. Six notices are what shows whether a row still holds together there:
+    // a masked contact beside its badges, a week's marks beside a long name.
     stories: 'HU-081 · everything that needs attention today, on a phone',
     path: workspace,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
@@ -996,9 +997,9 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // Nothing waiting is said rather than left blank, and the team line is
-    // still under it: `team` is a state and never makes the day non-empty, so a
-    // panel that counted its own cards to decide this would get it wrong here.
+    // Nothing waiting is said on the scoreboard rather than left blank, and the
+    // team is still under it: `team` is a state and never makes the day non-empty,
+    // so a panel that counted its own cards to decide this would get it wrong here.
     stories: 'HU-081 · nothing waiting, which is said rather than left blank',
     path: workspace,
     fixture: () =>

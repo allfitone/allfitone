@@ -7,10 +7,12 @@ import {
   noticeHref,
   noticeRowHref,
   noticesInReadingOrder,
-  teamRoleSummary,
+  teamRoles,
+  todayFigures,
   trainingRowSentence,
+  weekTicks,
 } from './studio-today.js'
-import type { StudioToday, TodayLink, TodayTraining } from './studio-api.js'
+import type { StudioToday, TodayInvitations, TodayLink, TodayTraining } from './studio-api.js'
 
 const ORGANIZATION = '01991600-1000-7000-8000-00000000aaaa'
 const PERSON = '01991600-1000-7000-8000-00000000bbbb'
@@ -179,26 +181,204 @@ describe('the words beside a count', () => {
     expect(invitationExpiryPhrase('awaiting')).toBe('Vence el')
     expect(invitationExpiryPhrase('lapsed')).toBe('Venció el')
   })
+})
 
-  test('summarises the team by role, in the order the server sent', () => {
-    const summary = teamRoleSummary([
-      { role_code: 'coach', count: 8 },
-      { role_code: 'admin', count: 2 },
+function invitations(awaiting: number, lapsed: number): TodayInvitations {
+  return {
+    count: awaiting + lapsed,
+    awaiting,
+    lapsed,
+    items: [],
+    link: link('listStudioOrganizationClients', { status: 'invited' }),
+  }
+}
+
+/*
+ * The scoreboard is arithmetic over counts the server already sent. It asks no
+ * role and adds no figure the answer does not carry: a group nobody may resolve
+ * has no notice, so it has no figure either.
+ */
+describe('the figures at the head of the panel', () => {
+  test('groups every notice an owner who coaches receives, in order of debt', () => {
+    const figures = todayFigures({
+      team: { count: 12, by_role: [], link: link('listStudioOrganizationMemberships') },
+      new_relationships: relationships(3),
+      team_invitations: invitations(1, 0),
+      training: { count: 6, items: [trainingItem()], link: link('getStudioClientCard') },
+      client_invitations: invitations(5, 2),
+      termination_requests: {
+        count: 1,
+        items: [],
+        link: link('terminateRelationship'),
+      },
+      unassigned_relationships: relationships(2),
+    })
+
+    expect(figures).toEqual([
+      {
+        key: 'decisions',
+        value: 3,
+        label: 'Por decidir',
+        detail: '2 sin profesional · 1 por terminar',
+        urgent: true,
+      },
+      {
+        key: 'training',
+        value: 6,
+        label: 'Por revisar',
+        detail: 'clientes tuyos esta semana',
+        urgent: false,
+      },
+      {
+        key: 'invitations',
+        value: 8,
+        label: 'Invitaciones',
+        detail: '6 sin responder · 2 vencidas',
+        urgent: false,
+      },
+      {
+        key: 'new_clients',
+        value: 3,
+        label: 'Clientes nuevos',
+        detail: 'en los últimos 7 días',
+        urgent: false,
+      },
+      {
+        key: 'team',
+        value: 12,
+        label: 'Equipo',
+        detail: 'integrantes con rol vigente',
+        urgent: false,
+      },
     ])
-
-    expect(summary).toBe('8 Coach · 2 Administrador')
   })
 
-  /*
-   * The role catalogue is the server's, so a code this app has no word for is a
-   * catalogue that grew, not a bug to hide. Showing the code is how the client
-   * card names a category it cannot translate either.
-   */
-  test('falls back to the code itself for a role this app has no word for', () => {
-    expect(teamRoleSummary([{ role_code: 'physiotherapist', count: 1 }])).toBe('1 physiotherapist')
+  // The fourth criterion of HU-STUDIO-081: an absent notice is absent here too.
+  test('gives a coach the one figure her roles let her resolve', () => {
+    const figures = todayFigures({
+      training: { count: 1, items: [trainingItem()], link: link('getStudioClientCard') },
+    })
+
+    expect(figures).toEqual([
+      {
+        key: 'training',
+        value: 1,
+        label: 'Por revisar',
+        detail: 'cliente tuyo esta semana',
+        urgent: false,
+      },
+    ])
   })
 
-  test('is empty when the server sent no roles, so the caller sees only the total', () => {
-    expect(teamRoleSummary([])).toBe('')
+  test('counts a decision from either notice alone, and names only that one', () => {
+    expect(todayFigures({ unassigned_relationships: relationships(4) })[0]).toMatchObject({
+      value: 4,
+      detail: '4 sin profesional',
+    })
+    expect(
+      todayFigures({
+        termination_requests: { count: 2, items: [], link: link('terminateRelationship') },
+      })[0],
+    ).toMatchObject({ value: 2, detail: '2 por terminar' })
+  })
+
+  test('says one lapsed invitation in the singular and leaves out a part that is zero', () => {
+    expect(todayFigures({ client_invitations: invitations(0, 1) })[0]).toMatchObject({
+      value: 1,
+      detail: '1 vencida',
+    })
+    expect(todayFigures({ team_invitations: invitations(3, 0) })[0]).toMatchObject({
+      value: 3,
+      detail: '3 sin responder',
+    })
+  })
+
+  // A notice that arrived with nothing in it still names what it would count.
+  test('raises nothing when a decision notice arrives empty', () => {
+    expect(todayFigures({ unassigned_relationships: { ...relationships(0), items: [] } })).toEqual([
+      { key: 'decisions', value: 0, label: 'Por decidir', detail: 'nada pendiente', urgent: false },
+    ])
+  })
+
+  test('says one team member in the singular', () => {
+    const figures = todayFigures({
+      team: { count: 1, by_role: [], link: link('listStudioOrganizationMemberships') },
+    })
+
+    expect(figures[0]).toMatchObject({ value: 1, detail: 'integrante con rol vigente' })
+  })
+
+  test('is empty when no notice arrived at all', () => {
+    expect(todayFigures({})).toEqual([])
+  })
+})
+
+/*
+ * One mark per session that was due in her last closed week: the ones she
+ * logged first, then the ones she did not. The row's sentence says the same
+ * thing in words, so the marks never have to carry the number alone.
+ */
+describe('the marks of a client’s closed week', () => {
+  test('draws the logged sessions before the ones left unlogged', () => {
+    expect(weekTicks({ week_starts_on: '2026-11-02', planned: 5, not_logged: 3 })).toEqual([
+      'logged',
+      'logged',
+      'missing',
+      'missing',
+      'missing',
+    ])
+  })
+
+  test('draws a complete week as every session logged', () => {
+    expect(weekTicks({ week_starts_on: '2026-11-02', planned: 2, not_logged: 0 })).toEqual([
+      'logged',
+      'logged',
+    ])
+  })
+
+  test('draws nothing when no week was due', () => {
+    expect(weekTicks(null)).toBeNull()
+  })
+
+  // More unlogged than planned would be a server defect; it must not draw extra marks.
+  test('never draws more marks than sessions were planned', () => {
+    expect(weekTicks({ week_starts_on: '2026-11-02', planned: 2, not_logged: 5 })).toEqual([
+      'missing',
+      'missing',
+    ])
+  })
+
+  // Past three a day the marks stop being countable, and the sentence already says it.
+  test('draws nothing for a week too long to count at a glance', () => {
+    expect(weekTicks({ week_starts_on: '2026-11-02', planned: 22, not_logged: 1 })).toBeNull()
+    expect(weekTicks({ week_starts_on: '2026-11-02', planned: 21, not_logged: 1 })).toHaveLength(21)
+  })
+})
+
+describe('the team by role, one mark per member', () => {
+  test('names each role and counts its marks, in the order the server sent', () => {
+    expect(
+      teamRoles([
+        { role_code: 'coach', count: 8 },
+        { role_code: 'admin', count: 3 },
+        { role_code: 'physiotherapist', count: 1 },
+      ]),
+    ).toEqual([
+      { role_code: 'coach', name: 'Coach', count: 8, marks: 8 },
+      { role_code: 'admin', name: 'Administrador', count: 3, marks: 3 },
+      { role_code: 'physiotherapist', name: 'physiotherapist', count: 1, marks: 1 },
+    ])
+  })
+
+  // Past what can be counted at a glance the number stands alone, never a capped row.
+  test('draws no marks for a role too large to count, and still says how many', () => {
+    expect(teamRoles([{ role_code: 'coach', count: 22 }])).toEqual([
+      { role_code: 'coach', name: 'Coach', count: 22, marks: 0 },
+    ])
+    expect(teamRoles([{ role_code: 'coach', count: 21 }])[0]?.marks).toBe(21)
+  })
+
+  test('is empty when the server sent no roles', () => {
+    expect(teamRoles([])).toEqual([])
   })
 })
