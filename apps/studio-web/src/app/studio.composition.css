@@ -19,6 +19,13 @@
   --studio-measure: 58rem;
   --studio-canvas: 64rem;
 
+  /* The one screen that leaves that canvas, and why it may. The home is a
+     board: given more room its notices take a third column and its figures
+     move beside the day, so the width goes to another card and never to a
+     longer row — which was the whole case for 64rem. Held to that canvas on a
+     1920px display it sat in a third of the screen between two empty ones. */
+  --studio-canvas-board: 100rem;
+
   /* The privacy control floats over the bottom-right corner: 16px of offset and
      a 44px target. Content that ends underneath it cannot be scrolled clear,
      and on a phone the credential card's "Retirar" lost 86x29px of its target
@@ -32,6 +39,12 @@
 [data-profile-content] > * {
   width: min(100%, var(--studio-canvas));
   margin-inline: auto;
+}
+
+/* Only the board, and its placeholder so nothing widens when the answer
+   arrives. A refusal or a failure is a sentence and keeps the reading canvas. */
+[data-organization-content] > [data-today-panel='board'] {
+  width: min(100%, var(--studio-canvas-board));
 }
 
 /* WorkspaceContent is a padded block with no rhythm of its own, so sections
@@ -684,11 +697,8 @@
 
 /* ---------------------------------------------------------------- overview */
 
-/* One column. A two-column grid left the whole right half empty whenever the
-   organization had a single card to show, which is the common case.
-
-   No width of its own any more: the canvas is now the width this panel had
-   asked for, so the exception it used to carry is the rule. */
+/* One column for the panel's three ranks; the board inside it is the part that
+   takes two. No width of its own: the canvas is the width this panel asks for. */
 [data-today-panel] {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -711,13 +721,6 @@
 [data-organization-signals][data-signals-multiple],
 [data-profile-signals][data-signals-multiple] {
   min-width: 100%;
-}
-
-/* Two notices, which is what a coach who also administers usually has waiting.
-   A placeholder per notice, not one per row: the count inside each is exactly
-   what has not arrived yet. */
-[data-today-notice-placeholder] {
-  height: 9rem;
 }
 
 [data-today-rows],
@@ -773,7 +776,7 @@
   gap: var(--afo-space-3);
 }
 
-[data-today-row-subject],
+[data-today-row-text],
 [data-organization-site-identity],
 [data-relationship-substitution-identity],
 [data-relationship-grant-identity],
@@ -824,12 +827,211 @@
   }
 }
 
-/* Why the row is here, kept out of the subject's way. A masked contact or a
-   long name takes the leftover width; this keeps its own words whole. */
-[data-today-row-detail] {
-  flex: none;
-  color: var(--afo-color-text-muted);
+/* -------------------------------------------------------------- today panel
+
+   Three ranks, in the order the eye takes them: a scoreboard that says how
+   much there is, a board of notices that says who and what, and the team under
+   both because it is a state nobody has to act on. */
+
+/* The scoreboard carries the sidebar's ink into the canvas, once. It is what
+   makes the counts read as the head of the page and not as one more white card
+   among six. `data-afo-theme="dark"` sits on the element, so every token below
+   resolves to its dark value and no colour is restated here. */
+[data-today-scoreboard] {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--afo-space-8);
+  padding: var(--afo-space-8);
+  border-radius: var(--afo-radius-panel);
+  background: var(--afo-gradient-surface-deep);
+  box-shadow: var(--afo-shadow-card);
+  color: var(--afo-color-text-primary);
+}
+
+/* The Design System's own dot texture, at the pitch `AccentBlock` draws it and
+   revealed the same way: only on a diagonal, here the one that leaves the
+   top-right corner. Faint enough to pass behind a figure without touching it. */
+[data-today-scoreboard]::after {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--afo-color-text-accent) 22%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 7px 7px;
+  content: '';
+  mask-image: linear-gradient(205deg, var(--afo-color-background-inverse) 0%, transparent 42%);
+  pointer-events: none;
+}
+
+/* The day and the figures share a line when both fit and stack when they do
+   not, by their own widths and not by the viewport: the sidebar opens and
+   closes, so the same display gives this band two different rooms. 32rem is
+   the day on one line. */
+[data-today-lead] {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 32rem;
+  gap: var(--afo-space-2);
+}
+
+/* The day is the title, as it is on the board of any training floor. */
+[data-today-day] {
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-5xl);
+  font-weight: var(--afo-font-weight-bold);
+  line-height: var(--afo-line-height-display-tight);
+  letter-spacing: var(--afo-letter-spacing-brand);
+  text-transform: uppercase;
+}
+
+[data-today-status] {
+  font-size: var(--afo-font-size-lg);
+  font-weight: var(--afo-font-weight-semibold);
+}
+
+[data-today-status-note] {
+  max-width: 38rem;
+  color: var(--afo-color-text-secondary);
   font-size: var(--afo-font-size-sm);
+  text-wrap: pretty;
+}
+
+/* A rule over each figure rather than between them: the row wraps to two a
+   line on a phone, and a rule on the left edge put one down the middle of the
+   panel and none where the second line began.
+
+   50rem is five figures at their narrowest with their gaps. Asking for less
+   let the row move beside the day while it only had room for four, and the
+   fifth dropped to a line of its own under them. */
+[data-today-figures] {
+  display: grid;
+  min-width: 0;
+  flex: 4 1 50rem;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--afo-space-6);
+}
+
+/* One or two figures are as wide as they are and no wider: stretched like a
+   full row, a single count sat over 800px of rule. A column each, so the row
+   has a width of its own to offer the line it shares with the day. */
+[data-today-scoreboard-size='brief'] [data-today-figures] {
+  flex: 0 1 auto;
+  grid-template-columns: none;
+  grid-auto-columns: minmax(9rem, 12rem);
+  grid-auto-flow: column;
+}
+
+[data-today-figure] {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--afo-space-1);
+  padding-block-start: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+/* The one tone the scoreboard raises, and only for a decision somebody is
+   waiting on. Everything else on it is the same ink. */
+[data-today-figure-urgent] {
+  border-block-start-color: var(--afo-color-border-accent);
+}
+
+[data-today-figure-urgent] [data-today-figure-value] {
+  color: var(--afo-color-text-accent);
+}
+
+/* Tabular, so 7 and 12 keep the column the same width from one day to the
+   next. */
+[data-today-figure-value] {
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-6xl);
+  font-weight: var(--afo-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--afo-line-height-display);
+}
+
+[data-today-figure-label] {
+  margin-block-start: var(--afo-space-2);
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-extrabold);
+  letter-spacing: var(--afo-letter-spacing-micro);
+  text-transform: uppercase;
+}
+
+[data-today-figure-detail] {
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* As many columns as fit at 25rem a notice: one on a phone, two on a laptop,
+   three on a wide display, and never four — four would need 103rem and the
+   canvas ends at 100.
+
+   A wrapping row and not a grid, because a row has no holes: whatever is left
+   on the last line shares it. Five notices close as two halves, and a coach's
+   single notice spans the board instead of sitting in a third of it. */
+[data-today-board] {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--afo-space-5);
+}
+
+/* Placement only: where a notice sits in the row, never how it lays itself
+   out. */
+[data-today-board] > * {
+  min-width: 0;
+  flex: 1 1 25rem;
+}
+
+/* The count wraps with the last word of its title. Beside an action the title
+   has half a phone to itself, and a count alone on the second line read as a
+   stray figure and not as how many the notice holds. */
+[data-today-notice-title-end] {
+  white-space: nowrap;
+}
+
+[data-today-notice-count] {
+  margin-inline-start: var(--afo-space-1);
+}
+
+/* As many columns of rows as the card has room for: one in a card that shares
+   the board, several in a card that spans it. A row is a tile of its own, so it
+   reads the same in either.
+
+   `auto-fit`, so three rows in a card five columns wide share the line instead
+   of keeping 17rem each beside two empty columns. */
+[data-today-rows] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+
+/* The ceiling goes on the tile and not on the track: a definite maximum makes
+   `auto-fit` count columns by it, and a card that fits five had two. Past
+   32rem a tile is a name at one edge and an arrow at the other, which is the
+   reason the workspace has a reading canvas at all. */
+[data-today-rows] > * {
+  max-width: 32rem;
+}
+
+[data-today-row] {
+  flex-wrap: wrap;
+  padding: var(--afo-space-3);
+  border-radius: var(--afo-radius-lg);
+  background: var(--afo-color-background-surface-subtle);
+}
+
+/* Who the row is about over why she is here. The pair wraps as one, and a
+   badge beside it drops under it before it squeezes the name. */
+[data-today-row-text] {
+  display: grid;
+  flex: 1 1 9rem;
+  gap: var(--afo-space-0-5);
 }
 
 /* A masked contact is one unbroken token — `b***@ejemplo.test` has nowhere the
@@ -839,57 +1041,148 @@
   overflow-wrap: anywhere;
 }
 
-/* A row that leads somewhere still reads as a row, not as a link in a
-   paragraph: the Design System underlines anchors, and five underlined names
-   in a list made the list look like a menu. */
-[data-today-row-link] {
-  color: inherit;
-  text-decoration: none;
-}
-
-[data-today-row-link]:hover [data-today-row-subject],
-[data-today-row-link]:focus-visible [data-today-row-subject] {
-  text-decoration: underline;
-}
-
-/* The count is the first thing the reader is after, so it sits with the title
-   rather than under it. Tabular figures keep 7 and 12 the same width down a
-   column of notices. */
-[data-today-notice-count] {
-  color: var(--afo-color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* What the notice covers beyond the five rows above it. Set apart from the last
-   row by the gap the list uses, and quieter than a row, because it is a
-   remainder and not another item. */
-[data-today-remainder] {
-  display: block;
-  margin-block-start: var(--afo-space-3);
+[data-today-row-detail] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-sm);
 }
 
+/* A row that leads somewhere still reads as a row, not as a link in a
+   paragraph: the Design System underlines anchors, and five underlined names
+   in a list made the list look like a menu. The whole tile answers instead. */
+[data-today-row-link] {
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing);
+}
+
+[data-today-row-link]:hover,
+[data-today-row-link]:focus-visible {
+  background: var(--afo-color-accent-tonal);
+}
+
+[data-today-row-link]:focus-visible {
+  outline: 2px solid var(--afo-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Held to the far edge, so on the phone where the marks drop under the name
+   the arrow still closes the row instead of trailing them. */
+[data-today-row-go] {
+  display: inline-flex;
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--afo-color-icon-secondary);
+}
+
+/* One mark per thing counted: a session of her week, or a member of a role.
+
+   A grid and not a flex row: as flex items with a basis the marks came out
+   3px wide inside a row, because a flex container sized by its content counts
+   its items at their minimum. A track of `minmax(2px, 6px)` is 6px until the
+   row runs out of room, so twenty-one sessions still fit where five do. */
+[data-today-ticks] {
+  display: grid;
+  max-width: 7rem;
+  flex: none;
+  grid-auto-columns: minmax(2px, 6px);
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 3px;
+}
+
+[data-today-tick] {
+  height: var(--afo-space-5);
+  border-radius: var(--afo-radius-xs);
+  background: var(--afo-color-text-accent);
+}
+
+/* Hollow, so a session she did not log is a gap in the row and not a paler
+   version of one she did. */
+[data-today-tick='missing'] {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--afo-color-border-default);
+}
+
+/* What the notice covers beyond the rows above it, as the last of them: the
+   size of a row so the column keeps its rhythm, and none of its surface,
+   because it is a remainder and not another person. */
+[data-today-remainder] > [data-today-row] {
+  height: 100%;
+  background: none;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-today-remainder] > [data-today-row-link]:hover,
+[data-today-remainder] > [data-today-row-link]:focus-visible {
+  background: var(--afo-color-accent-tonal);
+}
+
 /* How the team stands, which the contract calls a state: it never makes the day
-   non-empty. A hairline and a line of text, not a sixth card — the page keeps
-   one rank for what waits on somebody and a quieter one for how things are. */
+   non-empty. Flat and ruled where the notices are raised — the page keeps one
+   rank for what waits on somebody and a quieter one for how things are. */
 [data-today-state] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-5);
+  padding: var(--afo-space-5);
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--afo-radius-card);
+}
+
+[data-today-state-head] {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--afo-space-3);
-  padding-block-start: var(--afo-space-4);
-  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
-[data-today-state-figure] {
+/* The size and weight a notice's title has, so the two ranks differ by their
+   surface and not by a second scale of headings. */
+[data-today-state-title] {
   min-width: 0;
-  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-extrabold);
+  letter-spacing: var(--afo-letter-spacing-micro);
+  line-height: var(--afo-line-height-compact);
+  text-transform: uppercase;
 }
 
-[data-today-state-detail]::before {
-  content: ' · ';
+/* The roles share the panel's width in equal parts. Packed to the left at
+   their own widths they filled a quarter of a wide display and left the rest of
+   the panel as one empty strip. `auto-fit`, so one role alone still has it all. */
+[data-today-roles] {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--afo-space-5) var(--afo-space-6);
+}
+
+[data-today-role] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-2);
+}
+
+[data-today-role-name] {
+  color: var(--afo-color-text-secondary);
+  font-size: var(--afo-font-size-sm);
+}
+
+[data-today-role-count] {
+  color: var(--afo-color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shape of what is coming, so nothing jumps when it arrives. */
+[data-today-scoreboard-placeholder] {
+  height: 17rem;
+}
+
+[data-today-notice-placeholder] {
+  height: 14rem;
 }
 
 /* CardContent pads sideways only, so the badge row and the sentence under it
@@ -1354,17 +1647,35 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Stacked, an item's own lines have to sit closer together than the gap to
-     the next item. At one rhythm for both, two invitations of two lines each
-     read as four invitations of one. Inner 4px, outer 20px. */
-  [data-today-rows] {
-    gap: var(--afo-space-5);
+  [data-today-scoreboard] {
+    gap: var(--afo-space-6);
+    padding: var(--afo-space-5);
   }
 
-  [data-today-row] {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: var(--afo-space-1);
+  /* Two figures to a line, whichever row it is: the day has already taken the
+     line above, so the figures have the whole width and split it in halves. */
+  [data-today-figures],
+  [data-today-scoreboard-size='brief'] [data-today-figures] {
+    flex: 1 1 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+    gap: var(--afo-space-5) var(--afo-space-4);
+  }
+
+  /* Alone, a figure takes the line: in half of it «clientes tuyos esta semana»
+     broke in two beside a column of nothing. */
+  [data-today-scoreboard-size='brief'] [data-today-figure]:only-child {
+    grid-column: 1 / -1;
+  }
+
+  /* A step down each, so «miércoles, 18 de noviembre» does not take three
+     lines of a phone and a three-digit count still fits half of one. */
+  [data-today-day] {
+    font-size: var(--afo-font-size-3xl);
+  }
+
+  [data-today-figure-value] {
+    font-size: var(--afo-font-size-5xl);
   }
 
   /* Same move, same reason, for a cover. Beside a badge reading "Esperando
@@ -1383,13 +1694,6 @@
   [data-relationship-substitution-list] > li {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  /* The figure and the way in stack, in that order. Side by side at 320px the
-     button took half the line and the sentence about the team broke mid-word. */
-  [data-today-state] {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 

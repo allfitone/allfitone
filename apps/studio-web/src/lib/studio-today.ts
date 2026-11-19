@@ -161,12 +161,156 @@ export function invitationExpiryPhrase(state: 'awaiting' | 'lapsed'): string {
 }
 
 /**
- * The team by role, in the order the server sent it.
+ * One figure at the head of the panel.
+ *
+ * `urgent` is the one tone the scoreboard raises, and only a decision the
+ * organization owes somebody earns it: an invitation waits on the other
+ * person, and a team is a state.
+ */
+export interface TodayFigure {
+  readonly key: 'decisions' | 'training' | 'invitations' | 'new_clients' | 'team'
+  readonly value: number
+  readonly label: string
+  readonly detail: string
+  readonly urgent: boolean
+}
+
+/**
+ * The scoreboard: the counts the notices already carry, grouped by what the
+ * reader does about them and in the same order of debt as the cards below.
+ *
+ * Seven notices make five figures, because two pairs are one question each —
+ * who is waiting on a decision, and which invitations are still open. A group
+ * with no notice has no figure: what the caller's roles do not allow is absent
+ * here exactly as it is absent from the answer.
+ */
+export function todayFigures(notices: StudioToday['notices']): readonly TodayFigure[] {
+  const figures: TodayFigure[] = []
+
+  const unassigned = notices.unassigned_relationships
+  const terminations = notices.termination_requests
+  if (unassigned || terminations) {
+    const value = (unassigned?.count ?? 0) + (terminations?.count ?? 0)
+    figures.push({
+      key: 'decisions',
+      value,
+      label: 'Por decidir',
+      detail:
+        parts([
+          [unassigned?.count ?? 0, 'sin profesional'],
+          [terminations?.count ?? 0, 'por terminar'],
+        ]) || 'nada pendiente',
+      urgent: value > 0,
+    })
+  }
+
+  if (notices.training) {
+    const { count } = notices.training
+    figures.push({
+      key: 'training',
+      value: count,
+      label: 'Por revisar',
+      detail: count === 1 ? 'cliente tuyo esta semana' : 'clientes tuyos esta semana',
+      urgent: false,
+    })
+  }
+
+  const invited = [notices.client_invitations, notices.team_invitations].filter(
+    (notice) => notice !== undefined,
+  )
+  if (invited.length > 0) {
+    const awaiting = invited.reduce((sum, notice) => sum + notice.awaiting, 0)
+    const lapsed = invited.reduce((sum, notice) => sum + notice.lapsed, 0)
+    figures.push({
+      key: 'invitations',
+      value: invited.reduce((sum, notice) => sum + notice.count, 0),
+      label: 'Invitaciones',
+      detail:
+        parts([
+          [awaiting, 'sin responder'],
+          [lapsed, lapsed === 1 ? 'vencida' : 'vencidas'],
+        ]) || 'nada pendiente',
+      urgent: false,
+    })
+  }
+
+  if (notices.new_relationships) {
+    figures.push({
+      key: 'new_clients',
+      value: notices.new_relationships.count,
+      label: 'Clientes nuevos',
+      detail: 'en los últimos 7 días',
+      urgent: false,
+    })
+  }
+
+  if (notices.team) {
+    const { count } = notices.team
+    figures.push({
+      key: 'team',
+      value: count,
+      label: 'Equipo',
+      detail: count === 1 ? 'integrante con rol vigente' : 'integrantes con rol vigente',
+      urgent: false,
+    })
+  }
+
+  return figures
+}
+
+/** The parts of a figure that count something, joined as this module joins. */
+function parts(counted: readonly (readonly [count: number, words: string])[]): string {
+  return counted
+    .filter(([count]) => count > 0)
+    .map(([count, words]) => `${count} ${words}`)
+    .join(' · ')
+}
+
+/** Past three sessions a day the marks stop being countable at a glance. */
+const MOST_TICKS = 21
+
+/**
+ * A client's last closed week as one mark per session that was due: the ones
+ * she logged, then the ones she did not.
+ *
+ * `null` when there is no week to draw. The row's sentence carries the same
+ * count in words, so a week this does not draw is still said.
+ */
+export function weekTicks(
+  week: TodayTraining['items'][number]['closed_week'],
+): readonly ('logged' | 'missing')[] | null {
+  if (!week || week.planned > MOST_TICKS) return null
+
+  const missing = Math.min(week.planned, Math.max(0, week.not_logged))
+  return [
+    ...Array.from({ length: week.planned - missing }, () => 'logged' as const),
+    ...Array.from({ length: missing }, () => 'missing' as const),
+  ]
+}
+
+/**
+ * The team by role, in the order the server sent it, one mark per member who
+ * holds it.
  *
  * The role catalogue is the server's. A code this app has no word for means the
  * catalogue grew, so the code itself stands in — the same answer the client
  * card gives for a category the catalogue did not name.
+ *
+ * The mark is the one the training notice draws per session, so the panel
+ * counts people and sessions in one vocabulary. A role too large to count at a
+ * glance keeps its number and draws nothing: a row capped at twenty-one would
+ * say twenty-one.
  */
-export function teamRoleSummary(byRole: TodayTeam['by_role']): string {
-  return byRole.map((role) => `${role.count} ${organizationRoleName(role.role_code)}`).join(' · ')
+export function teamRoles(byRole: TodayTeam['by_role']): readonly {
+  readonly role_code: string
+  readonly name: string
+  readonly count: number
+  readonly marks: number
+}[] {
+  return byRole.map((role) => ({
+    role_code: role.role_code,
+    name: organizationRoleName(role.role_code),
+    count: role.count,
+    marks: role.count > MOST_TICKS ? 0 : role.count,
+  }))
 }
