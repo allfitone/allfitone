@@ -161,7 +161,7 @@ export const en: Dictionary = {
     activeOne: 'Active: {count}. 1 more for {reward}.',
     activeAll: 'Active: {count}. You reached every level.',
     rewardRule:
-      'Allfit Pro rewards count active referrals: from launch, they create an account and log 3 workouts or meals in their first 14 days.',
+      'Allfit Pro rewards count active referrals: from launch, they create an account and log workouts or meals on 5 different days in their first 14 days.',
     reset: 'Use another email',
     errorEmailDisposable:
       "That's a disposable address. Use one you check: your confirmation goes there.",
@@ -196,7 +196,7 @@ export const en: Dictionary = {
   },
   referrals: {
     title: 'Invite friends, earn Allfit Pro',
-    text: 'When you join you get a link of your own. Everyone who joins through it counts toward your level once active: they create an Allfit Space account after launch and log 3 workouts or meals in their first 14 days.',
+    text: 'When you join you get a link of your own. Everyone who joins through it counts toward your level once active: they create an Allfit Space account after launch and log workouts or meals on 5 different days in their first 14 days.',
     people: '{count} active referrals',
     rewards: {
       5: '1 month of Allfit Pro',
@@ -246,7 +246,7 @@ export const en: Dictionary = {
         "Your number is reserved from the moment you confirm your email. To activate it, create your Allfit Space account with the same email during the closed beta or within 7 days of launch. If you don't create it in that time, your number passes to the next person on the list.",
         "The founder price applies to the monthly Allfit Pro plan if you subscribe within 6 months of launch, and stays yours while you don't cancel, even if the price goes up. If you cancel, you lose it; a failed payment while the store retries it is not a cancellation.",
         "The status is personal and can't be transferred. You only lose it if you delete your account or for proven fraud.",
-        'Someone you invite counts toward your total when they join with your link or code and confirm their email. For rewards they count once active: they create their Allfit Space account after launch, with the same email, and log at least 3 workouts or meals in their first 14 days. Each person counts once.',
+        'Someone you invite counts toward your total when they join with your link or code and confirm their email. For rewards they count once active: they create their Allfit Space account after launch, with the same email, and log workouts or meals on at least 5 different days in their first 14 days. Each person counts once.',
         "Levels add up: you get the reward for every level you reach. Thirty active referrals are 1 + 2 + 3 = 6 months of Allfit Pro. Being a Founding Member doesn't stop you from earning them.",
         'Months of Allfit Pro arrive as an App Store or Google Play offer code. When they end, the subscription renews automatically unless you cancel it in the store first.',
         "Disposable emails, repeated sign-ups from the same device, and inviting yourself don't count.",

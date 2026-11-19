@@ -79,7 +79,7 @@ const WORDS = {
       100: '1 año de Allfit Pro y merch de Allfit One',
     },
     rewardRule:
-      'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
+      'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran entrenamientos o comidas en 5 días distintos de sus primeros 14 días.',
     codeLabel: 'TU CÓDIGO',
     linkLabel: 'TU LINK',
     referralsLabel: 'TUS REFERIDOS',
@@ -139,7 +139,7 @@ const WORDS = {
       100: '1 year of Allfit Pro and Allfit One merch',
     },
     rewardRule:
-      'Allfit Pro rewards count active referrals: from launch, they create an account and log 3 workouts or meals in their first 14 days.',
+      'Allfit Pro rewards count active referrals: from launch, they create an account and log workouts or meals on 5 different days in their first 14 days.',
     codeLabel: 'YOUR CODE',
     linkLabel: 'YOUR LINK',
     referralsLabel: 'YOUR REFERRALS',

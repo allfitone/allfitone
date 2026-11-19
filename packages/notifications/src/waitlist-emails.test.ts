@@ -207,10 +207,19 @@ describe('waitlist referral count', () => {
       expect(readable(html)).toContain(`Registrados con tu link: ${String(referrals)}.`)
       expect(text).toContain(`Registrados con tu link: ${String(referrals)}.`)
       expect(readable(html)).toContain(
-        'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
+        'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran entrenamientos o comidas en 5 días distintos de sus primeros 14 días.',
       )
       expect(text).toContain('Para los premios de Allfit Pro cuentan los activos')
     }
+  })
+
+  test('says the same rule in English: five different days, not a number of records', () => {
+    const { text, html } = renderWaitlistLinkEmail({ ...BASE, referrals: 5, language: 'en' })
+    const rule =
+      'Allfit Pro rewards count active referrals: from launch, they create an account and log workouts or meals on 5 different days in their first 14 days.'
+
+    expect(readable(html)).toContain(rule)
+    expect(text).toContain(rule)
   })
 
   test('draws no steps toward a level, since nobody is active before launch', () => {

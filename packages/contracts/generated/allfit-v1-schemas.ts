@@ -21376,7 +21376,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'integer',
         minimum: 0,
         description:
-          'The referrals among them that the rewards count: an account created after the launch and three workouts or meals in its first 14 days. Zero for everybody before the launch.',
+          'The referrals among them that the rewards count: an account created after the launch and workouts or meals logged on five different days of its first 14 days. Zero for everybody before the launch.',
       },
       language: {
         type: 'string',
@@ -21434,7 +21434,7 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
         type: 'integer',
         minimum: 0,
         description:
-          'The referrals among them that the rewards count: an account created after the launch and three workouts or meals in its first 14 days. Zero for everybody before the launch.',
+          'The referrals among them that the rewards count: an account created after the launch and workouts or meals logged on five different days of its first 14 days. Zero for everybody before the launch.',
       },
     },
   },
