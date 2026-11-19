@@ -6,8 +6,9 @@
  *   Members, numbered #001 to #100 in the order they confirm.
  * - Everyone gets a link and a code of their own. The people who join through
  *   them count toward the referral levels below once active after launch: an
- *   account and 3 workouts or meals in their first 14 days. Levels add up: the
- *   person gets the reward of every level they reach (ADR-050).
+ *   account and workouts or meals logged on 5 different days of their first 14
+ *   (the owner's rule since 18 November 2026; v1.2 said 3 records). Levels add
+ *   up: the person gets the reward of every level they reach (ADR-050).
  *
  * The rules that need a database (the confirmation email, the numbering, which
  * referrals count) belong to the API. This module only holds what the page

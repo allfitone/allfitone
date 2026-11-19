@@ -172,7 +172,7 @@ export const es = {
     activeOne: 'Activos: {count}. Te falta 1 para {reward}.',
     activeAll: 'Activos: {count}. Alcanzaste todos los niveles.',
     rewardRule:
-      'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran 3 entrenamientos o comidas en sus primeros 14 días.',
+      'Para los premios de Allfit Pro cuentan los activos: desde el lanzamiento crean su cuenta y registran entrenamientos o comidas en 5 días distintos de sus primeros 14 días.',
     reset: 'Usar otro correo',
     errorEmailDisposable:
       'Ese correo es desechable. Usa uno que revises: ahí te llega la confirmación.',
@@ -207,7 +207,7 @@ export const es = {
   },
   referrals: {
     title: 'Invita y gana Allfit Pro',
-    text: 'Al unirte recibes tu propio link. Cada persona que se une con él suma a tu nivel cuando está activa: crea su cuenta en Allfit Space después del lanzamiento y registra 3 entrenamientos o comidas en sus primeros 14 días.',
+    text: 'Al unirte recibes tu propio link. Cada persona que se une con él suma a tu nivel cuando está activa: crea su cuenta en Allfit Space después del lanzamiento y registra entrenamientos o comidas en 5 días distintos de sus primeros 14 días.',
     people: '{count} referidos activos',
     // Keyed by the level (`REFERRAL_LEVELS`), never by position.
     rewards: {
@@ -258,7 +258,7 @@ export const es = {
         'Tu número queda reservado desde que confirmas tu correo. Para activarlo, crea tu cuenta en Allfit Space con el mismo correo durante la beta cerrada o en los 7 días siguientes al lanzamiento. Si no la creas en ese plazo, tu número pasa a la siguiente persona de la lista.',
         'El precio de fundador aplica al plan mensual de Allfit Pro si te suscribes en los 6 meses siguientes al lanzamiento, y se mantiene mientras no canceles, aunque el precio suba. Si cancelas, lo pierdes; un pago fallido mientras la tienda lo reintenta no cuenta como cancelación.',
         'El estatus es personal y no se transfiere. Solo se pierde si borras tu cuenta o por fraude comprobado.',
-        'Una persona que invitas suma a tu contador cuando se une con tu link o tu código y confirma su correo. Para los premios cuenta cuando está activa: crea su cuenta en Allfit Space después del lanzamiento, con el mismo correo, y registra al menos 3 entrenamientos o comidas en sus primeros 14 días. Cuenta una sola vez.',
+        'Una persona que invitas suma a tu contador cuando se une con tu link o tu código y confirma su correo. Para los premios cuenta cuando está activa: crea su cuenta en Allfit Space después del lanzamiento, con el mismo correo, y registra entrenamientos o comidas en al menos 5 días distintos de sus primeros 14 días. Cuenta una sola vez.',
         'Los niveles se suman: recibes el premio de cada nivel que alcances. Con 30 referidos activos son 1 + 2 + 3 = 6 meses de Allfit Pro. Ser Founding Member no impide ganarlos.',
         'Los meses de Allfit Pro llegan como un código de oferta de App Store o Google Play. Al terminar, la suscripción se renueva sola, salvo que la canceles antes en la tienda.',
         'No cuentan los correos desechables, los registros repetidos desde un mismo dispositivo ni las invitaciones a ti mismo.',
