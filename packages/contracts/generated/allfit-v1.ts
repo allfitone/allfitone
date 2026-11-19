@@ -4361,6 +4361,8 @@ export interface paths {
      *     `client_invitations` needs `invite_clients` and, without `view_directory`, covers only the invitations she sent. `unassigned_relationships` needs `assign_professionals`, `termination_requests` needs `terminate_relationships`, `team_invitations` needs `invite`, `team` needs `manage_memberships`, `new_relationships` (the last seven days) needs `view_directory`, and `training` needs `observe_training`. Failed charges join when organization billing exists.
      *
      *     `training` lists the clients she attends who share `relationship_training` with this relationship and have sessions of their last closed week (Monday to Sunday in their program's timezone) left unlogged, or results finished in the last forty-eight hours. Each client evaluated is recorded in her access log, shown or not; a client who withdrew her training is neither evaluated nor mentioned. `empty` is true when nothing waits; `team` is a state and never makes it false.
+     *
+     *     `indicators` says how the organization is doing, by the same rule: one the caller's roles do not open is absent. They are states, never work waiting, so none of them changes `empty`. `training_adherence` needs `observe_training` and comes out of the look `training` already takes, so it adds nothing to an access log. `relationship_changes` needs `view_directory` and a `timezone`. `professional_load` needs `assign_professionals`.
      */
     get: operations['getStudioToday']
     put?: never
@@ -9823,6 +9825,46 @@ export interface components {
         new_relationships?: components['schemas']['StudioTodayRelationships']
         training?: components['schemas']['StudioTodayTraining']
       }
+      /** @description How the organization is doing: only the indicators the caller's roles open. States, never work waiting. */
+      indicators?: {
+        training_adherence?: components['schemas']['StudioTodayTrainingAdherence']
+        relationship_changes?: components['schemas']['StudioTodayRelationshipChanges']
+        professional_load?: components['schemas']['StudioTodayProfessionalLoad']
+      }
+    }
+    /** @description What the clients the caller attends who share `relationship_training` had due and logged, summed over eight closed weeks, oldest first. A week closes in the program's timezone and the eight end at the latest one closed for every client summed. Cancelled and paused sessions were never due; an annulled session is not logged, and neither is one the client hid from this relationship. A week with nothing due says 0 and 0, which is not a rate of zero. Only sums: no name and no figure of one person. */
+    StudioTodayTrainingAdherence: {
+      /** @description How many clients the sums cover. */
+      clients: number
+      weeks: {
+        /**
+         * Format: date
+         * @description The Monday the week begins on.
+         */
+        week_starts_on: string
+        planned: number
+        logged: number
+      }[]
+    }
+    /** @description Relationships begun and ended in each of the last six months of the viewer's timezone, this month last. Counts only. */
+    StudioTodayRelationshipChanges: {
+      months: {
+        month: string
+        started: number
+        ended: number
+      }[]
+    }
+    /** @description The live relationships each coach holds today. Every member with the coach role in force is counted, the ones who hold nobody included; covering somebody is not holding. Most clients first. */
+    StudioTodayProfessionalLoad: {
+      /** @description Every coach, listed or not. */
+      count: number
+      /** @description Live relationships with no holder in effect. */
+      unassigned: number
+      items: {
+        membership_id: components['schemas']['Uuid']
+        display_name: string
+        clients: number
+      }[]
     }
     /** @description The operation that resolves a notice, with the query it opens with. */
     StudioTodayLink: {
@@ -21886,7 +21928,10 @@ export interface operations {
   }
   getStudioToday: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description The viewer's zone. A month is a local question and an organization has no zone of its own, so `relationship_changes` is absent without it rather than answered in UTC. Nothing else depends on it. */
+        timezone?: components['schemas']['IanaTimeZone']
+      }
       header?: never
       path: {
         organizationId: components['parameters']['OrganizationId']
@@ -21895,7 +21940,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description What waits on the caller */
+      /** @description What waits on the caller, and how the organization is doing */
       200: {
         headers: {
           'Cache-Control': components['headers']['PrivateNoStore']
@@ -21908,6 +21953,7 @@ export interface operations {
       400: components['responses']['BadRequest']
       401: components['responses']['Unauthenticated']
       403: components['responses']['Forbidden']
+      422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
     }
   }

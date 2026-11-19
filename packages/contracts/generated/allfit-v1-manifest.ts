@@ -2562,7 +2562,7 @@ export const allfitV1ContractManifest = {
       path: '/studio/v1/organizations/{organizationId}/today',
       operationId: 'getStudioToday',
       allfitOperation: 'OP-REL-020',
-      responses: ['200', '400', '401', '403', '503'],
+      responses: ['200', '400', '401', '403', '422', '503'],
       security: ['cookieAuth'],
     },
     {

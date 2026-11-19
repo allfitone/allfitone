@@ -25,6 +25,7 @@ import type {
   MyRelationshipQuery,
   StudioToday,
   StudioTodayDatabase,
+  StudioTodayQuery,
 } from '../domain/index.js'
 
 /**
@@ -105,10 +106,7 @@ export function createClientCardService(database: ClientCardDatabase): ClientCar
 }
 
 export interface StudioTodayService {
-  read(
-    actor: AccountActor,
-    query: { organizationId: string; requestId: string },
-  ): Promise<StudioToday>
+  read(actor: AccountActor, query: StudioTodayQuery): Promise<StudioToday>
 }
 
 // Which notices the caller gets is decided by her capabilities, in the database.

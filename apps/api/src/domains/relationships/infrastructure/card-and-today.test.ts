@@ -70,10 +70,23 @@ describe('the summary binding', () => {
     await createStudioTodayDatabase(recordingDatabase(captured, { today })).readToday(COACH, {
       organizationId: ORGANIZATION,
       requestId: REQUEST,
+      timezone: 'America/Bogota',
     })
     expect(captured[0]?.text).toContain("set_config('app.request_id'")
-    expect(captured[0]?.values).toEqual([COACH, REQUEST])
+    expect(captured[0]?.text).toContain("set_config('app.viewer_timezone'")
+    expect(captured[0]?.values).toEqual([COACH, REQUEST, 'America/Bogota'])
     const call = captured.find((query) => query.text.includes('read_studio_today'))
     expect(call?.values).toEqual([COACH, ORGANIZATION])
+  })
+
+  test('with no timezone the setting is emptied, never left to an earlier value', async () => {
+    const captured: CapturedQuery[] = []
+    const today = { organization_id: ORGANIZATION, generated_at: 'x', empty: true, notices: {} }
+    await createStudioTodayDatabase(recordingDatabase(captured, { today })).readToday(COACH, {
+      organizationId: ORGANIZATION,
+      requestId: REQUEST,
+      timezone: null,
+    })
+    expect(captured[0]?.values).toEqual([COACH, REQUEST, ''])
   })
 })

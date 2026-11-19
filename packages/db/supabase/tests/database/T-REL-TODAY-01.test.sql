@@ -308,8 +308,8 @@ select ok(
 
 select is(
   pg_temp.today('019ae500-0000-7000-8000-000000000017', '019ae500-0000-7000-8000-000000000103') - 'generated_at',
-  '{"organization_id": "019ae500-0000-7000-8000-000000000103", "empty": true, "notices": {"client_invitations": {"count": 0, "awaiting": 0, "lapsed": 0, "items": []}, "unassigned_relationships": {"count": 0, "items": []}, "termination_requests": {"count": 0, "items": []}, "team_invitations": {"count": 0, "awaiting": 0, "lapsed": 0, "items": []}, "team": {"count": 1, "by_role": [{"role_code": "owner", "count": 1}]}, "new_relationships": {"count": 0, "items": []}}}'::jsonb,
-  'a new gym with nothing waiting says so: the team is a state, not something to resolve'
+  '{"organization_id": "019ae500-0000-7000-8000-000000000103", "empty": true, "notices": {"client_invitations": {"count": 0, "awaiting": 0, "lapsed": 0, "items": []}, "unassigned_relationships": {"count": 0, "items": []}, "termination_requests": {"count": 0, "items": []}, "team_invitations": {"count": 0, "awaiting": 0, "lapsed": 0, "items": []}, "team": {"count": 1, "by_role": [{"role_code": "owner", "count": 1}]}, "new_relationships": {"count": 0, "items": []}}, "indicators": {"professional_load": {"count": 0, "unassigned": 0, "items": []}}}'::jsonb,
+  'a new gym with nothing waiting says so: the team and how the gym is doing are states, not something to resolve'
 );
 
 select throws_ok(

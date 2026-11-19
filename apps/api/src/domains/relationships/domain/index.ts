@@ -577,9 +577,13 @@ export type StudioToday = Omit<Schemas['StudioToday'], 'notices'> & {
   readonly notices: StudioTodayNotices
 }
 
+/** `timezone` is the viewer's: what is counted by month needs one, and is absent without. */
+export interface StudioTodayQuery {
+  readonly organizationId: string
+  readonly requestId: string
+  readonly timezone: string | null
+}
+
 export interface StudioTodayDatabase {
-  readToday(
-    actorPersonId: string,
-    query: { organizationId: string; requestId: string },
-  ): Promise<StudioToday>
+  readToday(actorPersonId: string, query: StudioTodayQuery): Promise<StudioToday>
 }

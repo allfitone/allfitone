@@ -238,10 +238,13 @@ export function createStudioTodayDatabase(sql: postgres.Sql = database()): Studi
     readToday: (personId, query) =>
       measureStudioRequestPhase('business-db', async () => {
         const [row] = await sql.begin(async (transaction) => {
+          // The timezone is a setting, not an argument, so this and the migration that
+          // reads it ship in either order. Always written, empty when there is none.
           await transaction`
             select set_config('app.actor_kind', 'person', true),
                    set_config('app.actor_person_id', ${personId}, true),
-                   set_config('app.request_id', ${query.requestId}, true)
+                   set_config('app.request_id', ${query.requestId}, true),
+                   set_config('app.viewer_timezone', ${query.timezone ?? ''}, true)
           `
           return transaction<{ today: StudioToday }[]>`
             select relationships.read_studio_today(
