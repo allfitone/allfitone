@@ -612,3 +612,72 @@ describe('the draft commands of a template', () => {
     expect(headers.get('idempotency-key')).toBe(command.idempotencyKey)
   })
 })
+
+/*
+ * `OP-REL-020` counts a month in the viewer's timezone, so the read carries it.
+ * It is the only thing in the answer that depends on it, which is why a zone the
+ * server refuses must cost that one indicator and never the whole panel.
+ */
+describe('what needs attention today', () => {
+  const ORGANIZATION = '01991600-1000-7000-8000-000000000002'
+  const TODAY = {
+    organization_id: ORGANIZATION,
+    generated_at: '2026-11-13T19:00:00.000Z',
+    empty: true,
+    notices: {},
+  }
+
+  function answers(...responses: readonly (() => Response)[]) {
+    const urls: URL[] = []
+    globalThis.fetch = (async (input) => {
+      urls.push(new URL(String(input)))
+      const respond = responses[urls.length - 1]
+      if (!respond) throw new Error('an unexpected request')
+      return respond()
+    }) as typeof fetch
+    return urls
+  }
+
+  test('sends the timezone the browser reports', async () => {
+    const urls = answers(() => Response.json(TODAY))
+
+    await expect(studioApi.today(ORGANIZATION)).resolves.toEqual(TODAY)
+
+    expect(urls).toHaveLength(1)
+    expect(urls[0]?.pathname).toBe(`/studio/v1/organizations/${ORGANIZATION}/today`)
+    expect(urls[0]?.searchParams.get('timezone')).toBe(
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    )
+  })
+
+  // A zone PostgreSQL does not know is refused before anything is read or logged.
+  test('asks again without the timezone when the server refuses it', async () => {
+    const urls = answers(
+      () => Response.json({ error: { code: 'validation-failed' } }, { status: 422 }),
+      () => Response.json(TODAY),
+    )
+
+    await expect(studioApi.today(ORGANIZATION)).resolves.toEqual(TODAY)
+
+    expect(urls).toHaveLength(2)
+    expect(urls[1]?.pathname).toBe(`/studio/v1/organizations/${ORGANIZATION}/today`)
+    expect(urls[1]?.search).toBe('')
+  })
+
+  test('asks once when the refusal is about anything else', async () => {
+    const urls = answers(() => Response.json({ error: { code: 'forbidden' } }, { status: 403 }))
+
+    await expect(studioApi.today(ORGANIZATION)).rejects.toMatchObject({ status: 403 })
+
+    expect(urls).toHaveLength(1)
+  })
+
+  test('gives up when the second answer is a refusal too', async () => {
+    const refusal = () => Response.json({ error: { code: 'validation-failed' } }, { status: 422 })
+    const urls = answers(refusal, refusal)
+
+    await expect(studioApi.today(ORGANIZATION)).rejects.toMatchObject({ status: 422 })
+
+    expect(urls).toHaveLength(2)
+  })
+})

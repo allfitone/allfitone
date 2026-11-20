@@ -119,11 +119,23 @@ async function settledByHeading(page: Page): Promise<void> {
  *
  * Six cards and not seven: the team is a state, drawn as a flat panel under
  * the board and never as a notice.
+ *
+ * The indicators arrive after the panel, in a download of their own, and a plot
+ * draws only once it knows its width. A sweep that ran before either would audit
+ * a placeholder.
  */
 async function settledByToday(page: Page): Promise<void> {
   await settledByHeading(page)
   await expect(page.getByRole('heading', { name: /Personas sin profesional/ })).toBeVisible()
   await expect(page.locator('[data-today-notice]')).toHaveCount(6)
+  await settledByIndicators(page, 3)
+}
+
+async function settledByIndicators(page: Page, panels: number): Promise<void> {
+  await expect(page.locator('[data-today-indicator]')).toHaveCount(panels)
+  for (const plot of await page.locator('[data-slot="chart-plot"]').all()) {
+    await expect(plot.locator('svg').first()).toBeVisible()
+  }
 }
 
 /** Arranges a screen and waits until it is really on the page. */
@@ -994,6 +1006,7 @@ export const SCREENS: Screen[] = [
       await settledByHeading(page)
       await expect(page.getByRole('heading', { name: /Tus clientes esta semana/ })).toBeVisible()
       await expect(page.locator('[data-today-notice]')).toHaveCount(1)
+      await settledByIndicators(page, 1)
     },
   },
   {
@@ -1010,6 +1023,7 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('Nada espera por ti ahora')).toBeVisible()
+      await settledByIndicators(page, 2)
     },
   },
   {

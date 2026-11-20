@@ -15,6 +15,7 @@ import {
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
@@ -44,6 +45,12 @@ import {
   type TodayNoticeKind,
 } from '@/lib/studio-today'
 
+// Its own download: the charts bring a plotting library nothing else here needs.
+const TodayIndicators = dynamic(() => import('./today-indicators'), {
+  ssr: false,
+  loading: () => <Skeleton data-today-indicators-placeholder />,
+})
+
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' })
 const DAY_FORMATTER = new Intl.DateTimeFormat('es-CO', {
   weekday: 'long',
@@ -61,9 +68,14 @@ const DAY_FORMATTER = new Intl.DateTimeFormat('es-CO', {
  *
  * **Three ranks, in the order the eye takes them.** The scoreboard says how
  * much there is; the board says who and what, one card per notice in order of
- * debt; the team sits under both, because it is a state and nobody has to act
- * on it. Every number on the scoreboard is a count the answer already carried —
- * see `todayFigures`.
+ * debt; how things are sits under both — the indicators and the team — because
+ * those are states and nobody has to act on them. Every number on the
+ * scoreboard is a count the answer already carried — see `todayFigures`.
+ *
+ * **The indicators are optional twice.** The contract leaves `indicators` out
+ * of an answer from a database older than them, and leaves out of it each one
+ * the caller's roles do not open. Either way there is nothing to draw, and the
+ * module that draws them is never fetched.
  *
  * **It reads once, on arrival.** Working the panel out evaluates every client
  * this caller attends and records each one in that person's access log, so a
@@ -83,6 +95,7 @@ export function OrganizationWorkspace() {
   const kinds = noticesInReadingOrder(today.notices)
   const cards = kinds.filter((kind) => kind !== 'team')
   const team = today.notices.team
+  const indicators = today.indicators
 
   return (
     <div data-today-panel="board">
@@ -99,6 +112,10 @@ export function OrganizationWorkspace() {
             />
           ))}
         </div>
+      ) : null}
+
+      {indicators && Object.keys(indicators).length > 0 ? (
+        <TodayIndicators indicators={indicators} organizationId={organizationId} />
       ) : null}
 
       {team ? <TeamState notice={team} organizationId={organizationId} /> : null}
