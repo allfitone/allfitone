@@ -2826,13 +2826,16 @@
   color: var(--afo-color-text-primary);
 }
 
-/* The Design System fills its default button with the accent gradient. The
-   landing keeps it a flat cyan, as the Space landing's buttons are. The
-   landing marks its own actions with data-studio-action, since composition CSS
-   may not select the Design System's data-slot. */
+/* The Design System fills its default button with the accent gradient, and on
+   the light theme with turquoise ink under white text. The landing keeps it a
+   flat cyan, as the Space landing's buttons are, so it also names the ink that
+   reads on cyan: the fill alone left white text on it. The landing marks its
+   own actions with data-studio-action, since composition CSS may not select
+   the Design System's data-slot. */
 :is([data-studio-site], :root:has([data-studio-site]) [data-analytics-controls])
   [data-studio-action][data-variant='default'] {
   background: var(--afo-color-action-primary);
+  color: var(--afo-color-action-on-primary);
 }
 
 :is([data-studio-site], :root:has([data-studio-site]) [data-analytics-controls])
@@ -4107,4 +4110,25 @@
     grid-template-columns: 1fr;
     gap: var(--afo-space-1);
   }
+}
+
+/* The theme at the foot of the menu: its name on the left, the two answers on
+   the right, and a line under them only when a change was not saved. */
+[data-theme-switch] {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--afo-space-1);
+}
+
+[data-theme-switch-row] {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-2);
+}
+
+[data-theme-switch-status] {
+  padding-inline: var(--afo-space-2);
 }

@@ -81,7 +81,8 @@ test('a gym is told its type is settled, instead of being offered a choice', asy
   await installStudioApiMock(page, fixture)
   await page.goto(editPath)
 
-  await expect(page.getByText('Gimnasio')).toBeVisible()
+  // The menu's badge says «Gimnasio» too: unscoped, this held only while one of the two was up.
+  await expect(page.locator('[data-organization-type-fixed]').getByText('Gimnasio')).toBeVisible()
   await expect(page.getByText('El tipo ya no se puede cambiar desde aquí')).toBeVisible()
   await expect(page.getByRole('combobox')).toHaveCount(0)
 })

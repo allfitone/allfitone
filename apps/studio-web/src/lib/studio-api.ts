@@ -15,6 +15,8 @@ export type OrganizationCreate = AllfitV1Schemas['OrganizationCreate']
 export type OrganizationCreated = AllfitV1Schemas['OrganizationCreated']
 export type Completion = AllfitV1Schemas['StudioOnboardingCompletion']
 export type StudioMe = AllfitV1Schemas['StudioMe']
+export type StudioPreferences = AllfitV1Schemas['StudioPreferences']
+export type StudioPreferencesPut = AllfitV1Schemas['StudioPreferencesPut']
 export type ProfessionalCatalogItem = AllfitV1Schemas['ProfessionalCatalogItem']
 export type ProfessionalProfile = AllfitV1Schemas['ProfessionalProfile']
 export type ProfessionalProfilePut = AllfitV1Schemas['ProfessionalProfilePut']
@@ -304,6 +306,17 @@ export const studioApi = {
     ),
 
   me: (signal?: AbortSignal) => request<StudioMe>('/studio/v1/me', signal ? { signal } : {}),
+
+  preferences: (signal?: AbortSignal) =>
+    request<StudioPreferences>('/studio/v1/me/preferences', signal ? { signal } : {}),
+
+  updatePreferences: (body: StudioPreferencesPut, command: CommandHeaders, signal?: AbortSignal) =>
+    request<StudioPreferences>('/studio/v1/me/preferences', {
+      method: 'PUT',
+      headers: commandHeaders(command),
+      body: JSON.stringify(body),
+      ...(signal ? { signal } : {}),
+    }),
 
   professionalSpecialties: (signal?: AbortSignal) =>
     request<AllfitV1Schemas['ProfessionalSpecialtyList']>(

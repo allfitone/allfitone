@@ -3,6 +3,7 @@ import { buttonVariants } from '@allfitone/react/components/button'
 import type { Metadata } from 'next'
 
 import { StudioFrame } from '@/components/studio-frame'
+import { STUDIO_DEFAULT_THEME, studioThemeScript } from '@/lib/theme'
 
 import { studioFontVariables, studioIcons } from './document'
 
@@ -33,8 +34,14 @@ export const metadata: Metadata = {
 
 export default function GlobalNotFound() {
   return (
-    <html lang="es" data-afo-theme="light" className={studioFontVariables}>
+    <html
+      lang="es"
+      data-afo-theme={STUDIO_DEFAULT_THEME}
+      className={studioFontVariables}
+      suppressHydrationWarning
+    >
       <body>
+        <script dangerouslySetInnerHTML={{ __html: studioThemeScript() }} />
         <StudioFrame showLogout={false}>
           <div data-studio-error-stage>
             <Alert variant="warning">

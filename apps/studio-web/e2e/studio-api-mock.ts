@@ -325,6 +325,13 @@ export interface StudioApiFixture {
   organizationRoles: unknown[]
   organizationTypes: unknown[]
   me: { profile: Record<string, unknown> | null; memberships: unknown[] }
+  /**
+   * What `OP-IDN-068` answers and `OP-IDN-069` replaces. `theme: null` is a
+   * person who never chose, which is everybody until a case says otherwise.
+   */
+  preferences: { theme: 'dark' | 'light' | null }
+  /** `failed` is the `503` a theme change gets while the service is away. */
+  preferencesOutcome: 'saved' | 'failed'
   specialties: Array<{ code: string; name: string; description: string | null }>
   credentialTypes: Array<{ code: string; name: string; description: string | null }>
   signedOut: boolean
@@ -3664,6 +3671,8 @@ export function createStudioApiFixture(
       { code: 'studio', name: 'Estudio', description: null },
     ],
     me: { profile: null, memberships: [] },
+    preferences: { theme: null },
+    preferencesOutcome: 'saved',
     specialties: [
       { code: 'personal_training', name: 'Entrenamiento personal', description: null },
       {
@@ -6541,6 +6550,21 @@ function defaultResponse(
   }
   if (request.method === 'GET' && request.path === '/studio/v1/me') {
     return { status: 200, body: fixture.me }
+  }
+  if (request.method === 'GET' && request.path === '/studio/v1/me/preferences') {
+    if (fixture.signedOut) return { status: 401, body: error('unauthenticated') }
+    return { status: 200, body: fixture.preferences }
+  }
+  if (request.method === 'PUT' && request.path === '/studio/v1/me/preferences') {
+    if (fixture.preferencesOutcome === 'failed') {
+      return { status: 503, body: error('upstream-unavailable') }
+    }
+    const theme = objectValue(request.body).theme
+    if (theme !== 'dark' && theme !== 'light') {
+      return { status: 422, body: error('validation-failed') }
+    }
+    fixture.preferences = { theme }
+    return { status: 200, body: fixture.preferences }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/professional-specialties') {
     return {

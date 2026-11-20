@@ -16,17 +16,29 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
-import { DESKTOP, MOBILE, SCREENS, openScreen } from './screens'
+import { DESKTOP, MOBILE, SCREENS, openScreen, type ScreenTheme, type Viewport } from './screens'
 import { createStudioApiFixture, installStudioApiMock } from './studio-api-mock'
 
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'] as const
 const BLOCKING_IMPACTS = new Set(['serious', 'critical'])
 
-for (const viewport of [DESKTOP, MOBILE]) {
-  test.describe(`accessibility · ${viewport.name}`, () => {
+/**
+ * Studio opens dark, so dark is what both widths audit. Light is a choice a
+ * person makes in the menu, and it is audited at one width: a theme changes
+ * colour and nothing else, and a width does not change a colour. The landing
+ * has one look, so in that pass it is the same page audited again.
+ */
+const PASSES: { name: string; viewport: Viewport; theme?: ScreenTheme }[] = [
+  { name: DESKTOP.name, viewport: DESKTOP },
+  { name: MOBILE.name, viewport: MOBILE },
+  { name: `${DESKTOP.name} · light theme`, viewport: DESKTOP, theme: 'light' },
+]
+
+for (const { name, viewport, theme } of PASSES) {
+  test.describe(`accessibility · ${name}`, () => {
     for (const screen of SCREENS) {
       test(`${screen.stories}`, async ({ page }) => {
-        await openScreen(page, screen, viewport)
+        await openScreen(page, screen, viewport, theme)
 
         const results = await new AxeBuilder({ page }).withTags([...WCAG_TAGS]).analyze()
 
@@ -38,7 +50,7 @@ for (const viewport of [DESKTOP, MOBILE]) {
         const blocking = results.violations.filter(({ impact }) =>
           BLOCKING_IMPACTS.has(impact ?? ''),
         )
-        expect(blocking, `${screen.stories} @ ${viewport.name}`).toEqual([])
+        expect(blocking, `${screen.stories} @ ${name}`).toEqual([])
       })
     }
   })

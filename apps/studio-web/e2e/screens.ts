@@ -138,15 +138,36 @@ async function settledByIndicators(page: Page, panels: number): Promise<void> {
   }
 }
 
-/** Arranges a screen and waits until it is really on the page. */
-export async function openScreen(page: Page, screen: Screen, viewport: Viewport): Promise<void> {
+/** The theme a screen is swept in. Left out, it is what a new account gets: dark. */
+export type ScreenTheme = 'dark' | 'light'
+
+const THEME_STORAGE_KEY = 'allfit-studio-theme:v1'
+
+/**
+ * Arranges a screen and waits until it is really on the page.
+ *
+ * A theme is said twice, as it is for a person who chose it: by her account,
+ * and by the browser that remembers the account's last answer. Only the
+ * workspace menu asks the account, so a screen without it shows what the
+ * browser kept.
+ */
+export async function openScreen(
+  page: Page,
+  screen: Screen,
+  viewport: Viewport,
+  theme?: ScreenTheme,
+): Promise<void> {
   await page.setViewportSize(screen.viewport ?? { width: viewport.width, height: viewport.height })
   await screen.setup?.(page)
-  await installStudioApiMock(
-    page,
-    screen.fixture(),
-    screen.consent ? { consent: screen.consent } : {},
-  )
+  const fixture = screen.fixture()
+  if (theme) {
+    fixture.preferences = { theme }
+    await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), {
+      key: THEME_STORAGE_KEY,
+      value: theme,
+    })
+  }
+  await installStudioApiMock(page, fixture, screen.consent ? { consent: screen.consent } : {})
   await page.goto(screen.path)
   await (screen.settled ?? settledByHeading)(page)
   await screen.reveal?.(page)

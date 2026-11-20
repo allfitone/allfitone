@@ -5,6 +5,7 @@ import { Button } from '@allfitone/react/components/button'
 import { useEffect } from 'react'
 
 import { StudioFrame } from '@/components/studio-frame'
+import { useShownStudioTheme } from '@/lib/use-studio-theme'
 
 import { studioFontVariables } from './document'
 
@@ -32,12 +33,15 @@ import './studio.composition.css'
  * failed. A full reload is the honest recovery, so that is the only action.
  */
 export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
+  // The document it replaces already carries the person's theme; it keeps it.
+  const theme = useShownStudioTheme()
+
   useEffect(() => {
     console.error(error)
   }, [error])
 
   return (
-    <html lang="es" data-afo-theme="light" className={studioFontVariables}>
+    <html lang="es" data-afo-theme={theme} className={studioFontVariables} suppressHydrationWarning>
       <body>
         <StudioFrame showLogout={false}>
           <div data-studio-error-stage>
