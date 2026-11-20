@@ -246,7 +246,7 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                   isActive={contentActive}
                   aria-current={contentActive ? 'page' : undefined}
                 >
-                  <FoundationIcon name="training" decorative />
+                  <FoundationIcon name="library" decorative />
                   <span>Biblioteca</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
