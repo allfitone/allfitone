@@ -16,6 +16,7 @@ import { CoverTile } from '@allfitone/react-native/cover-tile'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { withAlpha } from '@allfitone/react-native/tokens'
@@ -266,17 +267,9 @@ export default function BodyPhotoScreen() {
                 onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
               />
             </View>
-            <View style={styles.private}>
-              <FoundationIcon
-                name="locked"
-                size="xs"
-                color={theme.color.icon.secondary}
-                decorative
-              />
-              <Text role="body" size="2xs" color="muted">
-                Solo tú la ves
-              </Text>
-            </View>
+            <Note icon="locked" align="center" style={styles.private}>
+              Solo tú la ves
+            </Note>
           </>
         )}
       </View>
@@ -306,6 +299,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   shutterCore: { width: 60, height: 60, borderRadius: 30 },
-  private: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  private: { alignSelf: 'center' },
   grow: { flex: 1 },
 })

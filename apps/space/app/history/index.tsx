@@ -19,12 +19,13 @@
  * page at a time and the next page is asked for as the end comes into view.
  */
 
+import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { Chip } from '@allfitone/react-native/chip'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { OfferRow } from '@allfitone/react-native/offer-row'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -303,27 +304,14 @@ export default function HistoryScreen() {
           loadingMore ? (
             <ActivityIndicator color={theme.color.icon.accent} style={styles.loading} />
           ) : !cursor && keptBefore ? (
-            <Pressable
-              accessibilityRole="button"
+            <OfferRow
+              tone="tonal"
+              icon="locked"
+              label={`Lo anterior al ${shortDate(`${keptBefore}T12:00:00`)} sigue guardado`}
+              caption="Con Pro lo vuelves a ver, desde tu primer entreno."
               onPress={() => upgrade.offer('training_history_months')}
-              style={[
-                styles.kept,
-                {
-                  borderColor: theme.color.accent.tonalBorder,
-                  backgroundColor: theme.color.accent.tonal,
-                },
-              ]}
-            >
-              <FoundationIcon name="locked" size="md" color={theme.color.icon.accent} decorative />
-              <View style={styles.keptCopy}>
-                <Text role="control" size="sm">
-                  {`Lo anterior al ${shortDate(`${keptBefore}T12:00:00`)} sigue guardado`}
-                </Text>
-                <Text role="body" size="xs" color="secondary">
-                  Con Pro lo vuelves a ver, desde tu primer entreno.
-                </Text>
-              </View>
-            </Pressable>
+              style={styles.kept}
+            />
           ) : null
         }
       />
@@ -351,33 +339,16 @@ export default function HistoryScreen() {
             {grid.months.map((choice) => {
               const selected = choice.month === month
               return (
-                <Pressable
+                <Chip
                   key={choice.month}
-                  accessibilityRole="button"
+                  label={choice.label}
+                  variant="bare"
+                  selected={selected}
                   accessibilityLabel={`${monthName(choice.month)} ${String(pickerYear)}`}
-                  accessibilityState={{ selected, disabled: !choice.available }}
                   disabled={!choice.available}
                   onPress={() => pickMonth(choice.month)}
-                  style={[
-                    styles.monthCell,
-                    {
-                      backgroundColor: selected
-                        ? theme.color.icon.accent
-                        : choice.available
-                          ? theme.color.background.surfaceMuted
-                          : 'transparent',
-                      borderColor: choice.current ? theme.color.text.secondary : 'transparent',
-                    },
-                  ]}
-                >
-                  <Text
-                    role="control"
-                    size="sm"
-                    color={selected ? 'inverse' : choice.available ? 'primary' : 'disabled'}
-                  >
-                    {choice.label}
-                  </Text>
-                </Pressable>
+                  style={styles.monthCell}
+                />
               )
             })}
           </View>
@@ -431,15 +402,13 @@ function MonthCard({
               {chosen ? dayLabel(chosen.trained_on) : monthName(summary.month)}
             </Text>
             {chosen ? (
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                label="Ver todo el mes"
+                icon="close"
+                variant="ghost"
+                size="sm"
                 onPress={() => onPick(chosen.trained_on)}
-                hitSlop={10}
-              >
-                <Text role="control" size="xs" color="accent">
-                  ✕ Ver todo el mes
-                </Text>
-              </Pressable>
+              />
             ) : null}
           </View>
           <View style={styles.countLine}>
@@ -564,16 +533,7 @@ function MonthCard({
 }
 
 const styles = StyleSheet.create({
-  kept: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 16,
-    marginTop: 12,
-  },
-  keptCopy: { flex: 1, gap: 2 },
+  kept: { marginTop: 12 },
   header: { gap: 14, paddingTop: 8, paddingBottom: 14, paddingHorizontal: 20 },
   content: { paddingHorizontal: 20, paddingBottom: 32, gap: 14 },
   listHead: { gap: 14 },
@@ -591,14 +551,7 @@ const styles = StyleSheet.create({
   picker: { gap: 14, paddingBottom: 8 },
   yearBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  monthCell: {
-    width: '31.5%',
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  monthCell: { width: '31.5%' },
   calendar: { gap: 5 },
   calendarRow: { flexDirection: 'row', gap: 5 },
   cell: { flex: 1 },

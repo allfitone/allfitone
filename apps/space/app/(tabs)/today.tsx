@@ -28,7 +28,6 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { GlassPanel } from '@allfitone/react-native/glass'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
@@ -420,18 +419,15 @@ export default function Today() {
                 Elige tu programa
               </Text>
               {expanded || offered.hidden > 0 ? (
-                <Pressable
-                  accessibilityRole="button"
+                <Button
+                  label={expanded ? 'Ver menos' : 'Ver todos'}
+                  variant="ghost"
+                  size="sm"
                   accessibilityLabel={
                     expanded ? 'Ver solo los sugeridos' : 'Ver todos los programas de Allfit'
                   }
-                  hitSlop={8}
                   onPress={() => setExpanded(!expanded)}
-                >
-                  <Text role="control" size="sm" color="accent">
-                    {expanded ? 'Ver menos' : 'Ver todos'}
-                  </Text>
-                </Pressable>
+                />
               ) : null}
             </View>
             <Text role="body" size="sm" color="secondary">
@@ -506,15 +502,13 @@ export default function Today() {
                 Historial
               </Text>
               {recent.length > 0 ? (
-                <Pressable
-                  accessibilityRole="button"
+                <Button
+                  label="Ver todo"
+                  variant="ghost"
+                  size="sm"
                   accessibilityLabel="Ver todo el historial"
                   onPress={() => router.push('/history')}
-                >
-                  <Text role="control" size="xs" color="accent">
-                    Ver todo
-                  </Text>
-                </Pressable>
+                />
               ) : null}
             </View>
             {recent.length > 0 ? (
@@ -942,19 +936,9 @@ function Figure({
   )
 }
 
-/** Glass, not a solid chip: it sits on a photograph, where a solid one reads as a sticker. */
+/** The notices, on the design system's round icon button. */
 function Bell({ onPress }: { readonly onPress: () => void }) {
-  const theme = useTheme()
-
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel="Tus avisos" onPress={onPress}>
-      {/* The chip material, not the chrome one: this sits on a photograph, and at
-          the dock's opacity it would read as a sticker stuck over it. */}
-      <GlassPanel material="chip" style={styles.bell}>
-        <FoundationIcon name="notification" size="sm" color={theme.color.icon.primary} decorative />
-      </GlassPanel>
-    </Pressable>
-  )
+  return <IconButton icon="notification" accessibilityLabel="Tus avisos" onPress={onPress} />
 }
 
 const styles = StyleSheet.create({
@@ -989,7 +973,6 @@ const styles = StyleSheet.create({
   decisions: { gap: 12 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   greeting: { flex: 1, gap: 4 },
-  bell: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
   heading: { gap: 8 },
   invitation: { marginTop: 16 },
   // The photograph carries the space above it, so the session sits well down the frame.

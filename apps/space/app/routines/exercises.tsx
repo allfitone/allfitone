@@ -48,6 +48,7 @@
  * on screen, but the way to narrow them is always to hand.
  */
 
+import { Button } from '@allfitone/react-native/button'
 import { DisclosureButton } from '@allfitone/react-native/disclosure-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
@@ -276,16 +277,13 @@ export default function ExercisePicker() {
             ))}
             {/* Only past one: beside a single pill it would say the same thing twice. */}
             {pills.length > 1 ? (
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                label="Quitar todos"
+                variant="ghost"
+                size="sm"
                 accessibilityLabel="Quitar todos los filtros"
                 onPress={() => change({ muscles: [], equipment: [] })}
-                style={styles.clear}
-              >
-                <Text role="control" size="sm" color="secondary" style={styles.clearText}>
-                  Quitar todos
-                </Text>
-              </Pressable>
+              />
             ) : null}
           </View>
         ) : null}
@@ -412,8 +410,6 @@ const styles = StyleSheet.create({
   },
   // A height on the text alone leaves its ink at the top of the box, which is why
   // it sat above the pills it belongs beside.
-  clear: { minHeight: 36, paddingHorizontal: 4, justifyContent: 'center' },
-  clearText: { textDecorationLine: 'underline' },
   preview: { width: '100%', height: '100%' },
   head: { gap: 14, paddingBottom: 14 },
   foot: { gap: 14, paddingTop: 24, alignItems: 'center' },

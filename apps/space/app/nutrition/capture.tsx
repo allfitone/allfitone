@@ -571,7 +571,7 @@ export default function CaptureScreen() {
                     role="control"
                     size="md"
                     style={{
-                      color: active ? theme.color.status.warning : theme.color.text.secondary,
+                      color: active ? theme.color.text.accent : theme.color.text.secondary,
                     }}
                   >
                     {key === 'photo' && !photoOpen ? `${label} · Pro` : label}
@@ -579,7 +579,7 @@ export default function CaptureScreen() {
                   <View
                     style={[
                       styles.tabDot,
-                      { backgroundColor: active ? theme.color.status.warning : 'transparent' },
+                      { backgroundColor: active ? theme.color.icon.accent : 'transparent' },
                     ]}
                   />
                 </Pressable>

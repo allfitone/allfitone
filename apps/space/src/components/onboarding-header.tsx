@@ -30,11 +30,11 @@
  * does.
  */
 
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { IconButton } from '@allfitone/react-native/icon-button'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useEffect } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -59,19 +59,15 @@ export interface OnboardingHeaderProps {
  * Exported rather than copied: two arrows would drift in size and hit area.
  */
 export function OnboardingBack({ to }: { readonly to: OnboardingStepRoute }) {
-  const theme = useTheme()
   const router = useRouter()
 
   return (
-    <Pressable
-      onPress={() => router.replace(to)}
-      accessibilityRole="button"
+    <IconButton
+      icon="back"
+      variant="plain"
       accessibilityLabel="Volver al paso anterior"
-      hitSlop={12}
-      style={styles.back}
-    >
-      <FoundationIcon name="back" size="lg" color={theme.color.icon.primary} decorative />
-    </Pressable>
+      onPress={() => router.replace(to)}
+    />
   )
 }
 
@@ -141,7 +137,6 @@ export function OnboardingHeader({ step }: OnboardingHeaderProps) {
 const styles = StyleSheet.create({
   header: { gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 44 },
-  back: { width: 28, height: 44, alignItems: 'flex-start', justifyContent: 'center' },
   bar: { flex: 1, flexDirection: 'row', gap: 6 },
   segment: { flex: 1, height: 3, borderRadius: 999, overflow: 'hidden' },
   fill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 999 },

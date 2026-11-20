@@ -15,15 +15,12 @@
 
 import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
-import { Scrim } from '@allfitone/react-native/gradient'
+import { Scrim, Veil } from '@allfitone/react-native/gradient'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
-import { transparent, withAlpha } from '@allfitone/react-native/tokens'
-import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
 import { Image, Linking, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native'
@@ -76,13 +73,13 @@ export function ProPlans({
   readonly offerFor: (productId: string) => Promise<StoreOffer | undefined>
 }) {
   const router = useRouter()
-  const theme = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const [status, setStatus] = useState<ProStatus | undefined>(undefined)
   const [catalogue, setCatalogue] = useState<ProPlanCatalogue | undefined>(undefined)
   const [offer, setOffer] = useState<StoreOffer | undefined>(undefined)
   const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [footer, setFooter] = useState(0)
   const purchase = useProPurchase(flow, () => router.replace('/pro'))
 
   useFocusEffect(
@@ -114,7 +111,6 @@ export function ProPlans({
   const paying = status ? subscriptionOf(status) : undefined
   const [gym] = status && status.effective_source === 'organization' ? gymsOf(status) : []
   const canBuy = Boolean(offer && status && !paying && !gym)
-  const canvas = theme.color.background.canvas
   const label = paying
     ? 'Ya eres Pro · Gestionar'
     : gym
@@ -187,52 +183,18 @@ export function ProPlans({
         <View style={[styles.padded, styles.sections]}>
           {catalogue ? <ComparisonTable rows={rows} selected="pro" /> : null}
 
-          <View
-            style={[
-              styles.free,
-              {
-                borderColor: withAlpha(theme.color.status.success, 0.25),
-                backgroundColor: withAlpha(theme.color.status.success, 0.07),
-              },
-            ]}
-          >
-            <FoundationIcon
-              name="permissions"
-              size="md"
-              color={theme.color.status.success}
-              decorative
-            />
-            <View style={styles.grow}>
-              <Text role="control" size="sm" color="success">
-                Tus datos nunca se cobran
-              </Text>
-              <Text role="body" size="sm" color="secondary">
-                Decidir qué compartes, verlo, descargarlo y borrarlo es gratis en los dos planes. Si
-                bajas a Gratis no pierdes nada: solo dejas de verlo.
-              </Text>
-            </View>
-          </View>
+          <InlineAlert
+            tone="success"
+            icon="permissions"
+            iconSize="md"
+            title="Tus datos nunca se cobran"
+            message="Decidir qué compartes, verlo, descargarlo y borrarlo es gratis en los dos planes. Si bajas a Gratis no pierdes nada: solo dejas de verlo."
+          />
 
           {gym ? null : (
-            <View
-              style={[
-                styles.gym,
-                {
-                  borderColor: theme.color.border.subtle,
-                  backgroundColor: theme.color.background.surface,
-                },
-              ]}
-            >
-              <FoundationIcon
-                name="organization"
-                size="md"
-                color={theme.color.icon.accent}
-                decorative
-              />
-              <Text role="body" size="sm" color="secondary" style={styles.grow}>
-                ¿Tu gimnasio usa Allfit? Pro te sale incluido mientras sigas con ellos.
-              </Text>
-            </View>
+            <Note size="md" icon="organization" boxed>
+              ¿Tu gimnasio usa Allfit? Pro te sale incluido mientras sigas con ellos.
+            </Note>
           )}
         </View>
       </ScrollView>
@@ -244,12 +206,11 @@ export function ProPlans({
         style={[styles.close, { top: insets.top + 6 }]}
       />
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <LinearGradient
-          colors={[transparent(canvas), canvas]}
-          locations={[0, 0.22]}
-          style={StyleSheet.absoluteFill}
-        />
+      <View
+        onLayout={(event) => setFooter(event.nativeEvent.layout.height)}
+        style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}
+      >
+        <Veil edge="bottom" extent={footer} hold={0.78} background="canvas" />
         <Button
           label={label}
           loading={purchase.busy}
@@ -299,22 +260,6 @@ const styles = StyleSheet.create({
   seal: { alignSelf: 'flex-start' },
   padded: { paddingHorizontal: 24, marginBottom: 20 },
   sections: { gap: 22, marginTop: 30, marginBottom: 0 },
-  free: {
-    flexDirection: 'row',
-    gap: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-  },
-  gym: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-  },
-  grow: { flex: 1, gap: 4 },
   close: { position: 'absolute', left: 24 },
   footer: {
     position: 'absolute',

@@ -4,13 +4,12 @@
  */
 
 import type { IconName } from '@allfitone/icons'
-import { ContentGroup } from '@allfitone/react-native/content-row'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 
 import { invitationExpiry, type PendingInvitation } from '../client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../client/gym-affiliation-transport'
@@ -102,7 +101,6 @@ export function WaitingGym() {
  * A link opened before signing in is picked up here, once she is in.
  */
 export function PendingInvitationCard({ style }: { readonly style?: StyleProp<ViewStyle> }) {
-  const theme = useTheme()
   const router = useRouter()
   const [pending, setPending] = useState<PendingInvitation | undefined>(undefined)
 
@@ -127,35 +125,17 @@ export function PendingInvitationCard({ style }: { readonly style?: StyleProp<Vi
 
   if (!pending) return null
   return (
-    <Pressable
-      accessibilityRole="button"
+    <ContentRow
+      preview={<GymMark name={pending.organization_name} size={40} />}
+      name={`${pending.organization_name} te invitó`}
+      caption={`Ver y decidir · ${invitationExpiry(pending.expires_at)}`}
       onPress={() => router.push({ pathname: '/invitation', params: { id: pending.id } })}
-      style={({ pressed }) => [
-        styles.card,
-        styles.invitation,
-        { backgroundColor: theme.color.background.surface, borderColor: theme.color.border.accent },
-        pressed && styles.pressed,
-        style,
-      ]}
-    >
-      <GymMark name={pending.organization_name} size={40} />
-      <View style={styles.grow}>
-        <Text role="control" size="sm">
-          {pending.organization_name} te invitó
-        </Text>
-        <Text role="body" size="xs" color="muted">
-          Ver y decidir · {invitationExpiry(pending.expires_at)}
-        </Text>
-      </View>
-      <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-    </Pressable>
+      {...(style ? { style } : {})}
+    />
   )
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 2 },
-  invitation: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
-  pressed: { opacity: 0.6 },
   waiting: {
     alignSelf: 'center',
     flexDirection: 'row',
@@ -169,13 +149,4 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   mark: { alignItems: 'center', justifyContent: 'center' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  glyph: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grow: { flex: 1, gap: 2 },
 })

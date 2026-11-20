@@ -8,10 +8,10 @@
  * chip and the muscle are the same control is in `app/onboarding/focus.tsx`.
  */
 
+import { Chip } from '@allfitone/react-native/chip'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useCallback, useMemo } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 import {
   bodyGender,
@@ -42,7 +42,6 @@ export function FocusPicker({
   readonly scale: number
   readonly pressable: boolean
 }) {
-  const theme = useTheme()
   const gender = bodyGender(declaredSex)
   const hint = focusHint(selection)
 
@@ -112,62 +111,26 @@ export function FocusPicker({
         {FOCUS_ZONES.map((entry) => {
           const on = selection.zones.includes(entry.zone)
           return (
-            <Pressable
+            <Chip
               key={entry.zone}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: on, disabled: !pressable }}
-              accessibilityLabel={entry.name}
+              label={entry.name}
+              selected={on}
               disabled={!pressable}
               onPress={() => choose(entry.zone)}
-              hitSlop={8}
-              style={[
-                styles.chip,
-                {
-                  borderColor: on ? theme.color.border.accent : theme.color.border.subtle,
-                  backgroundColor: on
-                    ? theme.color.accent.tonal
-                    : theme.color.background.surfaceSubtle,
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor: on ? theme.color.border.accent : theme.color.border.default,
-                  },
-                ]}
-              />
-              <Text role="body" size="sm" color={on ? 'accent' : 'secondary'}>
-                {entry.name}
-              </Text>
-            </Pressable>
+            />
           )
         })}
       </View>
 
       {/* Set apart from the zones on purpose: it is an answer of another kind,
           not the eighth zone of the body. */}
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: selection.whole, disabled: !pressable }}
-        accessibilityLabel="Todo el cuerpo"
+      <Chip
+        label="Todo el cuerpo"
+        selected={selection.whole}
         disabled={!pressable}
         onPress={() => choose(WHOLE_BODY)}
-        style={[
-          styles.whole,
-          {
-            borderColor: selection.whole ? theme.color.border.accent : theme.color.border.default,
-            backgroundColor: selection.whole
-              ? theme.color.accent.tonal
-              : theme.color.background.surfaceSubtle,
-          },
-        ]}
-      >
-        <Text role="body" size="sm" color={selection.whole ? 'accent' : 'secondary'}>
-          Todo el cuerpo
-        </Text>
-      </Pressable>
+        style={styles.whole}
+      />
 
       {hint ? (
         <Text role="body" size="xs" color="muted" style={styles.hint}>
@@ -184,24 +147,6 @@ const styles = StyleSheet.create({
   face: { alignItems: 'center' },
   faceName: { marginTop: 3, letterSpacing: 1.6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderWidth: 1.5,
-    borderRadius: 999,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  whole: {
-    alignSelf: 'flex-start',
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderWidth: 1.5,
-    borderRadius: 999,
-    marginTop: 8,
-  },
+  whole: { alignSelf: 'flex-start', marginTop: 8 },
   hint: { marginTop: 11 },
 })

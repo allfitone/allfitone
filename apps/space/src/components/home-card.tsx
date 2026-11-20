@@ -38,9 +38,10 @@
 
 import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
+import { CoverTile } from '@allfitone/react-native/cover-tile'
 import { Scrim, SignalBlock } from '@allfitone/react-native/gradient'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { markOf } from '@allfitone/react-native/monogram'
+import { Monogram } from '@allfitone/react-native/monogram'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { Image } from 'expo-image'
@@ -97,22 +98,14 @@ const PAD = 16
 /**
  * Hasta dónde llega el filete, que es lo que deja la columna del arte libre.
  *
- * Dos medidas y no una: el azulejo del icono ocupa 54 y empieza tarde, pero la figura
+ * Dos medidas y no una: el azulejo del icono ocupa 56 y empieza tarde, pero la figura
  * ocupa 112 y abre los brazos hasta el borde de su ventana, así que el filete del
  * diseño le pasaba por encima.
  */
 const RULE = 214
 const RULE_BESIDE_FIGURE = 178
-const TILE = 54
-
-/**
- * Y el grande, para cuando la tarjeta no tiene cifras que poner debajo.
- *
- * Sin el bloque de la última vez —que hoy no responde nadie— un azulejo de 54 arriba a la
- * derecha dejaba media tarjeta vacía. El icono es de lo que la tarjeta va cuando no hay
- * nada más que decir, así que ocupa ese sitio en vez de dejar el hueco.
- */
-const TILE_ALONE = 104
+/** The design system's small cover tile. */
+const TILE = 56
 
 /**
  * El ancho de una columna de cifras cuando la figura ocupa el costado.
@@ -488,14 +481,7 @@ function Figured({
       </View>
 
       <View style={strip ? styles.art : styles.artAlone}>
-        <Art
-          cover={cover}
-          coverUrl={coverUrl}
-          worked={worked}
-          library={library}
-          name={name}
-          alone={!strip}
-        />
+        <Art cover={cover} coverUrl={coverUrl} worked={worked} library={library} name={name} />
       </View>
 
       <View style={styles.actions}>
@@ -683,7 +669,6 @@ function Figure({
   /** Fijo sólo cuando la figura ocupa el costado; si no, la columna la mide su palabra. */
   readonly width?: number | undefined
 }) {
-  const theme = useTheme()
   return (
     // Ancho fijo: los números bailarían si cada columna midiese su propia palabra.
     <View style={width === undefined ? undefined : { width }}>
@@ -694,13 +679,7 @@ function Figure({
         <Text role="display" size="3xl" style={styles.numeral}>
           {value}
         </Text>
-        {delta === undefined ? null : (
-          <View style={[styles.delta, { backgroundColor: theme.color.accent.tonal }]}>
-            <Text role="eyebrow" size="2xs" color="accent">
-              {delta}
-            </Text>
-          </View>
-        )}
+        {delta === undefined ? null : <Badge label={delta} tone="accent" variant="tonal" />}
       </View>
       <Text role="eyebrow" size="2xs" color="muted" numberOfLines={1} style={styles.unit}>
         {unit.toUpperCase()}
@@ -762,42 +741,26 @@ function Art({
   worked,
   library,
   name,
-  alone,
 }: {
   readonly cover: RoutineCover | undefined
   readonly coverUrl: string | number | null | undefined
   readonly worked: readonly string[]
   readonly library: ExerciseLibrary | undefined
   readonly name: string
-  readonly alone: boolean
 }) {
-  const theme = useTheme()
-
   if (cover?.kind === 'muscles') {
     return <Torso worked={worked} library={library} />
   }
 
-  const side = alone ? TILE_ALONE : TILE
-  const art = { cover, worked, muscles: library?.muscles ?? [], side, coverUrl }
+  const art = { cover, worked, muscles: library?.muscles ?? [], side: TILE, coverUrl }
 
   return (
-    <View
-      style={[
-        styles.tile,
-        { width: side, height: side, backgroundColor: theme.color.accent.tonal },
-      ]}
-    >
+    <CoverTile size="sm">
       {/* La letra también cuando la fotografía todavía no ha llegado: un azulejo vacío
           bajo la pestaña «Foto» parece un control que no hizo nada. Se pregunta antes de
           construir el elemento, porque uno que no pinta nada sigue siendo un elemento. */}
-      {drawsSomething(cover, coverUrl) ? (
-        coverArt(art)
-      ) : (
-        <Text role="control" size="lg" color="accent">
-          {markOf(name)}
-        </Text>
-      )}
-    </View>
+      {drawsSomething(cover, coverUrl) ? coverArt(art) : <Monogram name={name} />}
+    </CoverTile>
   )
 }
 
@@ -892,7 +855,6 @@ const styles = StyleSheet.create({
   // rótulo queda pegado al número y los dos se leen como una sola mancha.
   unit: { marginTop: 3 },
   numeral: { letterSpacing: 0 },
-  delta: { borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
 
   art: { position: 'absolute', top: 16, right: 12, alignItems: 'flex-end' },
   // Sin cifras debajo, el icono se queda con la banda que dejan el nombre y los botones.
@@ -900,13 +862,6 @@ const styles = StyleSheet.create({
   // arriba, ciento ochenta y ocho de abajo. Con ciento cuatro se metía debajo de
   // «Empezar», que es la única cosa de la tarjeta que no puede taparse.
   artAlone: { position: 'absolute', top: 108, right: 16, alignItems: 'flex-end' },
-  tile: {
-    width: TILE,
-    height: TILE,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   window: { width: WINDOW.width, height: WINDOW.height, overflow: 'hidden' },
   figureBox: { position: 'absolute', width: FIGURE_WIDTH, height: FIGURE_HEIGHT },
 

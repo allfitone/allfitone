@@ -15,6 +15,7 @@
 import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
+import { Note } from '@allfitone/react-native/note'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -281,12 +282,9 @@ export function DayRoutinesBody({
         )}
 
         {hasDrafts ? (
-          <View style={styles.footnote}>
-            <FoundationIcon name="locked" size="sm" color={theme.color.icon.secondary} decorative />
-            <Text role="body" size="sm" color="muted" style={styles.footnoteText}>
-              Tienes rutinas en borrador. Publícalas para poder ponerlas en un día.
-            </Text>
-          </View>
+          <Note icon="locked" style={styles.footnote}>
+            Tienes rutinas en borrador. Publícalas para poder ponerlas en un día.
+          </Note>
         ) : null}
       </ScrollView>
 
@@ -313,6 +311,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   optionText: { flex: 1, gap: 2 },
-  footnote: { flexDirection: 'row', gap: 8, paddingTop: 6 },
-  footnoteText: { flex: 1 },
+  footnote: { paddingTop: 6 },
 })

@@ -26,7 +26,9 @@ import { Button } from '@allfitone/react-native/button'
 import { Chip } from '@allfitone/react-native/chip'
 import { ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
+import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Monogram } from '@allfitone/react-native/monogram'
 import { Scrim } from '@allfitone/react-native/gradient'
 import { Screen } from '@allfitone/react-native/screen'
 import { SegmentedControl } from '@allfitone/react-native/segmented-control'
@@ -36,7 +38,7 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { Image } from 'expo-image'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError } from '../../src/client'
 import { discardFailure } from '../../src/client/save-failure'
@@ -612,15 +614,12 @@ function CurrentProgram({
           {/* Siempre, se pueda editar o no: el que estás entrenando también se duplica
               y también se elimina, y esconderlo dejaba sin salida justo al que más
               ocupa la pantalla. */}
-          <Pressable
-            accessibilityRole="button"
+          <IconButton
+            icon="more"
+            size="sm"
             accessibilityLabel={`Más opciones de ${program.title}`}
             onPress={onMenu}
-            hitSlop={8}
-            style={[styles.round, { backgroundColor: theme.color.background.surfaceMuted }]}
-          >
-            <FoundationIcon name="more" size="xs" color={theme.color.icon.secondary} decorative />
-          </Pressable>
+          />
         </View>
 
         <View style={styles.currentText}>
@@ -661,51 +660,34 @@ function WeekRow({
   readonly busy: boolean
   readonly onPress: () => void
 }) {
-  const theme = useTheme()
   const day = dayName(card.routine.program_day)
+  const tag =
+    card.state === 'suggested'
+      ? 'Sigue esta'
+      : card.state === 'open'
+        ? 'A medias'
+        : card.state === 'paused' || card.state === 'missed'
+          ? startLabel(card.state)
+          : card.state === 'done'
+            ? 'Hecha'
+            : undefined
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${startLabel(card.state)} ${card.routine.title}`}
-      accessibilityHint={day}
+    <ContentRow
+      tone="plain"
+      preview={<Monogram name={card.routine.title} size="sm" />}
+      name={card.routine.title}
+      {...(tag === undefined ? {} : { tag })}
+      {...(card.state === 'paused' || card.state === 'missed'
+        ? { tagTone: 'neutral' as const }
+        : {})}
+      {...(card.state === 'done' ? { tagTone: 'success' as const } : { value: day })}
+      caption={routineFigures(card.routine)}
+      accessibilityLabel={`${startLabel(card.state)} ${card.routine.title}, ${day}`}
       disabled={busy}
       onPress={onPress}
-      style={({ pressed }) => [styles.weekRow, { opacity: pressed || busy ? 0.7 : 1 }]}
-    >
-      <View style={[styles.letter, { backgroundColor: theme.color.background.surfaceMuted }]}>
-        <Text role="control" size="xs" color="accent">
-          {(card.routine.title.trim()[0] ?? '·').toUpperCase()}
-        </Text>
-      </View>
-
-      <View style={styles.weekText}>
-        <View style={styles.weekName}>
-          <Text role="control" size="sm" numberOfLines={1}>
-            {card.routine.title}
-          </Text>
-          {card.state === 'suggested' ? (
-            <Badge label="Sigue esta" tone="accent" variant="quiet" />
-          ) : null}
-          {card.state === 'open' ? <Badge label="A medias" tone="accent" variant="quiet" /> : null}
-          {card.state === 'paused' || card.state === 'missed' ? (
-            <Badge label={startLabel(card.state)} variant="quiet" />
-          ) : null}
-        </View>
-        <Text role="body" size="xs" color="muted">
-          {routineFigures(card.routine)}
-        </Text>
-      </View>
-
-      {card.state === 'done' ? (
-        <FoundationIcon name="success" size="xs" color={theme.color.icon.accent} decorative />
-      ) : (
-        <Text role="control" size="xs" color="accent">
-          {day}
-        </Text>
-      )}
-      <FoundationIcon name="next" size="xs" color={theme.color.icon.secondary} decorative />
-    </Pressable>
+      style={styles.weekRow}
+    />
   )
 }
 
@@ -731,25 +713,9 @@ const styles = StyleSheet.create({
   hero: { justifyContent: 'space-between' },
   heroTall: { height: HERO },
   heroPhoto: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  round: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   week: { paddingHorizontal: 16, paddingBottom: 14 },
-  weekRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 8 },
-  weekText: { flex: 1, gap: 1 },
-  weekName: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  letter: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  weekRow: { paddingHorizontal: 0, paddingVertical: 8 },
   hairline: { height: 1 },
   thumbnail: { width: '100%', height: '100%' },
 })

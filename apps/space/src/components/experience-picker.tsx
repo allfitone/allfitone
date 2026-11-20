@@ -7,8 +7,8 @@
  * why the notice is fixed rather than revealed is in `app/onboarding/experience.tsx`.
  */
 
+import { Note } from '@allfitone/react-native/note'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { StyleSheet, View } from 'react-native'
 import Animated, { type FadeInDown } from 'react-native-reanimated'
 
@@ -34,7 +34,6 @@ export function ExperiencePicker({
   /** One per stop and one for the notice, in order; absent draws everything at once. */
   readonly entering?: readonly (FadeInDown | undefined)[] | undefined
 }) {
-  const theme = useTheme()
   const notice = entering?.[EXPERIENCE_LEVELS.length]
   return (
     <>
@@ -55,16 +54,13 @@ export function ExperiencePicker({
         })}
       </View>
 
-      <Animated.View
-        {...(notice ? { entering: notice } : {})}
-        style={[styles.notice, { borderLeftColor: theme.color.accent.tonalBorder }]}
-      >
-        <Text role="body" size="xs" color="muted">
-          <Text role="body" size="xs" color="secondary">
+      <Animated.View {...(notice ? { entering: notice } : {})} style={styles.notice}>
+        <Note>
+          <Text role="body" size="xs" color="primary">
             {NOT_A_LABEL_TITLE}
           </Text>
           {NOT_A_LABEL_BODY}
-        </Text>
+        </Note>
       </Animated.View>
     </>
   )
@@ -73,9 +69,5 @@ export function ExperiencePicker({
 const styles = StyleSheet.create({
   // Crece con lo que lleva dentro, y no al revés: ver `stopSlot` en `level-stop`.
   track: { flexGrow: 1, marginBottom: 4 },
-  notice: {
-    marginTop: 2,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-  },
+  notice: { marginTop: 2 },
 })

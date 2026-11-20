@@ -9,10 +9,8 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { Note } from '@allfitone/react-native/note'
 import { Sheet } from '@allfitone/react-native/sheet'
-import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { semanticMotion } from '@allfitone/react-native/tokens'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
@@ -74,27 +72,13 @@ export function UpgradeSheet({
   readonly onDismiss: () => void
 }) {
   const router = useRouter()
-  const theme = useTheme()
   const copy = upgradeCopy(code ?? '', features)
   return (
     <Sheet visible={code !== undefined} onDismiss={onDismiss} title={copy.title}>
       <View style={styles.stack}>
-        <View style={styles.row}>
-          <View
-            style={[
-              styles.badge,
-              {
-                backgroundColor: theme.color.accent.tonal,
-                borderColor: theme.color.accent.tonalBorder,
-              },
-            ]}
-          >
-            <FoundationIcon name="favourite" size="md" color={theme.color.icon.accent} decorative />
-          </View>
-          <Text role="body" size="md" color="secondary" style={styles.grow}>
-            {copy.body}
-          </Text>
-        </View>
+        <Note size="md" tile icon="favourite">
+          {copy.body}
+        </Note>
         <Button
           label="Comparar Gratis y Pro"
           onPress={() => {
@@ -111,14 +95,4 @@ export function UpgradeSheet({
 
 const styles = StyleSheet.create({
   stack: { gap: 16 },
-  row: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
-  badge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grow: { flex: 1 },
 })

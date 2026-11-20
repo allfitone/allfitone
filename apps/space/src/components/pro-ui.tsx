@@ -11,6 +11,7 @@
  */
 
 import type { IconName } from '@allfitone/icons'
+import { Badge } from '@allfitone/react-native/badge'
 import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Note } from '@allfitone/react-native/note'
@@ -93,20 +94,7 @@ export function MembershipCard({
           </Text>
         </View>
         {pro ? (
-          <View
-            style={[
-              styles.live,
-              {
-                borderColor: theme.color.status.success,
-                backgroundColor: theme.color.accent.tonal,
-              },
-            ]}
-          >
-            <View style={[styles.dot, { backgroundColor: theme.color.status.success }]} />
-            <Text role="control" size="xs" color="success">
-              Activo
-            </Text>
-          </View>
+          <Badge label="Activo" tone="success" variant="outline" dot uppercase={false} />
         ) : null}
       </View>
 
@@ -216,16 +204,6 @@ const styles = StyleSheet.create({
   watermark: { position: 'absolute', right: -22, bottom: -46 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seal: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  live: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4 },
   cardMiddle: { gap: 4 },
   facts: { flexDirection: 'row', gap: 26 },
   fact: { gap: 3 },

@@ -25,8 +25,8 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
@@ -34,7 +34,7 @@ import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError } from '../../src/client/api-error'
 import {
@@ -177,18 +177,15 @@ export default function SubscriptionsScreen() {
               Dónde entrenas
             </Text>
             {offerable.map((gym) => (
-              <Pressable
+              <ContentRow
                 key={gym.relationship_id}
-                accessibilityRole="button"
+                tone="outlined"
+                size="sm"
+                trailing={{ kind: 'chevron', glyph: 'forward' }}
+                name={gym.organization_name}
                 accessibilityLabel={`Ver los planes de ${gym.organization_name}`}
                 onPress={() => router.push(`/subscriptions/${gym.organization_id}`)}
-                style={[styles.row, { borderColor: theme.color.border.subtle }]}
-              >
-                <Text role="body" size="sm" style={styles.grow}>
-                  {gym.organization_name}
-                </Text>
-                <FoundationIcon name="forward" color={theme.color.icon.secondary} decorative />
-              </Pressable>
+              />
             ))}
           </View>
         ) : null}
@@ -240,15 +237,6 @@ const styles = StyleSheet.create({
   paused: { paddingTop: 4 },
   empty: { gap: 6 },
   section: { gap: 8 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
   note: { textAlign: 'center' },
   sheetBody: { gap: 12 },
 })

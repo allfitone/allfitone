@@ -192,15 +192,11 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
             ) : null}
 
             {subscription ? (
-              <Pressable
-                accessibilityRole="button"
+              <Button
+                label="Cancelar Pro"
+                variant="quietDanger"
                 onPress={() => setCancelling(true)}
-                style={styles.cancel}
-              >
-                <Text role="control" size="sm" color="muted" align="center">
-                  Cancelar Pro
-                </Text>
-              </Pressable>
+              />
             ) : null}
           </>
         ) : null}
@@ -330,7 +326,6 @@ const styles = StyleSheet.create({
   },
   content: { paddingHorizontal: 24, gap: 26 },
   section: { gap: 4 },
-  cancel: { paddingVertical: 8 },
   seal: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   invite: {
     minHeight: 196,

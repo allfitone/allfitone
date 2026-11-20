@@ -37,16 +37,16 @@
 import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
 import { Scrim } from '@allfitone/react-native/gradient'
+import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Switch } from '@allfitone/react-native/switch'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ApiError } from '../../src/client'
@@ -309,22 +309,12 @@ export default function ProgramVersion() {
       {/* **Fuera del desplazamiento.** Dentro del héroe se iba con la fotografía, y en
           un programa de doce semanas salir exigía subir hasta arriba del todo. Va
           después del `ScrollView` para quedar encima de él sin pelearse por el orden. */}
-      <Pressable
-        accessibilityRole="button"
+      <IconButton
+        icon="back"
         accessibilityLabel="Volver"
         onPress={() => router.back()}
-        hitSlop={8}
-        style={[
-          styles.back,
-          {
-            backgroundColor: theme.color.background.surface,
-            borderColor: theme.color.border.subtle,
-            top: insets.top + 8,
-          },
-        ]}
-      >
-        <FoundationIcon name="back" size="sm" color={theme.color.icon.primary} decorative />
-      </Pressable>
+        style={[styles.back, { top: insets.top + 8 }]}
+      />
 
       {detail ? (
         <View style={[styles.footer, { backgroundColor: theme.color.background.canvas }]}>
@@ -380,16 +370,7 @@ const styles = StyleSheet.create({
   hero: { justifyContent: 'flex-end', overflow: 'hidden' },
   // Redondo, que es como vuelve atrás el resto de la aplicación. El lienzo lo dibuja
   // con esquina blanda, pero dos formas para el mismo gesto son dos gestos.
-  back: {
-    position: 'absolute',
-    left: GUTTER,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  back: { position: 'absolute', left: GUTTER },
   heading: { gap: 4, paddingHorizontal: GUTTER, paddingBottom: 18 },
   figures: { flexDirection: 'row', gap: 22 },
   zones: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

@@ -6,9 +6,8 @@
  * the coach in charge, and the ones that ended, which no longer see anything new.
  */
 
-import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Monogram } from '@allfitone/react-native/monogram'
@@ -18,7 +17,7 @@ import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { coverSpan, endedSpan, pendingCovers } from '../../src/client/gym-affiliation'
@@ -163,7 +162,7 @@ export default function Gyms() {
                     params: { relationshipId: relationship.relationship_id },
                   })
                 }
-                trailing={<Badge label="Activo" tone="success" variant="quiet" />}
+                active
               />
             ))}
           </Section>
@@ -218,37 +217,38 @@ function GymRow({
   relationship,
   caption,
   onPress,
-  trailing,
+  active,
   muted,
 }: {
   readonly relationship: MyRelationship
   readonly caption: string
   readonly onPress: () => void
-  readonly trailing?: React.ReactNode
+  readonly active?: boolean
   readonly muted?: boolean
 }) {
-  const theme = useTheme()
   return (
-    <Pressable
-      accessibilityRole="button"
+    <ContentRow
+      size="sm"
+      preview={
+        <View style={muted && styles.muted}>
+          <GymMark name={relationship.organization_name} size={40} />
+        </View>
+      }
+      name={relationship.organization_name}
+      caption={caption}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, styles.gymRow, pressed && styles.pressed]}
-    >
-      <View style={muted && styles.muted}>
-        <GymMark name={relationship.organization_name} size={40} />
-      </View>
-      <View style={styles.grow}>
-        <Text role="control" size="sm" color={muted ? 'secondary' : 'primary'}>
-          {relationship.organization_name}
-        </Text>
-        <Text role="body" size="xs" color="muted">
-          {caption}
-        </Text>
-      </View>
-      {trailing ?? (
-        <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-      )}
-    </Pressable>
+      {...(active
+        ? {
+            trailing: {
+              kind: 'badge',
+              label: 'Activo',
+              tone: 'success',
+              variant: 'quiet',
+              uppercase: false,
+            },
+          }
+        : {})}
+    />
   )
 }
 
@@ -264,11 +264,9 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, gap: 18 },
   cover: { borderRadius: 22, borderWidth: 1, padding: 16, gap: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gymRow: { paddingVertical: 12 },
   grow: { flex: 1 },
   answers: { flexDirection: 'row', gap: 10 },
   section: { gap: 8 },
   note: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   muted: { opacity: 0.45 },
-  pressed: { opacity: 0.6 },
 })
