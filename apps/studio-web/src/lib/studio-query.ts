@@ -53,6 +53,7 @@ import {
   type CorrectionProposalStatus,
 } from './studio-api'
 import type { MovementSearchFilters } from './movement-search'
+import { followAccountTheme } from './theme'
 
 export type MembershipFilter = OrganizationMembershipStatus | 'all'
 export type InvitationFilter = TeamInvitationStatus | 'all'
@@ -72,6 +73,7 @@ export const studioQueryKeys = {
   all: ROOT_KEY,
   organizationTypes: () => [...ROOT_KEY, 'organization-types'] as const,
   me: () => [...ROOT_KEY, 'me'] as const,
+  preferences: () => [...ROOT_KEY, 'me', 'preferences'] as const,
   professionalSpecialties: () => [...ROOT_KEY, 'catalog', 'professional-specialties'] as const,
   professionalCredentialTypes: () =>
     [...ROOT_KEY, 'catalog', 'professional-credential-types'] as const,
@@ -826,6 +828,22 @@ export function studioMeQueryOptions() {
   return queryOptions({
     queryKey: studioQueryKeys.me(),
     queryFn: ({ signal }) => studioApi.me(signal),
+    staleTime: STUDIO_PROFILE_STALE_TIME_MS,
+  })
+}
+
+/**
+ * What the person chose for Studio itself. Reading it is what shows it: the
+ * answer goes on screen the moment it arrives, whichever screen asked for it.
+ */
+export function studioPreferencesQueryOptions() {
+  return queryOptions({
+    queryKey: studioQueryKeys.preferences(),
+    queryFn: async ({ signal }) => {
+      const preferences = await studioApi.preferences(signal)
+      followAccountTheme(preferences.theme)
+      return preferences
+    },
     staleTime: STUDIO_PROFILE_STALE_TIME_MS,
   })
 }

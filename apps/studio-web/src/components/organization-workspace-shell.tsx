@@ -40,6 +40,7 @@ import type { ReactNode } from 'react'
 import { LogoutForm } from './logout-form'
 import { organizationTypeLabel } from './membership-selector'
 import { useOrganizationContext } from './organization-context'
+import { ThemeSwitch } from './theme-switch'
 import { membershipRoleSummary } from '@/lib/membership-roles'
 import { resolveWorkspaceRoute } from '@/lib/organization-navigation'
 
@@ -265,6 +266,9 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
       </SidebarContent>
 
       <SidebarFooter>
+        {/* The rail has no room for two labels side by side, as it has none for
+            the logout button below. */}
+        {!railed ? <ThemeSwitch /> : null}
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton render={<Link href="/account" onClick={closeMobileNavigation} />}>
