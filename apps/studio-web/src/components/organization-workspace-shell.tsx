@@ -1,7 +1,7 @@
 'use client'
 
 import { BrandLogo, ProductWordmark } from '@allfitone/react/brand'
-import { Badge } from '@allfitone/react/components/badge'
+import { buttonVariants } from '@allfitone/react/components/button'
 import {
   Select,
   SelectContent,
@@ -24,7 +24,9 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@allfitone/react/components/sidebar'
+import { Text } from '@allfitone/react/components/text'
 import {
+  WorkspaceActions,
   WorkspaceContent,
   WorkspaceHeader,
   WorkspaceHeading,
@@ -38,11 +40,9 @@ import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { LogoutForm } from './logout-form'
-import { organizationTypeLabel } from './membership-selector'
 import { useOrganizationContext } from './organization-context'
-import { ThemeSwitch } from './theme-switch'
-import { membershipRoleSummary } from '@/lib/membership-roles'
 import { resolveWorkspaceRoute } from '@/lib/organization-navigation'
+import { useAccountTheme } from '@/lib/use-studio-theme'
 
 export function OrganizationWorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -61,6 +61,20 @@ export function OrganizationWorkspaceShell({ children }: { children: ReactNode }
           <WorkspaceHeading>
             <WorkspaceTitle>{route.title}</WorkspaceTitle>
           </WorkspaceHeading>
+          <WorkspaceActions>
+            {/* Her account is hers, not the organization's, so it is not an entry of its menu. */}
+            <Link
+              href="/account"
+              aria-label="Mi cuenta"
+              title="Mi cuenta"
+              data-organization-account
+              data-slot="button"
+              data-variant="outline"
+              className={buttonVariants({ variant: 'outline', size: 'icon-lg' })}
+            >
+              <FoundationIcon name="person" decorative />
+            </Link>
+          </WorkspaceActions>
         </WorkspaceHeader>
         <WorkspaceContent data-organization-content>{children}</WorkspaceContent>
       </WorkspaceMain>
@@ -71,6 +85,8 @@ export function OrganizationWorkspaceShell({ children }: { children: ReactNode }
 function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathname: string }) {
   const { current, memberships, switchOrganization } = useOrganizationContext()
   const { setOpenMobile, state, isMobile } = useSidebar()
+  // The theme is chosen in her account; the workspace only asks what she chose.
+  useAccountTheme()
   // On the icon rail the wordmark does not fit. Swapping to the mark keeps the
   // brand legible instead of clipping the lockup mid-letter.
   const railed = state === 'collapsed' && !isMobile
@@ -153,7 +169,7 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                             trigger's width, which is 166px in this rail, and
                             appending the roles took the label to 259px — so the
                             organization name was cut off to make room for a
-                            role the badges below already show. */}
+                            role nobody picks an organization by. */}
                         {membership.display_name}
                       </SelectItem>
                     ))}
@@ -161,14 +177,14 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                 </Select>
               </div>
             ) : (
-              <SidebarGroupLabel data-sidebar-organization-name>
-                {current.display_name}
-              </SidebarGroupLabel>
+              // A name, set as one: the group label is small capitals for a heading
+              // over a list, and it made the organization read as a caption.
+              <div data-sidebar-organization-name>
+                <Text role="control" size="md" color="primary">
+                  {current.display_name}
+                </Text>
+              </div>
             )}
-            <p data-sidebar-organization-meta>
-              <Badge variant="secondary">{organizationTypeLabel(current.type_code)}</Badge>
-              <Badge variant="secondary">{membershipRoleSummary(current.roles)}</Badge>
-            </p>
           </div>
         ) : null}
       </SidebarHeader>
@@ -230,8 +246,8 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
                   isActive={contentActive}
                   aria-current={contentActive ? 'page' : undefined}
                 >
-                  <FoundationIcon name="overview" decorative />
-                  <span>Contenido</span>
+                  <FoundationIcon name="training" decorative />
+                  <span>Biblioteca</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {/* Shown to everybody; the screen itself says no when the role has no
@@ -265,20 +281,14 @@ function OrganizationSidebar({ basePath, pathname }: { basePath: string; pathnam
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        {/* The rail has no room for two labels side by side, as it has none for
-            the logout button below. */}
-        {!railed ? <ThemeSwitch /> : null}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton render={<Link href="/account" onClick={closeMobileNavigation} />}>
-              <FoundationIcon name="person" decorative />
-              <span>Mi cuenta</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-        {!railed ? <LogoutForm variant="outline" /> : null}
-      </SidebarFooter>
+      {/* The rail has no room for the label of the way out. */}
+      {!railed ? (
+        <SidebarFooter>
+          <div data-sidebar-foot-logout>
+            <LogoutForm variant="outline" />
+          </div>
+        </SidebarFooter>
+      ) : null}
     </Sidebar>
   )
 }

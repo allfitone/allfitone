@@ -3,7 +3,7 @@
 /**
  * Cobros: who pays the organization, and the plans it sells.
  *
- * Two tabs, like Contenido, because the two halves have different readers.
+ * Two tabs, like Biblioteca, because the two halves have different readers.
  * Who pays and how each one stands is `manage_billing`'s alone (`HU-STUDIO-078`
  * criterion 2: not a coach, not staff). The plans are the whole team's
  * (`HU-STUDIO-077`), because a price is nobody's personal data and a coach

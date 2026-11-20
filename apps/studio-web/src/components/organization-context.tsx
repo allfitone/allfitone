@@ -1,6 +1,5 @@
 'use client'
 
-import { ProductWordmark } from '@allfitone/react/brand'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
 import { Card, CardContent } from '@allfitone/react/components/card'
@@ -26,6 +25,7 @@ import {
 
 import { LogoutForm } from './logout-form'
 import { useStudioEntryContext } from './studio-entry-context'
+import { StudioWordmark } from './studio-wordmark'
 import { resolveOrganizationContext } from '@/lib/membership-routing'
 import { StudioApiError, studioApi, type Membership } from '@/lib/studio-api'
 import { isStudioForbidden } from '@/lib/studio-query'
@@ -309,13 +309,7 @@ function OrganizationStateFrame({ children }: { children: ReactNode }) {
     <WorkspaceShell>
       <WorkspaceMain>
         <WorkspaceHeader>
-          <ProductWordmark
-            product="studio"
-            surface="light"
-            title="Allfit Studio"
-            width={138}
-            height={28}
-          />
+          <StudioWordmark />
           <WorkspaceActions>
             <LogoutForm />
           </WorkspaceActions>

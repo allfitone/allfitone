@@ -107,7 +107,7 @@ export function MovementCreateForm() {
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => router.replace(contentPath)}>
-          Volver al contenido
+          Volver a la biblioteca
         </Button>
       </section>
     )
@@ -160,7 +160,7 @@ export function MovementCreateForm() {
   return (
     <SetupPanel>
       <SetupPanelIntro>
-        <SetupPanelEyebrow>Contenido</SetupPanelEyebrow>
+        <SetupPanelEyebrow>Biblioteca</SetupPanelEyebrow>
         <SetupPanelTitle as="h2">Crea un movimiento propio.</SetupPanelTitle>
         {/* Criteria 1 and 5, before anything is typed. */}
         <SetupPanelDescription>

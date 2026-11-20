@@ -31,7 +31,7 @@ test('an owner reads the content, because the catalogue gives them manage_conten
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Contenido' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Biblioteca' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Plantillas' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Programas' })).toBeVisible()
 })

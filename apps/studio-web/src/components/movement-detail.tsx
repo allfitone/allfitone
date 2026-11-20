@@ -236,7 +236,7 @@ function BackToContent({ href }: { href: string }) {
       data-variant="outline"
       data-slot="button"
     >
-      Volver al contenido
+      Volver a la biblioteca
     </Link>
   )
 }

@@ -187,3 +187,127 @@ test('ports the dark Studio sidebar to mobile and closes it after navigation', a
   await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}/team`)
   await expect(sidebar).toBeHidden()
 })
+
+test('no two entries of the menu are told apart by their label alone', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(`/organizations/${activeMembership.organization_id}`)
+
+  const menu = page.locator('[data-organization-sidebar] [data-slot="sidebar-content"]')
+  await expect(menu.getByRole('link', { name: 'Biblioteca' })).toBeVisible()
+
+  // «Inicio» and «Biblioteca» once shared one drawing, and the rail shows nothing else.
+  const icons = await menu
+    .locator('a svg')
+    .evaluateAll((drawings) => drawings.map((drawing) => drawing.innerHTML))
+  expect(icons.length).toBeGreaterThan(1)
+  expect(new Set(icons).size).toBe(icons.length)
+})
+
+test('the menu sets the name of the organization as a name', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(`/organizations/${activeMembership.organization_id}`)
+
+  const name = page
+    .locator('[data-sidebar-organization]')
+    .getByText(activeMembership.display_name, { exact: true })
+  await expect(name).toBeVisible()
+
+  // It was a group label: twelve pixels of capitals, a caption over nothing.
+  const set = await name.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return { size: Number.parseFloat(style.fontSize), transform: style.textTransform }
+  })
+  expect(set.transform).toBe('none')
+  expect(set.size).toBeGreaterThanOrEqual(16)
+
+  // It starts where the entries below it start.
+  const entry = await page
+    .locator('[data-organization-sidebar] [data-slot="sidebar-content"] a svg')
+    .first()
+    .boundingBox()
+  expect((await name.boundingBox())?.x).toBe(entry?.x)
+})
+
+test('the foot of the menu holds the way out alone, as wide as the menu', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(`/organizations/${activeMembership.organization_id}`)
+
+  const foot = page.locator('[data-organization-sidebar] [data-slot="sidebar-footer"]')
+  await expect(foot.getByRole('button', { name: 'Cerrar sesión' })).toBeVisible()
+  // «Mi cuenta» stood over it; her account now ends the page header.
+  await expect(foot.getByRole('link')).toHaveCount(0)
+
+  // It was a button as wide as its own words, against the left edge.
+  const measured = await foot.evaluate((element) => {
+    const style = getComputedStyle(element)
+    const box = element.getBoundingClientRect()
+    const button = element.querySelector('form button')
+    const words = document.createRange()
+    if (button) words.selectNodeContents(button)
+    const said = words.getBoundingClientRect()
+    return {
+      room:
+        box.width - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight),
+      width: button?.getBoundingClientRect().width ?? Number.NaN,
+      middle: (box.left + box.right) / 2,
+      said: (said.left + said.right) / 2,
+    }
+  })
+  expect(Math.abs(measured.width - measured.room)).toBeLessThanOrEqual(1)
+  expect(Math.abs(measured.said - measured.middle)).toBeLessThanOrEqual(1)
+})
+
+test('the page header ends in the way to her account, drawn as a circle', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(`/organizations/${activeMembership.organization_id}`)
+
+  const account = page
+    .locator('[data-organization-header]')
+    .getByRole('link', { name: 'Mi cuenta' })
+  await expect(account).toBeVisible()
+
+  const drawn = await account.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    const header = element.closest('[data-organization-header]')
+    const around = header?.getBoundingClientRect()
+    const padding = header ? Number.parseFloat(getComputedStyle(header).paddingRight) : Number.NaN
+    return {
+      width: box.width,
+      height: box.height,
+      radius: Number.parseFloat(getComputedStyle(element).borderTopLeftRadius),
+      fromEnd: (around?.right ?? Number.NaN) - padding - box.right,
+      offMiddle: box.top + box.height / 2 - ((around?.top ?? 0) + (around?.height ?? 0) / 2),
+    }
+  })
+  expect(drawn.width).toBe(drawn.height)
+  expect(drawn.radius).toBeGreaterThanOrEqual(drawn.width / 2)
+  expect(Math.abs(drawn.fromEnd)).toBeLessThanOrEqual(1)
+  expect(Math.abs(drawn.offMiddle)).toBeLessThanOrEqual(1)
+
+  await account.click()
+  await expect(page).toHaveURL(/\/account$/)
+})
+
+test('on a phone the foot of the menu ends above the privacy control', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(`/organizations/${activeMembership.organization_id}`)
+  await page.getByRole('button', { name: 'Abrir o cerrar navegación' }).click()
+
+  const logout = page
+    .locator('[data-slot="sidebar"][data-mobile="true"]')
+    .getByRole('button', { name: 'Cerrar sesión' })
+  await expect(logout).toBeVisible()
+
+  // The sheet reaches the corner that control floats over, and the way out is as wide as the sheet.
+  // By attribute: the open sheet hides what is behind it from the roles.
+  const way = await logout.boundingBox()
+  const privacy = await page.locator('[data-analytics-controls]').boundingBox()
+  expect(way).not.toBeNull()
+  expect(privacy).not.toBeNull()
+  expect((way?.y ?? 0) + (way?.height ?? 0)).toBeLessThanOrEqual(privacy?.y ?? 0)
+})

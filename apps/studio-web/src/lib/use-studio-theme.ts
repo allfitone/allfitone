@@ -1,7 +1,9 @@
 'use client'
 
+import { useQuery } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 
+import { studioPreferencesQueryOptions } from './studio-query'
 import {
   shownStudioTheme,
   STUDIO_DEFAULT_THEME,
@@ -15,4 +17,12 @@ import {
  */
 export function useShownStudioTheme(): StudioTheme {
   return useSyncExternalStore(subscribeToStudioTheme, shownStudioTheme, () => STUDIO_DEFAULT_THEME)
+}
+
+/**
+ * Asks the account for her theme; the answer goes on screen as it arrives.
+ * The workspace asks too, so a browser that never saw her follows her choice.
+ */
+export function useAccountTheme(): void {
+  useQuery(studioPreferencesQueryOptions())
 }

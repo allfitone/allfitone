@@ -7,6 +7,9 @@
  * answer does when it arrives, and what a press on the switch leaves behind.
  * The first one is about a frame, so it is measured against the browser's own
  * first paint and never against a wait.
+ *
+ * The switch is on «Mi cuenta» and the workspace has none, so the second is
+ * held on both: the workspace must follow her account without it.
  */
 import { expect, test, type Page } from '@playwright/test'
 
@@ -18,6 +21,7 @@ import {
 } from './studio-api-mock'
 
 const STORAGE_KEY = 'allfit-studio-theme:v1'
+const PREFERENCES_PATH = '/studio/v1/me/preferences'
 const workspace = `/organizations/${activeMembership.organization_id}`
 
 declare global {
@@ -36,10 +40,10 @@ async function remember(page: Page, theme: 'dark' | 'light'): Promise<void> {
   )
 }
 
-async function openWorkspace(
+async function signIn(
   page: Page,
   preferences: StudioApiFixture['preferences'],
-  overrides: Partial<StudioApiFixture> = {},
+  overrides: Partial<StudioApiFixture>,
 ): Promise<StudioApiFixture> {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership],
@@ -47,8 +51,28 @@ async function openWorkspace(
     ...overrides,
   })
   await installStudioApiMock(page, fixture)
+  return fixture
+}
+
+async function openWorkspace(
+  page: Page,
+  preferences: StudioApiFixture['preferences'],
+  overrides: Partial<StudioApiFixture> = {},
+): Promise<StudioApiFixture> {
+  const fixture = await signIn(page, preferences, overrides)
   await page.goto(workspace)
   await expect(page.locator('[data-today-scoreboard]')).toBeVisible()
+  return fixture
+}
+
+async function openAccount(
+  page: Page,
+  preferences: StudioApiFixture['preferences'],
+  overrides: Partial<StudioApiFixture> = {},
+): Promise<StudioApiFixture> {
+  const fixture = await signIn(page, preferences, overrides)
+  await page.goto('/account')
+  await expect(themeSwitch(page)).toBeVisible()
   return fixture
 }
 
@@ -58,6 +82,12 @@ function shownTheme(page: Page): Promise<string | null> {
 
 function rememberedTheme(page: Page): Promise<string | null> {
   return page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
+}
+
+function preferenceReads(fixture: StudioApiFixture): number {
+  return fixture.requests.filter(
+    (request) => request.method === 'GET' && request.path === PREFERENCES_PATH,
+  ).length
 }
 
 const themeSwitch = (page: Page) => page.getByRole('group', { name: 'Tema' })
@@ -131,25 +161,19 @@ test.describe('before anyone is known', () => {
 
 test.describe('once the account answers', () => {
   test('a person who never chose gets dark, and nothing is remembered', async ({ page }) => {
-    await openWorkspace(page, { theme: null })
+    const fixture = await openWorkspace(page, { theme: null })
 
-    await expect(themeSwitch(page).getByRole('button', { name: 'Oscuro' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
+    await expect.poll(() => preferenceReads(fixture)).toBeGreaterThan(0)
     expect(await shownTheme(page)).toBe('dark')
     expect(await rememberedTheme(page)).toBeNull()
   })
 
+  // No switch is on this screen: the workspace asks her account on its own.
   test('her choice reaches a browser that never saw her', async ({ page }) => {
     await openWorkspace(page, { theme: 'light' })
 
     await expect(page.locator('html')).toHaveAttribute('data-afo-theme', 'light')
-    await expect(themeSwitch(page).getByRole('button', { name: 'Claro' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(await rememberedTheme(page)).toBe('light')
+    await expect.poll(() => rememberedTheme(page)).toBe('light')
   })
 
   test('what the browser remembers of somebody else gives way to her account', async ({ page }) => {
@@ -165,23 +189,18 @@ test.describe('once the account answers', () => {
     page,
   }) => {
     await remember(page, 'light')
-    const fixture = await openWorkspace(
+    const fixture = await openAccount(
       page,
       { theme: null },
       {
         intercept: (request) =>
-          request.method === 'GET' && request.path === '/studio/v1/me/preferences'
+          request.method === 'GET' && request.path === PREFERENCES_PATH
             ? { status: 503, body: { code: 'upstream-unavailable' } }
             : undefined,
       },
     )
     // One retry, as for any read the service could not answer, and then no more.
-    await expect
-      .poll(
-        () =>
-          fixture.requests.filter((request) => request.path === '/studio/v1/me/preferences').length,
-      )
-      .toBe(2)
+    await expect.poll(() => preferenceReads(fixture)).toBe(2)
 
     await expect(page.locator('html')).toHaveAttribute('data-afo-theme', 'light')
     expect(await rememberedTheme(page)).toBe('light')
@@ -189,7 +208,7 @@ test.describe('once the account answers', () => {
       'aria-pressed',
       'true',
     )
-    await expect(page.locator('[data-theme-switch-status]')).toHaveCount(0)
+    await expect(page.locator('[data-account-theme]').getByRole('alert')).toHaveCount(0)
   })
 
   test('the menu stays dark on either theme', async ({ page }) => {
@@ -203,9 +222,35 @@ test.describe('once the account answers', () => {
   })
 })
 
-test.describe('the switch', () => {
+test.describe('the switch, in her account', () => {
+  test('the workspace does not carry it, and «Mi cuenta» leads to it', async ({ page }) => {
+    await openWorkspace(page, { theme: 'light' })
+    await expect(themeSwitch(page)).toHaveCount(0)
+
+    await page
+      .locator('[data-organization-header]')
+      .getByRole('link', { name: 'Mi cuenta' })
+      .click()
+
+    await expect(page).toHaveURL(/\/account$/)
+    await expect(themeSwitch(page).getByRole('button', { name: 'Claro' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  })
+
+  test('it shows dark for a person who never chose', async ({ page }) => {
+    await openAccount(page, { theme: null })
+
+    await expect(themeSwitch(page).getByRole('button', { name: 'Oscuro' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(await shownTheme(page)).toBe('dark')
+  })
+
   test('a press changes the screen and tells the account, as one command', async ({ page }) => {
-    const fixture = await openWorkspace(page, { theme: null })
+    const fixture = await openAccount(page, { theme: null })
 
     await themeSwitch(page).getByRole('button', { name: 'Claro' }).click()
 
@@ -214,7 +259,7 @@ test.describe('the switch', () => {
     await expect.poll(() => rememberedTheme(page)).toBe('light')
 
     const writes = fixture.requests.filter(
-      (request) => request.method === 'PUT' && request.path === '/studio/v1/me/preferences',
+      (request) => request.method === 'PUT' && request.path === PREFERENCES_PATH,
     )
     expect(writes).toHaveLength(1)
     expect(writes[0]?.body).toEqual({ theme: 'light' })
@@ -227,7 +272,7 @@ test.describe('the switch', () => {
   })
 
   test('pressing the theme in force asks the account for nothing', async ({ page }) => {
-    const fixture = await openWorkspace(page, { theme: null })
+    const fixture = await openAccount(page, { theme: null })
 
     await themeSwitch(page).getByRole('button', { name: 'Oscuro' }).click()
 
@@ -239,7 +284,7 @@ test.describe('the switch', () => {
   })
 
   test('a change the account did not take goes back, and says so', async ({ page }) => {
-    const fixture = await openWorkspace(page, { theme: null }, { preferencesOutcome: 'failed' })
+    const fixture = await openAccount(page, { theme: null }, { preferencesOutcome: 'failed' })
 
     await themeSwitch(page).getByRole('button', { name: 'Claro' }).click()
 
@@ -264,13 +309,22 @@ test.describe('the switch', () => {
     expect(keys).toHaveLength(2)
     expect(keys[0]).toBe(keys[1])
   })
+})
 
-  test('the rail hides it, as it hides the way out', async ({ page }) => {
-    await openWorkspace(page, { theme: null })
-    await expect(themeSwitch(page)).toBeVisible()
+test.describe('the brand, on a page that follows the theme', () => {
+  // Its neutral letters are one fixed colour per surface: ink on dark is no brand at all.
+  for (const [theme, drawn, withheld] of [
+    [null, 'dark', 'light'],
+    ['light', 'light', 'dark'],
+  ] as const) {
+    test(`is the drawing for a ${drawn} surface when the theme is ${drawn}`, async ({ page }) => {
+      await openAccount(page, { theme })
+      await expect(page.locator('html')).toHaveAttribute('data-afo-theme', drawn)
 
-    await page.getByRole('button', { name: 'Abrir o cerrar navegación' }).click()
-
-    await expect(themeSwitch(page)).toHaveCount(0)
-  })
+      const brand = page.locator('[data-profile-brand]')
+      await expect(brand.locator(`[data-brand-surface="${drawn}"] svg`)).toBeVisible()
+      await expect(brand.locator(`[data-brand-surface="${withheld}"] svg`)).toBeHidden()
+      await expect(brand.getByRole('img', { name: 'Allfit Studio' })).toHaveCount(1)
+    })
+  }
 })

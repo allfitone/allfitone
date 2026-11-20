@@ -241,7 +241,7 @@ export function SessionTemplateEditor() {
           data-variant="outline"
           data-slot="button"
         >
-          Volver al contenido
+          Volver a la biblioteca
         </Link>
       </section>
     )
@@ -260,7 +260,7 @@ export function SessionTemplateEditor() {
             </EmptyMedia>
             <EmptyTitle>No encontramos esta plantilla</EmptyTitle>
             <EmptyDescription>
-              No existe o no es de {current.display_name}. Vuelve al contenido para elegir otra.
+              No existe o no es de {current.display_name}. Vuelve a la biblioteca para elegir otra.
             </EmptyDescription>
           </EmptyHeader>
           <Link
@@ -269,7 +269,7 @@ export function SessionTemplateEditor() {
             data-variant="outline"
             data-slot="button"
           >
-            Volver al contenido
+            Volver a la biblioteca
           </Link>
         </Empty>
       </section>
@@ -423,7 +423,7 @@ export function SessionTemplateEditor() {
             data-variant="outline"
             data-slot="button"
           >
-            Volver al contenido
+            Volver a la biblioteca
           </Link>
         }
       />
