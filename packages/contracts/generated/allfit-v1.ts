@@ -1878,6 +1878,27 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/studio/v1/me/preferences': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get what the current person chose for how Studio looks
+     * @description The preferences belong to the person, not to the browser, so they follow her to another device. They are Studio's alone: another product keeps its own.
+     */
+    get: operations['getMyStudioPreferences']
+    /** Keep what the current person chose for how Studio looks */
+    put: operations['putMyStudioPreferences']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/studio/v1/me/professional-profile': {
     parameters: {
       query?: never
@@ -9712,6 +9733,15 @@ export interface components {
       /** @description Personal active memberships followed by terminated membership history. */
       memberships: components['schemas']['StudioMembership'][]
     }
+    /** @enum {string} */
+    InterfaceTheme: 'dark' | 'light'
+    StudioPreferences: {
+      /** @description Null until the person chooses. The server invents no default: Studio shows its own. */
+      theme: components['schemas']['InterfaceTheme'] | null
+    }
+    StudioPreferencesPut: {
+      theme: components['schemas']['InterfaceTheme']
+    }
     /** Format: uuid */
     Uuid: string
     /** Format: uuid */
@@ -17262,6 +17292,68 @@ export interface operations {
       }
       401: components['responses']['Unauthenticated']
       403: components['responses']['RegistrationIncomplete']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  getMyStudioPreferences: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The person's Studio preferences; a value she never chose is null */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['PrivateNoStore']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioPreferences']
+        }
+      }
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['RegistrationIncomplete']
+      503: components['responses']['UpstreamUnavailable']
+    }
+  }
+  putMyStudioPreferences: {
+    parameters: {
+      query?: never
+      header: {
+        Origin: components['parameters']['Origin']
+        /** @description UUIDv4 reused only for HTTP retries of this operation. */
+        'Idempotency-Key': components['parameters']['IdempotencyKey']
+        /** @description UUIDv7 durable identity generated when the user intention is created. */
+        'Command-Id': components['parameters']['CommandId']
+      }
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StudioPreferencesPut']
+      }
+    }
+    responses: {
+      /** @description Studio preferences kept, unchanged or replayed */
+      200: {
+        headers: {
+          'Cache-Control': components['headers']['NoStore']
+          'Idempotent-Replay': components['headers']['IdempotentReplay']
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['StudioPreferences']
+        }
+      }
+      400: components['responses']['BadRequest']
+      401: components['responses']['Unauthenticated']
+      403: components['responses']['RegistrationIncomplete']
+      409: components['responses']['Conflict']
+      422: components['responses']['ValidationFailed']
       503: components['responses']['UpstreamUnavailable']
     }
   }

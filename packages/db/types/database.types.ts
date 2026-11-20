@@ -2752,6 +2752,38 @@ export type Database = {
         }
         Relationships: []
       }
+      surface_preferences: {
+        Row: {
+          created_at: string
+          person_id: string
+          surface: Database['identity']['Enums']['access_session_surface']
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          person_id: string
+          surface: Database['identity']['Enums']['access_session_surface']
+          theme: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          person_id?: string
+          surface?: Database['identity']['Enums']['access_session_surface']
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_surface_preferences_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -3752,6 +3784,19 @@ export type Database = {
           replayed: boolean
         }[]
       }
+      put_studio_preferences: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_person_id: string
+          p_request_hash: string
+          p_theme: string
+        }
+        Returns: {
+          preferences: Json
+          replayed: boolean
+        }[]
+      }
       read_account_recovery: {
         Args: {
           p_actor_person_id: string
@@ -3802,6 +3847,7 @@ export type Database = {
         Args: { p_issuer: string; p_provider: string; p_subject: string }
         Returns: Json
       }
+      read_studio_preferences: { Args: { p_person_id: string }; Returns: Json }
       read_training_profile: {
         Args: { p_person_id: string }
         Returns: {

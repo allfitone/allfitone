@@ -4592,6 +4592,78 @@ paths:
         '503':
           $ref: '#/components/responses/UpstreamUnavailable'
 
+  /studio/v1/me/preferences:
+    get:
+      tags: [Studio Identity]
+      operationId: getMyStudioPreferences
+      x-allfit-operation: OP-IDN-068
+      x-allfit-cache: private-no-store
+      summary: Get what the current person chose for how Studio looks
+      description: >-
+        The preferences belong to the person, not to the browser, so they follow
+        her to another device. They are Studio's alone: another product keeps
+        its own.
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: The person's Studio preferences; a value she never chose is null
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/PrivateNoStore'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioPreferences'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/RegistrationIncomplete'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+    put:
+      tags: [Studio Identity]
+      operationId: putMyStudioPreferences
+      x-allfit-operation: OP-IDN-069
+      x-allfit-cache: no-store
+      summary: Keep what the current person chose for how Studio looks
+      security:
+        - cookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Origin'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CommandId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudioPreferencesPut'
+      responses:
+        '200':
+          description: Studio preferences kept, unchanged or replayed
+          headers:
+            Cache-Control:
+              $ref: '#/components/headers/NoStore'
+            Idempotent-Replay:
+              $ref: '#/components/headers/IdempotentReplay'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudioPreferences'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/RegistrationIncomplete'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '503':
+          $ref: '#/components/responses/UpstreamUnavailable'
+
   /studio/v1/me/professional-profile:
     put:
       tags: [Studio Identity]
@@ -24896,6 +24968,28 @@ components:
           maxItems: 100
           items:
             $ref: '#/components/schemas/StudioMembership'
+    InterfaceTheme:
+      type: string
+      enum: [dark, light]
+    StudioPreferences:
+      type: object
+      additionalProperties: false
+      required: [theme]
+      properties:
+        theme:
+          description: >-
+            Null until the person chooses. The server invents no default: Studio
+            shows its own.
+          oneOf:
+            - $ref: '#/components/schemas/InterfaceTheme'
+            - type: 'null'
+    StudioPreferencesPut:
+      type: object
+      additionalProperties: false
+      required: [theme]
+      properties:
+        theme:
+          $ref: '#/components/schemas/InterfaceTheme'
     Uuid:
       type: string
       format: uuid
