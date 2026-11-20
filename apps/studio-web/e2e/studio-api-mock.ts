@@ -3442,12 +3442,95 @@ export const studioToday = {
       link: { operation_id: 'listStudioOrganizationMemberships', query: {} },
     },
   },
+  /*
+   * All three indicators, as an owner who also coaches gets them. The answer is
+   * dated Friday 13 November, so the last closed week began on Monday the 2nd:
+   * the same week the training notice above reports. The load lists the eight
+   * coaches `team` counts, the last of them with nobody, and `unassigned` is the
+   * count of the notice it repeats.
+   */
+  indicators: {
+    training_adherence: {
+      clients: 6,
+      weeks: [
+        { week_starts_on: '2026-09-14', planned: 52, logged: 34 },
+        { week_starts_on: '2026-09-21', planned: 54, logged: 37 },
+        { week_starts_on: '2026-09-28', planned: 55, logged: 40 },
+        { week_starts_on: '2026-10-05', planned: 54, logged: 41 },
+        { week_starts_on: '2026-10-12', planned: 56, logged: 43 },
+        { week_starts_on: '2026-10-19', planned: 55, logged: 45 },
+        { week_starts_on: '2026-10-26', planned: 56, logged: 44 },
+        { week_starts_on: '2026-11-02', planned: 56, logged: 48 },
+      ],
+    },
+    relationship_changes: {
+      months: [
+        { month: '2026-06', started: 4, ended: 1 },
+        { month: '2026-07', started: 6, ended: 2 },
+        { month: '2026-08', started: 3, ended: 3 },
+        { month: '2026-09', started: 7, ended: 1 },
+        { month: '2026-10', started: 5, ended: 2 },
+        { month: '2026-11', started: 8, ended: 1 },
+      ],
+    },
+    professional_load: {
+      count: 8,
+      unassigned: 2,
+      items: [
+        {
+          membership_id: '01991600-7000-7000-8000-000000000301',
+          display_name: 'Laura Gómez',
+          clients: 14,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000302',
+          display_name: 'Andrés Ruiz',
+          clients: 11,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000303',
+          display_name: 'Valentina Restrepo Echeverri',
+          clients: 9,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000304',
+          display_name: 'Mateo Cárdenas',
+          clients: 7,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000305',
+          display_name: 'Daniela Ospina',
+          clients: 6,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000306',
+          display_name: 'Julián Marín',
+          clients: 4,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000307',
+          display_name: 'Paula Henao',
+          clients: 2,
+        },
+        {
+          membership_id: '01991600-7000-7000-8000-000000000308',
+          display_name: 'Sofía Peña',
+          clients: 0,
+        },
+      ],
+    },
+  },
 }
 
 /**
  * Nothing waits — and the team notice is still here, because the contract says
  * `team` is a state and never makes the day non-empty. A panel that counted its
  * own cards to decide this would get it wrong on exactly this answer.
+ *
+ * The indicators of an owner who opened the organization and has nobody in it
+ * yet: six months in which nothing began or ended, and no coach to hold a
+ * client. Each panel has to say that in words, because a chart of zeros reads
+ * as a broken one.
  */
 export const studioTodayEmpty = {
   organization_id: activeMembership.organization_id,
@@ -3459,6 +3542,16 @@ export const studioTodayEmpty = {
       by_role: [{ role_code: 'owner', count: 1 }],
       link: { operation_id: 'listStudioOrganizationMemberships', query: {} },
     },
+  },
+  indicators: {
+    relationship_changes: {
+      months: ['2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11'].map((month) => ({
+        month,
+        started: 0,
+        ended: 0,
+      })),
+    },
+    professional_load: { count: 0, unassigned: 0, items: [] },
   },
 }
 
@@ -3472,6 +3565,7 @@ export const studioTodayCoach = {
   generated_at: '2026-11-13T19:00:00.000Z',
   empty: false,
   notices: { training: studioToday.notices.training },
+  indicators: { training_adherence: studioToday.indicators.training_adherence },
 }
 
 export function createStudioApiFixture(

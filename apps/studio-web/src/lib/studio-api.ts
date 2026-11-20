@@ -111,6 +111,9 @@ export type TodayRelationships = AllfitV1Schemas['StudioTodayRelationships']
 export type TodayTerminationRequests = AllfitV1Schemas['StudioTodayTerminationRequests']
 export type TodayTeam = AllfitV1Schemas['StudioTodayTeam']
 export type TodayTraining = AllfitV1Schemas['StudioTodayTraining']
+export type TodayTrainingAdherence = AllfitV1Schemas['StudioTodayTrainingAdherence']
+export type TodayRelationshipChanges = AllfitV1Schemas['StudioTodayRelationshipChanges']
+export type TodayProfessionalLoad = AllfitV1Schemas['StudioTodayProfessionalLoad']
 export type ScopeCode = AllfitV1Schemas['ScopeCode']
 export type RelationshipState = AllfitV1Schemas['RelationshipState']
 export type RelationshipHistoryPage = AllfitV1Schemas['RelationshipHistoryPage']
@@ -1039,12 +1042,30 @@ export const studioApi = {
    * person's access log, shown or not — so this answer costs one visible line
    * per client, every time it is requested. That is why nothing may ask for it
    * on a timer, on focus or on a hunch; see `todayQueryOptions`.
+   *
+   * **It carries the viewer's timezone**, because the answer counts some things
+   * by month and an organization stores no timezone of its own. Only that count
+   * depends on it. So when the server refuses the zone the browser named, the
+   * read is made again without one: the panel loses one chart instead of all of
+   * itself. A refused zone is refused before anything is read, so the second
+   * request is the only one that reaches anybody's access log.
    */
-  today: (organizationId: string, signal?: AbortSignal) =>
-    request<StudioToday>(`/studio/v1/organizations/${organizationId}/today`, {
-      cache: 'no-store',
-      ...(signal ? { signal } : {}),
-    }),
+  today: async (organizationId: string, signal?: AbortSignal) => {
+    const path = `/studio/v1/organizations/${organizationId}/today`
+    const init: RequestInit = { cache: 'no-store', ...(signal ? { signal } : {}) }
+    const timezone = viewerTimezone()
+    if (!timezone) return request<StudioToday>(path, init)
+
+    try {
+      return await request<StudioToday>(
+        `${path}?${new URLSearchParams({ timezone }).toString()}`,
+        init,
+      )
+    } catch (error) {
+      if (!(error instanceof StudioApiError) || error.status !== 422) throw error
+      return request<StudioToday>(path, init)
+    }
+  },
 
   /**
    * `OP-IDN-018`. The training claims she shares with this caller, each with
@@ -2036,6 +2057,15 @@ export function newCommand(): CommandHeaders {
 
 interface RequestTelemetryContext {
   flowStep?: 'invitation_accepted' | 'invitation_rejected'
+}
+
+/** The IANA timezone the browser reports, or null where it reports none. */
+function viewerTimezone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null
+  } catch {
+    return null
+  }
 }
 
 async function request<T>(

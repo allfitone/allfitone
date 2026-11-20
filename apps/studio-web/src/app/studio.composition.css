@@ -1176,7 +1176,60 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* How the organization is doing: one panel per indicator, in the board's own
+   row rule so their edges fall where the cards' do. Ruled and never lifted:
+   all of it is state, and the shadow stays with what waits on somebody. */
+[data-today-indicators] {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--afo-space-5);
+}
+
+[data-today-indicators] > * {
+  min-width: 0;
+  flex: 1 1 25rem;
+}
+
+/* Started at the top: a list of three names beside a chart must not be
+   stretched to the chart's height, nor centred in it. On the surface, because
+   a chart rings its markers in that colour: on the canvas each wore a halo. */
+[data-today-indicator] {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--afo-space-5);
+  padding: var(--afo-space-5);
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--afo-radius-card);
+  background: var(--afo-color-background-surface);
+}
+
+[data-today-indicator-head] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-1);
+}
+
+[data-today-indicator-note],
+[data-today-indicator-nothing] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+  text-wrap: pretty;
+}
+
+/* What the list covers beyond its rows, as the notices say it. */
+[data-today-indicator-more] {
+  justify-self: start;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
 /* The shape of what is coming, so nothing jumps when it arrives. */
+[data-today-indicators-placeholder] {
+  height: 28rem;
+}
+
 [data-today-scoreboard-placeholder] {
   height: 17rem;
 }

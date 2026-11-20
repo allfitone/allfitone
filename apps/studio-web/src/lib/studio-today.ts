@@ -16,7 +16,15 @@
 import { clientCardPath } from './client-card'
 import { relationshipPath } from './client-directory'
 import { organizationRoleName } from './team-directory'
-import type { StudioToday, TodayLink, TodayTeam, TodayTraining } from './studio-api'
+import type {
+  StudioToday,
+  TodayLink,
+  TodayProfessionalLoad,
+  TodayRelationshipChanges,
+  TodayTeam,
+  TodayTraining,
+  TodayTrainingAdherence,
+} from './studio-api'
 
 export type TodayNoticeKind = keyof StudioToday['notices']
 
@@ -312,5 +320,167 @@ export function teamRoles(byRole: TodayTeam['by_role']): readonly {
     name: organizationRoleName(role.role_code),
     count: role.count,
     marks: role.count > MOST_TICKS ? 0 : role.count,
+  }))
+}
+
+/*
+ * The indicators: how the organization is doing, which the contract sends
+ * beside the notices and under the same rule. One the caller's roles do not
+ * open is absent, and an answer from a database older than the indicators has
+ * none at all. Both are answers, so nothing below invents a value for either.
+ *
+ * Dates arrive as calendar dates (`2026-09-21`, `2026-12`) and are read as
+ * such, by their digits. Passing them through a `Date` would hand them to the
+ * browser's timezone, and a Monday would become a Sunday west of Greenwich.
+ * The month names are spelled here for the same reason a test can pin them:
+ * what `Intl` abbreviates «septiembre» to differs from one engine to the next.
+ */
+const MONTHS = [
+  ['ene', 'enero'],
+  ['feb', 'febrero'],
+  ['mar', 'marzo'],
+  ['abr', 'abril'],
+  ['may', 'mayo'],
+  ['jun', 'junio'],
+  ['jul', 'julio'],
+  ['ago', 'agosto'],
+  ['sep', 'septiembre'],
+  ['oct', 'octubre'],
+  ['nov', 'noviembre'],
+  ['dic', 'diciembre'],
+] as const
+
+/** The month a `YYYY-MM` or `YYYY-MM-DD` value names, with its year and day. */
+function calendar(value: string): {
+  readonly year: string
+  readonly short: string
+  readonly long: string
+  readonly day: number | null
+} | null {
+  const match = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(value)
+  const names = match ? MONTHS[Number(match[2]) - 1] : undefined
+  if (!match || !names) return null
+  return {
+    year: match[1] ?? '',
+    short: names[0],
+    long: names[1],
+    day: match[3] ? Number(match[3]) : null,
+  }
+}
+
+/**
+ * One closed week of the adherence chart.
+ *
+ * A type and not an interface: the chart takes rows it can index by any key,
+ * and an interface has no index signature to offer it.
+ */
+export type AdherenceWeek = {
+  /** The Monday it began on, as the contract sent it. */
+  starts_on: string
+  /** That Monday as an axis has room for it: «21 sep». */
+  week: string
+  /** Logged out of due, as a whole percentage. `null` when nothing was due. */
+  rate: number | null
+  planned: number
+  logged: number
+}
+
+/**
+ * The weeks the server sent, each with its rate.
+ *
+ * **Nothing due is not zero.** A week that asked for no session has no rate,
+ * and the chart leaves a gap there: nobody fell short of a week with nothing
+ * in it.
+ *
+ * **Rounding never changes the answer to «all of them?» or «none?».** 199 of
+ * 200 is 99 and one of 300 is 1, because 100 and 0 are the two figures a coach
+ * reads as a fact about every session.
+ */
+export function adherenceWeeks(adherence: TodayTrainingAdherence): readonly AdherenceWeek[] {
+  return adherence.weeks.map((week) => {
+    const date = calendar(week.week_starts_on)
+    return {
+      starts_on: week.week_starts_on,
+      week: date?.day ? `${date.day} ${date.short}` : week.week_starts_on,
+      rate: adherenceRate(week.planned, week.logged),
+      planned: week.planned,
+      logged: week.logged,
+    }
+  })
+}
+
+function adherenceRate(planned: number, logged: number): number | null {
+  if (planned <= 0) return null
+  if (logged >= planned) return 100
+  if (logged <= 0) return 0
+  return Math.min(99, Math.max(1, Math.round((logged / planned) * 100)))
+}
+
+/** Whether any week has a rate, which is whether there is a line to draw. */
+export function adherenceHasSessions(weeks: readonly AdherenceWeek[]): boolean {
+  return weeks.some((week) => week.rate !== null)
+}
+
+/** A week named in full, for the tooltip and for who reads the table. */
+export function adherenceWeekName(week: AdherenceWeek): string {
+  const date = calendar(week.starts_on)
+  return `Semana del ${date?.day ? `${date.day} de ${date.long}` : week.starts_on}`
+}
+
+/** The rate with the two counts it came from, which the axis has no room for. */
+export function adherenceWeekValue(week: AdherenceWeek): string {
+  const sessions = week.planned === 1 ? 'sesión' : 'sesiones'
+  return `${week.rate ?? 0} % · ${week.logged} de ${week.planned} ${sessions}`
+}
+
+/** One month of relationships begun and ended. A type, as `AdherenceWeek` is. */
+export type RelationshipMonth = {
+  /** The month as the contract sent it: `2026-06`. */
+  key: string
+  /** As an axis has room for it: «jun». */
+  month: string
+  started: number
+  ended: number
+}
+
+/** The months the server sent, oldest first, each with a name for the axis. */
+export function relationshipMonths(
+  changes: TodayRelationshipChanges,
+): readonly RelationshipMonth[] {
+  return changes.months.map((month) => ({
+    key: month.month,
+    month: calendar(month.month)?.short ?? month.month,
+    started: month.started,
+    ended: month.ended,
+  }))
+}
+
+/**
+ * A month named in full with its year: six months can cross a new year. It
+ * opens a tooltip and a table row, so it takes the capital a sentence would.
+ */
+export function relationshipMonthName(month: RelationshipMonth): string {
+  const date = calendar(month.key)
+  if (!date) return month.key
+  return `${date.long.charAt(0).toUpperCase()}${date.long.slice(1)} de ${date.year}`
+}
+
+/** Whether anything began or ended. Six months of zeros are said, not plotted. */
+export function relationshipsChanged(months: readonly RelationshipMonth[]): boolean {
+  return months.some((month) => month.started > 0 || month.ended > 0)
+}
+
+/**
+ * The clients each professional holds, in the order the server sent: most
+ * first, and whoever holds nobody still listed, because that is who the next
+ * client can be given to.
+ */
+export function professionalLoadRows(
+  load: TodayProfessionalLoad,
+): readonly { readonly id: string; readonly label: string; readonly value: number }[] {
+  return load.items.map((item) => ({
+    id: item.membership_id,
+    label: item.display_name,
+    value: item.clients,
   }))
 }
