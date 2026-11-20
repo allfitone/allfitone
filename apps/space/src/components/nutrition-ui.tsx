@@ -9,6 +9,7 @@
 import { FoundationIcon, iconCatalog, type IconName } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { Image } from 'expo-image'
 import { useEffect, type ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
@@ -168,7 +169,7 @@ export function ZoneRing({
           cx={centre}
           cy={centre}
           r={radius}
-          stroke={`${accent}40`}
+          stroke={withAlpha(accent, 0.25)}
           strokeWidth={stroke}
           fill="none"
           {...dash(radius, lowAt, highAt)}
@@ -177,7 +178,7 @@ export function ZoneRing({
           cx={centre}
           cy={centre}
           r={outer}
-          stroke={`${accent}99`}
+          stroke={withAlpha(accent, 0.6)}
           strokeWidth={rim}
           strokeLinecap="round"
           fill="none"

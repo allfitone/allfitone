@@ -21,6 +21,7 @@ import { PageDots } from '@allfitone/react-native/page-dots'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -366,8 +367,8 @@ export default function FoodScreen() {
                   style={[
                     styles.workout,
                     {
-                      backgroundColor: `${theme.color.icon.accent}14`,
-                      borderColor: `${theme.color.icon.accent}40`,
+                      backgroundColor: withAlpha(theme.color.icon.accent, 0.08),
+                      borderColor: withAlpha(theme.color.icon.accent, 0.25),
                     },
                   ]}
                 >
@@ -380,7 +381,10 @@ export default function FoodScreen() {
                     </Text>
                   </View>
                   <View
-                    style={[styles.workoutTag, { borderColor: `${theme.color.icon.accent}55` }]}
+                    style={[
+                      styles.workoutTag,
+                      { borderColor: withAlpha(theme.color.icon.accent, 1 / 3) },
+                    ]}
                   >
                     <FoundationIcon
                       name="training"
@@ -408,8 +412,8 @@ export default function FoodScreen() {
                 styles.prompt,
                 // Lighter than a logged meal: a card still waiting to be filled (R-0).
                 {
-                  backgroundColor: `${theme.color.text.primary}08`,
-                  borderColor: `${theme.color.text.primary}2E`,
+                  backgroundColor: withAlpha(theme.color.text.primary, 0.03),
+                  borderColor: withAlpha(theme.color.text.primary, 0.18),
                 },
               ]}
             >

@@ -13,6 +13,7 @@
  */
 
 import { FoundationIcon } from '@allfitone/react-native/icons'
+import { Note } from '@allfitone/react-native/note'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useState } from 'react'
@@ -175,16 +176,7 @@ export function SexPicker({
           style={styles.consequence}
           {...(reduceMotion ? {} : { entering: consequenceIn, exiting: consequenceOut })}
         >
-          <FoundationIcon
-            name="info"
-            size="sm"
-            color={theme.color.text.muted}
-            decorative
-            style={styles.consequenceIcon}
-          />
-          <Text role="body" size="sm" color="muted" style={styles.consequenceText}>
-            {declineNote}
-          </Text>
+          <Note size="md">{declineNote}</Note>
         </Animated.View>
       ) : null}
     </>

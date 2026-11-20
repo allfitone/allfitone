@@ -23,6 +23,8 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { CodeField } from '@allfitone/react-native/code-field'
+import { ContentGroup } from '@allfitone/react-native/content-row'
+import { DisclosureButton } from '@allfitone/react-native/disclosure-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
@@ -64,7 +66,7 @@ import {
 } from '../client/profile-transport'
 import { EditHeader, EditScreen } from './edit-screen'
 import { EmailChangeProgress } from './email-change-progress'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 export interface IdentitySources {
   readonly readIdentity: () => Promise<SpaceIdentity>
@@ -229,7 +231,6 @@ export function NameEditScreen({
 /** `PF-E9`: the country code from a list, the number beside it. */
 export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
-  const theme = useTheme()
   const { identity, unreadable } = useIdentity(sources)
   const [country, setCountry] = useState(DEFAULT_COUNTRY)
   const [national, setNational] = useState('')
@@ -289,37 +290,16 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
               TELÉFONO
             </Text>
             <View style={styles.phoneRow}>
-              <Pressable
-                accessibilityRole="button"
+              <DisclosureButton
+                variant="select"
+                label={shown?.name ?? ''}
+                value={`+${shown?.dial ?? ''}`}
                 accessibilityLabel={`Indicativo: ${shown?.name ?? ''} +${shown?.dial ?? ''}`}
-                accessibilityHint="Elegir el país"
                 onPress={() =>
                   router.push({ pathname: '/me/phone-country', params: { selected: country } })
                 }
-                style={({ pressed }) => [
-                  styles.code,
-                  {
-                    backgroundColor: theme.color.background.surfaceMuted,
-                    borderColor: theme.color.border.subtle,
-                  },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.grow}>
-                  <Text role="body" size="2xs" color="secondary" numberOfLines={1}>
-                    {shown?.name ?? ''}
-                  </Text>
-                  <Text role="control" size="md">
-                    {`+${shown?.dial ?? ''}`}
-                  </Text>
-                </View>
-                <FoundationIcon
-                  name="expand"
-                  size="xs"
-                  color={theme.color.icon.secondary}
-                  decorative
-                />
-              </Pressable>
+                style={styles.code}
+              />
               <TextField
                 label="Número"
                 hideLabel
@@ -335,7 +315,7 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
               />
             </View>
           </View>
-          <FormNote text="Solo el número, sin el indicativo: lo eliges a la izquierda." />
+          <Note>Solo el número, sin el indicativo: lo eliges a la izquierda.</Note>
           {identity.phone.number ? (
             <View style={styles.start}>
               <Button
@@ -367,7 +347,7 @@ export function CountryCodeScreen() {
     router.back()
   }
 
-  const row = (country: Country, index: number) => {
+  const row = (country: Country) => {
     const on = country.iso === selected
     return (
       <Pressable
@@ -376,11 +356,7 @@ export function CountryCodeScreen() {
         accessibilityLabel={`${country.name}, +${country.dial}`}
         accessibilityState={{ selected: on }}
         onPress={() => pick(country)}
-        style={({ pressed }) => [
-          styles.country,
-          index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
-          pressed && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.country, pressed && styles.pressed]}
       >
         <Text role={on ? 'control' : 'body'} size="md" style={styles.grow}>
           {country.name}
@@ -412,32 +388,24 @@ export function CountryCodeScreen() {
           placeholder="Busca un país o un indicativo"
           autoCorrect={false}
         />
-        <View
-          style={[
-            styles.list,
-            {
-              backgroundColor: theme.color.background.surface,
-              borderColor: theme.color.border.subtle,
-            },
-          ]}
-        >
+        <ContentGroup>
           {query === '' && picked ? (
             <>
-              {row(picked, 0)}
-              <View style={[styles.divider, { borderTopColor: theme.color.border.subtle }]}>
+              {row(picked)}
+              <View style={styles.divider}>
                 <Text role="label" size="2xs" color="muted">
                   TODOS LOS PAÍSES
                 </Text>
               </View>
             </>
           ) : null}
-          {rest.map(row)}
+          {rest.map((country) => row(country))}
           {rest.length === 0 ? (
             <Text role="body" size="sm" color="muted" style={styles.empty}>
               Ningún país de la lista coincide.
             </Text>
           ) : null}
-        </View>
+        </ContentGroup>
       </ScrollView>
     </Screen>
   )
@@ -533,9 +501,12 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
             autoFocus
             {...fieldError}
           />
-          <FormNote text="Te enviaremos un código a ese correo. Hasta que lo confirmes, sigues entrando con el actual." />
+          <Note>
+            Te enviaremos un código a ese correo. Hasta que lo confirmes, sigues entrando con el
+            actual.
+          </Note>
           {replacedCodeNote(identity.email.pending) ? (
-            <FormNote text={replacedCodeNote(identity.email.pending) ?? ''} boxed />
+            <Note boxed>{replacedCodeNote(identity.email.pending) ?? ''}</Note>
           ) : null}
         </>
       ) : null}
@@ -553,7 +524,6 @@ function minutesLeft(expiresAt: string): number {
 /** `PF-E12`: the six digits from the new inbox. */
 export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
-  const theme = useTheme()
   const { identity, unreadable } = useIdentity(sources)
   const [pending, setPending] = useState<EmailChange | null | undefined>(undefined)
   const [code, setCode] = useState('')
@@ -682,7 +652,7 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
       onSave={waiting || applying ? () => void confirm() : undefined}
     >
       {applying ? (
-        <FormNote text="Cuando termine, entras con el correo nuevo y cerramos tus otras sesiones." />
+        <Note>Cuando termine, entras con el correo nuevo y cerramos tus otras sesiones.</Note>
       ) : null}
       {waiting ? (
         <>
@@ -699,35 +669,36 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
             autoFocus
             editable={!saving}
           />
-          <FormNote text="Al confirmarlo, entras con el correo nuevo y cerramos tus otras sesiones. Avisaremos al correo anterior." />
+          <Note>
+            Al confirmarlo, entras con el correo nuevo y cerramos tus otras sesiones. Avisaremos al
+            correo anterior.
+          </Note>
           {notice ? <InlineAlert message={notice} tone="success" /> : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="¿No te llegó? Reenviar el código"
-            onPress={() => void resend()}
-            style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
-          >
+          <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">
               ¿No te llegó?
             </Text>
-            <Text role="control" size="sm" style={{ color: theme.color.icon.accent }}>
-              Reenviar
-            </Text>
-          </Pressable>
+            <Button
+              label="Reenviar"
+              variant="ghost"
+              size="sm"
+              accessibilityLabel="¿No te llegó? Reenviar el código"
+              onPress={() => void resend()}
+            />
+          </View>
           {/* A code sent to a mistyped address never arrives: this is the way out. */}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="¿Te equivocaste de correo? Usar otro"
-            onPress={() => router.replace('/me/email')}
-            style={({ pressed }) => [styles.resend, pressed && styles.pressed]}
-          >
+          <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">
               ¿Te equivocaste de correo?
             </Text>
-            <Text role="control" size="sm" style={{ color: theme.color.icon.accent }}>
-              Usar otro
-            </Text>
-          </Pressable>
+            <Button
+              label="Usar otro"
+              variant="ghost"
+              size="sm"
+              accessibilityLabel="¿Te equivocaste de correo? Usar otro"
+              onPress={() => router.replace('/me/email')}
+            />
+          </View>
         </>
       ) : null}
     </EditScreen>
@@ -739,23 +710,12 @@ const styles = StyleSheet.create({
   content: { gap: 18, paddingTop: 4, paddingBottom: 32 },
   phone: { gap: 8 },
   phoneRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  code: {
-    width: 118,
-    minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
+  code: { width: 118 },
   start: { alignSelf: 'flex-start' },
-  list: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 16 },
   country: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14 },
-  divider: { borderTopWidth: 1, paddingTop: 14, paddingBottom: 6 },
+  divider: { paddingTop: 14, paddingBottom: 6 },
   empty: { paddingVertical: 16 },
   pressed: { opacity: 0.7 },
   current: { gap: 4, borderRadius: 18, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 14 },
-  resend: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 },
+  resend: { flexDirection: 'row', alignItems: 'center' },
 })

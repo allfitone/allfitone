@@ -31,15 +31,15 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
+import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { WheelPicker } from '@allfitone/react-native/wheel-picker'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { OnboardingHeader } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
@@ -83,7 +83,6 @@ const UNIT_SUFFIX: Record<MeasureUnit, string> = { kg: 'kg', lb: 'lb', cm: 'cm',
 
 export default function OnboardingMeasures() {
   const router = useRouter()
-  const theme = useTheme()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
 
   const [weightKg, setWeightKg] = useState(RESTING_WEIGHT_KG)
@@ -170,48 +169,26 @@ export default function OnboardingMeasures() {
     }
   }
 
+  // The DS control has no disabled state; while saving or after the session expired a
+  // change is simply not taken.
   const units = <U extends MeasureUnit>(
     options: readonly U[],
     chosen: U,
     choose: (u: U) => void,
   ) => (
-    <View
-      style={[
-        styles.units,
-        {
-          backgroundColor: theme.color.background.surfaceSubtle,
-          borderColor: theme.color.border.subtle,
-        },
-      ]}
-    >
-      {options.map((option) => {
-        const on = chosen === option
-        return (
-          <Pressable
-            key={option}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: on, disabled: !pressable }}
-            accessibilityLabel={UNIT_SPOKEN[option]}
-            disabled={!pressable}
-            onPress={() => choose(option)}
-            hitSlop={8}
-            style={[
-              styles.unit,
-              on
-                ? {
-                    backgroundColor: theme.color.accent.tonal,
-                    borderColor: theme.color.border.accent,
-                  }
-                : styles.unitOff,
-            ]}
-          >
-            <Text role="body" size="xs" color={on ? 'accent' : 'muted'} style={styles.unitText}>
-              {UNIT_LABEL[option]}
-            </Text>
-          </Pressable>
-        )
-      })}
-    </View>
+    <SegmentedControl
+      size="sm"
+      items={options.map((option) => ({
+        value: option,
+        label: UNIT_LABEL[option],
+        accessibilityLabel: UNIT_SPOKEN[option],
+      }))}
+      value={chosen}
+      onChange={(next) => {
+        if (pressable) choose(next)
+      }}
+      accessibilityLabel="Unidad"
+    />
   )
 
   const weightReading = readingFor(weightKg, massUnit)
@@ -289,12 +266,7 @@ export default function OnboardingMeasures() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <View style={styles.note}>
-          <FoundationIcon name="info" size="sm" color={theme.color.text.muted} decorative />
-          <Text role="body" size="xs" color="muted" style={styles.noteText}>
-            Es tu primer registro de progreso. Podrás actualizarlo cuando quieras.
-          </Text>
-        </View>
+        <Note>Es tu primer registro de progreso. Podrás actualizarlo cuando quieras.</Note>
 
         {failure ? <InlineAlert message={failure} style={styles.alert} /> : null}
 
@@ -333,18 +305,6 @@ const styles = StyleSheet.create({
   // Caption and pill share a line. Stacked, the pill read as a second control the
   // person had to deal with before reaching the wheel.
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  units: { flexDirection: 'row', padding: 3, borderWidth: 1, borderRadius: 999 },
-  unit: {
-    minWidth: 40,
-    minHeight: 25,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderRadius: 999,
-  },
-  unitOff: { borderColor: 'transparent' },
-  unitText: { letterSpacing: 1.4 },
   note: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: 12 },
   noteText: { flex: 1 },
   footer: { paddingTop: 4, paddingBottom: FOOTER_LIFT },

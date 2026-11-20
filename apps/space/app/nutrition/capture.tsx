@@ -25,6 +25,7 @@ import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
@@ -570,7 +571,7 @@ export default function CaptureScreen() {
                     role="control"
                     size="md"
                     style={{
-                      color: active ? theme.color.status.warning : theme.color.text.secondary,
+                      color: active ? theme.color.text.accent : theme.color.text.secondary,
                     }}
                   >
                     {key === 'photo' && !photoOpen ? `${label} · Pro` : label}
@@ -578,7 +579,7 @@ export default function CaptureScreen() {
                   <View
                     style={[
                       styles.tabDot,
-                      { backgroundColor: active ? theme.color.status.warning : 'transparent' },
+                      { backgroundColor: active ? theme.color.icon.accent : 'transparent' },
                     ]}
                   />
                 </Pressable>
@@ -763,7 +764,7 @@ function Review({
                     styles.label,
                     item.review && {
                       borderWidth: 1,
-                      borderColor: `${theme.color.status.warning}99`,
+                      borderColor: withAlpha(theme.color.status.warning, 0.6),
                     },
                   ]}
                 >
@@ -878,7 +879,12 @@ function ItemRow({ item, onPress }: { readonly item: CaptureItem; readonly onPre
             <FoundationIcon name="expand" size="xs" color={theme.color.icon.secondary} decorative />
           </View>
           {item.review ? (
-            <View style={[styles.portion, { backgroundColor: `${theme.color.status.warning}26` }]}>
+            <View
+              style={[
+                styles.portion,
+                { backgroundColor: withAlpha(theme.color.status.warning, 0.15) },
+              ]}
+            >
               <Text role="control" size="xs" style={{ color: theme.color.status.warning }}>
                 {isEstimated(item) ? 'IA' : item.food ? '¿Es esto?' : 'Elige el alimento'}
               </Text>

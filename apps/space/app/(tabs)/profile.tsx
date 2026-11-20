@@ -31,7 +31,7 @@ import { useTheme } from '@allfitone/react-native/theme'
 import Constants from 'expo-constants'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { createSpaceExecutionFlow } from '../../src/client/execution-transport'
 import { forgetExerciseLibrary } from '../../src/client/exercise-library'
@@ -343,22 +343,14 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
           />
         </ProfileGroup>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Cerrar sesión"
-          accessibilityState={{ busy }}
+        <Button
+          label="Cerrar sesión"
+          variant="outlineDanger"
+          loading={busy}
           disabled={busy}
+          style={styles.leave}
           onPress={() => void leave(false)}
-          style={({ pressed }) => [
-            styles.signOut,
-            { borderColor: theme.color.border.subtle },
-            (pressed || busy) && styles.pressed,
-          ]}
-        >
-          <Text role="control" size="md" color="danger">
-            Cerrar sesión
-          </Text>
-        </Pressable>
+        />
 
         <Text role="body" size="2xs" color="muted" align="center">
           {version ? `Versión ${version} · Allfit Space` : 'Allfit Space'}
@@ -394,6 +386,8 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
 }
 
 const styles = StyleSheet.create({
+  // Today's sign-out pill is 52 tall; the DS md button is 44.
+  leave: { minHeight: 52 },
   header: { paddingTop: 6, paddingBottom: 12 },
   content: { gap: 18, paddingTop: 4, paddingBottom: DOCK_HEIGHT + 40 },
   who: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -407,15 +401,5 @@ const styles = StyleSheet.create({
   },
   grow: { flex: 1, gap: 3 },
   founding: { alignSelf: 'flex-start', marginTop: 5 },
-  signOut: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 52,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  pressed: { opacity: 0.6 },
   sheetBody: { gap: 12 },
 })

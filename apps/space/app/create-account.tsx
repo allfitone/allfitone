@@ -21,24 +21,19 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { RequirementList } from '@allfitone/react-native/requirement-list'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Linking, ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError, register } from '../src/client'
 import { LEGAL_URLS } from '../src/client/legal'
-
-/** Mirrors the API, which rejects anything else before reaching the provider. */
-const MIN_PASSWORD_LENGTH = 8
-const PASSWORD_COMPOSITION = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/
-
-const PASSWORD_RULE = 'Al menos 8 caracteres, con una mayúscula, una minúscula y un número'
+import { isSignUpPassword, signUpRequirements } from '../src/client/password-form'
 
 /**
  * Only the password case is described precisely. The others are deliberately
@@ -62,18 +57,15 @@ function messageFor(cause: unknown): string {
 }
 
 export default function CreateAccount() {
-  const theme = useTheme()
   const router = useRouter()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [shown, setShown] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [failure, setFailure] = useState<string | undefined>(undefined)
 
-  const passwordValid =
-    password.length >= MIN_PASSWORD_LENGTH && PASSWORD_COMPOSITION.test(password)
-  const passwordProblem = password.length > 0 && !passwordValid
-  const canSubmit = email.includes('@') && passwordValid && !submitting
+  const canSubmit = email.includes('@') && isSignUpPassword(password) && !submitting
 
   const submit = async () => {
     setSubmitting(true)
@@ -91,21 +83,13 @@ export default function CreateAccount() {
 
   return (
     <Screen edges={['top', 'bottom']} dots>
-      <Pressable
-        accessibilityRole="button"
+      <IconButton
+        icon="back"
+        variant="plain"
         accessibilityLabel="Volver"
         onPress={() => router.back()}
-        hitSlop={8}
         style={styles.back}
-      >
-        <FoundationIcon
-          name="back"
-          color={theme.color.icon.primary}
-          size="lg"
-          strokeScale="compact"
-          decorative
-        />
-      </Pressable>
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -140,15 +124,19 @@ export default function CreateAccount() {
             label="Contraseña"
             value={password}
             onChangeText={setPassword}
-            placeholder="Mínimo 8 caracteres"
             autoCapitalize="none"
             autoComplete="new-password"
-            secureTextEntry
+            secureTextEntry={!shown}
             textContentType="newPassword"
             returnKeyType="go"
             editable={!submitting}
-            {...(passwordProblem ? { error: PASSWORD_RULE } : {})}
+            trailing={{
+              label: shown ? 'Ocultar' : 'Mostrar',
+              accessibilityLabel: `${shown ? 'Ocultar' : 'Mostrar'} contraseña`,
+              onPress: () => setShown((was) => !was),
+            }}
           />
+          <RequirementList requirements={signUpRequirements(password)} />
 
           {failure ? <InlineAlert message={failure} /> : null}
 
@@ -188,28 +176,24 @@ export default function CreateAccount() {
         </View>
       </ScrollView>
 
-      <Pressable
-        accessibilityRole="link"
-        onPress={() => router.replace('/sign-in')}
-        style={styles.link}
-      >
-        <Text role="body" size="sm" color="secondary" align="center">
-          ¿Ya tienes cuenta?{' '}
-          <Text role="control" size="sm" color="accent">
-            Iniciar sesión
-          </Text>
+      <View style={styles.link}>
+        <Text role="body" size="sm" color="secondary">
+          ¿Ya tienes cuenta?
         </Text>
-      </Pressable>
+        <Button
+          label="Iniciar sesión"
+          variant="ghost"
+          size="sm"
+          accessibilityLabel="¿Ya tienes cuenta? Iniciar sesión"
+          onPress={() => router.replace('/sign-in')}
+        />
+      </View>
     </Screen>
   )
 }
 
 const styles = StyleSheet.create({
   back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginLeft: -12,
   },
   scroll: {
@@ -235,6 +219,8 @@ const styles = StyleSheet.create({
   },
   link: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
 })

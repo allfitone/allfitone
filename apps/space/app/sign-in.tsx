@@ -22,15 +22,14 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError, signIn, unreachable } from '../src/client'
 import { storeSession } from '../src/client/session'
@@ -42,7 +41,6 @@ const FAILURE = 'Correo o contraseña incorrectos'
 const UNREACHABLE = 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
 
 export default function SignIn() {
-  const theme = useTheme()
   const router = useRouter()
 
   const [email, setEmail] = useState('')
@@ -73,21 +71,13 @@ export default function SignIn() {
     <Screen edges={['top', 'bottom']} dots>
       {/* Outside the scroll view: the content below is centred, and a back
           control that drifts to the middle of the screen with it is unfindable. */}
-      <Pressable
-        accessibilityRole="button"
+      <IconButton
+        icon="back"
+        variant="plain"
         accessibilityLabel="Volver"
         onPress={() => router.back()}
-        hitSlop={8}
         style={styles.back}
-      >
-        <FoundationIcon
-          name="back"
-          color={theme.color.icon.primary}
-          size="lg"
-          strokeScale="compact"
-          decorative
-        />
-      </Pressable>
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -140,36 +130,36 @@ export default function SignIn() {
             style={styles.submit}
           />
 
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => setResetting(true)}
-            style={styles.link}
-          >
-            <Text role="body" size="sm" color="secondary" align="center">
-              ¿Olvidaste tu contraseña?{' '}
-              <Text role="control" size="sm" color="accent">
-                Restablecer
-              </Text>
+          <View style={styles.link}>
+            <Text role="body" size="sm" color="secondary">
+              ¿Olvidaste tu contraseña?
             </Text>
-          </Pressable>
+            <Button
+              label="Restablecer"
+              variant="ghost"
+              size="sm"
+              accessibilityLabel="¿Olvidaste tu contraseña? Restablecer"
+              onPress={() => setResetting(true)}
+            />
+          </View>
         </View>
       </ScrollView>
 
       {/* Anchored to the bottom rather than trailing the form. Inside the
           centred block its own margin would push the fields up instead of
           moving the link down. */}
-      <Pressable
-        accessibilityRole="link"
-        onPress={() => router.replace('/create-account')}
-        style={styles.link}
-      >
-        <Text role="body" size="sm" color="secondary" align="center">
-          ¿No tienes cuenta?{' '}
-          <Text role="control" size="sm" color="accent">
-            Crear una
-          </Text>
+      <View style={styles.link}>
+        <Text role="body" size="sm" color="secondary">
+          ¿No tienes cuenta?
         </Text>
-      </Pressable>
+        <Button
+          label="Crear una"
+          variant="ghost"
+          size="sm"
+          accessibilityLabel="¿No tienes cuenta? Crear una"
+          onPress={() => router.replace('/create-account')}
+        />
+      </View>
       <PasswordResetSheet visible={resetting} onDismiss={() => setResetting(false)} email={email} />
     </Screen>
   )
@@ -185,10 +175,6 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginLeft: -12,
   },
   title: {
@@ -203,6 +189,8 @@ const styles = StyleSheet.create({
   },
   link: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
 })

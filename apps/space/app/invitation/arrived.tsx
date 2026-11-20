@@ -9,6 +9,7 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -20,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { shortDate } from '../../src/client/pro'
 import type { PendingInvitation } from '../../src/client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../../src/client/gym-affiliation-transport'
-import { GlyphRow, GymMark, RowCard } from '../../src/components/gym-ui'
+import { GymMark, RowCard } from '../../src/components/gym-ui'
 
 export default function InvitationArrived() {
   const router = useRouter()
@@ -64,17 +65,17 @@ export default function InvitationArrived() {
         <View style={styles.rows}>
           <RowCard>
             {invitation.invited_by ? (
-              <GlyphRow
+              <ContentRow
                 icon="person"
-                title={`Te invita ${invitation.invited_by}`}
+                iconTone="quiet"
+                name={`Te invita ${invitation.invited_by}`}
                 caption={`Del equipo de ${gym}`}
               />
             ) : null}
-            <GlyphRow
+            <ContentRow
               icon="favourite"
-              title="Allfit Pro incluido"
+              name="Allfit Pro incluido"
               caption={`Mientras sigas con ${gym}`}
-              accent
             />
           </RowCard>
         </View>

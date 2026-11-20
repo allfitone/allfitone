@@ -9,20 +9,18 @@
  * Done, the screen says so in place rather than going back: the other sessions close in
  * the background and this one stays (criterion 2), which is worth reading once.
  *
- * **Each field draws its own label and error around the design system's field**, so the
- * «Mostrar» toggle can sit on the box itself. The field has no slot for one, and the icon
- * catalogue has no eye, so the toggle is a word until the design system grows both.
+ * **Both fields are the design system's own**: «Mostrar» is the field's `trailing` word,
+ * its error sits under it, and the four rules are a `RequirementList`.
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Screen } from '@allfitone/react-native/screen'
+import { RequirementList } from '@allfitone/react-native/requirement-list'
 import { Text } from '@allfitone/react-native/text'
 import { TextField } from '@allfitone/react-native/text-field'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   canChangePassword,
@@ -34,7 +32,7 @@ import {
 import { changePassword } from '../client/profile-transport'
 import { EditHeader, EditScreen } from './edit-screen'
 import { Ring } from './email-change-progress'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 export interface PasswordSources {
   readonly changePassword: (current: string, next: string) => Promise<void>
@@ -119,12 +117,13 @@ export function PasswordEditScreen({ sources }: { readonly sources: PasswordSour
         autoComplete="new-password"
         error={failure?.field === 'next' ? failure.message : undefined}
       />
-      <View style={styles.rules}>
-        {PASSWORD_RULES.map(({ rule, label }) => (
-          <Rule key={rule} label={label} met={checks[rule]} />
-        ))}
-      </View>
-      <FormNote text="Al cambiarla cerramos tus sesiones en otros teléfonos. En este sigues dentro, y te avisamos por correo." />
+      <RequirementList
+        requirements={PASSWORD_RULES.map(({ rule, label }) => ({ label, met: checks[rule] }))}
+      />
+      <Note>
+        Al cambiarla cerramos tus sesiones en otros teléfonos. En este sigues dentro, y te avisamos
+        por correo.
+      </Note>
     </EditScreen>
   )
 }
@@ -142,107 +141,29 @@ function PasswordField({
   readonly autoComplete: 'current-password' | 'new-password'
   readonly error: string | undefined
 }) {
-  const theme = useTheme()
   const [shown, setShown] = useState(false)
   return (
-    <View style={styles.field}>
-      <Text role="control" size="sm" color="secondary" accessible={false}>
-        {label}
-      </Text>
-      <View>
-        <TextField
-          label={label}
-          hideLabel
-          value={value}
-          onChangeText={onChange}
-          secureTextEntry={!shown}
-          autoCapitalize="none"
-          autoCorrect={false}
-          autoComplete={autoComplete}
-          textContentType={autoComplete === 'new-password' ? 'newPassword' : 'password'}
-          {...(error === undefined ? {} : { error: '' })}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            shown ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`
-          }
-          hitSlop={8}
-          onPress={() => setShown((was) => !was)}
-          style={styles.reveal}
-        >
-          <Text role="control" size="xs" color="accent">
-            {shown ? 'Ocultar' : 'Mostrar'}
-          </Text>
-        </Pressable>
-      </View>
-      {error ? (
-        <View style={styles.error}>
-          <FoundationIcon name="warning" size="xs" color={theme.color.status.danger} decorative />
-          <Text role="label" size="xs" color="danger" accessibilityLiveRegion="polite">
-            {error}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  )
-}
-
-function Rule({ label, met }: { readonly label: string; readonly met: boolean }) {
-  const theme = useTheme()
-  return (
-    <View
-      style={styles.rule}
-      accessible
-      accessibilityLabel={`${label}: ${met ? 'cumplida' : 'pendiente'}`}
-    >
-      <View
-        style={[
-          styles.mark,
-          {
-            borderColor: met ? theme.color.icon.accent : theme.color.border.default,
-            backgroundColor: met ? theme.color.icon.accent : 'transparent',
-          },
-        ]}
-      >
-        {met ? (
-          <FoundationIcon
-            name="check"
-            customSize={10}
-            strokeScale="compact"
-            color={theme.color.accent.onAccent}
-            decorative
-          />
-        ) : null}
-      </View>
-      <Text role="body" size="sm" color={met ? 'primary' : 'muted'}>
-        {label}
-      </Text>
-    </View>
+    <TextField
+      label={label}
+      value={value}
+      onChangeText={onChange}
+      secureTextEntry={!shown}
+      autoCapitalize="none"
+      autoCorrect={false}
+      autoComplete={autoComplete}
+      textContentType={autoComplete === 'new-password' ? 'newPassword' : 'password'}
+      {...(error === undefined ? {} : { error })}
+      trailing={{
+        label: shown ? 'Ocultar' : 'Mostrar',
+        accessibilityLabel: `${shown ? 'Ocultar' : 'Mostrar'} ${label.toLowerCase()}`,
+        onPress: () => setShown((was) => !was),
+      }}
+    />
   )
 }
 
 const styles = StyleSheet.create({
   grow: { flex: 1 },
-  field: { gap: 8 },
-  reveal: {
-    position: 'absolute',
-    right: 14,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-  },
-  error: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rules: { gap: 10, paddingHorizontal: 2 },
-  rule: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  mark: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   done: { alignItems: 'center', gap: 22, paddingTop: 36, paddingBottom: 32 },
   words: { gap: 10, maxWidth: 320 },
   footer: { paddingTop: 12, paddingBottom: 8 },

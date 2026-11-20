@@ -14,6 +14,7 @@ import { Screen } from '@allfitone/react-native/screen'
 import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
@@ -183,7 +184,7 @@ export default function NutritionHistoryScreen() {
                                 height: Math.max(6, (eaten / tallest) * BAR_HEIGHT),
                                 backgroundColor: isToday
                                   ? theme.color.icon.accent
-                                  : `${theme.color.icon.accent}55`,
+                                  : withAlpha(theme.color.icon.accent, 1 / 3),
                               },
                         ]}
                       />

@@ -9,9 +9,10 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { ContentRow } from '@allfitone/react-native/content-row'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
@@ -28,7 +29,7 @@ import {
   type MyRelationship,
 } from '../../src/client/gym-affiliation-transport'
 import { shortDate } from '../../src/client/pro'
-import { GlyphRow, GymMark, RowCard } from '../../src/components/gym-ui'
+import { GymMark, RowCard } from '../../src/components/gym-ui'
 import type { IconName } from '@allfitone/icons'
 
 const EVENT_ICON: Record<string, IconName> = {
@@ -125,10 +126,11 @@ export default function RelationshipHistory() {
             </Text>
             <RowCard>
               {events.map((event, index) => (
-                <GlyphRow
+                <ContentRow
                   key={`${event.type}-${event.source_id}-${String(index)}`}
                   icon={EVENT_ICON[event.type] ?? 'history'}
-                  title={historyLine(event)}
+                  iconTone="quiet"
+                  name={historyLine(event)}
                   caption={shortDate(event.occurred_at)}
                 />
               ))}
@@ -136,13 +138,10 @@ export default function RelationshipHistory() {
           </View>
         ) : null}
 
-        <View style={styles.note}>
-          <FoundationIcon name="info" size="sm" color={theme.color.icon.secondary} decorative />
-          <Text role="body" size="xs" color="muted" style={styles.grow}>
-            Este registro no se edita ni se borra. Si el gimnasio declara un motivo al terminar, no
-            lo ves, igual que ellos no ven el tuyo.
-          </Text>
-        </View>
+        <Note>
+          Este registro no se edita ni se borra. Si el gimnasio declara un motivo al terminar, no lo
+          ves, igual que ellos no ven el tuyo.
+        </Note>
       </ScrollView>
 
       {active ? (

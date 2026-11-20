@@ -14,8 +14,7 @@
  * the server decides which version is shown, so nothing here guesses it.
  */
 
-import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import { StyleSheet, useWindowDimensions, View } from 'react-native'
@@ -59,7 +58,7 @@ import {
 import type { SexAnswer } from '../client/sex-form'
 import { EditScreen } from './edit-screen'
 import { ExperiencePicker } from './experience-picker'
-import { FormNote } from './fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 import { FocusPicker } from './focus-picker'
 import { GOAL_ARTWORK } from './goal-artwork'
 import { GoalRow, GoalStage } from './goal-stage'
@@ -296,7 +295,7 @@ export function SexEditScreen({ sources }: { readonly sources: FitnessEditSource
           declineNote="Todo funciona igual, con estimaciones menos ajustadas."
         />
       </View>
-      <FormNote text="Cambiarlo no reescribe lo que ya registraste." />
+      <Note>Cambiarlo no reescribe lo que ya registraste.</Note>
     </EditScreen>
   )
 }
@@ -309,7 +308,6 @@ export function VersionsScreen({
   readonly sources: FitnessEditSources
   readonly code: string
 }) {
-  const theme = useTheme()
   const { profile, unreadable } = useProfile(sources)
   const versions = versionsOf(profile, code)
 
@@ -323,36 +321,29 @@ export function VersionsScreen({
     >
       <View style={styles.versions}>
         {versions?.versions.map((version, index) => (
-          <View
+          <ContentRow
             key={index}
-            style={[
-              styles.version,
-              {
-                borderColor: version.current
-                  ? theme.color.border.accent
-                  : theme.color.border.subtle,
-                backgroundColor: theme.color.background.surfaceMuted,
-              },
-            ]}
-          >
-            <View style={styles.grow}>
-              <Text role="control" size="md">
-                {version.line}
-              </Text>
-              <Text role="body" size="xs" color="secondary">
-                {version.origin}
-              </Text>
-            </View>
-            {version.current ? (
-              <Text role="control" size="xs" color="accent">
-                Mostramos
-              </Text>
-            ) : null}
-          </View>
+            name={version.line}
+            caption={version.origin}
+            {...(version.current
+              ? {
+                  trailing: {
+                    kind: 'badge',
+                    label: 'Mostramos',
+                    tone: 'accent',
+                    variant: 'tonal',
+                    uppercase: false,
+                  },
+                }
+              : {})}
+          />
         ))}
       </View>
       {versions ? (
-        <FormNote text="Lo que observó tu coach nunca aparece como si lo hubieras dicho tú. Las demás versiones no se ocultan ni se borran." />
+        <Note>
+          Lo que observó tu coach nunca aparece como si lo hubieras dicho tú. Las demás versiones no
+          se ocultan ni se borran.
+        </Note>
       ) : null}
     </EditScreen>
   )
@@ -363,13 +354,4 @@ const styles = StyleSheet.create({
   track: { gap: 14 },
   routine: { gap: 14 },
   versions: { gap: 10 },
-  version: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-  },
-  grow: { flex: 1, gap: 2 },
 })

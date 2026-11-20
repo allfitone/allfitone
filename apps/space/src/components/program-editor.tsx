@@ -17,9 +17,11 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
@@ -695,12 +697,9 @@ export function ProgramEditor({
         {/* Only while the week is empty. It answers «what is this screen» and stops
             answering it the moment somebody has plainly worked it out. */}
         {summary.daysPerWeek > 0 ? null : (
-          <View style={[styles.notice, { backgroundColor: theme.color.background.surfaceSubtle }]}>
-            <FoundationIcon name="info" size="sm" color={theme.color.icon.secondary} decorative />
-            <Text role="body" size="sm" color="secondary" style={styles.noticeText}>
-              {WHAT_A_PROGRAM_IS}
-            </Text>
-          </View>
+          <Note size="md" boxed>
+            {WHAT_A_PROGRAM_IS}
+          </Note>
         )}
       </ScrollView>
 
@@ -886,36 +885,15 @@ export function IncludedRoutine({
   readonly library: ExerciseLibrary | undefined
   readonly onPress: () => void
 }) {
-  const theme = useTheme()
-
   return (
-    <Pressable
-      accessibilityRole="button"
+    <ContentRow
+      preview={<RoutineMark routine={routine} library={library} size="xs" />}
+      name={routine.title}
+      // Which days, not how many times: «Lunes · Viernes» is what the list is read for.
+      caption={days}
       accessibilityLabel={`Abrir ${routine.title}`}
-      accessibilityHint={days}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.included,
-        {
-          borderColor: theme.color.border.subtle,
-          backgroundColor: theme.color.background.surface,
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}
-    >
-      <RoutineMark routine={routine} library={library} size="xs" />
-      <View style={styles.rowText}>
-        <Text role="control" size="sm" numberOfLines={1}>
-          {routine.title}
-        </Text>
-        {/* Which days, not how many times: «Lunes · Viernes» is the answer to
-            what somebody is looking at the list for, and «2×/sem» is not. */}
-        <Text role="body" size="xs" color="muted" numberOfLines={1}>
-          {days}
-        </Text>
-      </View>
-      <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-    </Pressable>
+    />
   )
 }
 
@@ -951,17 +929,6 @@ const styles = StyleSheet.create({
   },
   anchor: { paddingTop: 12, paddingBottom: FOOTER_LIFT },
   rowText: { flex: 1, gap: 2 },
-  // La marca es lo que mide la fila, y con la extrapequeña cabe una rutina más en
-  // pantalla sin que el nombre ni los días pierdan sitio.
-  included: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
   notice: { flexDirection: 'row', gap: 10, borderRadius: 16, padding: 14 },
   noticeText: { flex: 1 },
   sheetBody: { gap: 12 },

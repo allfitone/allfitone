@@ -46,6 +46,7 @@
 import { Button } from '@allfitone/react-native/button'
 import { Badge, badgeToneColor, identityTone } from '@allfitone/react-native/badge'
 import { Chip } from '@allfitone/react-native/chip'
+import { CoverTile } from '@allfitone/react-native/cover-tile'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
@@ -128,14 +129,11 @@ const SUGGESTIONS = ['Empuje', 'Tirón', 'Pierna', 'Full body']
 /** Long enough that a name is not a save per keystroke, short enough to feel saved. */
 const SAVE_DELAY_MS = 700
 
-/** DT-010 measures the target, not the glyph, and the glyph here is 16. */
-const PRESS_SLOP = { top: 14, bottom: 14, left: 14, right: 14 }
-
 /** Keeps the button off the very bottom edge, the same amount as every other footer. */
 const FOOTER_LIFT = 16
 
-/** Under the threshold where a press reads as an animation instead of as a response. */
-const PRESS_MS = 120
+/** DT-010 measures the target, not the glyph, and the glyph here is 16. */
+const UNIT_SLOP = { top: 14, bottom: 14, left: 14, right: 14 }
 
 /** `ease-out`, never `ease-in`: a slow start delays the moment the finger asks about. */
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1)
@@ -809,20 +807,18 @@ export default function RoutineEditor() {
                 {/* Still, not playing: a routine is a list to read, and six looping
                     clips at once cost more than the recognition they buy. One frame
                     is enough to tell a press from a fly. */}
-                <Image
-                  // `null` and not `undefined`: `exactOptionalPropertyTypes` refuses a
-                  // key that is present and absent at once, and the image reads both
-                  // as «nothing to show».
-                  source={previews.get(step.movementId) ?? null}
-                  style={[
-                    styles.preview,
-                    { backgroundColor: theme.color.background.surfaceSubtle },
-                  ]}
-                  contentFit="contain"
-                  autoplay={false}
-                  recyclingKey={step.movementId}
-                  accessible={false}
-                />
+                <CoverTile size="xs">
+                  <Image
+                    // `null` and not `undefined`: `exactOptionalPropertyTypes` refuses a
+                    // key that is present and absent at once.
+                    source={previews.get(step.movementId) ?? null}
+                    style={styles.preview}
+                    contentFit="contain"
+                    autoplay={false}
+                    recyclingKey={step.movementId}
+                    accessible={false}
+                  />
+                </CoverTile>
                 <View style={styles.rowText}>
                   <Text role="control" size="md" numberOfLines={1}>
                     {step.name}
@@ -1173,7 +1169,7 @@ function SetTable({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Peso en ${unit}. Cambiar a ${otherUnit(unit)}`}
-          hitSlop={PRESS_SLOP}
+          hitSlop={UNIT_SLOP}
           onPress={onUnit}
           style={styles.colCell}
         >
@@ -1215,39 +1211,28 @@ function SetTable({
             max={500}
             onChange={(load) => edit(order, withLoad(one, load))}
           />
-          <Pressable
-            accessibilityRole="button"
+          <IconButton
+            icon="close"
+            variant="plain"
+            size="sm"
             accessibilityLabel={`Quitar la serie ${order + 1}`}
-            hitSlop={PRESS_SLOP}
             disabled={step.sets.length === 1}
             onPress={() => onChangeSets(step.sets.filter((_, at) => at !== order))}
-          >
-            <FoundationIcon
-              name="close"
-              size="md"
-              color={
-                step.sets.length === 1 ? theme.color.text.disabled : theme.color.icon.secondary
-              }
-              decorative
-            />
-          </Pressable>
+          />
         </View>
       ))}
 
       {/* Part of the table, not of a toolbar: it belongs after the last set, which is
           where the finger already is when somebody wants another one. */}
-      <Pressable
-        accessibilityRole="button"
+      <Button
+        label="Añadir serie"
+        icon="add"
+        variant="ghost"
+        size="sm"
         accessibilityLabel="Añadir una serie"
-        hitSlop={PRESS_SLOP}
         onPress={() => onChangeSets([...step.sets, { kind: 'normal', reps: 8 }])}
         style={[styles.addSet, { borderTopColor: theme.color.border.subtle }]}
-      >
-        <FoundationIcon name="add" size="sm" color={theme.color.icon.accent} decorative />
-        <Text role="control" size="sm" color="accent">
-          Añadir serie
-        </Text>
-      </Pressable>
+      />
 
       {/* The rest carries a value; the menu opens something. Nothing else belongs in
           a row under the table. */}
@@ -1315,34 +1300,16 @@ const ACCESSIBLE_MOVES = [
   { name: 'decrement' as const, label: 'Subirlo un lugar' },
 ]
 
-/**
- * The trash can, which answers the finger before the row goes.
- *
- * Removing an exercise is occasional and its purpose is feedback: the press has to
- * register on press-in, because waiting for the tap to complete is the latency a
- * person actually perceives. It is a two-state change with no gesture behind it, so
- * it is a transition on a plain value and not a worklet — nothing here runs per frame.
- *
- * 44 pt of reach with `hitSlop` rather than a bigger glyph: `docs/ACCESSIBILITY.md`
- * measures what the finger can hit, not what the eye can see.
- */
+/** The trash can: the design system's plain compact icon button. */
 function RemoveButton({ name, onPress }: { readonly name: string; readonly onPress: () => void }) {
-  const theme = useTheme()
-  const [held, setHeld] = useState(false)
-
   return (
-    <Pressable
-      accessibilityRole="button"
+    <IconButton
+      icon="remove"
+      variant="plain"
+      size="xs"
       accessibilityLabel={`Quitar ${name}`}
-      hitSlop={PRESS_SLOP}
-      onPressIn={() => setHeld(true)}
-      onPressOut={() => setHeld(false)}
       onPress={onPress}
-    >
-      <Animated.View style={[styles.remove, { transform: [{ scale: held ? 0.82 : 1 }] }]}>
-        <FoundationIcon name="remove" size="sm" color={theme.color.icon.secondary} decorative />
-      </Animated.View>
-    </Pressable>
+    />
   )
 }
 
@@ -1443,14 +1410,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   colOrder: { width: 18 },
-  addSet: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 44,
-    borderTopWidth: 1,
-  },
+  addSet: { borderTopWidth: 1, borderRadius: 0 },
   tableActions: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1464,10 +1424,8 @@ const styles = StyleSheet.create({
   // Cincuenta y ocho y no sesenta y dos: con la columna de esfuerzo, al badge de
   // «Calentamiento» le faltaban diez puntos y se cortaba a «Calentam…».
   colCell: { minWidth: 58, alignItems: 'center' },
-  colClose: { width: 20 },
+  colClose: { width: 36 },
   sheet: { gap: 10, paddingBottom: 8 },
-  // A transition rather than a worklet: the value is a two-state flip, not a gesture.
-  remove: { transitionProperty: 'transform', transitionDuration: PRESS_MS },
   chevron: { transitionProperty: 'transform', transitionDuration: 200 },
   issues: { borderWidth: 2, borderRadius: 18, padding: 16, gap: 12 },
   issuesHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

@@ -7,12 +7,13 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
@@ -129,8 +130,8 @@ export default function ProposalScreen() {
           style={[
             styles.card,
             {
-              backgroundColor: `${theme.color.icon.accent}14`,
-              borderColor: `${theme.color.icon.accent}55`,
+              backgroundColor: withAlpha(theme.color.icon.accent, 0.08),
+              borderColor: withAlpha(theme.color.icon.accent, 1 / 3),
             },
           ]}
         >
@@ -259,32 +260,16 @@ export default function ProposalScreen() {
         )}
 
         {active && since ? (
-          <View
-            style={[
-              styles.currentCard,
-              {
-                backgroundColor: theme.color.background.surface,
-                borderColor: theme.color.border.subtle,
-              },
-            ]}
-          >
-            <FoundationIcon
-              name="history"
-              size="sm"
-              color={theme.color.icon.secondary}
-              decorative
-            />
-            <View style={styles.grow}>
-              <Text role="control" size="md">
-                {active.origin === 'self'
-                  ? 'Tu meta actual es propia'
-                  : 'Tu meta actual es una propuesta aceptada'}
-              </Text>
-              <Text role="body" size="xs" color="muted">
-                {`Vigente desde el ${String(since.getDate())} ${MONTHS[since.getMonth()] ?? ''} · versión ${String(active.version_number)}`}
-              </Text>
-            </View>
-          </View>
+          <ContentRow
+            icon="history"
+            iconTone="quiet"
+            name={
+              active.origin === 'self'
+                ? 'Tu meta actual es propia'
+                : 'Tu meta actual es una propuesta aceptada'
+            }
+            caption={`Vigente desde el ${String(since.getDate())} ${MONTHS[since.getMonth()] ?? ''} · versión ${String(active.version_number)}`}
+          />
         ) : null}
       </ScrollView>
     </Screen>
@@ -328,12 +313,4 @@ const styles = StyleSheet.create({
   nowBar: { position: 'absolute', top: -5, bottom: -5, borderRadius: 9, borderWidth: 1.5 },
   actions: { flexDirection: 'row', gap: 12, paddingTop: 8 },
   reject: { width: 140 },
-  currentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 16,
-  },
 })

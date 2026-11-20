@@ -14,6 +14,8 @@ import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { ContentRow } from '@allfitone/react-native/content-row'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
@@ -21,7 +23,7 @@ import { useTheme } from '@allfitone/react-native/theme'
 import type { IconName } from '@allfitone/icons'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { scopeName } from '../src/client/gym-affiliation'
@@ -35,7 +37,7 @@ import {
   type SharingGroup,
 } from '../src/client/sharing'
 import { consents } from '../src/client/sharing-transport'
-import { GlyphRow, GymMark, RowCard, scopeIcon } from '../src/components/gym-ui'
+import { GymMark, RowCard, scopeIcon } from '../src/components/gym-ui'
 
 const SHEET_ICONS: readonly IconName[] = ['locked', 'permissions', 'history', 'info']
 
@@ -108,13 +110,10 @@ export default function Sharing() {
         ))}
 
         {ended.length > 0 ? (
-          <View style={styles.note}>
-            <FoundationIcon name="info" size="sm" color={theme.color.icon.secondary} decorative />
-            <Text role="body" size="xs" color="muted" style={styles.grow}>
-              Aunque terminaste, aún pueden ver lo que les compartiste hasta esa fecha. Quítalo si
-              no quieres que lo sigan viendo.
-            </Text>
-          </View>
+          <Note>
+            Aunque terminaste, aún pueden ver lo que les compartiste hasta esa fecha. Quítalo si no
+            quieres que lo sigan viendo.
+          </Note>
         ) : null}
       </ScrollView>
 
@@ -208,32 +207,24 @@ function Category({
   readonly consent: Consent
   readonly onRevoke: (consent: Consent) => void
 }) {
-  const theme = useTheme()
   const title = scopeName(consent.scope_code)
   return (
-    <GlyphRow icon={scopeIcon(consent.scope_code)} title={title} caption={consentLine(consent)}>
-      {canRevoke(consent) ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Dejar de compartir ${title}`}
-          hitSlop={8}
-          onPress={() => onRevoke(consent)}
-          style={({ pressed }) => [
-            styles.remove,
-            { borderColor: theme.color.status.danger },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text role="control" size="xs" style={{ color: theme.color.status.danger }}>
-            Quitar
-          </Text>
-        </Pressable>
-      ) : (
-        <Text role="body" size="xs" color="muted">
-          No compartes
-        </Text>
-      )}
-    </GlyphRow>
+    <ContentRow
+      icon={scopeIcon(consent.scope_code)}
+      iconTone="quiet"
+      name={title}
+      caption={consentLine(consent)}
+      trailing={
+        canRevoke(consent)
+          ? {
+              kind: 'button',
+              label: 'Quitar',
+              accessibilityLabel: `Dejar de compartir ${title}`,
+              onPress: () => onRevoke(consent),
+            }
+          : { kind: 'badge', label: 'No compartes' }
+      }
+    />
   )
 }
 

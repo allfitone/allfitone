@@ -39,7 +39,7 @@ import { Scrim } from '@allfitone/react-native/gradient'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
-import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native'
+import { Image, StyleSheet, useWindowDimensions, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -113,18 +113,18 @@ export default function Welcome() {
 
         <GlassPanel radius="panel" style={styles.actions}>
           <Button label="Crear mi cuenta" onPress={() => router.push('/create-account')} />
-          <Pressable
-            accessibilityRole="link"
-            onPress={() => router.push('/sign-in')}
-            style={styles.signIn}
-          >
-            <Text role="body" size="sm" color="secondary" align="center">
-              ¿Ya tienes cuenta?{' '}
-              <Text role="control" size="sm" color="accent">
-                Iniciar sesión
-              </Text>
+          <View style={styles.signIn}>
+            <Text role="body" size="sm" color="secondary">
+              ¿Ya tienes cuenta?
             </Text>
-          </Pressable>
+            <Button
+              label="Iniciar sesión"
+              variant="ghost"
+              size="sm"
+              accessibilityLabel="¿Ya tienes cuenta? Iniciar sesión"
+              onPress={() => router.push('/sign-in')}
+            />
+          </View>
         </GlassPanel>
       </View>
     </Screen>
@@ -158,6 +158,8 @@ const styles = StyleSheet.create({
   },
   signIn: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
 })

@@ -6,9 +6,11 @@
  * payment method stay where the person paid: their Apple or Google Play account.
  */
 
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -31,7 +33,7 @@ import {
   type ProStatus,
 } from '../../src/client/pro'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
-import { Note, SectionLabel } from '../../src/components/pro-ui'
+import { SectionLabel } from '../../src/components/pro-ui'
 
 const UNAVAILABLE = 'No pudimos cargar tus pagos. Revisa tu conexión e inténtalo de nuevo.'
 
@@ -97,7 +99,9 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
         {failure ? <InlineAlert message={failure} /> : null}
 
         {payments && list.length === 0 ? (
-          <Note icon="history">Todavía no hay cobros de Allfit Pro.</Note>
+          <Note size="md" icon="history">
+            Todavía no hay cobros de Allfit Pro.
+          </Note>
         ) : null}
 
         {fee ? (
@@ -148,53 +152,30 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
         {list.length > 0 ? (
           <View style={styles.section}>
             <SectionLabel>Cobros</SectionLabel>
-            <View
-              style={[
-                styles.panel,
-                {
-                  backgroundColor: theme.color.background.surface,
-                  borderColor: theme.color.border.subtle,
-                },
-              ]}
-            >
-              {list.map((payment, index) => {
+            <ContentGroup>
+              {list.map((payment) => {
                 const paid = payment.result === 'succeeded'
-                const tint = paid ? theme.color.status.success : theme.color.status.danger
                 return (
-                  <View
+                  <ContentRow
                     key={payment.id}
-                    style={[
-                      styles.row,
-                      index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
-                    ]}
-                  >
-                    <View style={[styles.badge, { backgroundColor: `${tint}1F` }]}>
-                      <FoundationIcon
-                        name={paid ? 'check' : 'close'}
-                        size="sm"
-                        color={tint}
-                        decorative
-                      />
-                    </View>
-                    <View style={styles.grow}>
-                      <Text role="control" size="sm">
-                        {shortDate(payment.occurred_at)}
-                      </Text>
-                      <Text role="body" size="xs" color={paid ? 'muted' : 'danger'}>
-                        {paid ? 'Pagado' : `${storeName(payment.store)} no pudo cobrar`}
-                      </Text>
-                    </View>
-                    <Text role="data" size="lg" color={paid ? 'primary' : 'muted'}>
-                      {money(payment.amount_minor, payment.currency_code) ?? '—'}
-                    </Text>
-                  </View>
+                    icon={paid ? 'check' : 'close'}
+                    iconTone={paid ? 'success' : 'danger'}
+                    iconShape="round"
+                    name={shortDate(payment.occurred_at)}
+                    caption={paid ? 'Pagado' : `${storeName(payment.store)} no pudo cobrar`}
+                    {...(paid ? {} : { captionTone: 'danger' as const })}
+                    value={money(payment.amount_minor, payment.currency_code) ?? '—'}
+                    valueFace="data"
+                    valueTone={paid ? 'primary' : 'muted'}
+                    valueSize="md"
+                  />
                 )
               })}
-            </View>
+            </ContentGroup>
           </View>
         ) : null}
 
-        <Note icon="locked">
+        <Note size="md" icon="locked">
           Tus recibos y tu tarjeta están en tu cuenta de {store ? storeName(store) : 'la tienda'}.
           Allfit nunca ve tu tarjeta.
         </Note>
@@ -226,14 +207,4 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   section: { gap: 10 },
-  panel: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 18 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 },
-  badge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grow: { flex: 1, gap: 2 },
 })

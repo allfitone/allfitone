@@ -14,6 +14,7 @@ import { PageDots } from '@allfitone/react-native/page-dots'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Image, StyleSheet, View, type ImageSourcePropType } from 'react-native'
@@ -212,8 +213,8 @@ const DAYS: readonly (readonly number[])[] = Array.from({ length: WEEKS }, (_, w
 const heat = (theme: ReturnType<typeof useTheme>, level: number) =>
   [
     theme.color.border.subtle,
-    `${theme.color.icon.accent}4D`,
-    `${theme.color.icon.accent}99`,
+    withAlpha(theme.color.icon.accent, 0.3),
+    withAlpha(theme.color.icon.accent, 0.6),
     theme.color.icon.accent,
   ][level] ?? theme.color.border.subtle
 const MONTH_LABELS = ['JUN', 'JUL', 'AGO', 'SEP', 'OCT'] as const

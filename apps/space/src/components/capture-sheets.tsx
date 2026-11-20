@@ -17,6 +17,7 @@ import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme, type Theme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import type { ReactNode } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated'
@@ -57,7 +58,12 @@ export function FoodTile({
     <View
       style={[
         styles.tile,
-        { width: size, height: size, borderRadius: size * 0.3, backgroundColor: `${tint}26` },
+        {
+          width: size,
+          height: size,
+          borderRadius: size * 0.3,
+          backgroundColor: withAlpha(tint, 0.15),
+        },
       ]}
     >
       <FoundationIcon name={foodIcon(icon)} customSize={size * 0.5} color={tint} decorative />
@@ -285,7 +291,12 @@ export function ConsentSheet({
   return (
     <Sheet visible={visible} onDismiss={onDecline} title="Reconocer tu comida" hideTitle>
       <View style={styles.sheet}>
-        <View style={[styles.consentIcon, { backgroundColor: `${theme.color.icon.accent}1F` }]}>
+        <View
+          style={[
+            styles.consentIcon,
+            { backgroundColor: withAlpha(theme.color.icon.accent, 0.12) },
+          ]}
+        >
           <FoundationIcon name="camera" size="md" color={theme.color.icon.accent} decorative />
         </View>
         <Text role="control" size="xl" align="center" accessibilityRole="header">
@@ -329,7 +340,10 @@ export function MealMenu({
       <Pressable
         accessibilityLabel="Cerrar el menú"
         onPress={onDismiss}
-        style={[StyleSheet.absoluteFill, { backgroundColor: `${theme.color.background.canvas}B3` }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: withAlpha(theme.color.background.canvas, 0.7) },
+        ]}
       />
       <View
         style={[

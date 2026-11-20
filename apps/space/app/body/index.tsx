@@ -15,25 +15,27 @@
  * covers it — and the screen says so where the photos are.
  */
 
-import { Badge } from '@allfitone/react-native/badge'
+import { Badge, type BadgeTone } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
 import { CoverTile } from '@allfitone/react-native/cover-tile'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
+import { OfferRow } from '@allfitone/react-native/offer-row'
 import { Screen } from '@allfitone/react-native/screen'
 import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { SelectableTile } from '@allfitone/react-native/selectable-tile'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
-import { semanticMotion } from '@allfitone/react-native/tokens'
+import { semanticMotion, withAlpha } from '@allfitone/react-native/tokens'
 import type { IconName } from '@allfitone/icons'
 import { BlurView } from 'expo-blur'
 import { Image } from 'expo-image'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState, type ReactNode } from 'react'
-import { Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
+import { ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated'
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
@@ -122,7 +124,6 @@ function localToday(timezone: string): string {
 
 export default function BodyScreen() {
   const router = useRouter()
-  const theme = useTheme()
   const today = localToday(deviceTimezone())
   const features = usePlan()
   const upgrade = useUpgradeSheet(features)
@@ -229,14 +230,14 @@ export default function BodyScreen() {
             icon="weight"
             title="Peso"
             caption={weightCaption(records)}
-            tone={theme.color.discipline.strength}
+            tone="strength"
             onPress={() => record('/body/weight')}
           />
           <Choice
             icon="target"
             title="Medidas"
             caption="Pecho, brazo, cintura, cadera, muslo y grasa"
-            tone={theme.color.discipline.highIntensity}
+            tone="highIntensity"
             pro={!measuresOpen}
             onPress={() => record('/body/measures', 'body_measurements')}
           />
@@ -246,7 +247,7 @@ export default function BodyScreen() {
             caption={
               photos[0] ? `Última: ${shortDay(photos[0].taken_on)}` : 'Alinea tu cuerpo y compárate'
             }
-            tone={theme.color.discipline.rhythm}
+            tone="rhythm"
             pro={!photosOpen}
             onPress={() => record('/body/photo', 'body_photos')}
           />
@@ -754,12 +755,9 @@ function PhotosCard({
           Toca dos fotos para compararlas.
         </Text>
       ) : null}
-      <View style={[styles.privacy, { borderColor: theme.color.border.subtle }]}>
-        <FoundationIcon name="locked" size="sm" color={theme.color.icon.accent} decorative />
-        <Text role="body" size="xs" color="secondary" style={styles.grow}>
-          Tus fotos son solo tuyas: ni tu gimnasio ni tu entrenador pueden verlas.
-        </Text>
-      </View>
+      <Note icon="locked" accent outlined>
+        Tus fotos son solo tuyas: ni tu gimnasio ni tu entrenador pueden verlas.
+      </Note>
     </View>
   )
 }
@@ -888,7 +886,10 @@ function Locked({
       </View>
       <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
       <View
-        style={[StyleSheet.absoluteFill, { backgroundColor: `${theme.color.background.canvas}59` }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: withAlpha(theme.color.background.canvas, 0.35) },
+        ]}
       />
       <View style={styles.lockedOffer}>
         <View
@@ -939,10 +940,7 @@ function PhotoPreview() {
   )
 }
 
-/**
- * One thing to record, as `REG-1` draws it: a card on the sheet, its glyph in its own
- * colour. `ContentRow` was tried here and lost the card against the sheet's surface.
- */
+/** One thing to record, as `REG-1` draws it, on the design system's row. */
 function Choice({
   icon,
   title,
@@ -954,42 +952,21 @@ function Choice({
   readonly icon: IconName
   readonly title: string
   readonly caption: string
-  readonly tone: string
+  readonly tone: BadgeTone
   readonly pro?: boolean
   readonly onPress: () => void
 }) {
-  const theme = useTheme()
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={pro ? `${title}. ${caption}. Con Pro` : `${title}. ${caption}`}
+    <OfferRow
+      tone="muted"
+      icon={icon}
+      iconTone={tone}
+      label={title}
+      caption={caption}
+      {...(pro ? { badge: 'Pro' } : {})}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.choice,
-        {
-          backgroundColor: theme.color.background.surfaceMuted,
-          borderColor: theme.color.border.subtle,
-          opacity: pressed ? 0.8 : 1,
-        },
-      ]}
-    >
-      <View style={[styles.choiceIcon, { backgroundColor: `${tone}1F`, borderColor: `${tone}59` }]}>
-        <FoundationIcon name={icon} size="md" color={tone} decorative />
-      </View>
-      <View style={styles.grow}>
-        <Text role="control" size="md">
-          {title}
-        </Text>
-        <Text role="body" size="xs" color="secondary" numberOfLines={1}>
-          {caption}
-        </Text>
-      </View>
-      {pro ? (
-        <Badge label="Pro" tone="accent" />
-      ) : (
-        <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-      )}
-    </Pressable>
+      accessibilityLabel={pro ? `${title}. ${caption}. Con Pro` : `${title}. ${caption}`}
+    />
   )
 }
 
@@ -1049,14 +1026,6 @@ const styles = StyleSheet.create({
   stripRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   strip: { gap: 10 },
   thumb: { width: 92 },
-  privacy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 14,
-  },
   locked: { borderRadius: 28, borderWidth: 1, overflow: 'hidden' },
   lockedPreview: { position: 'absolute', top: 0, right: 0, left: 0 },
   lockedOffer: { paddingHorizontal: 24, paddingVertical: 32, gap: 12, alignItems: 'center' },
@@ -1071,21 +1040,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   choices: { gap: 10 },
-  choice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    borderRadius: 22,
-    borderWidth: 1,
-    padding: 14,
-  },
-  choiceIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   grow: { flex: 1 },
 })

@@ -17,14 +17,17 @@
 
 import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { BlurView } from 'expo-blur'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
@@ -55,7 +58,6 @@ import {
   periodStart,
   previousStart,
   programOptions,
-  sparkline,
   untrained,
   type Period,
   type PeriodComparison,
@@ -72,8 +74,6 @@ import { refusedFeature, usePlan, useUpgradeSheet } from '../../src/components/u
 /** Six periods: the two compared, and four more so a movement's trend has a shape. */
 const PERIODS = 6
 const CHART_HEIGHT = 104
-const SPARK_WIDTH = 56
-const SPARK_HEIGHT = 22
 const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
 const READ_FAILED = 'No pudimos cargar tu progreso. Inténtalo otra vez.'
@@ -752,17 +752,7 @@ function MusclesCard({
           </View>
         ))}
         {missing.length > 0 ? (
-          <View style={styles.missing}>
-            <View style={[styles.dot, { backgroundColor: theme.color.status.warning }]} />
-            <Text
-              role="control"
-              size="2xs"
-              style={{ color: theme.color.status.warning }}
-              numberOfLines={2}
-            >
-              {`Sin trabajar: ${missing.slice(0, 2).join(', ')}`}
-            </Text>
-          </View>
+          <InlineAlert tone="warning" message={`Sin trabajar: ${missing.slice(0, 2).join(', ')}`} />
         ) : null}
       </View>
     </View>
@@ -770,53 +760,21 @@ function MusclesCard({
 }
 
 function LoadsCard({ movements }: { readonly movements: ReturnType<typeof liftedUp> }) {
-  const theme = useTheme()
   return (
-    <View
-      style={[
-        styles.card,
-        styles.loads,
-        { backgroundColor: theme.color.background.surface, borderColor: theme.color.border.subtle },
-      ]}
-    >
-      {movements.map((movement, index) => {
-        const path = sparkline(movement.bests, SPARK_WIDTH, SPARK_HEIGHT)
-        return (
-          <View
-            key={movement.movement_id}
-            accessible
-            accessibilityLabel={`${movement.name}: de ${formatKilos(movement.previous_best_kg ?? 0)} a ${formatKilos(movement.best_kg)} kilos`}
-            style={[
-              styles.loadRow,
-              index > 0 ? { borderTopWidth: 1, borderTopColor: theme.color.border.subtle } : null,
-            ]}
-          >
-            <View style={styles.grow}>
-              <Text role="control" size="sm" numberOfLines={1}>
-                {movement.name}
-              </Text>
-              <Text role="body" size="xs" color="secondary">
-                {`${formatKilos(movement.previous_best_kg ?? 0)} → ${formatKilos(movement.best_kg)} kg`}
-              </Text>
-            </View>
-            {path ? (
-              <Svg width={SPARK_WIDTH} height={SPARK_HEIGHT + 4}>
-                <Path
-                  d={path}
-                  transform="translate(0 2)"
-                  stroke={theme.color.icon.accent}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </Svg>
-            ) : null}
-            <Badge label={`+${formatKilos(movement.change_kg ?? 0)} kg`} tone="accent" />
-          </View>
-        )
-      })}
-    </View>
+    <ContentGroup>
+      {movements.map((movement) => (
+        <ContentRow
+          key={movement.movement_id}
+          name={movement.name}
+          caption={`${formatKilos(movement.previous_best_kg ?? 0)} → ${formatKilos(movement.best_kg)} kg`}
+          trailing={{
+            kind: 'badge',
+            label: `+${formatKilos(movement.change_kg ?? 0)} kg`,
+            tone: 'accent',
+          }}
+        />
+      ))}
+    </ContentGroup>
   )
 }
 
@@ -897,7 +855,10 @@ function ProVeil({
       </View>
       <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
       <View
-        style={[StyleSheet.absoluteFill, { backgroundColor: `${theme.color.background.canvas}66` }]}
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: withAlpha(theme.color.background.canvas, 0.4) },
+        ]}
       />
       <View style={styles.veil}>
         <View
@@ -925,12 +886,9 @@ function ProVeil({
                 ['arms', 'Tus músculos trabajados'],
               ] as const
             ).map(([icon, label]) => (
-              <View key={label} style={styles.includeRow}>
-                <FoundationIcon name={icon} size="sm" color={theme.color.icon.accent} decorative />
-                <Text role="control" size="sm">
-                  {label}
-                </Text>
-              </View>
+              <Note key={label} size="md" icon={icon} accent>
+                {label}
+              </Note>
             ))}
           </View>
           <Button label="Hazte Pro" size="sm" onPress={onUpgrade} style={styles.centered} />
@@ -1004,15 +962,10 @@ const styles = StyleSheet.create({
   muscleTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   track: { height: 5, borderRadius: 3, overflow: 'hidden' },
   fill: { height: 5, borderRadius: 3 },
-  missing: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  loads: { paddingVertical: 4, gap: 0 },
-  loadRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   grow: { flex: 1 },
   veilWrap: { borderRadius: 28, overflow: 'hidden' },
   // Low enough that the top of the volume card shows, blurred, above the offer.
   veil: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, paddingTop: 110 },
   offer: { borderRadius: 28, borderWidth: 1.5, padding: 24, gap: 14, alignItems: 'center' },
   includes: { alignSelf: 'stretch', gap: 9, paddingHorizontal: 8 },
-  includeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 })

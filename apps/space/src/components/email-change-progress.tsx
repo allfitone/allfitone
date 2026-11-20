@@ -14,6 +14,7 @@ import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import { useEffect } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 import Animated, {
@@ -84,7 +85,9 @@ export function Ring({ done }: { readonly done: boolean }) {
         style={[
           styles.core,
           {
-            backgroundColor: done ? `${theme.color.icon.accent}26` : theme.color.background.surface,
+            backgroundColor: done
+              ? withAlpha(theme.color.icon.accent, 0.15)
+              : theme.color.background.surface,
           },
         ]}
       >

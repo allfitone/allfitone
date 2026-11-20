@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 
 import { ApiError } from './api-error'
-import { canChangePassword, passwordChecks, passwordFailure, PASSWORD_RULES } from './password-form'
+import {
+  canChangePassword,
+  isSignUpPassword,
+  passwordChecks,
+  passwordFailure,
+  PASSWORD_RULES,
+  signUpRequirements,
+} from './password-form'
 
 describe('the rules of a new password (PF-E18)', () => {
   test('T-SPC-UNIT-PWD-10 the four rules, in the order the screen lists them', () => {
@@ -68,5 +75,24 @@ describe('what a refusal says (PF-E18b)', () => {
     expect(passwordFailure(new Error('boom'))).toEqual({
       message: 'No pudimos cambiar tu contraseña. Inténtalo otra vez.',
     })
+  })
+})
+
+describe('the rules of a sign-up password (HU-SP-001)', () => {
+  test('T-SPC-UNIT-PWD-16 the sign-up lists the change rules but the last, with nothing to differ from', () => {
+    expect(signUpRequirements('').map((rule) => rule.label)).toEqual([
+      'Al menos 8 caracteres',
+      'Una mayúscula y una minúscula',
+      'Un número',
+    ])
+    expect(signUpRequirements('').every((rule) => !rule.met)).toBe(true)
+  })
+
+  test('T-SPC-UNIT-PWD-17 each lights on its own, and the account waits for all three', () => {
+    expect(signUpRequirements('abcdefgh').map((rule) => rule.met)).toEqual([true, false, false])
+    expect(signUpRequirements('Abcdefg1').map((rule) => rule.met)).toEqual([true, true, true])
+    expect(isSignUpPassword('Abcdefg')).toBe(false)
+    expect(isSignUpPassword('abcdefg1')).toBe(false)
+    expect(isSignUpPassword('Abcdefg1')).toBe(true)
   })
 })

@@ -11,12 +11,14 @@
  */
 
 import type { IconName } from '@allfitone/icons'
+import { Badge } from '@allfitone/react-native/badge'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { FoundationIcon } from '@allfitone/react-native/icons'
+import { Note } from '@allfitone/react-native/note'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { LinearGradient } from 'expo-linear-gradient'
-import type { ReactNode } from 'react'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 import { featureIcon, featureSentence, type ProFeature } from '../client/pro'
 
@@ -92,20 +94,7 @@ export function MembershipCard({
           </Text>
         </View>
         {pro ? (
-          <View
-            style={[
-              styles.live,
-              {
-                borderColor: theme.color.status.success,
-                backgroundColor: theme.color.accent.tonal,
-              },
-            ]}
-          >
-            <View style={[styles.dot, { backgroundColor: theme.color.status.success }]} />
-            <Text role="control" size="xs" color="success">
-              Activo
-            </Text>
-          </View>
+          <Badge label="Activo" tone="success" variant="outline" dot uppercase={false} />
         ) : null}
       </View>
 
@@ -149,7 +138,7 @@ export function FeatureList({
   const theme = useTheme()
   if (features.length === 0) {
     return (
-      <Note icon="explore" accent>
+      <Note icon="explore" size="md" tile>
         {waiting}
       </Note>
     )
@@ -168,15 +157,9 @@ export function FeatureList({
             index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
           ]}
         >
-          <FoundationIcon
-            name={featureIcon(feature.code)}
-            size="sm"
-            color={pro ? theme.color.icon.accent : theme.color.icon.secondary}
-            decorative
-          />
-          <Text role="body" size="sm" style={styles.grow}>
+          <Note icon={featureIcon(feature.code)} size="md" accent={pro}>
             {sentence}
-          </Text>
+          </Note>
         </View>
       ))}
     </View>
@@ -190,84 +173,21 @@ export interface PanelLink {
   readonly onPress: () => void
 }
 
-/** The ways out of a screen, in one panel divided by hairlines. */
+/** The ways out of a screen: the design system's rows on one grouped card. */
 export function LinkPanel({ links }: { readonly links: readonly PanelLink[] }) {
-  const theme = useTheme()
   return (
-    <View
-      style={[
-        styles.panel,
-        { backgroundColor: theme.color.background.surface, borderColor: theme.color.border.subtle },
-      ]}
-    >
-      {links.map((link, index) => (
-        <Pressable
+    <ContentGroup>
+      {links.map((link) => (
+        <ContentRow
           key={link.title}
-          accessibilityRole="button"
-          accessibilityLabel={`${link.title}. ${link.caption}`}
+          icon={link.icon}
+          iconTone="quiet"
+          name={link.title}
+          caption={link.caption}
           onPress={link.onPress}
-          style={({ pressed }) => [
-            styles.link,
-            index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle },
-            pressed && styles.pressed,
-          ]}
-        >
-          <FoundationIcon
-            name={link.icon}
-            size="md"
-            color={theme.color.icon.secondary}
-            decorative
-          />
-          <View style={styles.grow}>
-            <Text role="control" size="sm">
-              {link.title}
-            </Text>
-            <Text role="body" size="xs" color="muted">
-              {link.caption}
-            </Text>
-          </View>
-          <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-        </Pressable>
-      ))}
-    </View>
-  )
-}
-
-/** A line with an icon: what a card would say, without the card. */
-export function Note({
-  icon,
-  accent,
-  children,
-}: {
-  readonly icon: IconName
-  readonly accent?: boolean
-  readonly children: ReactNode
-}) {
-  const theme = useTheme()
-  return (
-    <View style={styles.note}>
-      <View
-        style={[
-          styles.noteGlyph,
-          accent
-            ? {
-                backgroundColor: theme.color.accent.tonal,
-                borderColor: theme.color.accent.tonalBorder,
-              }
-            : styles.noteGlyphPlain,
-        ]}
-      >
-        <FoundationIcon
-          name={icon}
-          size="sm"
-          color={accent ? theme.color.icon.accent : theme.color.icon.secondary}
-          decorative
         />
-      </View>
-      <Text role="body" size="sm" color="secondary" style={styles.grow}>
-        {children}
-      </Text>
-    </View>
+      ))}
+    </ContentGroup>
   )
 }
 
@@ -284,32 +204,9 @@ const styles = StyleSheet.create({
   watermark: { position: 'absolute', right: -22, bottom: -46 },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   seal: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  live: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  dot: { width: 7, height: 7, borderRadius: 4 },
   cardMiddle: { gap: 4 },
   facts: { flexDirection: 'row', gap: 26 },
   fact: { gap: 3 },
-  feature: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  feature: { paddingVertical: 11 },
   grow: { flex: 1 },
-  panel: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 18 },
-  link: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 14 },
-  pressed: { opacity: 0.6 },
-  note: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  noteGlyph: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  noteGlyphPlain: { width: 20, height: 20, borderWidth: 0 },
 })

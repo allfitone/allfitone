@@ -30,6 +30,21 @@ export function passwordChecks(current: string, next: string): Record<PasswordRu
   }
 }
 
+/** The sign-up's rules: the change's, without the one that compares to a current password. */
+export function signUpRequirements(
+  password: string,
+): readonly { readonly label: string; readonly met: boolean }[] {
+  const checks = passwordChecks('', password)
+  return PASSWORD_RULES.filter(({ rule }) => rule !== 'different').map(({ rule, label }) => ({
+    label,
+    met: checks[rule],
+  }))
+}
+
+export function isSignUpPassword(password: string): boolean {
+  return signUpRequirements(password).every(({ met }) => met)
+}
+
 export function canChangePassword(current: string, next: string): boolean {
   if (current === '' || next.length > MAX_LENGTH) return false
   return Object.values(passwordChecks(current, next)).every(Boolean)

@@ -16,13 +16,16 @@
 
 import { Badge } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
+import { CoverTile } from '@allfitone/react-native/cover-tile'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -274,7 +277,10 @@ export default function FinishedSessionScreen() {
             <Animated.View key="deleted" entering={FORWARD} style={styles.deleted}>
               <Animated.View
                 entering={FadeIn.duration(260).delay(80).reduceMotion(ReduceMotion.System)}
-                style={[styles.doneMark, { backgroundColor: `${theme.color.status.success}26` }]}
+                style={[
+                  styles.doneMark,
+                  { backgroundColor: withAlpha(theme.color.status.success, 0.15) },
+                ]}
               >
                 <FoundationIcon
                   name="check"
@@ -468,11 +474,9 @@ function ExerciseCard({
       ]}
     >
       <View style={styles.exerciseHead}>
-        <View style={[styles.picture, { backgroundColor: theme.color.background.surfaceSubtle }]}>
-          {picture ? (
-            <Image source={picture} style={StyleSheet.absoluteFill} contentFit="cover" />
-          ) : null}
-        </View>
+        <CoverTile size="xs">
+          {picture ? <Image source={picture} style={styles.picture} contentFit="cover" /> : null}
+        </CoverTile>
         <View style={styles.grow}>
           <Text role="control" size="md" numberOfLines={2}>
             {exercise.movement ?? 'Ejercicio'}
@@ -484,12 +488,7 @@ function ExerciseCard({
           ) : null}
         </View>
         {exercise.record ? (
-          <View style={[styles.recordTag, { borderColor: theme.color.border.accent }]}>
-            <FoundationIcon name="record" size="xs" color={theme.color.icon.accent} decorative />
-            <Text role="eyebrow" size="2xs" color="accent" uppercase>
-              Récord
-            </Text>
-          </View>
+          <Badge label="Récord" tone="accent" variant="outline" icon="record" />
         ) : null}
       </View>
       {exercise.sets.map((one, index) => (
@@ -583,16 +582,10 @@ function DeleteStep({
         </Text>
         {preview ? (
           annulConsequences(preview).map((line, index) => (
-            <Animated.View key={line.text} entering={LINE(index)} style={styles.consequence}>
-              <FoundationIcon
-                name={line.icon}
-                size="sm"
-                color={theme.color.icon.secondary}
-                decorative
-              />
-              <Text role="body" size="md">
+            <Animated.View key={line.text} entering={LINE(index)}>
+              <Note size="md" icon={line.icon}>
                 {line.text}
-              </Text>
+              </Note>
             </Animated.View>
           ))
         ) : (
@@ -643,17 +636,8 @@ const styles = StyleSheet.create({
   },
   exercise: { borderRadius: 22, borderWidth: 1, padding: 12, gap: 4 },
   exerciseHead: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 6 },
-  picture: { width: 46, height: 46, borderRadius: 13, overflow: 'hidden' },
+  picture: { width: '100%', height: '100%' },
   grow: { flex: 1 },
-  recordTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
   set: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -676,5 +660,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   consequences: { borderRadius: 16, padding: 14, gap: 10 },
-  consequence: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 })

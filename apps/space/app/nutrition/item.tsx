@@ -18,7 +18,7 @@ import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { keepItem, openedItem, settleItem } from '../../src/client/item-handover'
 import { addToMeal } from '../../src/client/nutrition'
@@ -60,16 +60,13 @@ export default function ItemScreen() {
           </Text>
           {editing ? (
             // Only the words answer: the space beside them is not a button.
-            <Pressable
-              accessibilityRole="button"
+            <Button
+              label={item.food ? 'Cambiar alimento' : 'Elegir alimento'}
+              variant="ghost"
+              size="sm"
               onPress={() => leave({ kind: 'change-food', item })}
-              hitSlop={6}
               style={styles.link}
-            >
-              <Text role="control" size="sm" color="accent">
-                {item.food ? 'Cambiar alimento' : 'Elegir alimento'}
-              </Text>
-            </Pressable>
+            />
           ) : item.food?.brand ? (
             <Text role="body" size="sm" color="secondary" numberOfLines={1}>
               {item.food.brand}

@@ -14,22 +14,24 @@ import { Button } from '@allfitone/react-native/button'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { ContentRow } from '@allfitone/react-native/content-row'
+import { Note } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
-import { SegmentedControl } from '@allfitone/react-native/segmented-control'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ApiError } from '../../src/client'
 import {
-  decisionFailure,
-  invitationExpiry,
-  sharedSummary,
   type Decision,
+  decisionFailure,
+  decisionOf,
+  invitationExpiry,
   type InvitationKey,
+  sharedSummary,
 } from '../../src/client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../../src/client/gym-affiliation-transport'
 import {
@@ -39,7 +41,7 @@ import {
   takeLinkToken,
   type InvitationDraft,
 } from '../../src/client/invitation-draft'
-import { GlyphRow, GymMark, RowCard } from '../../src/components/gym-ui'
+import { GymMark, RowCard } from '../../src/components/gym-ui'
 
 const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = [
   { value: 'rejected', label: 'No' },
@@ -184,63 +186,45 @@ export default function InvitationScreen() {
                 La relación
               </Text>
               <RowCard>
-                <View style={styles.block}>
-                  <GlyphRow
-                    icon="organization"
-                    title={`Entrenar con ${invitation.organization.display_name}`}
-                    accent
-                  >
-                    <SegmentedControl
-                      items={ANSWER}
-                      value={draft.relationship}
-                      accessibilityLabel="Entrenar con este gimnasio"
-                      onChange={(value) => {
-                        draft.relationship = value
-                        redraw((tick) => tick + 1)
-                      }}
-                      style={styles.answer}
-                    />
-                  </GlyphRow>
-                  <Text role="body" size="xs" color="muted" style={styles.note}>
-                    Incluye Allfit Pro mientras sigas con ellos. Aceptar no comparte ningún dato por
-                    sí solo.
-                  </Text>
-                </View>
+                <ContentRow
+                  icon="organization"
+                  name={`Entrenar con ${invitation.organization.display_name}`}
+                  caption="Incluye Allfit Pro mientras sigas con ellos"
+                  trailing={{
+                    kind: 'choice',
+                    items: ANSWER,
+                    value: draft.relationship,
+                    accessibilityLabel: 'Entrenar con este gimnasio',
+                    onChange: (value) => {
+                      draft.relationship = decisionOf(value)
+                      redraw((tick) => tick + 1)
+                    },
+                  }}
+                />
               </RowCard>
+              <Note>Aceptar no comparte ningún dato por sí solo.</Note>
             </View>
 
             <View style={styles.section}>
               <Text role="control" size="sm" color="muted">
                 Lo que pueden ver
               </Text>
-              <Pressable
-                accessibilityRole="button"
-                disabled={draft.relationship === 'rejected' || asked === 0}
-                onPress={() => router.push('/invitation/share')}
-                style={({ pressed }) => [
-                  draft.relationship === 'rejected' && styles.dimmed,
-                  pressed && styles.pressed,
-                ]}
-              >
+              <View style={draft.relationship === 'rejected' && styles.dimmed}>
                 <RowCard>
-                  <GlyphRow
+                  <ContentRow
                     icon="permissions"
-                    title="Elegir qué compartes"
+                    iconTone="quiet"
+                    name="Elegir qué compartes"
                     caption={
                       draft.relationship === 'rejected'
                         ? 'Sin relación no se comparte nada'
                         : sharedSummary(draft.scopes, asked)
                     }
-                  >
-                    <FoundationIcon
-                      name="next"
-                      size="sm"
-                      color={theme.color.icon.secondary}
-                      decorative
-                    />
-                  </GlyphRow>
+                    disabled={draft.relationship === 'rejected' || asked === 0}
+                    onPress={() => router.push('/invitation/share')}
+                  />
                 </RowCard>
-              </Pressable>
+              </View>
             </View>
           </>
         ) : !failure ? (

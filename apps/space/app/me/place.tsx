@@ -12,15 +12,14 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
+import { SelectableTile } from '@allfitone/react-native/selectable-tile'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import type { IconName } from '@allfitone/icons'
 import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { Image, ScrollView, StyleSheet, View } from 'react-native'
 
 import { EQUIPMENT_PICTURES } from '../../src/client/equipment-pictures'
 import {
@@ -38,7 +37,7 @@ import {
   readFitnessProfile,
   type ClaimCode,
 } from '../../src/client/profile-transport'
-import { FormNote } from '../../src/components/fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 
 const SAVE_FAILED = 'No pudimos guardarlo. Inténtalo otra vez.'
 const PLACE_ICON: Record<TrainingPlace, IconName> = {
@@ -54,6 +53,13 @@ export interface PlaceSources {
   readonly declareEquipment: (equipment: readonly EquipmentPiece[]) => Promise<unknown>
 }
 
+/** The choices in rows of `size`, so every tile on a line shares its height. */
+function rowsOf<T>(items: readonly T[], size: number): readonly (readonly T[])[] {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, row) =>
+    items.slice(row * size, row * size + size),
+  )
+}
+
 const LIVE: PlaceSources = { readProfile: readFitnessProfile, declareClaim, declareEquipment }
 
 export default function PlaceRoute() {
@@ -63,7 +69,6 @@ export default function PlaceRoute() {
 /** The screen given where its data comes from; the route passes the real sources. */
 export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
   const router = useRouter()
-  const theme = useTheme()
   const [place, setPlace] = useState<TrainingPlace | undefined>(undefined)
   const [equipment, setEquipment] = useState<EquipmentPiece[]>([])
   const [initial, setInitial] = useState<{ place?: string; equipment: string } | undefined>()
@@ -136,49 +141,21 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
         <Text role="label" size="xs" color="secondary" uppercase>
           Dónde entrenas
         </Text>
-        <View style={styles.places}>
-          {PLACE_CHOICES.map((choice) => {
-            const chosen = place === choice.value
-            return (
-              <Pressable
+        {rowsOf(PLACE_CHOICES, 2).map((row) => (
+          <View key={row[0]?.value} style={styles.row}>
+            {row.map((choice) => (
+              <SelectableTile
                 key={choice.value}
-                accessibilityRole="radio"
-                accessibilityLabel={choice.name}
-                accessibilityState={{ selected: chosen }}
+                style={styles.cell}
+                name={choice.name}
+                icon={PLACE_ICON[choice.value]}
+                choice="single"
+                selected={place === choice.value}
                 onPress={() => setPlace(choice.value)}
-                style={({ pressed }) => [
-                  styles.place,
-                  {
-                    borderColor: chosen ? theme.color.border.accent : theme.color.border.subtle,
-                    backgroundColor: theme.color.background.surface,
-                  },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.placeIcon,
-                    {
-                      backgroundColor: chosen
-                        ? theme.color.icon.accent
-                        : theme.color.background.surfaceMuted,
-                    },
-                  ]}
-                >
-                  <FoundationIcon
-                    name={PLACE_ICON[choice.value]}
-                    size="sm"
-                    color={chosen ? theme.color.accent.onAccent : theme.color.icon.secondary}
-                    decorative
-                  />
-                </View>
-                <Text role="control" size="sm" style={styles.grow}>
-                  {choice.name}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
+              />
+            ))}
+          </View>
+        ))}
 
         <View style={styles.equipmentHead}>
           <Text role="label" size="xs" color="secondary">
@@ -190,55 +167,31 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
             </Text>
           ) : null}
         </View>
-        <View style={styles.grid}>
-          {EQUIPMENT_CHOICES.map((piece) => {
-            const chosen = equipment.includes(piece.value)
-            const picture = EQUIPMENT_PICTURES[piece.value]
-            return (
-              <Pressable
-                key={piece.value}
-                accessibilityRole="checkbox"
-                accessibilityLabel={piece.name}
-                accessibilityState={{ checked: chosen }}
-                onPress={() => toggle(piece.value)}
-                style={({ pressed }) => [styles.tile, pressed && styles.pressed]}
-              >
-                <View
-                  style={[
-                    styles.plate,
-                    {
-                      borderColor: chosen ? theme.color.border.accent : theme.color.border.subtle,
-                      opacity: chosen ? 1 : 0.55,
-                    },
-                  ]}
+        {rowsOf(EQUIPMENT_CHOICES, 3).map((row) => (
+          <View key={row[0]?.value} style={styles.row}>
+            {row.map((piece) => {
+              const picture = EQUIPMENT_PICTURES[piece.value]
+              return (
+                <SelectableTile
+                  key={piece.value}
+                  style={styles.cell}
+                  name={piece.name}
+                  selected={equipment.includes(piece.value)}
+                  onPress={() => toggle(piece.value)}
                 >
                   {picture === undefined ? null : (
                     <Image source={picture} style={styles.picture} resizeMode="cover" />
                   )}
-                  {chosen ? (
-                    <View style={[styles.tick, { backgroundColor: theme.color.icon.accent }]}>
-                      <FoundationIcon
-                        name="check"
-                        size="xs"
-                        color={theme.color.accent.onAccent}
-                        decorative
-                      />
-                    </View>
-                  ) : null}
-                </View>
-                <Text role="control" size="xs" color={chosen ? 'primary' : 'muted'}>
-                  {piece.name}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
+                </SelectableTile>
+              )
+            })}
+          </View>
+        ))}
 
         {fewEquipmentAtHome(place, equipment) ? (
-          <FormNote
-            boxed
-            text="Entrenas en casa con poco equipo: tu plan se apoya en tu peso y en lo que marcaste."
-          />
+          <Note boxed>
+            Entrenas en casa con poco equipo: tu plan se apoya en tu peso y en lo que marcaste.
+          </Note>
         ) : null}
         {failure ? <InlineAlert message={failure} /> : null}
       </ScrollView>
@@ -258,53 +211,15 @@ export function PlaceScreen({ sources }: { readonly sources: PlaceSources }) {
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 6, paddingBottom: 12 },
   content: { gap: 14, paddingBottom: 24 },
-  places: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  place: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    padding: 14,
-  },
-  placeIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  grow: { flex: 1 },
-  pressed: { opacity: 0.7 },
+  row: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  cell: { flex: 1 },
   equipmentHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 6,
   },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tile: { flexBasis: '30%', flexGrow: 1, gap: 6 },
-  plate: {
-    aspectRatio: 1.25,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // The picture carries its own ground, so it fills the plate edge to edge.
+  // The picture carries its own ground, so it fills the tile's band edge to edge.
   picture: { width: '100%', height: '100%' },
-  tick: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   footer: { paddingTop: 8 },
 })

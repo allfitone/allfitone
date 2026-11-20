@@ -35,10 +35,8 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
-import { Pressable, StyleSheet, View } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 
 export function ScreenHeader({
   title,
@@ -61,7 +59,6 @@ export function ScreenHeader({
   readonly editable?: boolean | undefined
   readonly onEdit?: (() => void) | undefined
 }) {
-  const theme = useTheme()
   const ready = onConfirm !== undefined
 
   return (
@@ -73,13 +70,13 @@ export function ScreenHeader({
             {title}
           </Text>
           {editable ? (
-            <Pressable
-              accessibilityRole="button"
+            <IconButton
+              icon="edit"
+              variant="plain"
+              size="sm"
               accessibilityLabel="Cambiar el nombre"
               onPress={onEdit}
-            >
-              <FoundationIcon name="edit" size="sm" color={theme.color.icon.secondary} decorative />
-            </Pressable>
+            />
           ) : null}
         </View>
         <Text role="body" size="sm" color="muted">

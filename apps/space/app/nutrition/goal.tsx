@@ -15,18 +15,21 @@
  * and a sheet lifted by the keyboard floated on device. − and + stay for small moves.
  */
 
+import { type BadgeTone } from '@allfitone/react-native/badge'
 import { Button } from '@allfitone/react-native/button'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
+import { type IconName } from '@allfitone/react-native/icons'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
+import { ProgressRing } from '@allfitone/react-native/progress-ring'
 import { Screen } from '@allfitone/react-native/screen'
+import { StatTile } from '@allfitone/react-native/stat-tile'
 import { Tabs } from '@allfitone/react-native/tabs'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import * as Haptics from 'expo-haptics'
 import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   energyOf,
@@ -52,13 +55,7 @@ import { createSpaceNutritionFlow } from '../../src/client/nutrition-transport'
 import { GoalEnergyFigure } from '../../src/components/goal-energy-figure'
 import { GoalSlider } from '../../src/components/goal-slider'
 import { GoalValueField } from '../../src/components/goal-value-field'
-import {
-  CardGlow,
-  FIGURE_TRACKING,
-  foodIcon,
-  macroColor,
-  Ring,
-} from '../../src/components/nutrition-ui'
+import { CardGlow, FIGURE_TRACKING, foodIcon } from '../../src/components/nutrition-ui'
 
 const PUBLISH_FAILED = 'No pudimos publicar tu meta. Inténtalo otra vez.'
 const MODE_NAMES: Readonly<Record<FormMode, string>> = {
@@ -69,6 +66,15 @@ const MODE_NAMES: Readonly<Record<FormMode, string>> = {
   none: 'Sin meta',
 }
 const MODES: readonly FormMode[] = ['minimum', 'exact', 'range', 'maximum', 'none']
+/** The colour each nutrient wears, as the design system's tones. */
+const NUTRIENT_TONES: Record<GoalNutrient, BadgeTone> = {
+  energy: 'accent',
+  protein: 'strength',
+  carbohydrates: 'highIntensity',
+  fat: 'rhythm',
+  fiber: 'wellbeing',
+  water: 'info',
+}
 const EXTRAS: readonly { readonly code: GoalNutrient; readonly icon: IconName }[] = [
   { code: 'fiber', icon: foodIcon('grain') },
   { code: 'water', icon: foodIcon('water') },
@@ -268,56 +274,31 @@ export default function GoalScreen() {
             const on = form[code].mode !== 'none'
             const picked = selected === code
             return (
-              <Pressable
+              <StatTile
                 key={code}
-                accessibilityRole="button"
-                accessibilityState={{ selected: picked }}
+                layout="stack"
+                tone={NUTRIENT_TONES[code]}
+                visual={
+                  <ProgressRing size={76} stroke={7} share={share ?? 0} tone={NUTRIENT_TONES[code]}>
+                    <Text role="poster" tracking={FIGURE_TRACKING} size="lg">
+                      {share === null ? '—' : `${String(Math.round(share * 100))}%`}
+                    </Text>
+                    <Text role="body" size="2xs" color="muted">
+                      De kcal
+                    </Text>
+                  </ProgressRing>
+                }
+                value={valueText(form[code])}
+                {...(on ? { unit: 'g' } : {})}
+                label={NUTRIENT_SHORT_NAMES[code]}
+                mode={MODE_NAMES[form[code].mode]}
+                selected={picked}
+                onPress={() => setSelected(code)}
                 accessibilityLabel={`${NUTRIENT_NAMES[code]}: ${
                   on ? `${MODE_NAMES[form[code].mode]}, ${valueText(form[code])} g` : 'sin meta'
                 }. Editar`}
-                onPress={() => setSelected(code)}
-                style={[
-                  styles.macro,
-                  {
-                    backgroundColor: theme.color.background.surface,
-                    borderColor: picked ? theme.color.border.accent : theme.color.border.subtle,
-                    borderWidth: picked ? 1.5 : 1,
-                  },
-                ]}
-              >
-                <Ring size={76} stroke={7} share={share ?? 0} color={macroColor(theme, code)}>
-                  <Text role="poster" tracking={FIGURE_TRACKING} size="lg">
-                    {share === null ? '—' : `${String(Math.round(share * 100))}%`}
-                  </Text>
-                  <Text role="body" size="2xs" color="muted">
-                    De kcal
-                  </Text>
-                </Ring>
-                <Text
-                  role="poster"
-                  tracking={FIGURE_TRACKING}
-                  size="xl"
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                >
-                  {valueText(form[code])}
-                  {on ? (
-                    <Text role="body" size="xs" color="muted">
-                      {' g'}
-                    </Text>
-                  ) : null}
-                </Text>
-                <Text role="control" size="sm" style={{ color: macroColor(theme, code) }}>
-                  {NUTRIENT_SHORT_NAMES[code]}
-                </Text>
-                <View
-                  style={[styles.chip, { backgroundColor: theme.color.background.surfaceMuted }]}
-                >
-                  <Text role="body" size="2xs" color="secondary">
-                    {MODE_NAMES[form[code].mode]}
-                  </Text>
-                </View>
-              </Pressable>
+                style={styles.grow}
+              />
             )
           })}
         </View>
@@ -364,41 +345,21 @@ export default function GoalScreen() {
             const on = form[code].mode !== 'none'
             const picked = selected === code
             return (
-              <Pressable
+              <StatTile
                 key={code}
-                accessibilityRole="button"
-                accessibilityState={{ selected: picked }}
+                layout="inline"
+                tone={NUTRIENT_TONES[code]}
+                icon={icon}
+                label={NUTRIENT_NAMES[code]}
+                value={on ? `${valueText(form[code])} ${unitOf(code)}` : 'Sin meta'}
+                empty={!on}
+                selected={picked}
+                onPress={() => setSelected(code)}
                 accessibilityLabel={`${NUTRIENT_NAMES[code]}: ${
                   on ? `${valueText(form[code])} ${unitOf(code)}` : 'sin meta'
                 }. Editar`}
-                onPress={() => setSelected(code)}
-                style={[
-                  styles.extra,
-                  {
-                    backgroundColor: theme.color.background.surface,
-                    borderColor: picked ? theme.color.border.accent : theme.color.border.subtle,
-                    borderWidth: picked ? 1.5 : 1,
-                  },
-                ]}
-              >
-                <FoundationIcon name={icon} size="md" color={macroColor(theme, code)} decorative />
-                <View style={styles.grow}>
-                  <Text role="control" size="md">
-                    {NUTRIENT_NAMES[code]}
-                  </Text>
-                  <Text role="body" size="sm" color="secondary">
-                    {on ? `${valueText(form[code])} ${unitOf(code)}` : 'Sin meta'}
-                  </Text>
-                </View>
-                {on ? null : (
-                  <FoundationIcon
-                    name="add"
-                    size="md"
-                    color={theme.color.icon.secondary}
-                    decorative
-                  />
-                )}
-              </Pressable>
+                style={styles.grow}
+              />
             )
           })}
         </View>
@@ -441,19 +402,9 @@ const styles = StyleSheet.create({
   dash: { paddingTop: 8 },
   energyUnit: { paddingTop: 22 },
   macros: { flexDirection: 'row', gap: 10 },
-  macro: { flex: 1, alignItems: 'center', borderRadius: 22, padding: 12, gap: 6 },
-  chip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   editor: { borderRadius: 24, borderWidth: 1, padding: 16, gap: 14 },
   editorHead: { flexDirection: 'row', alignItems: 'center' },
   fieldBlock: { gap: 8 },
   extras: { flexDirection: 'row', gap: 10 },
-  extra: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 20,
-    padding: 14,
-  },
   foot: { paddingHorizontal: 20, paddingTop: 10, gap: 10 },
 })

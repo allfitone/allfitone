@@ -22,6 +22,7 @@ import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { withAlpha } from '@allfitone/react-native/tokens'
 import type { IconName } from '@allfitone/icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -38,7 +39,7 @@ import {
   type SpaceIdentity,
 } from '../../src/client/fitness-profile'
 import { phoneLine } from '../../src/client/phone-countries'
-import { FormNote } from '../../src/components/fitness-profile-ui'
+import { Note } from '@allfitone/react-native/note'
 import { LIVE_IDENTITY, type IdentitySources } from '../../src/components/identity-edit'
 import { SectionLabel } from '../../src/components/pro-ui'
 
@@ -122,7 +123,10 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
                   FITNESS ID
                 </Text>
                 <View
-                  style={[styles.active, { backgroundColor: `${theme.color.status.success}24` }]}
+                  style={[
+                    styles.active,
+                    { backgroundColor: withAlpha(theme.color.status.success, 0.14) },
+                  ]}
                 >
                   <View style={[styles.dot, { backgroundColor: theme.color.status.success }]} />
                   <Text role="control" size="xs" color="success">
@@ -226,7 +230,7 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
               </Panel>
             </View>
 
-            <FormNote text="Tus permisos y tus gimnasios tienen su propio lugar en Perfil." />
+            <Note>Tus permisos y tus gimnasios tienen su propio lugar en Perfil.</Note>
           </>
         ) : null}
       </ScrollView>

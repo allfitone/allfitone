@@ -9,13 +9,15 @@
  */
 
 import type { IconName } from '@allfitone/icons'
+import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { GlassPanel } from '@allfitone/react-native/glass'
 import { FoundationIcon } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
+import { transparent, withAlpha } from '@allfitone/react-native/tokens'
 import { LinearGradient } from 'expo-linear-gradient'
 import { Image } from 'expo-image'
-import { Children, useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, View } from 'react-native'
 import Animated, {
   Easing,
@@ -29,13 +31,14 @@ import Animated, {
 } from 'react-native-reanimated'
 
 import teaserPhoto from '../../assets/images/pro-invite.webp'
+import { profileRowLook, type ProfileRowEnd } from '../client/profile'
 import { SectionLabel } from './pro-ui'
 
 const SHINE_WIDTH = 90
 const PRO_CARD = ['#0E3B45', '#08141C'] as const
 const FREE_CARD = ['#13222B', '#0A131A'] as const
 
-/** A section of the profile: its name, then its rows in one panel. */
+/** A section of the profile: its name, then its rows on the design system's grouped card. */
 export function ProfileGroup({
   label,
   children,
@@ -43,36 +46,17 @@ export function ProfileGroup({
   readonly label: string
   readonly children: ReactNode
 }) {
-  const theme = useTheme()
   return (
     <View style={styles.group}>
       <SectionLabel>{label}</SectionLabel>
-      <View
-        style={[
-          styles.panel,
-          {
-            backgroundColor: theme.color.background.surface,
-            borderColor: theme.color.border.subtle,
-          },
-        ]}
-      >
-        {Children.toArray(children).map((row, index) => (
-          <View
-            key={index}
-            style={index > 0 && { borderTopWidth: 1, borderTopColor: theme.color.border.subtle }}
-          >
-            {row}
-          </View>
-        ))}
-      </View>
+      <ContentGroup>{children}</ContentGroup>
     </View>
   )
 }
 
-export type RowEnd = 'open' | 'soon' | 'active' | 'none'
+export type RowEnd = ProfileRowEnd
 
-const END_LABEL: Record<RowEnd, string> = { open: '', soon: 'Pronto', active: 'Activo', none: '' }
-
+/** A profile row: the design system's row, told by `profileRowLook` how to end. */
 export function ProfileRow({
   icon,
   title,
@@ -92,87 +76,17 @@ export function ProfileRow({
   readonly value?: string | undefined
   readonly onPress?: (() => void) | undefined
 }) {
-  const theme = useTheme()
-  const opens = end === 'open' && onPress !== undefined
-  const body = (
-    <>
-      <View
-        style={[
-          styles.glyph,
-          value
-            ? {
-                backgroundColor: theme.color.accent.tonal,
-                borderWidth: 1,
-                borderColor: theme.color.accent.tonalBorder,
-              }
-            : { backgroundColor: theme.color.background.surfaceMuted },
-        ]}
-      >
-        <FoundationIcon
-          name={icon}
-          size="sm"
-          color={
-            alert
-              ? theme.color.status.danger
-              : value
-                ? theme.color.icon.accent
-                : theme.color.icon.secondary
-          }
-          decorative
-        />
-      </View>
-      <View style={styles.grow}>
-        <Text role="control" size="sm">
-          {title}
-        </Text>
-        {caption ? (
-          <Text role="body" size="xs" color="muted">
-            {caption}
-          </Text>
-        ) : null}
-      </View>
-      {value ? (
-        <Text role="poster" size="md" color="accent">
-          {value}
-        </Text>
-      ) : null}
-      {end === 'open' ? (
-        <FoundationIcon name="next" size="sm" color={theme.color.icon.secondary} decorative />
-      ) : end === 'soon' ? (
-        <Text role="control" size="2xs" color="muted">
-          Pronto
-        </Text>
-      ) : end === 'none' ? null : (
-        <View style={[styles.active, { backgroundColor: `${theme.color.status.success}24` }]}>
-          <View style={[styles.dot, { backgroundColor: theme.color.status.success }]} />
-          <Text role="control" size="xs" color="success">
-            Activo
-          </Text>
-        </View>
-      )}
-    </>
-  )
-
-  if (!opens) {
-    return (
-      <View
-        accessible
-        accessibilityLabel={[title, caption, END_LABEL[end]].filter(Boolean).join('. ')}
-        style={styles.row}
-      >
-        {body}
-      </View>
-    )
-  }
+  const look = profileRowLook({ end, opens: onPress !== undefined, value, alert })
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={[title, caption, value].filter(Boolean).join('. ')}
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-    >
-      {body}
-    </Pressable>
+    <ContentRow
+      name={title}
+      icon={icon}
+      trailing={look.trailing}
+      {...(caption ? { caption } : {})}
+      {...(value ? { value } : {})}
+      {...(look.iconTone ? { iconTone: look.iconTone } : {})}
+      {...(look.opens && onPress ? { onPress } : {})}
+    />
   )
 }
 
@@ -263,25 +177,7 @@ const styles = StyleSheet.create({
   },
   teaserSeal: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
   group: { gap: 8 },
-  panel: { borderRadius: 22, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 2 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 62, paddingVertical: 10 },
-  glyph: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   grow: { flex: 1, gap: 2 },
-  active: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  dot: { width: 6, height: 6, borderRadius: 3 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -363,9 +259,9 @@ export function ProTeaser({ onPress }: { readonly onPress: () => void }) {
       <Animated.View pointerEvents="none" style={[styles.shine, sweep]}>
         <LinearGradient
           colors={[
-            `${theme.color.icon.accent}00`,
-            `${theme.color.icon.accent}2E`,
-            `${theme.color.icon.accent}00`,
+            transparent(theme.color.icon.accent),
+            withAlpha(theme.color.icon.accent, 0.18),
+            transparent(theme.color.icon.accent),
           ]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}

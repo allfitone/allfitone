@@ -64,7 +64,7 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { Chip } from '@allfitone/react-native/chip'
-import { FoundationIcon } from '@allfitone/react-native/icons'
+import { ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Screen } from '@allfitone/react-native/screen'
@@ -75,7 +75,7 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { Image } from 'expo-image'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, View } from 'react-native'
+import { AccessibilityInfo, ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError } from '../../../src/client'
 import type { MovementDetail, MuscleTerm } from '../../../src/client/content'
@@ -358,36 +358,17 @@ function Variants({
   readonly variants: MovementDetail['variants']
   readonly onOpen: (id: string) => void
 }) {
-  const theme = useTheme()
   return (
     <View style={styles.section}>
       {variants.map((one) => (
-        <Pressable
+        <ContentRow
           key={one.id}
-          accessibilityRole="button"
+          size="sm"
+          name={one.name}
+          {...(one.note === null ? {} : { caption: one.note })}
           accessibilityLabel={`Ver ${one.name}`}
           onPress={() => onOpen(one.id)}
-          style={[
-            styles.variant,
-            {
-              backgroundColor: theme.color.background.surface,
-              borderColor: theme.color.border.subtle,
-            },
-          ]}
-        >
-          <View style={styles.variantText}>
-            {/* Sentence case: the condensed display face in capitals ran the letters together. */}
-            <Text role="control" size="sm" numberOfLines={1}>
-              {one.name}
-            </Text>
-            {one.note === null ? null : (
-              <Text role="body" size="xs" color="muted" numberOfLines={1}>
-                {one.note}
-              </Text>
-            )}
-          </View>
-          <FoundationIcon name="forward" size="sm" color={theme.color.icon.secondary} decorative />
-        </Pressable>
+        />
       ))}
     </View>
   )
@@ -418,14 +399,4 @@ const styles = StyleSheet.create({
   fallback: { flexDirection: 'row', justifyContent: 'center', gap: 2 },
   section: { gap: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  variant: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-  },
-  variantText: { flex: 1, gap: 2 },
 })

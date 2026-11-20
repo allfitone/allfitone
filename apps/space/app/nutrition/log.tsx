@@ -24,7 +24,7 @@ import { Sheet } from '@allfitone/react-native/sheet'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { getNativeFontFamily } from '@allfitone/react-native/fonts'
-import { typography } from '@allfitone/react-native/tokens'
+import { typography, withAlpha } from '@allfitone/react-native/tokens'
 import * as Haptics from 'expo-haptics'
 import { Image } from 'expo-image'
 import * as ImagePicker from 'expo-image-picker'
@@ -304,13 +304,16 @@ export default function LogMealScreen() {
             <View
               style={[
                 StyleSheet.absoluteFill,
-                { backgroundColor: `${theme.color.background.canvas}66` },
+                { backgroundColor: withAlpha(theme.color.background.canvas, 0.4) },
               ]}
             />
 
             {correcting ? (
               <View
-                style={[styles.lockNote, { backgroundColor: `${theme.color.background.canvas}CC` }]}
+                style={[
+                  styles.lockNote,
+                  { backgroundColor: withAlpha(theme.color.background.canvas, 0.8) },
+                ]}
               >
                 <FoundationIcon
                   name="info"
@@ -625,7 +628,10 @@ export default function LogMealScreen() {
             setClock({ hour, minute })
             setAsking('time')
           }}
-          style={[styles.timeChip, { backgroundColor: `${theme.color.background.canvas}CC` }]}
+          style={[
+            styles.timeChip,
+            { backgroundColor: withAlpha(theme.color.background.canvas, 0.8) },
+          ]}
         >
           <FoundationIcon
             name={correcting ? 'locked' : 'time'}
@@ -697,7 +703,10 @@ export default function LogMealScreen() {
       >
         <View style={styles.sheet}>
           <View
-            style={[styles.conflictIcon, { backgroundColor: `${theme.color.status.warning}26` }]}
+            style={[
+              styles.conflictIcon,
+              { backgroundColor: withAlpha(theme.color.status.warning, 0.15) },
+            ]}
           >
             <FoundationIcon
               name="warning"
