@@ -1766,6 +1766,22 @@ export const allfitV1ContractManifest = {
       security: ['cookieAuth'],
     },
     {
+      method: 'GET',
+      path: '/studio/v1/me/preferences',
+      operationId: 'getMyStudioPreferences',
+      allfitOperation: 'OP-IDN-068',
+      responses: ['200', '401', '403', '503'],
+      security: ['cookieAuth'],
+    },
+    {
+      method: 'PUT',
+      path: '/studio/v1/me/preferences',
+      operationId: 'putMyStudioPreferences',
+      allfitOperation: 'OP-IDN-069',
+      responses: ['200', '400', '401', '403', '409', '422', '503'],
+      security: ['cookieAuth'],
+    },
+    {
       method: 'POST',
       path: '/studio/v1/me/professional-credentials',
       operationId: 'declareMyStudioProfessionalCredential',

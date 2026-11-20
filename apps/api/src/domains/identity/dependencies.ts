@@ -19,6 +19,11 @@ import {
 } from './application/studio-client-data.js'
 import { createStudioClientDataDatabase } from './infrastructure/studio-client-data.js'
 import {
+  createStudioPreferencesService,
+  type StudioPreferencesService,
+} from './application/studio-preferences.js'
+import { createStudioPreferencesDatabase } from './infrastructure/studio-preferences.js'
+import {
   createBackofficeAuthenticationService,
   type BackofficeAuthenticationService,
 } from './application/backoffice.js'
@@ -385,4 +390,12 @@ export function studioClientDataService(): StudioClientDataService {
     createObjectStoreFromEnv(process.env),
   )
   return studioClientData
+}
+
+let studioPreferences: StudioPreferencesService | undefined
+
+/** What a person chose for how Studio looks: its two closed functions. */
+export function studioPreferencesService(): StudioPreferencesService {
+  studioPreferences ??= createStudioPreferencesService(createStudioPreferencesDatabase())
+  return studioPreferences
 }

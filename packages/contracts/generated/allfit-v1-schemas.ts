@@ -7281,6 +7281,10 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
     },
   },
+  InterfaceTheme: {
+    type: 'string',
+    enum: ['dark', 'light'],
+  },
   IntervalResultReplace: {
     type: 'object',
     additionalProperties: false,
@@ -19339,6 +19343,35 @@ export const allfitV1ContractSchemas: Record<string, unknown> = {
       },
       delivery_mode: {
         $ref: '#/components/schemas/PlanDeliveryMode',
+      },
+    },
+  },
+  StudioPreferences: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['theme'],
+    properties: {
+      theme: {
+        description:
+          'Null until the person chooses. The server invents no default: Studio shows its own.',
+        oneOf: [
+          {
+            $ref: '#/components/schemas/InterfaceTheme',
+          },
+          {
+            type: 'null',
+          },
+        ],
+      },
+    },
+  },
+  StudioPreferencesPut: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['theme'],
+    properties: {
+      theme: {
+        $ref: '#/components/schemas/InterfaceTheme',
       },
     },
   },

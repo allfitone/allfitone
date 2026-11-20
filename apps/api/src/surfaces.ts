@@ -45,6 +45,7 @@ import {
   studioOwnershipInvitationRoutes,
   studioClientInvitationRoutes,
   spaceClientInvitationRoutes,
+  studioPreferencesRoutes,
   studioProfessionalRoutes,
   trustedStudioWebUrl,
 } from './domains/identity/index.js'
@@ -122,6 +123,7 @@ export function mountSurfaces(app: Hono): void {
   app.route('/studio/v1', studioIdentityRoutes())
   app.route('/studio/v1', studioOnboardingRoutes())
   app.route('/studio/v1', studioProfessionalRoutes())
+  app.route('/studio/v1', studioPreferencesRoutes())
   app.route('/studio/v1', studioInvitationRoutes())
   app.route('/studio/v1', studioOwnershipInvitationRoutes())
   app.route('/studio/v1', studioClientInvitationRoutes())
