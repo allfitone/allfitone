@@ -1,6 +1,5 @@
 'use client'
 
-import { ProductWordmark } from '@allfitone/react/brand'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import {
   AccessDescription,
@@ -28,6 +27,7 @@ import { PulseMark } from '@allfitone/react/components/pulse-mark'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useEffect, useRef } from 'react'
 
+import { StudioWordmark } from './studio-wordmark'
 import { type StudioSessionEndReason } from '@/lib/session-activity'
 import { studioApi } from '@/lib/studio-api'
 
@@ -62,13 +62,7 @@ export function AccessLanding({
   return (
     <AccessShell>
       <AccessHeader>
-        <ProductWordmark
-          product="studio"
-          surface="light"
-          title="Allfit Studio"
-          width={138}
-          height={28}
-        />
+        <StudioWordmark />
       </AccessHeader>
 
       <AccessMain>

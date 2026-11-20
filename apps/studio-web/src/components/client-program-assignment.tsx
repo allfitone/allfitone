@@ -199,8 +199,8 @@ export function ClientProgramAssignment({
           <Alert variant="warning" live="polite" data-client-program-assignment-nothing-published>
             <AlertTitle>Todavía no hay ninguna versión publicada</AlertTitle>
             <AlertDescription>
-              Solo se puede asignar una versión publicada. Primero hay que publicar una desde el
-              contenido de la organización.
+              Solo se puede asignar una versión publicada. Primero hay que publicar una desde la
+              biblioteca de la organización.
             </AlertDescription>
           </Alert>
         ) : (

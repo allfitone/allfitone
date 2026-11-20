@@ -445,7 +445,9 @@ test('revalidates memberships after the in-memory entry snapshot expires', async
     .toBe(1)
 })
 
-test('keeps the active organization and its roles visible in the workspace', async ({ page }) => {
+test('names the active organization in the workspace, and says nothing else of it', async ({
+  page,
+}) => {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership, terminatedMembership, secondActiveMembership],
   })
@@ -458,8 +460,9 @@ test('keeps the active organization and its roles visible in the workspace', asy
   await expect(
     organizationContext.getByText(activeMembership.display_name, { exact: true }),
   ).toBeVisible()
-  await expect(organizationContext.getByText('Gimnasio', { exact: true })).toBeVisible()
-  await expect(organizationContext.getByText('Propietario', { exact: true })).toBeVisible()
+  // Its type and her role were two tags under the name; the menu no longer carries them.
+  await expect(organizationContext.getByText('Gimnasio', { exact: true })).toHaveCount(0)
+  await expect(organizationContext.getByText('Propietario', { exact: true })).toHaveCount(0)
   await expect(page.getByLabel('Cambiar de organización')).toBeVisible()
   await expect(page.getByText(terminatedMembership.display_name)).toHaveCount(0)
 })
@@ -494,8 +497,6 @@ test('replaces the organization context without retaining the previous workspace
   await expect(
     organizationContext.getByText(activeMembership.display_name, { exact: true }),
   ).toHaveCount(0)
-  await expect(organizationContext.getByText('Coach', { exact: true })).toBeVisible()
-  await expect(organizationContext.getByText('Propietario', { exact: true })).toHaveCount(0)
 
   const storage = await page.evaluate(() => ({
     local: Object.entries(localStorage),

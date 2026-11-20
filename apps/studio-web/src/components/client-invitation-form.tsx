@@ -425,7 +425,7 @@ export function ClientInvitationForm() {
               ) : offered.length === 0 ? (
                 <FieldDescription data-client-invitation-program-empty>
                   Todavía no hay ninguna versión de programa publicada. Solo se puede proponer una
-                  publicada, así que primero hay que publicarla en el contenido de la organización.
+                  publicada, así que primero hay que publicarla en la biblioteca de la organización.
                 </FieldDescription>
               ) : (
                 <>

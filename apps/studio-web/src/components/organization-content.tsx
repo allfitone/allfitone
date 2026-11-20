@@ -100,7 +100,7 @@ export function OrganizationContent() {
    */
   if (!rolesQuery.isPending && !allowed) {
     return (
-      <section data-content-page aria-label="Contenido">
+      <section data-content-page aria-label="Biblioteca">
         <WorkspacePageHeader description="El contenido de entrenamiento está disponible para quienes lo crean y publican." />
         <Alert variant="warning">
           <AlertTitle>No puedes consultar este contenido</AlertTitle>
@@ -113,7 +113,7 @@ export function OrganizationContent() {
   }
 
   return (
-    <section data-content-page aria-label="Contenido">
+    <section data-content-page aria-label="Biblioteca">
       <WorkspacePageHeader
         description={`Las plantillas de sesión y los programas de ${current.display_name}. Un borrador es lo que alguien está escribiendo; una versión publicada ya no cambia y es la que puede asignarse.`}
         actions={
@@ -181,7 +181,7 @@ export function OrganizationContent() {
 
       {ready ? (
         <Tabs defaultValue="templates" data-content-tabs>
-          <TabsList variant="line" aria-label="Secciones del contenido">
+          <TabsList variant="line" aria-label="Secciones de la biblioteca">
             <TabsTrigger value="templates">Plantillas</TabsTrigger>
             <TabsTrigger value="programs">Programas</TabsTrigger>
             <TabsTrigger value="movements">Movimientos</TabsTrigger>

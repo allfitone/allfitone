@@ -214,7 +214,7 @@ export function ProgramEditor() {
             </EmptyMedia>
             <EmptyTitle>No encontramos este programa</EmptyTitle>
             <EmptyDescription>
-              No existe o no es de {current.display_name}. Vuelve al contenido para elegir otro.
+              No existe o no es de {current.display_name}. Vuelve a la biblioteca para elegir otro.
             </EmptyDescription>
           </EmptyHeader>
           <BackToContent href={contentPath} />
@@ -622,7 +622,7 @@ function BackToContent({ href }: { href: string }) {
       data-variant="outline"
       data-slot="button"
     >
-      Volver al contenido
+      Volver a la biblioteca
     </Link>
   )
 }

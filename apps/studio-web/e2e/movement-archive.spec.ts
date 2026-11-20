@@ -44,7 +44,7 @@ test('an owner archives our movement, which then leaves the search for new conte
   expect(archivals(fixture)).toHaveLength(1)
   expect(archivals(fixture)[0]?.body).toBeUndefined()
 
-  await page.getByRole('link', { name: 'Volver al contenido' }).click()
+  await page.getByRole('link', { name: 'Volver a la biblioteca' }).click()
   await page.getByRole('tab', { name: 'Movimientos' }).click()
   const list = page.getByRole('list', { name: 'Movimientos' })
   await expect(list).toContainText('Press de banca')

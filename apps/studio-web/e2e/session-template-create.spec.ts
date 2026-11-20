@@ -48,7 +48,7 @@ test('a template is created from the content page, opens its draft and waits as 
   await expect(page.getByRole('heading', { level: 1, name: 'Plantilla' })).toBeVisible()
   await expect(page.getByLabel('Nombre')).toHaveValue('Fuerza tren inferior')
 
-  await page.getByRole('link', { name: 'Volver al contenido' }).click()
+  await page.getByRole('link', { name: 'Volver a la biblioteca' }).click()
   await expect(page).toHaveURL(CONTENT_PATH)
   const created = page.locator('[data-content-register-item]', {
     hasText: 'Fuerza tren inferior',

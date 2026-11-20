@@ -1,4 +1,3 @@
-import { ProductWordmark } from '@allfitone/react/brand'
 import { Card, CardContent } from '@allfitone/react/components/card'
 import {
   SetupHeader,
@@ -12,6 +11,7 @@ import { Spinner } from '@allfitone/react/components/spinner'
 import type { ReactNode } from 'react'
 
 import { LogoutForm } from './logout-form'
+import { StudioWordmark } from './studio-wordmark'
 
 export type StudioStep = 'identity' | 'space' | 'ready'
 
@@ -34,13 +34,7 @@ export function StudioFrame({
   return (
     <SetupShell data-studio-canvas>
       <SetupHeader data-studio-header>
-        <ProductWordmark
-          product="studio"
-          surface="light"
-          title="Allfit Studio"
-          width={138}
-          height={28}
-        />
+        <StudioWordmark />
         {showLogout ? (
           <div data-studio-header-actions>
             {/* Setup runs on a gradient, where a transparent control has no edge of

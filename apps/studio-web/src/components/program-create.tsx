@@ -94,7 +94,7 @@ export function ProgramCreateForm() {
           </AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => router.replace(contentPath)}>
-          Volver al contenido
+          Volver a la biblioteca
         </Button>
       </section>
     )
@@ -134,7 +134,7 @@ export function ProgramCreateForm() {
   return (
     <SetupPanel>
       <SetupPanelIntro>
-        <SetupPanelEyebrow>Contenido</SetupPanelEyebrow>
+        <SetupPanelEyebrow>Biblioteca</SetupPanelEyebrow>
         <SetupPanelTitle as="h2">Crea un programa.</SetupPanelTitle>
         <SetupPanelDescription>
           El programa pertenece a {current.display_name}, aunque quedes registrado como su autor.

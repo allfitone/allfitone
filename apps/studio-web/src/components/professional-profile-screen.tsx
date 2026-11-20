@@ -1,6 +1,5 @@
 'use client'
 
-import { BrandLogo, ProductWordmark } from '@allfitone/react/brand'
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
@@ -28,11 +27,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
+import { AccountTheme } from './account-theme'
 import { LogoutForm } from './logout-form'
 import { ProfessionalCredentials } from './professional-credentials'
 import { ProfessionalMemberships } from './professional-memberships'
 import { ProfessionalPresentation } from './professional-presentation'
 import { LoadingCard } from './studio-frame'
+import { StudioWordmark } from './studio-wordmark'
 import { StudioApiError, type ProfessionalCatalogItem, type StudioMe } from '@/lib/studio-api'
 import { useCompactViewport } from '@/lib/use-compact-viewport'
 import {
@@ -215,6 +216,7 @@ function AccountOverview({
       </Card>
 
       <ProfessionalMemberships memberships={me.memberships} />
+      <AccountTheme />
     </>
   )
 }
@@ -321,6 +323,8 @@ function ProfessionalArea({
           <ProfessionalMemberships memberships={me.memberships} />
         </TabsContent>
       </Tabs>
+      {/* Outside the tabs: it belongs to the account, not to a section of the profile. */}
+      <AccountTheme />
     </>
   )
 }
@@ -372,21 +376,9 @@ function AccountShell({ children, onSpaces }: { children: React.ReactNode; onSpa
 
               The mark lost its carrier tile in @allfitone/react 0.14.0, so it is
               now the bare glyph: 10px wide at this height instead of 27px, which
-              leaves the row with more slack than the budget above assumed. `ink`
-              rather than the default cyan, because this header is a light
-              surface and the wordmark beside it is set the same way. */}
+              leaves the row with more slack than the budget above assumed. */}
           <span data-profile-brand>
-            {compact ? (
-              <BrandLogo variant="ink" title="Allfit Studio" height={28} />
-            ) : (
-              <ProductWordmark
-                product="studio"
-                surface="light"
-                title="Allfit Studio"
-                width={138}
-                height={28}
-              />
-            )}
+            <StudioWordmark compact={compact} />
           </span>
           <WorkspaceActions>
             <Button variant="ghost" size="sm" onClick={onSpaces}>

@@ -188,16 +188,17 @@
   gap: var(--afo-space-2);
 }
 
-[data-sidebar-organization-meta] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--afo-space-2);
-  padding-inline: var(--afo-space-2);
-}
-
 [data-sidebar-organization-name],
 [data-sidebar-organization-label] {
   min-width: 0;
+}
+
+/* The name starts in the column the menu's icons stand in, and a long one
+   takes a second line rather than lose its end. */
+[data-sidebar-organization-name] {
+  padding-block: var(--afo-space-2);
+  padding-inline: var(--afo-space-3);
+  overflow-wrap: anywhere;
 }
 
 /* The trigger sizes to its content, so a 39-character organization name made it
@@ -4112,23 +4113,42 @@
   }
 }
 
-/* The theme at the foot of the menu: its name on the left, the two answers on
-   the right, and a line under them only when a change was not saved. */
-[data-theme-switch] {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: var(--afo-space-1);
+/* The brand for the theme in force. Both drawings are in the document, because
+   the letters are a fixed colour per surface; the other one is not rendered. */
+[data-brand-surface] {
+  display: contents;
 }
 
-[data-theme-switch-row] {
+:root:not([data-afo-theme='light']) [data-brand-surface='light'],
+:root[data-afo-theme='light'] [data-brand-surface='dark'] {
+  display: none;
+}
+
+/* The foot of the menu: the way out takes the menu's width. A grid, because
+   the button is the form's and takes its width from it. */
+[data-sidebar-foot-logout] > form {
+  display: grid;
+}
+
+/* On a phone the menu is a sheet that reaches the corner the privacy control
+   floats over, so its foot ends above that control. */
+@media (max-width: 640px) {
+  [data-sidebar-foot-logout] {
+    margin-block-end: calc(var(--studio-floating-control-space) - var(--afo-space-2));
+  }
+}
+
+/* The theme in her account: its name on the left, the two answers on the right,
+   and a line under them only when a change was not saved. */
+[data-account-theme-row] {
   display: flex;
   min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--afo-space-2);
+  gap: var(--afo-space-3);
 }
 
-[data-theme-switch-status] {
-  padding-inline: var(--afo-space-2);
+[data-account-theme-status] {
+  margin-block-start: var(--afo-space-3);
 }
