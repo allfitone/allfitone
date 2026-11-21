@@ -2,24 +2,45 @@
 
 /**
  * What the screens of the library share: the switch between the two views of a
- * list, the outline a list shows while its content arrives, and the one badge
- * that says the state of a template or a program, in the list and in its editor.
+ * list, the outline a list shows while its content arrives, the one badge that
+ * says the state of a template or a program, the trail that leads back from
+ * anything opened, and the place where an answer pops up.
  */
 
 import { Badge } from '@allfitone/react/components/badge'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@allfitone/react/components/breadcrumb'
 import { Skeleton } from '@allfitone/react/components/skeleton'
+import { Toaster } from '@allfitone/react/components/sonner'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
+import Link from 'next/link'
 
 import {
   contentStatus,
   contentStatusLabel,
+  libraryPath,
   type ContentKind,
   type ContentStatus,
+  type LibraryTab,
   type LibraryView,
 } from '@/lib/content-library'
 import type { ContentItem } from '@/lib/organization-content'
 
 const SKELETON_SLOTS = [0, 1, 2, 3, 4, 5]
+// Clear of the privacy control that floats over the bottom corner.
+const TOAST_OFFSET = { bottom: 84, right: 16 }
+
+const TAB_NAME: Record<LibraryTab, string> = {
+  templates: 'Plantillas',
+  programs: 'Programas',
+  movements: 'Movimientos',
+}
 
 export function LibraryViewToggle({
   view,
@@ -67,4 +88,49 @@ export function LibrarySkeleton({ label }: { label: string }) {
       ))}
     </div>
   )
+}
+
+/**
+ * Where the reader is and the way back: the library, the tab the thing lives
+ * in as a link to the list it came from, and its name.
+ */
+export function LibraryTrail({
+  organizationId,
+  tab,
+  current,
+}: {
+  organizationId: string
+  tab: LibraryTab
+  current: string
+}) {
+  return (
+    <Breadcrumb aria-label="Ruta">
+      <BreadcrumbList>
+        <BreadcrumbItem>
+          <BreadcrumbLink render={<Link href={libraryPath(organizationId)} />} data-editor-crumb>
+            Biblioteca
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        <BreadcrumbSeparator />
+        <BreadcrumbItem>
+          <BreadcrumbLink
+            render={<Link href={libraryPath(organizationId, tab)} />}
+            data-editor-crumb
+          >
+            {TAB_NAME[tab]}
+          </BreadcrumbLink>
+        </BreadcrumbItem>
+        {/* On a phone the name is the title right under the trail, so it is said once. */}
+        <BreadcrumbSeparator data-editor-crumb-current />
+        <BreadcrumbItem data-editor-crumb-current>
+          <BreadcrumbPage>{current}</BreadcrumbPage>
+        </BreadcrumbItem>
+      </BreadcrumbList>
+    </Breadcrumb>
+  )
+}
+
+/** Where the answer to publishing pops up, in every editor of the library. */
+export function LibraryToaster() {
+  return <Toaster position="bottom-right" closeButton offset={TOAST_OFFSET} />
 }

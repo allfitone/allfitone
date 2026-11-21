@@ -45,7 +45,8 @@
 /* Only the board, and its placeholder so nothing widens when the answer
    arrives. A refusal or a failure is a sentence and keeps the reading canvas. */
 [data-organization-content] > [data-today-panel='board'],
-[data-organization-content] > [data-content-page='library'] {
+[data-organization-content] > [data-content-page='library'],
+[data-organization-content] > [data-content-page='program'] {
   width: min(100%, var(--studio-canvas-board));
 }
 
@@ -258,8 +259,6 @@
 [data-content-register],
 [data-template-steps],
 [data-program-weeks],
-/* Wider than the gap inside a session, so each one reads as its own group. */
-[data-program-sessions],
 [data-category-register],
 [data-today-panel],
 [data-organization-details],
@@ -561,7 +560,6 @@
 [data-membership-roles],
 [data-role-disclosure],
 [data-content-disclosure],
-[data-program-session-actions],
 [data-movement-variant-actions],
 [data-category-disclosure] {
   display: flex;
@@ -616,8 +614,7 @@
    arrives, and the `min()` keeps the track from outgrowing a narrow card. */
 [data-credential-details],
 [data-version-details],
-[data-template-target-fields],
-[data-program-session-fields] {
+[data-template-target-fields] {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
   gap: var(--afo-space-4);
@@ -734,7 +731,6 @@
 [data-relationship-grant-cards],
 [data-relationship-history-list],
 [data-content-version-list],
-[data-program-session],
 [data-movement-variant-fields],
 [data-role-capability-list],
 [data-client-card-section-list],
@@ -1429,6 +1425,15 @@
   font-weight: var(--afo-font-weight-bold);
 }
 
+/* The name of what is read, where an editor has it typed. */
+[data-editor-heading] {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--afo-font-size-xl);
+  font-weight: var(--afo-font-weight-bold);
+  overflow-wrap: anywhere;
+}
+
 [data-editor-actions],
 [data-editor-meta],
 [data-template-sets-foot] {
@@ -1443,7 +1448,8 @@
 }
 
 /* The wrapper a tooltip needs around a button that is off. */
-[data-template-publish-action] {
+[data-template-publish-action],
+[data-program-publish-action] {
   display: grid;
 }
 
@@ -1456,7 +1462,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  [data-template-save-status] {
+  [data-template-save-status],
+  [data-program-save-status],
+  [data-movement-save-status] {
     grid-column: 1 / -1;
   }
 
@@ -1467,6 +1475,9 @@
 }
 
 [data-template-save-status],
+[data-program-save-status],
+[data-movement-save-status],
+[data-program-no-sessions],
 [data-editor-meta-note] {
   margin: 0;
   color: var(--afo-color-text-muted);
@@ -1475,7 +1486,8 @@
 
 /* A label, its control and nothing else on the line: the field takes the
    width of the two, where a stacked field takes the row. */
-[data-template-inline-field] {
+[data-template-inline-field],
+[data-editor-inline-field] {
   width: auto;
   flex: none;
 }
@@ -1768,6 +1780,328 @@
   justify-content: center;
   padding: var(--afo-space-2);
   border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+/* ----------------------------------------------------------------- program */
+
+/* A program as a calendar: a row a week, seven days across. The head and every
+   week share one set of columns, so a day is read down its column. */
+[data-program-grid] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-3);
+  container-type: inline-size;
+}
+
+[data-program-grid-head],
+[data-program-grid-week] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-2);
+}
+
+[data-program-grid-head] {
+  grid-template-columns: 6rem repeat(7, minmax(0, 1fr));
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-bold);
+  letter-spacing: var(--afo-letter-spacing-utility);
+  text-transform: uppercase;
+}
+
+[data-program-grid-weeks],
+[data-program-days] {
+  display: grid;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  gap: var(--afo-space-2);
+  list-style: none;
+}
+
+[data-program-grid-week] {
+  grid-template-columns: 6rem minmax(0, 1fr);
+}
+
+/* The name of the week sits on the first line of what its days hold. */
+[data-program-week-head] {
+  display: flex;
+  min-width: 0;
+  align-items: start;
+  padding-block-start: var(--afo-space-3);
+}
+
+[data-program-week-name] {
+  margin: 0;
+  font-weight: var(--afo-font-weight-semibold);
+}
+
+/* The week's own button is what a phone adds with; the grid has one a day. */
+[data-program-week-head] > [data-program-week-add] {
+  display: none;
+}
+
+[data-program-days] {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+/* Every day of a week is as tall as the tallest: what a day holds fills it. */
+[data-program-day] {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 5rem;
+  flex-direction: column;
+  gap: var(--afo-space-1);
+  border-radius: var(--afo-radius-card);
+}
+
+[data-program-day][data-drop-target='true'] {
+  outline: 2px dashed var(--afo-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Said by the column to the eye, and by the day itself to a screen reader. */
+[data-program-day-name] {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+[data-program-session] {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+[data-program-session][data-dragging='true'] {
+  opacity: 0.45;
+}
+
+/* A session and an empty day are the Design System's bare triggers, so
+   everything they show is set here. */
+[data-program-chip],
+[data-program-add] {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--afo-color-border-default);
+  border-radius: var(--afo-radius-card);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing),
+    background-color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing),
+    color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing),
+    opacity var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing);
+}
+
+[data-program-chip]:focus-visible,
+[data-program-add]:focus-visible {
+  outline: 2px solid var(--afo-color-focus-ring);
+  outline-offset: 2px;
+}
+
+[data-program-chip] {
+  min-height: 5rem;
+  align-content: start;
+  justify-items: start;
+  gap: var(--afo-space-2);
+  padding: var(--afo-space-3);
+  background: var(--afo-color-background-surface);
+  color: var(--afo-color-text-primary);
+  text-align: start;
+}
+
+[data-program-chip]:hover,
+[data-program-chip][aria-expanded='true'] {
+  border-color: var(--afo-color-border-strong);
+  background: var(--afo-color-background-surface-muted);
+}
+
+[data-program-chip-title] {
+  font-size: var(--afo-font-size-sm);
+  font-weight: var(--afo-font-weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+[data-program-chip-meta] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-1) var(--afo-space-2);
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-program-add] {
+  min-height: 2rem;
+  flex: none;
+  place-items: center;
+  border-style: dashed;
+  background: none;
+  color: var(--afo-color-text-muted);
+}
+
+[data-program-add]:hover:not(:disabled),
+[data-program-add][aria-expanded='true'] {
+  border-color: var(--afo-color-border-strong);
+  background: var(--afo-color-background-surface);
+  color: var(--afo-color-text-primary);
+}
+
+[data-program-add]:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+/* A day that already holds a session takes another, through a button that
+   waits out of the way until the day is pointed at or reached with the keyboard. */
+[data-program-day][data-empty='true'] > [data-program-add] {
+  flex: 1 1 auto;
+}
+
+/* With a pointer the button sits on the corner of the day and takes no room. */
+@media (hover: hover) {
+  [data-program-day][data-empty='false'] > [data-program-add] {
+    position: absolute;
+    width: 1.75rem;
+    height: 1.75rem;
+    min-height: 0;
+    border-style: solid;
+    background: var(--afo-color-background-surface);
+    inset-block-end: var(--afo-space-2);
+    inset-inline-end: var(--afo-space-2);
+    opacity: 0;
+  }
+
+  [data-program-day][data-empty='false']:hover > [data-program-add]:not(:disabled),
+  [data-program-day][data-empty='false'] > [data-program-add]:focus-visible,
+  [data-program-day][data-empty='false'] > [data-program-add][aria-expanded='true'] {
+    opacity: 1;
+  }
+}
+
+/* What a session or an empty day opens: its fields in one column, and the two
+   that move a session side by side. */
+[data-program-panel-fields] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-3);
+}
+
+[data-program-panel-fields='pair'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* A select keeps a width of its own that two side by side have no room for. */
+[data-program-panel-fields] [data-studio-select-trigger] {
+  width: 100%;
+  min-width: 0;
+}
+
+[data-program-notes] {
+  max-width: 44rem;
+}
+
+[data-program-skeleton-week] {
+  height: 5rem;
+  border-radius: var(--afo-radius-card);
+}
+
+/* Seven columns need room. Without it a week is the list of its sessions, each
+   under the name of its day, and one button that adds to the week. */
+@container (max-width: 52rem) {
+  [data-program-grid-head] {
+    display: none;
+  }
+
+  [data-program-grid-weeks] {
+    gap: var(--afo-space-3);
+  }
+
+  [data-program-grid-week] {
+    padding: var(--afo-space-3);
+    border: 1px solid var(--afo-color-border-subtle);
+    border-radius: var(--afo-radius-card);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-program-week-head] {
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--afo-space-3);
+    padding-block-start: 0;
+  }
+
+  [data-program-week-head] > [data-program-week-add] {
+    display: inline-flex;
+  }
+
+  [data-program-days] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  [data-program-day] {
+    display: grid;
+    min-height: 0;
+    align-items: center;
+    grid-template-columns: 3.25rem minmax(0, 1fr);
+    gap: var(--afo-space-2);
+  }
+
+  [data-program-day][data-empty='true'],
+  [data-program-day] > [data-program-add] {
+    display: none;
+  }
+
+  [data-program-day-name] {
+    position: static;
+    width: auto;
+    height: auto;
+    color: var(--afo-color-text-muted);
+    font-size: var(--afo-font-size-sm);
+    clip-path: none;
+  }
+
+  [data-program-day] > [data-program-session] {
+    grid-column: 2;
+  }
+
+  [data-program-chip] {
+    min-height: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- movement */
+
+/* A long name wraps, and whose the movement is follows it onto the next line. */
+[data-movement-title] {
+  flex-wrap: wrap;
+}
+
+/* Four fields are a column on a phone and two where there is room, so the
+   whole movement is read without scrolling. */
+[data-movement-editor] {
+  container-type: inline-size;
+}
+
+@container (min-width: 46rem) {
+  [data-movement-editor] [data-movement-fields] {
+    display: grid;
+    align-items: start;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--afo-space-5) var(--afo-space-4);
+  }
+}
+
+[data-movement-skeleton-form] {
+  height: 18rem;
+  border-radius: var(--afo-radius-card);
 }
 
 /* ----------------------------------------------------------------- library */
@@ -2237,8 +2571,7 @@
   [data-client-invitation-summary],
   [data-credential-details],
   [data-version-details],
-  [data-template-target-fields],
-  [data-program-session-fields] {
+  [data-template-target-fields] {
     grid-template-columns: minmax(0, 1fr);
   }
 

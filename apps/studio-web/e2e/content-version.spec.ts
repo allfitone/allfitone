@@ -88,7 +88,9 @@ test('a session in the program editor opens the exact version it is fixed to', a
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await page.goto(`${CONTENT_PATH}/programs/${draftedProgram.id}`)
 
-  await page.getByRole('link', { name: 'Ver la versión 2' }).first().click()
+  // The link is with the rest of what a session offers, in the panel it opens.
+  await page.locator('[data-program-session]').first().getByRole('button').click()
+  await page.getByRole('link', { name: 'Ver la versión 2' }).click()
 
   await expect(page).toHaveURL(`${CONTENT_PATH}/templates/${publishedTemplate.id}/versions/2`)
   await expect(page.getByText('Serie 1: 8 repeticiones · 40 kg')).toBeVisible()

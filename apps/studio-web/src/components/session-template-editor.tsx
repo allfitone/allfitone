@@ -37,14 +37,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@allfitone/react/components/alert-dialog'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@allfitone/react/components/breadcrumb'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Empty,
@@ -72,7 +64,7 @@ import {
   SelectValue,
 } from '@allfitone/react/components/select'
 import { Skeleton } from '@allfitone/react/components/skeleton'
-import { Toaster, toast } from '@allfitone/react/components/sonner'
+import { toast } from '@allfitone/react/components/sonner'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@allfitone/react/components/tooltip'
 import { FoundationIcon } from '@allfitone/react/icons'
@@ -81,15 +73,15 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
-import { ContentStatusBadge } from './library-views'
+import { ContentStatusBadge, LibraryToaster, LibraryTrail } from './library-views'
 import { useOrganizationContext } from './organization-context'
 import { TemplateStep } from './session-template-step'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { createCommandIntentManager } from '@/lib/command-intent'
-import { libraryPath } from '@/lib/content-library'
 import { derivedFromLabel } from '@/lib/content-version'
 import { disciplineName } from '@/lib/movement-search'
 import { canManageContent, templateItems } from '@/lib/organization-content'
+import { savedAtTime } from '@/lib/saved-at'
 import {
   activityTypeChoices,
   addStep,
@@ -128,8 +120,6 @@ import {
 
 const LIBRARY_PAGE_SIZE = 50
 const SKELETON_STEPS = [0, 1, 2]
-// Clear of the privacy control that floats over the bottom corner.
-const TOAST_OFFSET = { bottom: 84, right: 16 }
 
 function newStepKey(): string {
   return crypto.randomUUID()
@@ -432,7 +422,7 @@ export function SessionTemplateEditor() {
       setBase(saved)
       setConflict(null)
       setDirty(false)
-      setSavedAt(formatTime(saved.updated_at))
+      setSavedAt(savedAtTime(saved.updated_at))
       intents.reset()
     } catch (caught) {
       if (isStudioQuerySessionCancelled(caught)) return
@@ -465,37 +455,17 @@ export function SessionTemplateEditor() {
     )
   }
 
-  const libraryHref = libraryPath(organizationId)
   const [item] = templateItems([template])
   const needsSaving = dirty || conflict !== null
 
   return (
     <section data-content-page="editor" aria-label="Plantilla">
-      <Toaster position="bottom-right" closeButton offset={TOAST_OFFSET} />
-
-      <Breadcrumb aria-label="Ruta">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink render={<Link href={libraryHref} />} data-editor-crumb>
-              Biblioteca
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbLink
-              render={<Link href={libraryPath(organizationId, 'templates')} />}
-              data-editor-crumb
-            >
-              Plantillas
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          {/* On a phone the name is the title right under the trail, so it is said once. */}
-          <BreadcrumbSeparator data-editor-crumb-current />
-          <BreadcrumbItem data-editor-crumb-current>
-            <BreadcrumbPage>{editor.title.trim() || 'Sin nombre'}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <LibraryToaster />
+      <LibraryTrail
+        organizationId={organizationId}
+        tab="templates"
+        current={editor.title.trim() || 'Sin nombre'}
+      />
 
       {/* Stays in sight while the steps scroll: saving and publishing are never a scroll away. */}
       <header data-editor-bar>
@@ -611,8 +581,8 @@ export function SessionTemplateEditor() {
           <AlertDescription>
             Lo guardado ahora se llama «{conflict.content.title}», tiene{' '}
             {stepsCount(conflict.content.steps.length)} y se guardó a las{' '}
-            {formatTime(conflict.updated_at)}. Tus cambios siguen aquí sin guardar: puedes cargar lo
-            guardado y perderlos, o guardar los tuyos encima.
+            {savedAtTime(conflict.updated_at)}. Tus cambios siguen aquí sin guardar: puedes cargar
+            lo guardado y perderlos, o guardar los tuyos encima.
           </AlertDescription>
           <AlertAction>
             <Button variant="outline" onClick={loadTheirs}>
@@ -774,12 +744,6 @@ function publishFailureMessage(error: StudioApiError): string {
 
 function stepsCount(count: number): string {
   return count === 1 ? '1 paso' : `${count} pasos`
-}
-
-/** The hour as it closes a sentence: «10:11 a. m.» loses the period the sentence adds. */
-function formatTime(value: string): string {
-  const time = new Intl.DateTimeFormat('es-CO', { timeStyle: 'short' }).format(new Date(value))
-  return time.replace(/\.$/, '')
 }
 
 /** The draft a stale-draft conflict carries, when it carries one in the expected shape. */

@@ -52,10 +52,10 @@ test('a movement is created from the movements tab and opens as ours alone', asy
 
   await expect(page.getByRole('heading', { level: 1, name: 'Movimiento' })).toBeVisible()
   await expect(page.getByText(/Solo lo ve tu organización/)).toBeVisible()
-  const summary = page.locator('[data-movement-summary]')
-  await expect(summary).toContainText('Remo invertido')
-  await expect(summary).toContainText('Propio')
-  await expect(summary).toContainText('Remo australiano')
+  // It opens as its own form, named and marked as the organization's.
+  await expect(page.getByRole('heading', { level: 2, name: 'Remo invertido' })).toBeVisible()
+  await expect(page.locator('[data-editor-bar]')).toContainText('Propio')
+  await expect(page.getByLabel('Otros nombres')).toHaveValue('Remo australiano')
   const [sent] = creations(fixture)
   expect(sent?.body).toEqual({
     discipline_code: 'strength',
@@ -88,9 +88,9 @@ test('it can be a variant of a global movement, and of nothing else', async ({ p
   await choose(page, 'Relación', 'Progresión')
   await page.getByRole('button', { name: 'Crear movimiento' }).click()
 
-  await expect(page.locator('[data-movement-summary]')).toContainText(
-    'Progresión de Press de banca',
-  )
+  await expect(page.getByRole('heading', { level: 2, name: 'Press con pausa' })).toBeVisible()
+  await expect(page.locator('[data-movement-editor]')).toContainText('Press de banca')
+  await expect(page.getByLabel('Relación')).toContainText('Progresión')
   expect(creations(fixture)[0]?.body).toMatchObject({
     variant: {
       movement_id: '01991600-c000-7000-8000-000000000002',
@@ -177,5 +177,5 @@ test('a global movement opens from the tab and says it is Allfit’s', async ({ 
 
   await expect(page).toHaveURL(`${CONTENT_PATH}/movements/${STRENGTH_GLOBAL_MOVEMENT_ID}`)
   await expect(page.getByText(/Un movimiento del catálogo de Allfit/)).toBeVisible()
-  await expect(page.locator('[data-movement-summary]')).toContainText('Back squat')
+  await expect(page.locator('[data-movement-details]')).toContainText('Back squat')
 })

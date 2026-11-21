@@ -2900,7 +2900,7 @@ export const SCREENS: Screen[] = [
   },
   // --- `/organizations/[id]/content/programs/[programId]` · HU-041 ---
   {
-    // Two weeks, and the retired version the draft keeps, said twice.
+    // Two weeks as a calendar, and the retired version the draft keeps, said twice.
     stories: 'HU-041 · a program by week, with a retired version kept',
     path: `${workspace}/content/programs/${draftedProgram.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
@@ -2910,7 +2910,7 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    // Each session's two selects become one column, and its button wraps.
+    // Seven columns have no room: a week is the list of its sessions.
     stories: 'HU-041 · a program by week on a phone',
     path: `${workspace}/content/programs/${draftedProgram.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
@@ -2921,19 +2921,47 @@ export const SCREENS: Screen[] = [
     },
   },
   {
-    /*
-     * Criterion 1: the version named by number once a template is chosen. The
-     * list is closed again before the audit: an open Select carries the Design
-     * System's focus guards, which axe reports as `aria-hidden-focus`.
-     */
+    // Criterion 1: an empty day asks for the template and names its version by number.
     stories: 'HU-041 · choosing the exact version a session uses',
     path: `${workspace}/content/programs/${draftedProgram.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    // A day's own button is the grid's: a phone adds through the week's, swept below.
+    viewport: DESKTOP,
     reveal: async (page) => {
-      const card = page.locator('[data-program-add-session]')
-      await card.getByLabel('Plantilla', { exact: true }).click()
-      await page.getByRole('option', { name: 'Fuerza tren superior' }).click()
-      await expect(card.getByLabel('Versión', { exact: true })).toContainText('Versión 2')
+      await page.getByRole('button', { name: 'Agregar una sesión el día 2 de la semana 1' }).click()
+      const form = page.getByRole('dialog', { name: 'Agregar una sesión' })
+      await expect(form.getByLabel('Versión', { exact: true })).toContainText('Versión 2')
+    },
+  },
+  {
+    // What a session offers: another day, the version it is fixed to, taking it out.
+    stories: 'HU-041 · a session opened to move it or take it out',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-program-session]').first().getByRole('button').click()
+      await expect(page.getByRole('link', { name: 'Ver la versión 2' })).toBeVisible()
+    },
+  },
+  {
+    // The week's own button, where the day is one more thing to choose.
+    stories: 'HU-041 · adding a session to a week on a phone',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Agregar sesión' }).first().click()
+      const form = page.getByRole('dialog', { name: 'Agregar una sesión' })
+      await expect(form.getByLabel('Día', { exact: true })).toContainText('Día 5')
+    },
+  },
+  {
+    stories: 'HU-041 · a week added and still empty',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Agregar semana' }).click()
+      await expect(page.getByRole('heading', { name: 'Semana 3', exact: true })).toBeVisible()
     },
   },
   {
@@ -2967,7 +2995,7 @@ export const SCREENS: Screen[] = [
       createStudioApiFixture({ memberships: [activeMembership], programDraftSaveOutcome: 'stale' }),
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Mi versión del programa')
-      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
     },
   },
@@ -2989,17 +3017,27 @@ export const SCREENS: Screen[] = [
     },
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Otro nombre')
-      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
     },
   },
   // --- `/organizations/[id]/content/programs/[programId]`, publishing · HU-042 ---
   {
-    // The retired version is warned about in the card that just published it.
+    // Criteria 2 and 3, and the retired version the draft keeps, before it is done.
+    stories: 'HU-042 · the question publishing a program asks',
+    path: `${workspace}/content/programs/${draftedProgram.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar', exact: true }).click()
+      await expect(page.getByText('Vas a publicar versiones retiradas')).toBeVisible()
+    },
+  },
+  {
     stories: 'HU-042 · a program version just published',
     path: `${workspace}/content/programs/${draftedProgram.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar', exact: true }).click()
       await page.getByRole('button', { name: 'Publicar versión' }).click()
       await expect(page.getByText(/Publicada la versión 1/)).toBeVisible()
     },
@@ -3022,6 +3060,7 @@ export const SCREENS: Screen[] = [
       return fixture
     },
     reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar', exact: true }).click()
       await page.getByRole('button', { name: 'Publicar versión' }).click()
       await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
     },
@@ -3032,6 +3071,8 @@ export const SCREENS: Screen[] = [
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Hipertrofia · bloque 2')
+      // Why the button is off is said on it, to whoever points at it.
+      await page.locator('[data-program-publish-action]').hover()
       await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
     },
   },
@@ -3342,14 +3383,38 @@ export const SCREENS: Screen[] = [
   },
   // --- `/organizations/[id]/content/movements/[movementId]`, editing · HU-065 ---
   {
-    // The summary, then the edit form under it: the longest the page gets.
+    // The name and its actions, then the form under them: the longest the page gets.
     stories: 'HU-065 · a movement of ours to correct, on a phone',
     path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeVisible()
+    },
+  },
+  {
+    // Criterion 1, said to whoever asks what an edit changes.
+    stories: 'HU-065 · what editing a movement changes, asked for',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Qué cambia al editar el movimiento' }).click()
+      await expect(page.getByText(/Editarlo no cambia el historial/)).toBeVisible()
+    },
+  },
+  {
+    // A variant chosen: the form at its fullest, with the change waiting to be saved.
+    stories: 'HU-065 · a movement of ours made a variant, not saved yet',
+    path: `${workspace}/content/movements/${STRENGTH_OWN_MOVEMENT_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
+      await page
+        .getByRole('dialog', { name: 'Elegir un movimiento' })
+        .getByRole('option', { name: 'Press de banca' })
+        .click()
+      await expect(page.getByText('Hay cambios sin guardar.')).toBeVisible()
     },
   },
   {
@@ -3365,7 +3430,7 @@ export const SCREENS: Screen[] = [
     },
     reveal: async (page) => {
       await page.getByLabel('Nombre', { exact: true }).fill('Remo con kettlebell')
-      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText(/el nombre solo admite cambios de mayúsculas/)).toBeVisible()
     },
   },
@@ -3376,7 +3441,7 @@ export const SCREENS: Screen[] = [
       createStudioApiFixture({ memberships: [activeMembership], movementEditOutcome: 'stale' }),
     reveal: async (page) => {
       await page.getByLabel('Otros nombres').fill('Remo unilateral')
-      await page.getByRole('button', { name: 'Guardar cambios' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText(/Alguien cambió este movimiento/)).toBeVisible()
     },
   },
