@@ -2004,6 +2004,22 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* The way out sits on the panel's corner, where a dialog has it, and the title
+   keeps clear of it. */
+[data-program-panel] {
+  position: relative;
+}
+
+[data-program-panel-close] {
+  position: absolute;
+  inset-block-start: var(--afo-space-2);
+  inset-inline-end: var(--afo-space-2);
+}
+
+[data-program-panel-head] {
+  padding-inline-end: var(--afo-space-8);
+}
+
 /* A select keeps a width of its own that two side by side have no room for. */
 [data-program-panel-fields] [data-studio-select-trigger] {
   width: 100%;

@@ -16,14 +16,18 @@
  * Both are modal. They hold controls and float over sessions and buttons, so
  * a press that misses a control would land on whatever shows beside it; on a
  * phone that left a strip of a week's button a few pixels tall. A press
- * outside closes the panel and does nothing else.
+ * outside closes the panel and does nothing else. The close button is part of
+ * it: Base UI traps the focus, and hides the page under the panel from a
+ * screen reader, only when the panel has one.
  */
 
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import { Field, FieldDescription, FieldLabel } from '@allfitone/react/components/field'
+import { IconButton } from '@allfitone/react/components/icon-button'
 import {
   Popover,
+  PopoverClose,
   PopoverContent,
   PopoverDescription,
   PopoverFooter,
@@ -58,6 +62,25 @@ const CLEAR_OF_THE_CORNER = { top: 12, right: 12, bottom: 84, left: 12 }
 
 function weekItems(weeks: readonly number[]) {
   return weeks.map((week) => ({ value: String(week), label: `Semana ${week}` }))
+}
+
+/** The way out of a panel, on its corner. Last in the panel, so a field keeps the first focus. */
+function ClosePanel() {
+  return (
+    <PopoverClose
+      render={
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Cerrar"
+          data-program-panel-close
+        />
+      }
+    >
+      <FoundationIcon name="close" decorative />
+    </PopoverClose>
+  )
 }
 
 export function ProgramSession({
@@ -111,7 +134,7 @@ export function ProgramSession({
         </PopoverTrigger>
         <PopoverContent align="start" collisionPadding={CLEAR_OF_THE_CORNER} data-program-panel>
           {/* The title is what names the panel to a screen reader. */}
-          <PopoverHeader>
+          <PopoverHeader data-program-panel-head>
             <PopoverTitle>{title}</PopoverTitle>
             {version ? <PopoverDescription>{versionOption(version)}</PopoverDescription> : null}
           </PopoverHeader>
@@ -177,6 +200,7 @@ export function ProgramSession({
               Quitar
             </Button>
           </PopoverFooter>
+          <ClosePanel />
         </PopoverContent>
       </Popover>
     </div>
@@ -238,7 +262,7 @@ export function AddSession({
         collisionPadding={CLEAR_OF_THE_CORNER}
         data-program-panel
       >
-        <PopoverHeader>
+        <PopoverHeader data-program-panel-head>
           <PopoverTitle>Agregar una sesión</PopoverTitle>
           <PopoverDescription>
             {day === undefined ? `Semana ${week}` : `Día ${day} de la semana ${week}`}
@@ -252,6 +276,7 @@ export function AddSession({
           remembered={remembered}
           onAdd={(chosen) => onAdd({ week, ...chosen })}
         />
+        <ClosePanel />
       </PopoverContent>
     </Popover>
   )

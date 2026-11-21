@@ -242,8 +242,12 @@ test('a session moved to another week moves in the program', async ({ page }) =>
 
   const panel = await openSession(page, sessions(day(page, 2, 1)), 'Fuerza tren superior')
   await choose(page, panel, 'Semana', 'Semana 3')
+  // The panel follows its session and is modal: the grid is read once it is closed.
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 
   // The week it left stays on screen, empty: a row never goes while it is being edited.
+  await expect(week(page, 2)).toBeVisible()
   await expect(sessions(week(page, 2))).toHaveCount(0)
   await expect(sessions(day(page, 3, 1))).toContainText('Versión 1')
   await expect(page.getByText('Hay cambios sin guardar.')).toBeVisible()
@@ -292,6 +296,8 @@ test('removing a session takes it out of its day', async ({ page }) => {
   const panel = await openSession(page, sessions(day(page, 2, 1)), 'Fuerza tren superior')
   await panel.getByRole('button', { name: 'Quitar la sesión del día 1 de la semana 2' }).click()
 
+  // The panel goes with its session; the week is found before its sessions are counted.
+  await expect(week(page, 2)).toBeVisible()
   await expect(sessions(week(page, 2))).toHaveCount(0)
   await expect(page.locator('[data-program-retired]')).toHaveCount(0)
 })
@@ -300,15 +306,36 @@ test('a press outside an open session closes it and presses nothing else', async
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await page.goto(EDITOR_PATH)
 
+  // The week's other session, in the same row and so clear of the panel. It is
+  // measured now: under an open panel the grid is hidden from a role query.
+  const other = await sessions(day(page, 1, 4)).boundingBox()
+  if (!other) throw new Error('the session of day 4 is not on screen')
+
   const panel = await openSession(page, sessions(day(page, 1, 1)), 'Fuerza tren superior')
   await expect(panel).toBeVisible()
   expect(await pressableBesideThePanel(page)).toEqual([])
 
-  // The week's other session, in the same row and so clear of the panel.
-  const other = await sessions(day(page, 1, 4)).boundingBox()
-  if (!other) throw new Error('the session of day 4 is not on screen')
   await page.mouse.click(other.x + other.width / 2, other.y + other.height / 2)
   await expect(page.getByRole('dialog')).toHaveCount(0)
+  // Nothing was pressed: the grid is back and no session shows as open.
+  await expect(sessions(day(page, 1, 4))).toBeVisible()
+  await expect(page.locator('[data-program-chip][aria-expanded="true"]')).toHaveCount(0)
+})
+
+test('an open session keeps the grid from a screen reader, and has its own way out', async ({
+  page,
+}) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+
+  const panel = await openSession(page, sessions(day(page, 1, 1)), 'Fuerza tren superior')
+  await expect(panel).toBeVisible()
+  // A role query reads what a screen reader reads: nothing of the page under the panel.
+  await expect(page.getByRole('button', { name: 'Agregar semana' })).toHaveCount(0)
+
+  await panel.getByRole('button', { name: 'Cerrar' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Agregar semana' })).toBeVisible()
 })
 
 test('the form of a day leaves nothing beside it to press', async ({ page }) => {
