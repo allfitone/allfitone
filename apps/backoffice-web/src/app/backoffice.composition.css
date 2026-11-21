@@ -142,7 +142,7 @@
 }
 
 [data-facts] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
 }
 
@@ -179,7 +179,7 @@
 /* The identifier is the column an operator quotes in a case, so it stays
    readable and selectable rather than wrapping mid-value. */
 [data-platform-access] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }
@@ -196,7 +196,7 @@
 }
 
 [data-result-contracts] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
 }
 
@@ -248,12 +248,12 @@
   display: grid;
   gap: 2px;
   padding-inline-start: 12px;
-  box-shadow: inset 2px 0 0 var(--color-warning, currentColor);
+  box-shadow: inset 2px 0 0 var(--afo-color-status-warning);
   overflow-wrap: anywhere;
 }
 
 [data-attention-list] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
 }
 
@@ -314,7 +314,7 @@
 }
 
 [data-organization-handover] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }
@@ -346,7 +346,7 @@
 /* An unclaimed organization exists but does not operate, so its row carries an
    edge instead of sitting flush with the gyms that do. */
 [data-organization-row][data-status='unclaimed'] {
-  box-shadow: inset 3px 0 0 var(--color-warning, currentColor);
+  box-shadow: inset 3px 0 0 var(--afo-color-status-warning);
 }
 
 [data-support-search-form] {
@@ -363,7 +363,7 @@
 [data-access-log] code,
 [data-credential-verification] code,
 [data-support-person] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }
@@ -444,7 +444,7 @@
 
 [data-erasure-resolution] ul {
   margin: 0;
-  padding-inline-start: var(--spacing-4, 1rem);
+  padding-inline-start: var(--afo-space-4);
 }
 
 /* The actions sit under the lines they act on, and wrap before they shrink. */
@@ -455,14 +455,14 @@
 [data-legal-holds-controls] {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-2, 0.5rem);
-  margin-block-start: var(--spacing-2, 0.5rem);
+  gap: var(--afo-space-2);
+  margin-block-start: var(--afo-space-2);
 }
 
 [data-legal-hold-categories] {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2, 0.5rem);
+  gap: var(--afo-space-2);
 }
 
 /* A hold names a person by identifier: it wraps rather than widening the table. */
@@ -713,7 +713,7 @@
 }
 
 [data-waitlist-review] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }
