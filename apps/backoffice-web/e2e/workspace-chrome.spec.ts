@@ -1,6 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { activeSession, createBackofficeFixture, mockBackofficeApi } from './backoffice-api-mock'
+import {
+  SUPPORT_SUBJECT_NAME,
+  activeSession,
+  createBackofficeFixture,
+  mockBackofficeApi,
+  supportPerson,
+} from './backoffice-api-mock'
 
 /**
  * The chrome every Backoffice screen shares. Each check here is a defect that
@@ -182,4 +188,65 @@ test('a form keeps a readable measure and its button its own width', async ({ co
   const [labelBox, inputBox] = [await label.boundingBox(), await input.boundingBox()]
   // Stacked, not side by side: the control starts below its label.
   expect(inputBox?.y).toBeGreaterThan((labelBox?.y ?? 0) + (labelBox?.height ?? 0) - 1)
+})
+
+/** The links of the workspace content that do not reach 4.5:1 against what they sit on. */
+function unreadableLinks(page: Page) {
+  return page.evaluate(() => {
+    const channels = (color: string): number[] => (color.match(/[\d.]+/g) ?? []).map(Number)
+    const linear = (channel: number): number => {
+      const value = channel / 255
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = ([r = 0, g = 0, b = 0]: number[]): number =>
+      0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    // The first painted ancestor is the surface the link is read on.
+    const surface = (element: Element): number[] => {
+      for (let node: Element | null = element; node; node = node.parentElement) {
+        const color = channels(getComputedStyle(node).backgroundColor)
+        if (color.length >= 3 && (color[3] ?? 1) > 0) return color
+      }
+      return [255, 255, 255]
+    }
+    return [...document.querySelectorAll('[data-backoffice-content] a:not([data-slot])')]
+      .filter((link) => link.getClientRects().length > 0)
+      .map((link) => {
+        const [lighter, darker] = [
+          luminance(channels(getComputedStyle(link).color)),
+          luminance(surface(link)),
+        ].sort((a, b) => b - a)
+        return {
+          name: link.textContent?.trim() ?? '',
+          ratio: ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05),
+        }
+      })
+      .filter((link) => link.ratio < 4.5)
+      .map((link) => `${link.name}: ${link.ratio.toFixed(2)}:1`)
+  })
+}
+
+/*
+ * A link left to the browser is #0000EE, 1.97:1 on a card here. Links were styled
+ * one data attribute at a time, and six kinds had none, among them the name that
+ * opens a person's card and the way to ask for an exceptional access.
+ */
+test('every link on a workspace screen reads against what it sits on', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), support: { people: [supportPerson()] } }),
+  )
+  await page.goto('/people')
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
+  await page.getByLabel('Referencia del caso (opcional)').fill('CASE-2026-001')
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  const found = page.getByRole('link', { name: SUPPORT_SUBJECT_NAME })
+  await expect(found).toBeVisible()
+  expect(await unreadableLinks(page)).toEqual([])
+
+  await found.click()
+  await expect(page.locator('[data-person-break-glass-link]')).toBeVisible()
+  expect(await unreadableLinks(page)).toEqual([])
 })

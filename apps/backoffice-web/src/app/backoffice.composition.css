@@ -101,10 +101,10 @@
   color: var(--afo-color-text-secondary, currentColor);
 }
 
-/* A link inside a sentence keeps the line's height; the block links above carry
-   their own 44px target because they stand alone. */
-[data-inline-link] {
-  color: var(--afo-color-text-accent, currentColor);
+/* Every link in the workspace reads as one: the browser's own blue is 1.97:1 on a
+   card, and a rule per data attribute left six kinds of link without one. */
+[data-backoffice-content] a:not([data-slot]) {
+  color: var(--afo-color-text-accent);
   font-weight: var(--afo-font-weight-semibold);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -327,20 +327,15 @@
   gap: 8px;
 }
 
-/* The same treatment as the registry link: a destination is a link, with a touch
-   target of its own. */
+/* A link that stands alone carries a touch target of its own; one inside a
+   sentence keeps the line's height. */
 [data-handover-link],
 [data-organization-create-link],
-[data-attention-link],
-[data-backoffice-link] {
+[data-attention-link] {
   display: inline-flex;
   min-height: 44px;
   width: fit-content;
   align-items: center;
-  /* The browser's default link blue is unreadable on the dark workspace. */
-  color: var(--afo-color-text-accent, currentColor);
-  font-weight: var(--afo-font-weight-semibold);
-  text-decoration: underline;
 }
 
 /* An unclaimed organization exists but does not operate, so its row carries an
@@ -508,8 +503,6 @@
   min-height: 44px;
   width: fit-content;
   align-items: center;
-  font-weight: var(--afo-font-weight-semibold);
-  text-decoration: underline;
 }
 
 /* A moment's day and time sit side by side, and stack when the form is narrow. */
