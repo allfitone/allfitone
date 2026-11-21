@@ -126,7 +126,7 @@ export function OrganizationHandoverForm() {
             aquí.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form
             onSubmit={(event) => void submit(event)}
             data-backoffice-form

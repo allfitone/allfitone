@@ -37,7 +37,7 @@ export function OperatorPanel() {
           Sesión confirmada con tu autenticador el {formatInstant(session.assurance_verified_at)}.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <dl data-operator-session>
           <div>
             <dt>Nivel de garantía</dt>

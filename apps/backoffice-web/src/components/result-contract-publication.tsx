@@ -315,7 +315,7 @@ export function ResultContractPublication() {
             </AlertDescription>
           </Alert>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-result-contract-form noValidate>
             <FieldGroup>
               <Field>
@@ -470,7 +470,7 @@ function EffectiveContracts({ contracts }: { contracts: readonly ActivityTypeRes
         </CardDescription>
       </CardHeader>
       {contracts.length > 0 ? (
-        <CardContent>
+        <CardContent data-card-body>
           <Table scrollAreaLabel="Contratos vigentes">
             <TableHeader>
               <TableRow>
@@ -521,7 +521,7 @@ function ContractVersions({
           {versionsSummary(versions)}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {versions.length > 0 ? (
           <ul>
             {versions.map((contract) => (
@@ -604,7 +604,7 @@ function PublishedContract({
           {activityFamilyLabel(contract.activity_family)}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <FieldGroup>
           <Field orientation="responsive">
             <FieldLabel htmlFor="published-status">Estado</FieldLabel>

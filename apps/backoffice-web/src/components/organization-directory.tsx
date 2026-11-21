@@ -160,7 +160,7 @@ export function OrganizationDirectory() {
             social ni quién es su dueño.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form
             onSubmit={submit}
             data-backoffice-form
@@ -252,7 +252,7 @@ export function OrganizationDirectory() {
               existe, pero no opera.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             <Alert live="polite" variant="info" data-organization-directory-answer>
               <AlertTitle>Resultado</AlertTitle>
               <AlertDescription>

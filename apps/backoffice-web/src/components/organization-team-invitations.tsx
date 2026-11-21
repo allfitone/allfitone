@@ -140,7 +140,7 @@ export function OrganizationTeamInvitations({ organizationId }: { organizationId
           Allfit One.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {state === 'loading' ? <ScreenLoading /> : null}
 
         {state === 'failed' ? (

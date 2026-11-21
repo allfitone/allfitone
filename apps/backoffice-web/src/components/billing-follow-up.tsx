@@ -131,7 +131,7 @@ export function BillingFollowUp() {
             y contra el caso si escribes uno.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-billing-follow-up-form noValidate>
             <FieldGroup>
               <Field>
@@ -178,7 +178,7 @@ export function BillingFollowUp() {
               {followUpSummary(followUp)}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             {followUp.items.length === 0 ? (
               <ScreenEmpty icon="business" title="Nadie por seguir." data-billing-follow-up-empty>
                 Cuando una suscripción se suspenda, entre en gracia o un cobro falle, aparece aquí.

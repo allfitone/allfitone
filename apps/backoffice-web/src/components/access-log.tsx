@@ -140,7 +140,7 @@ export function AccessLog() {
             no se edita ni se borra.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-access-log-filters noValidate>
             <FieldGroup>
               <Field>
@@ -229,7 +229,7 @@ export function AccessLog() {
                 </CardTitle>
                 <CardDescription>{formatInstant(event.occurred_at)}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent data-card-body>
                 <dl data-facts>
                   <dt>Base del acceso</dt>
                   <dd>

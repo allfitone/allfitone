@@ -89,7 +89,7 @@ export function LegalHoldForm({
           existen suspensiones indefinidas: en su fecha, la retención vence sola.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="hold-subject">Persona</FieldLabel>

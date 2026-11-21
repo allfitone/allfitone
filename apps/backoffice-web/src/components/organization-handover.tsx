@@ -168,7 +168,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
           </CardTitle>
           <CardDescription>{handover.type_name}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <Alert
             live="polite"
             variant={stage === 'claimed' ? 'success' : 'info'}

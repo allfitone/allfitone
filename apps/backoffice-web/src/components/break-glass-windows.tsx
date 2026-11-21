@@ -527,7 +527,7 @@ export function BreakGlassWindows() {
             después. No existe acceso a «toda la cuenta» ni extensión de una ventana.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-break-glass-form noValidate>
             <FieldGroup>
               <Field>
@@ -635,7 +635,7 @@ export function BreakGlassWindows() {
                 {file.categories.map((category) => categoryLabel(category)).join(' · ')}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               <dl data-facts>
                 <dt>Estado</dt>
                 <dd>

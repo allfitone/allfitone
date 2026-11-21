@@ -736,7 +736,7 @@ function TotpPanel({
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             <Field>
               <FieldLabel htmlFor="backoffice-manual-key">Clave del autenticador</FieldLabel>
               <Input
@@ -924,7 +924,7 @@ function AuthenticatedPanel({
           <CardTitle>Sesión actual</CardTitle>
           <CardDescription>La sesión no concede operaciones por sí sola.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <FieldGroup>
             <Field>
               <FieldContent>

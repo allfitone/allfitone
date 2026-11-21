@@ -131,7 +131,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             </Link>
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <dl data-facts>
             <dt>Nombre</dt>
             <dd>
@@ -208,7 +208,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             Suele resolver un caso de «no puedo entrar» sin abrir el dato de nadie.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <dl data-facts>
             <dt>Cuenta de acceso</dt>
             <dd>
@@ -252,7 +252,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             paga: para eso no es esta ficha.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <dl data-facts>
             {fileFacts(metadata, formatInstant).map((fact) => (
               <Fragment key={fact.label}>

@@ -142,7 +142,7 @@ export function BreakGlassReviewQueue() {
           </CardTitle>
           <CardDescription data-review-backlog>{backlogSentence(reviews)}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <p data-review-why>{WHY_IT_IS_REVIEWED}</p>
           <p data-review-late-note>{LATE_IS_STILL_REQUIRED}</p>
         </CardContent>
@@ -178,7 +178,7 @@ export function BreakGlassReviewQueue() {
                 <Badge variant={badge.variant}>{badge.label}</Badge>
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               <p data-review-debt>{debtSentence(entry, now)}</p>
               <p data-review-due>{dueSentence(entry, now)}</p>
               <p data-review-categories>{entry.categories.join(', ')}</p>

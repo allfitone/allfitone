@@ -204,7 +204,7 @@ export function ErasureRequests() {
             aparece por identificador: esta pantalla sigue la solicitud, no abre sus datos.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <ToggleGroup
             value={[status]}
             onValueChange={(values) => {

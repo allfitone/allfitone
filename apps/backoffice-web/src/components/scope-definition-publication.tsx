@@ -216,7 +216,7 @@ export function ScopeDefinitionPublication() {
             asigna el servidor.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-scope-form noValidate>
             <FieldGroup>
               <Field>
@@ -381,7 +381,7 @@ export function ScopeDefinitionPublication() {
                   : `${history.versions.length} versiones publicadas. La más nueva aplica a lo que se conceda desde ahora; las anteriores siguen vigentes para quien las aceptó.`}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               {history.versions.map((version) => (
                 <div key={version.id} data-scope-version>
                   <dl data-facts>

@@ -131,7 +131,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
           </CardTitle>
           <CardDescription>{organization.type_name}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <dl data-facts>
             <dt>Estado</dt>
             <dd>
@@ -182,7 +182,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
           </CardTitle>
           <CardDescription>{IDENTIFIERS_NOTE}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="file-case">Referencia de caso para abrir una persona</FieldLabel>
@@ -263,7 +263,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
             Sedes
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {file.sites.length === 0 ? (
             <span data-file-no-sites>Sin sedes declaradas.</span>
           ) : (
@@ -307,7 +307,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
             Allfit One y aquí no hay ninguna credencial.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {file.plans.length === 0 ? (
             <p data-file-no-plans>{NO_PLANS_NOTE}</p>
           ) : (

@@ -372,7 +372,7 @@ function BaseRoleSection({
           retirarlo revoca sus deberes y cierra su sesión.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <form
           onSubmit={(event) => void search(event)}
           data-backoffice-form
@@ -580,7 +580,7 @@ function DutySection({
           deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <FieldGroup data-platform-duty-filters>
           <Field>
             <FieldLabel htmlFor="platform-duty-status-filter">Estado del deber</FieldLabel>

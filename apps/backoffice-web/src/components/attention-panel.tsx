@@ -264,7 +264,7 @@ function Notice({
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <div data-attention-body>
           <p data-attention-summary>{summary}</p>
           {children}

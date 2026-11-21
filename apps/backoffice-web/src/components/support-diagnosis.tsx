@@ -222,7 +222,7 @@ export function SupportDiagnosis() {
             fallos del último día.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {jobsFailed ? (
             <p data-diagnosis-jobs-unavailable>
               No se pudo leer el estado de las tareas. El resto del diagnóstico sigue abajo.
@@ -255,7 +255,7 @@ export function SupportDiagnosis() {
             caído el canal entero?» antes de perseguir un aviso suelto.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {circuits.length === 0 ? (
             <ScreenEmpty icon="activity" title="Ningún canal ha reportado entregas">
               Todavía no hay ventanas de entrega registradas. No es una falla: es que aún no se ha
@@ -305,7 +305,7 @@ export function SupportDiagnosis() {
             el dato de nadie.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="diagnosis-source">Tipo</FieldLabel>

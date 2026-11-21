@@ -105,7 +105,7 @@ export function SupportPaymentsPanel({
             Lo que paga
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <Alert live="polite" variant="info" data-payments-refused>
             <AlertTitle>No se puede ver desde aquí</AlertTitle>
             <AlertDescription>{failure ?? paymentsMessage('unknown')}</AlertDescription>
@@ -127,7 +127,7 @@ export function SupportPaymentsPanel({
           {proSentence(payments)} {NO_CARD_NOTE}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {subscription ? (
           <dl data-facts data-payments-subscription>
             <dt>Plan</dt>
@@ -188,7 +188,7 @@ export function SupportPaymentsPanel({
                 Lo que le paga a su gimnasio
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               <ul>
                 {payments.organization_subscriptions.map((bond) => (
                   <li key={bond.subscription_id} data-payments-bond>

@@ -325,7 +325,7 @@ export function GlobalCatalogue() {
             sesiones ni las plantillas que ya lo usaban.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {state === 'loading' ? <ScreenLoading /> : null}
 
           {state === 'failed' ? (
@@ -641,7 +641,7 @@ function CatalogueSection({
         </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {form}
 
         {entries.length === 0 ? (
@@ -793,7 +793,7 @@ function MovementEquipmentEditor({
           así que solo se nombra equipamiento publicado.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {available.length === 0 ? (
           <p data-movement-equipment-none>
             Todavía no hay equipamiento publicado. Publícalo abajo y vuelve a editar el movimiento.
@@ -872,7 +872,7 @@ function EquipmentSection({
           los movimientos por esto.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {form}
 
         {entries.length === 0 ? (

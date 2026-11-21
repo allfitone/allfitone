@@ -168,7 +168,7 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
             identificador; esta pantalla no abre sus datos.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <div data-legal-holds-controls>
             <ToggleGroup
               value={[status]}

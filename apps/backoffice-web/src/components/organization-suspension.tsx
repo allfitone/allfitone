@@ -123,7 +123,7 @@ export function OrganizationSuspensionPanel({
           cancelar.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <p data-suspension-state>
           {stateSentence(suspension)}{' '}
           {suspension.suspended ? <Badge variant="destructive">Suspendido</Badge> : null}

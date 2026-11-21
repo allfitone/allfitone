@@ -176,7 +176,7 @@ export function AccountRecoveryPanel({
           enlace temporal, de un solo uso, que solo ella puede usar.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {state === 'loading' ? <Spinner /> : null}
 
         {state === 'failed' ? (

@@ -122,7 +122,7 @@ export function SupportPeopleSearch() {
             queda registrada, y cada persona que aparece en el resultado la ve en su historial.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-support-search-form noValidate>
             <FieldGroup>
               <Field>
@@ -181,7 +181,7 @@ export function SupportPeopleSearch() {
                 : 'Abre su ficha para ver su cuenta, sus pagos y su recuperación de acceso.'}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             <Table scrollAreaLabel="Personas encontradas">
               <TableHeader>
                 <TableRow>

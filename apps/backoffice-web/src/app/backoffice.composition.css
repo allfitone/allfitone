@@ -48,8 +48,8 @@
 }
 
 /* A card body stacks its children with no space of its own: a nested card sat
-   flush against the table above it. */
-[data-backoffice-content] [data-slot='card-content'] > * + * {
+   flush against the table above it. Every CardContent here carries the attribute. */
+[data-card-body] > * + * {
   margin-block-start: var(--afo-space-4);
 }
 
@@ -139,9 +139,9 @@
   color: var(--afo-color-text-secondary, currentColor);
 }
 
-/* Every link in the workspace reads as one: the browser's own blue is 1.97:1 on a
-   card, and a rule per data attribute left six kinds of link without one. */
-[data-backoffice-content] a:not([data-slot]) {
+/* Every link of the app reads as one: the browser's own blue is 1.97:1 on a card.
+   A Design System link (button, crumb, menu) carries classes; an app link has none. */
+[data-backoffice-content] a:not([class]) {
   color: var(--afo-color-text-accent);
   font-weight: var(--afo-font-weight-semibold);
   text-decoration: underline;
