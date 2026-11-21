@@ -409,6 +409,11 @@ Two consequences worth knowing:
 - **`var(--afo-x, fallback)` is legitimate**, and so is a variable the
   stylesheet defines for itself. A fallback is what makes an absent token
   harmless.
+- **Outside `--afo-*`, a fallback excuses nothing.** Any other name must be
+  defined by the installed Design System's stylesheets, by the app's own, or by
+  its code (inline, or a `next/font` variable). Backoffice read
+  `--color-warning` and `--spacing-2`, which nothing defines, so their
+  fallbacks always won and the warning stripes were white.
 
 Read a value from the token source before using it, never from memory: the
 Design System's own `Separator` resolves `bg-border` to

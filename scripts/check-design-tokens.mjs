@@ -25,6 +25,16 @@
  * same stylesheet, and `var(--afo-x, fallback)` is legitimate too: a fallback
  * is what makes an absent token harmless, which is the whole point of the
  * syntax.
+ *
+ * **Outside that namespace a fallback excuses nothing.** Backoffice read
+ * `var(--color-warning, currentColor)` for its amber row stripes and
+ * `var(--spacing-2, 0.5rem)` for its gaps; no version of the Design System has
+ * ever defined either, so the fallback always won and the stripes were white.
+ * An `--afo-*` token may exist in a version the app does not run yet, which is
+ * what its fallback is for; any other name is defined by the installed Design
+ * System's stylesheets, by the app's own stylesheets, or inline by its
+ * components, or by nothing — and a name nothing defines only looks like a
+ * decision.
  */
 
 import { readdir, readFile } from 'node:fs/promises'
@@ -44,17 +54,77 @@ const definitionPattern = /--afo-[a-z0-9-]+(?=\s*:)/g
  */
 const readPattern = /var\(\s*(--afo-[a-z0-9-]+)\s*(,?)/g
 
-/** The tokens that version of the Design System defines, for one app. */
+/** Any custom property definition, in a stylesheet. */
+const anyDefinitionPattern = /--[a-zA-Z0-9_-]+(?=\s*:)/g
+/** A read of a name outside the Design System's namespace, fallback or not. */
+const foreignReadPattern = /var\(\s*(--(?!afo-)[a-zA-Z0-9_-]+)/g
+/**
+ * A custom property the app's code defines: inline (`style={{ '--i': index }}`,
+ * `setProperty('--i', …)`) or as a `next/font` family (`variable: '--font-body'`).
+ */
+const inlineDefinitionPattern =
+  /['"](--[a-zA-Z0-9_-]+)['"]\s*:|setProperty\(\s*['"](--[a-zA-Z0-9_-]+)['"]|variable:\s*['"](--[a-zA-Z0-9_-]+)['"]/g
+const sourceExtensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs']
+const skippedSourceDirectories = new Set([
+  ...skippedDirectories,
+  'playwright-report',
+  'test-results',
+])
+
+/**
+ * What the installed Design System defines for one app: its `--afo-*` tokens,
+ * and every custom property its three stylesheets declare.
+ */
 async function definedTokens(appDirectory) {
   const require = createRequire(join(appDirectory, 'package.json'))
   // The package exports `./tokens.css`, not the path it maps to: resolving
   // `dist/tokens.css` fails, and failing quietly is how a gate checks nothing.
   const tokensPath = require.resolve('@allfitone/react/tokens.css')
   const tokens = await readFile(tokensPath, 'utf8')
+  const declared = new Set()
+  for (const stylesheet of ['tokens.css', 'app.css', 'styles.css']) {
+    const css = await readFile(require.resolve(`@allfitone/react/${stylesheet}`), 'utf8')
+    for (const name of css.match(anyDefinitionPattern) ?? []) declared.add(name)
+  }
   return {
     names: new Set(tokens.match(definitionPattern) ?? []),
+    declared,
     source: relative(repositoryRoot, tokensPath).split(sep).join('/'),
   }
+}
+
+/**
+ * The reads of a stylesheet, outside `--afo-*`, that nothing defines.
+ *
+ * A fallback does not excuse them: no other version can define such a name, so
+ * the fallback is the only value the declaration will ever have.
+ */
+export function unresolvedForeignReads(css, known) {
+  const findings = []
+  for (const [index, line] of css.split('\n').entries()) {
+    for (const [, name] of line.matchAll(foreignReadPattern)) {
+      if (!known.has(name)) findings.push({ line: index + 1, name })
+    }
+  }
+  return findings
+}
+
+/** The custom properties an app's components set inline. */
+async function inlineDefinitionsUnder(directory) {
+  const found = new Set()
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (skippedSourceDirectories.has(entry.name) || entry.name.startsWith('.')) continue
+      for (const name of await inlineDefinitionsUnder(join(directory, entry.name))) found.add(name)
+      continue
+    }
+    if (!sourceExtensions.some((extension) => entry.name.endsWith(extension))) continue
+    const source = await readFile(join(directory, entry.name), 'utf8')
+    for (const [, quoted, set, font] of source.matchAll(inlineDefinitionPattern)) {
+      found.add(quoted ?? set ?? font)
+    }
+  }
+  return found
 }
 
 /**
@@ -127,6 +197,39 @@ function verifyRule() {
         .join(', ')}`,
     )
   }
+
+  // The foreign half, planted with the two Backoffice names it was written for.
+  const known = new Set(['--warning', '--studio-measure', '--i'])
+  const foreign = unresolvedForeignReads(
+    [
+      '[data-a] { box-shadow: inset 2px 0 0 var(--color-warning, currentColor); }',
+      '[data-b] { gap: var(--spacing-2, 0.5rem); }',
+    ].join('\n'),
+    known,
+  )
+  if (foreign.length !== 2 || foreign[0]?.name !== '--color-warning' || foreign[1]?.line !== 2) {
+    throw new Error('The token gate stopped catching a fallback that always wins.')
+  }
+
+  const resolved = unresolvedForeignReads(
+    [
+      // Defined by the Design System's stylesheets.
+      '[data-a] { color: var(--warning); }',
+      // Defined by the app's own stylesheet, or inline by a component.
+      '[data-b] { max-inline-size: var(--studio-measure, 58rem); }',
+      '[data-c] { animation-delay: calc(var(--i) * 40ms); }',
+      // The Design System's namespace keeps its own rule, fallback included.
+      '[data-d] { gap: var(--afo-space-9, 36px); }',
+    ].join('\n'),
+    known,
+  )
+  if (resolved.length > 0) {
+    throw new Error(
+      `Resolved variables failed the gate's self-test: ${resolved
+        .map((finding) => finding.name)
+        .join(', ')}`,
+    )
+  }
 }
 
 verifyRule()
@@ -169,11 +272,23 @@ for (const app of await readdir(appsRoot, { withFileTypes: true })) {
     continue
   }
 
+  // An app's own variables live in any of its stylesheets or inline in its components.
+  const known = new Set(tokens.declared)
+  for (const { css } of sheets) {
+    for (const name of css.match(anyDefinitionPattern) ?? []) known.add(name)
+  }
+  for (const name of await inlineDefinitionsUnder(appDirectory)) known.add(name)
+
   for (const { repositoryPath, css } of sheets) {
     checked.push(repositoryPath)
     for (const finding of undefinedReads(css, tokens.names)) {
       violations.push(
         `${repositoryPath}:${String(finding.line)} reads ${finding.name}, which ${tokens.source} does not define`,
+      )
+    }
+    for (const finding of unresolvedForeignReads(css, known)) {
+      violations.push(
+        `${repositoryPath}:${String(finding.line)} reads ${finding.name}, which nothing defines: its fallback is the only value it will ever have`,
       )
     }
   }
@@ -185,7 +300,7 @@ if (violations.length > 0) {
     console.error(`- ${violation}`)
   }
   console.error(
-    '\nA var() with no value drops the whole declaration, so the property falls back to its initial value and nothing fails. Use a token the installed version defines, or give the var() a fallback.',
+    '\nA var() with no value drops the whole declaration, so the property falls back to its initial value and nothing fails. Use a token the installed version defines, or give an --afo-* read a fallback. Outside --afo-*, read a name the Design System or the app defines.',
   )
   process.exitCode = 1
 } else {
