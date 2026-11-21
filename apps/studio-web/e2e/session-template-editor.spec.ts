@@ -307,6 +307,8 @@ test('the first step cannot go up, the last cannot go down, and one can be remov
     'true',
   )
   await page.keyboard.press('Escape')
+  // A closed menu stays in the page while it fades: two «Bajar» would answer below.
+  await expect(page.getByRole('menu')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Opciones del paso 2' }).click()
   await expect(page.getByRole('menuitem', { name: 'Bajar' })).toHaveAttribute(
