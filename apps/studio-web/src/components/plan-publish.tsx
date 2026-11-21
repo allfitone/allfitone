@@ -3,47 +3,32 @@
 /**
  * Putting a price on sale, from the plan's own page: `HU-STUDIO-075`.
  *
- * The form asks the four things the command takes and nothing else (criterion
- * 1). What publishing changes is not on the form, so the dialog says it before
- * the click: the price on sale is retired in the same step, nobody subscribed
- * pays more, a published price is never edited, and a remote price cannot be
- * charged yet. The rules and their wording are in `@/lib/plan-publish`.
+ * A dialog that asks the four things the command takes and nothing else
+ * (criterion 1). What publishing changes is not something the form asks, so it
+ * is said under the fields before the click, and it follows the choices as
+ * they are made: the price on sale is retired in the same step, nobody
+ * subscribed pays more, a published price is never edited, and a remote price
+ * cannot be charged yet. The rules and their wording are in
+ * `@/lib/plan-publish`.
  */
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@allfitone/react/components/field'
-import { Input } from '@allfitone/react/components/input'
-import { RadioGroup, RadioGroupItem } from '@allfitone/react/components/radio-group'
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@allfitone/react/components/dialog'
+import { FieldError, FieldGroup } from '@allfitone/react/components/field'
+import { toast } from '@allfitone/react/components/sonner'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useState } from 'react'
 
+import { PlanPriceFields, PublishConsequences } from './billing-views'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { createCommandIntentManager } from '@/lib/command-intent'
 import {
@@ -52,7 +37,6 @@ import {
   publishConsequences,
   publishOutcome,
   publishRequest,
-  publishTitle,
   publishWriteFailure,
   sameAsOnSale,
   type PublishDraft,
@@ -67,20 +51,63 @@ import {
 } from '@/lib/studio-api'
 import { isStudioQuerySessionCancelled, studioQueryKeys } from '@/lib/studio-query'
 
-export function PlanPublish({
+/** What the button that opens the dialog says, and the dialog's own title. */
+export function publishActionLabel(plan: OrganizationPlan): string {
+  return plan.current_version ? 'Cambiar el precio' : 'Publicar un precio'
+}
+
+export function PlanPublishDialog({
   plan,
   organizationId,
+  open,
+  onOpenChange,
 }: {
   plan: OrganizationPlan
   organizationId: string
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const [pending, setPending] = useState(false)
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Closing mid-flight would hide a request that is still going to land.
+        if (!pending) onOpenChange(next)
+      }}
+    >
+      <DialogContent data-plan-publish-dialog>
+        <DialogHeader>
+          <DialogTitle>{publishActionLabel(plan)}</DialogTitle>
+        </DialogHeader>
+        {/* Inside the popup, so closing it forgets what was typed. */}
+        <PlanPublishForm
+          plan={plan}
+          organizationId={organizationId}
+          onPendingChange={setPending}
+          onDone={() => onOpenChange(false)}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PlanPublishForm({
+  plan,
+  organizationId,
+  onPendingChange,
+  onDone,
+}: {
+  plan: OrganizationPlan
+  organizationId: string
+  onPendingChange: (pending: boolean) => void
+  onDone: () => void
 }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<PublishDraft>(() => initialPublishDraft(plan))
   const [intents] = useState(() => createCommandIntentManager(newCommand))
   const [submitted, setSubmitted] = useState(false)
-  const [open, setOpen] = useState(false)
   const [failure, setFailure] = useState<string>()
-  const [outcome, setOutcome] = useState('')
 
   const publish = useStudioSessionMutation({
     mutationFn: (
@@ -101,19 +128,13 @@ export function PlanPublish({
 
   function change(next: Partial<PublishDraft>) {
     setDraft((previous) => ({ ...previous, ...next }))
-    setOutcome('')
+    setFailure(undefined)
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitted(true)
-    setOutcome('')
-    if (amountError(draft.amount) || sameAsOnSale(plan, request)) return
-    setFailure(undefined)
-    setOpen(true)
-  }
-
-  async function confirm() {
+    if (publish.isPending || amountError(draft.amount) || sameAsOnSale(plan, request)) return
     setFailure(undefined)
     // The same price confirmed twice is one command; another price is another.
     const command = intents.commandFor({
@@ -121,13 +142,19 @@ export function PlanPublish({
       resourceId: plan.plan_id,
       payload: request,
     })
+    onPendingChange(true)
     try {
       const after = await publish.mutateAsync({ body: request, command })
       intents.reset()
-      setOpen(false)
-      setSubmitted(false)
-      setOutcome(publishOutcome(plan, after))
+      const changed =
+        after.current_version?.plan_version_id !== plan.current_version?.plan_version_id
+      const outcome = publishOutcome(plan, after)
+      if (changed) toast.success(outcome)
+      else toast.info(outcome)
+      onPendingChange(false)
+      onDone()
     } catch (caught) {
+      onPendingChange(false)
       if (isStudioQuerySessionCancelled(caught)) {
         intents.reset()
         return
@@ -137,146 +164,40 @@ export function PlanPublish({
   }
 
   return (
-    <Card data-plan-publish>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          {plan.current_version ? 'Cambiar el precio' : 'Publicar un precio'}
-        </CardTitle>
-        {/* Criteria 2 and 3, before anything is chosen. */}
-        <CardDescription>
-          Un precio publicado no se edita nunca: cambiarlo es publicar otro, y quien ya está
-          suscrito conserva el suyo.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form data-studio-form onSubmit={submit} noValidate>
-          <FieldGroup>
-            <Field data-invalid={Boolean(amountProblem)}>
-              <FieldLabel htmlFor="plan-amount">Precio en pesos colombianos (COP)</FieldLabel>
-              <Input
-                id="plan-amount"
-                inputMode="numeric"
-                autoComplete="off"
-                value={draft.amount}
-                aria-invalid={Boolean(amountProblem)}
-                onChange={(event) => change({ amount: event.target.value })}
-              />
-              <FieldDescription>
-                Pesos enteros, sin centavos. Es la única moneda, porque Mercado Pago Colombia cobra
-                en pesos.
-              </FieldDescription>
-              {amountProblem ? <FieldError>{amountProblem}</FieldError> : null}
-            </Field>
+    <form data-studio-form onSubmit={(event) => void submit(event)} noValidate>
+      <FieldGroup>
+        <PlanPriceFields draft={draft} amountProblem={amountProblem} onChange={change} />
+      </FieldGroup>
 
-            <FieldSet>
-              <FieldLegend>Cobro</FieldLegend>
-              <RadioGroup
-                value={draft.period}
-                aria-label="Cobro"
-                onValueChange={(value) => {
-                  if (value === 'month' || value === 'year') change({ period: value })
-                }}
-              >
-                <Field orientation="horizontal">
-                  <RadioGroupItem id="plan-period-month" value="month" />
-                  <FieldLabel htmlFor="plan-period-month">Mensual</FieldLabel>
-                </Field>
-                <Field orientation="horizontal">
-                  <RadioGroupItem id="plan-period-year" value="year" />
-                  <FieldLabel htmlFor="plan-period-year">Anual</FieldLabel>
-                </Field>
-              </RadioGroup>
-              <FieldDescription>
-                Mensual y anual son precios distintos: para vender los dos, crea un plan para cada
-                uno.
-              </FieldDescription>
-            </FieldSet>
+      {/* Criteria 2, 3 and 4, before the click. */}
+      <div data-billing-consequences>
+        <PublishConsequences draft={draft} lines={publishConsequences(plan, request)} />
+      </div>
 
-            <FieldSet>
-              <FieldLegend>Modalidad</FieldLegend>
-              <RadioGroup
-                value={draft.delivery}
-                aria-label="Modalidad"
-                onValueChange={(value) => {
-                  if (value === 'in_person' || value === 'remote') change({ delivery: value })
-                }}
-              >
-                <Field orientation="horizontal">
-                  <RadioGroupItem id="plan-delivery-in-person" value="in_person" />
-                  <FieldLabel htmlFor="plan-delivery-in-person">Presencial</FieldLabel>
-                </Field>
-                <Field orientation="horizontal">
-                  <RadioGroupItem id="plan-delivery-remote" value="remote" />
-                  <FieldLabel htmlFor="plan-delivery-remote">Remoto</FieldLabel>
-                </Field>
-              </RadioGroup>
-              {/* Criterion 4, and the link that does not exist yet (HU-STUDIO-088). */}
-              <FieldDescription>
-                Presencial se ofrece y se paga en Allfit Space. Remoto se cobra solo con un link de
-                pago que se manda a cada persona, y ese link todavía no está disponible.
-              </FieldDescription>
-            </FieldSet>
-          </FieldGroup>
+      {unchanged ? (
+        <FieldError data-plan-error>
+          Ese precio ya es el que está a la venta. Cambia el monto, el cobro o la modalidad para
+          publicar otro.
+        </FieldError>
+      ) : null}
+      {failure ? (
+        <Alert variant="danger" live="assertive" data-plan-publish-error>
+          <AlertTitle>No se publicó</AlertTitle>
+          <AlertDescription>{failure}</AlertDescription>
+        </Alert>
+      ) : null}
 
-          <div data-program-save-bar>
-            {unchanged ? (
-              <FieldError data-plan-error>
-                Ese precio ya es el que está a la venta. Cambia el monto, el cobro o la modalidad
-                para publicar otro.
-              </FieldError>
-            ) : null}
-            <Button type="submit" disabled={publish.isPending}>
-              Publicar este precio
-            </Button>
-            <p role="status" aria-live="polite">
-              {outcome}
-            </p>
-          </div>
-        </form>
-
-        <AlertDialog
-          open={open}
-          onOpenChange={(next) => {
-            // Closing mid-flight would hide a request that is still going to land.
-            if (publish.isPending) return
-            setOpen(next)
-            if (!next) setFailure(undefined)
-          }}
+      <DialogFooter data-library-create-foot>
+        <DialogClose
+          render={<Button type="button" variant="outline" disabled={publish.isPending} />}
         >
-          <AlertDialogContent data-plan-publish-dialog>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{publishTitle(request)}</AlertDialogTitle>
-              <AlertDialogDescription>
-                Antes de publicarlo, esto es lo que cambia:
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {publishConsequences(plan, request).map((line) => (
-              <p key={line}>{line}</p>
-            ))}
-
-            {failure ? (
-              <Alert variant="danger" live="assertive" data-plan-publish-error>
-                <AlertTitle>No se publicó</AlertTitle>
-                <AlertDescription>{failure}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={publish.isPending}>Seguir editando</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={publish.isPending}
-                onClick={(event) => {
-                  event.preventDefault()
-                  void confirm()
-                }}
-              >
-                {publish.isPending ? <Spinner label="Publicando el precio" /> : null}
-                {publish.isPending ? 'Publicando…' : 'Publicar ahora'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
+          Cancelar
+        </DialogClose>
+        <Button type="submit" disabled={publish.isPending}>
+          {publish.isPending ? <Spinner label="Publicando el precio" /> : null}
+          {publish.isPending ? 'Publicando…' : 'Publicar este precio'}
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }

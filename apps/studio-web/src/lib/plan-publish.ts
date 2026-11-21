@@ -7,7 +7,8 @@
  *    else.** The form asks those four; the currency is COP alone, because
  *    Mercado Pago Colombia charges in pesos, so it is said rather than asked.
  * 2. **A published version is never edited.** The database refuses it
- *    (`55000`); the dialog says changing a price is publishing another.
+ *    (`55000`); the dialog says changing a price is publishing another, and
+ *    reads the price back as it will stand before the click.
  * 3. **Nobody subscribed pays more.** A subscription freezes its version, and
  *    publishing retires the old price without moving anybody. The dialog says
  *    so whenever there is somebody who could have subscribed.
@@ -22,7 +23,7 @@
  */
 
 import { planWriteFailure } from './plan-create'
-import { deliveryLabel, priceLabel } from './plan-catalog'
+import { deliveryLabel, deliveryName, priceLabel } from './plan-catalog'
 import type {
   OrganizationPlan,
   PlanDeliveryMode,
@@ -89,11 +90,23 @@ export function sameAsOnSale(plan: OrganizationPlan, request: PlanVersionPublish
   )
 }
 
-export function publishTitle(request: PlanVersionPublish): string {
-  return `¿Publicar ${priceLabel(request)} · ${deliveryLabel(request.delivery_mode)}?`
+/** The price as it will stand on sale, or nothing while what is typed is not a price. */
+export function publishPreview(draft: PublishDraft): string | undefined {
+  if (amountError(draft.amount)) return undefined
+  const request = publishRequest(draft)
+  return `${priceLabel(request)} · ${deliveryName(request.delivery_mode)}`
 }
 
-export function publishConsequences(plan: OrganizationPlan, request: PlanVersionPublish): string[] {
+/** A plan not created yet has no price to retire and nobody subscribed: `NEW_PLAN`. */
+export const NEW_PLAN: Pick<OrganizationPlan, 'current_version' | 'versions'> = {
+  current_version: null,
+  versions: [],
+}
+
+export function publishConsequences(
+  plan: Pick<OrganizationPlan, 'current_version' | 'versions'>,
+  request: PlanVersionPublish,
+): string[] {
   const lines: string[] = []
   const current = plan.current_version
   if (current) {

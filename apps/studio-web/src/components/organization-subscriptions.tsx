@@ -3,34 +3,41 @@
 /**
  * Who pays the organization, and the three things it can do about it.
  *
- * `HU-STUDIO-078`, criterion by criterion: (1) the state column and its filter; (2) the
- * tab only `manage_billing` sees; (3) no training data, pinned by a test on the columns;
- * (4) the first payment and why each one was suspended need Mercado Pago, and
+ * `HU-STUDIO-078`, criterion by criterion: (1) the state of each plan, counted
+ * over the list and filtered in it; (2) the tab only `manage_billing` sees;
+ * (3) no training data, pinned by a test on the columns; (4) the first payment
+ * and why each one was suspended need Mercado Pago, and
  * `OrganizationSubscription` has no field for either yet.
  *
- * Two rules worth knowing before editing.
+ * Three rules worth knowing before editing.
  *
- * **Pausing is not revoking.** The command opens a reversible cause and touches no
- * permission, no assignment and no relationship. Every confirmation says so, and those
- * sentences are the behaviour rather than decoration: an administrator who believes
- * pausing takes the client's data away will either avoid the action or use it thinking it
- * does something it does not.
+ * **Pausing is not revoking.** The command opens a reversible cause and touches
+ * no permission, no assignment and no relationship. Every confirmation says so,
+ * and those sentences are the behaviour rather than decoration: an
+ * administrator who believes pausing takes the client's data away will either
+ * avoid the action or use it thinking it does something it does not.
  *
- * **`manage_billing` or nothing.** A coach with that client assigned reads the same answer
- * as a stranger — the payment state of a person is not a training fact — so the Cobros
- * page shows this tab only to whoever holds the capability, and PostgreSQL closes it
- * again underneath.
+ * **`manage_billing` or nothing.** A coach with that client assigned reads the
+ * same answer as a stranger — the payment state of a person is not a training
+ * fact — so the Cobros page shows this tab only to whoever holds the
+ * capability, and PostgreSQL closes it again underneath.
  *
- * The list is never held long. The catalogue says it is "nunca cacheable para decidir
- * suspensión", and the reason is concrete: suspending on a stale row is how somebody loses
- * access over a charge that already cleared.
+ * **The list is read whole before anything is shown.** The read answers no
+ * totals and takes no search, so the figures over the list, the counts on the
+ * filter and the search are all worked out here, and each is true only of the
+ * whole list. A page that fails therefore shows the failure and not what did
+ * arrive: half a list would count half the people.
+ *
+ * The list is never held long. The catalogue says it is "nunca cacheable para
+ * decidir suspensión", and the reason is concrete: suspending on a stale row is
+ * how somebody loses access over a charge that already cleared.
  */
 
-import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
+import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Avatar, AvatarFallback } from '@allfitone/react/components/avatar'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
+import { Card, CardAction, CardFooter, CardHeader } from '@allfitone/react/components/card'
 import {
   Dialog,
   DialogClose,
@@ -40,65 +47,85 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@allfitone/react/components/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@allfitone/react/components/dropdown-menu'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@allfitone/react/components/empty'
+import { IconButton } from '@allfitone/react/components/icon-button'
+import { Input } from '@allfitone/react/components/input'
+import { Skeleton } from '@allfitone/react/components/skeleton'
+import { toast } from '@allfitone/react/components/sonner'
 import { Spinner } from '@allfitone/react/components/spinner'
-import { RegisterCardState } from '@/components/register-card-state'
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-  TableState,
 } from '@allfitone/react/components/table'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
+import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
+import { RegisterCardState } from './register-card-state'
 import {
+  NO_SUBSCRIPTION_FILTERS,
   actionLabel,
   availableActions,
+  billingSummary,
   canManageBilling,
   confirmationDescription,
-  confirmationDetails,
+  confirmationSections,
   confirmationTitle,
+  filterSubscriptions,
   formatAmount,
   formatPeriod,
-  formatPeriodEnd,
+  menuActionLabel,
   personInitials,
   refusalDescription,
   refusalFor,
   refusalTitle,
   statusLabel,
+  subscriptionDateLine,
+  transitionDone,
   type BillingRefusal,
+  type BillingSummary,
   type SubscriptionAction,
+  type SubscriptionFilters,
+  type SubscriptionStateFilter,
 } from '@/lib/organization-billing'
 import { StudioApiError, newCommand, studioApi } from '@/lib/studio-api'
 import type { OrganizationSubscription } from '@/lib/studio-api'
-import { useCompactTable } from '@/lib/use-compact-table'
 import {
   flattenSubscriptionPages,
   isStudioForbidden,
   organizationRolesQueryOptions,
   organizationSubscriptionsQueryOptions,
   studioQueryKeys,
-  type SubscriptionFilter,
 } from '@/lib/studio-query'
+import { useCompactTable } from '@/lib/use-compact-table'
+import { useEveryPage } from '@/lib/use-every-page'
 
-type LoadError = 'forbidden' | 'stale-cursor' | 'unavailable'
-
-const PAGE_SIZE = 50
+// The most the read gives at once: the list is read whole, so fewer, larger pages.
+const PAGE_SIZE = 100
+const SKELETON_ROWS = [0, 1, 2, 3, 4, 5]
 const BILLING_NOTE =
-  'El cobro lo administra esta organización en su propia pasarela. Allfit refleja el estado del pago y nunca guarda datos de tarjeta.'
-
-const FILTERS: ReadonlyArray<{ value: SubscriptionFilter; label: string }> = [
-  { value: 'all', label: 'Todas' },
-  { value: 'active', label: 'Al día' },
-  { value: 'suspended', label: 'En pausa' },
-  { value: 'ended', label: 'Terminadas' },
-]
+  'El cobro lo administra esta organización en su propia pasarela. Allfit One refleja el estado del pago y nunca guarda datos de tarjeta.'
 
 interface PendingAction {
   action: SubscriptionAction
@@ -107,56 +134,38 @@ interface PendingAction {
 
 export function OrganizationSubscriptions() {
   const { current } = useOrganizationContext()
+  const organizationId = current.organization_id
   const { compact, measuredRef } = useCompactTable<HTMLElement>()
   const queryClient = useQueryClient()
-  const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
+  const rolesQuery = useQuery(organizationRolesQueryOptions(organizationId))
   const canManage = canManageBilling(current.roles, rolesQuery.data?.items)
-  const [filter, setFilter] = useState<SubscriptionFilter>('all')
+  const [filters, setFilters] = useState<SubscriptionFilters>(NO_SUBSCRIPTION_FILTERS)
   const [pending, setPending] = useState<PendingAction | null>(null)
   const [refusal, setRefusal] = useState<BillingRefusal | null>(null)
 
-  const options = organizationSubscriptionsQueryOptions(current.organization_id, filter, PAGE_SIZE)
+  const options = organizationSubscriptionsQueryOptions(organizationId, 'all', PAGE_SIZE)
   const query = useInfiniteQuery({ ...options, enabled: canManage })
-  const forbidden = isStudioForbidden(query.error)
-  const items = forbidden ? [] : flattenSubscriptionPages(query.data)
-  const loading = (canManage && query.isPending) || rolesQuery.isPending
-  const loadingMore = query.isFetchingNextPage
-  const staleCursor =
-    query.isFetchNextPageError &&
-    query.error instanceof StudioApiError &&
-    query.error.status === 422
-  const nextCursor =
-    !staleCursor && query.hasNextPage ? (query.data?.pages.at(-1)?.page.next_cursor ?? null) : null
-  const error: LoadError | undefined = forbidden
-    ? 'forbidden'
-    : staleCursor
-      ? 'stale-cursor'
-      : query.isError
-        ? 'unavailable'
-        : undefined
+  useEveryPage(query)
 
   const transition = useMutation({
     mutationFn: ({ action, subscription }: PendingAction) => {
       const command = newCommand()
       const subscriptionId = subscription.subscription_id
       if (action === 'suspend') {
-        return studioApi.suspendSubscription(current.organization_id, subscriptionId, command)
+        return studioApi.suspendSubscription(organizationId, subscriptionId, command)
       }
       if (action === 'reactivate') {
-        return studioApi.reactivateSubscription(current.organization_id, subscriptionId, command)
+        return studioApi.reactivateSubscription(organizationId, subscriptionId, command)
       }
-      return studioApi.endSubscription(current.organization_id, subscriptionId, command)
+      return studioApi.endSubscription(organizationId, subscriptionId, command)
     },
-    onSuccess: async () => {
+    onSuccess: async (_answer, { action, subscription }) => {
       setRefusal(null)
       setPending(null)
-      /*
-       * The whole subtree, not this one filter's page. A pause moves the row from "Al día"
-       * to "En pausa", so the list the reader is looking at and the list behind the other
-       * tab both stopped being true.
-       */
+      toast.success(transitionDone(action, subscription.person_name))
+      // The whole subtree: the organization's own page reads this list too.
       await queryClient.invalidateQueries({
-        queryKey: studioQueryKeys.organizationSubscriptionsRoot(current.organization_id),
+        queryKey: studioQueryKeys.organizationSubscriptionsRoot(organizationId),
       })
     },
     onError: (cause) => {
@@ -165,101 +174,155 @@ export function OrganizationSubscriptions() {
   })
 
   async function retry(): Promise<void> {
-    if (error === 'stale-cursor') {
+    // A cursor the list outgrew cannot be asked again: the read starts over.
+    if (query.isFetchNextPageError) {
       await queryClient.resetQueries({ queryKey: options.queryKey, exact: true })
       return
     }
     await query.refetch()
   }
 
-  function changeFilter(values: SubscriptionFilter[]) {
-    const nextFilter = values[0]
-    if (!nextFilter || nextFilter === filter) return
-    setFilter(nextFilter)
+  function ask(action: SubscriptionAction, subscription: OrganizationSubscription): void {
+    setRefusal(null)
+    setPending({ action, subscription })
   }
 
-  const tableState = loading
-    ? {
-        state: 'loading' as const,
-        title: 'Cargando cobros',
-        description: 'Estamos comprobando quién paga en esta organización.',
-      }
-    : error === 'forbidden'
-      ? {
-          state: 'error' as const,
-          title: 'No tienes acceso a los cobros',
-          description: 'La organización o tus permisos ya no permiten consultar esta información.',
-        }
-      : error === 'unavailable' && items.length === 0
-        ? {
-            state: 'error' as const,
-            title: 'No pudimos cargar los cobros',
-            description: 'La conexión falló de forma temporal. Inténtalo de nuevo.',
-            action: (
+  if (query.isError) {
+    // Said the way every register says a failed read, at any width.
+    return (
+      <section data-billing-panel aria-label="Suscripciones">
+        {isStudioForbidden(query.error) ? (
+          <RegisterCardState
+            state="error"
+            title="No tienes acceso a los cobros"
+            description="La organización o tus permisos ya no permiten consultar esta información."
+          />
+        ) : (
+          <RegisterCardState
+            state="error"
+            title="No pudimos cargar los cobros"
+            description="La conexión falló de forma temporal. Inténtalo de nuevo."
+            action={
               <Button size="sm" variant="outline" onClick={() => void retry()}>
                 Reintentar
               </Button>
-            ),
-          }
-        : items.length === 0
-          ? {
-              state: 'empty' as const,
-              title: emptyTitle(filter),
-              description: emptyDescription(filter),
             }
-          : undefined
+          />
+        )}
+      </section>
+    )
+  }
+
+  if (rolesQuery.isPending || (canManage && (query.isPending || query.hasNextPage))) {
+    return (
+      <section data-billing-panel aria-label="Suscripciones">
+        <SubscriptionsSkeleton />
+      </section>
+    )
+  }
+
+  const items = flattenSubscriptionPages(query.data)
+
+  if (items.length === 0) {
+    return (
+      <section data-billing-panel aria-label="Suscripciones">
+        {/* Says where the next step is, and it is not here: a person subscribes
+            from Space, because nobody can agree to a price for them. */}
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FoundationIcon name="business" decorative />
+            </EmptyMedia>
+            <EmptyTitle>Todavía nadie paga aquí</EmptyTitle>
+            <EmptyDescription>
+              Las personas se suscriben desde la app, eligiendo uno de los planes publicados de la
+              organización. Aquí verás cada plan en cuanto alguien lo tome.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+        <p data-billing-note>{BILLING_NOTE}</p>
+      </section>
+    )
+  }
+
+  const summary = billingSummary(items)
+  const shown = filterSubscriptions(items, filters)
+  const states: ReadonlyArray<{ value: SubscriptionStateFilter; label: string; count: number }> = [
+    { value: 'all', label: 'Todas', count: items.length },
+    { value: 'active', label: 'Al día', count: summary.active },
+    { value: 'suspended', label: 'En pausa', count: summary.suspended },
+    { value: 'ended', label: 'Terminadas', count: summary.ended },
+  ]
+
+  function chooseState(values: SubscriptionStateFilter[]): void {
+    const next = values[0]
+    // Pressing the state already on leaves it on: the list always shows one.
+    if (next && next !== filters.status) setFilters({ ...filters, status: next })
+  }
 
   return (
     <section ref={measuredRef} data-billing-panel aria-label="Suscripciones">
-      <ToggleGroup
-        value={[filter]}
-        onValueChange={changeFilter}
-        aria-label="Filtrar suscripciones por estado"
-      >
-        {FILTERS.map((option) => (
-          <ToggleGroupItem key={option.value} value={option.value}>
-            {option.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <SummaryFigures summary={summary} />
 
-      {query.isFetching && !loading && !loadingMore ? (
+      <div data-billing-toolbar>
+        <Input
+          type="search"
+          name="q"
+          autoComplete="off"
+          aria-label="Buscar persona"
+          placeholder="Buscar persona…"
+          value={filters.term}
+          onChange={(event) => setFilters({ ...filters, term: event.target.value })}
+          data-billing-search
+        />
+        <ToggleGroup
+          value={[filters.status]}
+          onValueChange={chooseState}
+          aria-label="Filtrar suscripciones por estado"
+          data-billing-filter
+        >
+          {states.map((state) => (
+            <ToggleGroupItem key={state.value} value={state.value}>
+              {state.label}
+              <span data-billing-count>{state.count}</span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+
+      {query.isFetching ? (
         <p data-query-refreshing role="status" aria-live="polite">
           Actualizando cobros…
         </p>
       ) : null}
 
-      {/* Five columns do not fit the space a narrow register has, so it gets the
-          same data as cards. Only one presentation is rendered — see
-          useCompactTable. */}
-      {compact ? (
-        <div data-billing-cards aria-label="Suscripciones" aria-busy={loading || undefined}>
-          {tableState ? (
-            <RegisterCardState
-              {...tableState}
-              action={'action' in tableState ? tableState.action : undefined}
-            />
-          ) : (
-            <ul data-billing-card-list>
-              {items.map((subscription) => (
-                <li key={subscription.subscription_id}>
-                  <SubscriptionCard
-                    subscription={subscription}
-                    onAct={(action) => {
-                      setRefusal(null)
-                      setPending({ action, subscription })
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-          <p data-billing-note>{BILLING_NOTE}</p>
-        </div>
+      {shown.length === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FoundationIcon name="search" decorative />
+            </EmptyMedia>
+            <EmptyTitle>{noMatchTitle(filters)}</EmptyTitle>
+            <EmptyDescription>{noMatchDescription(filters)}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button variant="outline" onClick={() => setFilters(NO_SUBSCRIPTION_FILTERS)}>
+              Quitar los filtros
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : compact ? (
+        // Only one presentation is rendered: see useCompactTable.
+        <ul data-billing-card-list aria-label="Suscripciones">
+          {shown.map((subscription) => (
+            <li key={subscription.subscription_id}>
+              <SubscriptionCard subscription={subscription} onAct={ask} />
+            </li>
+          ))}
+        </ul>
       ) : (
         <Table
           aria-label="Suscripciones"
-          aria-busy={loading || loadingMore || undefined}
           scrollAreaLabel="Tabla de suscripciones de la organización"
           data-studio-register="subscriptions"
         >
@@ -271,65 +334,28 @@ export function OrganizationSubscriptions() {
             <col />
             <col />
           </colgroup>
-          <TableCaption>{BILLING_NOTE}</TableCaption>
           <TableHeader>
             <TableRow>
               <TableHead>Persona</TableHead>
               <TableHead>Plan</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>Próximo cobro</TableHead>
-              <TableHead>Acciones</TableHead>
+              <TableHead>Cobro</TableHead>
+              <TableHead aria-label="Acciones" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tableState ? (
-              <TableState colSpan={5} {...tableState} />
-            ) : (
-              items.map((subscription) => (
-                <SubscriptionRow
-                  key={subscription.subscription_id}
-                  subscription={subscription}
-                  onAct={(action) => {
-                    setRefusal(null)
-                    setPending({ action, subscription })
-                  }}
-                />
-              ))
-            )}
+            {shown.map((subscription) => (
+              <SubscriptionRow
+                key={subscription.subscription_id}
+                subscription={subscription}
+                onAct={ask}
+              />
+            ))}
           </TableBody>
         </Table>
       )}
 
-      {error === 'stale-cursor' || (error === 'unavailable' && items.length > 0) ? (
-        <Alert variant={error === 'stale-cursor' ? 'info' : 'danger'} live="polite">
-          <AlertTitle>
-            {error === 'stale-cursor' ? 'La lista cambió' : 'No pudimos cargar más cobros'}
-          </AlertTitle>
-          <AlertDescription>
-            {error === 'stale-cursor'
-              ? 'Actualiza la lista para verla desde el inicio.'
-              : 'Las suscripciones que ya cargaste permanecen visibles.'}
-          </AlertDescription>
-          <AlertAction>
-            <Button size="sm" variant="outline" onClick={() => void retry()}>
-              {error === 'stale-cursor' ? 'Actualizar la lista' : 'Reintentar'}
-            </Button>
-          </AlertAction>
-        </Alert>
-      ) : null}
-
-      {nextCursor ? (
-        <div data-billing-pagination>
-          <Button
-            variant="outline"
-            disabled={loadingMore}
-            onClick={() => void query.fetchNextPage()}
-          >
-            {loadingMore ? <Spinner label="Cargando más cobros" /> : null}
-            {loadingMore ? 'Cargando…' : 'Ver más'}
-          </Button>
-        </div>
-      ) : null}
+      <p data-billing-note>{BILLING_NOTE}</p>
 
       <Dialog
         open={pending !== null}
@@ -352,9 +378,7 @@ export function OrganizationSubscriptions() {
                 </DialogTitle>
                 <DialogDescription>{confirmationDescription(pending.action)}</DialogDescription>
               </DialogHeader>
-              {confirmationDetails(pending.action, pending.subscription.status).map((line) => (
-                <p key={line}>{line}</p>
-              ))}
+              <Consequences action={pending.action} status={pending.subscription.status} />
 
               {refusal ? (
                 <Alert variant="danger" live="assertive" data-billing-error>
@@ -389,13 +413,79 @@ export function OrganizationSubscriptions() {
   )
 }
 
-function SubscriptionRow({
-  subscription,
-  onAct,
+/**
+ * How many stand in each state and what the active plans add up to in a month.
+ * They follow the list, never the filter: narrowing rows changes no total.
+ */
+function SummaryFigures({ summary }: { summary: BillingSummary }) {
+  return (
+    <dl data-billing-summary>
+      <Figure name="active" label="Al día" value={summary.active} />
+      <Figure name="suspended" label="En pausa" value={summary.suspended} />
+      <Figure name="ended" label="Terminadas" value={summary.ended} />
+      {summary.monthly ? (
+        <Figure
+          name="monthly"
+          label="Suman al mes"
+          value={formatAmount(summary.monthly.amountMinor, summary.monthly.currencyCode)}
+        />
+      ) : null}
+    </dl>
+  )
+}
+
+function Figure({ name, label, value }: { name: string; label: string; value: number | string }) {
+  return (
+    <div data-billing-figure={name}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  )
+}
+
+/**
+ * What the action does and what it leaves alone, under a heading each: the
+ * second half is what nobody would guess, and what makes the action safe.
+ */
+function Consequences({
+  action,
+  status,
 }: {
-  subscription: OrganizationSubscription
-  onAct: (action: SubscriptionAction) => void
+  action: SubscriptionAction
+  status: OrganizationSubscription['status']
 }) {
+  const { happens, stays, notice } = confirmationSections(action, status)
+  const happensId = useId()
+  const staysId = useId()
+  return (
+    <div data-billing-consequences>
+      <section aria-labelledby={happensId} data-billing-consequence="happens">
+        <h3 id={happensId}>Qué pasa</h3>
+        <ul>
+          {happens.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </section>
+      <section aria-labelledby={staysId} data-billing-consequence="stays">
+        <h3 id={staysId}>Qué no cambia</h3>
+        <ul>
+          {stays.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </section>
+      <p data-billing-notice>{notice}</p>
+    </div>
+  )
+}
+
+interface SubscriptionEntryProps {
+  subscription: OrganizationSubscription
+  onAct: (action: SubscriptionAction, subscription: OrganizationSubscription) => void
+}
+
+function SubscriptionRow({ subscription, onAct }: SubscriptionEntryProps) {
   return (
     <TableRow data-billing-row>
       <TableCell>
@@ -403,110 +493,137 @@ function SubscriptionRow({
           <Avatar decorative>
             <AvatarFallback>{personInitials(subscription.person_name)}</AvatarFallback>
           </Avatar>
-          {subscription.person_name}
+          <span data-billing-name>{subscription.person_name}</span>
         </span>
       </TableCell>
       <TableCell>
         {subscription.plan_name}
-        <span data-billing-amount>
-          {formatAmount(subscription.amount_minor, subscription.currency_code)}{' '}
-          {formatPeriod(subscription.billing_period)}
-        </span>
+        <span data-billing-amount>{price(subscription)}</span>
       </TableCell>
       <TableCell>
-        <Badge variant={badgeVariant(subscription.status)}>
-          {statusLabel(subscription.status)}
-        </Badge>
+        <StateBadge status={subscription.status} />
       </TableCell>
-      <TableCell>{formatPeriodEnd(subscription.current_period_end)}</TableCell>
-      <TableCell>
-        <SubscriptionActions subscription={subscription} onAct={onAct} />
+      <TableCell>{subscriptionDateLine(subscription)}</TableCell>
+      <TableCell align="end">
+        <SubscriptionMenu subscription={subscription} onAct={onAct} />
       </TableCell>
     </TableRow>
   )
 }
 
-function SubscriptionCard({
-  subscription,
-  onAct,
-}: {
-  subscription: OrganizationSubscription
-  onAct: (action: SubscriptionAction) => void
-}) {
+/** The row stacked: who, what they pay, where the plan stands and its date. */
+function SubscriptionCard({ subscription, onAct }: SubscriptionEntryProps) {
+  const hasActions = availableActions(subscription.status).length > 0
   return (
-    <Card data-billing-card>
+    <Card size="sm" data-billing-card>
       <CardHeader>
-        {/* The same `strong` the table row uses, carrying the heading role so a
-            list of cards can be navigated by name. */}
         <div data-billing-person>
           <Avatar decorative>
             <AvatarFallback>{personInitials(subscription.person_name)}</AvatarFallback>
           </Avatar>
-          <strong role="heading" aria-level={3}>
-            {subscription.person_name}
-          </strong>
+          <div data-billing-card-name>
+            {/* The heading role, so a list of cards can be navigated by name. */}
+            <strong role="heading" aria-level={3} data-billing-name>
+              {subscription.person_name}
+            </strong>
+            <span data-billing-amount>
+              {subscription.plan_name} · {price(subscription)}
+            </span>
+          </div>
         </div>
+        {hasActions ? (
+          <CardAction>
+            <SubscriptionMenu subscription={subscription} onAct={onAct} />
+          </CardAction>
+        ) : null}
       </CardHeader>
-      <CardContent>
-        {/* Same facts as the row, in the same order, each one named — as the
-            team directory's cards do. Three loose paragraphs sat here before,
-            and CardContent spaces nothing, so the plan and the next charge were
-            flush against each other and the state was a badge under the name
-            with nothing saying it was a state. */}
-        <dl data-billing-facts>
-          <dt>Plan</dt>
-          <dd>
-            {subscription.plan_name} ·{' '}
-            {formatAmount(subscription.amount_minor, subscription.currency_code)}{' '}
-            {formatPeriod(subscription.billing_period)}
-          </dd>
-
-          <dt>Estado</dt>
-          <dd>
-            <Badge variant={badgeVariant(subscription.status)}>
-              {statusLabel(subscription.status)}
-            </Badge>
-          </dd>
-
-          <dt>Próximo cobro</dt>
-          <dd>{formatPeriodEnd(subscription.current_period_end)}</dd>
-        </dl>
-        <SubscriptionActions subscription={subscription} onAct={onAct} />
-      </CardContent>
+      <CardFooter data-billing-card-foot>
+        <StateBadge status={subscription.status} />
+        <span data-billing-card-date>{cardDateLine(subscription)}</span>
+      </CardFooter>
     </Card>
   )
 }
 
 /**
- * Only the actions the command would accept. An ended subscription shows none at all
- * rather than a disabled button: there is nothing a reader could do to make it take one,
- * so a greyed-out control would only invite them to look for the reason.
+ * Only what the command would accept, the action that cannot be undone set
+ * apart. An ended subscription takes nothing, so it has no menu at all.
  */
-function SubscriptionActions({
-  subscription,
-  onAct,
-}: {
-  subscription: OrganizationSubscription
-  onAct: (action: SubscriptionAction) => void
-}) {
+function SubscriptionMenu({ subscription, onAct }: SubscriptionEntryProps) {
   const actions = availableActions(subscription.status)
   if (actions.length === 0) return null
+  const reversible = actions.filter((action) => action !== 'end')
   return (
-    <span data-billing-actions>
-      {actions.map((action) => (
-        <Button
-          key={action}
-          type="button"
-          size="sm"
-          variant={action === 'end' ? 'ghost' : 'outline'}
-          onClick={() => onAct(action)}
-          data-billing-action={action}
-        >
-          {actionLabel(action)}
-        </Button>
-      ))}
-    </span>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <IconButton
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Acciones del plan de ${subscription.person_name}`}
+            data-billing-menu
+          />
+        }
+      >
+        <FoundationIcon name="more" decorative />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" data-billing-menu-content>
+        <DropdownMenuGroup>
+          {reversible.map((action) => (
+            <DropdownMenuItem
+              key={action}
+              onClick={() => onAct(action, subscription)}
+              data-billing-action={action}
+            >
+              {menuActionLabel(action)}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => onAct('end', subscription)}
+            data-billing-action="end"
+          >
+            {menuActionLabel('end')}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
+}
+
+function StateBadge({ status }: { status: OrganizationSubscription['status'] }) {
+  return <Badge variant={badgeVariant(status)}>{statusLabel(status)}</Badge>
+}
+
+/** The outline of the screen to come, so nothing jumps when the list arrives. */
+function SubscriptionsSkeleton() {
+  return (
+    <div data-billing-loading role="status" aria-label="Cargando los cobros">
+      <Skeleton data-billing-skeleton="summary" />
+      <Skeleton data-billing-skeleton="toolbar" />
+      {SKELETON_ROWS.map((row) => (
+        <Skeleton key={row} data-billing-skeleton="row" />
+      ))}
+    </div>
+  )
+}
+
+function price(subscription: OrganizationSubscription): string {
+  return `${formatAmount(subscription.amount_minor, subscription.currency_code)} ${formatPeriod(
+    subscription.billing_period,
+  )}`
+}
+
+// A column names the date in the table; a card has none, so the charge is named here.
+function cardDateLine(subscription: OrganizationSubscription): string {
+  const line = subscriptionDateLine(subscription)
+  return subscription.status === 'active' && subscription.current_period_end
+    ? `Cobro: ${line}`
+    : line
 }
 
 function badgeVariant(status: OrganizationSubscription['status']) {
@@ -515,21 +632,15 @@ function badgeVariant(status: OrganizationSubscription['status']) {
   return 'secondary' as const
 }
 
-function emptyTitle(filter: SubscriptionFilter): string {
-  if (filter === 'active') return 'Nadie está al día'
-  if (filter === 'suspended') return 'Ningún plan está en pausa'
-  if (filter === 'ended') return 'Ningún plan ha terminado'
-  return 'Todavía nadie paga aquí'
+function noMatchTitle(filters: SubscriptionFilters): string {
+  if (filters.term.trim() !== '') return 'Ninguna persona coincide'
+  if (filters.status === 'active') return 'Nadie está al día'
+  if (filters.status === 'suspended') return 'Ningún plan está en pausa'
+  return 'Ningún plan ha terminado'
 }
 
-function emptyDescription(filter: SubscriptionFilter): string {
-  if (filter === 'all') {
-    /*
-     * Says where the next step is, and it is not here. A person subscribes from Space,
-     * choosing one of the organization's published plans — this screen never creates a
-     * subscription on somebody's behalf, because nobody can agree to a price for them.
-     */
-    return 'Las personas se suscriben desde la app, eligiendo uno de los planes publicados de la organización. Aquí verás cada plan en cuanto alguien lo tome.'
-  }
-  return 'Prueba con otro estado para ver el resto de las suscripciones.'
+function noMatchDescription(filters: SubscriptionFilters): string {
+  return filters.term.trim() !== ''
+    ? 'Cambia la búsqueda o el estado para ver más.'
+    : 'Prueba con otro estado para ver el resto de las suscripciones.'
 }

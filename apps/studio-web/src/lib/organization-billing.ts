@@ -56,6 +56,18 @@ export function actionLabel(action: SubscriptionAction): string {
   return 'Terminar'
 }
 
+/** What a row's menu calls each action: the verb, and what it acts on. */
+export function menuActionLabel(action: SubscriptionAction): string {
+  return `${actionLabel(action)} el plan`
+}
+
+/** What the screen says once the command went through, in the state the row now shows. */
+export function transitionDone(action: SubscriptionAction, personName: string): string {
+  if (action === 'suspend') return `El plan de ${personName} quedó en pausa.`
+  if (action === 'reactivate') return `El plan de ${personName} volvió a estar al día.`
+  return `El plan de ${personName} terminó.`
+}
+
 export function confirmationTitle(action: SubscriptionAction, personName: string): string {
   if (action === 'suspend') return `¿Pausar el plan de ${personName}?`
   if (action === 'reactivate') return `¿Reactivar el plan de ${personName}?`
@@ -89,39 +101,64 @@ export function confirmationDescription(action: SubscriptionAction): string {
 
 const NOTICE = 'Le vamos a avisar por correo.'
 
-export function confirmationDetails(
+/**
+ * What the dialog says under its two headings, «Qué pasa» and «Qué no cambia»,
+ * and the line that closes it. Five paragraphs in a row hid which sentence was
+ * the one that mattered; which half a sentence sits in is now part of what it says.
+ */
+export interface ConfirmationSections {
+  happens: string[]
+  stays: string[]
+  notice: string
+}
+
+export function confirmationSections(
   action: SubscriptionAction,
   status: SubscriptionStatus,
-): string[] {
+): ConfirmationSections {
   if (action === 'suspend') {
-    return [
-      // HU-079 criterion 2, then 1, then 3; then HU-080 criterion 3.
-      'Lo que se pausa: su profesional sigue viendo lo que la persona comparte, pero no puede registrar ni cambiar nada, y las sesiones futuras del programa que le asignaron quedan en pausa.',
-      'Lo que no cambia: no se le quita ningún permiso, su programa sigue asignado y la relación con la organización sigue igual.',
-      'Conserva todo su historial y puede seguir entrenando por su cuenta.',
-      'La pausa dura hasta que la reactives o termines el plan: nunca se convierte sola en terminación.',
-      NOTICE,
-    ]
+    return {
+      // HU-079 criterion 2, then HU-080 criterion 3.
+      happens: [
+        'Su profesional sigue viendo lo que la persona comparte, pero no puede registrar ni cambiar nada, y las sesiones futuras del programa que le asignaron quedan en pausa.',
+        'La pausa dura hasta que la reactives o termines el plan: nunca se convierte sola en terminación.',
+      ],
+      // HU-079 criteria 1 and 3.
+      stays: [
+        'No se le quita ningún permiso, su programa sigue asignado y la relación con la organización sigue igual.',
+        'Conserva todo su historial y puede seguir entrenando por su cuenta.',
+      ],
+      notice: NOTICE,
+    }
   }
   if (action === 'end') {
-    return [
-      'Sigue en pie la relación con la organización: terminar el plan no termina la relación, no retira los permisos que la persona dio y no borra su historial. Para terminar la relación hay otra acción, con sus propios efectos.',
-      ...(status === 'suspended'
-        ? [
-            'Como está en pausa, terminar también levanta la pausa: su profesional vuelve a poder registrar cambios, salvo que haya otro bloqueo.',
-          ]
-        : []),
-      'Queda registrado que lo decidiste tú: ningún proceso automático termina un plan.',
-      NOTICE,
-    ]
+    return {
+      happens: [
+        ...(status === 'suspended'
+          ? [
+              'Como está en pausa, terminar también levanta la pausa: su profesional vuelve a poder registrar cambios, salvo que haya otro bloqueo.',
+            ]
+          : []),
+        'Queda registrado que lo decidiste tú: ningún proceso automático termina un plan.',
+      ],
+      stays: [
+        'Sigue en pie la relación con la organización: terminar el plan no termina la relación, no retira los permisos que la persona dio y no borra su historial. Para terminar la relación hay otra acción, con sus propios efectos.',
+      ],
+      notice: NOTICE,
+    }
   }
-  return [
-    // HU-079 criteria 7, 5 and 6.
-    'Vuelven las sesiones futuras que no se hayan iniciado ni cancelado, si la relación y la asignación siguen vigentes.',
-    'Lo que cambió durante la pausa no vuelve: un permiso retirado, una relación terminada, una asignación cambiada o una sesión cancelada, iniciada o que ya pasó.',
-    'No tiene que aceptar nada de nuevo mientras su permiso siga vigente. Si hay otro bloqueo, como la organización suspendida, su profesional sigue sin poder registrar cambios y esas sesiones siguen en pausa.',
-    NOTICE,
-  ]
+  return {
+    // HU-079 criteria 7 and 6.
+    happens: [
+      'Vuelven las sesiones futuras que no se hayan iniciado ni cancelado, si la relación y la asignación siguen vigentes.',
+      'No tiene que aceptar nada de nuevo mientras su permiso siga vigente. Si hay otro bloqueo, como la organización suspendida, su profesional sigue sin poder registrar cambios y esas sesiones siguen en pausa.',
+    ],
+    // HU-079 criterion 5.
+    stays: [
+      'Lo que cambió durante la pausa no vuelve: un permiso retirado, una relación terminada, una asignación cambiada o una sesión cancelada, iniciada o que ya pasó.',
+    ],
+    notice: NOTICE,
+  }
 }
 
 export type BillingRefusal = 'conflict' | 'not-allowed' | 'gone' | 'unavailable'
@@ -194,12 +231,120 @@ export function formatPeriodEnd(currentPeriodEnd: string | null): string {
   if (!currentPeriodEnd) return 'Sin cobro reportado'
   const parts = currentPeriodEnd.split('-')
   const instant = Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
-  return new Intl.DateTimeFormat('es-CO', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(instant))
+  return shortDay(new Date(instant), 'UTC')
+}
+
+/**
+ * «1 dic 2026»: a row is one line, and a date written out took a third of it.
+ * Put together by hand because the locale's own short forms differ by engine:
+ * «1/12/2026» in one and «1 de dic de 2026» in another.
+ */
+function shortDay(date: Date, timeZone?: string, withYear = true): string {
+  const part = (options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat('es-CO', { ...options, timeZone }).format(date)
+  const month = part({ month: 'short' }).replace('.', '')
+  const day = `${part({ day: 'numeric' })} ${month}`
+  return withYear ? `${day} ${part({ year: 'numeric' })}` : day
+}
+
+/** The day of an instant, as the reader's own clock has it. */
+export function formatDay(instant: string): string {
+  return shortDay(new Date(instant))
+}
+
+/** From one day to another: «1 sep – 1 oct 2026», the year said once when they share it. */
+export function formatDaySpan(from: string, to: string): string {
+  const start = new Date(from)
+  const end = new Date(to)
+  const sameYear = start.getFullYear() === end.getFullYear()
+  return `${shortDay(start, undefined, !sameYear)} – ${shortDay(end)}`
+}
+
+/**
+ * The one date a row shows, which depends on where the plan stands: the next
+ * charge while it is in good standing, since when for a pause, the day for an
+ * ending. A next charge beside a paused plan would promise one nobody will make.
+ */
+export function subscriptionDateLine(subscription: OrganizationSubscription): string {
+  if (subscription.status === 'suspended' && subscription.suspended_at) {
+    return `Desde el ${formatDay(subscription.suspended_at)}`
+  }
+  if (subscription.status === 'ended' && subscription.ended_at) {
+    return `El ${formatDay(subscription.ended_at)}`
+  }
+  return formatPeriodEnd(subscription.current_period_end)
+}
+
+export interface BillingSummary {
+  active: number
+  suspended: number
+  ended: number
+  /** What the plans in good standing add up to in a month; null when there is no sum to give. */
+  monthly: { amountMinor: number; currencyCode: string } | null
+}
+
+const MONTHS_IN_A_YEAR = 12
+
+/**
+ * The figures over the list. They are counted from the list itself, so they are
+ * true only of a list read whole: the screen reads every page before it shows them.
+ */
+export function billingSummary(subscriptions: readonly OrganizationSubscription[]): BillingSummary {
+  const standing = subscriptions.filter((subscription) => subscription.status === 'active')
+  const currencies = new Set(standing.map((subscription) => subscription.currency_code))
+  const [currencyCode] = currencies
+  // Two currencies cannot be added, and half a sum would read as the whole.
+  const monthly =
+    currencies.size === 1 && currencyCode
+      ? {
+          currencyCode,
+          amountMinor: Math.round(
+            standing.reduce(
+              (sum, subscription) =>
+                sum +
+                (subscription.billing_period === 'year'
+                  ? subscription.amount_minor / MONTHS_IN_A_YEAR
+                  : subscription.amount_minor),
+              0,
+            ),
+          ),
+        }
+      : null
+  return {
+    active: standing.length,
+    suspended: subscriptions.filter((subscription) => subscription.status === 'suspended').length,
+    ended: subscriptions.filter((subscription) => subscription.status === 'ended').length,
+    monthly,
+  }
+}
+
+export type SubscriptionStateFilter = SubscriptionStatus | 'all'
+
+export interface SubscriptionFilters {
+  term: string
+  status: SubscriptionStateFilter
+}
+
+export const NO_SUBSCRIPTION_FILTERS: SubscriptionFilters = { term: '', status: 'all' }
+
+/** A name is found whatever its capitals and accents: «alvarez» finds «Álvarez». */
+export function foldText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim()
+}
+
+export function filterSubscriptions(
+  subscriptions: readonly OrganizationSubscription[],
+  filters: SubscriptionFilters,
+): OrganizationSubscription[] {
+  const term = foldText(filters.term)
+  return subscriptions.filter((subscription) => {
+    if (filters.status !== 'all' && subscription.status !== filters.status) return false
+    return term === '' || foldText(subscription.person_name).includes(term)
+  })
 }
 
 export function personInitials(personName: string): string {

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   activeMembership,
@@ -6,10 +6,23 @@ import {
   createStudioApiFixture,
   installStudioApiMock,
   organizationRoleCatalog,
+  type StudioApiFixture,
 } from './studio-api-mock'
 
-function open(page: import('@playwright/test').Page, organizationId: string) {
+function open(page: Page, organizationId: string) {
   return page.goto(`/organizations/${organizationId}/billing`)
+}
+
+/** What a subscription takes waits in its row's menu, so it is opened first. */
+async function choose(page: Page, action: 'suspend' | 'reactivate' | 'end') {
+  await page.locator('[data-billing-menu]').first().click()
+  await page.locator(`[data-billing-action="${action}"]`).click()
+}
+
+function listReads(fixture: StudioApiFixture) {
+  return fixture.requests.filter(
+    (request) => request.method === 'GET' && request.path.endsWith('/subscriptions'),
+  )
 }
 
 /** One subscription in each state, which is what HU-STUDIO-078 criterion 1 reads. */
@@ -76,8 +89,32 @@ test('HU-078 c1: who is paying, who is paused and who ended, each said', async (
   await expect(rows.filter({ hasText: 'Ana Álvarez' })).toContainText('Al día')
   await expect(rows.filter({ hasText: 'Bruno Bedoya' })).toContainText('En pausa')
   await expect(rows.filter({ hasText: 'Carla Castro' })).toContainText('Terminada')
+  // A paused plan says since when and an ended one when, where the others say their charge.
+  await expect(rows.filter({ hasText: 'Bruno Bedoya' })).toContainText('Desde el 18 oct 2026')
+  await expect(rows.filter({ hasText: 'Carla Castro' })).toContainText('El 19 oct 2026')
   // The plan and what it costs are two facts, so they read as two lines, not one word.
   await expect(rows.first().locator('[data-billing-amount]')).toHaveCSS('display', 'block')
+})
+
+/*
+ * The figures over the list are counted from the list itself, so they cannot
+ * disagree with it: one in each state, and only the active plan adds to the month.
+ */
+test('the figures over the list count each state and what the active plans add up to', async ({
+  page,
+}) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: everyState,
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  const figure = (name: string) => page.locator(`[data-billing-figure="${name}"] dd`)
+  await expect(figure('active')).toHaveText('1')
+  await expect(figure('suspended')).toHaveText('1')
+  await expect(figure('ended')).toHaveText('1')
+  await expect(figure('monthly')).toHaveText(/^\$\s?120\.000$/)
 })
 
 /*
@@ -90,15 +127,18 @@ test('HU-078 c3: the register carries payment columns and nothing else', async (
   await open(page, activeMembership.organization_id)
 
   await expect(page.locator('[data-billing-row]').first()).toBeVisible()
+  const heads = page.locator('[data-billing-panel] thead th')
   // Compared lowercased: the Design System uppercases a header through CSS.
-  const headers = await page.locator('[data-billing-panel] thead th').allInnerTexts()
+  const headers = await heads.allInnerTexts()
+  // The last column holds each row's menu: it shows no word and is named for a screen reader.
   expect(headers.map((header) => header.toLocaleLowerCase('es'))).toEqual([
     'persona',
     'plan',
     'estado',
-    'próximo cobro',
-    'acciones',
+    'cobro',
+    '',
   ])
+  await expect(heads.last()).toHaveAttribute('aria-label', 'Acciones')
 })
 
 test('HU-078 c3: on a phone the cards carry the same facts and no other', async ({ page }) => {
@@ -107,14 +147,19 @@ test('HU-078 c3: on a phone the cards carry the same facts and no other', async 
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await expect(page.locator('[data-billing-card]').first()).toBeVisible()
-  const facts = page.locator('[data-billing-card]').first().locator('dt')
-  const labels = await facts.allInnerTexts()
-  expect(labels.map((label) => label.toLocaleLowerCase('es'))).toEqual([
-    'plan',
-    'estado',
-    'próximo cobro',
-  ])
+  const card = page.locator('[data-billing-card]').first()
+  await expect(card).toBeVisible()
+  // Every word the card shows, in order: whose it is, the plan and its price, how it stands.
+  const words = (await card.innerText())
+    .split('\n')
+    .map((line) => line.trim().toLocaleLowerCase('es'))
+    .filter(Boolean)
+  expect(words).toHaveLength(5)
+  expect(words[0]).toBe('aá')
+  expect(words[1]).toBe('ana álvarez')
+  expect(words[2]).toMatch(/^mensual · \$\s?120\.000 al mes$/)
+  expect(words[3]).toBe('al día')
+  expect(words[4]).toBe('sin cobro reportado')
 })
 
 /*
@@ -132,11 +177,7 @@ for (const role of ['coach', 'staff']) {
     await expect(page.getByText('Las suscripciones no son de tu rol')).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Suscripciones' })).toHaveCount(0)
     await expect(page.locator('[data-billing-row]')).toHaveCount(0)
-    expect(
-      fixture.requests.filter(
-        (request) => request.method === 'GET' && request.path.endsWith('/subscriptions'),
-      ),
-    ).toHaveLength(0)
+    expect(listReads(fixture)).toHaveLength(0)
   })
 }
 
@@ -153,14 +194,20 @@ test('pausing a plan moves it and never offers to pause it twice', async ({ page
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await page.locator('[data-billing-action="suspend"]').click()
+  await choose(page, 'suspend')
   await page.getByRole('button', { name: 'Pausar y avisar' }).click()
 
   await expect(page.locator('[data-billing-row]')).toContainText('En pausa')
   await expect(page.getByRole('dialog')).toBeHidden()
+  // The answer is said where the reader is looking, without a page to dismiss.
+  await expect(page.getByText('El plan de Ana Álvarez quedó en pausa.')).toBeVisible()
   // A paused plan takes reactivate or end; pausing again would be a 409.
-  await expect(page.locator('[data-billing-action="suspend"]')).toBeHidden()
+  // The menu that was used is gone before the next one is read, not still fading.
+  await expect(page.getByRole('menu')).toHaveCount(0)
+  await page.locator('[data-billing-menu]').click()
   await expect(page.locator('[data-billing-action="reactivate"]')).toBeVisible()
+  await expect(page.locator('[data-billing-action="end"]')).toBeVisible()
+  await expect(page.locator('[data-billing-action="suspend"]')).toHaveCount(0)
 
   const command = fixture.requests.find(
     (request) => request.method === 'POST' && request.path.endsWith('/suspension'),
@@ -173,6 +220,8 @@ test('pausing a plan moves it and never offers to pause it twice', async ({ page
  * The confirmation's reason to exist. An administrator pausing somebody for non-payment
  * will reasonably fear that it takes the client's data away, and will either avoid the
  * action or use it believing it does something the platform deliberately does not do.
+ * So each sentence is asserted under the heading it belongs to: which half it sits in
+ * is part of what it says.
  */
 test('HU-079: pausing says what it stops, what it leaves alone, and the email', async ({
   page,
@@ -180,18 +229,22 @@ test('HU-079: pausing says what it stops, what it leaves alone, and the email', 
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
-  await page.locator('[data-billing-action="suspend"]').click()
+  await choose(page, 'suspend')
 
   const dialog = page.getByRole('dialog')
+  const happens = dialog.locator('[data-billing-consequence="happens"]')
+  const stays = dialog.locator('[data-billing-consequence="stays"]')
+  await expect(happens.getByRole('heading')).toHaveText('Qué pasa')
+  await expect(stays.getByRole('heading')).toHaveText('Qué no cambia')
   // Criterion 2, what stops.
-  await expect(dialog).toContainText('no puede registrar ni cambiar nada')
-  await expect(dialog).toContainText('las sesiones futuras del programa que le asignaron')
+  await expect(happens).toContainText('no puede registrar ni cambiar nada')
+  await expect(happens).toContainText('las sesiones futuras del programa que le asignaron')
   // Criterion 1, what does not.
-  await expect(dialog).toContainText('no se le quita ningún permiso')
-  await expect(dialog).toContainText('su programa sigue asignado')
-  await expect(dialog).toContainText('la relación con la organización sigue igual')
+  await expect(stays).toContainText('No se le quita ningún permiso')
+  await expect(stays).toContainText('su programa sigue asignado')
+  await expect(stays).toContainText('la relación con la organización sigue igual')
   // Criterion 3.
-  await expect(dialog).toContainText('puede seguir entrenando por su cuenta')
+  await expect(stays).toContainText('puede seguir entrenando por su cuenta')
   await expect(dialog).toContainText('avisar por correo')
   // Criterion 5: pausing must not promise that reactivating brings everything back.
   await expect(dialog).not.toContainText('todo vuelve')
@@ -206,18 +259,23 @@ test('HU-079: reactivating restores nothing that changed, and says what comes ba
   })
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
-  await page.locator('[data-billing-action="reactivate"]').click()
+  await choose(page, 'reactivate')
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toContainText('Levanta solo la pausa de este plan')
   await expect(dialog).toContainText('No devuelve las cosas a como estaban')
-  await expect(dialog).toContainText('Lo que cambió durante la pausa no vuelve')
-  await expect(dialog).toContainText('Vuelven las sesiones futuras que no se hayan iniciado')
+  await expect(dialog.locator('[data-billing-consequence="stays"]')).toContainText(
+    'Lo que cambió durante la pausa no vuelve',
+  )
+  await expect(dialog.locator('[data-billing-consequence="happens"]')).toContainText(
+    'Vuelven las sesiones futuras que no se hayan iniciado',
+  )
   await expect(dialog).toContainText('mientras su permiso siga vigente')
   await expect(dialog).not.toContainText('como siempre')
   await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
 
   await expect(page.locator('[data-billing-row]')).toContainText('Al día')
+  await expect(page.getByText('El plan de Ana Álvarez volvió a estar al día.')).toBeVisible()
 })
 
 test('HU-080: ending says what closes and what stays standing, and leaves no action', async ({
@@ -227,7 +285,7 @@ test('HU-080: ending says what closes and what stays standing, and leaves no act
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await page.locator('[data-billing-action="end"]').click()
+  await choose(page, 'end')
   const dialog = page.getByRole('dialog')
   // Criterion 1: the paying bond closes, the relationship stays.
   await expect(dialog).toContainText('Cierra el cobro de este plan')
@@ -241,9 +299,10 @@ test('HU-080: ending says what closes and what stays standing, and leaves no act
   await page.getByRole('button', { name: 'Terminar y avisar' }).click()
 
   await expect(page.locator('[data-billing-row]')).toContainText('Terminada')
-  // An ended subscription takes nothing. A disabled button would only invite the reader
-  // to look for a reason that does not exist.
-  await expect(page.locator('[data-billing-actions]')).toBeHidden()
+  await expect(page.getByText('El plan de Ana Álvarez terminó.')).toBeVisible()
+  // An ended subscription takes nothing, so its row has no menu at all. A menu with
+  // nothing enabled would only invite the reader to look for a reason that does not exist.
+  await expect(page.locator('[data-billing-menu]')).toHaveCount(0)
 })
 
 test('HU-080: ending a paused plan says the pause lifts with it', async ({ page }) => {
@@ -254,7 +313,7 @@ test('HU-080: ending a paused plan says the pause lifts with it', async ({ page 
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await page.locator('[data-billing-action="end"]').click()
+  await choose(page, 'end')
   await expect(page.getByRole('dialog')).toContainText('terminar también levanta la pausa')
 })
 
@@ -263,7 +322,7 @@ test('HU-080 c3: pausing says a pause never turns into an ending by itself', asy
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await page.locator('[data-billing-action="suspend"]').click()
+  await choose(page, 'suspend')
   await expect(page.getByRole('dialog')).toContainText('nunca se convierte sola en terminación')
 })
 
@@ -278,7 +337,7 @@ test('a reactivation with no open cause is not described as something to retry',
   await installStudioApiMock(page, fixture)
   await open(page, activeMembership.organization_id)
 
-  await page.locator('[data-billing-action="reactivate"]').click()
+  await choose(page, 'reactivate')
   await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
 
   const failure = page.locator('[data-billing-error]')
@@ -286,7 +345,12 @@ test('a reactivation with no open cause is not described as something to retry',
   await expect(failure).toContainText('no un reintento')
 })
 
-test('filtering by state asks the server for that state', async ({ page }) => {
+/*
+ * The list is read whole, because the figures over it and the count beside each state
+ * are counted from it. So choosing a state shows that state without asking again: a
+ * second read could answer something the figures no longer agree with.
+ */
+test('filtering by state shows that state, from the list already read', async ({ page }) => {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership],
     organizationSubscriptions: [
@@ -304,14 +368,36 @@ test('filtering by state asks the server for that state', async ({ page }) => {
   await open(page, activeMembership.organization_id)
 
   await expect(page.locator('[data-billing-row]')).toHaveCount(2)
+  const reads = listReads(fixture).length
   await page.getByRole('button', { name: 'En pausa' }).click()
 
   await expect(page.locator('[data-billing-row]')).toHaveCount(1)
   await expect(page.locator('[data-billing-row]')).toContainText('Bruno Bedoya')
-  const filtered = fixture.requests.find(
-    (request) => request.method === 'GET' && request.search.includes('status=suspended'),
-  )
-  expect(filtered).toBeDefined()
+  expect(listReads(fixture)).toHaveLength(reads)
+  // Each state says how many it holds, before it is chosen.
+  await expect(page.getByRole('button', { name: 'En pausa' })).toContainText('1')
+  await expect(page.getByRole('button', { name: 'Todas' })).toContainText('2')
+})
+
+test('a person is found by name, whatever its capitals and accents', async ({ page }) => {
+  const fixture = createStudioApiFixture({
+    memberships: [activeMembership],
+    organizationSubscriptions: everyState,
+  })
+  await installStudioApiMock(page, fixture)
+  await open(page, activeMembership.organization_id)
+
+  const rows = page.locator('[data-billing-row]')
+  await expect(rows).toHaveCount(3)
+  await page.getByLabel('Buscar persona').fill('ALVAREZ')
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText('Ana Álvarez')
+
+  // Nobody by that name: the screen says so and offers the way back to everybody.
+  await page.getByLabel('Buscar persona').fill('zzz')
+  await expect(page.getByText('Ninguna persona coincide')).toBeVisible()
+  await page.getByRole('button', { name: 'Quitar los filtros' }).click()
+  await expect(rows).toHaveCount(3)
 })
 
 /*
@@ -331,11 +417,7 @@ test('a role without manage_billing is told why, and asks for nothing', async ({
   await expect(page.getByText('Las suscripciones no son de tu rol')).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Suscripciones' })).toHaveCount(0)
   await expect(page.locator('[data-billing-page]')).toContainText('no es un dato de entrenamiento')
-  expect(
-    fixture.requests.filter(
-      (request) => request.method === 'GET' && request.path.endsWith('/subscriptions'),
-    ),
-  ).toHaveLength(0)
+  expect(listReads(fixture)).toHaveLength(0)
 })
 
 test('an empty list says where a subscription comes from, because it is not from here', async ({

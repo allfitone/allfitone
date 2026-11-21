@@ -120,6 +120,16 @@ function settledByDialog(name: string): (page: Page) => Promise<void> {
   }
 }
 
+/** Opens what the first subscription in a state takes, in its row or in its card. */
+async function openSubscriptionMenu(page: Page, state: 'Al día' | 'En pausa'): Promise<void> {
+  await page
+    .locator(':is([data-billing-row], [data-billing-card])')
+    .filter({ hasText: state })
+    .first()
+    .locator('[data-billing-menu]')
+    .click()
+}
+
 // Scoped to the dialog: the list behind it has a discipline filter of its own.
 function newMovementForm(page: Page) {
   return page.getByRole('dialog', { name: 'Nuevo movimiento' })
@@ -3524,6 +3534,26 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    // The other view of the same list, by the address a link back arrives with.
+    stories: 'HU-077 · the plans read as rows',
+    path: `${workspace}/billing?tab=plans`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: DESKTOP,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Filas' }).click()
+      await expect(page.getByRole('table', { name: 'Planes' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-077 · a search that leaves no plan',
+    path: `${workspace}/billing?tab=plans`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('searchbox', { name: 'Buscar planes' }).fill('pilates')
+      await expect(page.getByText('Ningún plan coincide')).toBeVisible()
+    },
+  },
+  {
     // HU-078 criterion 2 as well: no subscriptions tab, and the reason why.
     stories: 'HU-077 · the plans, for a role that does not see who pays',
     path: `${workspace}/billing`,
@@ -3580,22 +3610,61 @@ export const SCREENS: Screen[] = [
   },
   // --- `/organizations/[id]/billing/plans/...`, create and rename · HU-074 ---
   {
-    stories: 'HU-074 · a new plan, the name asked for',
+    // The form's old address opens the dialog over the plans.
+    stories: 'HU-074 · a new plan, the name and the price asked for',
     path: `${workspace}/billing/plans/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nuevo plan'),
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Crear plan' }).click()
-      await expect(page.getByText('Escribe el nombre del plan.')).toBeVisible()
+      const dialog = page.getByRole('dialog', { name: 'Nuevo plan' })
+      await dialog.getByRole('button', { name: 'Crear y publicar' }).click()
+      await expect(dialog.getByText('Escribe el nombre del plan.')).toBeVisible()
+      await expect(dialog.getByText('Escribe el precio en pesos.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a new plan filled in, on a phone',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    settled: settledByDialog('Nuevo plan'),
+    reveal: async (page) => {
+      const dialog = page.getByRole('dialog', { name: 'Nuevo plan' })
+      await dialog.getByLabel('Nombre').fill('Dos veces por semana')
+      await dialog.getByLabel('Precio en pesos colombianos (COP)').fill('70000')
+      await expect(dialog.locator('[data-plan-price-preview]')).toContainText('70.000')
     },
   },
   {
     stories: 'HU-074 · a name the organization already uses',
     path: `${workspace}/billing/plans/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nuevo plan'),
     reveal: async (page) => {
-      await page.getByLabel('Nombre').fill('mensual ilimitado')
-      await page.getByRole('button', { name: 'Crear plan' }).click()
-      await expect(page.getByText(/Ya hay un plan con ese nombre/)).toBeVisible()
+      const dialog = page.getByRole('dialog', { name: 'Nuevo plan' })
+      await dialog.getByLabel('Nombre').fill('mensual ilimitado')
+      await dialog.getByRole('button', { name: 'Guardar sin precio' }).click()
+      await expect(dialog.getByText(/Ya hay un plan con ese nombre/)).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan created whose price was refused',
+    path: `${workspace}/billing/plans/new`,
+    fixture: () => {
+      const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+      fixture.intercept = (request) =>
+        request.method === 'POST' && request.path.endsWith('/versions')
+          ? { status: 409, body: error('conflict') }
+          : undefined
+      return fixture
+    },
+    settled: settledByDialog('Nuevo plan'),
+    reveal: async (page) => {
+      const dialog = page.getByRole('dialog', { name: 'Nuevo plan' })
+      await dialog.getByLabel('Nombre').fill('Dos veces por semana')
+      await dialog.getByLabel('Precio en pesos colombianos (COP)').fill('70000')
+      await dialog.getByRole('button', { name: 'Crear y publicar' }).click()
+      await expect(dialog).toContainText('El plan se creó, pero su precio no se publicó')
     },
   },
   {
@@ -3614,7 +3683,30 @@ export const SCREENS: Screen[] = [
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     settled: async (page) => {
       await settledByHeading(page)
+      await expect(page.getByRole('button', { name: 'Cambiar el precio' })).toBeVisible()
+    },
+  },
+  {
+    // The bar with its three actions at once, which is its widest state.
+    stories: 'HU-074 · a plan with its name changed and not yet saved, on a phone',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByLabel('Nombre').fill('Mensual sin límite')
       await expect(page.getByRole('button', { name: 'Guardar el nombre' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-074 · a plan on its own page, for a role that only reads it',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () =>
+      createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(
+        page.getByText('Cambiar un plan corresponde a quienes administran los cobros.'),
+      ).toBeVisible()
     },
   },
   {
@@ -3642,9 +3734,10 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
-      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
-      await page.getByRole('button', { name: 'Publicar este precio' }).click()
-      await expect(page.getByRole('alertdialog')).toContainText('Se retira el precio')
+      await page.getByRole('button', { name: 'Cambiar el precio' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Cambiar el precio' })
+      await dialog.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await expect(dialog).toContainText('Se retira el precio')
     },
   },
   {
@@ -3653,22 +3746,35 @@ export const SCREENS: Screen[] = [
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
     reveal: async (page) => {
-      await page.getByLabel('Precio en pesos colombianos (COP)').fill('90000')
-      await page.getByRole('radio', { name: 'Remoto' }).click()
-      await page.getByRole('button', { name: 'Publicar este precio' }).click()
-      await expect(page.getByRole('alertdialog')).toContainText('todavía no está disponible')
+      await page.getByRole('button', { name: 'Publicar un precio' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Publicar un precio' })
+      await dialog.getByLabel('Precio en pesos colombianos (COP)').fill('90000')
+      await dialog.getByRole('radio', { name: 'Remoto' }).click()
+      await expect(dialog).toContainText('todavía no está disponible')
     },
   },
   {
-    stories: 'HU-075 · the price on sale, and centavos, refused on the form',
+    stories: 'HU-075 · the price on sale, refused on the form',
     path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Publicar este precio' }).click()
-      await expect(page.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
-      await page.getByLabel('Precio en pesos colombianos (COP)').fill('120000,50')
-      await page.getByRole('button', { name: 'Publicar este precio' }).click()
-      await expect(page.getByText(/pesos enteros, sin centavos/)).toBeVisible()
+      await page.getByRole('button', { name: 'Cambiar el precio' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Cambiar el precio' })
+      await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(dialog.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-075 · centavos, refused on the form',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Cambiar el precio' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Cambiar el precio' })
+      await dialog.getByLabel('Precio en pesos colombianos (COP)').fill('120000,50')
+      await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(dialog.getByText(/pesos enteros, sin centavos/)).toBeVisible()
     },
   },
   {
@@ -3683,20 +3789,31 @@ export const SCREENS: Screen[] = [
       return fixture
     },
     reveal: async (page) => {
-      await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
-      await page.getByRole('button', { name: 'Publicar este precio' }).click()
-      await page.getByRole('button', { name: 'Publicar ahora' }).click()
-      await expect(page.getByRole('alertdialog')).toContainText('No se publicó')
+      await page.getByRole('button', { name: 'Cambiar el precio' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Cambiar el precio' })
+      await dialog.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
+      await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
+      await expect(dialog).toContainText('No se publicó')
     },
   },
   // --- `/organizations/[id]/billing/plans/[planId]`, retire a price · HU-076 ---
+  {
+    stories: 'HU-076 · the menu that holds retiring',
+    path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.locator('[data-plan-menu]').click()
+      await expect(page.getByRole('menuitem', { name: 'Retirar el precio' })).toBeVisible()
+    },
+  },
   {
     stories: 'HU-076 · both halves of retiring, before the click',
     path: `${workspace}/billing/plans/${MONTHLY_PLAN_ID}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await page.locator('[data-plan-menu]').click()
+      await page.getByRole('menuitem', { name: 'Retirar el precio' }).click()
       await expect(page.getByRole('alertdialog')).toContainText('no se cancela, no se suspende')
     },
   },
@@ -3706,7 +3823,7 @@ export const SCREENS: Screen[] = [
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('Ahora no tiene ningún precio a la venta.')).toBeVisible()
+      await expect(page.getByText('No tiene ningún precio a la venta ahora.')).toBeVisible()
     },
   },
   {
@@ -3721,7 +3838,8 @@ export const SCREENS: Screen[] = [
       return fixture
     },
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Retirar este precio' }).click()
+      await page.locator('[data-plan-menu]').click()
+      await page.getByRole('menuitem', { name: 'Retirar el precio' }).click()
       await page.getByRole('button', { name: 'Retirar ahora' }).click()
       await expect(page.getByRole('alertdialog')).toContainText('No se retiró')
     },
@@ -3767,6 +3885,25 @@ export const SCREENS: Screen[] = [
     },
   },
   {
+    stories: 'HU-078 · a name nobody has',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await page.getByLabel('Buscar persona').fill('zzz')
+      await expect(page.getByText('Ninguna persona coincide')).toBeVisible()
+    },
+  },
+  {
+    // Rows on a desktop, cards on a phone: the menu opens over both.
+    stories: 'HU-078 · what a subscription takes, in its menu',
+    path: `${workspace}/billing`,
+    fixture: withEverySubscriptionState,
+    reveal: async (page) => {
+      await openSubscriptionMenu(page, 'Al día')
+      await expect(page.getByRole('menuitem', { name: 'Pausar el plan' })).toBeVisible()
+    },
+  },
+  {
     stories: 'HU-078 · who pays could not be read',
     path: `${workspace}/billing`,
     fixture: () => {
@@ -3788,8 +3925,9 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/billing`,
     fixture: withEverySubscriptionState,
     reveal: async (page) => {
-      await page.locator('[data-billing-action="suspend"]').first().click()
-      await expect(page.getByRole('dialog')).toContainText('Lo que no cambia')
+      await openSubscriptionMenu(page, 'Al día')
+      await page.getByRole('menuitem', { name: 'Pausar el plan' }).click()
+      await expect(page.getByRole('dialog')).toContainText('Qué no cambia')
     },
   },
   {
@@ -3798,7 +3936,8 @@ export const SCREENS: Screen[] = [
     fixture: withEverySubscriptionState,
     viewport: MOBILE,
     reveal: async (page) => {
-      await page.locator('[data-billing-action="reactivate"]').first().click()
+      await openSubscriptionMenu(page, 'En pausa')
+      await page.getByRole('menuitem', { name: 'Reactivar el plan' }).click()
       await expect(page.getByRole('dialog')).toContainText('Lo que cambió durante la pausa')
     },
   },
@@ -3812,7 +3951,8 @@ export const SCREENS: Screen[] = [
         subscriptionOutcome: 'no-cause',
       }),
     reveal: async (page) => {
-      await page.locator('[data-billing-action="reactivate"]').click()
+      await openSubscriptionMenu(page, 'En pausa')
+      await page.getByRole('menuitem', { name: 'Reactivar el plan' }).click()
       await page.getByRole('button', { name: 'Reactivar y avisar' }).click()
       await expect(page.locator('[data-billing-error]')).toBeVisible()
     },
@@ -3823,7 +3963,8 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/billing`,
     fixture: withEverySubscriptionState,
     reveal: async (page) => {
-      await page.locator('[data-billing-action="end"]').first().click()
+      await openSubscriptionMenu(page, 'Al día')
+      await page.getByRole('menuitem', { name: 'Terminar el plan' }).click()
       await expect(page.getByRole('dialog')).toContainText('Sigue en pie la relación')
     },
   },
@@ -3833,7 +3974,8 @@ export const SCREENS: Screen[] = [
     fixture: withEverySubscriptionState,
     viewport: MOBILE,
     reveal: async (page) => {
-      await page.locator('[data-billing-action="end"]').nth(1).click()
+      await openSubscriptionMenu(page, 'En pausa')
+      await page.getByRole('menuitem', { name: 'Terminar el plan' }).click()
       await expect(page.getByRole('dialog')).toContainText('levanta la pausa')
     },
   },

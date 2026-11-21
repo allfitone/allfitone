@@ -46,7 +46,8 @@
    arrives. A refusal or a failure is a sentence and keeps the reading canvas. */
 [data-organization-content] > [data-today-panel='board'],
 [data-organization-content] > [data-content-page='library'],
-[data-organization-content] > [data-content-page='program'] {
+[data-organization-content] > [data-content-page='program'],
+[data-organization-content] > [data-billing-page='register'] {
   width: min(100%, var(--studio-canvas-board));
 }
 
@@ -149,7 +150,6 @@
 [data-client-invitation-actions],
 [data-credential-actions],
 [data-card-footer-actions],
-[data-billing-actions],
 [data-profile-form-actions],
 [data-client-card-doors],
 [data-historical-case-actions] {
@@ -641,7 +641,9 @@
 [data-ownership-invitation-summary] dt,
 [data-team-member-facts] dt,
 [data-client-facts] dt,
-[data-billing-facts] dt,
+[data-billing-figure] dt,
+[data-plan-section-title],
+[data-billing-consequence] h3,
 [data-authorized-scope-facts] dt,
 [data-relationship-facts] dt,
 [data-credential-details] dt,
@@ -670,14 +672,12 @@
 /* CardContent pads sideways and nothing else, so the action sat against the
    last fact. The gap belongs to Studio's own element, not to the component. */
 [data-team-member-card] [data-team-invitation-actions],
-[data-billing-card] [data-billing-actions],
 [data-historical-case-actions] {
   margin-block-start: var(--afo-space-4);
 }
 
 [data-team-member-facts],
 [data-client-facts],
-[data-billing-facts],
 [data-authorized-scope-facts],
 [data-relationship-facts],
 [data-client-card-facts],
@@ -1286,7 +1286,6 @@
    flush against each other and against the note below them. */
 [data-team-directory-cards],
 [data-client-directory-cards],
-[data-billing-cards],
 [data-authorized-scope-cards] {
   display: grid;
   gap: var(--afo-space-4);
@@ -1347,7 +1346,9 @@
    privacy control, which floats above every layer: «Cancelar» lost half its
    target to it. The page behind is inert meanwhile, so the control steps aside. */
 @media (max-width: 640px) {
-  :root:has([data-library-create]) [data-analytics-controls][data-expanded='false'] {
+  :root:has([data-library-create]) [data-analytics-controls][data-expanded='false'],
+  :root:has([data-plan-publish-dialog]) [data-analytics-controls][data-expanded='false'],
+  :root:has([data-billing-confirm]) [data-analytics-controls][data-expanded='false'] {
     visibility: hidden;
   }
 }
@@ -1464,7 +1465,8 @@
 
   [data-template-save-status],
   [data-program-save-status],
-  [data-movement-save-status] {
+  [data-movement-save-status],
+  [data-plan-save-status] {
     grid-column: 1 / -1;
   }
 
@@ -1477,6 +1479,7 @@
 [data-template-save-status],
 [data-program-save-status],
 [data-movement-save-status],
+[data-plan-save-status],
 [data-program-no-sessions],
 [data-editor-meta-note] {
   margin: 0;
@@ -2131,11 +2134,14 @@
 /* One row above every list of the library: the search takes what the filters
    leave, and the view switch closes the row. It wraps when it does not fit,
    and the search then has a line of its own. */
-[data-library-toolbar] {
+[data-library-toolbar],
+[data-billing-toolbar] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--afo-space-3);
+  /* The size a tab panel gives it: the plans of a coach sit outside any tab. */
+  font-size: var(--afo-font-size-sm);
   container-type: inline-size;
 }
 
@@ -2149,7 +2155,8 @@
 
 /* A small basis, so the filters and the switch stay on its row on a laptop;
    it grows into whatever they leave. */
-[data-library-search] {
+[data-library-search],
+[data-billing-search] {
   flex: 1 1 12rem;
   max-width: 26rem;
 }
@@ -2221,7 +2228,8 @@
 
 /* Pushed to the foot, so a name that wraps does not lift one card's state
    above its neighbours'. */
-[data-library-card-foot] {
+[data-library-card-foot],
+[data-billing-card-foot] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2237,7 +2245,8 @@
   gap: var(--afo-space-2);
 }
 
-[data-library-edited] {
+[data-library-edited],
+[data-billing-card-date] {
   color: var(--afo-color-text-muted);
   font-size: var(--afo-font-size-xs);
 }
@@ -2280,7 +2289,8 @@
 
 /* One height for every row: only some carry a menu, and its 44px target made
    those rows taller than their neighbours. */
-[data-library-row] {
+[data-library-row],
+[data-billing-row] {
   height: 4.25rem;
 }
 
@@ -2295,6 +2305,315 @@
 /* The menu names versions and dates, which the menu's own minimum cut in two. */
 [data-library-menu-content] {
   min-width: 15rem;
+}
+
+/* ------------------------------------------------------------------ billing */
+
+/* Cobros is laid out with the library's own rules wherever it lists things:
+   the toolbar, the rows and the cards above name both. What follows is only
+   what the library has no equal for. */
+
+/* The figures over the list. As many columns as fit, so the four share a line
+   on a laptop and fall to two by two on a phone, where a sum of seven digits
+   would not fit a quarter of the screen. */
+[data-billing-summary] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--afo-space-4) var(--afo-space-6);
+  margin: 0;
+  padding: var(--afo-space-4) var(--afo-space-5);
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--afo-radius-card);
+  background: var(--afo-color-background-surface);
+}
+
+[data-billing-figure] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-1);
+}
+
+/* Tabular, so a count keeps its width when a plan moves from one to another. */
+[data-billing-figure] dd {
+  margin: 0;
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-3xl);
+  font-weight: var(--afo-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--afo-line-height-display);
+}
+
+@media (max-width: 639px) {
+  [data-billing-figure] dd {
+    font-size: var(--afo-font-size-2xl);
+  }
+}
+
+/* The states close the row, where the library has its view switch. Under the
+   width of a table they take a line of their own, from its start. */
+[data-billing-filter] {
+  margin-inline-start: auto;
+}
+
+@container (max-width: 44rem) {
+  [data-billing-filter] {
+    margin-inline-start: 0;
+  }
+}
+
+[data-billing-count] {
+  margin-inline-start: var(--afo-space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+/* On a phone the four states with their counts do not fit one line, and the
+   figures right above already say how many are in each. */
+@container (max-width: 30rem) {
+  [data-billing-count] {
+    display: none;
+  }
+}
+
+[data-studio-register='subscriptions'] col:nth-child(1) {
+  width: 30%;
+}
+
+[data-studio-register='subscriptions'] col:nth-child(2) {
+  width: 26%;
+}
+
+[data-studio-register='subscriptions'] col:nth-child(3) {
+  width: 14%;
+}
+
+[data-studio-register='subscriptions'] col:nth-child(4) {
+  width: 22%;
+}
+
+[data-studio-register='subscriptions'] col:nth-child(5) {
+  width: 8%;
+}
+
+[data-studio-register='plans'] col:nth-child(1) {
+  width: 32%;
+}
+
+[data-studio-register='plans'] col:nth-child(2) {
+  width: 30%;
+}
+
+[data-studio-register='plans'] col:nth-child(3) {
+  width: 17%;
+}
+
+/* The longest header of the four: at 17% it ran to the edge of the table. */
+[data-studio-register='plans'] col:nth-child(4) {
+  width: 21%;
+}
+
+[data-studio-register='plan-prices'] col:nth-child(1) {
+  width: 14%;
+}
+
+[data-studio-register='plan-prices'] col:nth-child(2),
+[data-studio-register='plan-prices'] col:nth-child(4) {
+  width: 27%;
+}
+
+[data-studio-register='plan-prices'] col:nth-child(3),
+[data-studio-register='plan-prices'] col:nth-child(5) {
+  width: 16%;
+}
+
+/* The name is what a row is found by. */
+[data-billing-name] {
+  font-weight: var(--afo-font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+[data-billing-card-list],
+[data-plan-price-list] {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The name over what the person pays, beside the avatar. */
+[data-billing-card-name] {
+  display: grid;
+  min-width: 0;
+}
+
+/* Two actions with short names: the menu's own minimum is already enough for
+   the longest, and this keeps the two menus of Cobros one width. */
+[data-billing-menu-content] {
+  min-width: 12rem;
+}
+
+[data-billing-loading] {
+  display: grid;
+  gap: var(--afo-space-3);
+}
+
+[data-billing-skeleton='summary'] {
+  height: 5.75rem;
+  border-radius: var(--afo-radius-card);
+}
+
+[data-billing-skeleton='toolbar'] {
+  max-width: 26rem;
+  height: 2.5rem;
+}
+
+[data-billing-skeleton='row'] {
+  height: 4.25rem;
+}
+
+/* What an action does and what it leaves alone, each under its own heading:
+   which half a sentence sits in is part of what it says. */
+[data-billing-consequences] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-4);
+}
+
+[data-billing-consequence] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-2);
+}
+
+[data-billing-consequence] h3 {
+  margin: 0;
+}
+
+[data-billing-consequence] ul,
+[data-billing-consequence-list] {
+  display: grid;
+  gap: var(--afo-space-2);
+  margin: 0;
+  padding-inline-start: var(--afo-space-5);
+  font-size: var(--afo-font-size-sm);
+  list-style: disc;
+  text-wrap: pretty;
+}
+
+/* That the person is told is the one consequence outside the organization. */
+[data-billing-notice] {
+  margin: 0;
+  font-size: var(--afo-font-size-sm);
+  font-weight: var(--afo-font-weight-semibold);
+}
+
+[data-billing-dialog-note] {
+  margin: 0;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* Monthly or yearly beside in person or remote: two short choices share a row. */
+[data-plan-price-choices] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+  gap: var(--afo-space-4);
+}
+
+/* In a list, the price is what the reader came for; a plan with none says so quietly. */
+[data-plan-price='on_sale'] {
+  color: var(--afo-color-text-primary);
+  font-weight: var(--afo-font-weight-semibold);
+}
+
+/* On a phone the bar's actions are a grid of two: the menu closes it at the
+   far end, on whichever row it lands, instead of starting a row of its own. */
+@media (max-width: 639px) {
+  [data-plan-menu] {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+
+[data-plan-summary] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-6);
+}
+
+[data-plan-offer],
+[data-plan-prices] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-2);
+}
+
+[data-plan-section-title] {
+  margin: 0;
+}
+
+/* A grid item does not shrink below its content, and the content is a table
+   asking for 44rem: without this it took the page past a phone's edge. */
+[data-plan-price-register] {
+  min-width: 0;
+}
+
+/* The price on sale, said once and large: it is the answer to «what does it cost». */
+[data-plan-offer-price],
+[data-plan-price-preview] {
+  margin: 0;
+  font-family: var(--afo-font-family-display);
+  font-size: var(--afo-font-size-3xl);
+  font-weight: var(--afo-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--afo-line-height-display);
+}
+
+/* In a dialog it is one step smaller, and one line tall even while empty. */
+[data-plan-price-preview] {
+  min-height: 1lh;
+  font-size: var(--afo-font-size-2xl);
+}
+
+[data-plan-offer-note] {
+  max-width: var(--studio-measure);
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
+[data-plan-price-list] {
+  display: grid;
+  gap: var(--afo-space-3);
+}
+
+/* A price stacked, where its table does not fit: what it was, when, and its state. */
+[data-plan-price-list] > li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--afo-space-1) var(--afo-space-3);
+  padding-block-end: var(--afo-space-3);
+  border-block-end: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-plan-price-line] {
+  font-size: var(--afo-font-size-sm);
+  font-weight: var(--afo-font-weight-medium);
+}
+
+[data-plan-price-span] {
+  grid-column: 1;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-plan-price-state] {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+[data-plan-skeleton-block] {
+  height: 12rem;
+  border-radius: var(--afo-radius-card);
 }
 
 /* ------------------------------------------------------------------- roles */
@@ -2615,7 +2934,6 @@
   [data-profile-setup-actions],
   [data-profile-form-actions],
   [data-card-footer-actions],
-  [data-billing-actions],
   [data-team-invitation-actions] {
     width: 100%;
   }
@@ -2629,7 +2947,6 @@
   [data-credential-actions] > *,
   [data-profile-setup-actions] > *,
   [data-card-footer-actions] > *,
-  [data-billing-actions] > *,
   [data-profile-form-actions] > * {
     flex: 1;
   }

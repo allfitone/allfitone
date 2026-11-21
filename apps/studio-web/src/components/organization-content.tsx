@@ -112,6 +112,7 @@ import {
   organizationSessionTemplatePagesQueryOptions,
 } from '@/lib/studio-query'
 import { useCompactTable } from '@/lib/use-compact-table'
+import { useEveryPage } from '@/lib/use-every-page'
 import { useLibraryView } from '@/lib/use-library-view'
 
 const PAGE_SIZE = 50
@@ -227,22 +228,6 @@ interface LibraryPanelProps {
   onViewChange: (view: LibraryView) => void
   /** Absent for a role that may not create, and until the roles are known. */
   onCreate: (() => void) | undefined
-}
-
-/**
- * Every page of a listing, one after another. The filters search what is
- * loaded, so stopping at the first page would hide what the second holds.
- */
-function useEveryPage(query: {
-  hasNextPage: boolean
-  isFetchingNextPage: boolean
-  isError: boolean
-  fetchNextPage: () => unknown
-}): void {
-  const { hasNextPage, isFetchingNextPage, isError, fetchNextPage } = query
-  useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage && !isError) void fetchNextPage()
-  }, [hasNextPage, isFetchingNextPage, isError, fetchNextPage])
 }
 
 function TemplateLibrary(props: LibraryPanelProps) {
