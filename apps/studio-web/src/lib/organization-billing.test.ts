@@ -2,18 +2,42 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   availableActions,
+  billingSummary,
   canManageBilling,
   confirmationDescription,
-  confirmationDetails,
+  confirmationSections,
+  filterSubscriptions,
   formatAmount,
   formatPeriodEnd,
+  menuActionLabel,
   personInitials,
   refusalDescription,
   refusalFor,
   refusalTitle,
   statusLabel,
+  subscriptionDateLine,
+  transitionDone,
 } from './organization-billing'
-import type { OrganizationRole } from './studio-api'
+import type { OrganizationRole, OrganizationSubscription } from './studio-api'
+
+function subscription(patch: Partial<OrganizationSubscription>): OrganizationSubscription {
+  return {
+    subscription_id: '01991600-7000-7000-8000-000000000601',
+    person_id: '01991600-7000-7000-8000-000000000201',
+    person_name: 'Ana Álvarez',
+    plan_name: 'Mensual',
+    plan_version_id: '01991600-7000-7000-8000-000000000501',
+    amount_minor: 12000000,
+    currency_code: 'COP',
+    billing_period: 'month',
+    status: 'active',
+    current_period_end: null,
+    started_at: '2026-10-01T15:12:44.118Z',
+    suspended_at: null,
+    ended_at: null,
+    ...patch,
+  }
+}
 
 function catalog(capabilities: string[]): OrganizationRole[] {
   return [
@@ -66,6 +90,23 @@ describe('which actions a subscription takes', () => {
     expect(statusLabel('suspended')).toBe('En pausa')
     expect(statusLabel('ended')).toBe('Terminada')
   })
+
+  test('the menu names the verb and what it acts on', () => {
+    expect(menuActionLabel('suspend')).toBe('Pausar el plan')
+    expect(menuActionLabel('reactivate')).toBe('Reactivar el plan')
+    expect(menuActionLabel('end')).toBe('Terminar el plan')
+  })
+
+  // The answer uses the word of the state the row now shows, so the two agree.
+  test('what is said afterwards names the state the row moved to', () => {
+    expect(transitionDone('suspend', 'Ana Álvarez')).toContain(
+      statusLabel('suspended').toLowerCase(),
+    )
+    expect(transitionDone('reactivate', 'Ana Álvarez')).toContain(
+      statusLabel('active').toLowerCase(),
+    )
+    expect(transitionDone('end', 'Ana Álvarez')).toBe('El plan de Ana Álvarez terminó.')
+  })
 })
 
 describe('what the confirmation promises', () => {
@@ -78,7 +119,8 @@ describe('what the confirmation promises', () => {
     action: 'suspend' | 'reactivate' | 'end',
     status: 'active' | 'suspended' = action === 'reactivate' ? 'suspended' : 'active',
   ) {
-    return [confirmationDescription(action), ...confirmationDetails(action, status)].join(' ')
+    const { happens, stays, notice } = confirmationSections(action, status)
+    return [confirmationDescription(action), ...happens, ...stays, notice].join(' ')
   }
 
   // HU-079 criteria 1 and 2: what pausing stops, and what it leaves alone.
@@ -86,9 +128,31 @@ describe('what the confirmation promises', () => {
     const text = said('suspend')
     expect(text).toContain('no puede registrar ni cambiar nada')
     expect(text).toContain('las sesiones futuras del programa que le asignaron quedan en pausa')
-    expect(text).toContain('no se le quita ningún permiso')
+    // The sentence opens its own line now that «Qué no cambia» is a heading over it.
+    expect(text).toContain('No se le quita ningún permiso')
     expect(text).toContain('su programa sigue asignado')
     expect(text).toContain('la relación con la organización sigue igual')
+  })
+
+  /*
+   * The two halves are told apart by where they sit, so a sentence in the wrong
+   * half says the opposite of the rule: what stops must never read as untouched.
+   */
+  test('what stops and what is left alone sit under their own heading', () => {
+    const pause = confirmationSections('suspend', 'active')
+    expect(pause.happens.join(' ')).toContain('no puede registrar ni cambiar nada')
+    expect(pause.happens.join(' ')).toContain('nunca se convierte sola en terminación')
+    expect(pause.stays.join(' ')).toContain('No se le quita ningún permiso')
+    expect(pause.stays.join(' ')).toContain('Conserva todo su historial')
+
+    const end = confirmationSections('end', 'suspended')
+    expect(end.happens.join(' ')).toContain('terminar también levanta la pausa')
+    expect(end.happens.join(' ')).toContain('Queda registrado que lo decidiste tú')
+    expect(end.stays.join(' ')).toContain('Sigue en pie la relación con la organización')
+
+    const back = confirmationSections('reactivate', 'suspended')
+    expect(back.happens.join(' ')).toContain('Vuelven las sesiones futuras')
+    expect(back.stays.join(' ')).toContain('Lo que cambió durante la pausa no vuelve')
   })
 
   test('pausing says she keeps her history and can train on her own', () => {
@@ -223,11 +287,103 @@ describe('reading an amount and a date', () => {
    * 10th for anybody west of Greenwich.
    */
   test('a date is the day it says, in any timezone', () => {
-    expect(formatPeriodEnd('2026-11-11')).toBe('11 de noviembre de 2026')
+    // Short, so a row stays one line; some engines abbreviate the month with a point.
+    expect(formatPeriodEnd('2026-11-11')).toMatch(/^11 nov\.? 2026$/)
   })
 
   test('initials come from the first two words, uppercased for es-CO', () => {
     expect(personInitials('carla cliente')).toBe('CC')
     expect(personInitials('  Ana  ')).toBe('A')
+  })
+})
+
+describe('the summary over the list', () => {
+  const list = [
+    subscription({ subscription_id: 'a' }),
+    subscription({ subscription_id: 'b', amount_minor: 9000000 }),
+    subscription({ subscription_id: 'c', amount_minor: 120000000, billing_period: 'year' }),
+    subscription({ subscription_id: 'd', status: 'suspended' }),
+    subscription({ subscription_id: 'e', status: 'ended' }),
+    subscription({ subscription_id: 'f', status: 'ended' }),
+  ]
+
+  test('counts each state', () => {
+    const summary = billingSummary(list)
+    expect(summary.active).toBe(3)
+    expect(summary.suspended).toBe(1)
+    expect(summary.ended).toBe(2)
+  })
+
+  /*
+   * Only what is in good standing: a paused plan is not being charged and an
+   * ended one never will be. A yearly plan adds a twelfth of its price.
+   */
+  test('the month adds the plans in good standing, a yearly one by its twelfth', () => {
+    expect(billingSummary(list).monthly).toEqual({
+      amountMinor: 12000000 + 9000000 + 10000000,
+      currencyCode: 'COP',
+    })
+  })
+
+  test('nobody in good standing is no figure, not a zero in a guessed currency', () => {
+    expect(billingSummary([subscription({ status: 'ended' })]).monthly).toBeNull()
+    expect(billingSummary([]).monthly).toBeNull()
+  })
+
+  // Two currencies cannot be added, and half a sum would read as the whole.
+  test('two currencies in good standing are not added up', () => {
+    const mixed = [subscription({}), subscription({ subscription_id: 'usd', currency_code: 'USD' })]
+    expect(billingSummary(mixed).monthly).toBeNull()
+  })
+})
+
+describe('finding somebody in the list', () => {
+  const list = [
+    subscription({ subscription_id: 'a', person_name: 'Ana Álvarez' }),
+    subscription({ subscription_id: 'b', person_name: 'Bruno Bedoya', status: 'suspended' }),
+    subscription({ subscription_id: 'c', person_name: 'Carla Castro', status: 'ended' }),
+  ]
+
+  test('a name is found whatever its capitals and accents', () => {
+    const found = filterSubscriptions(list, { term: 'alvarez', status: 'all' })
+    expect(found.map((entry) => entry.person_name)).toEqual(['Ana Álvarez'])
+  })
+
+  test('a state narrows the list and keeps its order', () => {
+    expect(filterSubscriptions(list, { term: '', status: 'all' })).toHaveLength(3)
+    const paused = filterSubscriptions(list, { term: '', status: 'suspended' })
+    expect(paused.map((entry) => entry.person_name)).toEqual(['Bruno Bedoya'])
+  })
+
+  test('the search and the state narrow together', () => {
+    expect(filterSubscriptions(list, { term: 'ana', status: 'ended' })).toEqual([])
+  })
+})
+
+describe('the date a row shows', () => {
+  test('a plan in good standing shows its next charge, or says none was reported', () => {
+    expect(subscriptionDateLine(subscription({ current_period_end: '2026-12-01' }))).toMatch(
+      /^1 dic\.? 2026$/,
+    )
+    expect(subscriptionDateLine(subscription({}))).toBe('Sin cobro reportado')
+  })
+
+  // A paused plan is not being charged, so a next charge there would be a promise.
+  test('a paused plan says since when, never a next charge', () => {
+    const line = subscriptionDateLine(
+      subscription({
+        status: 'suspended',
+        current_period_end: '2026-12-01',
+        suspended_at: '2026-11-14T15:00:00.000Z',
+      }),
+    )
+    expect(line).toMatch(/^Desde el 14 nov\.? 2026$/)
+  })
+
+  test('an ended plan says the day it ended', () => {
+    const line = subscriptionDateLine(
+      subscription({ status: 'ended', ended_at: '2026-10-30T15:00:00.000Z' }),
+    )
+    expect(line).toMatch(/^El 30 oct\.? 2026$/)
   })
 })

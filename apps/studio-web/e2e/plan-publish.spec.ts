@@ -12,15 +12,17 @@ import {
 } from './studio-api-mock'
 
 /*
- * HU-STUDIO-075: putting a price on sale. Criterion 1 is the form's four
- * questions; criteria 2 and 3 are said in the dialog before the click, along
- * with the price it retires; criterion 4 is the remote warning, because the
- * payment link a remote price needs (HU-STUDIO-088) does not exist yet.
+ * HU-STUDIO-075: putting a price on sale. Criterion 1 is the dialog's four
+ * questions; criteria 2 and 3 are said under them before the click, along with
+ * the price it retires and the new one read back as it will stand; criterion 4
+ * is the remote warning, because the payment link a remote price needs
+ * (HU-STUDIO-088) does not exist yet.
  */
 
 const PLANS_PATH = `/organizations/${activeMembership.organization_id}/billing/plans`
 const MONTHLY_PATH = `${PLANS_PATH}/${MONTHLY_PLAN_ID}`
 const DRAFT_PATH = `${PLANS_PATH}/${draftPlan.plan_id}`
+const AMOUNT = 'Precio en pesos colombianos (COP)'
 
 function publishes(fixture: StudioApiFixture) {
   return fixture.requests.filter(
@@ -28,32 +30,39 @@ function publishes(fixture: StudioApiFixture) {
   )
 }
 
-async function openOwner(page: Page, path: string) {
+/** The plan's page, with the dialog that publishes a price open over it. */
+async function openOwner(page: Page, path: string, action: string) {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await page.goto(path)
-  await expect(page.getByRole('button', { name: 'Publicar este precio' })).toBeVisible()
-  return fixture
+  await page.getByRole('button', { name: action }).click()
+  const dialog = page.getByRole('dialog', { name: action })
+  await expect(dialog).toBeVisible()
+  return { fixture, dialog }
 }
 
 test('a new price retires the one on sale, and the dialog says so first', async ({ page }) => {
-  const fixture = await openOwner(page, MONTHLY_PATH)
-  await expect(page.getByLabel('Precio en pesos colombianos (COP)')).toHaveValue('120000')
+  const { fixture, dialog } = await openOwner(page, MONTHLY_PATH, 'Cambiar el precio')
+  await expect(dialog.getByLabel(AMOUNT)).toHaveValue('120000')
 
-  await page.getByLabel('Precio en pesos colombianos (COP)').fill('130.000')
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
+  await dialog.getByLabel(AMOUNT).fill('130.000')
 
-  const dialog = page.getByRole('alertdialog')
-  await expect(dialog).toContainText(/¿Publicar \$\s?130\.000(,00)? al mes · presencial\?/)
+  // Before the click: the price as it will stand, and what publishing it changes.
+  await expect(dialog.locator('[data-plan-price-preview]')).toHaveText(
+    /^\$\s?130\.000(,00)? al mes · Presencial$/,
+  )
   await expect(dialog).toContainText(/Se retira el precio que está a la venta ahora: \$\s?120\.000/)
   await expect(dialog).toContainText('Quien ya está suscrito conserva el precio que aceptó')
   await expect(dialog).toContainText('Un precio publicado no se edita nunca')
-  await dialog.getByRole('button', { name: 'Publicar ahora' }).click()
+  await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
 
   await expect(page.getByText('Publicado: la versión 3 está a la venta.')).toBeVisible()
-  const prices = page.getByRole('list', { name: 'Precios' })
-  await expect(prices.getByRole('listitem').first()).toContainText(/Versión 3 · \$\s?130\.000/)
-  await expect(prices.getByRole('listitem').nth(1)).toContainText('Retirada')
+  await expect(dialog).toHaveCount(0)
+  const prices = page.locator('[data-studio-register="plan-prices"] tbody tr')
+  await expect(prices.first()).toContainText('Versión 3')
+  await expect(prices.first()).toContainText(/\$\s?130\.000/)
+  await expect(prices.first()).toContainText('A la venta')
+  await expect(prices.nth(1)).toContainText('Retirada')
   expect(publishes(fixture)[0]?.body).toEqual({
     amount_minor: 13000000,
     currency_code: 'COP',
@@ -63,22 +72,19 @@ test('a new price retires the one on sale, and the dialog says so first', async 
 })
 
 test('a draft’s first price puts it on sale in Space', async ({ page }) => {
-  const fixture = await openOwner(page, DRAFT_PATH)
-  await expect(page.getByRole('heading', { name: 'Publicar un precio' })).toBeVisible()
+  const { fixture, dialog } = await openOwner(page, DRAFT_PATH, 'Publicar un precio')
 
-  await page.getByLabel('Precio en pesos colombianos (COP)').fill('1200000')
-  await page.getByRole('radio', { name: 'Anual' }).click()
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
+  await dialog.getByLabel(AMOUNT).fill('1200000')
+  await dialog.getByRole('radio', { name: 'Anual' }).click()
 
-  const dialog = page.getByRole('alertdialog')
   await expect(dialog).toContainText('Desde ese momento se ofrece en Allfit Space')
   await expect(dialog).not.toContainText('Se retira')
   await expect(dialog).not.toContainText('Quien ya está suscrito')
-  await dialog.getByRole('button', { name: 'Publicar ahora' }).click()
+  await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
 
-  await expect(page.locator('[data-plan-summary]')).toContainText(
-    /A la venta: \$\s?1\.200\.000(,00)? al año · presencial/,
-  )
+  const offer = page.locator('[data-plan-offer]')
+  await expect(offer).toHaveAttribute('data-plan-offer', 'on_sale')
+  await expect(offer).toContainText(/\$\s?1\.200\.000(,00)? al año · Presencial/)
   expect(publishes(fixture)[0]?.body).toMatchObject({
     amount_minor: 120000000,
     billing_period: 'year',
@@ -88,83 +94,81 @@ test('a draft’s first price puts it on sale in Space', async ({ page }) => {
 test('a remote price is warned as not chargeable yet, and backing out sends nothing', async ({
   page,
 }) => {
-  const fixture = await openOwner(page, DRAFT_PATH)
-  await page.getByLabel('Precio en pesos colombianos (COP)').fill('90000')
-  await page.getByRole('radio', { name: 'Remoto' }).click()
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
+  const { fixture, dialog } = await openOwner(page, DRAFT_PATH, 'Publicar un precio')
+  await dialog.getByLabel(AMOUNT).fill('90000')
+  await dialog.getByRole('radio', { name: 'Remoto' }).click()
 
-  const dialog = page.getByRole('alertdialog')
   await expect(dialog).toContainText('no se ofrece en Allfit Space')
   await expect(dialog).toContainText('Ese link todavía no está disponible')
-  await dialog.getByRole('button', { name: 'Seguir editando' }).click()
+  await dialog.getByRole('button', { name: 'Cancelar' }).click()
 
   await expect(dialog).toHaveCount(0)
   expect(publishes(fixture)).toHaveLength(0)
 })
 
 test('the price already on sale is not offered for publishing again', async ({ page }) => {
-  const fixture = await openOwner(page, MONTHLY_PATH)
+  const { fixture, dialog } = await openOwner(page, MONTHLY_PATH, 'Cambiar el precio')
 
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
+  await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
 
-  await expect(page.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
-  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  await expect(dialog.getByText('Ese precio ya es el que está a la venta.')).toBeVisible()
   expect(publishes(fixture)).toHaveLength(0)
 })
 
-test('centavos are refused before the dialog', async ({ page }) => {
-  const fixture = await openOwner(page, MONTHLY_PATH)
+test('centavos are refused before anything is sent', async ({ page }) => {
+  const { fixture, dialog } = await openOwner(page, MONTHLY_PATH, 'Cambiar el precio')
 
-  await page.getByLabel('Precio en pesos colombianos (COP)').fill('120000,50')
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
+  await dialog.getByLabel(AMOUNT).fill('120000,50')
+  // Not a price, so nothing is read back as one.
+  await expect(dialog.locator('[data-plan-price-preview]')).toHaveText('')
+  await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
 
-  await expect(page.getByText(/pesos enteros, sin centavos/)).toBeVisible()
-  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  await expect(dialog.getByText(/pesos enteros, sin centavos/)).toBeVisible()
   expect(publishes(fixture)).toHaveLength(0)
 })
 
 test('a price published by somebody else a moment earlier is said as a conflict', async ({
   page,
 }) => {
-  const fixture = await openOwner(page, MONTHLY_PATH)
+  const { fixture, dialog } = await openOwner(page, MONTHLY_PATH, 'Cambiar el precio')
   fixture.intercept = (request) =>
     request.method === 'POST' && request.path.endsWith('/versions')
       ? { status: 409, body: error('conflict') }
       : undefined
 
-  await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
-  await page.getByRole('button', { name: 'Publicar ahora' }).click()
+  await dialog.getByLabel(AMOUNT).fill('130000')
+  await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
 
-  const dialog = page.getByRole('alertdialog')
+  // Said in the dialog, which stays open with what was typed.
   await expect(dialog).toContainText('No se publicó')
   await expect(dialog).toContainText('al mismo tiempo')
+  await expect(dialog.getByLabel(AMOUNT)).toHaveValue('130000')
 })
 
 test('a price that was already on sale by the time it landed says nothing changed', async ({
   page,
 }) => {
-  const fixture = await openOwner(page, MONTHLY_PATH)
+  const { fixture, dialog } = await openOwner(page, MONTHLY_PATH, 'Cambiar el precio')
   // Somebody published this same price between the read and the click: the server answers 200.
   fixture.intercept = (request) =>
     request.method === 'POST' && request.path.endsWith('/versions')
       ? { status: 200, body: planOnSale }
       : undefined
 
-  await page.getByLabel('Precio en pesos colombianos (COP)').fill('130000')
-  await page.getByRole('button', { name: 'Publicar este precio' }).click()
-  await page.getByRole('button', { name: 'Publicar ahora' }).click()
+  await dialog.getByLabel(AMOUNT).fill('130000')
+  await dialog.getByRole('button', { name: 'Publicar este precio' }).click()
 
   await expect(page.getByText('Ese precio ya estaba a la venta; no cambió nada.')).toBeVisible()
 })
 
-test('a coach reads the prices without the form to publish one', async ({ page }) => {
+test('a coach reads the prices without the way to publish one', async ({ page }) => {
   await installStudioApiMock(
     page,
     createStudioApiFixture({ memberships: [{ ...activeMembership, roles: ['coach'] }] }),
   )
   await page.goto(MONTHLY_PATH)
 
-  await expect(page.getByRole('list', { name: 'Precios' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Publicar este precio' })).toHaveCount(0)
+  await expect(page.locator('[data-studio-register="plan-prices"] tbody tr')).toHaveCount(2)
+  await expect(page.locator('[data-plan-publish-action]')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Cambiar el precio' })).toHaveCount(0)
 })

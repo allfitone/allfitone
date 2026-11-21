@@ -1,25 +1,35 @@
 'use client'
 
 /**
- * One plan, on its own page: what it is, every price it has had, and what an
- * owner or an admin can do with it.
+ * One plan, on its own page: what it sells at, every price it has had, and
+ * what an owner or an admin can do with it.
+ *
+ * Shaped as the library's editors are: a trail back to the plans, then a bar
+ * that stays in sight with the name typed where it is read, the state beside
+ * it and the actions. Publishing a price is the button; retiring the one on
+ * sale cannot be undone, so it waits in the menu.
  *
  * There is no read of one plan: the listing carries each plan whole, so the
  * page finds its plan there, the way the program editor finds its draft. The
  * whole team reads it (`HU-STUDIO-077`); writing is `manage_billing`'s, so a
- * coach or staff member reads the same page without its forms.
+ * coach or staff member reads the same page with a name that is not a field
+ * and no actions.
+ *
+ * `OP-PAY-003`: the name of a draft and of a plan on sale change alike, and
+ * whoever pays it reads the new one, so a change waits for «Guardar el nombre»
+ * instead of saving itself. A name another plan uses is a `409`.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@allfitone/react/components/dropdown-menu'
 import {
   Empty,
   EmptyDescription,
@@ -27,28 +37,44 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@allfitone/react/components/empty'
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '@allfitone/react/components/field'
+import { FieldError } from '@allfitone/react/components/field'
+import { IconButton } from '@allfitone/react/components/icon-button'
 import { Input } from '@allfitone/react/components/input'
+import { Skeleton } from '@allfitone/react/components/skeleton'
 import { Spinner } from '@allfitone/react/components/spinner'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@allfitone/react/components/table'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useId, useState } from 'react'
 
+import { BillingTrail, PlanStateBadge } from './billing-views'
+import { LibraryToaster } from './library-views'
 import { useOrganizationContext } from './organization-context'
-import { PlanPublish } from './plan-publish'
-import { PlanRetire } from './plan-retire'
+import { PlanPublishDialog, publishActionLabel } from './plan-publish'
+import { PlanRetireDialog } from './plan-retire'
 import { useStudioSessionMutation } from './studio-query-provider'
-import { WorkspacePageHeader } from './workspace-page-header'
+import { billingPath } from '@/lib/billing-navigation'
 import { canManageBilling } from '@/lib/organization-billing'
-import { planStateLine, planVersionLine, versionStatusLabel } from '@/lib/plan-catalog'
+import {
+  deliveryName,
+  planPriceLine,
+  planState,
+  planStateLabel,
+  planStateNote,
+  planVersionLine,
+  priceLabel,
+  versionSpan,
+  versionStatusLabel,
+} from '@/lib/plan-catalog'
 import { planNameError, planNameRequest, planWriteFailure } from '@/lib/plan-create'
 import {
   StudioApiError,
@@ -56,6 +82,7 @@ import {
   studioApi,
   type CommandHeaders,
   type OrganizationPlan,
+  type PlanVersion,
 } from '@/lib/studio-api'
 import {
   isStudioQuerySessionCancelled,
@@ -63,14 +90,15 @@ import {
   organizationRolesQueryOptions,
   studioQueryKeys,
 } from '@/lib/studio-query'
+import { useCompactTable } from '@/lib/use-compact-table'
 
 const PAGE_SIZE = 50
+const RENAME_FORM = 'plan-rename-form'
 
 export function PlanDetail() {
   const params = useParams<{ planId: string }>()
   const { current } = useOrganizationContext()
   const organizationId = current.organization_id
-  const billingPath = `/organizations/${organizationId}/billing`
   const rolesQuery = useQuery(organizationRolesQueryOptions(organizationId))
   const plansQuery = useInfiniteQuery(organizationPlansQueryOptions(organizationId, PAGE_SIZE))
   const plan = plansQuery.data?.pages
@@ -98,7 +126,14 @@ export function PlanDetail() {
               No existe o no es de {current.display_name}. Vuelve a Cobros para elegir otro.
             </EmptyDescription>
           </EmptyHeader>
-          <BackToBilling href={billingPath} />
+          <Link
+            href={billingPath(organizationId, 'plans')}
+            className={buttonVariants({ variant: 'outline' })}
+            data-variant="outline"
+            data-slot="button"
+          >
+            Volver a Cobros
+          </Link>
         </Empty>
       </section>
     )
@@ -125,9 +160,9 @@ export function PlanDetail() {
   if (!plan || rolesQuery.isPending) {
     return (
       <section data-billing-page aria-label={label}>
-        <div data-content-catalog-state>
-          <Spinner label="Abriendo el plan" />
-          <p>Abriendo el plan…</p>
+        <div data-editor-skeleton role="status" aria-label="Abriendo el plan">
+          <Skeleton data-editor-skeleton-bar />
+          <Skeleton data-plan-skeleton-block />
         </div>
       </section>
     )
@@ -135,68 +170,44 @@ export function PlanDetail() {
 
   return (
     <section data-billing-page aria-label={label}>
-      <WorkspacePageHeader
-        description={`Un plan que vende ${current.display_name}: su nombre, y cada precio que ha tenido.`}
-        actions={<BackToBilling href={billingPath} />}
-      />
-      <PlanSummary plan={plan} />
+      <BillingTrail organizationId={organizationId} current={plan.name} />
+
       {canManage ? (
-        <>
-          <PlanPublish
-            key={`publish-${plan.plan_id}`}
-            plan={plan}
-            organizationId={organizationId}
-          />
-          <PlanRetire key={`retire-${plan.plan_id}`} plan={plan} organizationId={organizationId} />
-          <PlanRename key={plan.plan_id} plan={plan} organizationId={organizationId} />
-        </>
+        <PlanBar key={plan.plan_id} plan={plan} organizationId={organizationId} />
       ) : (
-        <p>Cambiar un plan corresponde a quienes administran los cobros.</p>
+        <header data-editor-bar>
+          <div data-editor-title>
+            <p role="heading" aria-level={2} data-editor-heading>
+              {plan.name}
+            </p>
+            <PlanStateBadge plan={plan} />
+          </div>
+        </header>
       )}
+
+      <PlanSummary plan={plan} />
+
+      {canManage ? null : (
+        <p data-editor-meta-note>Cambiar un plan corresponde a quienes administran los cobros.</p>
+      )}
+      {/* Last, so the room the section keeps between its parts falls under them. */}
+      <LibraryToaster />
     </section>
   )
 }
 
-function PlanSummary({ plan }: { plan: OrganizationPlan }) {
-  return (
-    <Card data-plan-summary>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          {plan.name}
-        </CardTitle>
-        <CardDescription>{planStateLine(plan)}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {plan.versions.length > 0 ? (
-          <ul data-content-version-list aria-label="Precios">
-            {plan.versions.map((version) => (
-              <li key={version.plan_version_id}>
-                <span>{planVersionLine(version)}</span>
-                <Badge variant={version.status === 'published' ? 'secondary' : 'outline'}>
-                  {versionStatusLabel(version)}
-                </Badge>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>Todavía no tiene ningún precio publicado.</p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-/**
- * `OP-PAY-003`. The name of a draft and of a plan on sale change alike, and
- * whoever pays it reads the new one. A name another plan uses is a `409`.
- */
-function PlanRename({ plan, organizationId }: { plan: OrganizationPlan; organizationId: string }) {
+/** The bar of a plan somebody may change: its name as a field, and what a price can be asked to do. */
+function PlanBar({ plan, organizationId }: { plan: OrganizationPlan; organizationId: string }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(plan.name)
   const [command, setCommand] = useState(newCommand)
   const [submitted, setSubmitted] = useState(false)
   const [refusal, setRefusal] = useState<{ status: number } | null>(null)
   const [saved, setSaved] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  // The price the menu was asked to retire: kept while its dialog closes.
+  const [retiring, setRetiring] = useState<PlanVersion | null>(null)
+  const [retireOpen, setRetireOpen] = useState(false)
 
   const rename = useStudioSessionMutation({
     mutationFn: ({ body, command }: { body: { name: string }; command: CommandHeaders }, signal) =>
@@ -208,14 +219,16 @@ function PlanRename({ plan, organizationId }: { plan: OrganizationPlan; organiza
     },
   })
 
+  const dirty = name.trim() !== plan.name
   const checked = submitted ? planNameError(name) : undefined
   const nameError = refusal?.status === 409 ? planWriteFailure(409) : checked
   const failure = refusal && refusal.status !== 409 ? planWriteFailure(refusal.status) : undefined
+  const onSale = plan.on_sale ? plan.current_version : null
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setSubmitted(true)
-    if (rename.isPending || planNameError(name)) return
+    if (rename.isPending || !dirty || planNameError(name)) return
     setRefusal(null)
     try {
       await rename.mutateAsync({ body: planNameRequest(name), command })
@@ -232,62 +245,202 @@ function PlanRename({ plan, organizationId }: { plan: OrganizationPlan; organiza
   }
 
   return (
-    <Card data-plan-rename>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Nombre del plan
-        </CardTitle>
-        <CardDescription>
-          Se puede cambiar esté o no a la venta. Quien ya lo paga ve el nombre nuevo; su precio no
-          cambia.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form data-studio-form onSubmit={submit} noValidate>
-          <FieldGroup>
-            <Field data-invalid={Boolean(nameError)}>
-              <FieldLabel htmlFor="plan-rename">Nombre</FieldLabel>
-              <Input
-                id="plan-rename"
-                maxLength={80}
-                value={name}
-                aria-invalid={Boolean(nameError)}
-                onChange={(event) => {
-                  setName(event.target.value)
-                  setCommand(newCommand())
-                  setRefusal(null)
-                  setSaved(false)
-                }}
-              />
-              <FieldDescription>Único en tu organización, sin contar mayúsculas.</FieldDescription>
-              {nameError ? <FieldError>{nameError}</FieldError> : null}
-            </Field>
-          </FieldGroup>
-          <div data-program-save-bar>
-            {failure ? <FieldError data-plan-error>{failure}</FieldError> : null}
-            <Button type="submit" variant="outline" disabled={rename.isPending}>
+    <>
+      {/* Stays in sight while the prices scroll, like every editor of the library. */}
+      <header data-editor-bar>
+        <form
+          id={RENAME_FORM}
+          data-editor-title
+          onSubmit={(event) => void submit(event)}
+          noValidate
+        >
+          <Input
+            aria-label="Nombre"
+            placeholder="Nombre del plan"
+            maxLength={80}
+            value={name}
+            aria-invalid={Boolean(nameError)}
+            onChange={(event) => {
+              setName(event.target.value)
+              // A different name is a different command.
+              setCommand(newCommand())
+              setRefusal(null)
+              setSaved(false)
+            }}
+            data-editor-name
+          />
+          <PlanStateBadge plan={plan} />
+        </form>
+        <div data-editor-actions>
+          <p data-plan-save-status role="status" aria-live="polite">
+            {saved && !dirty ? 'Nombre guardado.' : ''}
+          </p>
+          {/* Offered only once the name differs: nothing to save is no button. */}
+          {dirty ? (
+            <Button type="submit" form={RENAME_FORM} disabled={rename.isPending}>
               {rename.isPending ? <Spinner label="Guardando el nombre" /> : null}
               {rename.isPending ? 'Guardando…' : 'Guardar el nombre'}
             </Button>
-            <p role="status" aria-live="polite">
-              {saved ? 'Nombre guardado.' : ''}
-            </p>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+          ) : null}
+          {/* One of the two is the next thing to do, and that one is the filled button. */}
+          <Button
+            type="button"
+            variant={dirty ? 'outline' : 'default'}
+            onClick={() => setPublishing(true)}
+            data-plan-publish-action
+          >
+            {publishActionLabel(plan)}
+          </Button>
+          {onSale ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Más acciones de ${plan.name}`}
+                    data-plan-menu
+                  />
+                }
+              >
+                <FoundationIcon name="more" decorative />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" data-billing-menu-content>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => {
+                      setRetiring(onSale)
+                      setRetireOpen(true)
+                    }}
+                    data-plan-retire-action
+                  >
+                    Retirar el precio
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
+      </header>
+
+      {/* What stops a save is said under the button that was pressed. */}
+      {nameError ? <FieldError data-plan-error>{nameError}</FieldError> : null}
+      {failure ? <FieldError data-plan-error>{failure}</FieldError> : null}
+
+      <PlanPublishDialog
+        plan={plan}
+        organizationId={organizationId}
+        open={publishing}
+        onOpenChange={setPublishing}
+      />
+      {retiring ? (
+        <PlanRetireDialog
+          plan={plan}
+          version={retiring}
+          organizationId={organizationId}
+          open={retireOpen}
+          onOpenChange={setRetireOpen}
+        />
+      ) : null}
+    </>
   )
 }
 
-function BackToBilling({ href }: { href: string }) {
+// What it sells at now is the answer most readers came for: said large, before the list.
+function PlanSummary({ plan }: { plan: OrganizationPlan }) {
+  const state = planState(plan)
+  const note = planStateNote(plan)
+  const offerId = useId()
+  const pricesId = useId()
   return (
-    <Link
-      href={href}
-      className={buttonVariants({ variant: 'outline' })}
-      data-variant="outline"
-      data-slot="button"
-    >
-      Volver a Cobros
-    </Link>
+    <div data-plan-summary>
+      <section aria-labelledby={offerId} data-plan-offer={state}>
+        <h2 id={offerId} data-plan-section-title>
+          {planStateLabel(state)}
+        </h2>
+        {note ? (
+          <p data-plan-offer-note>{note}</p>
+        ) : (
+          <p data-plan-offer-price>{planPriceLine(plan)}</p>
+        )}
+      </section>
+
+      {plan.versions.length > 0 ? (
+        <section aria-labelledby={pricesId} data-plan-prices>
+          <h2 id={pricesId} data-plan-section-title>
+            Precios
+          </h2>
+          <PlanPrices versions={plan.versions} />
+        </section>
+      ) : null}
+    </div>
+  )
+}
+
+function PlanPrices({ versions }: { versions: readonly PlanVersion[] }) {
+  const { compact, measuredRef } = useCompactTable<HTMLDivElement>()
+  return (
+    <div ref={measuredRef} data-plan-price-register>
+      {compact ? (
+        // Only one presentation is rendered: see useCompactTable.
+        <ul data-plan-price-list aria-label="Precios">
+          {versions.map((version) => (
+            <li key={version.plan_version_id}>
+              <span data-plan-price-line>{planVersionLine(version)}</span>
+              <span data-plan-price-span>{versionSpan(version)}</span>
+              <span data-plan-price-state>
+                <VersionBadge version={version} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Table
+          aria-label="Precios"
+          scrollAreaLabel="Tabla de precios del plan"
+          data-studio-register="plan-prices"
+        >
+          <colgroup>
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Versión</TableHead>
+              <TableHead>Precio</TableHead>
+              <TableHead>Modalidad</TableHead>
+              <TableHead>Vigencia</TableHead>
+              <TableHead>Estado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {versions.map((version) => (
+              <TableRow key={version.plan_version_id} data-plan-price-row>
+                <TableCell>Versión {version.version_number}</TableCell>
+                <TableCell>{priceLabel(version)}</TableCell>
+                <TableCell>{deliveryName(version.delivery_mode)}</TableCell>
+                <TableCell>{versionSpan(version)}</TableCell>
+                <TableCell>
+                  <VersionBadge version={version} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  )
+}
+
+function VersionBadge({ version }: { version: PlanVersion }) {
+  return (
+    <Badge variant={version.status === 'published' ? 'success' : 'outline'}>
+      {versionStatusLabel(version)}
+    </Badge>
   )
 }
