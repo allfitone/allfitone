@@ -58,7 +58,11 @@ test('a template is created from the content page, opens its draft and waits as 
   await expect(page.getByRole('heading', { level: 1, name: 'Plantilla' })).toBeVisible()
   await expect(page.getByLabel('Nombre')).toHaveValue('Fuerza tren inferior')
 
-  await page.getByRole('link', { name: 'Volver a la biblioteca' }).click()
+  // The trail, not the sidebar: both have a link called «Biblioteca».
+  await page
+    .getByRole('navigation', { name: 'Ruta' })
+    .getByRole('link', { name: 'Biblioteca' })
+    .click()
   await expect(page).toHaveURL(CONTENT_PATH)
   const created = page.locator('[data-library-card]', { hasText: 'Fuerza tren inferior' })
   await expect(created.locator('[data-library-status]')).toHaveText('Borrador')

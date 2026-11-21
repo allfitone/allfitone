@@ -561,7 +561,6 @@
 [data-membership-roles],
 [data-role-disclosure],
 [data-content-disclosure],
-[data-template-step-actions],
 [data-program-session-actions],
 [data-movement-variant-actions],
 [data-category-disclosure] {
@@ -735,7 +734,6 @@
 [data-relationship-grant-cards],
 [data-relationship-history-list],
 [data-content-version-list],
-[data-movement-picker-results],
 [data-program-session],
 [data-movement-variant-fields],
 [data-role-capability-list],
@@ -768,7 +766,6 @@
 [data-organization-site-list] > li,
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
-[data-movement-picker-results] > li,
 [data-role-capability-list] > li,
 [data-historical-case-picker-results] > li,
 [data-historical-case-chosen] {
@@ -1376,6 +1373,401 @@
     z-index: 1;
     background: var(--afo-color-background-surface);
   }
+}
+
+/* ------------------------------------------------------------------ editor */
+
+/* The published stylesheet carries no preflight, so a link of the trail came
+   out in the browser's blue. It takes the trail's own colour. */
+[data-editor-crumb] {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 639px) {
+  [data-editor-crumb-current] {
+    display: none;
+  }
+}
+
+/* Saving and publishing stay under the workspace bar while the steps scroll.
+   On a phone the bar is two rows, and pinning them would take the screen. */
+[data-editor-bar] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-3) var(--afo-space-5);
+}
+
+@media (min-width: 768px) {
+  [data-editor-bar] {
+    position: sticky;
+    /* The height of the workspace bar above it. */
+    top: 4rem;
+    z-index: 5;
+    padding-block: var(--afo-space-3);
+    border-block-end: 1px solid var(--afo-color-border-subtle);
+    background: var(--afo-color-background-canvas);
+  }
+}
+
+[data-editor-title] {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 20rem;
+  align-items: center;
+  gap: var(--afo-space-3);
+}
+
+/* The name is the title of the page, typed where it is read. */
+[data-editor-name] {
+  min-width: 0;
+  max-width: 34rem;
+  flex: 1 1 auto;
+  font-size: var(--afo-font-size-xl);
+  font-weight: var(--afo-font-weight-bold);
+}
+
+[data-editor-actions],
+[data-editor-meta],
+[data-template-sets-foot] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3) var(--afo-space-5);
+}
+
+[data-editor-actions] {
+  gap: var(--afo-space-3);
+}
+
+/* The wrapper a tooltip needs around a button that is off. */
+[data-template-publish-action] {
+  display: grid;
+}
+
+/* On a phone the two buttons share a row under what they answer with, and the
+   activity type takes a line of its own under its label. */
+@media (max-width: 639px) {
+  [data-editor-actions] {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  [data-template-save-status] {
+    grid-column: 1 / -1;
+  }
+
+  [data-editor-meta] > [data-template-inline-field] {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+}
+
+[data-template-save-status],
+[data-editor-meta-note] {
+  margin: 0;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+}
+
+/* A label, its control and nothing else on the line: the field takes the
+   width of the two, where a stacked field takes the row. */
+[data-template-inline-field] {
+  width: auto;
+  flex: none;
+}
+
+[data-template-short-input] {
+  width: 4.5rem;
+}
+
+[data-editor-add] {
+  display: flex;
+}
+
+[data-editor-skeleton] {
+  display: grid;
+  gap: var(--afo-space-3);
+}
+
+[data-editor-skeleton-bar] {
+  height: 3rem;
+  max-width: 34rem;
+}
+
+[data-editor-skeleton-step] {
+  height: 3.5rem;
+  border-radius: var(--afo-radius-card);
+}
+
+/* Closed steps are lines of one list, so they sit closer than sections do. */
+[data-template-steps] {
+  margin: 0;
+  padding: 0;
+  gap: var(--afo-space-2);
+  list-style: none;
+}
+
+[data-template-step] {
+  min-width: 0;
+  border: 1px solid var(--afo-color-border-subtle);
+  border-radius: var(--afo-radius-card);
+  background: var(--afo-color-background-surface);
+  container-type: inline-size;
+  transition: border-color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing);
+}
+
+[data-template-step]:hover,
+[data-template-step][data-step-open='true'] {
+  border-color: var(--afo-color-border-strong);
+}
+
+[data-template-step-head] {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--afo-space-2);
+  padding-inline-end: var(--afo-space-3);
+}
+
+[data-template-step-heading] {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+/* The whole line opens the step. The Design System's trigger is unstyled, so
+   everything it shows is set here. */
+[data-template-step-toggle] {
+  display: grid;
+  width: 100%;
+  min-height: 3.5rem;
+  align-items: center;
+  padding: var(--afo-space-2) var(--afo-space-2) var(--afo-space-2) var(--afo-space-4);
+  border: 0;
+  border-radius: var(--afo-radius-card);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  /* A fixed column for the name, so every summary starts at the same place. */
+  grid-template-columns: 1.5rem minmax(0, 18rem) minmax(0, 1fr) auto;
+  grid-template-areas: 'number name summary chevron';
+  gap: var(--afo-space-1) var(--afo-space-3);
+}
+
+[data-template-step-toggle]:focus-visible {
+  outline: 2px solid var(--afo-color-focus-ring);
+  outline-offset: -2px;
+}
+
+[data-template-step-number] {
+  color: var(--afo-color-text-muted);
+  font-weight: var(--afo-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  grid-area: number;
+}
+
+[data-template-step-name] {
+  font-weight: var(--afo-font-weight-semibold);
+  overflow-wrap: anywhere;
+  grid-area: name;
+}
+
+[data-template-step-name][data-empty='true'] {
+  color: var(--afo-color-text-muted);
+  font-weight: var(--afo-font-weight-regular);
+}
+
+[data-template-step-summary] {
+  min-width: 0;
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
+  grid-area: summary;
+}
+
+[data-template-step-chevron] {
+  color: var(--afo-color-text-muted);
+  transition: transform var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing);
+  grid-area: chevron;
+}
+
+[data-step-open='true'] [data-template-step-chevron] {
+  transform: rotate(180deg);
+}
+
+[data-template-step-body] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-4);
+  padding: var(--afo-space-4);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-template-step-main] {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--afo-space-4);
+}
+
+[data-template-step-movement] {
+  display: flex;
+}
+
+/* With room, the notes sit beside the targets and the step stays a screen tall. */
+@container (min-width: 52rem) {
+  [data-template-step-body] {
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 22rem);
+    column-gap: var(--afo-space-6);
+  }
+
+  [data-template-step-problems] {
+    grid-column: 1 / -1;
+  }
+}
+
+[data-template-step-menu] {
+  min-width: 14rem;
+}
+
+/* The sets of a step as a coach writes them: one row each, the names once. */
+[data-template-sets] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-2);
+}
+
+[data-template-sets-rows] {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  gap: var(--afo-space-2);
+  list-style: none;
+}
+
+[data-template-sets-head],
+[data-template-set] {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 3.25rem minmax(8rem, 1.4fr) repeat(3, minmax(4rem, 1fr)) 2.75rem;
+  grid-template-areas: 'number kind reps load rpe remove';
+  gap: var(--afo-space-2) var(--afo-space-3);
+}
+
+[data-template-sets-head] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+  font-weight: var(--afo-font-weight-bold);
+  letter-spacing: var(--afo-letter-spacing-utility);
+  text-transform: uppercase;
+}
+
+[data-template-set-number] {
+  color: var(--afo-color-text-muted);
+  font-weight: var(--afo-font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  grid-area: number;
+}
+
+[data-template-set-cell] {
+  display: grid;
+  min-width: 0;
+}
+
+[data-template-set-cell='kind'] {
+  grid-area: kind;
+}
+
+[data-template-set-cell='reps'] {
+  grid-area: reps;
+}
+
+[data-template-set-cell='load'] {
+  grid-area: load;
+}
+
+[data-template-set-cell='rpe'] {
+  grid-area: rpe;
+}
+
+/* The trigger sizes to its own text; in a column it takes the column. */
+[data-template-set-kind] {
+  width: 100%;
+  min-width: 0;
+}
+
+[data-template-set-caption] {
+  display: none;
+}
+
+[data-template-set-remove] {
+  display: flex;
+  justify-content: center;
+  grid-area: remove;
+}
+
+/* A phone has no room for six columns. The line of a step folds in two, and a
+   set becomes its type over its three numbers, each under its own name. */
+@container (max-width: 34rem) {
+  [data-template-step-toggle] {
+    grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+    grid-template-areas:
+      'number name chevron'
+      '. summary chevron';
+  }
+
+  [data-template-sets-head] {
+    display: none;
+  }
+
+  [data-template-set] {
+    padding-block-end: var(--afo-space-3);
+    border-block-end: 1px solid var(--afo-color-border-subtle);
+    grid-template-columns: 1.5rem repeat(3, minmax(0, 1fr)) 2.75rem;
+    grid-template-areas:
+      'number kind kind kind remove'
+      '. reps load rpe .';
+  }
+
+  [data-template-set-caption] {
+    display: block;
+    margin-block-end: var(--afo-space-1);
+    color: var(--afo-color-text-muted);
+    font-size: var(--afo-font-size-xs);
+  }
+
+  [data-template-set-cell='kind'] > [data-template-set-caption] {
+    display: none;
+  }
+}
+
+/* The search and its results are one box inside the dialog, and the list
+   keeps its height while an answer is on its way, so the dialog does not jump. */
+[data-movement-picker-search] {
+  border: 1px solid var(--afo-color-border-subtle);
+}
+
+[data-movement-picker-results] {
+  min-height: 13rem;
+}
+
+/* The results of the movement search: a name, and whose it is at the end. */
+[data-movement-option-name] {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+
+[data-movement-picker-more] {
+  display: flex;
+  justify-content: center;
+  padding: var(--afo-space-2);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
 }
 
 /* ----------------------------------------------------------------- library */
@@ -2149,7 +2541,6 @@
 [data-site-form-refusal],
 [data-organization-form-refusal],
 [data-template-create-refusal],
-[data-template-save-bar],
 [data-program-create-refusal],
 [data-program-save-bar],
 [data-version-refusal] {

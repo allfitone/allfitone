@@ -2677,24 +2677,72 @@ export const SCREENS: Screen[] = [
   },
   // --- `/organizations/[id]/content/templates/[templateId]` · HU-037 ---
   {
-    // A strength step with its three sets: the widest the form gets.
+    // As it opens: every step a line, with what it asks for.
     stories: 'HU-037 · a draft with its steps',
     path: `${workspace}/content/templates/${publishedTemplate.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+      await expect(page.getByText('3 series · 8 reps · 40 kg')).toBeVisible()
     },
   },
   {
-    // Four set fields in a row become one column, and the step's buttons wrap.
-    stories: 'HU-037 · a draft with its steps on a phone',
+    stories: 'HU-037 · a draft with its steps as lines on a phone',
     path: `${workspace}/content/templates/${publishedTemplate.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByText('Sentadilla trasera')).toBeVisible()
+      await expect(page.getByText('3 series · 8 reps · 40 kg')).toBeVisible()
+    },
+  },
+  {
+    // A strength step with its three sets: the widest the form gets.
+    stories: 'HU-037 · a step open, with its sets',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page
+        .getByRole('list', { name: 'Pasos' })
+        .getByRole('heading')
+        .getByRole('button')
+        .first()
+        .click()
+      await expect(page.getByLabel('Repeticiones').first()).toBeVisible()
+    },
+  },
+  {
+    // Six columns have no room: a set becomes its type over its three numbers.
+    stories: 'HU-037 · a step open on a phone',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: MOBILE,
+    reveal: async (page) => {
+      await page
+        .getByRole('list', { name: 'Pasos' })
+        .getByRole('heading')
+        .getByRole('button')
+        .first()
+        .click()
+      await expect(page.getByLabel('Repeticiones').first()).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · what can be done with a step',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Opciones del paso 1' }).click()
+      await expect(page.getByRole('menuitem', { name: 'Quitar el paso' })).toBeVisible()
+    },
+  },
+  {
+    stories: 'HU-037 · what the activity type is for',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Para qué sirve el tipo de actividad' }).click()
+      await expect(page.getByText(/Decide qué objetivos lleva cada paso/)).toBeVisible()
     },
   },
   {
@@ -2729,8 +2777,14 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/content/templates/${publishedTemplate.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
+      await page
+        .getByRole('list', { name: 'Pasos' })
+        .getByRole('heading')
+        .getByRole('button')
+        .first()
+        .click()
       await page.getByLabel('Esfuerzo (RPE)').first().fill('12')
-      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText('Este paso todavía no se puede guardar')).toBeVisible()
     },
   },
@@ -2742,7 +2796,7 @@ export const SCREENS: Screen[] = [
       createStudioApiFixture({ memberships: [activeMembership], draftSaveOutcome: 'stale' }),
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Mi versión')
-      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText(/Alguien guardó este borrador/)).toBeVisible()
     },
   },
@@ -2764,7 +2818,7 @@ export const SCREENS: Screen[] = [
     },
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Otro nombre')
-      await page.getByRole('button', { name: 'Guardar borrador' }).click()
+      await page.getByRole('button', { name: 'Guardar', exact: true }).click()
       await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
     },
   },
@@ -2774,7 +2828,8 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/content/templates/${publishedTemplate.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Cambiar el movimiento' }).click()
+      await page.getByRole('button', { name: 'Opciones del paso 1' }).click()
+      await page.getByRole('menuitem', { name: 'Cambiar el movimiento' }).click()
       await expect(
         page.getByRole('dialog', { name: 'Elegir un movimiento' }).getByText('Press de banca'),
       ).toBeVisible()
@@ -2791,10 +2846,21 @@ export const SCREENS: Screen[] = [
   },
   // --- `/organizations/[id]/content/templates/[templateId]`, publishing · HU-038 ---
   {
+    // Criteria 1 and 2, read before the click that makes them true.
+    stories: 'HU-038 · the question publishing asks',
+    path: `${workspace}/content/templates/${publishedTemplate.id}`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar', exact: true }).click()
+      await expect(page.getByText(/Una versión publicada no se edita nunca/)).toBeVisible()
+    },
+  },
+  {
     stories: 'HU-038 · a version just published',
     path: `${workspace}/content/templates/${publishedTemplate.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar', exact: true }).click()
       await page.getByRole('button', { name: 'Publicar versión' }).click()
       await expect(page.getByText(/Publicada la versión 3/)).toBeVisible()
     },
@@ -2805,6 +2871,7 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/content/templates/${unpublishedTemplate.id}`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
+      await page.getByRole('button', { name: 'Publicar', exact: true }).click()
       await page.getByRole('button', { name: 'Publicar versión' }).click()
       await expect(page.getByText('Al borrador le falta esto para publicarse')).toBeVisible()
     },
@@ -2815,6 +2882,8 @@ export const SCREENS: Screen[] = [
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
       await page.getByLabel('Nombre').fill('Fuerza tren superior · bloque 2')
+      // Why the button is off is said on it, to whoever points at it.
+      await page.locator('[data-template-publish-action]').hover()
       await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
     },
   },
@@ -3216,7 +3285,7 @@ export const SCREENS: Screen[] = [
       await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
       await page
         .getByRole('dialog', { name: 'Elegir un movimiento' })
-        .getByRole('button', { name: 'Press de banca' })
+        .getByRole('option', { name: 'Press de banca' })
         .click()
       await expect(page.getByLabel('Nota de la variante')).toBeVisible()
     },

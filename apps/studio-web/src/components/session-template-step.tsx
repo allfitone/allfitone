@@ -3,32 +3,34 @@
 /**
  * One step of a template draft.
  *
- * The fields a step shows are its target family's and no other: the family
- * comes from the activity type, so a strength step never offers a distance and
- * an interval never offers sets (HU-STUDIO-037 criterion 3). Every value stays
- * the text that was typed until the editor builds the draft, which is where it
- * is checked against what the server accepts.
+ * Closed, a step is one line: its place, its movement and what it asks for, so
+ * a session of six fits a screen and reads whole. Open, it is the fields of its
+ * target family and no other: the family comes from the activity type, so a
+ * strength step never offers a distance and an interval never offers sets
+ * (HU-STUDIO-037 criterion 3). Strength sets are a grid with one row per set,
+ * the way a coach writes them down. Every value stays the text that was typed
+ * until the editor builds the draft, which is where it is checked against what
+ * the server accepts.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@allfitone/react/components/collapsible'
 import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-  FieldTitle,
-} from '@allfitone/react/components/field'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@allfitone/react/components/dropdown-menu'
+import { Field, FieldDescription, FieldLabel } from '@allfitone/react/components/field'
+import { IconButton } from '@allfitone/react/components/icon-button'
 import { Input } from '@allfitone/react/components/input'
 import {
   Select,
@@ -38,11 +40,11 @@ import {
   SelectValue,
 } from '@allfitone/react/components/select'
 import { Textarea } from '@allfitone/react/components/textarea'
-import { useState } from 'react'
+import { FoundationIcon } from '@allfitone/react/icons'
+import { useState, type ReactNode } from 'react'
 
 import { MovementPicker } from './movement-picker'
 import {
-  FAMILY_LABEL,
   SET_KIND_LABEL,
   SIDE_LABEL,
   type EditorSet,
@@ -53,17 +55,20 @@ import {
   type Side,
 } from '@/lib/session-template-editor'
 import type { StudioMovement } from '@/lib/studio-api'
+import { stepSummary } from '@/lib/template-step-summary'
 
 const SET_KINDS: SetKind[] = ['normal', 'warmup', 'to_failure', 'drop']
 const SIDES: Side[] = ['not_applicable', 'bilateral', 'left', 'right']
 const LOAD_UNITS: LoadUnit[] = ['kg', 'lb']
 
-export function TemplateStepCard({
+export function TemplateStep({
   step,
   position,
   count,
   movementName,
   problems,
+  open,
+  onOpenChange,
   organizationId,
   disciplineCode,
   onChange,
@@ -76,6 +81,8 @@ export function TemplateStepCard({
   count: number
   movementName: string | undefined
   problems: readonly string[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
   organizationId: string
   disciplineCode: string
   onChange: (step: EditorStep) => void
@@ -85,93 +92,70 @@ export function TemplateStepCard({
 }) {
   const [picking, setPicking] = useState(false)
   const id = `step-${step.key}`
-  const label = `Paso ${position}`
+  const name = step.movementId ? (movementName ?? 'Cargando el movimiento…') : 'Sin movimiento'
 
   return (
-    <Card data-template-step aria-labelledby={`${id}-title`}>
-      <CardHeader>
-        <CardTitle id={`${id}-title`} role="heading" aria-level={2}>
-          {label}
-        </CardTitle>
-        <CardDescription>
-          {step.movementId ? (movementName ?? 'Cargando el movimiento…') : 'Sin movimiento'}
-          {' · '}
-          Objetivos de {FAMILY_LABEL[step.target.family]}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <FieldGroup>
-          <div data-template-step-actions>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={position === 1}
-              onClick={() => onMove(-1)}
-              aria-label={`Subir el ${label.toLowerCase()}`}
-            >
-              Subir
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={position === count}
-              onClick={() => onMove(1)}
-              aria-label={`Bajar el ${label.toLowerCase()}`}
-            >
-              Bajar
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onRemove}
-              aria-label={`Quitar el ${label.toLowerCase()}`}
-            >
-              Quitar
-            </Button>
-            {step.supersetGroup !== null ? (
-              <Badge variant="outline">Superserie {step.supersetGroup}</Badge>
-            ) : null}
+    <Collapsible
+      open={open}
+      onOpenChange={onOpenChange}
+      data-template-step
+      data-step-open={open ? 'true' : 'false'}
+    >
+      <div data-template-step-head>
+        {/* The accordion pattern: the line that opens a step is its heading. */}
+        <div role="heading" aria-level={2} data-template-step-heading>
+          <CollapsibleTrigger data-template-step-toggle>
+            <span data-template-step-number>{position}</span>
+            <span data-template-step-name data-empty={step.movementId ? undefined : 'true'}>
+              {name}
+            </span>
+            <span data-template-step-summary>{stepSummary(step.target)}</span>
+            <FoundationIcon name="expand" decorative data-template-step-chevron />
+          </CollapsibleTrigger>
+        </div>
+        {step.supersetGroup !== null ? (
+          <Badge variant="outline">Superserie {step.supersetGroup}</Badge>
+        ) : null}
+        {problems.length > 0 ? <Badge variant="warning">Revisar</Badge> : null}
+        <StepMenu
+          position={position}
+          count={count}
+          hasMovement={step.movementId !== null}
+          onPick={() => setPicking(true)}
+          onClearMovement={() => onChange({ ...step, movementId: null })}
+          onMove={onMove}
+          onRemove={onRemove}
+        />
+      </div>
+
+      <CollapsibleContent>
+        <div data-template-step-body>
+          <div data-template-step-main>
+            {step.movementId ? null : (
+              <div data-template-step-movement>
+                <Button type="button" variant="outline" onClick={() => setPicking(true)}>
+                  <FoundationIcon name="search" decorative />
+                  Elegir un movimiento
+                </Button>
+              </div>
+            )}
+
+            <TargetFields
+              id={id}
+              target={step.target}
+              onChange={(target) => onChange({ ...step, target })}
+            />
           </div>
 
-          {/* A title, not a label: a label pointed at the button would replace
-              its name, and the reader would hear «Movimiento» for both. */}
-          <Field>
-            <FieldTitle>Movimiento</FieldTitle>
-            <div data-template-step-actions>
-              <Button type="button" variant="outline" onClick={() => setPicking(true)}>
-                {step.movementId ? 'Cambiar el movimiento' : 'Elegir un movimiento'}
-              </Button>
-              {step.movementId ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => onChange({ ...step, movementId: null })}
-                >
-                  Quitar el movimiento
-                </Button>
-              ) : null}
-            </div>
-            <FieldDescription>
-              Del catálogo de Allfit o de los propios, en la disciplina de la plantilla.
-            </FieldDescription>
-          </Field>
-
-          <TargetFields
-            id={id}
-            target={step.target}
-            onChange={(target) => onChange({ ...step, target })}
-          />
-
-          <Field>
+          {/* Beside the targets where there is room: the step stays one screen tall. */}
+          <Field data-template-step-aside>
             <FieldLabel htmlFor={`${id}-notes`}>Notas</FieldLabel>
             <Textarea
               id={`${id}-notes`}
               maxLength={2000}
               value={step.notes}
               onChange={(event) => onChange({ ...step, notes: event.target.value })}
+              data-template-step-notes
             />
             <FieldDescription>Opcional. Lo que la persona lee al hacer este paso.</FieldDescription>
           </Field>
@@ -188,8 +172,8 @@ export function TemplateStepCard({
               </AlertDescription>
             </Alert>
           ) : null}
-        </FieldGroup>
-      </CardContent>
+        </div>
+      </CollapsibleContent>
 
       <MovementPicker
         open={picking}
@@ -202,7 +186,67 @@ export function TemplateStepCard({
           onMovementPicked(movement)
         }}
       />
-    </Card>
+    </Collapsible>
+  )
+}
+
+function StepMenu({
+  position,
+  count,
+  hasMovement,
+  onPick,
+  onClearMovement,
+  onMove,
+  onRemove,
+}: {
+  position: number
+  count: number
+  hasMovement: boolean
+  onPick: () => void
+  onClearMovement: () => void
+  onMove: (delta: -1 | 1) => void
+  onRemove: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <IconButton
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Opciones del paso ${position}`}
+          />
+        }
+      >
+        <FoundationIcon name="more" decorative />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" data-template-step-menu>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={onPick}>
+            {hasMovement ? 'Cambiar el movimiento' : 'Elegir un movimiento'}
+          </DropdownMenuItem>
+          {hasMovement ? (
+            <DropdownMenuItem onClick={onClearMovement}>Quitar el movimiento</DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem disabled={position === 1} onClick={() => onMove(-1)}>
+            Subir
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={position === count} onClick={() => onMove(1)}>
+            Bajar
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuItem variant="destructive" onClick={onRemove}>
+            Quitar el paso
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -299,6 +343,8 @@ function TargetFields({
   )
 }
 
+const KIND_OPTIONS = SET_KINDS.map((kind) => ({ value: kind, label: SET_KIND_LABEL[kind] }))
+
 function StrengthFields({
   id,
   target,
@@ -316,64 +362,106 @@ function StrengthFields({
   }
 
   return (
-    <>
-      {target.sets.map((set, index) => (
-        <FieldSet key={index} data-template-set>
-          <FieldLegend variant="label">Serie {index + 1}</FieldLegend>
-          <div data-template-target-fields>
-            <ChoiceField
-              id={`${id}-set-${index}-kind`}
-              label="Tipo de serie"
-              value={set.kind}
-              options={SET_KINDS.map((kind) => ({ value: kind, label: SET_KIND_LABEL[kind] }))}
-              onChange={(kind) => changeSet(index, { kind })}
-            />
-            <NumberField
-              id={`${id}-set-${index}-reps`}
-              label="Repeticiones"
-              inputMode="numeric"
-              value={set.kind === 'to_failure' ? '' : set.reps}
-              disabled={set.kind === 'to_failure'}
-              onChange={(reps) => changeSet(index, { reps })}
-            />
-            <NumberField
-              id={`${id}-set-${index}-load`}
-              label={`Carga (${target.loadUnit})`}
-              inputMode="decimal"
-              value={set.load}
-              onChange={(load) => changeSet(index, { load })}
-            />
-            <NumberField
-              id={`${id}-set-${index}-rpe`}
-              label="Esfuerzo (RPE)"
-              inputMode="decimal"
-              value={set.rpe}
-              onChange={(rpe) => changeSet(index, { rpe })}
-            />
-          </div>
-          {target.sets.length > 1 ? (
-            <div data-template-step-actions>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  onChange({
-                    ...target,
-                    sets: target.sets.filter((_, current) => current !== index),
-                  })
-                }
-              >
-                Quitar la serie {index + 1}
-              </Button>
-            </div>
-          ) : null}
-        </FieldSet>
-      ))}
-      <div data-template-step-actions>
+    <div data-template-sets>
+      {/* Each field names itself for a reader; this row is the same names, once, for the eye. */}
+      <div data-template-sets-head aria-hidden="true">
+        <span>Serie</span>
+        <span>Tipo</span>
+        <span>Reps</span>
+        <span>Carga ({target.loadUnit})</span>
+        <span>RPE</span>
+        <span />
+      </div>
+      <ol data-template-sets-rows aria-label="Series">
+        {target.sets.map((set, index) => {
+          const number = index + 1
+          return (
+            <li key={index} data-template-set aria-label={`Serie ${number}`}>
+              <span data-template-set-number aria-hidden="true">
+                {number}
+              </span>
+              <SetCell area="kind" caption="Tipo">
+                <Select
+                  value={set.kind}
+                  onValueChange={(next) => {
+                    const option = KIND_OPTIONS.find((candidate) => candidate.value === next)
+                    if (option) changeSet(index, { kind: option.value })
+                  }}
+                  items={KIND_OPTIONS}
+                >
+                  <SelectTrigger
+                    aria-label="Tipo de serie"
+                    data-studio-select-trigger
+                    data-template-set-kind
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent align="start">
+                    {KIND_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </SetCell>
+              <SetCell area="reps" caption="Reps">
+                <Input
+                  id={`${id}-set-${index}-reps`}
+                  aria-label="Repeticiones"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={set.kind === 'to_failure' ? '' : set.reps}
+                  disabled={set.kind === 'to_failure'}
+                  onChange={(event) => changeSet(index, { reps: event.target.value })}
+                />
+              </SetCell>
+              <SetCell area="load" caption={`Carga (${target.loadUnit})`}>
+                <Input
+                  id={`${id}-set-${index}-load`}
+                  aria-label={`Carga (${target.loadUnit})`}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={set.load}
+                  onChange={(event) => changeSet(index, { load: event.target.value })}
+                />
+              </SetCell>
+              <SetCell area="rpe" caption="RPE">
+                <Input
+                  id={`${id}-set-${index}-rpe`}
+                  aria-label="Esfuerzo (RPE)"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={set.rpe}
+                  onChange={(event) => changeSet(index, { rpe: event.target.value })}
+                />
+              </SetCell>
+              <span data-template-set-remove>
+                {target.sets.length > 1 ? (
+                  <IconButton
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Quitar la serie ${number}`}
+                    onClick={() =>
+                      onChange({
+                        ...target,
+                        sets: target.sets.filter((_, current) => current !== index),
+                      })
+                    }
+                  >
+                    <FoundationIcon name="close" decorative />
+                  </IconButton>
+                ) : null}
+              </span>
+            </li>
+          )
+        })}
+      </ol>
+      <div data-template-sets-foot>
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={() =>
             onChange({
@@ -383,44 +471,80 @@ function StrengthFields({
             })
           }
         >
-          Agregar una serie
+          <FoundationIcon name="add" decorative />
+          Agregar serie
         </Button>
+        <Field orientation="horizontal" data-template-inline-field>
+          <FieldLabel htmlFor={`${id}-rest`}>Descanso (s)</FieldLabel>
+          <Input
+            id={`${id}-rest`}
+            inputMode="numeric"
+            autoComplete="off"
+            value={target.rest}
+            onChange={(event) => onChange({ ...target, rest: event.target.value })}
+            data-template-short-input
+          />
+        </Field>
+        <Field orientation="horizontal" data-template-inline-field>
+          <FieldLabel htmlFor={`${id}-unit`}>Unidad</FieldLabel>
+          <Select
+            value={target.loadUnit}
+            onValueChange={(next) => {
+              const unit = LOAD_UNITS.find((candidate) => candidate === next)
+              if (unit) onChange({ ...target, loadUnit: unit })
+            }}
+            items={LOAD_UNITS.map((unit) => ({ value: unit, label: unit }))}
+          >
+            <SelectTrigger id={`${id}-unit`} data-studio-select-trigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {LOAD_UNITS.map((unit) => (
+                <SelectItem key={unit} value={unit}>
+                  {unit}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
       </div>
-      <div data-template-target-fields>
-        <ChoiceField
-          id={`${id}-unit`}
-          label="Unidad de carga"
-          value={target.loadUnit}
-          options={LOAD_UNITS.map((unit) => ({ value: unit, label: unit }))}
-          onChange={(loadUnit) => onChange({ ...target, loadUnit })}
-        />
-        <NumberField
-          id={`${id}-rest`}
-          label="Descanso entre series (s)"
-          inputMode="numeric"
-          value={target.rest}
-          onChange={(rest) => onChange({ ...target, rest })}
-        />
-      </div>
-    </>
+    </div>
   )
 }
 
 const EMPTY_SET: EditorSet = { kind: 'normal', reps: '', load: '', rpe: '' }
+
+/** One cell of a set. The caption is for a phone, where the column names are not drawn. */
+function SetCell({
+  area,
+  caption,
+  children,
+}: {
+  area: 'kind' | 'reps' | 'load' | 'rpe'
+  caption: string
+  children: ReactNode
+}) {
+  return (
+    <span data-template-set-cell={area}>
+      <span data-template-set-caption aria-hidden="true">
+        {caption}
+      </span>
+      {children}
+    </span>
+  )
+}
 
 function NumberField({
   id,
   label,
   value,
   inputMode,
-  disabled,
   onChange,
 }: {
   id: string
   label: string
   value: string
   inputMode: 'numeric' | 'decimal'
-  disabled?: boolean
   onChange: (value: string) => void
 }) {
   return (
@@ -431,7 +555,6 @@ function NumberField({
         inputMode={inputMode}
         autoComplete="off"
         value={value}
-        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
       />
     </Field>

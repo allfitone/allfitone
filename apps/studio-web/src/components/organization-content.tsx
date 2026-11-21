@@ -71,7 +71,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-import { LibrarySkeleton, LibraryViewToggle } from './library-views'
+import { ContentStatusBadge, LibrarySkeleton, LibraryViewToggle } from './library-views'
 import { MovementCreateDialog } from './movement-create'
 import { MovementLibrary } from './movement-library'
 import { useOrganizationContext } from './organization-context'
@@ -81,8 +81,6 @@ import { WorkspacePageHeader } from './workspace-page-header'
 import {
   NO_CONTENT_FILTERS,
   contentHref,
-  contentStatus,
-  contentStatusLabel,
   editedAt,
   filterContent,
   filtersNarrow,
@@ -92,7 +90,6 @@ import {
   type ContentFilters,
   type ContentKind,
   type ContentStateFilter,
-  type ContentStatus,
   type LibraryTab,
   type LibraryView,
 } from '@/lib/content-library'
@@ -624,22 +621,6 @@ function secondLine(
   return item.disciplineCode
     ? disciplineName(item.disciplineCode, disciplines)
     : programShape(item.sessions)
-}
-
-const STATUS_VARIANT: Record<ContentStatus['kind'], 'success' | 'secondary' | 'outline'> = {
-  published: 'success',
-  draft: 'secondary',
-  retired: 'outline',
-  archived: 'outline',
-}
-
-function ContentStatusBadge({ item, kind }: { item: ContentItem; kind: ContentKind }) {
-  const status = contentStatus(item)
-  return (
-    <Badge variant={STATUS_VARIANT[status.kind]} data-library-status={status.kind}>
-      {contentStatusLabel(status, kind)}
-    </Badge>
-  )
 }
 
 /**

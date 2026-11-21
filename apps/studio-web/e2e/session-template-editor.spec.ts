@@ -17,6 +17,9 @@ import {
  * This audits the two that are the screen's as much as the server's: a step's
  * targets fit the declared activity type, and two people saving at once end
  * with one of them shown the current draft and a warning instead of losing work.
+ *
+ * The steps are lines that open. A step is read closed, by its summary, and
+ * written open, so every test that writes in one opens it first.
  */
 
 const CONTENT_PATH = `/organizations/${activeMembership.organization_id}/content`
@@ -33,6 +36,20 @@ function step(page: Page, position: number) {
     .getByRole('list', { name: 'Pasos' })
     .locator(':scope > li')
     .nth(position - 1)
+}
+
+/** The line of a step is its heading, and the button in it opens and closes it. */
+function stepLine(page: Page, position: number) {
+  return step(page, position).getByRole('heading').getByRole('button')
+}
+
+async function save(page: Page) {
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
+}
+
+async function stepOption(page: Page, position: number, option: string) {
+  await page.getByRole('button', { name: `Opciones del paso ${position}` }).click()
+  await page.getByRole('menuitem', { name: option }).click()
 }
 
 async function choose(page: Page, label: string, option: string | RegExp) {
@@ -60,10 +77,33 @@ test('a draft opens from the library with its steps as they were written', async
 
   await expect(page).toHaveURL(EDITOR_PATH)
   await expect(page.getByLabel('Nombre')).toHaveValue('Fuerza tren superior')
-  await expect(step(page, 1)).toContainText('Sentadilla trasera')
-  await expect(step(page, 1)).toContainText('Objetivos de fuerza')
+  // Closed, a step is one line: its movement and what it asks for.
+  await expect(stepLine(page, 1)).toContainText('Sentadilla trasera')
+  await expect(stepLine(page, 1)).toContainText('3 series · 8 reps · 40 kg')
+  await expect(step(page, 1).getByLabel('Repeticiones')).toHaveCount(0)
+
+  await stepLine(page, 1).click()
   await expect(step(page, 1).getByLabel('Repeticiones')).toHaveCount(3)
   await expect(step(page, 1).getByLabel('Carga (kg)').first()).toHaveValue('40')
+
+  await stepLine(page, 1).click()
+  await expect(step(page, 1).getByLabel('Repeticiones')).toHaveCount(0)
+})
+
+test('the trail leads back to the list of templates', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+
+  const trail = page.getByRole('navigation', { name: 'Ruta' })
+  await expect(trail).toContainText('Fuerza tren superior')
+  await trail.getByRole('link', { name: 'Plantillas' }).click()
+
+  // Templates are the tab the library opens on, so its address names none.
+  await expect(page).toHaveURL(CONTENT_PATH)
+  await expect(page.getByRole('tab', { name: /Plantillas/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
 })
 
 test('a save sends the whole draft, conditioned on the draft it started from', async ({ page }) => {
@@ -71,10 +111,15 @@ test('a save sends the whole draft, conditioned on the draft it started from', a
   await installStudioApiMock(page, fixture)
   await page.goto(EDITOR_PATH)
 
+  // Nothing to save yet, so the button waits.
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled()
   await page.getByLabel('Nombre').fill('Fuerza tren superior · bloque 2')
+  await stepLine(page, 1).click()
   await step(page, 1).getByLabel('Carga (kg)').first().fill('42,5')
   await expect(page.getByText('Hay cambios sin guardar.')).toBeVisible()
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  // The line follows what is typed in the step under it.
+  await expect(stepLine(page, 1)).toContainText('3 series · 8 reps · 40–42,5 kg')
+  await save(page)
 
   await expect(page.getByText(/Borrador guardado a las/)).toBeVisible()
   const [sent] = saves(fixture)
@@ -103,19 +148,21 @@ test('a new template is built from its activity type, then its steps', async ({ 
 
   // Criterion 3: no family yet, so no step can be written.
   await expect(page.getByText('Elige un tipo de actividad para poder agregar pasos.')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Agregar un paso' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Agregar paso' })).toBeDisabled()
 
   await choose(page, 'Tipo de actividad', /Fuerza en gimnasio/)
-  await page.getByRole('button', { name: 'Agregar un paso' }).click()
+  await page.getByRole('button', { name: 'Agregar paso' }).click()
 
+  // The step just added is the one about to be written, so it arrives open.
+  await expect(stepLine(page, 1)).toContainText('Sin movimiento')
   await step(page, 1).getByRole('button', { name: 'Elegir un movimiento' }).click()
   const picker = page.getByRole('dialog', { name: 'Elegir un movimiento' })
   await picker.getByLabel('Buscar').fill('sentadilla')
-  await picker.getByRole('button', { name: 'Sentadilla trasera' }).click()
-  await expect(step(page, 1)).toContainText('Sentadilla trasera')
+  await picker.getByRole('option', { name: 'Sentadilla trasera' }).click()
+  await expect(stepLine(page, 1)).toContainText('Sentadilla trasera')
 
   await step(page, 1).getByLabel('Repeticiones').fill('10')
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  await save(page)
   await expect(page.getByText(/Borrador guardado a las/)).toBeVisible()
 
   const lastSearch = fixture.requests
@@ -138,17 +185,54 @@ test('a new template is built from its activity type, then its steps', async ({ 
   })
 })
 
+test('the movement search is moved through with the keyboard', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+
+  await stepOption(page, 1, 'Cambiar el movimiento')
+  const picker = page.getByRole('dialog', { name: 'Elegir un movimiento' })
+  // Whose each movement is stays in sight beside its name.
+  await expect(picker.getByRole('option', { name: 'Press de banca' })).toContainText(
+    'Catálogo de Allfit',
+  )
+  await picker.getByLabel('Buscar').fill('remo')
+  // The mark follows the results: the one left is the one Enter chooses.
+  await expect(picker.getByRole('option')).toHaveCount(1)
+  await expect(picker.getByRole('option')).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Enter')
+
+  await expect(picker).toHaveCount(0)
+  await expect(stepLine(page, 1)).toContainText('Remo con mancuerna a una mano')
+})
+
+test('a set is added as a copy of the last one, and removed by its own button', async ({
+  page,
+}) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+  await stepLine(page, 1).click()
+
+  await step(page, 1).getByRole('button', { name: 'Agregar serie' }).click()
+  await expect(step(page, 1).getByLabel('Repeticiones')).toHaveCount(4)
+  await expect(step(page, 1).getByLabel('Carga (kg)').nth(3)).toHaveValue('40')
+  await expect(stepLine(page, 1)).toContainText('4 series · 8 reps · 40 kg')
+
+  await step(page, 1).getByRole('button', { name: 'Quitar la serie 4' }).click()
+  await expect(step(page, 1).getByLabel('Repeticiones')).toHaveCount(3)
+})
+
 test('an interval type offers rounds and work, never sets', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await createTemplate(page, 'Circuito')
 
   await choose(page, 'Tipo de actividad', /Circuito por intervalos/)
-  await page.getByRole('button', { name: 'Agregar un paso' }).click()
+  await page.getByRole('button', { name: 'Agregar paso' }).click()
 
-  await expect(step(page, 1)).toContainText('Objetivos de intervalos')
-  await expect(step(page, 1).getByLabel('Rondas')).toBeVisible()
-  await expect(step(page, 1).getByLabel('Trabajo (s)')).toBeVisible()
   await expect(step(page, 1).getByLabel('Tipo de serie')).toHaveCount(0)
+  await step(page, 1).getByLabel('Rondas').fill('8')
+  await step(page, 1).getByLabel('Trabajo (s)').fill('30')
+  // The line of the step reads its targets in the words of its family.
+  await expect(stepLine(page, 1)).toContainText('8 rondas · 30 s de trabajo')
 })
 
 test('a type without targets, or of another family once steps exist, cannot be chosen', async ({
@@ -175,10 +259,15 @@ test('a value the server would refuse is named on its step and nothing is sent',
   await installStudioApiMock(page, fixture)
   await page.goto(EDITOR_PATH)
 
+  await stepLine(page, 1).click()
   await step(page, 1).getByLabel('Esfuerzo (RPE)').first().fill('12')
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  // Closed again: the step that cannot be saved has to open by itself.
+  await stepLine(page, 1).click()
+  await expect(step(page, 1).getByLabel('Esfuerzo (RPE)')).toHaveCount(0)
+  await save(page)
 
   await expect(step(page, 1)).toContainText('Serie 1: el esfuerzo percibido va de 0 a 10.')
+  await expect(step(page, 1)).toContainText('Revisar')
   await expect(page.getByText('el borrador no se guardó')).toBeVisible()
   expect(saves(fixture)).toHaveLength(0)
 })
@@ -188,11 +277,12 @@ test('steps reorder, and the order saved is the order shown', async ({ page }) =
   await installStudioApiMock(page, fixture)
   await page.goto(EDITOR_PATH)
 
-  await page.getByRole('button', { name: 'Agregar un paso' }).click()
+  await page.getByRole('button', { name: 'Agregar paso' }).click()
   await step(page, 2).getByLabel('Notas').fill('Segundo')
-  await page.getByRole('button', { name: 'Subir el paso 2' }).click()
+  await stepOption(page, 2, 'Subir')
+  // It moves with what was written in it, and stays open.
   await expect(step(page, 1).getByLabel('Notas')).toHaveValue('Segundo')
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  await save(page)
   await expect(page.getByText(/Borrador guardado a las/)).toBeVisible()
 
   const body = saves(fixture).at(-1)?.body as {
@@ -202,6 +292,31 @@ test('steps reorder, and the order saved is the order shown', async ({ page }) =
     [1, 'Segundo'],
     [2, null],
   ])
+})
+
+test('the first step cannot go up, the last cannot go down, and one can be removed', async ({
+  page,
+}) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+  await page.getByRole('button', { name: 'Agregar paso' }).click()
+
+  await page.getByRole('button', { name: 'Opciones del paso 1' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Subir' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  )
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('button', { name: 'Opciones del paso 2' }).click()
+  await expect(page.getByRole('menuitem', { name: 'Bajar' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  )
+  await page.getByRole('menuitem', { name: 'Quitar el paso' }).click()
+
+  await expect(page.getByRole('list', { name: 'Pasos' }).locator(':scope > li')).toHaveCount(1)
+  await expect(stepLine(page, 1)).toContainText('Sentadilla trasera')
 })
 
 /*
@@ -219,7 +334,7 @@ test('two people saving at once: one sees the current draft and keeps their work
   await page.goto(EDITOR_PATH)
 
   await page.getByLabel('Nombre').fill('Mi versión')
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  await save(page)
 
   const conflict = page.locator('[data-template-conflict]')
   await expect(conflict).toContainText('Alguien guardó este borrador mientras lo editabas')
@@ -244,7 +359,7 @@ test('the current draft can be loaded instead, dropping the unsaved work', async
   await page.goto(EDITOR_PATH)
 
   await page.getByLabel('Nombre').fill('Mi versión')
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  await save(page)
   await page.getByRole('button', { name: 'Cargar lo guardado' }).click()
 
   await expect(page.getByLabel('Nombre')).toHaveValue('Fuerza tren superior (versión del equipo)')
@@ -266,7 +381,7 @@ test('what the server refuses on save is said in the reader’s words', async ({
   await page.goto(EDITOR_PATH)
 
   await page.getByLabel('Nombre').fill('Otro nombre')
-  await page.getByRole('button', { name: 'Guardar borrador' }).click()
+  await save(page)
 
   await expect(page.getByText('El servidor no aceptó el borrador')).toBeVisible()
   await expect(

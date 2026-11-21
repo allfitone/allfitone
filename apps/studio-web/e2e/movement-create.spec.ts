@@ -80,10 +80,11 @@ test('it can be a variant of a global movement, and of nothing else', async ({ p
   await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
 
   const picker = page.getByRole('dialog', { name: 'Elegir un movimiento' })
-  await expect(picker.getByRole('button', { name: 'Press de banca' })).toBeVisible()
+  // The results are a list of options now, chosen with a press or with Enter.
+  await expect(picker.getByRole('option', { name: 'Press de banca' })).toBeVisible()
   // Our own movement is not a base a variant can name.
-  await expect(picker.getByRole('button', { name: 'Remo con mancuerna a una mano' })).toHaveCount(0)
-  await picker.getByRole('button', { name: 'Press de banca' }).click()
+  await expect(picker.getByRole('option', { name: 'Remo con mancuerna a una mano' })).toHaveCount(0)
+  await picker.getByRole('option', { name: 'Press de banca' }).click()
   await choose(page, 'Relación', 'Progresión')
   await page.getByRole('button', { name: 'Crear movimiento' }).click()
 
