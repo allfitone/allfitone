@@ -5,14 +5,15 @@ import {
   buildProgramContent,
   composableTemplates,
   moveSession,
-  nextSlot,
+  nextDayInWeek,
   programEditorFromContent,
+  programGrid,
   programIssueMessages,
   removeSession,
   retiredSessions,
-  sessionsByWeek,
   templateVersionIndex,
-  weekOptions,
+  weekChoices,
+  weekCount,
   type ProgramEditorDraft,
 } from './program-editor'
 import type { SessionTemplate } from './studio-api'
@@ -179,24 +180,31 @@ describe('editing the sessions', () => {
     expect(editor.repeatsForever).toBe(false)
   })
 
-  test('groups sessions by week, in day order', () => {
+  test('lays the sessions on seven days a week, the empty days included', () => {
     const editor = draft([
       [2, 1, V2],
       [1, 5, V2],
       [1, 2, V2],
     ])
-    expect(
-      sessionsByWeek(editor.sessions).map((week) => [week.week, week.sessions.map((s) => s.day)]),
-    ).toEqual([
-      [1, [2, 5]],
-      [2, [1]],
-    ])
+    const grid = programGrid(editor.sessions, 2)
+    expect(grid.map((row) => row.week)).toEqual([1, 2])
+    expect(grid[0]?.days.map((cell) => cell.day)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(grid[0]?.days.map((cell) => cell.sessions.length)).toEqual([0, 1, 0, 0, 1, 0, 0])
+    expect(grid[1]?.days.map((cell) => cell.sessions.length)).toEqual([1, 0, 0, 0, 0, 0, 0])
   })
 
   test('keeps two sessions on the same day in the order they were added', () => {
     const editor = addSession(draft([[1, 1, V2]]), { week: 1, day: 1, templateVersionId: V1 }, key)
-    const [week] = sessionsByWeek(editor.sessions)
-    expect(week?.sessions.map((session) => session.templateVersionId)).toEqual([V2, V1])
+    const cell = programGrid(editor.sessions, 1)[0]?.days[0]
+    expect(cell?.sessions.map((session) => session.templateVersionId)).toEqual([V2, V1])
+  })
+
+  test('shows every week in use, and the ones added that are still empty', () => {
+    expect(weekCount(draft([]).sessions)).toBe(1)
+    expect(weekCount(draft([[3, 1, V2]]).sessions)).toBe(3)
+    // A week added by hand stays on screen with nothing in it.
+    expect(weekCount(draft([[1, 1, V2]]).sessions, 4)).toBe(4)
+    expect(weekCount(draft([[104, 1, V2]]).sessions, 200)).toBe(104)
   })
 
   test('moves a session to another week or day, and removes one', () => {
@@ -214,17 +222,24 @@ describe('editing the sessions', () => {
     expect(removeSession(moved, target.key).sessions).toHaveLength(1)
   })
 
-  test('suggests the day after the last session, wrapping into the next week', () => {
-    expect(nextSlot(draft([]))).toEqual({ week: 1, day: 1 })
-    expect(nextSlot(draft([[1, 3, V2]]))).toEqual({ week: 1, day: 4 })
-    expect(nextSlot(draft([[2, 7, V2]]))).toEqual({ week: 3, day: 1 })
-    expect(nextSlot(draft([[104, 7, V2]]))).toEqual({ week: 104, day: 7 })
+  test('suggests the day after the last session of a week, and stops at the seventh', () => {
+    expect(nextDayInWeek(draft([]).sessions, 1)).toBe(1)
+    expect(
+      nextDayInWeek(
+        draft([
+          [1, 3, V2],
+          [2, 6, V2],
+        ]).sessions,
+        1,
+      ),
+    ).toBe(4)
+    expect(nextDayInWeek(draft([[1, 7, V2]]).sessions, 1)).toBe(7)
   })
 
-  test('offers the weeks in use and one more, up to the limit of 104', () => {
-    expect(weekOptions(draft([]).sessions)).toEqual([1])
-    expect(weekOptions(draft([[3, 1, V2]]).sessions)).toEqual([1, 2, 3, 4])
-    expect(weekOptions(draft([[104, 1, V2]]).sessions).at(-1)).toBe(104)
+  test('offers the weeks on screen and one more, up to the limit of 104', () => {
+    expect(weekChoices(1)).toEqual([1, 2])
+    expect(weekChoices(3)).toEqual([1, 2, 3, 4])
+    expect(weekChoices(104)).toHaveLength(104)
   })
 
   test('names the sessions whose version is retired', () => {

@@ -40,22 +40,41 @@ test('a correction sends only what changed, under the revision it read', async (
   await page.getByRole('link', { name: 'Remo con mancuerna a una mano', exact: true }).click()
 
   await page.getByLabel('Otros nombres').fill('Remo unilateral')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(page.getByText('Hay cambios sin guardar.')).toBeVisible()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 
   await expect(page.getByText(/Cambios guardados a las/)).toBeVisible()
-  await expect(page.locator('[data-movement-summary]')).toContainText('Remo unilateral')
+  // The form is the movement now: what was saved is what it still shows.
+  await expect(page.getByLabel('Otros nombres')).toHaveValue('Remo unilateral')
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled()
   expect(edits(fixture)[0]?.body).toEqual({ expected_revision: 1, aliases: ['Remo unilateral'] })
 })
 
-test('nothing changed is said, and nothing is sent', async ({ page }) => {
+test('nothing changed is said, and nothing can be sent', async ({ page }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await page.goto(OWN_PATH)
 
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
-
-  await expect(page.getByText('No hay cambios que guardar.')).toBeVisible()
+  await expect(page.getByText('Sin cambios desde que lo abriste.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled()
+  // A change undone leaves nothing to save either.
+  await page.getByLabel('Otros nombres').fill('Remo unilateral')
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeEnabled()
+  await page.getByLabel('Otros nombres').fill('')
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled()
   expect(edits(fixture)).toHaveLength(0)
+})
+
+test('what editing changes is said to whoever asks, and stays out of the way', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(OWN_PATH)
+
+  await expect(page.getByText(/Editarlo no cambia el historial/)).toHaveCount(0)
+  await page.getByRole('button', { name: 'Qué cambia al editar el movimiento' }).click()
+
+  await expect(page.getByRole('dialog', { name: 'Editar el movimiento' })).toContainText(
+    'Editarlo no cambia el historial',
+  )
 })
 
 test('once a published version uses it, the name keeps its meaning and the discipline stays', async ({
@@ -67,7 +86,7 @@ test('once a published version uses it, the name keeps its meaning and the disci
 
   await expect(page.getByLabel('Disciplina', { exact: true })).toBeDisabled()
   await page.getByLabel('Nombre', { exact: true }).fill('Remo con kettlebell')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
   await expect(
     page.getByText(
       'Una versión publicada ya lo usa: el nombre solo admite cambios de mayúsculas o espacios.',
@@ -77,7 +96,7 @@ test('once a published version uses it, the name keeps its meaning and the disci
 
   // Case and spacing still change, because the meaning does not.
   await page.getByLabel('Nombre', { exact: true }).fill('Remo con Mancuerna a una mano')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
   await expect(page.getByText(/Cambios guardados a las/)).toBeVisible()
   expect(edits(fixture)[0]?.body).toEqual({
     expected_revision: 1,
@@ -101,7 +120,7 @@ test('a rename the server refuses because of history is said on the name', async
   await page.goto(OWN_PATH)
 
   await page.getByLabel('Nombre', { exact: true }).fill('Remo con kettlebell')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 
   await expect(
     page.getByText(/Una versión publicada ya lo usa: el nombre solo admite/),
@@ -113,7 +132,7 @@ test('a name another of ours has is refused on the name', async ({ page }) => {
   await page.goto(OWN_PATH)
 
   await page.getByLabel('Nombre', { exact: true }).fill('zancada lateral con banda')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 
   await expect(
     page.getByText('Ya hay un movimiento de tu organización con ese nombre.'),
@@ -131,7 +150,7 @@ test('two people editing: the current movement is shown beside the unsaved chang
   await page.goto(OWN_PATH)
 
   await page.getByLabel('Otros nombres').fill('Remo unilateral')
-  await page.getByRole('button', { name: 'Guardar cambios' }).click()
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click()
 
   const conflict = page.locator('[data-movement-conflict]')
   await expect(conflict).toContainText('1 nombre alternativo')
@@ -147,7 +166,7 @@ test('a global movement is read here and never edited', async ({ page }) => {
   await page.goto(`${CONTENT_PATH}/movements/${STRENGTH_GLOBAL_MOVEMENT_ID}`)
 
   await expect(page.getByText(/no se editan desde aquí/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toHaveCount(0)
 })
 
 test('an archived movement of ours is read, not edited', async ({ page }) => {
@@ -155,5 +174,5 @@ test('an archived movement of ours is read, not edited', async ({ page }) => {
   await page.goto(`${CONTENT_PATH}/movements/01991600-c000-7000-8000-000000000004`)
 
   await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toHaveCount(0)
 })

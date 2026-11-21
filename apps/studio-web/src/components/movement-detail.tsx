@@ -7,19 +7,15 @@
  * page says whose it is. Another organization's movement answers 404, like one
  * that never existed. Creating one lands here, so the gym sees at once what
  * it made and that nobody else sees it.
+ *
+ * The page takes the shape of the library's editors: the trail back to the
+ * movements, the name as the title, and what can be done with it in sight at
+ * the top. A movement of the gym's own that is not archived opens as its form,
+ * because the form is the movement; any other is read.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
 import {
   Empty,
   EmptyDescription,
@@ -27,22 +23,20 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@allfitone/react/components/empty'
-import { Spinner } from '@allfitone/react/components/spinner'
+import { Skeleton } from '@allfitone/react/components/skeleton'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
-import { MovementArchive } from './movement-archive'
+import { LibraryTrail } from './library-views'
 import { MovementEditor } from './movement-editor'
+import { MovementDetails, MovementTitle } from './movement-summary'
 import { useOrganizationContext } from './organization-context'
-import { WorkspacePageHeader } from './workspace-page-header'
 import { libraryPath } from '@/lib/content-library'
-import { RELATION_LABEL, canArchiveMovements } from '@/lib/movement-form'
-import { disciplineName, movementScopeLabel } from '@/lib/movement-search'
+import { canArchiveMovements } from '@/lib/movement-form'
 import { canManageContent } from '@/lib/organization-content'
 import { disciplineOptions } from '@/lib/session-template-create'
-import type { CatalogDiscipline, OrganizationMovement } from '@/lib/studio-api'
 import {
   catalogDisciplinesQueryOptions,
   isStudioNotFound,
@@ -119,113 +113,50 @@ export function MovementDetail() {
   if (!movement) {
     return (
       <section data-content-page aria-label={label}>
-        <div data-content-catalog-state>
-          <Spinner label="Abriendo el movimiento" />
-          <p>Abriendo el movimiento…</p>
+        <div data-editor-skeleton role="status" aria-label="Abriendo el movimiento">
+          <Skeleton data-editor-skeleton-bar />
+          <Skeleton data-movement-skeleton-form />
         </div>
       </section>
     )
   }
 
+  const own = movement.scope === 'organization'
+  const whose = own
+    ? `Un movimiento propio de ${current.display_name}. Solo lo ve tu organización.`
+    : 'Un movimiento del catálogo de Allfit. Lo carga Allfit, y se usa tal como está.'
+
   return (
     <section data-content-page aria-label={label}>
-      <WorkspacePageHeader
-        description={
-          movement.scope === 'global'
-            ? 'Un movimiento del catálogo de Allfit. Lo carga Allfit, y se usa tal como está.'
-            : `Un movimiento propio de ${current.display_name}. Solo lo ve tu organización.`
-        }
-        actions={<BackToContent href={contentPath} />}
-      />
-      <MovementSummary movement={movement} disciplines={disciplinesQuery.data?.items} />
+      <LibraryTrail organizationId={organizationId} tab="movements" current={movement.name} />
 
-      {/* HU-065 criterion 2: a global movement is read here, never edited. */}
-      {movement.scope === 'global' ? (
-        <p>
-          Los movimientos del catálogo de Allfit no se editan desde aquí. Si necesitas otro nombre o
-          una variante, crea un movimiento propio.
-        </p>
-      ) : null}
-      {movement.scope === 'organization' && movement.archived ? (
-        <p>
-          Está archivado: ya no se edita ni se puede sumar a contenido nuevo. Las versiones y las
-          sesiones que lo usan siguen mostrando su nombre.
-        </p>
-      ) : null}
-      {movement.scope === 'organization' && !movement.archived ? (
+      {own && !movement.archived ? (
         <MovementEditor
           key={movement.id}
           movement={movement}
           organizationId={organizationId}
           disciplines={disciplineOptions(disciplinesQuery.data?.items ?? [])}
+          catalog={disciplinesQuery.data?.items}
+          whose={whose}
+          // HU-066 is the owner's and the admin's; a coach is told who can.
+          canArchive={canArchiveMovements(current.roles, rolesQuery.data?.items)}
         />
-      ) : null}
-      {/* HU-066 is the owner's and the admin's; a coach is told who can. */}
-      {movement.scope === 'organization' && !movement.archived ? (
-        canArchiveMovements(current.roles, rolesQuery.data?.items) ? (
-          <MovementArchive movement={movement} organizationId={organizationId} />
-        ) : (
-          <p>Archivar un movimiento corresponde a propietario y administración.</p>
-        )
-      ) : null}
+      ) : (
+        <>
+          <header data-editor-bar>
+            <MovementTitle movement={movement} />
+          </header>
+          <p data-editor-meta-note>{whose}</p>
+          <MovementDetails movement={movement} disciplines={disciplinesQuery.data?.items} />
+          {/* HU-065 criterion 2: a global movement is read here, never edited. */}
+          <p data-editor-meta-note>
+            {own
+              ? 'Está archivado: ya no se edita ni se puede sumar a contenido nuevo. Las versiones y las sesiones que lo usan siguen mostrando su nombre.'
+              : 'Los movimientos del catálogo de Allfit no se editan desde aquí. Si necesitas otro nombre o una variante, crea un movimiento propio.'}
+          </p>
+        </>
+      )}
     </section>
-  )
-}
-
-export function MovementSummary({
-  movement,
-  disciplines,
-}: {
-  movement: OrganizationMovement
-  disciplines: readonly CatalogDiscipline[] | undefined
-}) {
-  return (
-    <Card data-movement-summary>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          {movement.name}
-        </CardTitle>
-        <CardDescription>{disciplineName(movement.discipline_code, disciplines)}</CardDescription>
-        <CardAction>
-          <span data-movement-badges>
-            <Badge variant={movement.scope === 'global' ? 'secondary' : 'outline'}>
-              {movementScopeLabel(movement.scope)}
-            </Badge>
-            {movement.archived ? <Badge variant="outline">Archivado</Badge> : null}
-          </span>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <dl data-version-details>
-          <div>
-            <dt>Otros nombres</dt>
-            <dd>{movement.aliases.length > 0 ? movement.aliases.join(', ') : 'Ninguno'}</dd>
-          </div>
-          <div>
-            <dt>Variante de</dt>
-            <dd>
-              {movement.variant_of
-                ? `${RELATION_LABEL[movement.variant_of.relation]} de ${movement.variant_of.name}${movement.variant_of.note ? `: ${movement.variant_of.note}` : ''}`
-                : 'Ninguno'}
-            </dd>
-          </div>
-          <div>
-            <dt>Equipo</dt>
-            <dd>{movement.equipment.length > 0 ? movement.equipment.join(', ') : 'Ninguno'}</dd>
-          </div>
-          {movement.scope === 'organization' ? (
-            <div>
-              <dt>Uso</dt>
-              <dd>
-                {movement.name_locked
-                  ? 'Una versión publicada lo usa'
-                  : 'Ninguna versión publicada lo usa'}
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      </CardContent>
-    </Card>
   )
 }
 

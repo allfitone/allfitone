@@ -35,17 +35,20 @@ test('an owner archives our movement, which then leaves the search for new conte
   await page.getByRole('button', { name: 'Archivar ahora' }).click()
 
   await expect(page.getByText(/Está archivado: ya no se edita/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toHaveCount(0)
   // Criteria 2 and 3: not deleted, and still read by its name.
-  await expect(page.locator('[data-movement-summary]')).toContainText(
-    'Remo con mancuerna a una mano',
-  )
-  await expect(page.locator('[data-movement-summary]')).toContainText('Archivado')
+  await expect(
+    page.getByRole('heading', { level: 2, name: 'Remo con mancuerna a una mano' }),
+  ).toBeVisible()
+  await expect(page.locator('[data-editor-bar]')).toContainText('Archivado')
   expect(archivals(fixture)).toHaveLength(1)
   expect(archivals(fixture)[0]?.body).toBeUndefined()
 
-  // Back lands on the tab the movement belongs to, not on the first one.
-  await page.getByRole('link', { name: 'Volver a la biblioteca' }).click()
+  // The trail leads back to the tab the movement belongs to, not to the first one.
+  await page
+    .getByRole('navigation', { name: 'Ruta' })
+    .getByRole('link', { name: 'Movimientos' })
+    .click()
   await expect(page.getByRole('tab', { name: 'Movimientos' })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -80,7 +83,7 @@ test('a coach is told who archives, and is offered nothing', async ({ page }) =>
   await page.goto(OWN_PATH)
 
   // Editing is still the coach's: `manage_content` covers it.
-  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeVisible()
   await expect(
     page.getByText('Archivar un movimiento corresponde a propietario y administración.'),
   ).toBeVisible()
@@ -103,5 +106,5 @@ test('a refusal is explained inside the dialog, and the movement stays', async (
     'Archivar movimientos corresponde a propietario y administración, y tu rol ya no lo permite.',
   )
   await page.getByRole('button', { name: 'Mantenerlo' }).click()
-  await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeVisible()
 })

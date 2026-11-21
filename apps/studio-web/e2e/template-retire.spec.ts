@@ -47,9 +47,12 @@ test('an owner retires a version, which new programs then cannot take', async ({
    * that had published anything.
    */
   await page.goto(`${CONTENT_PATH}/programs/${draftedProgram.id}`)
-  await expect(page.locator('[data-program-add-session]')).toContainText(
+  await expect(page.locator('[data-program-no-templates]')).toContainText(
     'Todavía no hay versiones de plantilla que usar',
   )
+  await expect(
+    page.getByRole('button', { name: 'Agregar una sesión el día 2 de la semana 1' }),
+  ).toBeDisabled()
   // Criterion 2: the program that already named it keeps every session.
   await expect(page.locator('[data-program-session]')).toHaveCount(3)
   await expect(page.locator('[data-program-retired]')).toContainText('3 sesiones')

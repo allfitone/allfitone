@@ -63,7 +63,7 @@ export function MovementFields({
   const variant = draft.variant
 
   return (
-    <FieldGroup>
+    <FieldGroup data-movement-fields>
       <Field data-invalid={Boolean(errors.discipline)}>
         <FieldLabel htmlFor="movement-discipline-field">Disciplina</FieldLabel>
         <Select

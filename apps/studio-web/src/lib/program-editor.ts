@@ -138,14 +138,40 @@ export function orderedSessions(sessions: readonly ProgramEditorSession[]): Prog
   return sessions.toSorted((left, right) => left.week - right.week || left.day - right.day)
 }
 
-export function sessionsByWeek(
+export interface ProgramGridWeek {
+  week: number
+  days: Array<{ day: number; sessions: ProgramEditorSession[] }>
+}
+
+/**
+ * The weeks on screen: up to the last in use, and the ones added by hand. An
+ * empty week is never stored, because the draft stores sessions.
+ */
+export function weekCount(sessions: readonly ProgramEditorSession[], shown = 1): number {
+  const last = Math.max(1, shown, ...sessions.map((session) => session.week))
+  return Math.min(WEEK_LIMIT, last)
+}
+
+/**
+ * The program as a calendar: each week on screen as its seven days, and on
+ * each day the sessions it holds, in the order the coach gave them.
+ */
+export function programGrid(
   sessions: readonly ProgramEditorSession[],
-): Array<{ week: number; sessions: ProgramEditorSession[] }> {
-  const weeks = new Map<number, ProgramEditorSession[]>()
-  for (const session of orderedSessions(sessions)) {
-    weeks.set(session.week, [...(weeks.get(session.week) ?? []), session])
+  weeks: number,
+): ProgramGridWeek[] {
+  const cells = new Map<string, ProgramEditorSession[]>()
+  for (const session of sessions) {
+    const cell = `${session.week}:${session.day}`
+    cells.set(cell, [...(cells.get(cell) ?? []), session])
   }
-  return [...weeks].map(([week, entries]) => ({ week, sessions: entries }))
+  return Array.from({ length: weeks }, (_, index) => {
+    const week = index + 1
+    return {
+      week,
+      days: DAY_OPTIONS.map((day) => ({ day, sessions: cells.get(`${week}:${day}`) ?? [] })),
+    }
+  })
 }
 
 export function addSession(
@@ -173,19 +199,18 @@ export function removeSession(draft: ProgramEditorDraft, key: string): ProgramEd
   return { ...draft, sessions: draft.sessions.filter((session) => session.key !== key) }
 }
 
-/** Where a new session most likely goes: the day after the last one. */
-export function nextSlot(draft: ProgramEditorDraft): { week: number; day: number } {
-  const last = orderedSessions(draft.sessions).at(-1)
-  if (!last) return { week: 1, day: 1 }
-  if (last.day < 7) return { week: last.week, day: last.day + 1 }
-  if (last.week < WEEK_LIMIT) return { week: last.week + 1, day: 1 }
-  return { week: last.week, day: last.day }
+/** Where a session added to a week most likely goes: the day after its last one. */
+export function nextDayInWeek(sessions: readonly ProgramEditorSession[], week: number): number {
+  const last = Math.max(
+    0,
+    ...sessions.filter((session) => session.week === week).map((session) => session.day),
+  )
+  return Math.min(7, last + 1)
 }
 
-/** The weeks in use and the next one, so a program grows a week at a time. */
-export function weekOptions(sessions: readonly ProgramEditorSession[]): number[] {
-  const last = Math.max(0, ...sessions.map((session) => session.week))
-  const count = Math.min(WEEK_LIMIT, last + 1)
+/** The weeks on screen and the next one, so a program grows a week at a time. */
+export function weekChoices(weeks: number): number[] {
+  const count = Math.min(WEEK_LIMIT, weeks + 1)
   return Array.from({ length: count }, (_, index) => index + 1)
 }
 
