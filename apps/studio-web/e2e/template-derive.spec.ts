@@ -62,7 +62,7 @@ test('a draft starts from a published version, and then says it came from it', a
   // The library marks it as an adaptation, from the same recorded source.
   await page.goto(CONTENT_PATH)
   await expect(
-    page.locator('[data-content-register-item]', { hasText: 'Fuerza tren superior' }),
+    page.locator('[data-library-card]', { hasText: 'Fuerza tren superior' }),
   ).toContainText('Adaptación')
   const template = fixture.organizationSessionTemplates.find(
     (entry) => (entry as typeof publishedTemplate).id === publishedTemplate.id,

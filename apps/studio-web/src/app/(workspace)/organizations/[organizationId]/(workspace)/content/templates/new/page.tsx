@@ -1,5 +1,13 @@
-import { SessionTemplateCreateForm } from '@/components/session-template-create'
+import { redirect } from 'next/navigation'
 
-export default function NewSessionTemplatePage() {
-  return <SessionTemplateCreateForm />
+import { libraryCreatePath } from '@/lib/content-library'
+
+// Creating is a dialog over the library now; the old address opens it there.
+export default async function NewSessionTemplatePage({
+  params,
+}: {
+  params: Promise<{ organizationId: string }>
+}) {
+  const { organizationId } = await params
+  redirect(libraryCreatePath(organizationId, 'templates'))
 }

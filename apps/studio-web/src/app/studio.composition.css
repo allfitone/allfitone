@@ -19,11 +19,12 @@
   --studio-measure: 58rem;
   --studio-canvas: 64rem;
 
-  /* The one screen that leaves that canvas, and why it may. The home is a
+  /* The screens that leave that canvas, and why they may. The home is a
      board: given more room its notices take a third column and its figures
      move beside the day, so the width goes to another card and never to a
      longer row — which was the whole case for 64rem. Held to that canvas on a
-     1920px display it sat in a third of the screen between two empty ones. */
+     1920px display it sat in a third of the screen between two empty ones. The
+     library is a grid of small cards, so more room is another column too. */
   --studio-canvas-board: 100rem;
 
   /* The privacy control floats over the bottom-right corner: 16px of offset and
@@ -43,7 +44,8 @@
 
 /* Only the board, and its placeholder so nothing widens when the answer
    arrives. A refusal or a failure is a sentence and keeps the reading canvas. */
-[data-organization-content] > [data-today-panel='board'] {
+[data-organization-content] > [data-today-panel='board'],
+[data-organization-content] > [data-content-page='library'] {
   width: min(100%, var(--studio-canvas-board));
 }
 
@@ -562,7 +564,6 @@
 [data-template-step-actions],
 [data-program-session-actions],
 [data-movement-variant-actions],
-[data-movement-library-actions],
 [data-category-disclosure] {
   display: flex;
   flex-wrap: wrap;
@@ -1271,8 +1272,7 @@
    with one gap owns the spacing on both, which also matches the 20px the
    section leaves above the trigger. */
 [data-credential-history],
-[data-membership-history],
-[data-content-archive] {
+[data-membership-history] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-5);
@@ -1281,8 +1281,7 @@
 /* Both roots are grids now, so without this the trigger stretches to the whole
    canvas — 1024px of ghost button for a six-word label. */
 [data-credential-history] > [data-history-trigger],
-[data-membership-history] > [data-history-trigger],
-[data-content-archive] > [data-history-trigger] {
+[data-membership-history] > [data-history-trigger] {
   justify-self: start;
 }
 
@@ -1331,12 +1330,223 @@
 [data-team-directory-note],
 [data-client-directory-note],
 [data-client-directory-search],
-[data-movement-search],
 [data-guest-quota-summary],
 [data-billing-note],
 [data-authorized-scope-note],
 [data-relationship-grant-note] {
   max-width: var(--studio-measure);
+}
+
+/* ----------------------------------------------------------------- confirm */
+
+/* Two answers that say what each does are long: side by side they need more
+   than the dialog's 448px, and the one that acts was cut at its edge. They
+   share the row when they fit and stack when they do not, the action on top. */
+[data-confirm-actions='long'] {
+  flex-wrap: wrap-reverse;
+}
+
+[data-confirm-actions='long'] > * {
+  flex: 1 1 auto;
+}
+
+/* A creation dialog can fill a phone, and its last button then ends under the
+   privacy control, which floats above every layer: «Cancelar» lost half its
+   target to it. The page behind is inert meanwhile, so the control steps aside. */
+@media (max-width: 640px) {
+  :root:has([data-library-create]) [data-analytics-controls][data-expanded='false'] {
+    visibility: hidden;
+  }
+}
+
+/* Choosing a variant opens a second dialog over the creation one, and two
+   frames overlapping read as a broken screen. The one underneath steps out
+   until the choice is made. Opacity, so focus can still return to it. */
+[data-library-create][data-nested-dialog-open] {
+  opacity: 0;
+}
+
+/* A form taller than the screen scrolls inside its dialog, and its buttons
+   stay in sight. Not on a phone, where two stacked buttons would take the room. */
+@media (min-width: 640px) {
+  [data-library-create-foot] {
+    position: sticky;
+    /* The dialog's own padding: the footer reaches its edge, so it sticks there. */
+    bottom: calc(-1 * var(--afo-space-6));
+    z-index: 1;
+    background: var(--afo-color-background-surface);
+  }
+}
+
+/* ----------------------------------------------------------------- library */
+
+/* One row above every list of the library: the search takes what the filters
+   leave, and the view switch closes the row. It wraps when it does not fit,
+   and the search then has a line of its own. */
+[data-library-toolbar] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  container-type: inline-size;
+}
+
+/* A register needs 44rem to be a table. Under that the rows fall back to
+   cards, so a switch there would offer a view it cannot give. */
+@container (max-width: 44rem) {
+  [data-library-view] {
+    display: none;
+  }
+}
+
+/* A small basis, so the filters and the switch stay on its row on a laptop;
+   it grows into whatever they leave. */
+[data-library-search] {
+  flex: 1 1 12rem;
+  max-width: 26rem;
+}
+
+/* The switch and its label are one control, so they do not grow or break. */
+[data-library-switch] {
+  width: auto;
+  flex: none;
+}
+
+[data-library-view] {
+  margin-inline-start: auto;
+}
+
+/* `auto-fill` and not `auto-fit`: two results keep the width of a card, where
+   stretching them across the canvas turned each into a banner. */
+[data-library-grid] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
+  gap: var(--afo-space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-library-grid] > li {
+  display: grid;
+  min-width: 0;
+}
+
+/* The whole card opens the item. The name stays the link a screen reader
+   meets; its hit area is stretched over the card it titles. */
+[data-library-card] {
+  position: relative;
+  transition: border-color var(--afo-motion-feedback-duration) var(--afo-motion-feedback-easing);
+}
+
+[data-library-card]:hover {
+  border-color: var(--afo-color-border-strong);
+}
+
+[data-library-card]:has([data-library-entry-link]:focus-visible) {
+  outline: 2px solid var(--afo-color-focus-ring);
+  outline-offset: 2px;
+}
+
+[data-library-entry-link] {
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+[data-library-card] [data-library-entry-link]:focus-visible {
+  outline: none;
+}
+
+[data-library-card] [data-library-entry-link]::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+/* Over the stretched link, so the menu answers its own press. */
+[data-library-menu] {
+  position: relative;
+  z-index: 1;
+}
+
+/* Pushed to the foot, so a name that wraps does not lift one card's state
+   above its neighbours'. */
+[data-library-card-foot] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-2) var(--afo-space-3);
+  margin-block-start: auto;
+}
+
+[data-library-badges] {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-2);
+}
+
+[data-library-edited] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-xs);
+}
+
+[data-library-skeleton] {
+  height: 6.5rem;
+  border-radius: var(--afo-radius-card);
+}
+
+/* The name is the share nobody chose the length of; the last column is only
+   the menu. */
+[data-studio-register='library'] col:nth-child(1) {
+  width: 38%;
+}
+
+[data-studio-register='library'] col:nth-child(2) {
+  width: 22%;
+}
+
+[data-studio-register='library'] col:nth-child(3),
+[data-studio-register='library'] col:nth-child(4) {
+  width: 16%;
+}
+
+[data-studio-register='library'] col:nth-child(5) {
+  width: 8%;
+}
+
+[data-studio-register='library-movements'] col:nth-child(1) {
+  width: 46%;
+}
+
+[data-studio-register='library-movements'] col:nth-child(2) {
+  width: 24%;
+}
+
+[data-studio-register='library-movements'] col:nth-child(3) {
+  width: 30%;
+}
+
+/* One height for every row: only some carry a menu, and its 44px target made
+   those rows taller than their neighbours. */
+[data-library-row] {
+  height: 4.25rem;
+}
+
+[data-library-row] [data-library-entry-link] {
+  font-weight: var(--afo-font-weight-semibold);
+}
+
+[data-library-row] [data-library-entry-link]:hover {
+  text-decoration: underline;
+}
+
+/* The menu names versions and dates, which the menu's own minimum cut in two. */
+[data-library-menu-content] {
+  min-width: 15rem;
 }
 
 /* ------------------------------------------------------------------- roles */
@@ -1691,7 +1901,6 @@
      row, they are direct children of the collapsible, so they take the width
      themselves. */
   [data-membership-history] > [data-history-trigger],
-  [data-content-archive] > [data-history-trigger],
   [data-credential-history] > [data-history-trigger] {
     width: 100%;
     justify-self: stretch;

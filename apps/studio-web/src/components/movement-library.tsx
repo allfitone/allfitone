@@ -3,28 +3,27 @@
 /**
  * The movements a gym can plan with: `HU-STUDIO-067`.
  *
- * The third tab of the content page, beside the templates and programs that are
+ * The third tab of the library, beside the templates and programs that are
  * built out of these. The template editor searches the same list while a step
  * is written; here it can be browsed on its own, which is also where the gym's
- * own movements will be created, corrected and archived.
+ * own movements are created, corrected and archived.
  *
  * Every filter goes to the server, which owns all three criteria: what this
  * screen adds is saying whose each movement is, and marking the archived ones
- * when somebody asks to see them.
+ * when somebody asks to see them. The toolbar and the two views are the ones
+ * the other tabs use.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
+import { Button } from '@allfitone/react/components/button'
 import {
   Card,
-  CardAction,
-  CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Checkbox } from '@allfitone/react/components/checkbox'
 import {
   Empty,
   EmptyDescription,
@@ -32,7 +31,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@allfitone/react/components/empty'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Field, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
   Select,
@@ -42,12 +41,23 @@ import {
   SelectValue,
 } from '@allfitone/react/components/select'
 import { Spinner } from '@allfitone/react/components/spinner'
+import { Switch } from '@allfitone/react/components/switch'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@allfitone/react/components/table'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
 
+import { LibrarySkeleton, LibraryViewToggle } from './library-views'
 import { useOrganizationContext } from './organization-context'
+import type { LibraryView } from '@/lib/content-library'
 import {
   MOVEMENT_SEARCH_LIMIT,
   disciplineName,
@@ -57,18 +67,27 @@ import {
   movementSearchTerm,
 } from '@/lib/movement-search'
 import { disciplineOptions } from '@/lib/session-template-create'
+import type { StudioMovement } from '@/lib/studio-api'
 import {
   catalogDisciplinesQueryOptions,
   organizationMovementsQueryOptions,
 } from '@/lib/studio-query'
+import { useCompactTable } from '@/lib/use-compact-table'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
 
 const PAGE_SIZE = 25
 const SEARCH_SETTLE_MS = 300
 const EVERY_DISCIPLINE = 'all'
 
-export function MovementLibrary() {
+export function MovementLibrary({
+  view,
+  onViewChange,
+}: {
+  view: LibraryView
+  onViewChange: (view: LibraryView) => void
+}) {
   const { current } = useOrganizationContext()
+  const { compact, measuredRef } = useCompactTable<HTMLDivElement>()
   const [searchBox, setSearchBox] = useState('')
   const [disciplineCode, setDisciplineCode] = useState(EVERY_DISCIPLINE)
   const [includeArchived, setIncludeArchived] = useState(false)
@@ -90,68 +109,51 @@ export function MovementLibrary() {
     ...disciplineOptions(disciplines ?? []),
   ]
   const empty = movementEmptyMessage(filters)
+  const basePath = `/organizations/${current.organization_id}/content/movements`
+  // Rows that do not fit fall back to cards, whatever was chosen.
+  const rows = view === 'rows' && !compact
 
   return (
-    <div data-content-panel>
-      {/* HU-STUDIO-064, where the gym's own movements are listed. */}
-      <div data-movement-library-actions>
-        <Link
-          href={`/organizations/${current.organization_id}/content/movements/new`}
-          data-slot="button"
-          data-variant="outline"
-          className={buttonVariants({ variant: 'outline' })}
+    <div data-content-panel ref={measuredRef}>
+      <div data-library-toolbar>
+        {/* One search over both libraries (criterion 1); each result says whose it is. */}
+        <Input
+          type="search"
+          name="q"
+          autoComplete="off"
+          maxLength={MOVEMENT_SEARCH_LIMIT}
+          aria-label="Buscar un movimiento"
+          placeholder="Buscar por nombre u otro nombre"
+          value={searchBox}
+          onChange={(event) => setSearchBox(event.target.value)}
+          data-library-search
+        />
+        <Select
+          value={disciplineCode}
+          onValueChange={(value) => setDisciplineCode(value ?? EVERY_DISCIPLINE)}
+          items={options}
         >
-          Nuevo movimiento
-        </Link>
-      </div>
-
-      <FieldGroup data-movement-search>
-        <Field>
-          <FieldLabel htmlFor="movement-search">Buscar un movimiento</FieldLabel>
-          <Input
-            id="movement-search"
-            name="q"
-            type="search"
-            autoComplete="off"
-            maxLength={MOVEMENT_SEARCH_LIMIT}
-            placeholder="Nombre u otro nombre"
-            value={searchBox}
-            onChange={(event) => setSearchBox(event.target.value)}
-            aria-describedby="movement-search-note"
-          />
-          <FieldDescription id="movement-search-note">
-            Busca a la vez en el catálogo de Allfit y en los movimientos propios de{' '}
-            {current.display_name}.
-          </FieldDescription>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="movement-discipline">Disciplina</FieldLabel>
-          <Select
-            value={disciplineCode}
-            onValueChange={(value) => setDisciplineCode(value ?? EVERY_DISCIPLINE)}
-            items={options}
-          >
-            <SelectTrigger id="movement-discipline" data-studio-select-trigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="start">
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field orientation="horizontal">
-          <Checkbox
+          <SelectTrigger aria-label="Disciplina" data-library-filter>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start">
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Field orientation="horizontal" data-library-switch>
+          <Switch
             id="movement-archived"
             checked={includeArchived}
-            onCheckedChange={(checked) => setIncludeArchived(checked === true)}
+            onCheckedChange={(checked) => setIncludeArchived(checked)}
           />
           <FieldLabel htmlFor="movement-archived">Incluir los archivados</FieldLabel>
         </Field>
-      </FieldGroup>
+        <LibraryViewToggle view={view} onChange={onViewChange} />
+      </div>
 
       {query.isFetching && !query.isPending && !query.isFetchingNextPage ? (
         <p data-query-refreshing role="status" aria-live="polite">
@@ -159,12 +161,7 @@ export function MovementLibrary() {
         </p>
       ) : null}
 
-      {query.isPending ? (
-        <div data-content-catalog-state>
-          <Spinner label="Buscando movimientos" />
-          <p>Buscando movimientos…</p>
-        </div>
-      ) : null}
+      {query.isPending ? <LibrarySkeleton label="Buscando movimientos" /> : null}
 
       {query.isError && movements.length === 0 ? (
         <Alert variant="danger" live="polite">
@@ -185,7 +182,7 @@ export function MovementLibrary() {
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
-              <FoundationIcon name="overview" decorative />
+              <FoundationIcon name="search" decorative />
             </EmptyMedia>
             <EmptyTitle>{empty.title}</EmptyTitle>
             <EmptyDescription>{empty.description}</EmptyDescription>
@@ -193,41 +190,60 @@ export function MovementLibrary() {
         </Empty>
       ) : null}
 
-      {movements.length > 0 ? (
-        <ul data-content-register aria-label="Movimientos">
+      {movements.length > 0 && rows ? (
+        <Table
+          aria-label="Movimientos"
+          scrollAreaLabel="Tabla de movimientos"
+          data-studio-register="library-movements"
+        >
+          <colgroup>
+            <col />
+            <col />
+            <col />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Disciplina</TableHead>
+              <TableHead>Origen</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {movements.map((movement) => (
+              <TableRow key={movement.id} data-library-row="movements">
+                <TableCell>
+                  <Link href={`${basePath}/${movement.id}`} data-library-entry-link>
+                    {movement.name}
+                  </Link>
+                </TableCell>
+                <TableCell>{disciplineName(movement.discipline_code, disciplines)}</TableCell>
+                <TableCell>
+                  <MovementBadges movement={movement} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {movements.length > 0 && !rows ? (
+        <ul data-library-grid aria-label="Movimientos">
           {movements.map((movement) => (
             <li key={movement.id}>
-              <Card data-content-register-item data-movement-card>
+              <Card size="sm" data-library-card="movements">
                 <CardHeader>
                   <CardTitle role="heading" aria-level={2}>
-                    {movement.name}
+                    <Link href={`${basePath}/${movement.id}`} data-library-entry-link>
+                      {movement.name}
+                    </Link>
                   </CardTitle>
                   <CardDescription>
                     {disciplineName(movement.discipline_code, disciplines)}
                   </CardDescription>
-                  <CardAction>
-                    <span data-movement-badges>
-                      {/* Criterion 1: the two libraries are one list, told apart. */}
-                      <Badge variant={movement.scope === 'global' ? 'secondary' : 'outline'}>
-                        {movementScopeLabel(movement.scope)}
-                      </Badge>
-                      {movement.archived ? <Badge variant="outline">Archivado</Badge> : null}
-                    </span>
-                  </CardAction>
                 </CardHeader>
-                <CardContent data-content-card-body>
-                  <div data-content-disclosure>
-                    <Link
-                      href={`/organizations/${current.organization_id}/content/movements/${movement.id}`}
-                      data-slot="button"
-                      data-variant="outline"
-                      className={buttonVariants({ variant: 'outline' })}
-                      aria-label={`Abrir ${movement.name}`}
-                    >
-                      Abrir
-                    </Link>
-                  </div>
-                </CardContent>
+                <CardFooter data-library-card-foot>
+                  <MovementBadges movement={movement} />
+                </CardFooter>
               </Card>
             </li>
           ))}
@@ -247,5 +263,17 @@ export function MovementLibrary() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+function MovementBadges({ movement }: { movement: StudioMovement }) {
+  return (
+    <span data-library-badges>
+      {/* Criterion 1: the two libraries are one list, told apart. */}
+      <Badge variant={movement.scope === 'global' ? 'secondary' : 'outline'}>
+        {movementScopeLabel(movement.scope)}
+      </Badge>
+      {movement.archived ? <Badge variant="outline">Archivado</Badge> : null}
+    </span>
   )
 }

@@ -111,6 +111,21 @@ async function settledByHeading(page: Page): Promise<void> {
 }
 
 /**
+ * A screen that opens with a dialog over it. The page's `h1` is behind a modal
+ * then, out of the accessibility tree, so the dialog is what says it arrived.
+ */
+function settledByDialog(name: string): (page: Page) => Promise<void> {
+  return async (page) => {
+    await expect(page.getByRole('dialog', { name })).toBeVisible()
+  }
+}
+
+// Scoped to the dialog: the list behind it has a discipline filter of its own.
+function newMovementForm(page: Page) {
+  return page.getByRole('dialog', { name: 'Nuevo movimiento' })
+}
+
+/**
  * The panel renders whatever it was given, so an h1 is no evidence that the one
  * read it exists for arrived — the `h1` is the organization's name, in the
  * shell, and it is there before anything is asked. The invitations register was
@@ -2518,11 +2533,10 @@ export const SCREENS: Screen[] = [
   // --- `/organizations/[id]/content` · HU-044 ---
   {
     /*
-     * The first screen of the content block, and the shape nine more inherit.
-     * The default tab carries the three living states at once — published with
-     * a retired version, a draft with nothing published, and an adaptation —
-     * which is what makes the state line worth auditing: it has to read as
-     * three different things in one column.
+     * The first screen of the content block, and the shape the other registers
+     * copy. The default tab carries the three living states at once — published
+     * with a retired version, a draft with nothing published, and an adaptation
+     * — so the toolbar, a card with a menu and a card without are all on it.
      */
     stories: 'HU-044 · the content a gym has made',
     path: `${workspace}/content`,
@@ -2530,28 +2544,51 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByRole('tab', { name: 'Plantillas' })).toBeVisible()
-      await expect(page.getByText(/1 versión publicada · 1 retirada/)).toBeVisible()
+      await expect(page.getByText('Publicada v2')).toBeVisible()
     },
   },
   {
-    // The versions open, which is the widest a card gets and the only place a
+    // The menu open: the draft and each version apart, and the only place a
     // retired version is named.
     stories: 'HU-044 · the versions of a template',
     path: `${workspace}/content`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
-      await page
-        .locator('[data-content-register-item]', { hasText: 'Fuerza tren superior' })
-        .getByRole('button', { name: /Ver versiones/ })
-        .click()
-      /*
-       * Scoped to the version row, and exact: the state line above says «1
-       * retirada», and `getByText` matches a substring without regard to case,
-       * so an unscoped assertion resolved to two elements.
-       */
-      await expect(
-        page.locator('[data-content-version-list] > li', { hasText: 'Retirada' }),
-      ).toBeVisible()
+      await page.getByRole('button', { name: 'Versiones de Fuerza tren superior' }).click()
+      await expect(page.getByRole('menuitem', { name: /retirada/ })).toBeVisible()
+    },
+  },
+  {
+    // The other view of the same list: a table, where the row with a menu must
+    // not stand taller than its neighbours.
+    stories: 'HU-044 · the list read as rows',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    viewport: DESKTOP,
+    reveal: async (page) => {
+      await page.getByRole('button', { name: 'Filas' }).click()
+      await expect(page.getByRole('table', { name: 'Plantillas' })).toBeVisible()
+    },
+  },
+  {
+    // Filters that leave nothing: said as a search with no match, with the way
+    // out, and never as a gym with no content.
+    stories: 'HU-044 · filters that leave nothing',
+    path: `${workspace}/content`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    reveal: async (page) => {
+      await page.getByRole('searchbox', { name: 'Buscar plantillas' }).fill('pliometría')
+      await expect(page.getByText('Ninguna plantilla coincide')).toBeVisible()
+    },
+  },
+  {
+    // The programs tab by its address, which is how a link back arrives.
+    stories: 'HU-044 · the programs of a gym',
+    path: `${workspace}/content?tab=programs`,
+    fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: async (page) => {
+      await settledByHeading(page)
+      await expect(page.getByText('Publicado v2')).toBeVisible()
     },
   },
   {
@@ -2582,7 +2619,7 @@ export const SCREENS: Screen[] = [
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
       await page.getByRole('tab', { name: 'Movimientos' }).click()
-      await page.getByRole('checkbox', { name: 'Incluir los archivados' }).click()
+      await page.getByRole('switch', { name: 'Incluir los archivados' }).click()
       await expect(page.getByText('Zancada lateral con banda')).toBeVisible()
     },
   },
@@ -2596,12 +2633,13 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Ningún movimiento coincide/)).toBeVisible()
     },
   },
-  // --- `/organizations/[id]/content/templates/new` · HU-036 ---
+  // --- the creation dialog of a template, opened by its old address · HU-036 ---
   {
-    // Submitted empty, so both field errors are on the page with the open form.
+    // Submitted empty, so both field errors are in the dialog with the open form.
     stories: 'HU-036 · a new template, and what it still needs',
     path: `${workspace}/content/templates/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nueva plantilla'),
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Crear plantilla' }).click()
       await expect(page.getByText('Escribe el nombre de la plantilla.')).toBeVisible()
@@ -2614,7 +2652,7 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/content/templates/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership], disciplines: [] }),
     settled: async (page) => {
-      await settledByHeading(page)
+      await settledByDialog('Nueva plantilla')(page)
       await expect(page.getByText('Todavía no hay disciplinas publicadas')).toBeVisible()
     },
   },
@@ -2626,10 +2664,13 @@ export const SCREENS: Screen[] = [
         memberships: [activeMembership],
         templateCreateOutcome: 'not-found',
       }),
+    settled: settledByDialog('Nueva plantilla'),
     reveal: async (page) => {
-      await page.getByLabel('Disciplina').click()
+      // Scoped to the dialog: the list behind it has a discipline filter of its own.
+      const form = page.getByRole('dialog', { name: 'Nueva plantilla' })
+      await form.getByLabel('Disciplina').click()
       await page.getByRole('option', { name: 'Fuerza' }).click()
-      await page.getByLabel('Nombre').fill('Fuerza tren inferior')
+      await form.getByLabel('Nombre').fill('Fuerza tren inferior')
       await page.getByRole('button', { name: 'Crear plantilla' }).click()
       await expect(page.getByText(/Tu rol ya no crea contenido/)).toBeVisible()
     },
@@ -2777,11 +2818,12 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText(/Guarda el borrador antes de publicar/)).toBeVisible()
     },
   },
-  // --- `/organizations/[id]/content/programs/new` · HU-041 ---
+  // --- the creation dialog of a program, opened by its old address · HU-041 ---
   {
     stories: 'HU-041 · a new program, and the name it still needs',
     path: `${workspace}/content/programs/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nuevo programa'),
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Crear programa' }).click()
       await expect(page.getByText('Escribe el nombre del programa.')).toBeVisible()
@@ -3150,11 +3192,12 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No encontramos este programa')).toBeVisible()
     },
   },
-  // --- `/organizations/[id]/content/movements/new` · HU-064 ---
+  // --- the creation dialog of a movement, opened by its old address · HU-064 ---
   {
     stories: 'HU-064 · a new movement, and what it still needs',
     path: `${workspace}/content/movements/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nuevo movimiento'),
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Crear movimiento' }).click()
       await expect(page.getByText('Escribe el nombre del movimiento.')).toBeVisible()
@@ -3166,8 +3209,9 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/content/movements/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
+    settled: settledByDialog('Nuevo movimiento'),
     reveal: async (page) => {
-      await page.getByLabel('Disciplina', { exact: true }).click()
+      await newMovementForm(page).getByLabel('Disciplina', { exact: true }).click()
       await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
       await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
       await page
@@ -3181,8 +3225,9 @@ export const SCREENS: Screen[] = [
     stories: 'HU-064 · choosing the global movement a variant is of',
     path: `${workspace}/content/movements/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nuevo movimiento'),
     reveal: async (page) => {
-      await page.getByLabel('Disciplina', { exact: true }).click()
+      await newMovementForm(page).getByLabel('Disciplina', { exact: true }).click()
       await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
       await page.getByRole('button', { name: 'Elegir un movimiento del catálogo' }).click()
       await expect(
@@ -3195,8 +3240,9 @@ export const SCREENS: Screen[] = [
     stories: 'HU-064 · a name the organization already uses',
     path: `${workspace}/content/movements/new`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
+    settled: settledByDialog('Nuevo movimiento'),
     reveal: async (page) => {
-      await page.getByLabel('Disciplina', { exact: true }).click()
+      await newMovementForm(page).getByLabel('Disciplina', { exact: true }).click()
       await page.getByRole('option', { name: 'Fuerza', exact: true }).click()
       await page.getByLabel('Nombre', { exact: true }).fill('Remo con mancuerna a una mano')
       await page.getByRole('button', { name: 'Crear movimiento' }).click()

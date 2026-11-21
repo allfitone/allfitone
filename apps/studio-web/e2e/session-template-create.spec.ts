@@ -14,13 +14,21 @@ import {
  * before anything is published, and it has one owner — so this audits what the
  * screen adds: the two questions the command asks, the capability gate, and an
  * answer for every refusal.
+ *
+ * The form is a dialog over the library. The address that used to be its page
+ * still opens it, so a link kept from before lands on the same two questions.
  */
 
 const CONTENT_PATH = `/organizations/${activeMembership.organization_id}/content`
 const NEW_PATH = `${CONTENT_PATH}/templates/new`
 
+function form(page: Page) {
+  return page.getByRole('dialog', { name: 'Nueva plantilla' })
+}
+
+// Scoped to the dialog: the list behind it has a discipline filter of its own.
 async function chooseDiscipline(page: Page, name: string) {
-  await page.getByLabel('Disciplina').click()
+  await form(page).getByLabel('Disciplina').click()
   await page.getByRole('option', { name }).click()
 }
 
@@ -37,11 +45,13 @@ test('a template is created from the content page, opens its draft and waits as 
   await installStudioApiMock(page, fixture)
   await page.goto(CONTENT_PATH)
 
-  await page.getByRole('link', { name: 'Nueva plantilla' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Nueva plantilla' })).toBeVisible()
+  await page.getByRole('button', { name: 'Nueva plantilla' }).click()
+  await expect(form(page)).toBeVisible()
+  // The list stays where it was, behind the two questions.
+  await expect(page).toHaveURL(CONTENT_PATH)
 
   await chooseDiscipline(page, 'Fuerza')
-  await page.getByLabel('Nombre').fill('  Fuerza tren inferior  ')
+  await form(page).getByLabel('Nombre').fill('  Fuerza tren inferior  ')
   await page.getByRole('button', { name: 'Crear plantilla' }).click()
 
   // Criterion 2: the template exists, with its draft, before anything is published.
@@ -50,11 +60,10 @@ test('a template is created from the content page, opens its draft and waits as 
 
   await page.getByRole('link', { name: 'Volver a la biblioteca' }).click()
   await expect(page).toHaveURL(CONTENT_PATH)
-  const created = page.locator('[data-content-register-item]', {
-    hasText: 'Fuerza tren inferior',
-  })
-  await expect(created).toContainText('Borrador sin publicar')
-  await expect(created).toContainText('Nada publicado todavía')
+  const created = page.locator('[data-library-card]', { hasText: 'Fuerza tren inferior' })
+  await expect(created.locator('[data-library-status]')).toHaveText('Borrador')
+  // Nothing published, so there is no version to list.
+  await expect(created.getByRole('button', { name: /Versiones de/ })).toHaveCount(0)
 
   const [sent] = createRequests(fixture)
   expect(sent?.body).toEqual({ discipline_code: 'strength', title: 'Fuerza tren inferior' })
@@ -99,12 +108,12 @@ test('a refusal from the server is explained and keeps what was typed', async ({
   await page.goto(NEW_PATH)
 
   await chooseDiscipline(page, 'Movilidad')
-  await page.getByLabel('Nombre').fill('Movilidad de cadera')
+  await form(page).getByLabel('Nombre').fill('Movilidad de cadera')
   await page.getByRole('button', { name: 'Crear plantilla' }).click()
 
   await expect(page.getByText(/Tu rol ya no crea contenido en esta organización/)).toBeVisible()
-  await expect(page.getByLabel('Nombre')).toHaveValue('Movilidad de cadera')
-  await expect(page).toHaveURL(NEW_PATH)
+  // Still open, with what was typed: a refusal closes nothing.
+  await expect(form(page).getByLabel('Nombre')).toHaveValue('Movilidad de cadera')
 })
 
 test('a role without manage_content is told so instead of seeing a form', async ({ page }) => {
@@ -123,6 +132,7 @@ test('a role without manage_content is told so instead of seeing a form', async 
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${secondActiveMembership.organization_id}/content/templates/new`)
 
-  await expect(page.getByText('Tu rol no crea contenido')).toBeVisible()
+  // The address opens the library now, and the library is what refuses this role.
+  await expect(page.getByText('No puedes consultar este contenido')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Crear plantilla' })).toHaveCount(0)
 })

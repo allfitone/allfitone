@@ -47,9 +47,11 @@ test('a program is created from the content page and opens its empty draft', asy
   await installStudioApiMock(page, fixture)
   await page.goto(CONTENT_PATH)
 
-  await page.getByRole('link', { name: 'Nuevo programa' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Nuevo programa' })).toBeVisible()
-  await page.getByLabel('Nombre').fill('  Fuerza para principiantes  ')
+  // One creation button, which follows the tab.
+  await page.getByRole('tab', { name: 'Programas' }).click()
+  await page.getByRole('button', { name: 'Nuevo programa' }).click()
+  const form = page.getByRole('dialog', { name: 'Nuevo programa' })
+  await form.getByLabel('Nombre').fill('  Fuerza para principiantes  ')
   await page.getByRole('button', { name: 'Crear programa' }).click()
 
   await expect(page.getByRole('heading', { level: 1, name: 'Programa' })).toBeVisible()
@@ -89,7 +91,8 @@ test('a role without manage_content is told so instead of seeing a form', async 
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${secondActiveMembership.organization_id}/content/programs/new`)
 
-  await expect(page.getByText('Tu rol no crea contenido')).toBeVisible()
+  // The address opens the library now, and the library is what refuses this role.
+  await expect(page.getByText('No puedes consultar este contenido')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Crear programa' })).toHaveCount(0)
 })
 
@@ -100,10 +103,8 @@ test('a draft opens from the library, by week, each session on an exact version'
   await page.goto(CONTENT_PATH)
   await page.getByRole('tab', { name: 'Programas' }).click()
 
-  await page
-    .locator('[data-content-register-item]', { hasText: 'Hipertrofia de cuatro semanas' })
-    .getByRole('link', { name: 'Abrir el borrador' })
-    .click()
+  // Pressing the item opens its draft.
+  await page.getByRole('link', { name: 'Hipertrofia de cuatro semanas', exact: true }).click()
 
   await expect(page).toHaveURL(EDITOR_PATH)
   await expect(page.getByLabel('Nombre')).toHaveValue('Hipertrofia de cuatro semanas')

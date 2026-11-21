@@ -43,6 +43,7 @@ import {
 } from './content-version-actions'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
+import { libraryPath } from '@/lib/content-library'
 import {
   canRetireContent,
   describeTarget,
@@ -232,7 +233,7 @@ export function ProgramVersionView() {
     pending: versionQuery.isPending || templatesQuery.isPending || readingTemplates,
     label,
     organizationName: current.display_name,
-    contentPath,
+    contentPath: libraryPath(organizationId, 'programs'),
     retry: () => {
       void versionQuery.refetch()
       void templatesQuery.refetch()
@@ -250,7 +251,7 @@ export function ProgramVersionView() {
     <section data-content-page aria-label={label}>
       <WorkspacePageHeader
         description={`«${version.title}», versión ${version.version_number}. ${IMMUTABLE}`}
-        actions={<BackToContent href={contentPath} />}
+        actions={<BackToContent href={libraryPath(organizationId, 'programs')} />}
       />
 
       <Card>

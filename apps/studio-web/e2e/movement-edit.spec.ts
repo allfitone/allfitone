@@ -37,7 +37,7 @@ test('a correction sends only what changed, under the revision it read', async (
   await installStudioApiMock(page, fixture)
   await page.goto(CONTENT_PATH)
   await page.getByRole('tab', { name: 'Movimientos' }).click()
-  await page.getByRole('link', { name: 'Abrir Remo con mancuerna a una mano' }).click()
+  await page.getByRole('link', { name: 'Remo con mancuerna a una mano', exact: true }).click()
 
   await page.getByLabel('Otros nombres').fill('Remo unilateral')
   await page.getByRole('button', { name: 'Guardar cambios' }).click()

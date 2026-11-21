@@ -53,6 +53,7 @@ import { AddSessionCard, ProgramSessionRow } from './program-session'
 import { useStudioSessionMutation } from './studio-query-provider'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { createCommandIntentManager } from '@/lib/command-intent'
+import { libraryPath } from '@/lib/content-library'
 import { canManageContent } from '@/lib/organization-content'
 import {
   addSession,
@@ -199,7 +200,7 @@ export function ProgramEditor() {
             propietario en {current.display_name}.
           </AlertDescription>
         </Alert>
-        <BackToContent href={contentPath} />
+        <BackToContent href={libraryPath(organizationId, 'programs')} />
       </section>
     )
   }
@@ -217,7 +218,7 @@ export function ProgramEditor() {
               No existe o no es de {current.display_name}. Vuelve a la biblioteca para elegir otro.
             </EmptyDescription>
           </EmptyHeader>
-          <BackToContent href={contentPath} />
+          <BackToContent href={libraryPath(organizationId, 'programs')} />
         </Empty>
       </section>
     )
@@ -370,7 +371,7 @@ export function ProgramEditor() {
     <section data-content-page aria-label="Programa">
       <WorkspacePageHeader
         description={`El borrador de «${editor.title || 'sin nombre'}». Solo el borrador se edita, y nada de lo que guardes aquí se puede asignar hasta publicarlo.`}
-        actions={<BackToContent href={contentPath} />}
+        actions={<BackToContent href={libraryPath(organizationId, 'programs')} />}
       />
 
       <Card>

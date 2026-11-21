@@ -15,20 +15,22 @@
  *    is `name-taken`, shown on the name field.
  * 5. **Nothing here uploads it to the global catalogue.** There is no such
  *    command, and the screen says so instead of leaving it to be wondered.
+ *
+ * A dialog over the library, like the template's and the program's. The
+ * library opens it only for a role that may create.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
-import { FieldError } from '@allfitone/react/components/field'
 import {
-  SetupPanel,
-  SetupPanelActions,
-  SetupPanelContent,
-  SetupPanelDescription,
-  SetupPanelEyebrow,
-  SetupPanelIntro,
-  SetupPanelTitle,
-} from '@allfitone/react/components/setup-shell'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@allfitone/react/components/dialog'
+import { FieldError } from '@allfitone/react/components/field'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
@@ -44,7 +46,6 @@ import {
   movementIssueMessages,
   type MovementFormDraft,
 } from '@/lib/movement-form'
-import { canManageContent } from '@/lib/organization-content'
 import { disciplineOptions } from '@/lib/session-template-create'
 import {
   StudioApiError,
@@ -56,17 +57,41 @@ import {
 import {
   catalogDisciplinesQueryOptions,
   isStudioQuerySessionCancelled,
-  organizationRolesQueryOptions,
   studioQueryKeys,
 } from '@/lib/studio-query'
 
-export function MovementCreateForm() {
+export function MovementCreateDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { current } = useOrganizationContext()
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-library-create="movement">
+        <DialogHeader>
+          <DialogTitle>Nuevo movimiento</DialogTitle>
+          {/* Criteria 1 and 5, before anything is typed. */}
+          <DialogDescription>
+            Solo lo ve {current.display_name}, y no hay forma de subirlo al catálogo de Allfit: ese
+            catálogo lo carga Allfit.
+          </DialogDescription>
+        </DialogHeader>
+        {/* Inside the popup, so closing it forgets what was typed. */}
+        <MovementCreateForm onCancel={() => onOpenChange(false)} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function MovementCreateForm({ onCancel }: { onCancel: () => void }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { current } = useOrganizationContext()
   const organizationId = current.organization_id
   const contentPath = `/organizations/${organizationId}/content`
-  const rolesQuery = useQuery(organizationRolesQueryOptions(organizationId))
   const disciplinesQuery = useQuery(catalogDisciplinesQueryOptions())
   const [draft, setDraft] = useState<MovementFormDraft>(emptyMovementForm)
   const [command, setCommand] = useState(newCommand)
@@ -87,31 +112,11 @@ export function MovementCreateForm() {
     },
   })
 
-  const allowed = canManageContent(current.roles, rolesQuery.data?.items)
   const options = disciplineOptions(disciplinesQuery.data?.items ?? [])
   const errors = submitted ? movementFormErrors(draft) : {}
   const fieldErrors = nameTaken
     ? { ...errors, name: 'Ya hay un movimiento de tu organización con ese nombre.' }
     : errors
-
-  if (rolesQuery.isPending) return null
-
-  if (!allowed) {
-    return (
-      <section data-program-create-refusal>
-        <Alert variant="warning" live="polite">
-          <AlertTitle>Tu rol no crea contenido</AlertTitle>
-          <AlertDescription>
-            Crear movimientos corresponde a quienes tienen el rol de coach, administración o
-            propietario en {current.display_name}.
-          </AlertDescription>
-        </Alert>
-        <Button variant="outline" onClick={() => router.replace(contentPath)}>
-          Volver a la biblioteca
-        </Button>
-      </section>
-    )
-  }
 
   function change(patch: Partial<MovementFormDraft>) {
     setDraft((previous) => ({ ...previous, ...patch }))
@@ -133,7 +138,7 @@ export function MovementCreateForm() {
         body: movementCreateRequest(draft),
         command,
       })
-      router.replace(`${contentPath}/movements/${movement.id}`)
+      router.push(`${contentPath}/movements/${movement.id}`)
     } catch (caught) {
       if (isStudioQuerySessionCancelled(caught)) {
         setCommand(newCommand())
@@ -157,91 +162,81 @@ export function MovementCreateForm() {
     }
   }
 
+  if (disciplinesQuery.isPending) {
+    return (
+      <div data-content-catalog-state>
+        <Spinner label="Cargando las disciplinas" />
+        <p>Cargando las disciplinas…</p>
+      </div>
+    )
+  }
+
+  if (disciplinesQuery.isError) {
+    return (
+      <Alert variant="danger" live="polite">
+        <AlertTitle>No pudimos cargar las disciplinas</AlertTitle>
+        <AlertDescription>
+          La conexión falló de forma temporal. Sin ellas no se puede crear un movimiento.
+        </AlertDescription>
+        <AlertAction>
+          <Button variant="outline" onClick={() => void disciplinesQuery.refetch()}>
+            Reintentar
+          </Button>
+        </AlertAction>
+      </Alert>
+    )
+  }
+
+  if (options.length === 0) {
+    return (
+      <Alert variant="warning" live="polite">
+        <AlertTitle>Todavía no hay disciplinas publicadas</AlertTitle>
+        <AlertDescription>
+          Cada movimiento pertenece a una disciplina del catálogo de Allfit, y aún no se ha
+          publicado ninguna.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+
   return (
-    <SetupPanel>
-      <SetupPanelIntro>
-        <SetupPanelEyebrow>Biblioteca</SetupPanelEyebrow>
-        <SetupPanelTitle as="h2">Crea un movimiento propio.</SetupPanelTitle>
-        {/* Criteria 1 and 5, before anything is typed. */}
-        <SetupPanelDescription>
-          Para usar vuestra propia terminología y variantes. Solo lo ve {current.display_name}, y no
-          hay forma de subirlo al catálogo de Allfit: ese catálogo lo carga Allfit.
-        </SetupPanelDescription>
-      </SetupPanelIntro>
+    <form data-studio-form onSubmit={submit} noValidate>
+      <MovementFields
+        draft={draft}
+        errors={fieldErrors}
+        disciplines={options}
+        organizationId={organizationId}
+        onChange={change}
+      />
 
-      <SetupPanelContent>
-        {disciplinesQuery.isPending ? (
-          <div data-content-catalog-state>
-            <Spinner label="Cargando las disciplinas" />
-            <p>Cargando las disciplinas…</p>
-          </div>
-        ) : null}
+      {issues.length > 0 ? (
+        <Alert variant="danger" live="polite" data-movement-issues>
+          <AlertTitle>El servidor no aceptó el movimiento</AlertTitle>
+          <AlertDescription>
+            <ul>
+              {issues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {failure ? <FieldError data-movement-error>{failure}</FieldError> : null}
 
-        {disciplinesQuery.isError ? (
-          <Alert variant="danger" live="polite">
-            <AlertTitle>No pudimos cargar las disciplinas</AlertTitle>
-            <AlertDescription>
-              La conexión falló de forma temporal. Sin ellas no se puede crear un movimiento.
-            </AlertDescription>
-            <AlertAction>
-              <Button variant="outline" onClick={() => void disciplinesQuery.refetch()}>
-                Reintentar
-              </Button>
-            </AlertAction>
-          </Alert>
-        ) : null}
-
-        {disciplinesQuery.isSuccess && options.length === 0 ? (
-          <Alert variant="warning" live="polite">
-            <AlertTitle>Todavía no hay disciplinas publicadas</AlertTitle>
-            <AlertDescription>
-              Cada movimiento pertenece a una disciplina del catálogo de Allfit, y aún no se ha
-              publicado ninguna.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {disciplinesQuery.isSuccess && options.length > 0 ? (
-          <form data-studio-form onSubmit={submit} noValidate>
-            <MovementFields
-              draft={draft}
-              errors={fieldErrors}
-              disciplines={options}
-              organizationId={organizationId}
-              onChange={change}
-            />
-
-            {issues.length > 0 ? (
-              <Alert variant="danger" live="polite" data-movement-issues>
-                <AlertTitle>El servidor no aceptó el movimiento</AlertTitle>
-                <AlertDescription>
-                  <ul>
-                    {issues.map((issue) => (
-                      <li key={issue}>{issue}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {failure ? <FieldError data-movement-error>{failure}</FieldError> : null}
-
-            <SetupPanelActions>
-              <Button type="submit" size="lg" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creando…' : 'Crear movimiento'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={createMutation.isPending}
-                onClick={() => router.replace(contentPath)}
-              >
-                Cancelar
-              </Button>
-            </SetupPanelActions>
-          </form>
-        ) : null}
-      </SetupPanelContent>
-    </SetupPanel>
+      <DialogFooter data-library-create-foot>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={createMutation.isPending}
+          onClick={onCancel}
+        >
+          Cancelar
+        </Button>
+        <Button type="submit" disabled={createMutation.isPending}>
+          {createMutation.isPending ? 'Creando…' : 'Crear movimiento'}
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }
 

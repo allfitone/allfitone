@@ -44,12 +44,16 @@ test('an owner archives our movement, which then leaves the search for new conte
   expect(archivals(fixture)).toHaveLength(1)
   expect(archivals(fixture)[0]?.body).toBeUndefined()
 
+  // Back lands on the tab the movement belongs to, not on the first one.
   await page.getByRole('link', { name: 'Volver a la biblioteca' }).click()
-  await page.getByRole('tab', { name: 'Movimientos' }).click()
+  await expect(page.getByRole('tab', { name: 'Movimientos' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   const list = page.getByRole('list', { name: 'Movimientos' })
   await expect(list).toContainText('Press de banca')
   await expect(list).not.toContainText('Remo con mancuerna a una mano')
-  await page.getByRole('checkbox', { name: 'Incluir los archivados' }).click()
+  await page.getByRole('switch', { name: 'Incluir los archivados' }).click()
   await expect(list).toContainText('Remo con mancuerna a una mano')
 })
 

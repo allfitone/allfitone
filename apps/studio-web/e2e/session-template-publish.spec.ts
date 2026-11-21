@@ -84,9 +84,11 @@ test('unsaved work is saved before it can be published', async ({ page }) => {
 test('an incomplete draft answers with the list of what is missing', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await page.goto(`${CONTENT_PATH}/templates/new`)
-  await page.getByLabel('Disciplina').click()
+  // Scoped to the dialog: the list behind it has a discipline filter of its own.
+  const form = page.getByRole('dialog', { name: 'Nueva plantilla' })
+  await form.getByLabel('Disciplina').click()
   await page.getByRole('option', { name: 'Fuerza' }).click()
-  await page.getByLabel('Nombre').fill('Vacía')
+  await form.getByLabel('Nombre').fill('Vacía')
   await page.getByRole('button', { name: 'Crear plantilla' }).click()
 
   await expect(publishCard(page)).toContainText('Todavía no se ha publicado ninguna versión.')
