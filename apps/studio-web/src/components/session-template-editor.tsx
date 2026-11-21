@@ -17,17 +17,35 @@
  * The discipline is not in the draft. The editor finds the template in the
  * library to read it, which is also where the template's name in the list
  * comes from.
+ *
+ * The shape is the one every editor of the library takes. The way back is a
+ * trail, the name is the title, and saving and publishing stay in sight at the
+ * top while the page scrolls, with the answer to each beside them. The steps
+ * are lines that open, so the session is read whole before any of it is
+ * changed. Publishing is final, so it is confirmed, and the confirmation is
+ * where criteria 1 and 2 of `HU-STUDIO-038` are said.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@allfitone/react/components/alert-dialog'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@allfitone/react/components/breadcrumb'
+import { Button, buttonVariants } from '@allfitone/react/components/button'
 import {
   Empty,
   EmptyDescription,
@@ -35,14 +53,17 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@allfitone/react/components/empty'
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '@allfitone/react/components/field'
+import { Field, FieldError, FieldLabel } from '@allfitone/react/components/field'
+import { IconButton } from '@allfitone/react/components/icon-button'
 import { Input } from '@allfitone/react/components/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@allfitone/react/components/popover'
 import {
   Select,
   SelectContent,
@@ -50,21 +71,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
+import { Skeleton } from '@allfitone/react/components/skeleton'
+import { Toaster, toast } from '@allfitone/react/components/sonner'
 import { Spinner } from '@allfitone/react/components/spinner'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@allfitone/react/components/tooltip'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
+import { ContentStatusBadge } from './library-views'
 import { useOrganizationContext } from './organization-context'
-import { TemplateStepCard } from './session-template-step'
+import { TemplateStep } from './session-template-step'
 import { useStudioSessionMutation } from './studio-query-provider'
-import { WorkspacePageHeader } from './workspace-page-header'
 import { createCommandIntentManager } from '@/lib/command-intent'
+import { libraryPath } from '@/lib/content-library'
 import { derivedFromLabel } from '@/lib/content-version'
 import { disciplineName } from '@/lib/movement-search'
-import { canManageContent } from '@/lib/organization-content'
+import { canManageContent, templateItems } from '@/lib/organization-content'
 import {
   activityTypeChoices,
   addStep,
@@ -102,6 +127,9 @@ import {
 } from '@/lib/studio-query'
 
 const LIBRARY_PAGE_SIZE = 50
+const SKELETON_STEPS = [0, 1, 2]
+// Clear of the privacy control that floats over the bottom corner.
+const TOAST_OFFSET = { bottom: 84, right: 16 }
 
 function newStepKey(): string {
   return crypto.randomUUID()
@@ -146,8 +174,10 @@ export function SessionTemplateEditor() {
   // «Publicar» must not give the second click a new command.
   const [publishIntents] = useState(() => createCommandIntentManager(newCommand))
   const [publishIssues, setPublishIssues] = useState<string[]>([])
-  const [publishResult, setPublishResult] = useState<ReturnType<typeof publishOutcome>>()
   const [publishFailure, setPublishFailure] = useState<string>()
+  const [confirmingPublish, setConfirmingPublish] = useState(false)
+  // Steps open one by one and start closed, so the session is read before it is edited.
+  const [openSteps, setOpenSteps] = useState<ReadonlySet<string>>(new Set())
   // Names of movements picked here, so a new step is named before its own read returns.
   const [pickedNames, setPickedNames] = useState<ReadonlyMap<string, string>>(new Map())
 
@@ -305,9 +335,11 @@ export function SessionTemplateEditor() {
   if (!editor || !base || !template || activityTypesQuery.isPending) {
     return (
       <section data-content-page aria-label="Plantilla">
-        <div data-content-catalog-state>
-          <Spinner label="Abriendo el borrador" />
-          <p>Abriendo el borrador…</p>
+        <div data-editor-skeleton role="status" aria-label="Abriendo el borrador">
+          <Skeleton data-editor-skeleton-bar />
+          {SKELETON_STEPS.map((slot) => (
+            <Skeleton key={slot} data-editor-skeleton-step />
+          ))}
         </div>
       </section>
     )
@@ -326,8 +358,25 @@ export function SessionTemplateEditor() {
     setFailure(undefined)
     setSavedAt(undefined)
     setPublishIssues([])
-    setPublishResult(undefined)
     setPublishFailure(undefined)
+  }
+
+  function showStep(key: string, open: boolean) {
+    setOpenSteps((previous) => {
+      const next = new Set(previous)
+      if (open) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }
+
+  function addNewStep() {
+    if (!editor) return
+    const steps = addStep(editor, activityTypes, newStepKey)
+    const added = steps.at(-1)
+    // A new step opens: it is the one about to be written.
+    if (added && steps.length > editor.steps.length) showStep(added.key, true)
+    edit({ ...editor, steps })
   }
 
   const latest = latestVersionNumber(template.versions)
@@ -336,11 +385,12 @@ export function SessionTemplateEditor() {
   async function publishDraft() {
     if (!base || publish.isPending || publishBlocked) return
     setPublishIssues([])
-    setPublishResult(undefined)
     setPublishFailure(undefined)
     try {
       const version = await publish.mutateAsync({ etag: base.etag })
-      setPublishResult(publishOutcome(latest, version))
+      const outcome = publishOutcome(latest, version)
+      if (outcome.kind === 'published') toast.success(outcome.message)
+      else toast.info(outcome.message)
       publishIntents.reset()
     } catch (caught) {
       if (isStudioQuerySessionCancelled(caught)) return
@@ -367,6 +417,8 @@ export function SessionTemplateEditor() {
     const built = buildDraftContent(editor, activityTypes)
     if ('problems' in built) {
       setProblems(built.problems)
+      // What cannot be saved is said inside its step, so those steps open.
+      setOpenSteps((previous) => new Set([...previous, ...Object.keys(built.problems.steps)]))
       return
     }
     setProblems(null)
@@ -406,145 +458,153 @@ export function SessionTemplateEditor() {
     setConflict(null)
     setDirty(false)
     setProblems(null)
+    setOpenSteps(new Set())
     queryClient.setQueryData(
       studioQueryKeys.sessionTemplateDraft(organizationId, templateId),
       conflict,
     )
   }
 
+  const libraryHref = libraryPath(organizationId)
+  const [item] = templateItems([template])
+  const needsSaving = dirty || conflict !== null
+
   return (
-    <section data-content-page aria-label="Plantilla">
-      <WorkspacePageHeader
-        description={`El borrador de «${editor.title || 'sin nombre'}». Solo el borrador se edita, y nada de lo que guardes aquí se puede asignar hasta publicarlo.`}
-        actions={
-          <Link
-            href={contentPath}
-            className={buttonVariants({ variant: 'outline' })}
-            data-variant="outline"
-            data-slot="button"
+    <section data-content-page="editor" aria-label="Plantilla">
+      <Toaster position="bottom-right" closeButton offset={TOAST_OFFSET} />
+
+      <Breadcrumb aria-label="Ruta">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink render={<Link href={libraryHref} />} data-editor-crumb>
+              Biblioteca
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink
+              render={<Link href={libraryPath(organizationId, 'templates')} />}
+              data-editor-crumb
+            >
+              Plantillas
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          {/* On a phone the name is the title right under the trail, so it is said once. */}
+          <BreadcrumbSeparator data-editor-crumb-current />
+          <BreadcrumbItem data-editor-crumb-current>
+            <BreadcrumbPage>{editor.title.trim() || 'Sin nombre'}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      {/* Stays in sight while the steps scroll: saving and publishing are never a scroll away. */}
+      <header data-editor-bar>
+        <div data-editor-title>
+          <Input
+            aria-label="Nombre"
+            placeholder="Nombre de la plantilla"
+            maxLength={160}
+            value={editor.title}
+            aria-invalid={Boolean(titleProblem)}
+            onChange={(event) => edit({ ...editor, title: event.target.value })}
+            data-editor-name
+          />
+          {item ? <ContentStatusBadge item={item} kind="templates" /> : null}
+        </div>
+        <div data-editor-actions>
+          <p id="template-save-status" data-template-save-status role="status" aria-live="polite">
+            {savedAt
+              ? `Borrador guardado a las ${savedAt}.`
+              : dirty
+                ? 'Hay cambios sin guardar.'
+                : 'Sin cambios desde que lo abriste.'}
+          </p>
+          {/* One of the two is the next thing to do, and that one is the filled button. */}
+          <Button
+            type="button"
+            variant={needsSaving ? 'default' : 'outline'}
+            disabled={!needsSaving || save.isPending}
+            onClick={() => void submit()}
           >
-            Volver a la biblioteca
-          </Link>
-        }
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Datos de la plantilla
-          </CardTitle>
-          <CardDescription>
-            Disciplina: {disciplineName(template.discipline_code, disciplinesQuery.data?.items)}. No
-            se cambia.
-            {/* HU-039 criterion 1: the draft keeps where it came from. */}
-            {derivedFrom ? ` ${derivedFrom}` : ''}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup>
-            <Field data-invalid={Boolean(titleProblem)}>
-              <FieldLabel htmlFor="template-title">Nombre</FieldLabel>
-              <Input
-                id="template-title"
-                maxLength={160}
-                value={editor.title}
-                aria-invalid={Boolean(titleProblem)}
-                onChange={(event) => edit({ ...editor, title: event.target.value })}
-              />
-              {titleProblem ? <FieldError>{titleProblem}</FieldError> : null}
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="template-activity-type">Tipo de actividad</FieldLabel>
-              <Select
-                value={editor.activityTypeId}
-                onValueChange={(value) => edit({ ...editor, activityTypeId: value ?? null })}
-                items={choices}
+            {save.isPending ? <Spinner label="Guardando el borrador" /> : null}
+            {save.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+          {/* Why it is off shows on the button itself: a line under the bar moved the page. */}
+          <Tooltip disabled={!publishBlocked}>
+            <TooltipTrigger render={<span data-template-publish-action />}>
+              <Button
+                type="button"
+                variant={needsSaving ? 'outline' : 'default'}
+                disabled={Boolean(publishBlocked) || publish.isPending}
+                aria-describedby={publishBlocked ? 'template-save-status' : undefined}
+                onClick={() => setConfirmingPublish(true)}
               >
-                <SelectTrigger id="template-activity-type" data-studio-select-trigger>
-                  <SelectValue placeholder="Elige un tipo de actividad" />
-                </SelectTrigger>
-                <SelectContent align="start">
-                  {choices.map((choice) => (
-                    <SelectItem key={choice.value} value={choice.value} disabled={choice.disabled}>
-                      {choice.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {/* Criterion 3, said before it can be broken. */}
-              <FieldDescription>
-                Decide qué objetivos lleva cada paso.
-                {editor.steps.length > 0
-                  ? ' Con pasos escritos solo puedes cambiarlo por uno de la misma familia.'
-                  : ''}
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </CardContent>
-      </Card>
+                {publish.isPending ? <Spinner label="Publicando la versión" /> : null}
+                {publish.isPending ? 'Publicando…' : 'Publicar'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="end" data-template-publish-blocked>
+              {publishBlocked}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </header>
 
-      {editor.steps.length > 0 ? (
-        <ol data-template-steps aria-label="Pasos">
-          {editor.steps.map((step, index) => (
-            <li key={step.key}>
-              <TemplateStepCard
-                step={step}
-                position={index + 1}
-                count={editor.steps.length}
-                movementName={
-                  step.movementId
-                    ? (movementNames.get(step.movementId) ?? pickedNames.get(step.movementId))
-                    : undefined
-                }
-                problems={problems?.steps[step.key] ?? []}
-                organizationId={organizationId}
-                disciplineCode={template.discipline_code}
-                onChange={(next) =>
-                  edit({
-                    ...editor,
-                    steps: editor.steps.map((candidate) =>
-                      candidate.key === step.key ? next : candidate,
-                    ),
-                  })
-                }
-                onMove={(delta) => edit({ ...editor, steps: moveStep(editor.steps, index, delta) })}
-                onRemove={() => edit({ ...editor, steps: removeStep(editor.steps, step.key) })}
-                onMovementPicked={(movement) => {
-                  setPickedNames((previous) => new Map(previous).set(movement.id, movement.name))
-                  edit({
-                    ...editor,
-                    steps: editor.steps.map((candidate) =>
-                      candidate.key === step.key
-                        ? { ...candidate, movementId: movement.id }
-                        : candidate,
-                    ),
-                  })
-                }}
-              />
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p data-template-no-steps>
-          {family
-            ? 'Todavía no hay pasos. Agrega el primero para construir la sesión.'
-            : 'Elige un tipo de actividad para poder agregar pasos.'}
+      <div data-editor-meta>
+        <Field orientation="horizontal" data-template-inline-field>
+          <FieldLabel htmlFor="template-activity-type">Tipo de actividad</FieldLabel>
+          <Select
+            value={editor.activityTypeId}
+            onValueChange={(value) => edit({ ...editor, activityTypeId: value ?? null })}
+            items={choices}
+          >
+            <SelectTrigger id="template-activity-type" data-studio-select-trigger>
+              <SelectValue placeholder="Elige un tipo de actividad" />
+            </SelectTrigger>
+            <SelectContent align="start">
+              {choices.map((choice) => (
+                <SelectItem key={choice.value} value={choice.value} disabled={choice.disabled}>
+                  {choice.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {/* Criterion 3, said before it can be broken, and out of the way until asked. */}
+          <Popover>
+            <PopoverTrigger
+              render={
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Para qué sirve el tipo de actividad"
+                />
+              }
+            >
+              <FoundationIcon name="info" decorative />
+            </PopoverTrigger>
+            <PopoverContent align="start" data-editor-help>
+              {/* The title is what names the popover to a screen reader. */}
+              <PopoverHeader>
+                <PopoverTitle>Tipo de actividad</PopoverTitle>
+                <PopoverDescription>
+                  Decide qué objetivos lleva cada paso. Con pasos escritos solo puedes cambiarlo por
+                  uno de la misma familia.
+                </PopoverDescription>
+              </PopoverHeader>
+            </PopoverContent>
+          </Popover>
+        </Field>
+        <p data-editor-meta-note>
+          Disciplina: {disciplineName(template.discipline_code, disciplinesQuery.data?.items)}
+          {/* HU-039 criterion 1: the draft keeps where it came from. */}
+          {derivedFrom ? ` · ${derivedFrom}` : ''}
         </p>
-      )}
-
-      <div data-template-save-bar>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!family}
-          onClick={() => edit({ ...editor, steps: addStep(editor, activityTypes, newStepKey) })}
-        >
-          Agregar un paso
-        </Button>
       </div>
 
-      {/* Answers to a save sit beside the button that sent it. At the top of a
-          long draft they were out of sight of whoever had just pressed it. */}
+      {titleProblem ? <FieldError data-template-save-error>{titleProblem}</FieldError> : null}
+
+      {/* Answers to a save or a publication sit under the buttons that sent them. */}
       {conflict ? (
         <Alert variant="warning" live="assertive" data-template-conflict>
           <AlertTitle>Alguien guardó este borrador mientras lo editabas</AlertTitle>
@@ -578,80 +638,122 @@ export function SessionTemplateEditor() {
         </Alert>
       ) : null}
 
-      <div data-template-save-bar>
-        {problems ? (
-          <FieldError data-template-save-error>
-            Revisa lo que se marca arriba: el borrador no se guardó.
-          </FieldError>
-        ) : null}
-        {failure ? <FieldError data-template-save-error>{failure}</FieldError> : null}
+      {publishIssues.length > 0 ? (
+        <Alert variant="warning" live="polite" data-template-publish-issues>
+          <AlertTitle>Al borrador le falta esto para publicarse</AlertTitle>
+          <AlertDescription>
+            <ul>
+              {publishIssues.map((issue) => (
+                <li key={issue}>{issue}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-        <Button type="button" size="lg" disabled={save.isPending} onClick={() => void submit()}>
-          {save.isPending ? <Spinner label="Guardando el borrador" /> : null}
-          {save.isPending ? 'Guardando…' : 'Guardar borrador'}
+      {problems ? (
+        <FieldError data-template-save-error>
+          Revisa los pasos marcados: el borrador no se guardó.
+        </FieldError>
+      ) : null}
+      {failure ? <FieldError data-template-save-error>{failure}</FieldError> : null}
+      {publishFailure ? (
+        <FieldError data-template-publish-error>{publishFailure}</FieldError>
+      ) : null}
+
+      {editor.steps.length > 0 ? (
+        <ol data-template-steps aria-label="Pasos">
+          {editor.steps.map((step, index) => (
+            <li key={step.key}>
+              <TemplateStep
+                step={step}
+                position={index + 1}
+                count={editor.steps.length}
+                movementName={
+                  step.movementId
+                    ? (movementNames.get(step.movementId) ?? pickedNames.get(step.movementId))
+                    : undefined
+                }
+                problems={problems?.steps[step.key] ?? []}
+                open={openSteps.has(step.key)}
+                onOpenChange={(open) => showStep(step.key, open)}
+                organizationId={organizationId}
+                disciplineCode={template.discipline_code}
+                onChange={(next) =>
+                  edit({
+                    ...editor,
+                    steps: editor.steps.map((candidate) =>
+                      candidate.key === step.key ? next : candidate,
+                    ),
+                  })
+                }
+                onMove={(delta) => edit({ ...editor, steps: moveStep(editor.steps, index, delta) })}
+                onRemove={() => edit({ ...editor, steps: removeStep(editor.steps, step.key) })}
+                onMovementPicked={(movement) => {
+                  setPickedNames((previous) => new Map(previous).set(movement.id, movement.name))
+                  edit({
+                    ...editor,
+                    steps: editor.steps.map((candidate) =>
+                      candidate.key === step.key
+                        ? { ...candidate, movementId: movement.id }
+                        : candidate,
+                    ),
+                  })
+                }}
+              />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <Empty data-template-no-steps>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FoundationIcon name="checklist" decorative />
+            </EmptyMedia>
+            <EmptyTitle>Todavía no hay pasos</EmptyTitle>
+            <EmptyDescription>
+              {family
+                ? 'Agrega el primero para construir la sesión.'
+                : 'Elige un tipo de actividad para poder agregar pasos.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      )}
+
+      <div data-editor-add>
+        <Button type="button" variant="outline" disabled={!family} onClick={addNewStep}>
+          <FoundationIcon name="add" decorative />
+          Agregar paso
         </Button>
-        <p data-template-save-status role="status" aria-live="polite">
-          {savedAt
-            ? `Borrador guardado a las ${savedAt}.`
-            : dirty
-              ? 'Hay cambios sin guardar.'
-              : 'Sin cambios desde que lo abriste.'}
-        </p>
       </div>
 
-      {/* HU-STUDIO-038. Criteria 1 and 2 are the server's, and said here
-          before the click: a version is final and moves nothing already using
-          an older one. */}
-      <Card data-template-publish>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Publicar una versión
-          </CardTitle>
-          <CardDescription>
-            {latest === undefined
-              ? 'Todavía no se ha publicado ninguna versión.'
-              : `La versión más reciente es la ${latest}.`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div data-template-save-bar>
-            <p data-template-publish-note>
+      {/* HU-STUDIO-038. Criteria 1 and 2 are the server's, and said here before
+          the click: a version is final and moves nothing using an older one. */}
+      <AlertDialog open={confirmingPublish} onOpenChange={setConfirmingPublish}>
+        <AlertDialogContent data-template-publish>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Publicar una versión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {latest === undefined
+                ? 'Todavía no se ha publicado ninguna versión.'
+                : `La versión más reciente es la ${latest}.`}{' '}
               Una versión publicada no se edita nunca: corregirla es publicar otra. Los programas y
               las asignaciones que ya usan una versión anterior siguen en ella.
-            </p>
-
-            {publishIssues.length > 0 ? (
-              <Alert variant="warning" live="polite" data-template-publish-issues>
-                <AlertTitle>Al borrador le falta esto para publicarse</AlertTitle>
-                <AlertDescription>
-                  <ul>
-                    {publishIssues.map((issue) => (
-                      <li key={issue}>{issue}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {publishFailure ? (
-              <FieldError data-template-publish-error>{publishFailure}</FieldError>
-            ) : null}
-            {publishBlocked ? <FieldDescription>{publishBlocked}</FieldDescription> : null}
-
-            <Button
-              type="button"
-              variant="outline"
-              disabled={Boolean(publishBlocked) || publish.isPending}
-              onClick={() => void publishDraft()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmingPublish(false)
+                void publishDraft()
+              }}
             >
-              {publish.isPending ? <Spinner label="Publicando la versión" /> : null}
-              {publish.isPending ? 'Publicando…' : 'Publicar versión'}
-            </Button>
-            <p data-template-publish-status role="status" aria-live="polite">
-              {publishResult?.message ?? ''}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+              Publicar versión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   )
 }
@@ -674,8 +776,10 @@ function stepsCount(count: number): string {
   return count === 1 ? '1 paso' : `${count} pasos`
 }
 
+/** The hour as it closes a sentence: «10:11 a. m.» loses the period the sentence adds. */
 function formatTime(value: string): string {
-  return new Intl.DateTimeFormat('es-CO', { timeStyle: 'short' }).format(new Date(value))
+  const time = new Intl.DateTimeFormat('es-CO', { timeStyle: 'short' }).format(new Date(value))
+  return time.replace(/\.$/, '')
 }
 
 /** The draft a stale-draft conflict carries, when it carries one in the expected shape. */

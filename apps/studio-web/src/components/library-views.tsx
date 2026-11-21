@@ -1,14 +1,23 @@
 'use client'
 
 /**
- * What every list of the library shares: the switch between its two views and
- * the outline it shows while its content arrives.
+ * What the screens of the library share: the switch between the two views of a
+ * list, the outline a list shows while its content arrives, and the one badge
+ * that says the state of a template or a program, in the list and in its editor.
  */
 
+import { Badge } from '@allfitone/react/components/badge'
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 
-import type { LibraryView } from '@/lib/content-library'
+import {
+  contentStatus,
+  contentStatusLabel,
+  type ContentKind,
+  type ContentStatus,
+  type LibraryView,
+} from '@/lib/content-library'
+import type { ContentItem } from '@/lib/organization-content'
 
 const SKELETON_SLOTS = [0, 1, 2, 3, 4, 5]
 
@@ -30,6 +39,22 @@ export function LibraryViewToggle({
       <ToggleGroupItem value="cards">Tarjetas</ToggleGroupItem>
       <ToggleGroupItem value="rows">Filas</ToggleGroupItem>
     </ToggleGroup>
+  )
+}
+
+const STATUS_VARIANT: Record<ContentStatus['kind'], 'success' | 'secondary' | 'outline'> = {
+  published: 'success',
+  draft: 'secondary',
+  retired: 'outline',
+  archived: 'outline',
+}
+
+export function ContentStatusBadge({ item, kind }: { item: ContentItem; kind: ContentKind }) {
+  const status = contentStatus(item)
+  return (
+    <Badge variant={STATUS_VARIANT[status.kind]} data-library-status={status.kind}>
+      {contentStatusLabel(status, kind)}
+    </Badge>
   )
 }
 
