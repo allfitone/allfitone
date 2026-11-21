@@ -250,3 +250,89 @@ test('every link on a workspace screen reads against what it sits on', async ({
   await expect(page.locator('[data-person-break-glass-link]')).toBeVisible()
   expect(await unreadableLinks(page)).toEqual([])
 })
+
+/** Stacked blocks with less than 8px between them, in a screen root or a card body. */
+function touchingBlocks(page: Page) {
+  return page.evaluate(() => {
+    const label = (element: Element): string => {
+      const slot = element.getAttribute('data-slot')
+      const own = [...element.attributes].find(
+        (attribute) => attribute.name.startsWith('data-') && attribute.name !== 'data-slot',
+      )
+      return own?.name ?? slot ?? element.tagName.toLowerCase()
+    }
+    // A Design System component spaces its own parts; the app owns the space between blocks.
+    const containers = [
+      ...document.querySelectorAll('[data-backoffice-content] > :not([data-slot])'),
+      ...document.querySelectorAll('[data-backoffice-content] [data-slot="card-content"]'),
+    ]
+    const found: string[] = []
+    for (const container of containers) {
+      const blocks = [...container.children].filter((child) => child.getClientRects().length > 0)
+      blocks.forEach((below, index) => {
+        const above = blocks[index - 1]
+        if (!above) return
+        const [top, bottom] = [
+          below.getBoundingClientRect().top,
+          above.getBoundingClientRect().bottom,
+        ]
+        if (top >= bottom - 1 && top - bottom < 8) {
+          found.push(`${label(container)}: ${label(above)} → ${label(below)}`)
+        }
+      })
+    }
+    return found
+  })
+}
+
+/*
+ * Ten screen roots had no layout rule, so their cards touched — the gym's file
+ * read as one wall of nine cards — and a card body stacks its children with no
+ * space at all: a nested card sat flush against the table above it.
+ */
+test('every screen keeps its blocks apart, and every card its contents', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), support: { people: [supportPerson()] } }),
+  )
+  const touching: string[] = []
+  const screens = [
+    '/panel',
+    '/organizations',
+    '/organizations/new',
+    '/organizations/019a9999-0000-7000-8000-000000000000',
+    '/diagnosis',
+    '/plans',
+    '/waitlist',
+    '/verifications',
+    '/catalogue',
+    '/catalogue/result-contracts',
+    '/team',
+    '/access-log',
+    '/break-glass',
+    '/erasure-requests',
+    '/permissions',
+    '/people/billing',
+  ]
+  for (const screen of screens) {
+    await page.goto(screen)
+    await expect(page.locator('[data-backoffice-content]')).toBeVisible()
+    await expect(page.locator('[data-backoffice-content] [role="status"][aria-label]')).toHaveCount(
+      0,
+    )
+    touching.push(...(await touchingBlocks(page)).map((block) => `${screen} ${block}`))
+  }
+
+  await page.goto('/people')
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
+  await page.getByLabel('Referencia del caso (opcional)').fill('CASE-2026-001')
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  await page.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
+  await expect(page.locator('[data-person-break-glass-link]')).toBeVisible()
+  touching.push(...(await touchingBlocks(page)).map((block) => `card ${block}`))
+
+  expect(touching).toEqual([])
+})

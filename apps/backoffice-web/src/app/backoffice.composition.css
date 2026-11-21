@@ -15,6 +15,44 @@
   max-width: 84rem;
 }
 
+/* Every screen root stacks its blocks one gap apart. A root left out of this list
+   lets its cards touch, which is how the gym's file read as one wall. */
+[data-access-log],
+[data-attention-panel],
+[data-billing-follow-up],
+[data-break-glass],
+[data-business-panel],
+[data-credential-verification],
+[data-erasure-requests],
+[data-global-catalogue],
+[data-legal-holds],
+[data-organization-directory],
+[data-organization-file],
+[data-organization-handover],
+[data-organization-handover-form],
+[data-panel-home],
+[data-platform-access],
+[data-platform-plans],
+[data-result-contracts],
+[data-review-queue],
+[data-scope-definitions],
+[data-support-diagnosis],
+[data-support-person],
+[data-support-search],
+[data-waitlist-review] {
+  display: grid;
+  /* An `auto` track grows to a wide table's min-content; this one scrolls the table. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-6);
+  align-content: start;
+}
+
+/* A card body stacks its children with no space of its own: a nested card sat
+   flush against the table above it. */
+[data-backoffice-content] [data-slot='card-content'] > * + * {
+  margin-block-start: var(--afo-space-4);
+}
+
 [data-backoffice-content] p {
   max-width: 72ch;
 }
@@ -134,13 +172,6 @@
   overflow-wrap: anywhere;
 }
 
-/* A card body stacks its children without a gap; the list keeps its distance
-   from the table, form or note beside it. */
-* + [data-facts],
-[data-facts] + * {
-  margin-top: 16px;
-}
-
 [data-facts] code {
   font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
@@ -164,12 +195,6 @@
   padding-inline: 4px;
 }
 
-[data-platform-access] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
 [data-platform-form] {
   display: grid;
   margin-block-end: 24px;
@@ -182,12 +207,6 @@
   font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
-}
-
-[data-result-contracts] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
 }
 
 [data-result-contract-form] {
@@ -203,18 +222,6 @@
 [data-support-search],
 [data-support-diagnosis],
 [data-scope-definitions],
-[data-break-glass],
-[data-access-log],
-[data-credential-verification],
-[data-organization-directory],
-[data-waitlist-review],
-[data-attention-panel],
-[data-support-person] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
 /* Four notices side by side when there is room, one column on a phone. */
 [data-attention-notices] {
   display: grid;
@@ -257,13 +264,6 @@
   font-size: var(--afo-font-size-xs);
 }
 
-[data-panel-home],
-[data-business-panel] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
 [data-business-metrics] {
   display: grid;
   gap: 16px;
@@ -304,13 +304,6 @@
 [data-handover-form] {
   display: grid;
   gap: 12px;
-}
-
-[data-organization-handover],
-[data-organization-handover-form] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
 }
 
 [data-organization-handover] code {

@@ -102,7 +102,8 @@ test('shows what is still owed, with the ones past the thirty days called out', 
     },
   })
   await mockBackofficeApi(context, fixture)
-  // A laptop screen: the six columns fit without scrolling sideways.
+  // A laptop screen: the page never scrolls sideways. Six columns with a full
+  // identifier are wider than the room, so the table scrolls inside its named region.
   await page.setViewportSize({ width: 1280, height: 900 })
 
   await page.goto(PATH)
@@ -126,8 +127,10 @@ test('shows what is still owed, with the ones past the thirty days called out', 
   await expect(rows.nth(2)).toContainText('Cuerpo · eliminado (2)')
   await expect(rows.nth(2)).toContainText('Salud · pendiente de eliminar (1)')
 
-  const region = page.getByRole('region', { name: 'Solicitudes de eliminación' })
-  expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+  await expect(page.getByRole('region', { name: 'Solicitudes de eliminación' })).toBeVisible()
+  const content = page.locator('[data-backoffice-content]')
+  expect(await content.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 
   // The panel tracks the request; it never carries what was erased.
   await expect(page.getByText(/kg|peso|medición/i)).toHaveCount(0)
