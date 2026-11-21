@@ -69,6 +69,24 @@ function saveButton(page: Page): Locator {
   return page.getByRole('button', { name: 'Guardar', exact: true })
 }
 
+/**
+ * The buttons of the grid a press would still reach while a panel is open,
+ * the one that opened it aside. A panel has controls of its own and floats
+ * over sessions and buttons: none of those may be pressed through or beside it.
+ */
+async function pressableBesideThePanel(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('[data-program-grid] button')]
+      .filter((button) => button.getAttribute('aria-expanded') !== 'true')
+      .filter((button) => {
+        const box = button.getBoundingClientRect()
+        const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+        return hit !== null && button.contains(hit)
+      })
+      .map((button) => button.getAttribute('aria-label') ?? button.textContent),
+  )
+}
+
 test('a program is created from the content page and opens its empty draft', async ({ page }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
@@ -278,8 +296,48 @@ test('removing a session takes it out of its day', async ({ page }) => {
   await expect(page.locator('[data-program-retired]')).toHaveCount(0)
 })
 
+test('a press outside an open session closes it and presses nothing else', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+
+  const panel = await openSession(page, sessions(day(page, 1, 1)), 'Fuerza tren superior')
+  await expect(panel).toBeVisible()
+  expect(await pressableBesideThePanel(page)).toEqual([])
+
+  // The week's other session, in the same row and so clear of the panel.
+  const other = await sessions(day(page, 1, 4)).boundingBox()
+  if (!other) throw new Error('the session of day 4 is not on screen')
+  await page.mouse.click(other.x + other.width / 2, other.y + other.height / 2)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('the form of a day leaves nothing beside it to press', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(EDITOR_PATH)
+
+  await expect(await openAdd(page, 1, 2)).toBeVisible()
+  expect(await pressableBesideThePanel(page)).toEqual([])
+})
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
+
+  test('an open session and the form of a week leave nothing beside them to press', async ({
+    page,
+  }) => {
+    await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+    await page.goto(EDITOR_PATH)
+
+    const panel = await openSession(page, sessions(day(page, 1, 1)), 'Fuerza tren superior')
+    await expect(panel).toBeVisible()
+    expect(await pressableBesideThePanel(page)).toEqual([])
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await week(page, 1).getByRole('button', { name: 'Agregar sesión' }).click()
+    await expect(page.getByRole('dialog', { name: 'Agregar una sesión' })).toBeVisible()
+    expect(await pressableBesideThePanel(page)).toEqual([])
+  })
 
   test('a week is the list of its sessions, with one button that adds to it', async ({ page }) => {
     await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))

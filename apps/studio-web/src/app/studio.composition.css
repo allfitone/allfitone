@@ -1986,6 +1986,12 @@
   }
 }
 
+/* While a session's panel is open its day offers nothing else: the button sits
+   on that session, the one place a press still reaches under a modal panel. */
+[data-program-day]:has([data-program-chip][aria-expanded='true']) > [data-program-add] {
+  visibility: hidden;
+}
+
 /* What a session or an empty day opens: its fields in one column, and the two
    that move a session side by side. */
 [data-program-panel-fields] {

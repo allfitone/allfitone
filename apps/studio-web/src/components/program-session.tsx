@@ -12,6 +12,11 @@
  * picture of the program while one cell of it changes. A session can also be
  * dragged to another day; its panel moves it too, for a keyboard and for a
  * touch screen, where nothing is dragged.
+ *
+ * Both are modal. They hold controls and float over sessions and buttons, so
+ * a press that misses a control would land on whatever shows beside it; on a
+ * phone that left a strip of a week's button a few pixels tall. A press
+ * outside closes the panel and does nothing else.
  */
 
 import { Badge } from '@allfitone/react/components/badge'
@@ -94,7 +99,7 @@ export function ProgramSession({
       }}
       onDragEnd={onDragEnd}
     >
-      <Popover open={open} onOpenChange={onOpenChange}>
+      <Popover modal open={open} onOpenChange={onOpenChange}>
         <PopoverTrigger data-program-chip>
           <span data-program-chip-title>{title}</span>
           {version ? (
@@ -208,7 +213,7 @@ export function AddSession({
   const nothingToAdd = templates.length === 0
 
   return (
-    <Popover open={open} onOpenChange={onOpenChange}>
+    <Popover modal open={open} onOpenChange={onOpenChange}>
       {day === undefined ? (
         <PopoverTrigger
           render={<Button type="button" variant="outline" size="sm" data-program-week-add />}
