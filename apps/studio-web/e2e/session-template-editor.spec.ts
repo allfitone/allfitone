@@ -42,8 +42,11 @@ async function choose(page: Page, label: string, option: string | RegExp) {
 
 async function createTemplate(page: Page, title: string) {
   await page.goto(`${CONTENT_PATH}/templates/new`)
-  await choose(page, 'Disciplina', 'Fuerza')
-  await page.getByLabel('Nombre').fill(title)
+  // Scoped to the dialog: the list behind it has a discipline filter of its own.
+  const form = page.getByRole('dialog', { name: 'Nueva plantilla' })
+  await form.getByLabel('Disciplina').click()
+  await page.getByRole('option', { name: 'Fuerza' }).click()
+  await form.getByLabel('Nombre').fill(title)
   await page.getByRole('button', { name: 'Crear plantilla' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Plantilla' })).toBeVisible()
 }
@@ -52,10 +55,8 @@ test('a draft opens from the library with its steps as they were written', async
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await page.goto(CONTENT_PATH)
 
-  await page
-    .locator('[data-content-register-item]', { hasText: 'Fuerza tren superior' })
-    .getByRole('link', { name: 'Abrir el borrador' })
-    .click()
+  // Pressing the item opens its draft.
+  await page.getByRole('link', { name: 'Fuerza tren superior', exact: true }).click()
 
   await expect(page).toHaveURL(EDITOR_PATH)
   await expect(page.getByLabel('Nombre')).toHaveValue('Fuerza tren superior')

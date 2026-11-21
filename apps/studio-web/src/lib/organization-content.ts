@@ -37,6 +37,10 @@ export interface ContentItem {
   draft: ContentDraft | null
   versions: ContentVersion[]
   archived: boolean
+  /** A template's discipline. Null for a program, which belongs to none. */
+  disciplineCode: string | null
+  /** What a program's draft holds. Null for a template, and for a program with no draft. */
+  sessions: { count: number; weeks: number } | null
 }
 
 export interface ContentDraft {
@@ -145,6 +149,8 @@ export function templateItems(templates: readonly SessionTemplate[]): ContentIte
         : null,
       versions,
       archived: template.status === 'archived',
+      disciplineCode: template.discipline_code,
+      sessions: null,
     }
   })
 }
@@ -165,6 +171,13 @@ export function programItems(programs: readonly Program[]): ContentItem[] {
         : null,
       versions,
       archived: program.status === 'archived',
+      disciplineCode: null,
+      sessions: program.draft
+        ? {
+            count: program.draft.content.sessions.length,
+            weeks: Math.max(0, ...program.draft.content.sessions.map((session) => session.week)),
+          }
+        : null,
     }
   })
 }

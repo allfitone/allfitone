@@ -26,8 +26,13 @@ function creations(fixture: StudioApiFixture) {
   )
 }
 
+function form(page: Page) {
+  return page.getByRole('dialog', { name: 'Nuevo movimiento' })
+}
+
+// Scoped to the dialog: the list behind it has a discipline filter of its own.
 async function choose(page: Page, label: string, option: string) {
-  await page.getByLabel(label, { exact: true }).click()
+  await form(page).getByLabel(label, { exact: true }).click()
   await page.getByRole('option', { name: option, exact: true }).click()
 }
 
@@ -37,8 +42,9 @@ test('a movement is created from the movements tab and opens as ours alone', asy
   await page.goto(CONTENT_PATH)
   await page.getByRole('tab', { name: 'Movimientos' }).click()
 
-  await page.getByRole('link', { name: 'Nuevo movimiento' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Nuevo movimiento' })).toBeVisible()
+  // One creation button, which follows the tab.
+  await page.getByRole('button', { name: 'Nuevo movimiento' }).click()
+  await expect(form(page)).toBeVisible()
   await choose(page, 'Disciplina', 'Fuerza')
   await page.getByLabel('Nombre', { exact: true }).fill('  Remo   invertido ')
   await page.getByLabel('Otros nombres').fill('Remo australiano\n\n')
@@ -107,7 +113,8 @@ test('a repeated name is refused on the name, and nothing is duplicated', async 
   await expect(
     page.getByText('Ya hay un movimiento de tu organización con ese nombre.'),
   ).toBeVisible()
-  await expect(page).toHaveURL(NEW_PATH)
+  // Still open: a refusal closes nothing.
+  await expect(form(page)).toBeVisible()
   expect(fixture.movements).toHaveLength(before)
 })
 
@@ -119,7 +126,7 @@ test('only what Allfit published can be chosen, and nothing goes to the global c
 
   await expect(page.getByText(/no hay forma de subirlo al catálogo de Allfit/)).toBeVisible()
   await expect(page.getByText(/Las disciplinas las publica Allfit/)).toBeVisible()
-  await page.getByLabel('Disciplina', { exact: true }).click()
+  await form(page).getByLabel('Disciplina', { exact: true }).click()
   await expect(page.getByRole('option')).toHaveText(['Fuerza', 'Movilidad'])
 })
 
@@ -155,7 +162,8 @@ test('a role without manage_content is told so instead of seeing a form', async 
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${secondActiveMembership.organization_id}/content/movements/new`)
 
-  await expect(page.getByText('Tu rol no crea contenido')).toBeVisible()
+  // The address opens the library now, and the library is what refuses this role.
+  await expect(page.getByText('No puedes consultar este contenido')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Crear movimiento' })).toHaveCount(0)
 })
 
@@ -164,7 +172,7 @@ test('a global movement opens from the tab and says it is Allfit’s', async ({ 
   await page.goto(CONTENT_PATH)
   await page.getByRole('tab', { name: 'Movimientos' }).click()
 
-  await page.getByRole('link', { name: 'Abrir Sentadilla trasera' }).click()
+  await page.getByRole('link', { name: 'Sentadilla trasera', exact: true }).click()
 
   await expect(page).toHaveURL(`${CONTENT_PATH}/movements/${STRENGTH_GLOBAL_MOVEMENT_ID}`)
   await expect(page.getByText(/Un movimiento del catálogo de Allfit/)).toBeVisible()

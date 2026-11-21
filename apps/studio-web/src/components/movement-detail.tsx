@@ -37,6 +37,7 @@ import { MovementArchive } from './movement-archive'
 import { MovementEditor } from './movement-editor'
 import { useOrganizationContext } from './organization-context'
 import { WorkspacePageHeader } from './workspace-page-header'
+import { libraryPath } from '@/lib/content-library'
 import { RELATION_LABEL, canArchiveMovements } from '@/lib/movement-form'
 import { disciplineName, movementScopeLabel } from '@/lib/movement-search'
 import { canManageContent } from '@/lib/organization-content'
@@ -53,7 +54,7 @@ export function MovementDetail() {
   const params = useParams<{ movementId: string }>()
   const { current } = useOrganizationContext()
   const organizationId = current.organization_id
-  const contentPath = `/organizations/${organizationId}/content`
+  const contentPath = libraryPath(organizationId, 'movements')
   const rolesQuery = useQuery(organizationRolesQueryOptions(organizationId))
   const movementQuery = useQuery(
     organizationMovementQueryOptions(organizationId, params.movementId),

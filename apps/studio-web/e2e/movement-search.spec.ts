@@ -51,7 +51,7 @@ test('an archived movement stays out until it is asked for, and then says so', a
   await expect(results(page).locator('li', { hasText: 'Press de banca' })).toBeVisible()
   await expect(results(page).locator('li', { hasText: 'Zancada lateral con banda' })).toHaveCount(0)
 
-  await page.getByRole('checkbox', { name: 'Incluir los archivados' }).click()
+  await page.getByRole('switch', { name: 'Incluir los archivados' }).click()
 
   const archived = results(page).locator('li', { hasText: 'Zancada lateral con banda' })
   await expect(archived).toContainText('Archivado')

@@ -32,8 +32,10 @@ function withPublishedProgram(): StudioApiFixture {
   return fixture
 }
 
-function card(page: Page, title: string) {
-  return page.locator('[data-content-register-item]', { hasText: title })
+// The versions of an item are listed in its menu, newest first.
+async function openVersion(page: Page, title: string, versionNumber: number) {
+  await page.getByRole('button', { name: `Versiones de ${title}` }).click()
+  await page.getByRole('menuitem', { name: new RegExp(`^Versión ${versionNumber}\\b`) }).click()
 }
 
 test('a template version opens from the library and reads whole, said to be final', async ({
@@ -42,10 +44,7 @@ test('a template version opens from the library and reads whole, said to be fina
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await page.goto(CONTENT_PATH)
 
-  await card(page, 'Fuerza tren superior')
-    .getByRole('button', { name: /Ver versiones/ })
-    .click()
-  await page.getByRole('link', { name: 'Leer la versión 1 de Fuerza tren superior' }).click()
+  await openVersion(page, 'Fuerza tren superior', 1)
 
   await expect(page).toHaveURL(`${CONTENT_PATH}/templates/${publishedTemplate.id}/versions/1`)
   await expect(page.getByRole('heading', { level: 1, name: 'Versión de plantilla' })).toBeVisible()
@@ -68,12 +67,7 @@ test('a program version reads by week, each session on its version, linked to it
   await page.goto(CONTENT_PATH)
   await page.getByRole('tab', { name: 'Programas' }).click()
 
-  await card(page, 'Hipertrofia de cuatro semanas')
-    .getByRole('button', { name: /Ver versiones/ })
-    .click()
-  await page
-    .getByRole('link', { name: 'Leer la versión 1 de Hipertrofia de cuatro semanas' })
-    .click()
+  await openVersion(page, 'Hipertrofia de cuatro semanas', 1)
 
   await expect(page.getByRole('heading', { level: 1, name: 'Versión de programa' })).toBeVisible()
   await expect(page.locator('[data-version-details]')).toContainText(

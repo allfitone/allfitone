@@ -3823,10 +3823,7 @@ function defaultResponse(
   ) {
     return {
       status: 200,
-      body: {
-        data: fixture.organizationSessionTemplates,
-        page: { has_more: false, next_cursor: null },
-      },
+      body: contentPage(fixture.organizationSessionTemplates, request.search, 'template'),
     }
   }
   if (request.method === 'GET' && request.path === '/studio/v1/catalog/disciplines') {
@@ -4355,10 +4352,7 @@ function defaultResponse(
   ) {
     return {
       status: 200,
-      body: {
-        data: fixture.organizationPrograms,
-        page: { has_more: false, next_cursor: null },
-      },
+      body: contentPage(fixture.organizationPrograms, request.search, 'program'),
     }
   }
   if (
@@ -7016,6 +7010,21 @@ function nextDay(day: string): string {
   const [year, month, date] = day.split('-').map(Number)
   const stepped = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (date ?? 1) + 1))
   return stepped.toISOString().slice(0, 10)
+}
+
+/**
+ * One page of a content listing, as the routes answer: `limit` items and a
+ * cursor while there are more. Answering all at once hid a screen that stopped at one page.
+ */
+function contentPage(items: readonly unknown[], search: string, name: string) {
+  const params = new URLSearchParams(search)
+  const limit = Number(params.get('limit') ?? '50')
+  const offset = Number((params.get('cursor') ?? `${name}-offset-0`).split('-').at(-1))
+  const hasMore = offset + limit < items.length
+  return {
+    data: items.slice(offset, offset + limit),
+    page: { has_more: hasMore, next_cursor: hasMore ? `${name}-offset-${offset + limit}` : null },
+  }
 }
 
 function objectValue(value: unknown): Record<string, unknown> {

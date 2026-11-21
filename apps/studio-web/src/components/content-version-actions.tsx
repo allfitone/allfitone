@@ -164,7 +164,7 @@ export function DeriveFromVersion({
               </Alert>
             ) : null}
 
-            <AlertDialogFooter>
+            <AlertDialogFooter data-confirm-actions="long">
               <AlertDialogCancel disabled={derive.isPending}>
                 Conservar el borrador
               </AlertDialogCancel>

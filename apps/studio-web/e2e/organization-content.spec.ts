@@ -5,14 +5,17 @@ import {
   createStudioApiFixture,
   installStudioApiMock,
   publishedProgram,
+  publishedTemplate,
   secondActiveMembership,
 } from './studio-api-mock'
 
 /*
- * HU-STUDIO-044, the first screen of the content block. Its three criteria are
- * all about telling things apart and keeping them in, and two of them are the
- * database's: this audits the one that is the screen's — a draft is explicitly
- * not a published version — plus the capability gate and every state.
+ * HU-STUDIO-044, the first screen of the content block and the one the other
+ * registers copy. Its three criteria are all about telling things apart and
+ * keeping them in, and two of them are the database's: this audits the one
+ * that is the screen's — a draft is explicitly not a published version — plus
+ * the capability gate, every state, and what makes the list a list: its
+ * filters, its two views and the tab kept in the address.
  */
 
 const CONTENT_PATH = `/organizations/${activeMembership.organization_id}/content`
@@ -22,7 +25,16 @@ function openContent(page: Page) {
 }
 
 function card(page: Page, name: string) {
-  return page.locator('[data-content-register-item]', { hasText: name })
+  return page.locator('[data-library-card]', { hasText: name })
+}
+
+function status(page: Page, name: string) {
+  return card(page, name).locator('[data-library-status]')
+}
+
+async function chooseState(page: Page, option: string) {
+  await page.getByRole('combobox', { name: 'Estado' }).click()
+  await page.getByRole('option', { name: option }).click()
 }
 
 test('an owner reads the content, because the catalogue gives them manage_content', async ({
@@ -34,34 +46,36 @@ test('an owner reads the content, because the catalogue gives them manage_conten
   await expect(page.getByRole('heading', { level: 1, name: 'Biblioteca' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Plantillas' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Programas' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Movimientos' })).toBeVisible()
 })
 
 /*
- * Criterion 1, which is the whole of this screen's own work: the two are said
- * apart and never added up. «3 versiones» would hide that one is retired and
- * cannot be assigned any more.
+ * Criterion 1, which is the whole of this screen's own work: a draft is not a
+ * published version. The badge names the version that can be assigned, never a
+ * count — «2 versiones» would hide that one is retired — and the menu keeps the
+ * draft and each version as separate things to open.
  */
-test('a draft and the published versions are counted separately', async ({ page }) => {
+test('a draft and the published versions are told apart', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
 
-  await expect(card(page, 'Fuerza tren superior')).toContainText(
-    'Borrador sin publicar · 1 versión publicada · 1 retirada',
-  )
+  await expect(status(page, 'Fuerza tren superior')).toHaveText('Publicada v2')
+
+  await page.getByRole('button', { name: 'Versiones de Fuerza tren superior' }).click()
+  const menu = page.getByRole('menu')
+  await expect(menu.getByRole('menuitem').first()).toHaveText('Abrir el borrador')
+  await expect(menu).toContainText('Versiones publicadas')
 })
 
-test('a template with nothing published says it cannot be assigned', async ({ page }) => {
+test('a template with nothing published is a draft, with no version to list', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
 
-  const row = card(page, 'Movilidad matutina')
-  await expect(row).toContainText('Borrador sin publicar')
-  await expect(row).toContainText('Nada publicado todavía')
-  // And no disclosure, because there are no versions to disclose.
-  await expect(row.getByRole('button', { name: /Ver versiones/ })).toHaveCount(0)
+  await expect(status(page, 'Movilidad matutina')).toHaveText('Borrador')
+  await expect(page.getByRole('button', { name: 'Versiones de Movilidad matutina' })).toHaveCount(0)
 })
 
-// ADR-009: an adaptation keeps its source, so the list says which rows are one.
+// ADR-009: an adaptation keeps its source, so the list says which items are one.
 test('a template started from another version is marked as an adaptation', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
@@ -70,27 +84,84 @@ test('a template started from another version is marked as an adaptation', async
   await expect(card(page, 'Movilidad matutina')).not.toContainText('Adaptación')
 })
 
-test('the versions open on demand, newest first, with the retired one marked', async ({ page }) => {
+test('the versions are listed on demand, newest first, with the retired one marked', async ({
+  page,
+}) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
 
-  const row = card(page, 'Fuerza tren superior')
-  await row.getByRole('button', { name: /Ver versiones · 2/ }).click()
+  await page.getByRole('button', { name: 'Versiones de Fuerza tren superior' }).click()
 
-  const versions = row.locator('[data-content-version-list] > li')
+  const versions = page.getByRole('menuitem', { name: /^Versión/ })
   await expect(versions).toHaveCount(2)
-  await expect(versions.first()).toContainText('v2')
-  await expect(versions.last()).toContainText('v1')
-  await expect(versions.last()).toContainText('Retirada')
+  await expect(versions.first()).toContainText('Versión 2')
+  await expect(versions.last()).toContainText('Versión 1')
+  await expect(versions.last()).toContainText('retirada')
 })
 
-test('archived content is out of the list and behind its own disclosure', async ({ page }) => {
+test('pressing an item opens its draft', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await openContent(page)
+
+  await page.getByRole('link', { name: 'Fuerza tren superior', exact: true }).click()
+
+  await expect(page).toHaveURL(`${CONTENT_PATH}/templates/${publishedTemplate.id}`)
+})
+
+test('archived content is out of the list until its state is asked for', async ({ page }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
 
   await expect(card(page, 'Circuito antiguo')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Archivado · 1' }).click()
-  await expect(card(page, 'Circuito antiguo')).toBeVisible()
+
+  await chooseState(page, 'Archivadas')
+
+  await expect(status(page, 'Circuito antiguo')).toHaveText('Archivada')
+  // And alone: what is archived is never mixed in with what is in use.
+  await expect(card(page, 'Fuerza tren superior')).toHaveCount(0)
+})
+
+test('the search finds a name whatever its capitals and accents', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await openContent(page)
+
+  await page.getByRole('searchbox', { name: 'Buscar plantillas' }).fill('MOVIL')
+
+  await expect(card(page, 'Movilidad matutina')).toBeVisible()
+  await expect(card(page, 'Fuerza tren superior')).toHaveCount(0)
+})
+
+test('the discipline and the state narrow the list', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await openContent(page)
+
+  await page.getByRole('combobox', { name: 'Disciplina' }).click()
+  await page.getByRole('option', { name: 'Movilidad' }).click()
+  await expect(page.locator('[data-library-card]')).toHaveCount(1)
+  await expect(card(page, 'Movilidad matutina')).toBeVisible()
+
+  // Movilidad has a draft and nothing published, so asking for published leaves nothing.
+  await chooseState(page, 'Publicadas')
+  await expect(page.getByText('Ninguna plantilla coincide')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Quitar los filtros' }).click()
+  await expect(card(page, 'Fuerza tren superior')).toBeVisible()
+})
+
+test('the same list reads as rows, and the choice is kept for the next visit', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await openContent(page)
+
+  await page.getByRole('button', { name: 'Filas' }).click()
+
+  const table = page.getByRole('table', { name: 'Plantillas' })
+  const row = table.getByRole('row', { name: /Fuerza tren superior/ })
+  await expect(row).toContainText('Fuerza')
+  await expect(row).toContainText('Publicada v2')
+  await expect(page.locator('[data-library-card]')).toHaveCount(0)
+
+  await page.reload()
+  await expect(page.getByRole('table', { name: 'Plantillas' })).toBeVisible()
 })
 
 test('the programs tab reads its own list', async ({ page }) => {
@@ -99,27 +170,80 @@ test('the programs tab reads its own list', async ({ page }) => {
 
   await page.getByRole('tab', { name: 'Programas' }).click()
 
-  // The program fixture has no draft, so only what is published is counted.
-  await expect(card(page, 'Bloque de fuerza')).toContainText('1 versión publicada')
+  // «Programa» is masculine, and so is its state.
+  await expect(status(page, 'Bloque de fuerza')).toHaveText('Publicado v2')
   await expect(card(page, 'Fuerza tren superior')).toHaveCount(0)
 })
 
-test('a program version carries its own title, which a template version does not', async ({
+/*
+ * A program version keeps the name it was published under, which a template
+ * version does not. The menu says it only when it is no longer the program's:
+ * repeating the name the card already shows would say nothing.
+ */
+test('a program version says its own title when the program was renamed since', async ({
+  page,
+}) => {
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  const renamed = structuredClone(publishedProgram)
+  const [newest, oldest] = renamed.versions
+  if (!newest || !oldest) throw new Error('the fixture program needs two versions')
+  oldest.title = 'Bloque de fuerza inicial'
+  fixture.organizationPrograms = [renamed]
+  await installStudioApiMock(page, fixture)
+  await openContent(page)
+
+  await page.getByRole('tab', { name: 'Programas' }).click()
+  await page.getByRole('button', { name: `Versiones de ${newest.title}` }).click()
+
+  const versions = page.getByRole('menuitem', { name: /^Versión/ })
+  await expect(versions.last()).toContainText('«Bloque de fuerza inicial»')
+  await expect(versions.first()).not.toContainText('«')
+})
+
+test('the tab is kept in the address, so going back lands where the reader was', async ({
   page,
 }) => {
   await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
   await openContent(page)
 
   await page.getByRole('tab', { name: 'Programas' }).click()
-  const row = card(page, 'Bloque de fuerza')
-  await row.getByRole('button', { name: /Ver versiones/ }).click()
+  await expect(page).toHaveURL(`${CONTENT_PATH}?tab=programs`)
 
-  const version = row.locator('[data-content-version-list] > li').first()
-  await expect(version).toContainText('v2')
-  await expect(version).toContainText(publishedProgram.versions[0]?.title ?? 'Bloque de fuerza')
+  await page.getByRole('link', { name: 'Bloque de fuerza', exact: true }).click()
+  await expect(page).not.toHaveURL(`${CONTENT_PATH}?tab=programs`)
+  await page.goBack()
+
+  await expect(page.getByRole('tab', { name: 'Programas' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(card(page, 'Bloque de fuerza')).toBeVisible()
 })
 
-test('each tab has its own empty state, because they differ', async ({ page }) => {
+test('an address that names a tab opens on it', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await page.goto(`${CONTENT_PATH}?tab=movements`)
+
+  await expect(page.getByRole('tab', { name: 'Movimientos' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('button', { name: 'Nuevo movimiento' })).toBeVisible()
+})
+
+test('one creation button follows the tab', async ({ page }) => {
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+  await openContent(page)
+
+  await expect(page.getByRole('button', { name: 'Nueva plantilla' })).toBeVisible()
+  await page.getByRole('tab', { name: 'Programas' }).click()
+  await expect(page.getByRole('button', { name: 'Nuevo programa' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Nueva plantilla' })).toHaveCount(0)
+})
+
+test('each tab has its own empty state, because they differ, and each offers to create', async ({
+  page,
+}) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   fixture.organizationSessionTemplates = []
   fixture.organizationPrograms = []
@@ -130,9 +254,31 @@ test('each tab has its own empty state, because they differ', async ({ page }) =
   // that explains the order to work in.
   await expect(page.getByText(/Todavía no hay plantillas/)).toBeVisible()
   await expect(page.getByText(/un programa se compone de versiones publicadas/)).toBeVisible()
+  // Nothing to filter yet, so no toolbar: the way forward is the one button.
+  await expect(page.getByRole('searchbox')).toHaveCount(0)
+  await page.getByRole('tabpanel').getByRole('button', { name: 'Nueva plantilla' }).click()
+  await expect(page.getByRole('dialog', { name: 'Nueva plantilla' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancelar' }).click()
 
   await page.getByRole('tab', { name: 'Programas' }).click()
   await expect(page.getByText(/Todavía no hay programas/)).toBeVisible()
+})
+
+// The list used to stop at its first page of fifty: the fifty-first never appeared.
+test('every page of the list is read, not only the first', async ({ page }) => {
+  const fixture = createStudioApiFixture({ memberships: [activeMembership] })
+  fixture.organizationSessionTemplates = Array.from({ length: 60 }, (_, index) => {
+    const template = structuredClone(publishedTemplate)
+    const number = String(index + 1).padStart(2, '0')
+    template.id = `01991600-a000-7000-8000-0000000001${number}`
+    template.draft.content.title = `Plantilla ${number}`
+    return template
+  })
+  await installStudioApiMock(page, fixture)
+  await openContent(page)
+
+  await expect(page.locator('[data-library-card]')).toHaveCount(60)
+  await expect(card(page, 'Plantilla 60')).toBeVisible()
 })
 
 /*
@@ -160,7 +306,12 @@ test('a role without manage_content is told so instead of seeing a failure', asy
   await expect(page.getByRole('tab', { name: 'Plantillas' })).toHaveCount(0)
 })
 
-test('a failed read hides everything rather than looking like an empty gym', async ({ page }) => {
+/*
+ * Each tab reads its own list now, so a failed read is said in its tab and the
+ * others stay reachable. What must not happen is unchanged: a failure never
+ * reads as a gym with nothing in it.
+ */
+test('a failed read is said as a failure, never as an empty gym', async ({ page }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   fixture.intercept = (request) =>
     request.path.endsWith('/session-templates')
@@ -171,5 +322,9 @@ test('a failed read hides everything rather than looking like an empty gym', asy
 
   await expect(page.getByText('No pudimos cargar el contenido')).toBeVisible()
   await expect(page.getByText(/no parezca que la organización no tiene contenido/)).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Plantillas' })).toHaveCount(0)
+  await expect(page.getByText(/Todavía no hay plantillas/)).toHaveCount(0)
+  await expect(page.locator('[data-library-card]')).toHaveCount(0)
+
+  await page.getByRole('tab', { name: 'Programas' }).click()
+  await expect(card(page, 'Bloque de fuerza')).toBeVisible()
 })

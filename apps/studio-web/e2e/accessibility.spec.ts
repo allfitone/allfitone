@@ -212,7 +212,12 @@ test.describe('layout', () => {
           // `alertdialog` is its own role, and the confirmations use it — asking
           // only for `dialog` sent those screens back to the h1 rule they cannot
           // satisfy.
-          const dialog = page.locator('[role="dialog"], [role="alertdialog"]')
+          //
+          // And the one a person is in: a dialog opened from a dialog takes its
+          // parent out of the accessibility tree, where no name can be computed.
+          const dialog = page.locator(
+            ':is([role="dialog"], [role="alertdialog"]):not([aria-hidden="true"])',
+          )
           if ((await dialog.count()) > 0) {
             await expect(dialog.first()).toHaveAccessibleName(/\S/)
           } else {
