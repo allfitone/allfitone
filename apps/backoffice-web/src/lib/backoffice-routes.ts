@@ -67,3 +67,22 @@ export function currentBackofficeRoute(
       undefined,
     )
 }
+
+/** One step of the way back from a screen below a menu entry. */
+export interface Crumb {
+  href: string
+  title: string
+}
+
+/**
+ * A crumb back to a menu entry, titled as the menu titles it so the two never
+ * drift apart. `query` is what the list was asked, so going back lands on it.
+ */
+export function menuCrumb(href: string, query: Readonly<Record<string, string>> = {}): Crumb {
+  const route = BACKOFFICE_ROUTES.find((entry) => entry.href === href)
+  if (!route) throw new Error(`No menu entry at ${href}`)
+  const search = new URLSearchParams(
+    Object.entries(query).filter(([, value]) => value !== ''),
+  ).toString()
+  return { href: search ? `${href}?${search}` : href, title: route.title }
+}

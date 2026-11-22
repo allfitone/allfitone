@@ -51,9 +51,11 @@ import {
   followUpSummary,
   followUpTone,
 } from '@/lib/billing-follow-up'
+import { menuCrumb } from '@/lib/backoffice-routes'
 import { isRefusal } from '@/lib/screen-state'
 import { isValidOptionalCaseReference } from '@/lib/support-metadata'
 
+import { RecordHeader } from './page-header'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'failed'
@@ -120,14 +122,18 @@ export function BillingFollowUp() {
 
   return (
     <div data-billing-follow-up>
+      <RecordHeader
+        trail={[menuCrumb('/people', { case_reference: traceable ? fromAddress : '' })]}
+        name="Cobros por seguir"
+        description="Suscripciones a Allfit One suspendidas o en gracia, y cobros que fallaron en los últimos 30 días."
+      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            Cobros por seguir
+            El caso que lo justifica
           </CardTitle>
           <CardDescription>
-            Suscripciones a Allfit One suspendidas o en gracia, y cobros que fallaron en los últimos
-            30 días. Nombra a quien paga, así que queda registrado contra cada persona de la lista,
+            La lista nombra a quien paga, así que queda registrado contra cada persona de la lista,
             y contra el caso si escribes uno.
           </CardDescription>
         </CardHeader>

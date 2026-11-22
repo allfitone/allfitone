@@ -1,10 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import {
+  SUPPORT_SUBJECT_ID,
   SUPPORT_SUBJECT_NAME,
   activeSession,
   createBackofficeFixture,
+  handoverRecord,
   mockBackofficeApi,
+  organizationFileRecord,
   supportPerson,
 } from './backoffice-api-mock'
 
@@ -335,4 +338,78 @@ test('every screen keeps its blocks apart, and every card its contents', async (
   touching.push(...(await touchingBlocks(page)).map((block) => `card ${block}`))
 
   expect(touching).toEqual([])
+})
+
+/*
+ * A screen below a menu entry used to keep the entry's title: the `h1` said
+ * «Gimnasios» over a gym's file, and the way back was a link at the foot of the
+ * page. Each one now names what is open and starts with the way back to its list.
+ */
+test('every screen below a menu entry names what is open and leads back to its list', async ({
+  context,
+  page,
+}) => {
+  const file = organizationFileRecord()
+  const handover = handoverRecord()
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      organizationFiles: { files: [file] },
+      organizationHandover: { handovers: [handover] },
+      support: { people: [supportPerson()] },
+    }),
+  )
+
+  const screens = [
+    {
+      path: `/organizations/${file.organization.organization_id}`,
+      name: file.organization.display_name,
+      back: { title: 'Gimnasios', href: '/organizations' },
+    },
+    {
+      path: `/organizations/${handover.organization_id}/handover`,
+      name: handover.display_name,
+      back: { title: 'Gimnasios', href: '/organizations' },
+    },
+    {
+      path: '/organizations/new',
+      name: 'Crear un gimnasio',
+      back: { title: 'Gimnasios', href: '/organizations' },
+    },
+    // The way back keeps the case, so the search it leads to records against it too.
+    {
+      path: `/people/${SUPPORT_SUBJECT_ID}?case_reference=CASE-2026-001`,
+      name: SUPPORT_SUBJECT_NAME,
+      back: { title: 'Personas', href: '/people?case_reference=CASE-2026-001' },
+    },
+    {
+      path: '/people/billing',
+      name: 'Cobros por seguir',
+      back: { title: 'Personas', href: '/people' },
+    },
+  ]
+
+  for (const screen of screens) {
+    await page.goto(screen.path)
+    const content = page.locator('[data-backoffice-content]')
+    await expect(content.getByRole('heading', { level: 2, name: screen.name })).toBeVisible()
+    const trail = content.getByRole('navigation', { name: 'Ruta' })
+    await expect(trail.getByRole('link', { name: screen.back.title })).toHaveAttribute(
+      'href',
+      screen.back.href,
+    )
+    // Nothing above the way back: it is the first thing the screen shows.
+    const firstTop = await content.evaluate((element) =>
+      Math.min(...[...element.children].map((child) => child.getBoundingClientRect().top)),
+    )
+    expect((await trail.boundingBox())?.y).toBeCloseTo(firstTop, 0)
+  }
+
+  await page.goto(`/organizations/${file.organization.organization_id}`)
+  await page
+    .getByRole('navigation', { name: 'Ruta' })
+    .getByRole('link', { name: 'Gimnasios' })
+    .click()
+  await expect(page).toHaveURL('/organizations')
 })

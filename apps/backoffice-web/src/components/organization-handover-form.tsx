@@ -20,13 +20,7 @@
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@allfitone/react/components/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
@@ -37,7 +31,6 @@ import {
   SelectValue,
 } from '@allfitone/react/components/select'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useRef, useState, type FormEvent } from 'react'
 
@@ -60,6 +53,9 @@ import {
   type HandoverDraft,
   type OrganizationTypeCode,
 } from '@/lib/organization-handover'
+import { menuCrumb } from '@/lib/backoffice-routes'
+
+import { RecordHeader } from './page-header'
 
 export function OrganizationHandoverForm() {
   const router = useRouter()
@@ -107,6 +103,11 @@ export function OrganizationHandoverForm() {
 
   return (
     <div data-organization-handover-form>
+      <RecordHeader
+        trail={[menuCrumb('/organizations')]}
+        name="Crear un gimnasio"
+        description="Para una venta asistida. La invitación va a un correo, nunca a una cuenta elegida desde aquí."
+      />
       <Alert live="off" variant="info">
         <AlertTitle>Crear no es entregar</AlertTitle>
         <AlertDescription>
@@ -119,12 +120,8 @@ export function OrganizationHandoverForm() {
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            Crear un gimnasio y entregárselo a su dueño
+            El gimnasio y su dueño
           </CardTitle>
-          <CardDescription>
-            Para una venta asistida. La invitación va a un correo, nunca a una cuenta elegida desde
-            aquí.
-          </CardDescription>
         </CardHeader>
         <CardContent data-card-body>
           <form
@@ -259,10 +256,6 @@ export function OrganizationHandoverForm() {
           <AlertDescription>{failure}</AlertDescription>
         </Alert>
       ) : null}
-
-      <Link href="/organizations" data-handover-link>
-        Volver al directorio
-      </Link>
     </div>
   )
 }

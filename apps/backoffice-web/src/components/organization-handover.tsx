@@ -30,15 +30,10 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { RecordHeader } from './page-header'
 import { ScreenFailure, ScreenLoading } from './screen-state'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@allfitone/react/components/card'
 import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
@@ -65,6 +60,7 @@ import {
   stageSentence,
   stageTone,
 } from '@/lib/organization-handover'
+import { menuCrumb } from '@/lib/backoffice-routes'
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
@@ -141,15 +137,13 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   if (state === 'failed' || !handover) {
     return (
       <div data-organization-handover>
+        <RecordHeader trail={[menuCrumb('/organizations')]} name="Entrega del gimnasio" />
         <ScreenFailure
           refused={refused}
           duties={['manage_organization_lifecycle']}
           title="No se pudo leer la entrega"
           message={failure ?? handoverMessage('upstream-unavailable')}
         />
-        <Link href="/organizations" data-handover-link>
-          Volver al directorio
-        </Link>
       </div>
     )
   }
@@ -161,12 +155,16 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
 
   return (
     <div data-organization-handover data-stage={stage}>
+      <RecordHeader
+        trail={[menuCrumb('/organizations')]}
+        name={handover.display_name}
+        description={handover.type_name}
+      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            {handover.display_name}
+            Entrega a su dueño
           </CardTitle>
-          <CardDescription>{handover.type_name}</CardDescription>
         </CardHeader>
         <CardContent data-card-body>
           <Alert
@@ -270,10 +268,6 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
           <AlertDescription>{notice.message}</AlertDescription>
         </Alert>
       ) : null}
-
-      <Link href="/organizations" data-handover-link>
-        Volver al directorio
-      </Link>
     </div>
   )
 }

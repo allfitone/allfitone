@@ -77,6 +77,65 @@
   gap: 8px;
 }
 
+/* ------------------------------------------------------------ record head */
+
+/* The way back, then the name of what is open: a screen below a menu entry. */
+[data-record-header] {
+  display: grid;
+  gap: var(--afo-space-2);
+  min-width: 0;
+}
+
+/* A crumb's own padding is its touch target; pulled back, its text lines up
+   with the name under it. */
+[data-backoffice-trail] {
+  margin-inline-start: calc(var(--afo-space-2) * -1);
+}
+
+/* The stylesheet carries no preflight, so a crumb came out in the browser's
+   blue. It takes the trail's own colour, as in Studio. */
+[data-backoffice-crumb] {
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-record-title] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-record-heading] {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--afo-font-size-2xl);
+  font-weight: var(--afo-font-weight-bold);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+[data-record-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-2);
+  margin-inline-start: auto;
+}
+
+[data-record-description] {
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
+/* On a phone the name is the heading right under the trail, so it is said once. */
+@media (max-width: 639px) {
+  [data-backoffice-crumb-current],
+  [data-backoffice-crumb-current-separator] {
+    display: none;
+  }
+}
+
 /* ---------------------------------------------------------- shared states */
 
 /* The shape of the screen while it reads: a title, two lines and a block. */

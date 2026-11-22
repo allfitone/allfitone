@@ -4,6 +4,7 @@ import {
   BACKOFFICE_AREAS,
   BACKOFFICE_ROUTES,
   currentBackofficeRoute,
+  menuCrumb,
   routesInArea,
 } from './backoffice-routes'
 
@@ -55,5 +56,23 @@ describe('the areas the menu is grouped by', () => {
       'Solicitudes de eliminación',
       'Definiciones de permiso',
     ])
+  })
+})
+
+describe('a crumb back to a menu entry', () => {
+  test('carries the title the menu gives the entry', () => {
+    expect(menuCrumb('/organizations')).toEqual({ href: '/organizations', title: 'Gimnasios' })
+  })
+
+  test('keeps what the list was asked, and drops what is blank', () => {
+    expect(menuCrumb('/people', { case_reference: 'CASE-2026-001', q: '' })).toEqual({
+      href: '/people?case_reference=CASE-2026-001',
+      title: 'Personas',
+    })
+  })
+
+  // A crumb to a screen the menu does not list would have a title nobody else uses.
+  test('refuses a path that is not a menu entry', () => {
+    expect(() => menuCrumb('/people/billing')).toThrow()
   })
 })

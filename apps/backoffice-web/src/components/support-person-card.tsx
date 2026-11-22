@@ -46,6 +46,7 @@ import {
   backofficeApi,
   type SupportPersonMetadata,
 } from '@/lib/backoffice-api'
+import { menuCrumb } from '@/lib/backoffice-routes'
 import { formatInstant } from '@/lib/platform-access'
 import {
   fileFacts,
@@ -54,6 +55,8 @@ import {
   verificationLabel,
 } from '@/lib/support-metadata'
 import { breakGlassRequestHref } from '@/lib/break-glass'
+
+import { RecordHeader } from './page-header'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -86,17 +89,23 @@ export function SupportPersonCard({ personId }: { personId: string }) {
     return () => controller.abort()
   }, [personId, caseReference, traceable])
 
+  // The way back keeps the case, so the search the operator came from records it too.
+  const trail = [menuCrumb('/people', { case_reference: traceable ? caseReference : '' })]
+
   if (!traceable) {
     return (
-      <Alert live="polite" variant="warning">
-        <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
-        <AlertDescription>
-          Va en mayúsculas, como CASE-2026-001, o no va. Vuelve a la búsqueda y empieza desde ahí.{' '}
-          <Button size="sm" variant="ghost" render={<Link href="/people" />} nativeButton={false}>
-            Ir a la búsqueda
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <div data-support-person>
+        <RecordHeader trail={trail} name="Ficha de la persona" />
+        <Alert live="polite" variant="warning">
+          <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
+          <AlertDescription>
+            Va en mayúsculas, como CASE-2026-001, o no va. Vuelve a la búsqueda y empieza desde ahí.{' '}
+            <Button size="sm" variant="ghost" render={<Link href="/people" />} nativeButton={false}>
+              Ir a la búsqueda
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
@@ -104,17 +113,21 @@ export function SupportPersonCard({ personId }: { personId: string }) {
 
   if (state === 'failed' || !metadata) {
     return (
-      <Alert live="assertive" variant="danger">
-        <AlertTitle>No se pudo abrir el estado operativo</AlertTitle>
-        <AlertDescription>
-          {failure ?? supportMetadataMessage('upstream-unavailable')}
-        </AlertDescription>
-      </Alert>
+      <div data-support-person>
+        <RecordHeader trail={trail} name="Ficha de la persona" />
+        <Alert live="assertive" variant="danger">
+          <AlertTitle>No se pudo abrir el estado operativo</AlertTitle>
+          <AlertDescription>
+            {failure ?? supportMetadataMessage('upstream-unavailable')}
+          </AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
   return (
     <div data-support-person>
+      <RecordHeader trail={trail} name={metadata.display_name} />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>

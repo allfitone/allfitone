@@ -64,6 +64,7 @@ import {
   peopleServedSentence,
   teamSentence,
 } from '@/lib/organization-file'
+import { menuCrumb } from '@/lib/backoffice-routes'
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
@@ -71,6 +72,7 @@ import { OrganizationClientInvitations } from './organization-client-invitations
 import { OrganizationGuestQuotaPanel } from './organization-guest-quota'
 import { OrganizationSuspensionPanel } from './organization-suspension'
 import { OrganizationTeamInvitations } from './organization-team-invitations'
+import { RecordHeader } from './page-header'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -106,15 +108,13 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
   if (state === 'failed' || !file) {
     return (
       <div data-organization-file>
+        <RecordHeader trail={[menuCrumb('/organizations')]} name="Ficha del gimnasio" />
         <ScreenFailure
           refused={refused}
           duties={['manage_organization_lifecycle', 'diagnose_support_metadata']}
           title="No se pudo abrir la ficha"
           message={failure ?? fileMessage('upstream-unavailable')}
         />
-        <Link href="/organizations" data-handover-link>
-          Volver al directorio
-        </Link>
       </div>
     )
   }
@@ -124,21 +124,24 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
 
   return (
     <div data-organization-file>
+      <RecordHeader
+        trail={[menuCrumb('/organizations')]}
+        name={organization.display_name}
+        status={
+          <Badge id="file-status" variant={statusTone(organization.status)}>
+            {statusLabel(organization.status)}
+          </Badge>
+        }
+        description={organization.type_name}
+      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            {organization.display_name}
+            Datos del gimnasio
           </CardTitle>
-          <CardDescription>{organization.type_name}</CardDescription>
         </CardHeader>
         <CardContent data-card-body>
           <dl data-facts>
-            <dt>Estado</dt>
-            <dd>
-              <Badge id="file-status" variant={statusTone(organization.status)}>
-                {statusLabel(organization.status)}
-              </Badge>
-            </dd>
             <dt>Quién responde</dt>
             <dd>
               <span id="file-responsible">{responsibleLabel(file)}</span>
@@ -329,10 +332,6 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
         suspension={file.suspension}
         peopleServed={file.relationship_counts.active}
       />
-
-      <Link href="/organizations" data-handover-link>
-        Volver al directorio
-      </Link>
     </div>
   )
 }
