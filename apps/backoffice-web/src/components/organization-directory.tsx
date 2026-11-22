@@ -93,12 +93,14 @@ export function OrganizationDirectory() {
   const [appending, setAppending] = useState(false)
   const [appendFailure, setAppendFailure] = useState<string | null>(null)
   const [draft, setDraft] = useState<DirectoryFilters>(applied)
-  const [draftFor, setDraftFor] = useState(applied)
+  // Keyed by the address, not by the object: a recomputed memo must not wipe what is typed.
+  const appliedAddress = directoryAddress(applied)
+  const [draftFor, setDraftFor] = useState(appliedAddress)
   const [issue, setIssue] = useState<string | null>(null)
 
   // Going back or forward changes the address: the toolbar shows what it now asks.
-  if (draftFor !== applied) {
-    setDraftFor(applied)
+  if (draftFor !== appliedAddress) {
+    setDraftFor(appliedAddress)
     setDraft(applied)
   }
 
@@ -128,7 +130,7 @@ export function OrganizationDirectory() {
     setIssue(null)
     setAppendFailure(null)
     const address = directoryAddress(filters)
-    if (address === directoryAddress(applied)) return
+    if (address === appliedAddress) return
     setState('loading')
     router.replace(address)
   }
