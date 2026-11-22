@@ -16,6 +16,10 @@
  * Entries are grouped by the area of the duty each screen exercises, and the
  * header names that area above the title: a refusal tells the operator which
  * duty to ask for, and the menu shows where that duty would take them.
+ *
+ * What a command answers pops up in one place for every screen, where the
+ * operator is looking: a «Listo» at the top of a long page went unseen, and the
+ * command was run again.
  */
 
 import { BrandLogo, ProductWordmark } from '@allfitone/react/brand'
@@ -34,6 +38,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@allfitone/react/components/sidebar'
+import { Toaster } from '@allfitone/react/components/sonner'
 import {
   WorkspaceContent,
   WorkspaceEyebrow,
@@ -79,6 +84,7 @@ export function BackofficeWorkspaceShell({
         </WorkspaceHeader>
         <WorkspaceContent data-backoffice-content>{children}</WorkspaceContent>
       </WorkspaceMain>
+      <Toaster position="bottom-right" closeButton />
     </WorkspaceShell>
   )
 }

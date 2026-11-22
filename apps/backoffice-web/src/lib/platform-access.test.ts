@@ -4,6 +4,7 @@ import {
   actorModeLabel,
   PLATFORM_DUTY_CODES,
   dutyLabel,
+  dutyOutcome,
   dutyStatusLabel,
   dutyStatusTone,
   dutyWindowLabel,
@@ -15,6 +16,7 @@ import {
   isValidPersonId,
   personName,
   platformAccessMessage,
+  roleOutcome,
   roleStatusLabel,
   shortIdentifier,
 } from './platform-access'
@@ -127,5 +129,34 @@ describe('platform access presentation rules', () => {
     expect(platformAccessMessage('conflict')).toContain('llega con el rol')
     expect(platformAccessMessage('unauthenticated')).toContain('sesión')
     expect(platformAccessMessage('something-new')).toBe('No se pudo completar la operación.')
+  })
+})
+
+describe('what a Team command answers', () => {
+  test('names who received the base role and who lost it', () => {
+    expect(roleOutcome('granted', 'Lucía Nueva')).toBe('Rol base otorgado a Lucía Nueva.')
+    expect(roleOutcome('revoked', ' Ada Lovelace ')).toBe(
+      'Rol base retirado a Ada Lovelace. Se cerraron sus deberes y su sesión.',
+    )
+  })
+
+  test('names the duty and whose it is', () => {
+    const duty = dutyLabel('diagnose_support_metadata')
+    expect(dutyOutcome('suspended', 'diagnose_support_metadata', 'Ada')).toBe(
+      `«${duty}» suspendido para Ada. Deja de autorizar desde su próxima operación.`,
+    )
+    expect(dutyOutcome('revoked', 'diagnose_support_metadata', 'Ada')).toBe(
+      `«${duty}» revocado para Ada.`,
+    )
+    expect(dutyOutcome('recertified', 'diagnose_support_metadata', 'Ada')).toBe(
+      `«${duty}» recertificado para Ada. Queda registrado quién lo confirmó y cuándo; no alarga su vigencia.`,
+    )
+  })
+
+  // The inventory may hold a person with no name on file; the sentence still reads.
+  test('says who it was when there is no name on file', () => {
+    expect(roleOutcome('granted', null)).toBe(
+      'Rol base otorgado a una persona sin nombre registrado.',
+    )
   })
 })

@@ -157,6 +157,35 @@ export function personName(name: string | null | undefined): string {
   return trimmed ? trimmed : 'Sin nombre registrado'
 }
 
+function whom(name: string | null | undefined): string {
+  const trimmed = name?.trim()
+  return trimmed ? trimmed : 'una persona sin nombre registrado'
+}
+
+/** What granting or withdrawing the base role answers, naming whose it was. */
+export function roleOutcome(
+  outcome: 'granted' | 'revoked',
+  name: string | null | undefined,
+): string {
+  return outcome === 'granted'
+    ? `Rol base otorgado a ${whom(name)}.`
+    : `Rol base retirado a ${whom(name)}. Se cerraron sus deberes y su sesión.`
+}
+
+/** What acting on one duty answers, naming the duty and whose it is. */
+export function dutyOutcome(
+  outcome: 'suspended' | 'revoked' | 'recertified',
+  code: PlatformDutyCode,
+  name: string | null | undefined,
+): string {
+  const duty = `«${dutyLabel(code)}»`
+  if (outcome === 'suspended') {
+    return `${duty} suspendido para ${whom(name)}. Deja de autorizar desde su próxima operación.`
+  }
+  if (outcome === 'revoked') return `${duty} revocado para ${whom(name)}.`
+  return `${duty} recertificado para ${whom(name)}. Queda registrado quién lo confirmó y cuándo; no alarga su vigencia.`
+}
+
 /** Unknown is shown as absent, never as a zero or a false. */
 export function formatInstant(value: string | null | undefined): string {
   if (!value) return '—'

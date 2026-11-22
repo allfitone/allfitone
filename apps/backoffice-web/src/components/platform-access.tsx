@@ -44,6 +44,7 @@ import {
 } from '@allfitone/react/components/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import { toast } from '@allfitone/react/components/sonner'
 import {
   Select,
   SelectContent,
@@ -79,6 +80,7 @@ import {
   DUTY_STATUS_FILTERS,
   PLATFORM_DUTY_CODES,
   dutyLabel,
+  dutyOutcome,
   dutyStatusLabel,
   dutyStatusTone,
   dutyWindowLabel,
@@ -88,6 +90,7 @@ import {
   isValidPersonId,
   personName,
   platformAccessMessage,
+  roleOutcome,
   roleStatusLabel,
   roleStatusTone,
   shortIdentifier,
@@ -127,7 +130,7 @@ function dutyQuery(filter: DutyFilter): PlatformDutyFilters {
 export function PlatformAccess() {
   const [state, setState] = useState<LoadState>('loading')
   const [inventory, setInventory] = useState<Inventory>(EMPTY)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [appending, setAppending] = useState<'roles' | 'duties' | null>(null)
   const [dutyFilter, setDutyFilter] = useState<DutyFilter>({ status: '', dutyCode: '' })
@@ -177,7 +180,7 @@ export function PlatformAccess() {
     const cursor = which === 'roles' ? inventory.roleCursor : inventory.dutyCursor
     if (!cursor) return
     setAppending(which)
-    setNotice(null)
+    setFailure(null)
     try {
       if (which === 'roles') {
         const page = await backofficeApi.platformRoles(cursor)
@@ -195,7 +198,7 @@ export function PlatformAccess() {
         }))
       }
     } catch (error) {
-      setNotice({ tone: 'danger', message: failureMessage(error) })
+      setFailure(failureMessage(error))
     } finally {
       setAppending(null)
     }
@@ -204,13 +207,14 @@ export function PlatformAccess() {
   const run = useCallback(
     async (operation: () => Promise<unknown>, success: string) => {
       setBusy(true)
-      setNotice(null)
+      setFailure(null)
       try {
         await operation()
         await load()
-        setNotice({ tone: 'success', message: success })
+        // Where the operator looks, whichever section the command came from.
+        toast.success(success)
       } catch (error) {
-        setNotice({ tone: 'danger', message: failureMessage(error) })
+        setFailure(failureMessage(error))
       } finally {
         setBusy(false)
       }
@@ -246,10 +250,10 @@ export function PlatformAccess() {
 
   return (
     <div data-platform-access>
-      {notice ? (
-        <Alert live="polite" variant={notice.tone === 'success' ? 'success' : 'danger'}>
-          <AlertTitle>{notice.tone === 'success' ? 'Hecho' : 'No se aplicó'}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
+      {failure ? (
+        <Alert live="polite" variant="danger">
+          <AlertTitle>No se aplicó</AlertTitle>
+          <AlertDescription>{failure}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -259,16 +263,16 @@ export function PlatformAccess() {
         hasMore={inventory.roleCursor !== null}
         appending={appending === 'roles'}
         onLoadMore={() => void loadMore('roles')}
-        onGrant={(personId) =>
+        onGrant={(person) =>
           run(
-            () => backofficeApi.grantPlatformRole(personId, newBackofficeCommand()),
-            'Rol base otorgado.',
+            () => backofficeApi.grantPlatformRole(person.person_id, newBackofficeCommand()),
+            roleOutcome('granted', person.display_name),
           )
         }
-        onRevoke={(assignmentId) =>
+        onRevoke={(assignment) =>
           run(
-            () => backofficeApi.revokePlatformRole(assignmentId, newBackofficeCommand()),
-            'Rol base retirado. Se cerraron sus deberes y su sesión.',
+            () => backofficeApi.revokePlatformRole(assignment.id, newBackofficeCommand()),
+            roleOutcome('revoked', assignment.person_name),
           )
         }
       />
@@ -281,22 +285,22 @@ export function PlatformAccess() {
         hasMore={inventory.dutyCursor !== null}
         appending={appending === 'duties'}
         onLoadMore={() => void loadMore('duties')}
-        onSuspend={(assignmentId) =>
+        onSuspend={(assignment) =>
           run(
-            () => backofficeApi.suspendPlatformDuty(assignmentId, newBackofficeCommand()),
-            'Deber suspendido. Deja de autorizar desde la próxima transacción.',
+            () => backofficeApi.suspendPlatformDuty(assignment.id, newBackofficeCommand()),
+            dutyOutcome('suspended', assignment.duty_code, assignment.person_name),
           )
         }
-        onRevoke={(assignmentId) =>
+        onRevoke={(assignment) =>
           run(
-            () => backofficeApi.revokePlatformDuty(assignmentId, newBackofficeCommand()),
-            'Deber revocado.',
+            () => backofficeApi.revokePlatformDuty(assignment.id, newBackofficeCommand()),
+            dutyOutcome('revoked', assignment.duty_code, assignment.person_name),
           )
         }
-        onRecertify={(assignmentId) =>
+        onRecertify={(assignment) =>
           run(
-            () => backofficeApi.recertifyPlatformDuty(assignmentId, newBackofficeCommand()),
-            'Deber recertificado: queda registrado quién lo confirmó y cuándo. No alarga su vigencia.',
+            () => backofficeApi.recertifyPlatformDuty(assignment.id, newBackofficeCommand()),
+            dutyOutcome('recertified', assignment.duty_code, assignment.person_name),
           )
         }
       />
@@ -318,8 +322,8 @@ function BaseRoleSection({
   hasMore: boolean
   appending: boolean
   onLoadMore: () => void
-  onGrant: (personId: string) => void
-  onRevoke: (assignmentId: string) => Promise<void>
+  onGrant: (person: PersonMatch) => void
+  onRevoke: (assignment: PlatformRoleAssignment) => Promise<void>
 }) {
   const [term, setTerm] = useState('')
   const [searching, setSearching] = useState(false)
@@ -353,12 +357,12 @@ function BaseRoleSection({
       setError('Elige a la persona que recibe el rol.')
       return
     }
-    const personId = chosen.person_id
+    const person = chosen
     setError(null)
     setChosen(null)
     setFound(null)
     setTerm('')
-    onGrant(personId)
+    onGrant(person)
   }
 
   return (
@@ -516,7 +520,7 @@ function BaseRoleSection({
                               variant="destructive"
                               disabled={busy}
                               onClick={() =>
-                                void onRevoke(assignment.id).then(() => setRevoking(null))
+                                void onRevoke(assignment).then(() => setRevoking(null))
                               }
                             >
                               {busy ? 'Retirando…' : 'Retirar el rol'}
@@ -563,9 +567,9 @@ function DutySection({
   hasMore: boolean
   appending: boolean
   onLoadMore: () => void
-  onSuspend: (assignmentId: string) => void
-  onRevoke: (assignmentId: string) => Promise<void>
-  onRecertify: (assignmentId: string) => void
+  onSuspend: (assignment: PlatformDutyAssignment) => void
+  onRevoke: (assignment: PlatformDutyAssignment) => Promise<void>
+  onRecertify: (assignment: PlatformDutyAssignment) => void
 }) {
   const [revoking, setRevoking] = useState<string | null>(null)
 
@@ -694,7 +698,7 @@ function DutySection({
                             size="sm"
                             variant="outline"
                             disabled={busy}
-                            onClick={() => onRecertify(assignment.id)}
+                            onClick={() => onRecertify(assignment)}
                           >
                             Recertificar
                           </Button>
@@ -705,7 +709,7 @@ function DutySection({
                             size="sm"
                             variant="secondary"
                             disabled={busy}
-                            onClick={() => onSuspend(assignment.id)}
+                            onClick={() => onSuspend(assignment)}
                           >
                             Suspender
                           </Button>
@@ -744,7 +748,7 @@ function DutySection({
                                 variant="destructive"
                                 disabled={busy}
                                 onClick={() =>
-                                  void onRevoke(assignment.id).then(() => setRevoking(null))
+                                  void onRevoke(assignment).then(() => setRevoking(null))
                                 }
                               >
                                 {busy ? 'Revocando…' : 'Revocar el deber'}

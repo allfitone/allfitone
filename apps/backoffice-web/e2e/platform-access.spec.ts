@@ -28,6 +28,11 @@ const recipient = {
   ],
 }
 
+/** What a command answered, in the toast every workspace screen shares. */
+function outcome(page: Page) {
+  return page.locator('[data-sonner-toast]').locator('[data-title]')
+}
+
 async function chooseRecipient(page: Page) {
   await page.getByLabel('Buscar a quien recibe el rol').fill('Lucía')
   await page.getByRole('button', { name: 'Buscar', exact: true }).click()
@@ -120,7 +125,8 @@ test('grants a base role, and the role brings every duty with it', async ({ cont
 
   await chooseRecipient(page)
   await page.getByRole('button', { name: 'Otorgar rol base' }).click()
-  await expect(page.getByText('Rol base otorgado.')).toBeVisible()
+  // The outcome pops up where the operator looks, naming who received the role.
+  await expect(outcome(page)).toHaveText(`Rol base otorgado a ${NEW_PERSON_NAME}.`)
 
   const grants = fixture.requests.filter(
     (request) =>
@@ -175,18 +181,17 @@ test('withdrawing the base role closes the duties it carried', async ({ context,
   await page.goto('/team')
   await expect(page.getByRole('heading', { name: 'Rol base' })).toBeVisible()
 
-  await page
+  // Chosen by who holds the role, in the role table that comes first: the first row
+  // naming Grace is Ada's, which Grace granted.
+  const row = page
     .getByRole('row')
-    .filter({ hasText: SUBJECT_PERSON_NAME })
+    .filter({ has: page.locator('td:first-child', { hasText: ACTOR_PERSON_NAME }) })
     .first()
-    .getByRole('button', { name: 'Retirar' })
-    .click()
+  await row.getByRole('button', { name: 'Retirar' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Retirar el rol' }).click()
 
-  await expect(page.getByText(/Rol base retirado/)).toBeVisible()
-  await expect(
-    page.getByRole('row').filter({ hasText: SUBJECT_PERSON_NAME }).first(),
-  ).toContainText('Retirado')
+  await expect(outcome(page)).toContainText(`Rol base retirado a ${ACTOR_PERSON_NAME}.`)
+  await expect(row).toContainText('Retirado')
   // The duty the person carried is now revoked, not silently missing.
   await expect(page.getByRole('cell', { name: 'Revocado' }).first()).toBeVisible()
 })
@@ -292,7 +297,7 @@ test('recertifies a duty in force, and the inventory says who and when', async (
     })
   await row.getByRole('button', { name: 'Recertificar' }).click()
 
-  await expect(page.getByText(/Deber recertificado/)).toBeVisible()
+  await expect(outcome(page)).toContainText(`recertificado para ${SUBJECT_PERSON_NAME}`)
   const recertifications = fixture.requests.filter(
     (request) => request.method === 'POST' && request.path.endsWith('/recertification'),
   )
