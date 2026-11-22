@@ -142,15 +142,6 @@ export const DUTY_STATUS_FILTERS: readonly { value: PlatformDutyStatus | ''; lab
   { value: 'revoked', label: DUTY_STATUS_LABELS.revoked },
 ]
 
-/**
- * The identifier is what an operator quotes in a case, and a full UUID is
- * unreadable in a table. The short form is for reading, never for matching: the
- * full value stays available for copying.
- */
-export function shortIdentifier(id: string): string {
-  return id.length <= 13 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`
-}
-
 /** HU-BO-029 c1: who holds access is a person. A missing name is said, never left blank. */
 export function personName(name: string | null | undefined): string {
   const trimmed = name?.trim()

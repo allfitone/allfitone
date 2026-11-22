@@ -30,6 +30,7 @@ import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import { MomentField } from './date-fields'
 import { ScreenFailure, ScreenLoading } from './screen-state'
+import { RecordId } from './record-id'
 
 import {
   Card,
@@ -239,13 +240,15 @@ export function AccessLog() {
                   </dd>
                   <dt>Quién accedió</dt>
                   <dd>
-                    <code id={`al-actor-${index}`}>{event.actor_person_id}</code>
+                    <RecordId id={event.actor_person_id} />
                   </dd>
                   <dt>Sobre quién</dt>
                   <dd>
-                    <code id={`al-subject-${index}`}>
-                      {event.subject_person_id ?? 'Sin persona afectada'}
-                    </code>
+                    {event.subject_person_id ? (
+                      <RecordId id={event.subject_person_id} />
+                    ) : (
+                      'Sin persona afectada'
+                    )}
                   </dd>
                   <dt>Resultado</dt>
                   <dd>

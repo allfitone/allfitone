@@ -136,6 +136,14 @@
   }
 }
 
+/* An identifier and the button that copies it whole read as one value. */
+[data-record-id] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--afo-space-1);
+  white-space: nowrap;
+}
+
 /* ---------------------------------------------------------- shared states */
 
 /* The shape of the screen while it reads: a title, two lines and a block. */

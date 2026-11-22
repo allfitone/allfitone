@@ -115,7 +115,7 @@ test('shows the identifiers of each operation and finds those of one subject', a
 
   await page.goto(PATH)
   await expect(page.locator('[data-operation-subject]').first()).toHaveText(
-    'organization 019a7000…',
+    'organization 019a7000…0777',
   )
   await expect(page.locator('[data-operation-subject]').first()).toHaveAttribute('title', subject)
 

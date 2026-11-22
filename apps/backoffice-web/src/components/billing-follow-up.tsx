@@ -32,7 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, type FormEvent } from 'react'
 
@@ -57,6 +56,7 @@ import { isValidOptionalCaseReference } from '@/lib/support-metadata'
 
 import { RecordHeader } from './page-header'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+import { RecordId } from './record-id'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'failed'
 
@@ -206,13 +206,11 @@ export function BillingFollowUp() {
                       data-status={item.subscription_status ?? 'none'}
                     >
                       <TableCell>
-                        <Link
+                        <RecordId
+                          id={item.person_id}
                           href={followUpHref(item, fromAddress)}
-                          data-billing-follow-up-person
-                          aria-label={`Abrir los pagos de ${item.person_id}`}
-                        >
-                          <code>{item.person_id.slice(0, 8)}</code>
-                        </Link>
+                          linkLabel={`Abrir los pagos de ${item.person_id}`}
+                        />
                       </TableCell>
                       <TableCell>
                         <Badge variant={followUpTone(item)}>{followUpStateLabel(item)}</Badge>

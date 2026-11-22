@@ -17,7 +17,6 @@ import {
   jobHealthTone,
   jobLabel,
   silentJobs,
-  shortIdentifier,
   subjectLine,
   type SupportDeliveryCircuit,
   type SupportOperation,
@@ -122,10 +121,6 @@ describe('technical diagnosis vocabulary', () => {
 
 // HU-BO-031 c1 and c3: the identifiers were in the answer and nowhere on screen.
 describe('the identifiers an operation carries', () => {
-  test('an identifier is shortened for the row and kept whole for its title', () => {
-    expect(shortIdentifier('019a7000-0000-7000-8000-000000000001')).toBe('019a7000…')
-  })
-
   test('the subject says what kind of thing it is and which one', () => {
     expect(
       subjectLine(
@@ -134,7 +129,7 @@ describe('the identifiers an operation carries', () => {
           subject_id: '019a7000-0000-7000-8000-000000000001',
         }),
       ),
-    ).toBe('organization 019a7000…')
+    ).toBe('organization 019a7000…0001')
     expect(subjectLine(operation({ subject_kind: null, subject_id: null }))).toBe('Sin sujeto')
   })
 

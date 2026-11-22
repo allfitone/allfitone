@@ -34,6 +34,7 @@ import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
+import { RecordId } from './record-id'
 
 import {
   Card,
@@ -93,7 +94,6 @@ import {
   roleOutcome,
   roleStatusLabel,
   roleStatusTone,
-  shortIdentifier,
   type PlatformDutyStatus,
 } from '@/lib/platform-access'
 import { isSearchable, supportMetadataMessage } from '@/lib/support-metadata'
@@ -802,7 +802,7 @@ function LoadMore({
 function PersonCell({ name, personId }: { name: string | null; personId: string }) {
   return (
     <span data-person-cell>
-      {personName(name)} <code title={personId}>{shortIdentifier(personId)}</code>
+      {personName(name)} <RecordId id={personId} />
     </span>
   )
 }

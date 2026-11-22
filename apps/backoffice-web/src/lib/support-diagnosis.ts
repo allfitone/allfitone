@@ -9,6 +9,8 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { shortIdentifier } from './identifier'
+
 export type SupportOperation = AllfitV1Schemas['SupportOperation']
 export type SupportOperationState = AllfitV1Schemas['SupportOperationState']
 export type SupportOperationSourceKind = AllfitV1Schemas['SupportOperationSourceKind']
@@ -178,11 +180,6 @@ export function circuitSummary(circuits: readonly SupportDeliveryCircuit[]): str
 }
 
 const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/** Short enough for a row; the whole identifier travels in the element's title. */
-export function shortIdentifier(id: string): string {
-  return `${id.slice(0, 8)}…`
-}
 
 /** What the operation is about: the kind of thing and which one. */
 export function subjectLine(operation: SupportOperation): string {

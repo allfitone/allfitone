@@ -73,6 +73,7 @@ import { OrganizationGuestQuotaPanel } from './organization-guest-quota'
 import { OrganizationSuspensionPanel } from './organization-suspension'
 import { OrganizationTeamInvitations } from './organization-team-invitations'
 import { RecordHeader } from './page-header'
+import { RecordId } from './record-id'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -337,13 +338,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
 }
 
 function MemberIdentifier({ personId, href }: { personId: string; href: string | undefined }) {
-  return href ? (
-    <Link href={href} data-file-member-link>
-      <code>{personId}</code>
-    </Link>
-  ) : (
-    <code>{personId}</code>
-  )
+  return <RecordId id={personId} href={href} />
 }
 
 function failureMessage(error: unknown): string {

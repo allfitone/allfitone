@@ -164,7 +164,8 @@ test('says who accessed, what, about whom and when', async ({ context, page }) =
   await page.getByRole('button', { name: 'Consultar' }).click()
 
   await expect(page.getByRole('heading', { name: 'nutrition.intake_entries' })).toBeVisible()
-  await expect(page.getByText(SUBJECT_PERSON_ID)).toBeVisible()
+  // Read short, whole in its title and in what the copy button hands over.
+  await expect(page.locator(`code[title="${SUBJECT_PERSON_ID}"]`).first()).toBeVisible()
   await expect(page.getByText('nutrition_intake · v2')).toBeVisible()
   // The record, never the content — and the screen says so rather than leaving an
   // auditor hunting for a detail view that should not exist.

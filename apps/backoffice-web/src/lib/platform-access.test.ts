@@ -18,7 +18,6 @@ import {
   platformAccessMessage,
   roleOutcome,
   roleStatusLabel,
-  shortIdentifier,
 } from './platform-access'
 
 describe('platform access presentation rules', () => {
@@ -77,12 +76,6 @@ describe('platform access presentation rules', () => {
       'revoked',
     ])
     expect(DUTY_STATUS_FILTERS[0]?.label).toBe('Todos los estados')
-  })
-
-  test('shortens an identifier for reading without inventing a new one', () => {
-    const id = '019a3000-0000-7000-8000-000000000001'
-    expect(shortIdentifier(id)).toBe('019a3000…0001')
-    expect(shortIdentifier('short')).toBe('short')
   })
 
   test('shows an unknown instant as absent, never as a zero', () => {

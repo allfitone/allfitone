@@ -59,6 +59,7 @@ import {
 import { breakGlassRequestHref } from '@/lib/break-glass'
 
 import { RecordHeader } from './page-header'
+import { RecordId } from './record-id'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -162,7 +163,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             </dd>
             <dt>Identificador</dt>
             <dd>
-              <code id="person-id">{metadata.person_id}</code>
+              <RecordId id={metadata.person_id} />
             </dd>
             <dt>Antigüedad</dt>
             <dd>

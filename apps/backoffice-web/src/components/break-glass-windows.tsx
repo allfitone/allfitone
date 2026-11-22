@@ -39,6 +39,7 @@ import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+import { RecordId } from './record-id'
 
 import {
   Card,
@@ -651,7 +652,7 @@ export function BreakGlassWindows() {
                 </dd>
                 <dt>Persona afectada</dt>
                 <dd>
-                  <code id={`bg-subject-${file.id}`}>{file.subject_person_id}</code>
+                  <RecordId id={file.subject_person_id} />
                 </dd>
                 <dt>Veces ejercida</dt>
                 <dd>
@@ -680,7 +681,7 @@ export function BreakGlassWindows() {
                       <dt>{approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}</dt>
                       <dd>
                         <span id={`bg-approval-${approval.approver_person_id}`}>
-                          <code>{approval.approver_person_id}</code> ·{' '}
+                          <RecordId id={approval.approver_person_id} /> ·{' '}
                           {formatInstant(approval.decided_at)} ·{' '}
                           <span data-break-glass-decision-reason>
                             {decisionReasonLabel(approval.reason_code)}

@@ -67,7 +67,9 @@ test('opens a gym’s file with its data, owner, team and sites, and no names', 
 
   await expect(page.getByRole('heading', { name: record.organization.display_name })).toBeVisible()
   await expect(page.getByText('Norte Fitness SAS')).toBeVisible()
-  await expect(page.locator('[data-file-owner]').getByText(OWNER)).toBeVisible()
+  // Read short, whole in its title: the 36 characters ran off a phone.
+  await expect(page.locator('[data-file-owner] code')).toHaveText('019a9100…0006')
+  await expect(page.locator('[data-file-owner] code')).toHaveAttribute('title', OWNER)
   await expect(page.locator('[data-file-member]')).toHaveCount(3)
   await expect(page.getByRole('cell', { name: 'Coach', exact: true })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Administrador', exact: true })).toBeVisible()
@@ -103,15 +105,15 @@ test('opens a person’s card only once a traceable case reference is written', 
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
   await expect(page.locator('[data-file-member]')).toHaveCount(3)
-  await expect(page.locator('[data-file-member-link]')).toHaveCount(0)
+  await expect(page.locator('[data-record-id-link]')).toHaveCount(0)
 
   await page.getByLabel('Referencia de caso para abrir una persona').fill('no es un caso')
-  await expect(page.locator('[data-file-member-link]')).toHaveCount(0)
+  await expect(page.locator('[data-record-id-link]')).toHaveCount(0)
 
   await page.getByLabel('Referencia de caso para abrir una persona').fill('CASE-2026-013')
   // The owner is linked in its own field and in the team list.
-  await expect(page.locator('[data-file-member-link]')).toHaveCount(4)
-  await expect(page.locator('[data-file-member] [data-file-member-link]').first()).toHaveAttribute(
+  await expect(page.locator('[data-record-id-link]')).toHaveCount(4)
+  await expect(page.locator('[data-file-member] [data-record-id-link]').first()).toHaveAttribute(
     'href',
     `/people/${OWNER}?case_reference=CASE-2026-013`,
   )
@@ -224,4 +226,25 @@ test('the directory opens an operating gym’s file', async ({ context, page }) 
 
   await expect(page).toHaveURL(`/organizations/${record.organization.organization_id}`)
   await expect(page.locator('[data-file-member]')).toHaveCount(3)
+})
+
+test('copies a person’s whole identifier from the short one it shows', async ({
+  context,
+  page,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const record = norte()
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
+  )
+
+  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page
+    .locator('[data-file-owner]')
+    .getByRole('button', { name: 'Copiar el identificador completo' })
+    .click()
+
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Identificador copiado.')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(OWNER)
 })

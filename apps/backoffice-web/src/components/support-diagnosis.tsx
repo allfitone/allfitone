@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+import { RecordId } from './record-id'
 
 import {
   Card,
@@ -68,7 +69,6 @@ import {
   jobHealthLine,
   jobHealthTone,
   jobLabel,
-  shortIdentifier,
   silentJobs,
   type SupportJobHealthItem,
   subjectLine,
@@ -409,8 +409,8 @@ export function SupportDiagnosis() {
                       <code>{operation.label}</code>
                       {/* c1: the identifiers, whole in the title, so they can be searched. */}
                       <div data-operation-ids>
-                        <span title={operation.reference_id}>
-                          ref <code>{shortIdentifier(operation.reference_id)}</code>
+                        <span>
+                          ref <RecordId id={operation.reference_id} />
                         </span>{' '}
                         ·{' '}
                         <span title={operation.subject_id ?? undefined} data-operation-subject>
