@@ -21,6 +21,8 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import { nutrientValue } from '@allfitone/contracts/nutrients'
 
+import { isValidCaseReference, normalizeCaseReference } from './case-reference'
+
 export type BreakGlassRequest = AllfitV1Schemas['BreakGlassRequest']
 export type BreakGlassCategory = AllfitV1Schemas['BreakGlassCategory']
 export type BreakGlassPurpose = AllfitV1Schemas['BreakGlassPurpose']
@@ -166,12 +168,7 @@ export function tierLabel(tier: BreakGlassTier): string {
   return tier === 'restricted' ? 'Restringido' : 'Estándar'
 }
 
-const CASE_REFERENCE = /^[A-Z][A-Z0-9_-]{2,63}$/
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-export function isValidCaseReference(value: string): boolean {
-  return CASE_REFERENCE.test(value.trim())
-}
 
 export function isValidSubject(value: string): boolean {
   return UUID.test(value.trim())
@@ -211,7 +208,7 @@ export function requestPrefill(parameters: { get(name: string): string | null })
   const caseReference = parameters.get('case_reference') ?? ''
   return {
     subject: isValidSubject(subject) ? subject : '',
-    caseReference: isValidCaseReference(caseReference) ? caseReference : '',
+    caseReference: isValidCaseReference(caseReference) ? normalizeCaseReference(caseReference) : '',
   }
 }
 
@@ -230,7 +227,7 @@ export function requestIssue(draft: {
 
 const REQUEST_MESSAGES: Record<RequestIssue, string> = {
   subject: 'Escribe el identificador de la persona cuyos datos vas a abrir.',
-  case: 'La referencia del caso va en mayúsculas, como CASE-2026-001.',
+  case: 'Escribe la referencia del caso, como CASE-2026-001.',
   categories: 'Elige al menos una categoría: no existe acceso a «toda la cuenta».',
 }
 

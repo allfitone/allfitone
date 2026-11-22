@@ -52,10 +52,10 @@ import {
   accountStatusLabel,
   accountStatusTone,
   fileFacts,
-  isValidOptionalCaseReference,
   supportMetadataMessage,
   verificationLabel,
 } from '@/lib/support-metadata'
+import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
 import { breakGlassRequestHref } from '@/lib/break-glass'
 
 import { RecordHeader } from './page-header'
@@ -64,7 +64,7 @@ import { RecordId } from './record-id'
 type LoadState = 'loading' | 'ready' | 'failed'
 
 export function SupportPersonCard({ personId }: { personId: string }) {
-  const caseReference = useSearchParams().get('case_reference') ?? ''
+  const caseReference = normalizeCaseReference(useSearchParams().get('case_reference') ?? '')
   const traceable = isValidOptionalCaseReference(caseReference)
   const [state, setState] = useState<LoadState>('loading')
   const [metadata, setMetadata] = useState<SupportPersonMetadata | null>(null)
@@ -102,7 +102,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
         <Alert live="polite" variant="warning">
           <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
           <AlertDescription>
-            Va en mayúsculas, como CASE-2026-001, o no va. Vuelve a la búsqueda y empieza desde ahí.{' '}
+            Va como CASE-2026-001, o no va. Vuelve a la búsqueda y empieza desde ahí.{' '}
             <Button size="sm" variant="ghost" render={<Link href="/people" />} nativeButton={false}>
               Ir a la búsqueda
             </Button>

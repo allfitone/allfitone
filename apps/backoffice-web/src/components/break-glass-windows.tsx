@@ -109,6 +109,7 @@ import {
   type BreakGlassExerciseOutcome,
   type BreakGlassPurpose,
 } from '@/lib/break-glass'
+import { normalizeCaseReference } from '@/lib/case-reference'
 import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
@@ -210,7 +211,7 @@ export function BreakGlassWindows() {
             subject_person_id: subject.trim(),
             categories,
             purpose,
-            case_reference: caseReference.trim(),
+            case_reference: normalizeCaseReference(caseReference),
           },
           newBackofficeCommand(),
         ),

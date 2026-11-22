@@ -52,7 +52,7 @@ import {
 } from '@/lib/billing-follow-up'
 import { menuCrumb } from '@/lib/backoffice-routes'
 import { isRefusal } from '@/lib/screen-state'
-import { isValidOptionalCaseReference } from '@/lib/support-metadata'
+import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
 
 import { RecordHeader } from './page-header'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
@@ -63,7 +63,7 @@ type LoadState = 'idle' | 'loading' | 'ready' | 'failed'
 export function BillingFollowUp() {
   const router = useRouter()
   const parameters = useSearchParams()
-  const fromAddress = parameters.get('case_reference') ?? ''
+  const fromAddress = normalizeCaseReference(parameters.get('case_reference') ?? '')
   const traceable = isValidOptionalCaseReference(fromAddress)
   const [caseReference, setCaseReference] = useState(fromAddress)
   const [issue, setIssue] = useState(false)
@@ -103,7 +103,7 @@ export function BillingFollowUp() {
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    const reference = caseReference.trim()
+    const reference = normalizeCaseReference(caseReference)
     if (!isValidOptionalCaseReference(reference)) {
       setIssue(true)
       return
@@ -230,8 +230,8 @@ export function BillingFollowUp() {
         <Alert live="off" variant="info" data-billing-follow-up-idle>
           <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
           <AlertDescription>
-            Va en mayúsculas, como CASE-2026-001, o se deja vacía. La lista no se lee con una
-            referencia en texto libre.
+            Va como CASE-2026-001, o se deja vacía. La lista no se lee con una referencia en texto
+            libre.
           </AlertDescription>
         </Alert>
       ) : null}

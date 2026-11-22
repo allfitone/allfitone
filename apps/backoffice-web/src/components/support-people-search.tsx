@@ -53,9 +53,9 @@ import {
   accountStatusLabel,
   accountStatusTone,
   isSearchable,
-  isValidOptionalCaseReference,
   supportMetadataMessage,
 } from '@/lib/support-metadata'
+import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
 
 import { ScreenEmpty, ScreenLoading } from './screen-state'
 
@@ -72,14 +72,14 @@ export function SupportPeopleSearch() {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    const reference = caseReference.trim()
+    const reference = normalizeCaseReference(caseReference)
     const wanted = term.trim()
     if (!isSearchable(wanted)) {
       setError('Escribe al menos dos caracteres del nombre, el correo o el teléfono.')
       return
     }
     if (!isValidOptionalCaseReference(reference)) {
-      setError('La referencia del caso va en mayúsculas, como CASE-2026-001, o se deja vacía.')
+      setError('La referencia del caso va como CASE-2026-001, o se deja vacía.')
       return
     }
 

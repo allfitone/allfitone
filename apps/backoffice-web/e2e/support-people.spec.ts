@@ -79,6 +79,25 @@ test('a case, when there is one, travels with the search and into the file', asy
   expect(reads.every((request) => request.query.includes(`case_reference=${CASE}`))).toBe(true)
 })
 
+// LUX-POSTEL-01: a key typed in lowercase was refused although the screen could write it.
+test('a case typed in lowercase is taken, and travels in capitals', async ({ context, page }) => {
+  const fixture = createBackofficeFixture({ session: activeSession(), support: support() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/people')
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
+  await page.getByLabel('Referencia del caso (opcional)').fill(` ${CASE.toLowerCase()} `)
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  await page.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
+
+  await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
+  const reads = fixture.requests.filter((request) =>
+    request.path.startsWith('/backoffice/v1/support/'),
+  )
+  expect(reads.length).toBeGreaterThan(0)
+  expect(reads.every((request) => request.query.includes(`case_reference=${CASE}`))).toBe(true)
+})
+
 test('says nobody matched rather than showing an empty result', async ({ context, page }) => {
   await mockBackofficeApi(
     context,
@@ -131,7 +150,7 @@ test('refuses one character, or a case in free text, before it becomes a recorde
   await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
   await page.getByLabel('Referencia del caso (opcional)').fill('el usuario no puede entrar')
   await page.getByRole('button', { name: 'Buscar' }).click()
-  await expect(page.getByText(/La referencia del caso va en mayúsculas/)).toBeVisible()
+  await expect(page.getByText(/La referencia del caso va como CASE-2026-001/)).toBeVisible()
 
   expect(
     fixture.requests.filter((request) => request.path.startsWith('/backoffice/v1/support/')),

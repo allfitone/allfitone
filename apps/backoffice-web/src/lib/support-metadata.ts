@@ -13,23 +13,12 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
 
-const CASE_REFERENCE = /^[A-Z][A-Z0-9_-]{2,63}$/
-
 /** What the API accepts as a search term, checked here so a typo is not a recorded search. */
 export const SEARCH_QUERY = { min: 2, max: 100 } as const
 
 export function isSearchable(value: string): boolean {
   const term = value.trim()
   return term.length >= SEARCH_QUERY.min && term.length <= SEARCH_QUERY.max
-}
-
-export function isValidCaseReference(value: string): boolean {
-  return CASE_REFERENCE.test(value.trim())
-}
-
-/** A read may name no case (ADR-046); one given in free text is still refused. */
-export function isValidOptionalCaseReference(value: string): boolean {
-  return value.trim() === '' || isValidCaseReference(value)
 }
 
 export interface FileFact {

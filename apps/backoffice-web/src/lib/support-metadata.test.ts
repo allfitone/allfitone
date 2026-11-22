@@ -6,8 +6,6 @@ import {
   accountStatusTone,
   fileFacts,
   isSearchable,
-  isValidCaseReference,
-  isValidOptionalCaseReference,
   supportMetadataMessage,
   verificationLabel,
   type SupportPersonMetadata,
@@ -60,22 +58,6 @@ describe('support metadata presentation rules', () => {
     expect(isSearchable(' e ')).toBe(false)
     expect(isSearchable('')).toBe(false)
     expect(isSearchable('e'.repeat(SEARCH_QUERY.max + 1))).toBe(false)
-  })
-
-  test('accepts a structured case reference and refuses free prose', () => {
-    expect(isValidCaseReference('CASE-2026-001')).toBe(true)
-    expect(isValidCaseReference('  SUP-1234  ')).toBe(true)
-    expect(isValidCaseReference('ZD-99887')).toBe(true)
-    expect(isValidCaseReference('el usuario no puede entrar')).toBe(false)
-    expect(isValidCaseReference('case-2026-001')).toBe(false)
-    expect(isValidCaseReference('')).toBe(false)
-  })
-
-  test('takes no case at all, but never a case in free text (ADR-046)', () => {
-    expect(isValidOptionalCaseReference('')).toBe(true)
-    expect(isValidOptionalCaseReference('   ')).toBe(true)
-    expect(isValidOptionalCaseReference('CASE-2026-001')).toBe(true)
-    expect(isValidOptionalCaseReference('el usuario no puede entrar')).toBe(false)
   })
 
   test('says what exists around the person, with states and dates (HU-BO-007 c2)', () => {

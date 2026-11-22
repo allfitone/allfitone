@@ -25,7 +25,7 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
 import { formatAmount } from './platform-plans'
-import { isValidCaseReference } from './support-metadata'
+import { isValidCaseReference, normalizeCaseReference } from './case-reference'
 
 export type OrganizationFile = AllfitV1Schemas['BackofficeOrganizationFile']
 export type FileTeamMember = OrganizationFile['team'][number]
@@ -158,7 +158,7 @@ export const IDENTIFIERS_NOTE =
 /** Only a traceable case opens a person's card; without one there is no link to offer. */
 export function memberCardHref(personId: string, caseReference: string): string | undefined {
   if (!isValidCaseReference(caseReference)) return undefined
-  return `/people/${personId}?case_reference=${encodeURIComponent(caseReference.trim())}`
+  return `/people/${personId}?case_reference=${encodeURIComponent(normalizeCaseReference(caseReference))}`
 }
 
 export function handsOverHere(file: OrganizationFile): boolean {
