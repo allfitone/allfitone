@@ -2,7 +2,9 @@
  * The head of a screen's content.
  *
  * The page `h1` belongs to the shell and names the menu entry, so a screen never
- * emits a second one. A screen below an entry — a record, or a form that makes
+ * emits a second one. A menu entry's own screen opens with the sentence that
+ * explains it and its one primary action: «Crear un gimnasio» was a text link
+ * between two cards. A screen below an entry — a record, or a form that makes
  * one — opens with the way back and its own name. Without them the `h1` said
  * «Gimnasios» over a gym's file and «Personas» over a person, and the only way
  * back was a link at the foot of a 2700px page.
@@ -25,6 +27,21 @@ import Link from 'next/link'
 import { Fragment, type ReactNode } from 'react'
 
 import type { Crumb } from '@/lib/backoffice-routes'
+
+export function PageHeader({
+  description,
+  actions,
+}: {
+  description: ReactNode
+  actions?: ReactNode
+}) {
+  return (
+    <header data-page-header>
+      <p data-page-header-description>{description}</p>
+      {actions ? <div data-page-header-actions>{actions}</div> : null}
+    </header>
+  )
+}
 
 /**
  * `trail` leads back, from the menu entry down; `name` is what is open, said

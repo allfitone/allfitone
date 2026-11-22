@@ -77,6 +77,66 @@
   gap: 8px;
 }
 
+/* -------------------------------------------------------------- page head */
+
+/* A menu entry's own screen: what it is for, and its one primary action. */
+[data-page-header] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-4);
+}
+
+[data-page-header-description] {
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
+[data-page-header-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-3);
+}
+
+/* One row above a list: the search takes what the filters leave, and the row
+   wraps when it does not fit, as the toolbar of Studio's library does. */
+[data-list-toolbar] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--afo-space-3);
+}
+
+[data-list-search] {
+  display: grid;
+  gap: var(--afo-space-1);
+  flex: 1 1 14rem;
+  max-width: 26rem;
+}
+
+[data-list-filter] {
+  flex: 0 1 14rem;
+}
+
+/* What a search found: its count, the table, a note and the way to more. */
+[data-list-results] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-4);
+  justify-items: start;
+}
+
+[data-list-results] > * {
+  max-width: 100%;
+}
+
+[data-list-count],
+[data-list-note] {
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
 /* ------------------------------------------------------------ record head */
 
 /* The way back, then the name of what is open: a screen below a menu entry. */

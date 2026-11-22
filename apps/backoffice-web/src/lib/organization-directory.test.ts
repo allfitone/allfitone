@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  directoryAddress,
+  directoryFiltersFromAddress,
   EMPTY_DIRECTORY_FILTERS,
   ORGANIZATION_STATUSES,
   directoryFiltersFromStatus,
@@ -77,5 +79,35 @@ describe('organization directory presentation', () => {
     expect(directoryFiltersFromStatus('suspended')).toEqual({ query: '', status: 'suspended' })
     expect(directoryFiltersFromStatus('dormant')).toEqual(EMPTY_DIRECTORY_FILTERS)
     expect(directoryFiltersFromStatus(null)).toEqual(EMPTY_DIRECTORY_FILTERS)
+  })
+})
+
+describe('the directory’s search lives in its address', () => {
+  test('reads the name and the state it was asked', () => {
+    expect(directoryFiltersFromAddress(new URLSearchParams('q=norte&status=unclaimed'))).toEqual({
+      query: 'norte',
+      status: 'unclaimed',
+    })
+  })
+
+  // A link from Inicio, an edited address or an old bookmark is never sent as it came.
+  test('drops a state it does not know and a name too short to search', () => {
+    expect(directoryFiltersFromAddress(new URLSearchParams('q=g&status=closing'))).toEqual({
+      query: '',
+      status: 'any',
+    })
+  })
+
+  test('writes only what narrows, so the plain list keeps its plain address', () => {
+    expect(directoryAddress({ query: '  norte ', status: 'active' })).toBe(
+      '/organizations?q=norte&status=active',
+    )
+    expect(directoryAddress({ query: '', status: 'any' })).toBe('/organizations')
+  })
+
+  test('reads back what it writes', () => {
+    const filters = { query: 'Gimnasio Ñandú & Co', status: 'suspended' } as const
+    const address = new URL(directoryAddress(filters), 'http://backoffice.test')
+    expect(directoryFiltersFromAddress(address.searchParams)).toEqual(filters)
   })
 })

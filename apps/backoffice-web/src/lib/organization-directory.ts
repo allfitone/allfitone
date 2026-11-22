@@ -112,6 +112,27 @@ export function directoryFilterIssueMessage(issue: DirectoryFilterIssue): string
 }
 
 /** The query the API expects, with the empty fields left out rather than sent blank. */
+/**
+ * The search the directory's address asks. It lives there so that going back
+ * from a gym's file lands on the list the operator left, not on a blank one.
+ * Whatever the address says is checked like a typed search before it is sent.
+ */
+export function directoryFiltersFromAddress(search: {
+  get(name: string): string | null
+}): DirectoryFilters {
+  const filters = {
+    query: (search.get('q') ?? '').trim(),
+    status: directoryFiltersFromStatus(search.get('status')).status,
+  }
+  return directoryFilterIssue(filters) ? { ...filters, query: '' } : filters
+}
+
+/** The address of a search: only what narrows, so the plain list keeps its plain address. */
+export function directoryAddress(filters: DirectoryFilters): string {
+  const search = new URLSearchParams(toDirectoryQuery(filters)).toString()
+  return search ? `/organizations?${search}` : '/organizations'
+}
+
 export function toDirectoryQuery(
   filters: DirectoryFilters,
   cursor?: string,

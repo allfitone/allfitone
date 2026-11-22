@@ -296,7 +296,11 @@ test('the directory leads to creating a gym and to an unclaimed gym’s handover
   )
 
   await page.goto('/organizations')
-  await expect(page.getByRole('link', { name: 'Crear un gimnasio para una venta' })).toBeVisible()
+  // The screen's one primary action; the library renders the link with the button role.
+  await expect(page.getByRole('button', { name: 'Crear un gimnasio' })).toHaveAttribute(
+    'href',
+    '/organizations/new',
+  )
   // An operating gym opens on its file, never on a handover it does not have.
   await expect(page.getByRole('link', { name: 'Gimnasio Operando' })).toHaveAttribute(
     'href',
