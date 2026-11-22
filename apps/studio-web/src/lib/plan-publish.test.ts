@@ -6,6 +6,7 @@ import {
   parsePesos,
   publishConsequences,
   publishOutcome,
+  publishPreview,
   publishRequest,
   publishWriteFailure,
   sameAsOnSale,
@@ -56,6 +57,28 @@ describe('parsePesos', () => {
     expect(parsePesos('12.00.000')).toBeUndefined()
     expect(parsePesos('ciento veinte')).toBeUndefined()
     expect(parsePesos('')).toBeUndefined()
+  })
+})
+
+/*
+ * A published price is never edited, so what is typed is read back the way it
+ * will stand on sale before the click: 1300000 for 130000 is seen, not sent.
+ */
+describe('publishPreview', () => {
+  test('reads the price back as it will stand on sale', () => {
+    expect(publishPreview({ amount: '130.000', period: 'month', delivery: 'in_person' })).toMatch(
+      /^\$\s?130\.000(,00)? al mes · Presencial$/,
+    )
+    expect(publishPreview({ amount: '1200000', period: 'year', delivery: 'remote' })).toMatch(
+      /^\$\s?1\.200\.000(,00)? al año · Remoto$/,
+    )
+  })
+
+  test('says nothing while what is typed is not a price', () => {
+    expect(publishPreview({ amount: '', period: 'month', delivery: 'in_person' })).toBeUndefined()
+    expect(
+      publishPreview({ amount: '120000,50', period: 'month', delivery: 'in_person' }),
+    ).toBeUndefined()
   })
 })
 
