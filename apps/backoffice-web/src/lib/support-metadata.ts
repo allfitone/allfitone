@@ -39,6 +39,23 @@ export interface FileFact {
 
 const UNKNOWN = 'Sin dato'
 
+/** `identity.person_status`, said as the state of her account. */
+const ACCOUNT_STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'secondary' }> =
+  {
+    pending_activation: { label: 'Sin activar', tone: 'warning' },
+    active: { label: 'Activa', tone: 'success' },
+    closed: { label: 'Cerrada', tone: 'secondary' },
+  }
+
+/** The contract types the state as text, so one added later shows as it came, not as nothing. */
+export function accountStatusLabel(status: string): string {
+  return ACCOUNT_STATUS[status]?.label ?? status
+}
+
+export function accountStatusTone(status: string): 'success' | 'warning' | 'secondary' {
+  return ACCOUNT_STATUS[status]?.tone ?? 'secondary'
+}
+
 const PLAN_STATUS: Record<'active' | 'grace' | 'suspended' | 'ended', string> = {
   active: 'De pago, al día',
   grace: 'De pago, en periodo de gracia',

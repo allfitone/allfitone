@@ -49,6 +49,8 @@ import {
 import { menuCrumb } from '@/lib/backoffice-routes'
 import { formatInstant } from '@/lib/platform-access'
 import {
+  accountStatusLabel,
+  accountStatusTone,
   fileFacts,
   isValidOptionalCaseReference,
   supportMetadataMessage,
@@ -127,7 +129,15 @@ export function SupportPersonCard({ personId }: { personId: string }) {
 
   return (
     <div data-support-person>
-      <RecordHeader trail={trail} name={metadata.display_name} />
+      <RecordHeader
+        trail={trail}
+        name={metadata.display_name}
+        status={
+          <Badge id="person-status" variant={accountStatusTone(metadata.account_status)}>
+            {accountStatusLabel(metadata.account_status)}
+          </Badge>
+        }
+      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
@@ -153,15 +163,6 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             <dt>Identificador</dt>
             <dd>
               <code id="person-id">{metadata.person_id}</code>
-            </dd>
-            <dt>Estado de la cuenta</dt>
-            <dd>
-              <Badge
-                id="person-status"
-                variant={metadata.account_status === 'active' ? 'success' : 'secondary'}
-              >
-                {metadata.account_status}
-              </Badge>
             </dd>
             <dt>Antigüedad</dt>
             <dd>

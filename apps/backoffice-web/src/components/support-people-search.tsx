@@ -50,6 +50,8 @@ import {
   type SupportPeopleSearch,
 } from '@/lib/backoffice-api'
 import {
+  accountStatusLabel,
+  accountStatusTone,
   isSearchable,
   isValidOptionalCaseReference,
   supportMetadataMessage,
@@ -205,8 +207,8 @@ export function SupportPeopleSearch() {
                     <TableCell>{person.contact_email ?? 'Sin correo'}</TableCell>
                     <TableCell>{person.contact_phone ?? 'Sin teléfono'}</TableCell>
                     <TableCell>
-                      <Badge variant={person.account_status === 'active' ? 'success' : 'secondary'}>
-                        {person.account_status}
+                      <Badge variant={accountStatusTone(person.account_status)}>
+                        {accountStatusLabel(person.account_status)}
                       </Badge>
                     </TableCell>
                   </TableRow>

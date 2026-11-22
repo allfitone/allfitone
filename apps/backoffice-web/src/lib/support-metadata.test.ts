@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   SEARCH_QUERY,
+  accountStatusLabel,
+  accountStatusTone,
   fileFacts,
   isSearchable,
   isValidCaseReference,
@@ -158,5 +160,25 @@ describe('support metadata presentation rules', () => {
     expect(supportMetadataMessage('anything-else')).toBe(
       'No se pudo leer la información de soporte.',
     )
+  })
+})
+
+describe('the state of a person’s account, in words', () => {
+  test('names each state the database knows', () => {
+    expect(accountStatusLabel('pending_activation')).toBe('Sin activar')
+    expect(accountStatusLabel('active')).toBe('Activa')
+    expect(accountStatusLabel('closed')).toBe('Cerrada')
+  })
+
+  test('tells an account that works from one that does not', () => {
+    expect(accountStatusTone('active')).toBe('success')
+    expect(accountStatusTone('pending_activation')).toBe('warning')
+    expect(accountStatusTone('closed')).toBe('secondary')
+  })
+
+  // The contract types it as text: a state added later is shown, not hidden.
+  test('shows a state it does not know as it came', () => {
+    expect(accountStatusLabel('suspended')).toBe('suspended')
+    expect(accountStatusTone('suspended')).toBe('secondary')
   })
 })

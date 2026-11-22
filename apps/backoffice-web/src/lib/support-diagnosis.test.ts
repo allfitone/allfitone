@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   SUPPORT_OPERATION_STATES,
+  circuitStateLabel,
   circuitSummary,
   circuitTone,
   needsAttention,
@@ -191,5 +192,17 @@ describe('what failed silently', () => {
     expect(jobHealthLine(stale, NOW)).toContain('No corre desde hace 20 min')
     expect(silentJobs([job, stale], NOW)).toEqual(['privacy_disposition'])
     expect(silentJobs([job], NOW)).toEqual([])
+  })
+})
+
+describe('the state of a delivery channel, in words', () => {
+  test('names each state the breaker can be in', () => {
+    expect(circuitStateLabel('closed')).toBe('Entregando')
+    expect(circuitStateLabel('half_open')).toBe('Probando de nuevo')
+    expect(circuitStateLabel('open')).toBe('Cortado')
+  })
+
+  test('shows a state it does not know as it came', () => {
+    expect(circuitStateLabel('throttled')).toBe('throttled')
   })
 })

@@ -147,6 +147,17 @@ export function silentJobs(jobs: readonly SupportJobHealthItem[], now = Date.now
   return jobs.filter((job) => isSilent(job, now)).map((job) => job.job_name)
 }
 
+const CIRCUIT_STATE_LABELS: Record<string, string> = {
+  closed: 'Entregando',
+  half_open: 'Probando de nuevo',
+  open: 'Cortado',
+}
+
+/** A breaker's state, said as what the channel is doing; one added later shows as it came. */
+export function circuitStateLabel(state: string): string {
+  return CIRCUIT_STATE_LABELS[state] ?? state
+}
+
 export function circuitTone(state: string): StateTone {
   if (state === 'open') return 'destructive'
   if (state === 'half_open') return 'warning'

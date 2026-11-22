@@ -55,6 +55,7 @@ import { formatInstant } from '@/lib/platform-access'
 import {
   SUPPORT_OPERATION_SOURCES,
   SUPPORT_OPERATION_STATES,
+  circuitStateLabel,
   circuitSummary,
   circuitTone,
   operationStateFilterLabel,
@@ -279,7 +280,9 @@ export function SupportDiagnosis() {
                       <code>{circuit.event_type}</code>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={circuitTone(circuit.state)}>{circuit.state}</Badge>
+                      <Badge variant={circuitTone(circuit.state)}>
+                        {circuitStateLabel(circuit.state)}
+                      </Badge>
                     </TableCell>
                     <TableCell>{circuit.success_count}</TableCell>
                     <TableCell>{circuit.failure_count}</TableCell>

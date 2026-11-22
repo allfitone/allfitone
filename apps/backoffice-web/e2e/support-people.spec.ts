@@ -34,6 +34,8 @@ test('finds a person by part of her name, without a case, and opens her file', a
   await expect(row).toContainText(SUPPORT_SUBJECT_NAME)
   await expect(row).toContainText(SUPPORT_SUBJECT_EMAIL)
   await expect(row).toContainText('+573001234567')
+  // Her account's state in words, never the database's `active`.
+  await expect(row.getByRole('cell').last()).toHaveText('Activa')
 
   await row.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
 
