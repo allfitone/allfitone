@@ -20,22 +20,9 @@
  * recorded on everyone it answers, as it is there.
  */
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
-import { RecordId } from './record-id'
-
 import {
   Card,
   CardContent,
@@ -43,6 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@allfitone/react/components/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import { toast } from '@allfitone/react/components/sonner'
@@ -62,7 +50,7 @@ import {
   TableRow,
   TableState,
 } from '@allfitone/react/components/table'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
   BackofficeApiError,
@@ -97,6 +85,11 @@ import {
   type PlatformDutyStatus,
 } from '@/lib/platform-access'
 import { isSearchable, supportMetadataMessage } from '@/lib/support-metadata'
+
+import { ConfirmDialog } from './confirm-action'
+import { RecordId } from './record-id'
+import { RowMenu } from './row-menu'
+import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
 
 type PersonMatch = SupportPeopleSearch['items'][number]
 
@@ -330,7 +323,6 @@ function BaseRoleSection({
   const [found, setFound] = useState<SupportPeopleSearch | null>(null)
   const [chosen, setChosen] = useState<PersonMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [revoking, setRevoking] = useState<string | null>(null)
 
   async function search(event: FormEvent) {
     event.preventDefault()
@@ -455,7 +447,7 @@ function BaseRoleSection({
               <TableHead>Otorgó</TableHead>
               <TableHead>Desde</TableHead>
               <TableHead>Retirado</TableHead>
-              <TableHead align="end">Acción</TableHead>
+              <TableHead align="end" aria-label="Acciones" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -487,47 +479,7 @@ function BaseRoleSection({
                   <TableCell>{formatInstant(assignment.revoked_at)}</TableCell>
                   <TableCell align="end">
                     {assignment.status === 'active' ? (
-                      <AlertDialog
-                        open={revoking === assignment.id}
-                        onOpenChange={(next) => {
-                          // Closing mid-flight would hide a request that is still going to land.
-                          if (busy) return
-                          setRevoking(next ? assignment.id : null)
-                        }}
-                      >
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={busy}
-                          onClick={() => setRevoking(assignment.id)}
-                        >
-                          Retirar
-                        </Button>
-                        <AlertDialogContent data-revoke-role-dialog>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>¿Retirar el rol base?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {personName(assignment.person_name)} deja de poder entrar al
-                              Backoffice ahora mismo: se cierran sus deberes vigentes y su sesión.
-                              No se puede deshacer; volver a darle acceso exige otorgar el rol de
-                              nuevo.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel disabled={busy}>Conservar el rol</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              disabled={busy}
-                              onClick={() =>
-                                void onRevoke(assignment).then(() => setRevoking(null))
-                              }
-                            >
-                              {busy ? 'Retirando…' : 'Retirar el rol'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <RoleActions assignment={assignment} busy={busy} onRevoke={onRevoke} />
                     ) : (
                       <span>—</span>
                     )}
@@ -571,8 +523,6 @@ function DutySection({
   onRevoke: (assignment: PlatformDutyAssignment) => Promise<void>
   onRecertify: (assignment: PlatformDutyAssignment) => void
 }) {
-  const [revoking, setRevoking] = useState<string | null>(null)
-
   return (
     <Card>
       <CardHeader>
@@ -650,7 +600,7 @@ function DutySection({
               <TableHead>Vigencia</TableHead>
               <TableHead>Otorgó</TableHead>
               <TableHead>Recertificado</TableHead>
-              <TableHead align="end">Acciones</TableHead>
+              <TableHead align="end" aria-label="Acciones" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -691,72 +641,13 @@ function DutySection({
                     ) : isHeldThroughRole(assignment) ? (
                       <span>Sigue al rol</span>
                     ) : (
-                      <>
-                        {canRecertify(assignment.status) ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => onRecertify(assignment)}
-                          >
-                            Recertificar
-                          </Button>
-                        ) : null}
-                        {assignment.status !== 'suspended' ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() => onSuspend(assignment)}
-                          >
-                            Suspender
-                          </Button>
-                        ) : null}
-                        <AlertDialog
-                          open={revoking === assignment.id}
-                          onOpenChange={(next) => {
-                            if (busy) return
-                            setRevoking(next ? assignment.id : null)
-                          }}
-                        >
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            disabled={busy}
-                            onClick={() => setRevoking(assignment.id)}
-                          >
-                            Revocar
-                          </Button>
-                          <AlertDialogContent data-revoke-duty-dialog>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Revocar este deber?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {personName(assignment.person_name)} deja de poder{' '}
-                                {dutyLabel(assignment.duty_code).toLowerCase()} desde la siguiente
-                                transacción. A diferencia de suspender, no se puede deshacer: para
-                                devolvérselo hay que otorgar un deber nuevo.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel disabled={busy}>
-                                Conservar el deber
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                disabled={busy}
-                                onClick={() =>
-                                  void onRevoke(assignment).then(() => setRevoking(null))
-                                }
-                              >
-                                {busy ? 'Revocando…' : 'Revocar el deber'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
+                      <DutyActions
+                        assignment={assignment}
+                        busy={busy}
+                        onSuspend={onSuspend}
+                        onRevoke={onRevoke}
+                        onRecertify={onRecertify}
+                      />
                     )}
                   </TableCell>
                 </TableRow>
@@ -772,6 +663,101 @@ function DutySection({
         />
       </CardContent>
     </Card>
+  )
+}
+
+/** Withdrawing cuts the person out at once, so the menu only opens the question. */
+function RoleActions({
+  assignment,
+  busy,
+  onRevoke,
+}: {
+  assignment: PlatformRoleAssignment
+  busy: boolean
+  onRevoke: (assignment: PlatformRoleAssignment) => Promise<void>
+}) {
+  const [asking, setAsking] = useState(false)
+  const menu = useRef<HTMLButtonElement>(null)
+  const name = personName(assignment.person_name)
+
+  return (
+    <>
+      <RowMenu label={`Acciones del rol base de ${name}`} disabled={busy} triggerRef={menu}>
+        <DropdownMenuItem variant="destructive" onClick={() => setAsking(true)}>
+          Retirar el rol base
+        </DropdownMenuItem>
+      </RowMenu>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        returnFocus={menu}
+        title="¿Retirar el rol base?"
+        confirmLabel="Retirar el rol"
+        busyLabel="Retirando…"
+        keepLabel="Conservar el rol"
+        busy={busy}
+        onConfirm={() => onRevoke(assignment)}
+      >
+        {name} deja de poder entrar al Backoffice ahora mismo: se cierran sus deberes vigentes y su
+        sesión. No se puede deshacer; volver a darle acceso exige otorgar el rol de nuevo.
+      </ConfirmDialog>
+    </>
+  )
+}
+
+/**
+ * Recertifying and suspending run at once and the toast says what changed;
+ * revoking cannot be undone, so it asks first and comes last, set apart.
+ */
+function DutyActions({
+  assignment,
+  busy,
+  onSuspend,
+  onRevoke,
+  onRecertify,
+}: {
+  assignment: PlatformDutyAssignment
+  busy: boolean
+  onSuspend: (assignment: PlatformDutyAssignment) => void
+  onRevoke: (assignment: PlatformDutyAssignment) => Promise<void>
+  onRecertify: (assignment: PlatformDutyAssignment) => void
+}) {
+  const [asking, setAsking] = useState(false)
+  const menu = useRef<HTMLButtonElement>(null)
+  const name = personName(assignment.person_name)
+  const duty = dutyLabel(assignment.duty_code)
+  const recertifiable = canRecertify(assignment.status)
+  const suspendable = assignment.status !== 'suspended'
+
+  return (
+    <>
+      <RowMenu label={`Acciones de «${duty}» de ${name}`} disabled={busy} triggerRef={menu}>
+        {recertifiable ? (
+          <DropdownMenuItem onClick={() => onRecertify(assignment)}>Recertificar</DropdownMenuItem>
+        ) : null}
+        {suspendable ? (
+          <DropdownMenuItem onClick={() => onSuspend(assignment)}>Suspender</DropdownMenuItem>
+        ) : null}
+        {recertifiable || suspendable ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem variant="destructive" onClick={() => setAsking(true)}>
+          Revocar el deber
+        </DropdownMenuItem>
+      </RowMenu>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        returnFocus={menu}
+        title="¿Revocar este deber?"
+        confirmLabel="Revocar el deber"
+        busyLabel="Revocando…"
+        keepLabel="Conservar el deber"
+        busy={busy}
+        onConfirm={() => onRevoke(assignment)}
+      >
+        {name} deja de poder {duty.toLowerCase()} desde la siguiente transacción. A diferencia de
+        suspender, no se puede deshacer: para devolvérselo hay que otorgar un deber nuevo.
+      </ConfirmDialog>
+    </>
   )
 }
 
