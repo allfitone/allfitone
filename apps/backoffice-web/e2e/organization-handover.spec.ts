@@ -212,6 +212,8 @@ test('backing out of cancelling changes nothing', async ({ context, page }) => {
   await page.goto(`/organizations/${record.organization_id}/handover`)
   await page.getByRole('button', { name: 'Cancelar la creación' }).click()
   const dialog = page.getByRole('alertdialog')
+  // Its text and both answers fit inside it.
+  expect(await dialog.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
   await dialog.getByRole('button', { name: 'No, dejarlo como está' }).click()
 
   await expect(dialog).toBeHidden()
