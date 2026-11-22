@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   activeSession,
@@ -15,6 +15,17 @@ import {
  * reason is being picked, that reactivating is described as subtractive rather than as
  * a restore, and that the record of a lifted suspension survives.
  */
+
+/** Picks the reason and answers the question that suspending asks first. */
+async function suspend(page: Page, reason = 'No le está pagando a Allfit One') {
+  await page.locator('#suspension-reason').click()
+  await page.getByRole('option', { name: reason, exact: true }).click()
+  await page.locator('[data-suspension-save]').click()
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Suspender', exact: true })
+    .click()
+}
 
 test('the panel says what suspending does not do, not only what it does', async ({
   context,
@@ -64,9 +75,7 @@ test('stops a gym and reads back how many people it cost', async ({ context, pag
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
 
-  await page.locator('#suspension-reason').click()
-  await page.getByRole('option', { name: 'Incumplió los términos', exact: true }).click()
-  await page.locator('[data-suspension-save]').click()
+  await suspend(page, 'Incumplió los términos')
 
   await expect(page.locator('[data-suspension-outcome]')).toContainText(
     'No se terminó ninguna relación',
@@ -95,7 +104,7 @@ test('reactivating is offered as subtractive, never as a restore', async ({ cont
   )
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
-  await page.locator('[data-suspension-save]').click()
+  await suspend(page)
   await expect(page.locator('[data-suspension-state]')).toContainText('Suspendido')
 
   const note = page.locator('[data-suspension-reactivate-note]')
@@ -129,7 +138,7 @@ test('without the lifecycle duty the panel says which duty it needs', async ({ c
   )
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
-  await page.locator('[data-suspension-save]').click()
+  await suspend(page)
 
   await expect(page.locator('[data-suspension-failure]')).toContainText(
     'manage_organization_lifecycle',
@@ -174,9 +183,48 @@ test('a gym that does not qualify is told which states do', async ({ context, pa
   )
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
-  await page.locator('[data-suspension-save]').click()
+  await suspend(page)
 
   await expect(page.locator('[data-suspension-failure]')).toContainText(
     'sin reclamar, cancelado o cerrado',
   )
+})
+
+test('asks before stopping a gym, repeating the cost, and picks no reason for the operator', async ({
+  context,
+  page,
+}) => {
+  const record = organizationFileRecord()
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    organizationFiles: { files: [record] },
+  })
+  await mockBackofficeApi(context, fixture)
+  const suspensions = () =>
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path.endsWith('/suspension'),
+    )
+
+  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await expect(page.locator('#suspension-reason')).toContainText('Elige un motivo')
+
+  // No reason, no question: the field says what is missing.
+  await page.locator('[data-suspension-save]').click()
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  await expect(page.getByText('Elige el motivo de la suspensión.')).toBeVisible()
+  await expect(page.locator('#suspension-reason')).toHaveAttribute('aria-invalid', 'true')
+
+  await page.locator('#suspension-reason').click()
+  await page.getByRole('option', { name: 'Incidente de seguridad', exact: true }).click()
+  await page.locator('[data-suspension-save]').click()
+  const question = page.getByRole('alertdialog')
+  await expect(question).toContainText('Suspenderlo deja de atender a')
+  await expect(question).toContainText('Incidente de seguridad')
+  // Its text and both answers fit inside it.
+  expect(await question.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
+
+  await question.getByRole('button', { name: 'Dejarlo operando' }).click()
+  await expect(question).toHaveCount(0)
+  expect(suspensions()).toHaveLength(0)
+  await expect(page.locator('[data-suspension-state]')).not.toContainText('Suspendido')
 })

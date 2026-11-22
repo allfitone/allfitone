@@ -136,6 +136,12 @@
   }
 }
 
+/* The Design System keeps a question's two answers on one row, and two long
+   labels pushed the dialog's text and its red answer past its edge. */
+[data-confirm-footer] {
+  flex-wrap: wrap;
+}
+
 /* An identifier and the button that copies it whole read as one value. */
 [data-record-id] {
   display: inline-flex;
