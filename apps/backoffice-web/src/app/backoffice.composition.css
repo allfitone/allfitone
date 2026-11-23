@@ -475,10 +475,16 @@
   font-weight: var(--afo-font-weight-semibold);
 }
 
-[data-business-body] [data-business-note],
-[data-business-body] [data-business-hint] {
+[data-business-body] [data-business-note] {
   font-size: var(--afo-font-size-sm);
   color: var(--afo-color-text-muted, currentColor);
+}
+
+/* The name and the button that says what it counts read as one line. */
+[data-business-name] {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-1);
 }
 
 [data-organization-directory-filters],
