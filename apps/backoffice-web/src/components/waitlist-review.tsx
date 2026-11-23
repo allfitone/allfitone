@@ -44,6 +44,7 @@ import {
 } from '@allfitone/react/components/dialog'
 import { Field, FieldDescription, FieldError, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import { toast } from '@allfitone/react/components/sonner'
 import {
   Select,
   SelectContent,
@@ -179,7 +180,6 @@ export function WaitlistReview() {
   const [reason, setReason] = useState('')
   const [sending, setSending] = useState(false)
   const [actionFailure, setActionFailure] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<{ title: string; message: string } | null>(null)
   const pending = useRef<BackofficeCommand | null>(null)
 
   useEffect(() => {
@@ -231,7 +231,6 @@ export function WaitlistReview() {
     }
     setIssue(null)
     setAppendFailure(null)
-    setOutcome(null)
     setState('loading')
     setApplied({ query: draft.query.trim(), filter: draft.filter })
   }
@@ -299,7 +298,8 @@ export function WaitlistReview() {
               await backofficeApi.withdrawWaitlistFraudMark(action.signup.id, parsed, command),
             )
       pending.current = null
-      setOutcome({ title: copy.done, message })
+      // Where the operator looks, instead of above the list the dialog came from.
+      toast.success(copy.done, { description: message })
       setAction(null)
       reload()
     } catch (error) {
@@ -370,8 +370,11 @@ export function WaitlistReview() {
                   }
                   placeholder="ana@ejemplo.com"
                   autoComplete="off"
+                  aria-invalid={issue ? true : undefined}
+                  aria-describedby={issue ? 'waitlist-query-issue' : undefined}
                   disabled={state === 'loading'}
                 />
+                {issue ? <FieldError id="waitlist-query-issue">{issue}</FieldError> : null}
               </Field>
               <Field>
                 <FieldLabel htmlFor="waitlist-filter">Mostrar</FieldLabel>
@@ -411,17 +414,9 @@ export function WaitlistReview() {
                 </Button>
               </div>
             </div>
-            {issue ? <FieldError>{issue}</FieldError> : null}
           </form>
         </CardContent>
       </Card>
-
-      {outcome ? (
-        <Alert live="polite" variant="success" data-waitlist-outcome>
-          <AlertTitle>{outcome.title}</AlertTitle>
-          <AlertDescription>{outcome.message}</AlertDescription>
-        </Alert>
-      ) : null}
 
       {state === 'loading' ? <ScreenLoading /> : null}
 

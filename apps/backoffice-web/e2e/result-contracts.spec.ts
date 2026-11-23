@@ -10,6 +10,12 @@ import {
 const ACTIVITY_TYPE_NAME = 'Sesión de fuerza de prueba'
 const PATH = '/catalogue/result-contracts'
 
+/** Publishing asks first: a published version cannot be edited, only superseded. */
+async function publish(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Publicar', exact: true }).click()
+}
+
 async function fillPublication(
   page: import('@playwright/test').Page,
   overrides: { code?: string; minimums?: string } = {},
@@ -18,6 +24,10 @@ async function fillPublication(
   // The identifier is chosen from the global catalogue, never typed.
   await page.getByRole('combobox', { name: 'Tipo de actividad' }).click()
   await page.getByRole('option', { name: ACTIVITY_TYPE_NAME }).click()
+  // The trigger names what was chosen; without its items it showed the identifier.
+  await expect(page.getByRole('combobox', { name: 'Tipo de actividad' })).toContainText(
+    ACTIVITY_TYPE_NAME,
+  )
   await page.getByLabel('Mínimos por completitud').fill(overrides.minimums ?? '{"target_sets":1}')
   await page.getByLabel('Resultado esperado del caso aceptado').fill('accepted')
   await page.getByLabel('Resultado esperado del caso rechazado').fill('missing_sets')
@@ -35,7 +45,7 @@ test('publishes a version the server numbers and shows its demonstrated cases', 
   await expect(page.getByText('Todavía no publicaste una versión')).toBeVisible()
 
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
 
   await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Versión publicada' })).toBeVisible()
@@ -58,11 +68,11 @@ test('correcting a contract publishes the next version and closes the previous b
 
   await page.goto(PATH)
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
   await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
 
   await fillPublication(page, { minimums: '{"target_sets":3}' })
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
 
   await expect(page.getByText('Publicada la versión 2 de test.backoffice_front')).toBeVisible()
   await expect(page.getByText('Esta publicación reemplazó una asociación anterior')).toBeVisible()
@@ -79,10 +89,10 @@ test('lists every version of the type and deprecates an older one from the list'
 
   await page.goto(PATH)
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
   await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
   await fillPublication(page, { minimums: '{"target_sets":3}' })
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
   await expect(page.getByText('Publicada la versión 2 de test.backoffice_front')).toBeVisible()
 
   const versions = page.locator('[data-contract-versions]')
@@ -150,7 +160,7 @@ test('answers the published-content guard with the next action', async ({ contex
 
   await page.goto(PATH)
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
 
   await expect(page.getByText(/publica la versión siguiente/)).toBeVisible()
 })
@@ -170,7 +180,7 @@ test('explains a refusal as a missing curation duty', async ({ context, page }) 
 
   await page.goto(PATH)
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
 
   await expect(page.getByText(/deber de curaduría del catálogo/)).toBeVisible()
 })
@@ -180,7 +190,7 @@ test('deprecates the published version without deleting it', async ({ context, p
 
   await page.goto(PATH)
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
   await expect(page.getByRole('heading', { name: 'Versión publicada' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Deprecar esta versión' }).click()
@@ -201,7 +211,7 @@ test('keeping the version from the deprecation dialog deprecates nothing', async
 
   await page.goto(PATH)
   await fillPublication(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
   await expect(page.getByRole('heading', { name: 'Versión publicada' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Deprecar esta versión' }).click()
@@ -266,7 +276,7 @@ test('shows what the chosen type already validates against, and what the version
   ).toBeVisible()
   await expect(page.getByText('Ninguno vigente todavía')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
   await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
 
   // The panel is re-read after the publication changed it.
@@ -294,4 +304,52 @@ test('reports a catalogue it cannot read without pretending the screen still wor
 
   await expect(page.getByText('No se pudo leer el catálogo global')).toBeVisible()
   await expect(page.getByRole('combobox', { name: 'Tipo de actividad' })).toBeDisabled()
+})
+
+test('keeping the current version from the publish question publishes nothing', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await fillPublication(page)
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Seguir editando' }).click()
+
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  expect(
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path === '/backoffice/v1/result-contracts',
+    ),
+  ).toHaveLength(0)
+})
+
+test('names what every session records in words, not by its technical name', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  // «Envelope» named nothing an operator knows; the field says what it holds.
+  const fields = page.getByLabel('Campos de la sesión')
+  await expect(fields).toHaveAccessibleDescription(/desde qué nivel/)
+  await expect(page.getByText('Envelope', { exact: true })).toHaveCount(0)
+
+  await fillPublication(page)
+  await fields.fill('[]')
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await expect(page.getByText('Los campos de la sesión deben ser un objeto JSON.')).toBeVisible()
+
+  await fields.fill('{"schema":1}')
+  await publish(page)
+  await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
+  // Only the words on screen changed: the contract still calls the document the envelope.
+  const published = fixture.requests.find(
+    (request) => request.method === 'POST' && request.path === '/backoffice/v1/result-contracts',
+  )
+  expect(published?.body).toHaveProperty('envelope', { schema: 1 })
 })

@@ -68,7 +68,7 @@ describe('business panel presentation', () => {
     expect(metricValue(premium)).toBe('—')
     expect(metricValue(payments)).toBe('—')
     expect(metricNote(payments, 5)).toContain('todavía no guarda pagos')
-    expect(metricBadge(premium).label).toBe('Sin datos aún')
+    expect(metricBadge(premium)?.label).toBe('Sin datos aún')
   })
 
   test('people training this week is a figure like any other, and says of what week', () => {
@@ -105,7 +105,7 @@ describe('business panel presentation', () => {
     expect(metricNote(small, 5)).toBe(
       'Menos de 5 personas. No se publica para que ninguna cifra pueda señalar a alguien.',
     )
-    expect(metricBadge(small).label).toBe('Grupo muy pequeño')
+    expect(metricBadge(small)?.label).toBe('Grupo muy pequeño')
   })
 
   test('a real zero is a figure and is shown as one', () => {
@@ -113,7 +113,7 @@ describe('business panel presentation', () => {
 
     expect(metricValue(none)).toBe('0')
     expect(metricNote(none, 5)).toBeNull()
-    expect(metricBadge(none)).toEqual({ label: 'Medido', variant: 'success' })
+    expect(metricBadge(none)).toBeNull()
   })
 
   // The day itself is `Intl`'s to spell; what this pins down is that the phrase
@@ -287,7 +287,7 @@ describe('business panel presentation', () => {
 
     expect(metricValue(withheld)).toBe('—')
     expect(metricNote(withheld, 5)).toContain('señalar a alguien')
-    expect(metricBadge(withheld).label).toBe('Grupo muy pequeño')
+    expect(metricBadge(withheld)?.label).toBe('Grupo muy pequeño')
   })
 
   test('a true zero is a figure: nobody suspended is not the same as nothing measured', () => {
@@ -295,7 +295,7 @@ describe('business panel presentation', () => {
 
     expect(metricValue(none)).toBe('0')
     expect(metricNote(none, 5)).toBeNull()
-    expect(metricBadge(none).label).toBe('Medido')
+    expect(metricBadge(none)).toBeNull()
   })
 
   test('a refusal explains the duty rather than blaming the operator', () => {

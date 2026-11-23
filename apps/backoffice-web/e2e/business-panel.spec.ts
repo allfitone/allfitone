@@ -72,7 +72,40 @@ test('what Allfit stopped collecting is on the panel beside what it still collec
 
   // The third state is the one a reader would otherwise take for a rounding error,
   // so the panel says who owns it rather than leaving the gap unexplained.
-  await expect(lapsed).toContainText('Solo la tienda mueve ese estado')
+  await lapsed
+    .getByRole('button', { name: 'Qué cuenta «Suscripciones vencidas sin reportar»' })
+    .click()
+  await expect(
+    page.getByRole('dialog', { name: 'Suscripciones vencidas sin reportar' }),
+  ).toContainText('Solo la tienda mueve ese estado')
+})
+
+test('what a figure counts is one click from its name, and its period stays in sight', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
+
+  await page.goto('/panel')
+
+  // Sixteen definitions, read once and skipped every day after, made Inicio three screens long.
+  const panel = page.locator('[data-business-panel]')
+  const training = page.locator('[data-business-metric="active_people_this_week"]')
+  await expect(training.locator('[data-business-period]')).toBeVisible()
+  await expect(panel.getByText('Abrir la aplicación no es estar activo.')).toHaveCount(0)
+
+  await training.getByRole('button', { name: 'Qué cuenta «Personas activas entrenando»' }).click()
+  await expect(page.getByRole('dialog', { name: 'Personas activas entrenando' })).toContainText(
+    'Abrir la aplicación no es estar activo.',
+  )
+
+  // Money keeps its definition the same way, beside its name.
+  await page.keyboard.press('Escape')
+  const money = page.locator('[data-business-money="billed_this_month"]')
+  await money.getByRole('button', { name: 'Qué cuenta «Facturado»' }).click()
+  await expect(page.getByRole('dialog', { name: 'Facturado' })).toContainText(
+    'Un cobro fallido no cuenta',
+  )
 })
 
 test('a group too small to publish is withheld, and says why without naming anybody', async ({
@@ -141,4 +174,26 @@ test('a figure the API sends without a period is not shown at all', async ({ con
 
   await expect(page.locator('[data-business-metric="organizations"]')).toBeVisible()
   await expect(page.locator('[data-business-metric="registered_people"]')).toHaveCount(0)
+})
+
+test('what needs attention comes first, then the business, and the session last', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
+
+  await page.goto('/panel')
+  await expect(page.locator('[data-business-panel]')).toBeVisible()
+
+  // The session asks nobody to act, so it no longer pushes the notices down the page.
+  const order = await page.evaluate(() =>
+    ['[data-attention-panel]', '[data-business-panel]', '[data-operator-panel]'].map((selector) => {
+      const element = document.querySelector(selector)
+      return element ? element.getBoundingClientRect().top + window.scrollY : -1
+    }),
+  )
+  expect(order.every((top) => top >= 0)).toBe(true)
+  expect(order).toEqual([...order].sort((a, b) => a - b))
+  // A measured figure is the normal case: only one that is not says so.
+  await expect(page.locator('[data-business-panel]').getByText('Medido')).toHaveCount(0)
 })

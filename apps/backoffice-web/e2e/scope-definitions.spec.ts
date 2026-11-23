@@ -9,6 +9,12 @@ import {
 
 const PATH = '/permissions'
 
+/** Publishing asks first: a published version cannot be edited, only superseded. */
+async function publish(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Publicar', exact: true }).click()
+}
+
 async function fillRule(
   page: import('@playwright/test').Page,
   values: { resource?: string; field?: string } = {},
@@ -29,7 +35,7 @@ test('publishes the next version and says the earlier one still stands', async (
 
   await page.goto(PATH)
   await fillRule(page)
-  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await publish(page)
 
   await expect(page.getByText(/Publicada la versión 2 de Progreso corporal/)).toBeVisible()
   // The promise of criterion 3, said where the operator is looking.
@@ -89,7 +95,7 @@ test('refuses a version that only excludes before it travels', async ({ context,
 
   await page.goto(PATH)
   await fillRule(page)
-  await page.getByLabel('Excluir la regla 1').check()
+  await page.getByRole('checkbox', { name: 'Excluir la regla 1' }).check()
   await page.getByRole('button', { name: 'Publicar versión' }).click()
 
   await expect(page.getByText(/sólo excluye no concede nada/)).toBeVisible()
@@ -107,7 +113,8 @@ test('refuses a malformed resource before it travels', async ({ context, page })
   await fillRule(page, { resource: 'Execution.Body Measurements' })
   await page.getByRole('button', { name: 'Publicar versión' }).click()
 
-  await expect(page.getByText(/El recurso va en minúsculas/)).toBeVisible()
+  // Under the rule it is about, not at the foot of every rule.
+  await expect(page.locator('[data-scope-rule="1"]')).toContainText(/El recurso va en minúsculas/)
   expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(0)
 })
 
@@ -119,10 +126,16 @@ test('never offers reading backwards on something excluded', async ({ context, p
 
   await page.goto(PATH)
   await fillRule(page)
-  await page.getByLabel('Excluir la regla 1').check()
+  await page.getByRole('checkbox', { name: 'Excluir la regla 1' }).check()
 
   // The control is not merely validated: it is unavailable.
-  await expect(page.getByLabel('Leer hacia atrás en la regla 1')).toBeDisabled()
+  await expect(
+    page.getByRole('checkbox', { name: 'Leer hacia atrás en la regla 1' }),
+  ).toBeDisabled()
+  // And it says why, instead of leaving a dead control to guess at.
+  await expect(page.locator('[data-scope-rule="1"]')).toContainText(
+    /Solo una regla de lectura que no esté excluida/,
+  )
 })
 
 test('explains the immutability guard as publishing the next version', async ({
@@ -188,7 +201,7 @@ test('pasting the rules loads them for review and publishes nothing by itself', 
   await expect(page.locator('[data-scope-paste-notice]')).toContainText('inmutable')
   await expect(page.getByLabel('Recurso y campo 1')).toHaveValue('identity.body_progress_records')
   await expect(page.getByLabel('Recurso y campo 2')).toHaveValue('identity.health_context_claims')
-  await expect(page.getByLabel('Excluir la regla 2')).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Excluir la regla 2' })).toBeChecked()
 
   // And nothing was published: loading is not publishing.
   expect(

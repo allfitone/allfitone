@@ -227,6 +227,19 @@
   gap: var(--afo-space-3);
 }
 
+/* What authorised a read is a sentence: it wraps in its column instead of widening the
+   table past the auditor's view. */
+[data-access-log-basis] {
+  min-width: 16rem;
+  width: 20rem;
+  white-space: normal;
+}
+
+[data-access-log-basis] p {
+  margin-block: var(--afo-space-1) 0;
+  font-size: var(--afo-font-size-sm);
+}
+
 /* The menu is as wide as its 44px trigger by default, which cut every action in two. */
 [data-row-menu-content] {
   min-width: max-content;
@@ -432,8 +445,21 @@
   gap: 8px;
 }
 
-[data-business-body] p {
+[data-business-body] p,
+[data-business-body] [data-business-label] {
   margin: 0;
+}
+
+/* Each figure is a block inside its section's card, set apart by a rule rather than
+   a card of its own. */
+[data-business-metric] {
+  border-inline-start: 2px solid var(--afo-color-border-subtle);
+  padding-inline-start: var(--afo-space-3);
+}
+
+[data-business-body] [data-business-label] {
+  font-size: var(--afo-font-size-sm);
+  font-weight: var(--afo-font-weight-semibold);
 }
 
 /* The number is the point of the card; the period under it is what makes it mean
@@ -449,10 +475,16 @@
   font-weight: var(--afo-font-weight-semibold);
 }
 
-[data-business-body] [data-business-note],
-[data-business-body] [data-business-hint] {
+[data-business-body] [data-business-note] {
   font-size: var(--afo-font-size-sm);
   color: var(--afo-color-text-muted, currentColor);
+}
+
+/* The name and the button that says what it counts read as one line. */
+[data-business-name] {
+  display: flex;
+  align-items: center;
+  gap: var(--afo-space-1);
 }
 
 [data-organization-directory-filters],

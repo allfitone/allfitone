@@ -23,6 +23,9 @@
  * **The record is not the content.** The log says somebody read
  * `nutrition.intake_entries`; it cannot say what they saw. The screen says so, so
  * nobody goes hunting for a detail view that does not and should not exist.
+ *
+ * The answer is one table row per access. A card per access, seven facts each, put
+ * fifty accesses over several screens; an auditor reads them down a column.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -41,6 +44,15 @@ import {
 } from '@allfitone/react/components/card'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@allfitone/react/components/table'
 import { useState, type FormEvent } from 'react'
 
 import {
@@ -64,6 +76,7 @@ import {
   resultLabel,
   toQuery,
   type AccessLogFilters,
+  type FilterIssue,
 } from '@/lib/access-log'
 import { isRefusal } from '@/lib/screen-state'
 
@@ -76,7 +89,8 @@ export function AccessLog() {
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
   const [filters, setFilters] = useState<AccessLogFilters>(EMPTY_FILTERS)
-  const [error, setError] = useState<string | null>(null)
+  // Said under the field it is about; a query with no filter at all, at the foot.
+  const [issue, setIssue] = useState<FilterIssue | null>(null)
   // The question the answer on screen was given for; the next page asks it again.
   const [asked, setAsked] = useState<ReturnType<typeof toQuery> | null>(null)
   const [more, setMore] = useState<MoreState>('idle')
@@ -84,11 +98,8 @@ export function AccessLog() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     const broken = filterIssue(filters)
-    if (broken) {
-      setError(filterIssueMessage(broken))
-      return
-    }
-    setError(null)
+    setIssue(broken ?? null)
+    if (broken) return
     setState('loading')
     setMore('idle')
     const query = toQuery(filters)
@@ -152,8 +163,13 @@ export function AccessLog() {
                   onChange={(event) => update('actorPersonId', event.target.value)}
                   placeholder="019a9000-0000-7000-8000-000000000004"
                   autoComplete="off"
+                  aria-invalid={issue === 'actor' ? true : undefined}
+                  aria-describedby={issue === 'actor' ? 'al-actor-issue' : undefined}
                   disabled={state === 'loading'}
                 />
+                {issue === 'actor' ? (
+                  <FieldError id="al-actor-issue">{filterIssueMessage(issue)}</FieldError>
+                ) : null}
               </Field>
               <Field>
                 <FieldLabel htmlFor="al-subject">Persona afectada</FieldLabel>
@@ -163,8 +179,13 @@ export function AccessLog() {
                   onChange={(event) => update('subjectPersonId', event.target.value)}
                   placeholder="019a9000-0000-7000-8000-000000000006"
                   autoComplete="off"
+                  aria-invalid={issue === 'subject' ? true : undefined}
+                  aria-describedby={issue === 'subject' ? 'al-subject-issue' : undefined}
                   disabled={state === 'loading'}
                 />
+                {issue === 'subject' ? (
+                  <FieldError id="al-subject-issue">{filterIssueMessage(issue)}</FieldError>
+                ) : null}
               </Field>
               <MomentField
                 id="al-from"
@@ -182,7 +203,9 @@ export function AccessLog() {
                 defaultTime="23:59"
                 disabled={state === 'loading'}
               />
-              {error ? <FieldError>{error}</FieldError> : null}
+              {issue === 'range' || issue === 'unfiltered' ? (
+                <FieldError data-access-log-filter-issue>{filterIssueMessage(issue)}</FieldError>
+              ) : null}
               <div data-form-actions>
                 <Button type="submit" disabled={state === 'loading'}>
                   Consultar
@@ -218,65 +241,66 @@ export function AccessLog() {
             <AlertDescription>{answerSentence(page)}</AlertDescription>
           </Alert>
 
-          {page.items.map((event, index) => (
-            <Card
-              key={`${index}-${event.occurred_at}`}
-              data-access-log-entry
-              data-exceptional={isExceptional(event) ? 'true' : 'false'}
-            >
-              <CardHeader>
-                <CardTitle role="heading" aria-level={3}>
-                  {event.resource}
-                </CardTitle>
-                <CardDescription>{formatInstant(event.occurred_at)}</CardDescription>
-              </CardHeader>
-              <CardContent data-card-body>
-                <dl data-facts>
-                  <dt>Base del acceso</dt>
-                  <dd>
-                    <Badge id={`al-mode-${index}`} variant={modeTone(event.access_mode)}>
-                      {modeLabel(event.access_mode)}
-                    </Badge>
-                  </dd>
-                  <dt>Quién accedió</dt>
-                  <dd>
-                    <RecordId id={event.actor_person_id} />
-                  </dd>
-                  <dt>Sobre quién</dt>
-                  <dd>
-                    {event.subject_person_id ? (
-                      <RecordId id={event.subject_person_id} />
-                    ) : (
-                      'Sin persona afectada'
-                    )}
-                  </dd>
-                  <dt>Resultado</dt>
-                  <dd>
-                    <span id={`al-result-${index}`}>{resultLabel(event.result)}</span>
-                  </dd>
-                  <dt>Propósito</dt>
-                  <dd>
-                    <span id={`al-purpose-${index}`}>{event.purpose}</span>
-                  </dd>
-                  {event.scope_code ? (
-                    <>
-                      <dt>Permiso</dt>
-                      <dd>
-                        <span id={`al-scope-${index}`}>
-                          {event.scope_code} · v{event.scope_version}
-                        </span>
-                      </dd>
-                    </>
-                  ) : null}
-                </dl>
-
-                <Alert live="off" variant={isExceptional(event) ? 'warning' : 'info'}>
-                  <AlertTitle>Qué autorizó esta lectura</AlertTitle>
-                  <AlertDescription>{modeBasis(event.access_mode)}</AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          ))}
+          {page.items.length > 0 ? (
+            <Table scrollAreaLabel="Accesos registrados" data-access-log-table>
+              <TableCaption>Accesos registrados</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cuándo</TableHead>
+                  <TableHead>Qué se leyó</TableHead>
+                  <TableHead>Quién accedió</TableHead>
+                  <TableHead>Sobre quién</TableHead>
+                  <TableHead>Resultado</TableHead>
+                  <TableHead>Qué autorizó la lectura</TableHead>
+                  <TableHead>Propósito y permiso</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {page.items.map((event, index) => (
+                  <TableRow
+                    key={`${index}-${event.occurred_at}`}
+                    data-access-log-entry
+                    data-exceptional={isExceptional(event) ? 'true' : 'false'}
+                  >
+                    <TableCell>{formatInstant(event.occurred_at)}</TableCell>
+                    <TableCell>
+                      <code>{event.resource}</code>
+                    </TableCell>
+                    <TableCell>
+                      <RecordId id={event.actor_person_id} />
+                    </TableCell>
+                    <TableCell>
+                      {event.subject_person_id ? (
+                        <RecordId id={event.subject_person_id} />
+                      ) : (
+                        'Sin persona afectada'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span id={`al-result-${index}`}>{resultLabel(event.result)}</span>
+                    </TableCell>
+                    <TableCell data-access-log-basis>
+                      <Badge id={`al-mode-${index}`} variant={modeTone(event.access_mode)}>
+                        {modeLabel(event.access_mode)}
+                      </Badge>
+                      <p>{modeBasis(event.access_mode)}</p>
+                    </TableCell>
+                    <TableCell>
+                      <span id={`al-purpose-${index}`}>{event.purpose}</span>
+                      {event.scope_code ? (
+                        <>
+                          <br />
+                          <span id={`al-scope-${index}`}>
+                            {event.scope_code} · v{event.scope_version}
+                          </span>
+                        </>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : null}
 
           {more === 'failed' ? (
             <Alert live="polite" variant="warning" data-access-log-more-failure>

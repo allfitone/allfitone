@@ -169,7 +169,9 @@ test('the home screen says who is signed in and until when', async ({ context, p
 
   const panel = page.locator('[data-operator-panel]')
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Ada Lovelace')
-  await expect(panel).toContainText('AAL2')
+  // The assurance in words: «AAL2» is the name of a standard, not of what happened.
+  await expect(panel).toContainText('Dos factores')
+  await expect(panel).not.toContainText('AAL2')
   await expect(panel).toContainText('Caduca si no la usas')
   await expect(panel).toContainText('Termina a más tardar')
   await expect(panel.getByRole('link', { name: 'Equipo de Allfit One' })).toHaveAttribute(

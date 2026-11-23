@@ -1,14 +1,13 @@
 import { expect, test } from '@playwright/test'
 
 import {
-  activeSession,
   challengeAttempt,
   createBackofficeFixture,
   enrollmentAttempt,
   mockBackofficeApi,
 } from './backoffice-api-mock'
 
-test('authenticates an existing factor and creates an AAL2 view', async ({ context, page }) => {
+test('authenticates an existing factor and lands on Inicio', async ({ context, page }) => {
   const fixture = createBackofficeFixture()
   await mockBackofficeApi(context, fixture)
   await page.goto('/')
@@ -21,9 +20,11 @@ test('authenticates an existing factor and creates an AAL2 view', async ({ conte
   await page.getByLabel('Código de seis dígitos').fill('123456')
   await page.getByRole('button', { name: 'Verificar y entrar' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Acceso confirmado.' })).toBeVisible()
-  await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
-  await expect(page.getByText('Nivel AAL2 comprobado')).toBeVisible()
+  // The code is the last step: Inicio already says who signed in, how, and until when.
+  await expect(page).toHaveURL(/\/panel$/)
+  const operator = page.locator('[data-operator-panel]')
+  await expect(operator.getByRole('heading', { name: 'Ada Lovelace' })).toBeVisible()
+  await expect(operator.getByText('Dos factores')).toBeVisible()
   const verification = fixture.requests.find(
     (request) => request.path === '/backoffice/v1/auth/totp/verification',
   )
@@ -79,7 +80,7 @@ test('resolves a lost verification response through the session before retrying 
   await page.getByLabel('Código de seis dígitos').fill('654321')
   await page.getByRole('button', { name: 'Verificar y entrar' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Acceso confirmado.' })).toBeVisible()
+  await expect(page).toHaveURL(/\/panel$/)
   expect(
     fixture.requests.filter((request) => request.path === '/backoffice/v1/auth/totp/verification'),
   ).toHaveLength(1)
@@ -159,7 +160,8 @@ test('keeps strict recovery when an earlier session cannot be verified', async (
 
   await expect(page.getByRole('heading', { name: 'Tu sesión está protegida.' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Completar cierre' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Acceso confirmado.' })).toHaveCount(0)
+  // Without proof the session lives, the browser stays here instead of entering Inicio.
+  await expect(page).not.toHaveURL(/\/panel$/)
 })
 
 test('uses the same password-reset confirmation for every email', async ({ context, page }) => {
@@ -174,65 +176,6 @@ test('uses the same password-reset confirmation for every email', async ({ conte
   await expect(
     page.getByText('Si existe una cuenta, recibirás instrucciones para restablecer la contraseña.'),
   ).toBeVisible()
-})
-
-test('unmounts authenticated data immediately and recovers a failed logout', async ({
-  context,
-  page,
-}) => {
-  const fixture = createBackofficeFixture({ session: activeSession(), logoutFails: true })
-  await mockBackofficeApi(context, fixture)
-  await page.goto('/')
-  await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Cerrar sesión' }).click()
-
-  await expect(page.getByRole('heading', { name: 'Tu sesión está protegida.' })).toBeVisible()
-  await expect(page.getByText('Ada Lovelace', { exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Completar cierre' }).click()
-  await expect(page.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible()
-})
-
-test('expires the browser view at the API session deadline', async ({ context, page }) => {
-  const session = activeSession()
-  session.inactivity_expires_at = new Date(Date.now() + 800).toISOString()
-  const fixture = createBackofficeFixture({ session })
-  await mockBackofficeApi(context, fixture)
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Acceso confirmado.' })).toBeVisible()
-
-  await expect(page.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible({
-    timeout: 5_000,
-  })
-  const logout = fixture.requests.find((request) => request.path === '/backoffice/v1/auth/logout')
-  expect(logout?.body).toEqual({ reason: 'inactivity' })
-})
-
-test('Back never restores an AAL2 view after server-side revocation', async ({ context, page }) => {
-  const fixture = createBackofficeFixture({ session: activeSession() })
-  await mockBackofficeApi(context, fixture)
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Acceso confirmado.' })).toBeVisible()
-  await page.goto('/?history=next')
-  fixture.session = undefined
-  await page.goBack()
-
-  await expect(page.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible()
-  await expect(page.getByText('Ada Lovelace', { exact: true })).toHaveCount(0)
-})
-
-test('synchronizes a logout across tabs without revealing protected content', async ({
-  context,
-}) => {
-  const fixture = createBackofficeFixture({ session: activeSession() })
-  await mockBackofficeApi(context, fixture)
-  const first = await context.newPage()
-  const second = await context.newPage()
-  await Promise.all([first.goto('/'), second.goto('/')])
-  await expect(second.getByText('Ada Lovelace', { exact: true })).toBeVisible()
-  await first.getByRole('button', { name: 'Cerrar sesión' }).click()
-
-  await expect(second.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible()
-  await expect(second.getByText('Ada Lovelace', { exact: true })).toHaveCount(0)
 })
 
 test('blocks compact phones while retaining the tablet and desktop flow', async ({

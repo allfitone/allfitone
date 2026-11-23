@@ -246,6 +246,10 @@ test('a search of one character is not sent', async ({ context, page }) => {
   await page.getByRole('button', { name: 'Buscar' }).click()
 
   await expect(page.getByText('Escribe al menos dos caracteres')).toBeVisible()
+  // Under the field it is about, which says it is wrong.
+  await expect(page.getByLabel('Nombre, correo o código')).toHaveAccessibleDescription(
+    /al menos dos caracteres/,
+  )
   expect(fixture.requests.filter((request) => request.path === SIGNUPS)).toHaveLength(before)
 })
 
@@ -317,7 +321,7 @@ test('marking fraud says what it will do, asks for the reason and reads the list
   await dialog.getByRole('button', { name: 'Marcar como fraude' }).click()
 
   await expect(dialog).toHaveCount(0)
-  await expect(page.locator('[data-waitlist-outcome]')).toContainText(
+  await expect(page.locator('[data-sonner-toast]')).toContainText(
     'La inscripción de Bruno Díaz quedó marcada como fraude. Su número 2 quedó libre para la siguiente persona confirmada. Ya no suma como referido de Ana Ruiz.',
   )
   await expect(row(page, 'Bruno Díaz')).toContainText('Fraude')
@@ -391,7 +395,7 @@ test('a lost answer is retried with the same command, and marks once', async ({
   )
   await dialog.getByRole('button', { name: 'Marcar como fraude' }).click()
 
-  await expect(page.locator('[data-waitlist-outcome]')).toContainText('Carla Gil')
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Carla Gil')
   await expect(row(page, 'Carla Gil')).toContainText('Dirección de un servicio temporal')
   const commands = fixture.requests.filter((request) => request.method === 'POST')
   expect(commands).toHaveLength(2)
@@ -420,7 +424,7 @@ test('a mark the server refuses stays in the dialog with what happened', async (
   await expect(dialog.locator('[data-waitlist-fraud-failure]')).toContainText(
     'ya estaba marcada como fraude',
   )
-  await expect(page.locator('[data-waitlist-outcome]')).toHaveCount(0)
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0)
 })
 
 test('taking a mark back says what returns, asks for the reason and reads the list again', async ({
@@ -455,8 +459,8 @@ test('taking a mark back says what returns, asks for the reason and reads the li
   await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
 
   await expect(dialog).toHaveCount(0)
-  await expect(page.locator('[data-waitlist-outcome]')).toContainText('Marca de fraude retirada')
-  await expect(page.locator('[data-waitlist-outcome]')).toContainText(
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Marca de fraude retirada')
+  await expect(page.locator('[data-sonner-toast]')).toContainText(
     'Se quitó la marca de fraude de la inscripción de Bruno Díaz. Recibió el número 4 de Founding Member. Vuelve a sumar como referido de Ana Ruiz.',
   )
   await expect(row(page, 'Bruno Díaz')).toHaveAttribute('data-discard', 'none')
@@ -546,7 +550,7 @@ test('a lost answer of a withdrawal is retried with the same command, and acts o
   )
   await dialog.getByRole('button', { name: 'Quitar la marca' }).click()
 
-  await expect(page.locator('[data-waitlist-outcome]')).toContainText('Bruno Díaz')
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Bruno Díaz')
   await expect(row(page, 'Bruno Díaz')).toHaveAttribute('data-discard', 'none')
   const commands = fixture.requests.filter((request) => request.method === 'POST')
   expect(commands).toHaveLength(2)
@@ -580,7 +584,7 @@ test('a withdrawal the server refuses stays in the dialog with what happened', a
   await expect(dialog.locator('[data-waitlist-fraud-failure]')).toContainText(
     'ya no estaba marcada como fraude',
   )
-  await expect(page.locator('[data-waitlist-outcome]')).toHaveCount(0)
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0)
 })
 
 test('without the commercial duty the screen is a closed door that names it', async ({

@@ -129,8 +129,19 @@ describe('the identifiers an operation carries', () => {
           subject_id: '019a7000-0000-7000-8000-000000000001',
         }),
       ),
-    ).toBe('organization 019a7000…0001')
+    ).toBe('Gimnasio 019a7000…0001')
     expect(subjectLine(operation({ subject_kind: null, subject_id: null }))).toBe('Sin sujeto')
+  })
+
+  test('a kind the screen does not know yet keeps its own name rather than none', () => {
+    expect(
+      subjectLine(
+        operation({
+          subject_kind: 'payment_retry',
+          subject_id: '019a7000-0000-7000-8000-000000000001',
+        }),
+      ),
+    ).toBe('payment_retry 019a7000…0001')
   })
 
   test('only an identifier is searched for, so a typo never becomes an empty answer', () => {

@@ -422,3 +422,21 @@ test('sends an unauthenticated operator back to the access screen', async ({ con
 
   await expect(page.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible()
 })
+
+test('Personas leads to the charges to follow up, which only a notice on Inicio reached', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), support: support() }),
+  )
+
+  await page.goto('/people')
+
+  // The Design System's button keeps its role when it renders a link, as «Crear un gimnasio» does.
+  await expect(page.getByRole('button', { name: 'Cobros por seguir' })).toHaveAttribute(
+    'href',
+    '/people/billing',
+  )
+})

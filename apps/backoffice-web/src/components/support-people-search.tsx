@@ -120,7 +120,15 @@ function PeopleSearch({ addressCase }: { addressCase: string }) {
 
   return (
     <div data-support-search>
-      <PageHeader description="Por parte del nombre, del correo o del teléfono, o por su identificador. Cada búsqueda queda registrada, y cada persona que aparece la ve en su historial." />
+      <PageHeader
+        description="Por parte del nombre, del correo o del teléfono, o por su identificador. Cada búsqueda queda registrada, y cada persona que aparece la ve en su historial."
+        actions={
+          // Only a notice on Inicio led here, though it is a list of people to follow up.
+          <Button variant="outline" render={<Link href="/people/billing" />} nativeButton={false}>
+            Cobros por seguir
+          </Button>
+        }
+      />
 
       <form
         onSubmit={(event) => void submit(event)}

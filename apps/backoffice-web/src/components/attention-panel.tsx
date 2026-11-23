@@ -228,7 +228,8 @@ const AVAILABILITY_BADGES: Record<
   'available' | 'withheld' | 'not_modelled',
   { label: string; variant: 'secondary' | 'warning' | 'success' }
 > = {
-  available: { label: 'Al día', variant: 'success' },
+  // «Al día» beside the billing notice read as «the payments are up to date».
+  available: { label: 'Dato actualizado', variant: 'success' },
   withheld: { label: 'No es de tus deberes', variant: 'secondary' },
   not_modelled: { label: 'Sin datos aún', variant: 'secondary' },
 }

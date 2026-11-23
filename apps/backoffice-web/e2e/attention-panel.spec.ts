@@ -194,6 +194,11 @@ test('nothing pending is said plainly rather than left as an empty board', async
     ),
   ).toBeVisible()
   await expect(page.getByText('Pendiente', { exact: true })).toHaveCount(0)
+  // «Al día» beside the billing notice read as «the payments are up to date».
+  await expect(page.locator('[data-attention-notice]').getByText('Al día')).toHaveCount(0)
+  await expect(
+    page.locator('[data-attention-notice="billing"]').getByText('Dato actualizado'),
+  ).toBeVisible()
 })
 
 test('an operator refused every notice is told the duties come with the admin role', async ({
@@ -227,9 +232,7 @@ test('the Backoffice starts on the panel', async ({ context, page }) => {
     page.getByRole('link', { name: 'Ir al inicio de Allfit Backoffice' }),
   ).toHaveAttribute('href', '/panel')
 
+  // A browser that already holds a session opens Inicio, with no stop on the way.
   await page.goto('/')
-  await expect(page.locator('a', { hasText: 'Entrar al Backoffice' })).toHaveAttribute(
-    'href',
-    '/panel',
-  )
+  await expect(page).toHaveURL(/\/panel$/)
 })

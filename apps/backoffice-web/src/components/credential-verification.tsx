@@ -43,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
+import { toast } from '@allfitone/react/components/sonner'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
@@ -77,6 +78,7 @@ import {
   type CredentialRenewalDue,
   type CredentialVerificationMethod,
   type CredentialVerificationRequest,
+  type DecisionIssue,
   type VerificationDraft,
 } from '@/lib/credential-verification'
 import { isRefusal } from '@/lib/screen-state'
@@ -89,10 +91,13 @@ export function CredentialVerification() {
   const [renewals, setRenewals] = useState<CredentialRenewalDue[]>([])
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+  // Only what failed stays on the page; what worked pops up as a toast.
+  const [notice, setNotice] = useState<string | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [draft, setDraft] = useState<VerificationDraft | null>(null)
-  const [issue, setIssue] = useState<string | null>(null)
+  const [issue, setIssue] = useState<DecisionIssue | null>(null)
+  // A refused decision is said beside its button, not at the top of the page.
+  const [decisionFailure, setDecisionFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -126,6 +131,7 @@ export function CredentialVerification() {
     setActiveId(request.request_id)
     setDraft(draftFor(request))
     setIssue(null)
+    setDecisionFailure(null)
     setNotice(null)
   }
 
@@ -133,6 +139,7 @@ export function CredentialVerification() {
     setActiveId(null)
     setDraft(null)
     setIssue(null)
+    setDecisionFailure(null)
   }
 
   function update<K extends keyof VerificationDraft>(field: K, value: VerificationDraft[K]) {
@@ -144,10 +151,11 @@ export function CredentialVerification() {
     if (!draft) return
     const broken = decisionIssue(draft)
     if (broken || !draft.result) {
-      setIssue(decisionIssueMessage(broken ?? 'result'))
+      setIssue(broken ?? 'result')
       return
     }
     setIssue(null)
+    setDecisionFailure(null)
     setBusy(true)
     setNotice(null)
     try {
@@ -157,13 +165,16 @@ export function CredentialVerification() {
       )
       close()
       await load()
-      setNotice({ tone: 'success', message: decisionSuccess(outcome) })
+      toast.success(decisionSuccess(outcome))
     } catch (caught) {
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
-      // A request decided elsewhere is stale on screen; reading again removes it.
+      // A request decided elsewhere is stale on screen; reading again removes it,
+      // and with it the form, so the reason goes to the page.
       if (caught instanceof BackofficeApiError && caught.code === 'conflict') {
+        setNotice(failureMessage(caught))
         close()
         await load()
+      } else {
+        setDecisionFailure(failureMessage(caught))
       }
     } finally {
       setBusy(false)
@@ -176,9 +187,9 @@ export function CredentialVerification() {
     try {
       await backofficeApi.openVerificationRenewal(due.credential_id, newBackofficeCommand())
       await load()
-      setNotice({ tone: 'success', message: RENEWAL_OPENED })
+      toast.success(RENEWAL_OPENED)
     } catch (caught) {
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
+      setNotice(failureMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -201,9 +212,9 @@ export function CredentialVerification() {
   return (
     <div data-credential-verification>
       {notice ? (
-        <Alert live="polite" variant={notice.tone === 'success' ? 'success' : 'danger'}>
-          <AlertTitle>{notice.tone === 'success' ? 'Hecho' : 'No se aplicó'}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
+        <Alert live="polite" variant="danger">
+          <AlertTitle>No se aplicó</AlertTitle>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -272,21 +283,23 @@ export function CredentialVerification() {
                       {methodLabel(request.suggested_method)}.{' '}
                       {methodHint(request.suggested_method)}
                     </span>
+                    {/* A plain anchor: opening the registry is navigation. It sits with where
+                        to check, not against «Decidir», where it read as part of the decision. */}
+                    {request.verification_url ? (
+                      <>
+                        {' '}
+                        <a
+                          data-verification-registry-link
+                          href={request.verification_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Abrir el registro
+                        </a>
+                      </>
+                    ) : null}
                   </dd>
                 </dl>
-
-                {/* A plain anchor, not a Button rendered as one: opening the registry is
-                    navigation, and the Button primitive exposes its element as a button. */}
-                {request.verification_url ? (
-                  <a
-                    data-verification-registry-link
-                    href={request.verification_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Abrir el registro
-                  </a>
-                ) : null}
 
                 {previous ? (
                   <Alert live="off" variant="info">
@@ -314,6 +327,7 @@ export function CredentialVerification() {
                           id="vr-result"
                           data-verification-choice
                           aria-label="Resultado"
+                          aria-describedby={issue === 'result' ? 'vr-result-issue' : undefined}
                           value={draft.result ? [draft.result] : []}
                           onValueChange={(values) => {
                             const next = values[0]
@@ -331,6 +345,11 @@ export function CredentialVerification() {
                           <span data-verification-explanation>
                             {resultExplanation(draft.result)}
                           </span>
+                        ) : null}
+                        {issue === 'result' ? (
+                          <FieldError id="vr-result-issue">
+                            {decisionIssueMessage(issue)}
+                          </FieldError>
                         ) : null}
                       </Field>
 
@@ -358,6 +377,14 @@ export function CredentialVerification() {
                         <FieldLabel htmlFor="vr-authority">Autoridad consultada</FieldLabel>
                         <Input
                           id="vr-authority"
+                          aria-invalid={
+                            sourceMissing(issue, draft.sourceAuthority) ? true : undefined
+                          }
+                          aria-describedby={
+                            sourceMissing(issue, draft.sourceAuthority)
+                              ? 'vr-source-issue'
+                              : undefined
+                          }
                           value={draft.sourceAuthority}
                           onChange={(event) => update('sourceAuthority', event.target.value)}
                           autoComplete="off"
@@ -368,6 +395,14 @@ export function CredentialVerification() {
                         <FieldLabel htmlFor="vr-jurisdiction">Jurisdicción</FieldLabel>
                         <Input
                           id="vr-jurisdiction"
+                          aria-invalid={
+                            sourceMissing(issue, draft.sourceJurisdiction) ? true : undefined
+                          }
+                          aria-describedby={
+                            sourceMissing(issue, draft.sourceJurisdiction)
+                              ? 'vr-source-issue'
+                              : undefined
+                          }
                           value={draft.sourceJurisdiction}
                           onChange={(event) => update('sourceJurisdiction', event.target.value)}
                           placeholder="CO"
@@ -379,6 +414,14 @@ export function CredentialVerification() {
                         <FieldLabel htmlFor="vr-reference">Referencia en la fuente</FieldLabel>
                         <Input
                           id="vr-reference"
+                          aria-invalid={
+                            sourceMissing(issue, draft.sourceReference) ? true : undefined
+                          }
+                          aria-describedby={
+                            sourceMissing(issue, draft.sourceReference)
+                              ? 'vr-source-issue'
+                              : undefined
+                          }
                           value={draft.sourceReference}
                           onChange={(event) => update('sourceReference', event.target.value)}
                           autoComplete="off"
@@ -389,12 +432,21 @@ export function CredentialVerification() {
                         <FieldLabel htmlFor="vr-status">Lo que dijo la fuente</FieldLabel>
                         <Input
                           id="vr-status"
+                          aria-invalid={sourceMissing(issue, draft.sourceStatus) ? true : undefined}
+                          aria-describedby={
+                            sourceMissing(issue, draft.sourceStatus) ? 'vr-source-issue' : undefined
+                          }
                           value={draft.sourceStatus}
                           onChange={(event) => update('sourceStatus', event.target.value)}
                           placeholder="Vigente"
                           autoComplete="off"
                           disabled={busy}
                         />
+                        {issue === 'source' ? (
+                          <FieldError id="vr-source-issue">
+                            {decisionIssueMessage(issue)}
+                          </FieldError>
+                        ) : null}
                       </Field>
                       <MomentField
                         id="vr-checked"
@@ -404,6 +456,11 @@ export function CredentialVerification() {
                         defaultTime="00:00"
                         disabled={busy}
                       />
+                      {issue === 'checked' ? (
+                        <FieldError data-verification-checked-issue>
+                          {decisionIssueMessage(issue)}
+                        </FieldError>
+                      ) : null}
                       <MomentField
                         id="vr-source-valid-to"
                         legend="La fuente dice que vence"
@@ -412,13 +469,23 @@ export function CredentialVerification() {
                         defaultTime="23:59"
                         disabled={busy}
                       />
+                      {issue === 'lapsed' ? (
+                        <FieldError data-verification-valid-to-issue>
+                          {decisionIssueMessage(issue)}
+                        </FieldError>
+                      ) : null}
 
                       <Alert live="off" variant="info" data-verification-validity>
                         <AlertTitle>La vigencia no se elige</AlertTitle>
                         <AlertDescription>{validitySentence()}</AlertDescription>
                       </Alert>
 
-                      {issue ? <FieldError>{issue}</FieldError> : null}
+                      {decisionFailure ? (
+                        <Alert live="assertive" variant="danger" data-verification-failure>
+                          <AlertTitle>No se registró la decisión</AlertTitle>
+                          <AlertDescription>{decisionFailure}</AlertDescription>
+                        </Alert>
+                      ) : null}
                       <div data-form-actions>
                         <Button type="submit" disabled={busy}>
                           Registrar decisión
@@ -484,6 +551,11 @@ export function CredentialVerification() {
       )}
     </div>
   )
+}
+
+/** A source field left empty is marked when the source is what is missing. */
+function sourceMissing(issue: DecisionIssue | null, value: string): boolean {
+  return issue === 'source' && value.trim() === ''
 }
 
 function failureMessage(

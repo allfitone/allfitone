@@ -40,9 +40,10 @@ export function OperatorPanel() {
       <CardContent data-card-body>
         <dl data-operator-session>
           <div>
-            <dt>Nivel de garantía</dt>
+            {/* AAL2 names a standard; what the operator did is sign in with two factors. */}
+            <dt>Verificación</dt>
             <dd>
-              <Badge variant="success">AAL2</Badge>
+              <Badge variant="success">Dos factores</Badge>
             </dd>
           </div>
           <div>
