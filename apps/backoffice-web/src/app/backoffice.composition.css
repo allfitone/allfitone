@@ -213,6 +213,14 @@
   gap: var(--afo-space-6);
 }
 
+/* What an exceptional read returned, right under its window: the outcome, then each
+   table, spaced like a card's own blocks. */
+[data-break-glass-read] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-4);
+}
+
 /* The menu is as wide as its 44px trigger by default, which cut every action in two. */
 [data-row-menu-content] {
   min-width: max-content;

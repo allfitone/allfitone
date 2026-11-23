@@ -1144,3 +1144,52 @@ test('the review is its own tab, read only once it is opened', async ({ context,
   await expect(page).toHaveURL('/break-glass?tab=review')
   await expect.poll(reviewReads).toBeGreaterThan(0)
 })
+
+test('what a read returned appears right under its window, the card that asked', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      breakGlass: {
+        files: [openBreakGlassWindow(10, { categories: ['health_context'] })],
+        healthContext: [SHOULDER],
+      },
+    }),
+  )
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Leer contexto de salud' }).click()
+
+  // It used to appear at the top of the page, far from the button that asked for it.
+  const read = page.locator('[data-break-glass-file] + [data-break-glass-read]')
+  await expect(read.locator('[data-break-glass-outcome]')).toBeVisible()
+  await expect(read.getByRole('table', { name: 'Contexto de salud de la persona' })).toBeVisible()
+})
+
+test('while the windows load, the screen does not say there are none', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), breakGlass: { files: [] } }),
+  )
+  let release = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/backoffice/v1/break-glass/requests*', async (route) => {
+    await held
+    await route.fallback()
+  })
+
+  await page.goto(PATH)
+  await expect(page.getByRole('tab', { name: 'Ventanas' })).toBeVisible()
+  await expect(page.getByText('No hay expedientes')).toHaveCount(0)
+
+  release()
+  await expect(page.getByText('No hay expedientes')).toBeVisible()
+})

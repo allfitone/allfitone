@@ -27,6 +27,8 @@
  * Asking, reading and reviewing were one page. Asking is now the page's primary
  * action, in a dialog that opens by itself when a person's card sent the operator
  * here; the review of used windows is a second tab, read only once it is opened.
+ * What a read returns appears right under its window, the card with the button
+ * that asked, instead of at the top of the page.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -290,6 +292,242 @@ export function BreakGlassWindows() {
     }
   }
 
+  // What a read returned, shown right under the window it came from.
+  const readResult = (
+    <>
+      {outcome ? (
+        <Alert live="assertive" variant={outcomeTone(outcome.answer)} data-break-glass-outcome>
+          <AlertTitle>{outcomeTitle(outcome.answer)}</AlertTitle>
+          <AlertDescription>
+            {outcomeMessage(outcome.answer)} La persona verá este intento en su propio registro de
+            accesos, con la hora exacta.
+            {outcome.answer.outcome === 'allowed' && !readStillOpen
+              ? ' La ventana cerró y lo que devolvió dejó de mostrarse.'
+              : null}
+            {shown?.outcome === 'allowed' &&
+            rows.length === 0 &&
+            claims.length === 0 &&
+            eaten.length === 0 &&
+            trained.length === 0 &&
+            agenda.length === 0
+              ? ` ${emptyReadMessage(shown.category)}`
+              : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {rows.length > 0 ? (
+        <Table scrollAreaLabel="Mediciones de la persona" data-break-glass-content>
+          <TableCaption>Mediciones de la persona</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Medida</TableHead>
+              <TableHead>Como la registró</TableHead>
+              <TableHead>Normalizada</TableHead>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Foto</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>{row.metric}</TableCell>
+                <TableCell numeric>{row.recorded}</TableCell>
+                <TableCell numeric>{row.normalized}</TableCell>
+                <TableCell>{row.measuredOn}</TableCell>
+                <TableCell>{row.photo}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {/* HU-BO-009 criterion 3: a photo's existence is shown, never the photo. */}
+      {photoDays.length > 0 ? (
+        <Table scrollAreaLabel="Días con fotos de progreso" data-break-glass-content>
+          <TableCaption>
+            Días con fotos de progreso. Se sabe que existen; no se abren desde el Backoffice.
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Fotos</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {photoDays.map((photoDay) => (
+              <TableRow key={photoDay.day}>
+                <TableCell>{photoDay.day}</TableCell>
+                <TableCell numeric>{photoDay.photos}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {claims.length > 0 ? (
+        <Table scrollAreaLabel="Contexto de salud de la persona" data-break-glass-content>
+          <TableCaption>Contexto de salud de la persona</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Lo que declaró</TableHead>
+              <TableHead>Zona</TableHead>
+              <TableHead>Desde</TableHead>
+              <TableHead>Hasta</TableHead>
+              <TableHead>Origen</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {claims.map((claim) => (
+              <TableRow key={claim.id}>
+                <TableCell>{claim.type}</TableCell>
+                <TableCell data-break-glass-declared>{claim.description}</TableCell>
+                <TableCell>{claim.area}</TableCell>
+                <TableCell>{claim.since}</TableCell>
+                <TableCell>{claim.until}</TableCell>
+                <TableCell data-break-glass-origin>{claim.provenance}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {eaten.length > 0 ? (
+        <Table scrollAreaLabel="Comidas de la persona" data-break-glass-content>
+          <TableCaption>Comidas de la persona</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cuándo</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Lo que comió</TableHead>
+              <TableHead>Valores</TableHead>
+              <TableHead>Nota</TableHead>
+              <TableHead>Foto</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {eaten.map((meal) => (
+              <TableRow key={meal.id}>
+                <TableCell data-break-glass-moment>{meal.when}</TableCell>
+                <TableCell>{meal.type}</TableCell>
+                <TableCell data-break-glass-meal>{meal.eaten}</TableCell>
+                <TableCell data-break-glass-meal>
+                  {meal.totals}
+                  {/* HU-BO-009: every nutrient it recorded, not only the summary. */}
+                  {meal.nutrients.length > 0 ? (
+                    <details data-break-glass-meal-nutrients>
+                      <summary>Ver los {meal.nutrients.length} nutrientes</summary>
+                      <ul>
+                        {meal.nutrients.map((line) => (
+                          <li key={line}>{line}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </TableCell>
+                <TableCell data-break-glass-meal>{meal.note}</TableCell>
+                <TableCell data-break-glass-origin>{meal.photo}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+
+      {trained.length > 0 ? (
+        <Table scrollAreaLabel="Sesiones de entrenamiento de la persona" data-break-glass-content>
+          <TableCaption>Sesiones de entrenamiento de la persona</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cuándo</TableHead>
+              <TableHead>Actividad</TableHead>
+              <TableHead>Duración</TableHead>
+              <TableHead>Lo que hizo</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Nivel</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {trained.map((session) => (
+              <TableRow key={session.id}>
+                <TableCell data-break-glass-moment>{session.when}</TableCell>
+                <TableCell>
+                  {session.activity}
+                  {/* HU-BO-008 c4: the gyms she hid it from; that gym's coach never sees it. */}
+                  {session.hiddenFrom.length > 0 ? (
+                    <span data-break-glass-hidden-from>
+                      <br />
+                      Oculta a {session.hiddenFrom.join(', ')}
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell>{session.duration}</TableCell>
+                <TableCell data-break-glass-done>
+                  {session.done}
+                  {/* HU-BO-008 c2: the session opens to each thing it recorded. */}
+                  {session.detail.length > 0 ? (
+                    <details data-break-glass-session-detail>
+                      <summary>Ver lo registrado</summary>
+                      <ul>
+                        {session.detail.map((line, index) => (
+                          <li key={index}>{line}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
+                </TableCell>
+                <TableCell data-break-glass-origin>{session.state}</TableCell>
+                <TableCell data-break-glass-level>{session.level}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+      {shown && olderSessionsCursor(shown) ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          data-break-glass-older-sessions
+          onClick={() => void readOlderSessions()}
+        >
+          {busy ? 'Leyendo…' : 'Ver sesiones anteriores'}
+        </Button>
+      ) : null}
+
+      {/* HU-BO-008 c3: what is planned and from which programme, by its name only. */}
+      {agenda.length > 0 ? (
+        <Table scrollAreaLabel="Agenda de la persona" data-break-glass-content>
+          <TableCaption>
+            Agenda de la persona. Cada programa aparece por su nombre; su contenido no se abre desde
+            aquí.
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Cuándo</TableHead>
+              <TableHead>Programa</TableHead>
+              <TableHead>Día</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Origen</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {agenda.map((entry, index) => (
+              <TableRow key={`${index}-${entry.when}`}>
+                <TableCell>{entry.when}</TableCell>
+                <TableCell>{entry.program}</TableCell>
+                <TableCell>{entry.day}</TableCell>
+                <TableCell>{entry.status}</TableCell>
+                <TableCell>{entry.origin}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      ) : null}
+    </>
+  )
+
   return (
     <div data-break-glass>
       <PageHeader
@@ -479,347 +717,117 @@ export function BreakGlassWindows() {
             />
           ) : null}
 
-          {outcome ? (
-            <Alert live="assertive" variant={outcomeTone(outcome.answer)} data-break-glass-outcome>
-              <AlertTitle>{outcomeTitle(outcome.answer)}</AlertTitle>
-              <AlertDescription>
-                {outcomeMessage(outcome.answer)} La persona verá este intento en su propio registro
-                de accesos, con la hora exacta.
-                {outcome.answer.outcome === 'allowed' && !readStillOpen
-                  ? ' La ventana cerró y lo que devolvió dejó de mostrarse.'
-                  : null}
-                {shown?.outcome === 'allowed' &&
-                rows.length === 0 &&
-                claims.length === 0 &&
-                eaten.length === 0 &&
-                trained.length === 0 &&
-                agenda.length === 0
-                  ? ` ${emptyReadMessage(shown.category)}`
-                  : null}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          {rows.length > 0 ? (
-            <Table scrollAreaLabel="Mediciones de la persona" data-break-glass-content>
-              <TableCaption>Mediciones de la persona</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Medida</TableHead>
-                  <TableHead>Como la registró</TableHead>
-                  <TableHead>Normalizada</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Foto</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>{row.metric}</TableCell>
-                    <TableCell numeric>{row.recorded}</TableCell>
-                    <TableCell numeric>{row.normalized}</TableCell>
-                    <TableCell>{row.measuredOn}</TableCell>
-                    <TableCell>{row.photo}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-
-          {/* HU-BO-009 criterion 3: a photo's existence is shown, never the photo. */}
-          {photoDays.length > 0 ? (
-            <Table scrollAreaLabel="Días con fotos de progreso" data-break-glass-content>
-              <TableCaption>
-                Días con fotos de progreso. Se sabe que existen; no se abren desde el Backoffice.
-              </TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Fotos</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {photoDays.map((photoDay) => (
-                  <TableRow key={photoDay.day}>
-                    <TableCell>{photoDay.day}</TableCell>
-                    <TableCell numeric>{photoDay.photos}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-
-          {claims.length > 0 ? (
-            <Table scrollAreaLabel="Contexto de salud de la persona" data-break-glass-content>
-              <TableCaption>Contexto de salud de la persona</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Lo que declaró</TableHead>
-                  <TableHead>Zona</TableHead>
-                  <TableHead>Desde</TableHead>
-                  <TableHead>Hasta</TableHead>
-                  <TableHead>Origen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {claims.map((claim) => (
-                  <TableRow key={claim.id}>
-                    <TableCell>{claim.type}</TableCell>
-                    <TableCell data-break-glass-declared>{claim.description}</TableCell>
-                    <TableCell>{claim.area}</TableCell>
-                    <TableCell>{claim.since}</TableCell>
-                    <TableCell>{claim.until}</TableCell>
-                    <TableCell data-break-glass-origin>{claim.provenance}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-
-          {eaten.length > 0 ? (
-            <Table scrollAreaLabel="Comidas de la persona" data-break-glass-content>
-              <TableCaption>Comidas de la persona</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cuándo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Lo que comió</TableHead>
-                  <TableHead>Valores</TableHead>
-                  <TableHead>Nota</TableHead>
-                  <TableHead>Foto</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {eaten.map((meal) => (
-                  <TableRow key={meal.id}>
-                    <TableCell data-break-glass-moment>{meal.when}</TableCell>
-                    <TableCell>{meal.type}</TableCell>
-                    <TableCell data-break-glass-meal>{meal.eaten}</TableCell>
-                    <TableCell data-break-glass-meal>
-                      {meal.totals}
-                      {/* HU-BO-009: every nutrient it recorded, not only the summary. */}
-                      {meal.nutrients.length > 0 ? (
-                        <details data-break-glass-meal-nutrients>
-                          <summary>Ver los {meal.nutrients.length} nutrientes</summary>
-                          <ul>
-                            {meal.nutrients.map((line) => (
-                              <li key={line}>{line}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      ) : null}
-                    </TableCell>
-                    <TableCell data-break-glass-meal>{meal.note}</TableCell>
-                    <TableCell data-break-glass-origin>{meal.photo}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-
-          {trained.length > 0 ? (
-            <Table
-              scrollAreaLabel="Sesiones de entrenamiento de la persona"
-              data-break-glass-content
-            >
-              <TableCaption>Sesiones de entrenamiento de la persona</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cuándo</TableHead>
-                  <TableHead>Actividad</TableHead>
-                  <TableHead>Duración</TableHead>
-                  <TableHead>Lo que hizo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Nivel</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {trained.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell data-break-glass-moment>{session.when}</TableCell>
-                    <TableCell>
-                      {session.activity}
-                      {/* HU-BO-008 c4: the gyms she hid it from; that gym's coach never sees it. */}
-                      {session.hiddenFrom.length > 0 ? (
-                        <span data-break-glass-hidden-from>
-                          <br />
-                          Oculta a {session.hiddenFrom.join(', ')}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>{session.duration}</TableCell>
-                    <TableCell data-break-glass-done>
-                      {session.done}
-                      {/* HU-BO-008 c2: the session opens to each thing it recorded. */}
-                      {session.detail.length > 0 ? (
-                        <details data-break-glass-session-detail>
-                          <summary>Ver lo registrado</summary>
-                          <ul>
-                            {session.detail.map((line, index) => (
-                              <li key={index}>{line}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      ) : null}
-                    </TableCell>
-                    <TableCell data-break-glass-origin>{session.state}</TableCell>
-                    <TableCell data-break-glass-level>{session.level}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-          {shown && olderSessionsCursor(shown) ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={busy}
-              data-break-glass-older-sessions
-              onClick={() => void readOlderSessions()}
-            >
-              {busy ? 'Leyendo…' : 'Ver sesiones anteriores'}
-            </Button>
-          ) : null}
-
-          {/* HU-BO-008 c3: what is planned and from which programme, by its name only. */}
-          {agenda.length > 0 ? (
-            <Table scrollAreaLabel="Agenda de la persona" data-break-glass-content>
-              <TableCaption>
-                Agenda de la persona. Cada programa aparece por su nombre; su contenido no se abre
-                desde aquí.
-              </TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cuándo</TableHead>
-                  <TableHead>Programa</TableHead>
-                  <TableHead>Día</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Origen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {agenda.map((entry, index) => (
-                  <TableRow key={`${index}-${entry.when}`}>
-                    <TableCell>{entry.when}</TableCell>
-                    <TableCell>{entry.program}</TableCell>
-                    <TableCell>{entry.day}</TableCell>
-                    <TableCell>{entry.status}</TableCell>
-                    <TableCell>{entry.origin}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-
-          {files.length === 0 ? (
+          {state === 'ready' && files.length === 0 ? (
             <ScreenEmpty icon="warning" title="No hay expedientes">
               Aquí aparecerán las ventanas, con el tiempo que les queda y cuántas veces se
               ejercieron.
             </ScreenEmpty>
           ) : (
             files.map((file) => (
-              <Card key={file.id} data-break-glass-file>
-                <CardHeader>
-                  <CardTitle role="heading" aria-level={2}>
-                    {file.case_reference} · {purposeLabel(file.purpose)}
-                  </CardTitle>
-                  <CardDescription>
-                    {file.categories.map((category) => categoryLabel(category)).join(' · ')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent data-card-body>
-                  <dl data-facts>
-                    <dt>Estado</dt>
-                    <dd>
-                      <Badge id={`bg-status-${file.id}`} variant={statusTone(file.status)}>
-                        {statusLabel(file.status)}
-                      </Badge>
-                    </dd>
-                    <dt>Alcance</dt>
-                    <dd>
-                      <span id={`bg-tier-${file.id}`}>
-                        {tierLabel(file.sensitivity_tier)} · {file.requested_duration_minutes}{' '}
-                        minutos
-                      </span>
-                    </dd>
-                    <dt>Persona afectada</dt>
-                    <dd>
-                      <RecordId id={file.subject_person_id} />
-                    </dd>
-                    <dt>Veces ejercida</dt>
-                    <dd>
-                      <span id={`bg-exercises-${file.id}`}>{file.exercise_count}</span>
-                    </dd>
-                  </dl>
-
-                  {windowSentence(file, now) ? (
-                    <Alert live="off" variant={windowTone(file, now)} data-break-glass-window>
-                      <AlertTitle>{windowSentence(file, now)}</AlertTitle>
-                      <AlertDescription>
-                        Cierra el {formatInstant(file.window_ends_at)}. Para continuar después hay
-                        que pedir otra ventana.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-
-                  {file.approvals.length > 0 ? (
+              <Fragment key={file.id}>
+                <Card data-break-glass-file>
+                  <CardHeader>
+                    <CardTitle role="heading" aria-level={2}>
+                      {file.case_reference} · {purposeLabel(file.purpose)}
+                    </CardTitle>
+                    <CardDescription>
+                      {file.categories.map((category) => categoryLabel(category)).join(' · ')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent data-card-body>
                     <dl data-facts>
-                      {file.approvals.map((approval) => (
-                        <Fragment key={approval.approver_person_id}>
-                          <dt>{approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}</dt>
-                          <dd>
-                            <span id={`bg-approval-${approval.approver_person_id}`}>
-                              <RecordId id={approval.approver_person_id} /> ·{' '}
-                              {formatInstant(approval.decided_at)} ·{' '}
-                              <span data-break-glass-decision-reason>
-                                {decisionReasonLabel(approval.reason_code)}
-                              </span>
-                            </span>
-                          </dd>
-                        </Fragment>
-                      ))}
+                      <dt>Estado</dt>
+                      <dd>
+                        <Badge id={`bg-status-${file.id}`} variant={statusTone(file.status)}>
+                          {statusLabel(file.status)}
+                        </Badge>
+                      </dd>
+                      <dt>Alcance</dt>
+                      <dd>
+                        <span id={`bg-tier-${file.id}`}>
+                          {tierLabel(file.sensitivity_tier)} · {file.requested_duration_minutes}{' '}
+                          minutos
+                        </span>
+                      </dd>
+                      <dt>Persona afectada</dt>
+                      <dd>
+                        <RecordId id={file.subject_person_id} />
+                      </dd>
+                      <dt>Veces ejercida</dt>
+                      <dd>
+                        <span id={`bg-exercises-${file.id}`}>{file.exercise_count}</span>
+                      </dd>
                     </dl>
-                  ) : null}
 
-                  {canExercise(file, now) ? (
-                    <div data-form-actions>
-                      {file.categories.map((category) => (
-                        <Button
-                          key={category}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={busy}
-                          onClick={() => void exercise(file, category)}
+                    {windowSentence(file, now) ? (
+                      <Alert live="off" variant={windowTone(file, now)} data-break-glass-window>
+                        <AlertTitle>{windowSentence(file, now)}</AlertTitle>
+                        <AlertDescription>
+                          Cierra el {formatInstant(file.window_ends_at)}. Para continuar después hay
+                          que pedir otra ventana.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+
+                    {file.approvals.length > 0 ? (
+                      <dl data-facts>
+                        {file.approvals.map((approval) => (
+                          <Fragment key={approval.approver_person_id}>
+                            <dt>{approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}</dt>
+                            <dd>
+                              <span id={`bg-approval-${approval.approver_person_id}`}>
+                                <RecordId id={approval.approver_person_id} /> ·{' '}
+                                {formatInstant(approval.decided_at)} ·{' '}
+                                <span data-break-glass-decision-reason>
+                                  {decisionReasonLabel(approval.reason_code)}
+                                </span>
+                              </span>
+                            </dd>
+                          </Fragment>
+                        ))}
+                      </dl>
+                    ) : null}
+
+                    {canExercise(file, now) ? (
+                      <div data-form-actions>
+                        {file.categories.map((category) => (
+                          <Button
+                            key={category}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => void exercise(file, category)}
+                          >
+                            Leer {categoryLabel(category).toLowerCase()}
+                          </Button>
+                        ))}
+                        <ConfirmAction
+                          trigger={<Button type="button" variant="outline" disabled={busy} />}
+                          label="Cerrar la ventana"
+                          title="¿Cerrar la ventana?"
+                          confirmLabel="Cerrar ahora"
+                          busyLabel="Cerrando…"
+                          keepLabel="Dejarla abierta"
+                          busy={busy}
+                          onConfirm={() =>
+                            run(
+                              () => backofficeApi.closeBreakGlass(file.id, newBackofficeCommand()),
+                              'Ventana cerrada. Ninguna lectura entrega contenido desde ahora.',
+                            )
+                          }
                         >
-                          Leer {categoryLabel(category).toLowerCase()}
-                        </Button>
-                      ))}
-                      <ConfirmAction
-                        trigger={<Button type="button" variant="outline" disabled={busy} />}
-                        label="Cerrar la ventana"
-                        title="¿Cerrar la ventana?"
-                        confirmLabel="Cerrar ahora"
-                        busyLabel="Cerrando…"
-                        keepLabel="Dejarla abierta"
-                        busy={busy}
-                        onConfirm={() =>
-                          run(
-                            () => backofficeApi.closeBreakGlass(file.id, newBackofficeCommand()),
-                            'Ventana cerrada. Ninguna lectura entrega contenido desde ahora.',
-                          )
-                        }
-                      >
-                        Lo que ya se leyó deja de mostrarse y ninguna lectura vuelve a entregar
-                        contenido. No se puede reabrir ni extender: para continuar habría que pedir
-                        otra ventana.
-                      </ConfirmAction>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
+                          Lo que ya se leyó deja de mostrarse y ninguna lectura vuelve a entregar
+                          contenido. No se puede reabrir ni extender: para continuar habría que
+                          pedir otra ventana.
+                        </ConfirmAction>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+                {/* Right under its window, at the full width its tables need. */}
+                {outcome?.fileId === file.id ? <div data-break-glass-read>{readResult}</div> : null}
+              </Fragment>
             ))
           )}
         </TabsContent>
