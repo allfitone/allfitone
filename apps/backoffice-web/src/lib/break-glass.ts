@@ -887,3 +887,16 @@ export function breakGlassMessage(code: string): string {
   }
   return messages[code] ?? 'No se pudo completar la operación.'
 }
+
+/** The windows open the screen; the review of used windows is its second tab. */
+export const BREAK_GLASS_TABS = ['windows', 'review'] as const
+
+export type BreakGlassTab = (typeof BREAK_GLASS_TABS)[number]
+
+export function breakGlassTabFromQuery(value: string | null): BreakGlassTab {
+  return BREAK_GLASS_TABS.find((tab) => tab === value) ?? 'windows'
+}
+
+export function breakGlassHref(tab: BreakGlassTab): string {
+  return tab === 'windows' ? '/break-glass' : `/break-glass?tab=${tab}`
+}

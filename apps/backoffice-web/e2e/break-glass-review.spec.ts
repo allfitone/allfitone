@@ -32,7 +32,7 @@ test('the queue is a debt: the oldest case is first and the backlog is counted',
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   await expect(page.locator('[data-review-backlog]')).toContainText('2 casos esperan revisión')
   await expect(page.locator('[data-review-backlog]')).toContainText('1 ya pasó de las 24 horas')
@@ -54,7 +54,7 @@ test('a case past its day is still reviewable, and says the deadline passed', as
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   const overdue = page.locator('[data-review-case="CASE-2026-OLD"]')
   await expect(overdue).toHaveAttribute('data-overdue', 'true')
@@ -76,7 +76,7 @@ test('a late verdict is accepted and recorded as late', async ({ context, page }
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   const overdue = page.locator('[data-review-case="CASE-2026-OLD"]')
   await overdue.locator('[data-review-verdict="unjustified"]').click()
@@ -100,7 +100,7 @@ test('an incident says it asks somebody to act, before it is pressed', async ({
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   const fresh = page.locator('[data-review-case="CASE-2026-FRESH"]')
   await expect(fresh.locator('[data-review-meaning="incident_opened"]')).toContainText(
@@ -120,7 +120,7 @@ test('without the auditing duty the queue says which duty it needs', async ({ co
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   await expect(page.locator('[data-review-refused]')).toContainText('audit_break_glass')
   await expect(page.locator('[data-review-refused]')).toContainText('quien lo aprobó')
@@ -143,7 +143,7 @@ test('a case somebody else just reviewed conflicts rather than taking a second v
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   await page
     .locator('[data-review-case="CASE-2026-FRESH"] [data-review-verdict="justified"]')
@@ -162,7 +162,7 @@ test('nothing on this screen leaks what the window actually read', async ({ cont
     }),
   )
 
-  await page.goto('/break-glass')
+  await page.goto('/break-glass?tab=review')
 
   const review = page.locator('[data-review-queue]')
   await expect(review.locator('[data-review-categories]').first()).toContainText(
