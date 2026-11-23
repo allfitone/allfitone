@@ -21,9 +21,10 @@
  * break-glass window, and a different screen. Reading this list records an access per
  * person it names, in the database, before anything is shown.
  *
- * It is the erasure screen's second section rather than an entry of its own: it needs
- * the same duty, and the menu is full. A hold applied or released here changes what the
- * requests above say, so the screen is told.
+ * It is the erasure screen's second tab rather than an entry of its own: it needs the
+ * same duty, and the menu is full. A hold applied or released here changes what the
+ * requests say, so the screen is told. Since reading the list records an access per
+ * person, the tab mounts it only once it is opened.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -45,8 +46,12 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { toast } from '@allfitone/react/components/sonner'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import { useCallback, useEffect, useState } from 'react'
+
+import { ConfirmAction } from './confirm-action'
+import { RecordId } from './record-id'
 
 import {
   BackofficeApiError,
@@ -88,7 +93,7 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
   const [drafting, setDrafting] = useState(false)
   const [draft, setDraft] = useState<HoldDraft>(emptyHold())
   const [issue, setIssue] = useState<HoldIssue | null>(null)
-  const [releasing, setReleasing] = useState<string | null>(null)
+  const [holdFailure, setHoldFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async (half: LegalHoldState) => {
@@ -121,18 +126,19 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
       return
     }
     setIssue(null)
+    setHoldFailure(null)
     setBusy(true)
     try {
       await backofficeApi.applyLegalHold(holdApplication(draft), newBackofficeCommand())
       setDrafting(false)
       setDraft(emptyHold())
       setFailure(null)
+      toast.success(HOLD_APPLIED)
       onChange?.()
       if (status === 'active') await load('active')
       else setStatus('active')
     } catch (caught) {
-      setRefused(false)
-      setFailure(failureMessage(caught))
+      setHoldFailure(failureMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -142,8 +148,8 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
     setBusy(true)
     try {
       await backofficeApi.releaseLegalHold(holdId, newBackofficeCommand())
-      setReleasing(null)
       setFailure(null)
+      toast.success(HOLD_RELEASED)
       onChange?.()
       await load(status)
     } catch (caught) {
@@ -191,6 +197,7 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
                 setDrafting(true)
                 setDraft(emptyHold())
                 setIssue(null)
+                setHoldFailure(null)
               }}
             >
               Nueva retención
@@ -199,20 +206,21 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
         </CardContent>
       </Card>
 
-      {drafting ? (
-        <LegalHoldForm
-          draft={draft}
-          onChange={setDraft}
-          issue={issue}
-          busy={busy}
-          submitLabel="Aplicar retención"
-          onSubmit={() => void apply()}
-          onCancel={() => {
-            setDrafting(false)
-            setIssue(null)
-          }}
-        />
-      ) : null}
+      <LegalHoldForm
+        open={drafting}
+        draft={draft}
+        onChange={setDraft}
+        issue={issue}
+        busy={busy}
+        submitLabel="Aplicar retención"
+        failure={holdFailure}
+        onSubmit={() => void apply()}
+        onCancel={() => {
+          setDrafting(false)
+          setIssue(null)
+          setHoldFailure(null)
+        }}
+      />
 
       {state === 'loading' ? <ScreenLoading label="Leyendo las retenciones" /> : null}
 
@@ -260,7 +268,7 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
                 {rows.map((row) => (
                   <TableRow key={row.id} data-legal-hold-row data-state={row.state}>
                     <TableCell data-legal-hold-subject>
-                      {row.subject ? <code>{row.subject}</code> : '—'}
+                      {row.subject ? <RecordId id={row.subject} /> : '—'}
                     </TableCell>
                     <TableCell data-legal-hold-scope>
                       {row.kinds}
@@ -278,14 +286,7 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
                       <small>{row.holding}</small>
                       {row.releasable ? (
                         <div data-legal-hold-actions>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => setReleasing(row.id)}
-                          >
-                            Liberar
-                          </Button>
+                          <ReleaseHold busy={busy} onRelease={() => release(row.id)} />
                         </div>
                       ) : null}
                     </TableCell>
@@ -296,31 +297,40 @@ export function LegalHolds({ onChange }: { onChange?: () => void } = {}) {
           )}
         </>
       ) : null}
-
-      {releasing ? (
-        <Alert live="polite" variant="warning" data-legal-hold-release-confirm>
-          <AlertTitle>Al liberar, la eliminación sigue su curso</AlertTitle>
-          <AlertDescription>
-            Lo que esta retención detiene pasa a otra retención vigente sobre los mismos datos, si
-            la hay; si no, se borra como la persona pidió, en el siguiente minuto. Liberar no se
-            deshace, y la retención queda registrada.
-            <div data-legal-hold-confirm-actions>
-              <Button type="button" disabled={busy} onClick={() => void release(releasing)}>
-                Confirmar liberación
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => setReleasing(null)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : null}
     </div>
+  )
+}
+
+export const HOLD_APPLIED =
+  'Retención aplicada. Lo que esperaba borrarse de esos tipos queda detenido.'
+export const HOLD_RELEASED = 'Retención liberada. La eliminación sigue su curso.'
+
+/**
+ * Releasing says what it will do before it does it. Shared with the erasure
+ * requests, where the same hold can be released from the request it stops.
+ */
+export function ReleaseHold({
+  busy,
+  onRelease,
+}: {
+  busy: boolean
+  onRelease: () => Promise<void>
+}) {
+  return (
+    <ConfirmAction
+      trigger={<Button type="button" variant="outline" disabled={busy} />}
+      label="Liberar"
+      title="¿Liberar la retención?"
+      confirmLabel="Liberar la retención"
+      busyLabel="Liberando…"
+      keepLabel="Mantener la retención"
+      busy={busy}
+      onConfirm={onRelease}
+    >
+      Al liberar, la eliminación sigue su curso: lo que esta retención detiene pasa a otra retención
+      vigente sobre los mismos datos, si la hay; si no, se borra como la persona pidió, en el
+      siguiente minuto. Liberar no se deshace, y la retención queda registrada.
+    </ConfirmAction>
   )
 }
 

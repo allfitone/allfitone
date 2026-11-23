@@ -65,7 +65,7 @@ describe('legal holds', () => {
   test('there are no indefinite holds, and a date already past is not an end', () => {
     expect(holdIssue({ ...complete, validTo: '' }, NOW)).toBe('vigency')
     expect(holdIssue({ ...complete, validTo: '2026-09-01' }, NOW)).toBe('vigency')
-    expect(holdIssueMessage('vigency')).toContain('No existen suspensiones indefinidas')
+    expect(holdIssueMessage('vigency')).toContain('No existen retenciones indefinidas')
     expect(holdIssueMessage('subject')).toContain('identificador')
     expect(holdIssueMessage('categories')).toContain('al menos un tipo de dato')
   })

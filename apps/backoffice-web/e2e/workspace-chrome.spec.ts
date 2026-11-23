@@ -123,7 +123,8 @@ test('groups the navigation by area and names the area over the title', async ({
     'Solicitudes de eliminación',
   )
 
-  const header = page.locator('header')
+  // The shell's header: the screen's content opens with a header of its own.
+  const header = page.locator('[data-backoffice-header]')
   await expect(header).toContainText('Seguridad y privacidad')
   await expect(header.getByRole('heading', { level: 1 })).toHaveText('Solicitudes de eliminación')
 

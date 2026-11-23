@@ -111,7 +111,7 @@ export function holdIssueMessage(issue: HoldIssue): string {
     categories: 'Marca al menos un tipo de dato que haya que conservar.',
     scope: 'Describe qué cubre la retención, con tus palabras.',
     case: 'Anota la referencia del requerimiento u orden que la sustenta.',
-    vigency: 'Di hasta cuándo. No existen suspensiones indefinidas, y una fecha pasada no sirve.',
+    vigency: 'Di hasta cuándo. No existen retenciones indefinidas, y una fecha pasada no sirve.',
   }
   return messages[issue]
 }
