@@ -24,6 +24,7 @@ import { flushSync } from 'react-dom'
 
 import { BackofficeSessionProvider } from './backoffice-session-context'
 import { BackofficeWorkspaceShell } from './backoffice-workspace-shell'
+import { PeopleSearchMemory } from './people-search-memory'
 
 import { BackofficeApiError, backofficeApi, type BackofficeSession } from '@/lib/backoffice-api'
 import {
@@ -231,11 +232,14 @@ export function BackofficeSessionGate({ children }: { children: ReactNode }) {
   const operatorName = `${session.operator.given_name} ${session.operator.family_name}`.trim()
 
   // The provider reads the session the heartbeat keeps current, so home shows the live deadline.
+  // The search memory sits under the gate, so ending the session drops it with the screen.
   return (
     <BackofficeSessionProvider session={session}>
-      <BackofficeWorkspaceShell operatorName={operatorName} onSignOut={() => void end('manual')}>
-        {children}
-      </BackofficeWorkspaceShell>
+      <PeopleSearchMemory>
+        <BackofficeWorkspaceShell operatorName={operatorName} onSignOut={() => void end('manual')}>
+          {children}
+        </BackofficeWorkspaceShell>
+      </PeopleSearchMemory>
     </BackofficeSessionProvider>
   )
 }

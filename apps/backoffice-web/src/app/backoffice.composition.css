@@ -115,7 +115,10 @@
   max-width: 26rem;
 }
 
+/* A grid like the search, so a field's own error sits under it. */
 [data-list-filter] {
+  display: grid;
+  gap: var(--afo-space-1);
   flex: 0 1 14rem;
 }
 
@@ -357,7 +360,6 @@
   font-size: var(--afo-font-size-xs);
 }
 
-[data-support-search],
 [data-support-diagnosis],
 [data-scope-definitions],
 /* Four notices side by side when there is room, one column on a phone. */
@@ -473,11 +475,6 @@
    edge instead of sitting flush with the gyms that do. */
 [data-organization-row][data-status='unclaimed'] {
   box-shadow: inset 3px 0 0 var(--afo-color-status-warning);
-}
-
-[data-support-search-form] {
-  display: grid;
-  gap: 12px;
 }
 
 /* The identifier and the masked contact are what an operator quotes back into a
