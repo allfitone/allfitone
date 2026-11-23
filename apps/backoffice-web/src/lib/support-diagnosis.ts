@@ -182,9 +182,24 @@ export function circuitSummary(circuits: readonly SupportDeliveryCircuit[]): str
 const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** What the operation is about: the kind of thing and which one. */
+/**
+ * The outbox names its aggregates in code («organization»). The ones the Backoffice
+ * shows have a word; one it does not know yet keeps its own name rather than none.
+ */
+const SUBJECT_KINDS: Readonly<Record<string, string>> = {
+  person: 'Persona',
+  organization: 'Gimnasio',
+  organization_site: 'Sede',
+  organization_membership: 'Miembro del equipo',
+  membership_role: 'Rol en el equipo',
+  organization_ownership_transfer: 'Traspaso del gimnasio',
+  invitation: 'Invitación',
+}
+
 export function subjectLine(operation: SupportOperation): string {
   if (!operation.subject_kind || !operation.subject_id) return 'Sin sujeto'
-  return `${operation.subject_kind} ${shortIdentifier(operation.subject_id)}`
+  const kind = SUBJECT_KINDS[operation.subject_kind] ?? operation.subject_kind
+  return `${kind} ${shortIdentifier(operation.subject_id)}`
 }
 
 /** Checked before the search travels, so a typo is refused instead of answering nothing. */
