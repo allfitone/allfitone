@@ -232,9 +232,7 @@ test('the Backoffice starts on the panel', async ({ context, page }) => {
     page.getByRole('link', { name: 'Ir al inicio de Allfit Backoffice' }),
   ).toHaveAttribute('href', '/panel')
 
+  // A browser that already holds a session opens Inicio, with no stop on the way.
   await page.goto('/')
-  await expect(page.locator('a', { hasText: 'Entrar al Backoffice' })).toHaveAttribute(
-    'href',
-    '/panel',
-  )
+  await expect(page).toHaveURL(/\/panel$/)
 })

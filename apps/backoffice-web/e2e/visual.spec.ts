@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test'
 
 import {
-  activeSession,
   createBackofficeFixture,
   enrollmentAttempt,
   mockBackofficeApi,
@@ -24,17 +23,6 @@ test('captures TOTP enrollment on tablet', async ({ context, page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Conecta tu autenticador.' })).toBeVisible()
   await expect(page).toHaveScreenshot('backoffice-enrollment-tablet.png', {
-    animations: 'disabled',
-    fullPage: true,
-    maxDiffPixelRatio: 0.02,
-  })
-})
-
-test('captures the confirmed AAL2 session', async ({ context, page }) => {
-  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
-  await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Acceso confirmado.' })).toBeVisible()
-  await expect(page).toHaveScreenshot('backoffice-session-desktop.png', {
     animations: 'disabled',
     fullPage: true,
     maxDiffPixelRatio: 0.02,

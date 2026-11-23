@@ -37,18 +37,16 @@ import {
 } from '@allfitone/react/components/device-gate'
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
-  FieldTitle,
 } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { FoundationIcon } from '@allfitone/react/icons'
 import Image from 'next/image'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   useCallback,
   useEffect,
@@ -70,7 +68,6 @@ import {
 } from '@/lib/backoffice-api'
 import {
   activeSessionActivity,
-  BACKOFFICE_HEARTBEAT_INTERVAL_MS,
   backofficeSessionStorageKey,
   clearBackofficeSessionActivity,
   parseBackofficeSessionActivity,
@@ -87,7 +84,8 @@ type ViewState =
   | { kind: 'challenge'; attempt: BackofficeAuthenticationAttempt }
   | { kind: 'reset' }
   | { kind: 'reset-sent' }
-  | { kind: 'authenticated'; session: BackofficeSession }
+  // A confirmed session is handed to Inicio, whose gate keeps it from then on.
+  | { kind: 'entering' }
   | { kind: 'unavailable' }
   | {
       kind: 'recovery'
@@ -109,8 +107,7 @@ export function BackofficeAccess() {
   const surfaceRef = useRef<HTMLDivElement>(null)
   const immediateCoverRef = useRef<HTMLDivElement>(null)
   const lifecycleGenerationRef = useRef(0)
-  const lastHeartbeatRef = useRef(0)
-  const heartbeatInFlightRef = useRef(false)
+  const router = useRouter()
 
   const commit = useCallback((next: ViewState): void => {
     viewRef.current = next
@@ -132,12 +129,13 @@ export function BackofficeAccess() {
         commit({ kind: 'recovery', reason: 'unknown', busy: false, retryable: true })
         return false
       }
-      lastHeartbeatRef.current = activity.lastVerifiedAt
       writeBackofficeSessionActivity(activity)
-      commit({ kind: 'authenticated', session })
+      commit({ kind: 'entering' })
+      // Replaced, not pushed: Back from Inicio would only land here and be sent on again.
+      router.replace('/panel')
       return true
     },
-    [commit],
+    [commit, router],
   )
 
   const commitAttempt = useCallback(
@@ -275,104 +273,14 @@ export function BackofficeAccess() {
         }
         return
       }
-      if (stored?.status !== 'active') return
-      const current = viewRef.current
-      if (current.kind === 'authenticated') {
-        commit({
-          kind: 'authenticated',
-          session: {
-            ...current.session,
-            inactivity_expires_at: new Date(stored.inactivityExpiresAt).toISOString(),
-            absolute_expires_at: new Date(stored.absoluteExpiresAt).toISOString(),
-          },
-        })
-      } else {
-        void bootstrap(true)
-      }
-    }
-
-    function revalidateVisibleSession(): void {
-      if (document.visibilityState === 'visible' && viewRef.current.kind === 'authenticated') {
-        void bootstrap(true)
-      }
-    }
-
-    function revalidateHistory(event: PageTransitionEvent): void {
-      if (event.persisted && viewRef.current.kind === 'authenticated') void bootstrap(true)
+      // A session another tab opened is checked here, then handed to Inicio like ours.
+      if (stored?.status !== 'active' || viewRef.current.kind === 'entering') return
+      void bootstrap(true)
     }
 
     window.addEventListener('storage', synchronize)
-    window.addEventListener('pageshow', revalidateHistory)
-    document.addEventListener('visibilitychange', revalidateVisibleSession)
-    return () => {
-      window.removeEventListener('storage', synchronize)
-      window.removeEventListener('pageshow', revalidateHistory)
-      document.removeEventListener('visibilitychange', revalidateVisibleSession)
-    }
+    return () => window.removeEventListener('storage', synchronize)
   }, [bootstrap, commit, coverImmediately])
-
-  useEffect(() => {
-    if (view.kind !== 'authenticated') return
-    const activity = activeSessionActivity({
-      inactivityExpiresAt: view.session.inactivity_expires_at,
-      absoluteExpiresAt: view.session.absolute_expires_at,
-    })
-    const remaining = sessionDeadline(activity) - Date.now()
-    if (remaining <= 0) {
-      void completeLogout('inactivity')
-      return
-    }
-    const timeout = window.setTimeout(() => void completeLogout('inactivity'), remaining)
-    return () => window.clearTimeout(timeout)
-  }, [completeLogout, view])
-
-  useEffect(() => {
-    if (view.kind !== 'authenticated') return
-
-    async function recordMeaningfulActivity(): Promise<void> {
-      const now = Date.now()
-      if (
-        heartbeatInFlightRef.current ||
-        now - lastHeartbeatRef.current < BACKOFFICE_HEARTBEAT_INTERVAL_MS
-      ) {
-        return
-      }
-      const generation = lifecycleGenerationRef.current
-      heartbeatInFlightRef.current = true
-      lastHeartbeatRef.current = now
-      try {
-        const session = await backofficeApi.session()
-        if (generation === lifecycleGenerationRef.current) acceptSession(session)
-      } catch (error) {
-        if (generation !== lifecycleGenerationRef.current) return
-        coverImmediately()
-        if (isStatus(error, 401)) {
-          writeBackofficeSessionActivity({
-            version: 1,
-            status: 'ended',
-            endedAt: Date.now(),
-            confirmedAt: Date.now(),
-            reason: 'unknown',
-          })
-          commit({ kind: 'login', notice: 'expired' })
-        } else {
-          commit({ kind: 'recovery', reason: 'unknown', busy: false, retryable: true })
-        }
-      } finally {
-        heartbeatInFlightRef.current = false
-      }
-    }
-
-    const onActivity = (): void => void recordMeaningfulActivity()
-    window.addEventListener('pointerdown', onActivity)
-    window.addEventListener('keydown', onActivity)
-    window.addEventListener('touchstart', onActivity, { passive: true })
-    return () => {
-      window.removeEventListener('pointerdown', onActivity)
-      window.removeEventListener('keydown', onActivity)
-      window.removeEventListener('touchstart', onActivity)
-    }
-  }, [acceptSession, commit, coverImmediately, view.kind])
 
   return (
     <>
@@ -408,11 +316,8 @@ export function BackofficeAccess() {
             />
           ) : view.kind === 'reset-sent' ? (
             <PasswordResetSentPanel onDone={() => commit({ kind: 'login' })} />
-          ) : view.kind === 'authenticated' ? (
-            <AuthenticatedPanel
-              session={view.session}
-              onLogout={() => void completeLogout('manual')}
-            />
+          ) : view.kind === 'entering' ? (
+            <EnteringPanel />
           ) : view.kind === 'unavailable' ? (
             <UnavailablePanel onRetry={() => void bootstrap()} />
           ) : (
@@ -902,77 +807,13 @@ function PasswordResetSentPanel({ onDone }: { onDone: () => void }) {
   )
 }
 
-function AuthenticatedPanel({
-  session,
-  onLogout,
-}: {
-  session: BackofficeSession
-  onLogout: () => void
-}) {
-  const operatorName = `${session.operator.given_name} ${session.operator.family_name}`.trim()
+/** Shown only while Inicio loads: Inicio says who signed in, how, and until when. */
+function EnteringPanel() {
   return (
-    <Panel
-      title="Acceso confirmado."
-      description={`La identidad de ${operatorName} fue verificada. Cada módulo operativo comprueba su propio deber al entrar.`}
-    >
-      <Alert live="polite" variant="success">
-        <AlertTitle>Nivel AAL2 comprobado</AlertTitle>
-        <AlertDescription>Contraseña y código TOTP vinculados a esta sesión.</AlertDescription>
+    <Panel eyebrow="Acceso verificado" title="Entrando al Backoffice.">
+      <Alert icon={<Spinner label="Abriendo Inicio" />} live="polite">
+        <AlertTitle>Abriendo Inicio</AlertTitle>
       </Alert>
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>Sesión actual</CardTitle>
-          <CardDescription>La sesión no concede operaciones por sí sola.</CardDescription>
-        </CardHeader>
-        <CardContent data-card-body>
-          <FieldGroup>
-            <Field>
-              <FieldContent>
-                <FieldTitle>Operador</FieldTitle>
-                <FieldDescription>{operatorName}</FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldContent>
-                <FieldTitle>Evidencia</FieldTitle>
-                <FieldDescription>
-                  AAL2 · verificada el {formatDate(session.assurance_verified_at)}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldContent>
-                <FieldTitle>Inactividad</FieldTitle>
-                <FieldDescription>
-                  Vence el {formatDate(session.inactivity_expires_at)}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-            <Field>
-              <FieldContent>
-                <FieldTitle>Límite absoluto</FieldTitle>
-                <FieldDescription>
-                  Vence el {formatDate(session.absolute_expires_at)}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-          </FieldGroup>
-        </CardContent>
-      </Card>
-      <AccessPanelAction>
-        {/* The confirmed session is now a doorway rather than a dead end: the
-            operating modules live behind the shell, and each of them resolves
-            its own duty. Landing here still grants nothing by itself. */}
-        {/* The rendered element is an anchor, so the native button contract is
-            declared false: with it left true Base UI warns that it lost native
-            button semantics, and `type` means nothing on a link. */}
-        <Button render={<Link href="/panel" />} nativeButton={false}>
-          Entrar al Backoffice
-        </Button>
-        <Button type="button" variant="outline" onClick={onLogout}>
-          Cerrar sesión
-        </Button>
-      </AccessPanelAction>
     </Panel>
   )
 }

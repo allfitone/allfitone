@@ -5,9 +5,9 @@ import { activeSession, createBackofficeFixture, mockBackofficeApi } from './bac
 /**
  * The session lifecycle inside the workspace, where the protected data lives.
  *
- * The access screen already ends its view at the deadline, across tabs and on
- * return; the workspace confirmed the session once and then kept whatever it had
- * rendered. These cases hold the workspace to the same rules.
+ * The access screen hands a confirmed session straight to Inicio and never shows it
+ * itself, so every rule about a live session is held here: it ends at the deadline,
+ * across tabs, on return and on Back.
  */
 
 const LOGIN = { name: 'Identifica tu acceso.' }
@@ -126,6 +126,22 @@ test('returning to a workspace tab whose session was revoked does not show it', 
 
   fixture.session = undefined
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')))
+
+  await expectSignedOut(page)
+})
+
+test('going Back to a workspace whose session was revoked meanwhile does not show it', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession() })
+  await mockBackofficeApi(context, fixture)
+  await page.goto('/team')
+  await expect(workspace(page)).toBeVisible()
+  await page.goto('about:blank')
+
+  fixture.session = undefined
+  await page.goBack()
 
   await expectSignedOut(page)
 })
