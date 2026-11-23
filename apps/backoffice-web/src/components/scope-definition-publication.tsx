@@ -28,7 +28,13 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import { Checkbox } from '@allfitone/react/components/checkbox'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
   Select,
@@ -46,7 +52,10 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { toast } from '@allfitone/react/components/sonner'
+import { useCallback, useEffect, useState } from 'react'
+
+import { ConfirmAction } from './confirm-action'
 
 import {
   BackofficeApiError,
@@ -90,11 +99,14 @@ export function ScopeDefinitionPublication() {
   const [definitions, setDefinitions] = useState<ScopeDefinition[]>([])
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+  // Only what failed stays on the page; what worked pops up as a toast.
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [scope, setScope] = useState<ScopeCode>('body_progress')
   const [rules, setRules] = useState<RuleDraft[]>([emptyRule()])
   const [error, setError] = useState<string | null>(null)
+  // A rule's own problem is said under that rule, not at the foot of every rule.
+  const [ruleError, setRuleError] = useState<{ index: number; message: string } | null>(null)
   const [paste, setPaste] = useState('')
   const [pasteNotice, setPasteNotice] = useState<string | null>(null)
 
@@ -147,19 +159,25 @@ export function ScopeDefinitionPublication() {
     )
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    const broken = rules.map(ruleIssue).find((issue) => issue !== undefined)
+  /** Says what is missing before the question opens; the question is for a complete version. */
+  function ready(): boolean {
+    const index = rules.findIndex((rule) => ruleIssue(rule) !== undefined)
+    const broken = index >= 0 ? ruleIssue(rules[index] ?? emptyRule()) : undefined
     if (broken) {
-      setError(ruleIssueMessage(broken))
-      return
+      setRuleError({ index, message: ruleIssueMessage(broken) })
+      setError(null)
+      return false
     }
+    setRuleError(null)
     if (!includesSomething(rules)) {
       setError('Una versión que sólo excluye no concede nada. Incluye al menos un campo.')
-      return
+      return false
     }
-
     setError(null)
+    return true
+  }
+
+  async function submit() {
     setNotice(null)
     setBusy(true)
     try {
@@ -167,14 +185,13 @@ export function ScopeDefinitionPublication() {
         { scope_code: scope, rules: toResourceRules(rules) },
         newBackofficeCommand(),
       )
-      setNotice({
-        tone: 'success',
-        message: `Publicada la versión ${published.version_number} de ${scopeLabel(scope)}. Quien aceptó una versión anterior la conserva.`,
-      })
+      toast.success(
+        `Publicada la versión ${published.version_number} de ${scopeLabel(scope)}. Quien aceptó una versión anterior la conserva.`,
+      )
       setRules([emptyRule()])
       await load()
     } catch (caught) {
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
+      setNotice(failureMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -199,9 +216,9 @@ export function ScopeDefinitionPublication() {
   return (
     <div data-scope-definitions>
       {notice ? (
-        <Alert live="polite" variant={notice.tone === 'success' ? 'success' : 'danger'}>
-          <AlertTitle>{notice.tone === 'success' ? 'Hecho' : 'No se publicó'}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
+        <Alert live="polite" variant="danger">
+          <AlertTitle>No se publicó</AlertTitle>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -217,7 +234,12 @@ export function ScopeDefinitionPublication() {
           </CardDescription>
         </CardHeader>
         <CardContent data-card-body>
-          <form onSubmit={submit} data-backoffice-form data-scope-form noValidate>
+          <form
+            onSubmit={(event) => event.preventDefault()}
+            data-backoffice-form
+            data-scope-form
+            noValidate
+          >
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="scope-code">Permiso</FieldLabel>
@@ -261,7 +283,7 @@ export function ScopeDefinitionPublication() {
               </Field>
 
               {rules.map((draft, index) => (
-                <Field key={index}>
+                <Field key={index} data-scope-rule={index + 1}>
                   <FieldLabel htmlFor={`rule-resource-${index}`}>
                     Recurso y campo {index + 1}
                   </FieldLabel>
@@ -321,34 +343,62 @@ export function ScopeDefinitionPublication() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Checkbox
-                    checked={draft.excluded}
-                    onCheckedChange={(checked) =>
-                      updateRule(index, { excluded: checked === true, historical: false })
-                    }
-                    disabled={busy}
-                    aria-label={`Excluir la regla ${index + 1}`}
-                  >
-                    Excluido de este permiso
-                  </Checkbox>
-                  <Checkbox
-                    checked={draft.historical}
-                    onCheckedChange={(checked) =>
-                      updateRule(index, { historical: checked === true })
-                    }
-                    disabled={busy || draft.excluded || draft.action !== 'read'}
-                    aria-label={`Leer hacia atrás en la regla ${index + 1}`}
-                  >
-                    Se puede leer de antes del permiso
-                  </Checkbox>
+                  {/* Each box had its words inside the control, where nothing tied them to
+                      it; the words beside it are now its name. */}
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id={`rule-excluded-${index}`}
+                      checked={draft.excluded}
+                      onCheckedChange={(checked) =>
+                        updateRule(index, { excluded: checked === true, historical: false })
+                      }
+                      disabled={busy}
+                    />
+                    <FieldLabel htmlFor={`rule-excluded-${index}`}>
+                      Excluir la regla {index + 1}
+                    </FieldLabel>
+                  </Field>
+                  <Field orientation="horizontal">
+                    <Checkbox
+                      id={`rule-historical-${index}`}
+                      checked={draft.historical}
+                      onCheckedChange={(checked) =>
+                        updateRule(index, { historical: checked === true })
+                      }
+                      disabled={busy || draft.excluded || draft.action !== 'read'}
+                    />
+                    <FieldLabel htmlFor={`rule-historical-${index}`}>
+                      Leer hacia atrás en la regla {index + 1}
+                    </FieldLabel>
+                  </Field>
+                  {/* A control that cannot be used says why, rather than leaving it to guess. */}
+                  {draft.excluded || draft.action !== 'read' ? (
+                    <FieldDescription>
+                      Solo una regla de lectura que no esté excluida puede leer lo registrado antes
+                      de que la persona concediera el permiso.
+                    </FieldDescription>
+                  ) : null}
+                  {ruleError?.index === index ? <FieldError>{ruleError.message}</FieldError> : null}
                 </Field>
               ))}
 
               {error ? <FieldError>{error}</FieldError> : null}
               <div data-form-actions>
-                <Button type="submit" disabled={busy}>
-                  Publicar versión
-                </Button>
+                <ConfirmAction
+                  tone="default"
+                  trigger={<Button type="button" disabled={busy} />}
+                  label="Publicar versión"
+                  title={`¿Publicar la versión siguiente de ${scopeLabel(scope)}?`}
+                  confirmLabel="Publicar"
+                  busyLabel="Publicando…"
+                  keepLabel="Seguir editando"
+                  busy={busy}
+                  canOpen={ready}
+                  onConfirm={submit}
+                >
+                  Una versión publicada no se edita, y quien aceptó la anterior sigue bajo la
+                  anterior: publicar una más amplia no amplía lo que alguien ya concedió.
+                </ConfirmAction>
                 <Button
                   type="button"
                   variant="outline"
