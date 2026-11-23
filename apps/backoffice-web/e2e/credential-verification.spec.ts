@@ -109,7 +109,12 @@ test('there is no default result, so nothing is sent until one is chosen', async
   await fillSource(page)
   await page.getByRole('button', { name: 'Registrar decisión' }).click()
 
-  await expect(page.getByText(/No hay uno por defecto/)).toBeVisible()
+  // Said under the choice it is about, not at the foot of an eight-field form.
+  const choice = page.locator('[data-verification-choice]')
+  await expect(choice).toHaveAccessibleDescription(/No hay uno por defecto/)
+  const issue = page.getByText(/No hay uno por defecto/)
+  const [choiceBox, issueBox] = [await choice.boundingBox(), await issue.boundingBox()]
+  expect((issueBox?.y ?? 0) - ((choiceBox?.y ?? 0) + (choiceBox?.height ?? 0))).toBeLessThan(120)
   expect(decisions(fixture)).toHaveLength(0)
 })
 
@@ -185,7 +190,10 @@ test('insufficient evidence is recorded as an answer, not as a failure', async (
   await page.getByRole('button', { name: 'Registrar decisión' }).click()
 
   await expect(page.getByText(/Quedó registrado como «No verificable»/)).toBeVisible()
-  await expect(page.getByText('Hecho')).toBeVisible()
+  // The outcome pops up as a toast instead of a «Hecho» far above the queue.
+  await expect(page.locator('[data-sonner-toast]')).toContainText(
+    /Quedó registrado como «No verificable»/,
+  )
   await expect(page.getByText('No se aplicó')).toHaveCount(0)
 })
 
@@ -217,7 +225,10 @@ test('a source that says the title lapsed cannot verify it', async ({ context, p
   await fillSource(page, '01/01/2020')
   await page.getByRole('button', { name: 'Registrar decisión' }).click()
 
-  await expect(page.getByText(/ya venció, así que no puede quedar verificado/)).toBeVisible()
+  // Under the date it is about.
+  await expect(page.locator('[data-verification-valid-to-issue]')).toContainText(
+    /ya venció, así que no puede quedar verificado/,
+  )
   expect(decisions(fixture)).toHaveLength(0)
 })
 
