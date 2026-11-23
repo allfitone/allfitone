@@ -14,6 +14,9 @@
  * about to supersede. What the response then carries is the evidence the story
  * asks for — the version number the server assigned, and the association it
  * closed with the window that closed it.
+ *
+ * Publishing asks first, once the form has said what is missing: a published
+ * version cannot be edited, only superseded. What worked pops up as a toast.
  */
 
 import {
@@ -56,7 +59,10 @@ import {
   TableRow,
 } from '@allfitone/react/components/table'
 import { Textarea } from '@allfitone/react/components/textarea'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { toast } from '@allfitone/react/components/sonner'
+import { useEffect, useMemo, useState } from 'react'
+
+import { ConfirmAction } from './confirm-action'
 
 import {
   BackofficeApiError,
@@ -102,7 +108,8 @@ export function ResultContractPublication() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [published, setPublished] = useState<ResultContract | null>(null)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+  // Only what failed stays on the page; what worked pops up as a toast.
+  const [notice, setNotice] = useState<string | null>(null)
   const [disciplines, setDisciplines] = useState<CatalogDiscipline[]>([])
   const [activityTypes, setActivityTypes] = useState<CatalogActivityType[]>([])
   const [catalogueError, setCatalogueError] = useState<string | null>(null)
@@ -180,37 +187,41 @@ export function ResultContractPublication() {
     )
   }
 
-  async function submit(event: FormEvent) {
-    event.preventDefault()
+  /** Says what is missing before the question opens; the question is for a complete version. */
+  function ready(): boolean {
     if (!isValidContractCode(contractCode)) {
       setError('El código va en minúsculas, con puntos o guiones bajos, y al menos dos caracteres.')
-      return
+      return false
     }
     if (!isValidActivityTypeId(activityTypeId)) {
       setError('Elige el tipo de actividad al que aplica el contrato.')
-      return
+      return false
     }
-    const parsedEnvelope = parseJsonDocument(envelope)
-    if (!parsedEnvelope.ok) {
+    if (!parseJsonDocument(envelope).ok) {
       setError('El envelope debe ser un objeto JSON.')
-      return
+      return false
     }
-    const parsedMinimums = parseJsonDocument(minimums)
-    if (!parsedMinimums.ok) {
+    if (!parseJsonDocument(minimums).ok) {
       setError('Los mínimos deben ser un objeto JSON.')
-      return
+      return false
     }
     const broken = fixtures.map(fixtureIssue).find((issue) => issue !== undefined)
     if (broken) {
       setError(fixtureIssueMessage(broken))
-      return
+      return false
     }
     if (!fixturesDemonstrateBothOutcomes(fixtures)) {
       setError('Hace falta un caso que el contrato acepte y uno que rechace.')
-      return
+      return false
     }
-
     setError(null)
+    return true
+  }
+
+  async function submit() {
+    const parsedEnvelope = parseJsonDocument(envelope)
+    const parsedMinimums = parseJsonDocument(minimums)
+    if (!parsedEnvelope.ok || !parsedMinimums.ok) return
     setBusy(true)
     setNotice(null)
     try {
@@ -227,12 +238,9 @@ export function ResultContractPublication() {
       )
       setPublished(resource)
       setCatalogueRevision((current) => current + 1)
-      setNotice({
-        tone: 'success',
-        message: `Publicada la versión ${resource.version_number} de ${resource.contract_code}.`,
-      })
+      toast.success(`Publicada la versión ${resource.version_number} de ${resource.contract_code}.`)
     } catch (failure) {
-      setNotice({ tone: 'danger', message: failureMessage(failure) })
+      setNotice(failureMessage(failure))
     } finally {
       setBusy(false)
     }
@@ -248,12 +256,11 @@ export function ResultContractPublication() {
       )
       if (published?.id === resource.id) setPublished(resource)
       setCatalogueRevision((current) => current + 1)
-      setNotice({
-        tone: 'success',
-        message: `Deprecada la versión ${resource.version_number} de ${resource.contract_code}. Las ejecuciones que ya la congelaron siguen válidas.`,
-      })
+      toast.success(
+        `Deprecada la versión ${resource.version_number} de ${resource.contract_code}. Las ejecuciones que ya la congelaron siguen válidas.`,
+      )
     } catch (failure) {
-      setNotice({ tone: 'danger', message: failureMessage(failure) })
+      setNotice(failureMessage(failure))
     } finally {
       setBusy(false)
     }
@@ -270,12 +277,9 @@ export function ResultContractPublication() {
       )
       setPublished(resource)
       setCatalogueRevision((current) => current + 1)
-      setNotice({
-        tone: 'success',
-        message: 'Contrato deprecado. Las ejecuciones que ya lo congelaron siguen válidas.',
-      })
+      toast.success('Contrato deprecado. Las ejecuciones que ya lo congelaron siguen válidas.')
     } catch (failure) {
-      setNotice({ tone: 'danger', message: failureMessage(failure) })
+      setNotice(failureMessage(failure))
     } finally {
       setBusy(false)
     }
@@ -284,9 +288,9 @@ export function ResultContractPublication() {
   return (
     <div data-result-contracts>
       {notice ? (
-        <Alert live="polite" variant={notice.tone === 'success' ? 'success' : 'danger'}>
-          <AlertTitle>{notice.tone === 'success' ? 'Hecho' : 'No se publicó'}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
+        <Alert live="polite" variant="danger">
+          <AlertTitle>No se aplicó</AlertTitle>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       ) : null}
 
@@ -316,7 +320,12 @@ export function ResultContractPublication() {
           </Alert>
         </CardHeader>
         <CardContent data-card-body>
-          <form onSubmit={submit} data-backoffice-form data-result-contract-form noValidate>
+          <form
+            onSubmit={(event) => event.preventDefault()}
+            data-backoffice-form
+            data-result-contract-form
+            noValidate
+          >
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="contract-code">Código del contrato</FieldLabel>
@@ -349,7 +358,14 @@ export function ResultContractPublication() {
               </Field>
               <Field>
                 <FieldLabel htmlFor="contract-activity-type">Tipo de actividad</FieldLabel>
+                {/* Without its items the trigger showed the chosen type's identifier. */}
                 <Select
+                  items={activityTypeGroups.flatMap((group) =>
+                    group.activityTypes.map((activityType) => ({
+                      value: activityType.id,
+                      label: activityType.name,
+                    })),
+                  )}
                   value={activityTypeId}
                   onValueChange={(value) => setActivityTypeId(value ?? '')}
                 >
@@ -421,9 +437,22 @@ export function ResultContractPublication() {
               ))}
               {error ? <FieldError>{error}</FieldError> : null}
               <div data-form-actions>
-                <Button type="submit" disabled={busy}>
-                  Publicar versión
-                </Button>
+                <ConfirmAction
+                  tone="default"
+                  trigger={<Button type="button" disabled={busy} />}
+                  label="Publicar versión"
+                  title={`¿Publicar una versión de ${contractCode.trim() || 'este contrato'}?`}
+                  confirmLabel="Publicar"
+                  busyLabel="Publicando…"
+                  keepLabel="Seguir editando"
+                  busy={busy}
+                  canOpen={ready}
+                  onConfirm={submit}
+                >
+                  Una versión publicada no se edita: corregirla exige publicar la siguiente. Cierra
+                  la asociación vigente del tipo de actividad y no reinterpreta las sesiones ya
+                  registradas.
+                </ConfirmAction>
               </div>
             </FieldGroup>
           </form>
@@ -663,7 +692,7 @@ function PublishedContract({
           >
             <Button
               type="button"
-              variant="destructive"
+              variant="outline"
               disabled={busy}
               onClick={() => setDeprecating(true)}
             >
