@@ -12,7 +12,7 @@ import {
 } from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
+import { Button } from '@allfitone/react/components/button'
 import {
   Card,
   CardAction,
@@ -60,6 +60,7 @@ import {
 } from '@allfitone/react/components/select'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { toast } from '@allfitone/react/components/sonner'
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
@@ -177,12 +178,19 @@ export function ProfessionalCredentials({
 
   return (
     <section data-profile-section aria-labelledby="credentials-title">
-      <div data-profile-section-heading>
+      <header data-profile-section-heading>
         <div data-profile-section-heading-text>
           {/* No kicker. "Opcional · Personal" said what the heading and the
               sentence under it already say, on a route that is personal by
-              definition. */}
-          <h2 id="credentials-title">Credenciales profesionales</h2>
+              definition.
+
+              `WorkspaceTitle as="h2"`, like every other section on this screen.
+              A bare `h2` took no type treatment at all — nothing in the app
+              styles one — so this title rendered at a different size from its
+              sibling sections' on the same page. */}
+          <WorkspaceTitle as="h2" id="credentials-title">
+            Credenciales profesionales
+          </WorkspaceTitle>
           <p data-page-header-description>
             No necesitas añadir credenciales para usar Studio. Declara solo las que quieras
             presentar; declarar no significa verificar.
@@ -191,7 +199,7 @@ export function ProfessionalCredentials({
         <div data-page-header-actions>
           <Button onClick={() => setIntent({ kind: 'declare' })}>Añadir credencial</Button>
         </div>
-      </div>
+      </header>
 
       {active.length === 0 ? (
         <Empty>
@@ -358,12 +366,14 @@ function CredentialCard({
             </div>
           ) : null}
         </dl>
+        {/* A plain link, like every other link in Studio content
+            (`data-legal-link`, `data-analytics-notice-link`). It used to be
+            dressed as a `link` button, and a button's horizontal padding
+            indented it from the list of fields it belongs under. Nothing here
+            is an action: it opens the evidence the person declared. */}
         {credential.verification_url ? (
           <a
             data-credential-evidence
-            data-slot="button"
-            data-variant="link"
-            className={buttonVariants({ variant: 'link' })}
             href={credential.verification_url}
             target="_blank"
             rel="noopener noreferrer"

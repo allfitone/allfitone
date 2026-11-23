@@ -2714,6 +2714,22 @@
   align-items: start;
 }
 
+/* The section's heading spans both columns of the presentation below it. As a
+   plain grid child it took the first cell, which put the form under the
+   trajectory panel instead of beside it. */
+[data-profile-presentation] > [data-profile-section-heading] {
+  grid-column: 1 / -1;
+}
+
+/* The profile tab holds several sections in a row — the presentation, the
+   credentials, and the cancel action while one is being created. They were a
+   tab each before, so no rule ever had to space two of them against each
+   other. The step is the one the page uses between its own blocks, so moving
+   between tabs does not change the rhythm. */
+[data-profile-panel] > * + * {
+  margin-block-start: var(--afo-space-6);
+}
+
 [data-profile-brand] {
   display: inline-flex;
   align-items: center;
@@ -2792,13 +2808,6 @@
   display: grid;
   min-width: 0;
   gap: var(--afo-space-1);
-}
-
-[data-credential-evidence] {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--afo-space-3);
-  align-items: end;
 }
 
 [data-credential-dialog] {
@@ -2970,10 +2979,6 @@
     justify-self: stretch;
   }
 
-  [data-credential-evidence] {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   [data-today-scoreboard] {
     gap: var(--afo-space-6);
     padding: var(--afo-space-5);
@@ -3070,7 +3075,11 @@
   line-height: var(--afo-line-height-relaxed);
 }
 
-[data-analytics-notice-link] {
+/* A link that stands on its own line in content, rather than inside a sentence
+   as `data-legal-link` does: it keeps a 44px target without taking a button's
+   horizontal padding, so its text still starts flush with the block above it. */
+[data-analytics-notice-link],
+[data-credential-evidence] {
   display: inline-flex;
   min-height: 44px;
   width: fit-content;

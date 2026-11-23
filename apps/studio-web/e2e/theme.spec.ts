@@ -72,8 +72,17 @@ async function openAccount(
 ): Promise<StudioApiFixture> {
   const fixture = await signIn(page, preferences, overrides)
   await page.goto('/account')
-  await expect(themeSwitch(page)).toBeVisible()
+  await openPreferences(page)
   return fixture
+}
+
+/**
+ * The theme is a section of the account, and the account's sections are tabs.
+ * It used to sit below them, belonging to none; «Preferencias» is its home now.
+ */
+async function openPreferences(page: Page): Promise<void> {
+  await page.getByRole('tab', { name: 'Preferencias' }).click()
+  await expect(themeSwitch(page)).toBeVisible()
 }
 
 function shownTheme(page: Page): Promise<string | null> {
@@ -233,6 +242,7 @@ test.describe('the switch, in her account', () => {
       .click()
 
     await expect(page).toHaveURL(/\/account$/)
+    await openPreferences(page)
     await expect(themeSwitch(page).getByRole('button', { name: 'Claro' })).toHaveAttribute(
       'aria-pressed',
       'true',

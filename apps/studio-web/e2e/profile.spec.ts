@@ -18,11 +18,21 @@ test('keeps professional setup dormant until the person opts in', async ({ page 
 
   await page.goto('/account')
 
+  // The three sections are there whether or not she has a profile; an account
+  // without one simply opens on the spaces she came for.
   await expect(page.getByRole('heading', { name: 'Tu cuenta de Studio' })).toBeVisible()
-  await expect(page.getByText('Perfil profesional', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Configurar perfil profesional' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Perfil' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Vinculaciones' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   await expect(page.getByLabel('Titular profesional')).toHaveCount(0)
-  await expect(page.getByRole('tab', { name: /Credenciales/ })).toHaveCount(0)
+
+  // Opening the tab shows the invitation and still asks for no catalogue: they
+  // are read when something needs them, not because the tab exists.
+  await page.getByRole('tab', { name: 'Perfil' }).click()
+  await expect(page.getByRole('button', { name: 'Crear mi perfil profesional' })).toBeVisible()
+  await expect(page.getByLabel('Titular profesional')).toHaveCount(0)
   expect(
     fixture.requests.some((request) => request.path === '/studio/v1/professional-specialties'),
   ).toBe(false)
@@ -30,11 +40,14 @@ test('keeps professional setup dormant until the person opts in', async ({ page 
     fixture.requests.some((request) => request.path === '/studio/v1/professional-credential-types'),
   ).toBe(false)
 
-  await page.getByRole('button', { name: 'Configurar perfil profesional' }).click()
+  await page.getByRole('button', { name: 'Crear mi perfil profesional' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Configura tu perfil profesional' })).toBeVisible()
+  // The form opens inside the same tab: the page keeps its one heading and the
+  // strip does not move, so she can still leave for her spaces mid-setup.
+  await expect(page.getByRole('heading', { name: 'Tu cuenta de Studio' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tu presentación' })).toBeVisible()
   await expect(page.getByLabel('Titular profesional')).toBeVisible()
-  await expect(page.getByRole('tab', { name: /Credenciales/ })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Vinculaciones' })).toBeVisible()
 })
 
 test('presents an optional profile with active and terminated membership context', async ({
@@ -50,9 +63,14 @@ test('presents an optional profile with active and terminated membership context
 
   await page.goto('/account')
 
-  await expect(page.getByText('Perfil profesional', { exact: true })).toBeVisible()
-  await expect(page.getByText('Perfil creado')).toBeVisible()
-  await expect(page.getByText('Sus credenciales son opcionales', { exact: false })).toBeVisible()
+  // An account with a profile opens on it, and the profile's two sections are
+  // both in that one panel.
+  await expect(page.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('heading', { name: 'Tu presentación' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Credenciales profesionales' })).toBeVisible()
+  await expect(
+    page.getByText('No necesitas añadir credenciales para usar Studio', { exact: false }),
+  ).toBeVisible()
 
   await page.getByRole('tab', { name: 'Vinculaciones' }).click()
   await expect(page.getByText('Vinculaciones activas')).toBeVisible()
@@ -62,10 +80,14 @@ test('presents an optional profile with active and terminated membership context
   await expect(page.getByText(terminatedMembership.display_name)).toBeVisible()
   await expect(page.getByText('Finalizada', { exact: true })).toBeVisible()
 
-  const lightKicker = page.locator('[data-profile-section] [data-profile-kicker]').first()
-  expect(await contrastRatio(lightKicker)).toBeGreaterThanOrEqual(4.5)
+  // The section heading's secondary line. It used to read the heading's
+  // kicker, which this screen's headings no longer carry — `.first()` would now
+  // find a membership card's description instead, which is not what the check
+  // was written for.
+  const secondary = page.locator('[data-profile-section] [data-page-header-description]').first()
+  expect(await contrastRatio(secondary)).toBeGreaterThanOrEqual(4.5)
 
-  await page.getByRole('tab', { name: 'Credenciales', exact: true }).click()
+  await page.getByRole('tab', { name: 'Perfil' }).click()
   const evidence = page.getByRole('link', { name: 'Abrir evidencia declarada' })
   await expect(evidence).toHaveAttribute('rel', 'noopener noreferrer')
   expect(await contrastRatio(evidence)).toBeGreaterThanOrEqual(4.5)

@@ -4236,7 +4236,7 @@ export const SCREENS: Screen[] = [
     path: '/account',
     fixture: withProfile,
     reveal: async (page) => {
-      await page.getByRole('tab', { name: 'Credenciales', exact: true }).click()
+      await page.getByRole('tab', { name: 'Perfil' }).click()
     },
   },
   {
@@ -4309,8 +4309,8 @@ export const SCREENS: Screen[] = [
       })
     },
     reveal: async (page) => {
-      await page.getByRole('tab', { name: 'Credenciales', exact: true }).click()
-      await page.getByRole('button', { name: 'Retirar' }).click()
+      await page.getByRole('tab', { name: 'Perfil' }).click()
+      await page.getByRole('button', { name: 'Retirar', exact: true }).click()
       await page.getByRole('button', { name: 'Retirar credencial' }).click()
       await expect(page.getByText('No pudimos actualizar tu cuenta')).toBeVisible()
     },
@@ -4333,7 +4333,7 @@ export const SCREENS: Screen[] = [
             : undefined,
       }),
     reveal: async (page) => {
-      await page.getByRole('tab', { name: 'Credenciales', exact: true }).click()
+      await page.getByRole('tab', { name: 'Perfil' }).click()
       await page.getByRole('button', { name: 'Crear revisión' }).click()
       const dialog = page.getByRole('dialog')
       await dialog.getByRole('button', { name: 'Crear revisión' }).click()
@@ -4348,8 +4348,8 @@ export const SCREENS: Screen[] = [
     path: '/account',
     fixture: withProfile,
     reveal: async (page) => {
-      await page.getByRole('tab', { name: 'Credenciales', exact: true }).click()
-      await page.getByRole('button', { name: 'Retirar' }).click()
+      await page.getByRole('tab', { name: 'Perfil' }).click()
+      await page.getByRole('button', { name: 'Retirar', exact: true }).click()
       await expect(page.getByText('¿Retirar esta credencial?')).toBeVisible()
     },
   },
@@ -4358,7 +4358,7 @@ export const SCREENS: Screen[] = [
     path: '/account',
     fixture: withProfileAndNoCredentials,
     reveal: async (page) => {
-      await page.getByRole('tab', { name: 'Credenciales', exact: true }).click()
+      await page.getByRole('tab', { name: 'Perfil' }).click()
       await expect(page.getByText('Aún no has declarado credenciales')).toBeVisible()
     },
   },
@@ -4382,10 +4382,11 @@ export const SCREENS: Screen[] = [
     path: '/account',
     fixture: withoutProfile,
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Configurar perfil profesional' }).click()
-      await expect(
-        page.getByRole('heading', { name: 'Configura tu perfil profesional' }),
-      ).toBeVisible()
+      // The invitation lives in the profile tab now, and the form replaces it
+      // inside that same tab: the page keeps its one heading throughout.
+      await page.getByRole('tab', { name: 'Perfil' }).click()
+      await page.getByRole('button', { name: 'Crear mi perfil profesional' }).click()
+      await expect(page.getByRole('heading', { name: 'Tu presentación' })).toBeVisible()
     },
   },
   // The two waits on this route. Neither was in the inventory, so neither had
@@ -4416,7 +4417,8 @@ export const SCREENS: Screen[] = [
       }),
     hasHeading: false,
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Configurar perfil profesional' }).click()
+      await page.getByRole('tab', { name: 'Perfil' }).click()
+      await page.getByRole('button', { name: 'Crear mi perfil profesional' }).click()
       await expect(page.getByText('Reuniendo especialidades y tipos de credencial…')).toBeVisible()
       // One status at a time: the refresh line fired during the first load too.
       await expect(page.getByText('Actualizando tu cuenta…')).toBeHidden()

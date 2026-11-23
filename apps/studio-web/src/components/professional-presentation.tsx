@@ -3,6 +3,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@allfitone/react/components/card'
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import {
   Combobox,
   ComboboxActions,
@@ -164,13 +165,24 @@ export function ProfessionalPresentation({
   }
 
   return (
-    <div data-profile-presentation>
+    <section data-profile-presentation aria-labelledby="presentation-title">
+      {/* The same section composition as the credentials and the memberships
+          below it. This used to be a bare Card whose own CardTitle carried the
+          heading, so one of the three sections on this screen announced itself
+          in a different shape and at a different size from the other two. */}
+      <header data-profile-section-heading>
+        <div data-profile-section-heading-text>
+          <WorkspaceTitle as="h2" id="presentation-title">
+            Tu presentación
+          </WorkspaceTitle>
+          <p data-page-header-description>
+            {profile
+              ? 'Cómo te presentas ante las personas que atiendes. Viaja contigo entre espacios.'
+              : 'Cómo te presentarás ante las personas que atiendas. Viaja contigo entre espacios.'}
+          </p>
+        </div>
+      </header>
       <Card data-profile-editor>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            {profile ? 'Edita tu presentación' : 'Crea tu presentación'}
-          </CardTitle>
-        </CardHeader>
         <CardContent>
           {/* Every other form in Studio carries this: without it the fields and
               the actions stack flush, and the submit button's top edge sat on
@@ -314,7 +326,10 @@ export function ProfessionalPresentation({
         aria-label="Trayectoria profesional"
       >
         <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
+          {/* Level 3: the trajectory is part of the presentation, whose own
+              heading is the section's h2 above. Both at level 2 read as two
+              destinations for one. */}
+          <CardTitle role="heading" aria-level={3}>
             {profile ? 'Trayectoria declarada' : 'Vista previa'}
           </CardTitle>
         </CardHeader>
@@ -342,7 +357,7 @@ export function ProfessionalPresentation({
           </p>
         </CardContent>
       </Card>
-    </div>
+    </section>
   )
 }
 
