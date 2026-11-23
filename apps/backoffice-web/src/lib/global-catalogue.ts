@@ -176,3 +176,16 @@ export function equipmentItems(draft: Record<string, EquipmentChoice>): Movement
 export function movementEquipmentOutcome(entry: GlobalCatalogueEntry): string {
   return `Se guardó el equipamiento de «${entry.name}». ${movementEquipmentSentence(entry)}`
 }
+
+/** One tab per kind of entry, kept in the address; disciplines need no parameter. */
+export const CATALOGUE_TABS = ['disciplines', 'activity_types', 'movements', 'equipment'] as const
+
+export type CatalogueTab = (typeof CATALOGUE_TABS)[number]
+
+export function catalogueTabFromQuery(value: string | null): CatalogueTab {
+  return CATALOGUE_TABS.find((tab) => tab === value) ?? 'disciplines'
+}
+
+export function catalogueHref(tab: CatalogueTab): string {
+  return tab === 'disciplines' ? '/catalogue' : `/catalogue?tab=${tab}`
+}

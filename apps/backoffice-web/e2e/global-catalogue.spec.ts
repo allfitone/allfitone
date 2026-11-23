@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   activeSession,
@@ -12,6 +12,11 @@ import {
 
 function fixtureWith(globalCatalogue: GlobalCatalogueFixture) {
   return createBackofficeFixture({ session: activeSession(), globalCatalogue })
+}
+
+/** What a command answered, in the toast every workspace screen shares. */
+function outcome(page: Page) {
+  return page.locator('[data-sonner-toast]')
 }
 
 function commands(fixture: ReturnType<typeof fixtureWith>) {
@@ -36,7 +41,7 @@ test('Allfit publishes a discipline and it becomes available to choose from', as
   await disciplines.getByLabel('Nombre').fill('Yoga')
   await disciplines.getByRole('button', { name: 'Publicar disciplina' }).click()
 
-  await expect(page.locator('[data-catalogue-outcome]')).toContainText('gimnasios y personas')
+  await expect(outcome(page)).toContainText('gimnasios y personas')
   await expect(disciplines.locator('[data-catalogue-entry]')).toHaveCount(1)
 
   const sent = commands(fixture)
@@ -46,6 +51,8 @@ test('Allfit publishes a discipline and it becomes available to choose from', as
   expect(sent[0]?.headers['idempotency-key']).toBeTruthy()
 
   // The published discipline is what an activity type can be published under.
+  await page.getByRole('tab', { name: 'Tipos de actividad' }).click()
+  await expect(page).toHaveURL('/catalogue?tab=activity_types')
   const activityTypes = page.locator('[data-catalogue-section="activity_type"]')
   await expect(activityTypes.getByRole('combobox', { name: 'Disciplina' })).toBeEnabled()
 })
@@ -118,7 +125,7 @@ test('archiving says what depends on the entry and asks before withdrawing it', 
   )
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/catalogue')
+  await page.goto('/catalogue?tab=movements')
   const movements = page.locator('[data-catalogue-section="movement"]')
   await expect(movements.getByText('3 referencias', { exact: false })).toBeVisible()
 
@@ -129,7 +136,7 @@ test('archiving says what depends on the entry and asks before withdrawing it', 
 
   await dialog.getByRole('button', { name: 'Sí, archivar' }).click()
 
-  await expect(page.locator('[data-catalogue-outcome]')).toContainText('Sale de las búsquedas')
+  await expect(outcome(page)).toContainText('Sale de las búsquedas')
   await expect(movements.locator('[data-catalogue-entry][data-status="archived"]')).toBeVisible()
   expect(commands(fixture)[0]?.path).toBe(
     `/backoffice/v1/catalogue/movements/${movement.id}/archival`,
@@ -144,7 +151,7 @@ test('keeping the entry from the archive dialog archives nothing', async ({ cont
   )
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/catalogue')
+  await page.goto('/catalogue?tab=movements')
   const movements = page.locator('[data-catalogue-section="movement"]')
   await movements.getByRole('button', { name: 'Archivar Guerrero II' }).click()
 
@@ -223,7 +230,7 @@ test('a publication lost to the network is retried with the same command', async
     'No hay conexión con el API.',
   )
   await publish.click()
-  await expect(page.locator('[data-catalogue-outcome]')).toBeVisible()
+  await expect(outcome(page)).toBeVisible()
 
   const attempts = commands(fixture)
   expect(attempts).toHaveLength(2)
@@ -238,12 +245,12 @@ test('Allfit publishes equipment and the list says how many movements use it', a
   const fixture = fixtureWith(globalCatalogueFixture())
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/catalogue')
+  await page.goto('/catalogue?tab=equipment')
   await page.locator('#equipment-code').fill('test_barbell')
   await page.locator('#equipment-name').fill('Barra olímpica')
   await page.getByRole('button', { name: 'Publicar equipamiento' }).click()
 
-  await expect(page.locator('[data-catalogue-outcome]')).toContainText('«Barra olímpica»')
+  await expect(outcome(page)).toContainText('«Barra olímpica»')
   await expect(page.locator('[data-catalogue-equipment-entry]')).toContainText(
     'Ningún movimiento lo usa todavía.',
   )
@@ -273,16 +280,14 @@ test('a movement says what it uses, and its whole list is sent at once', async (
   )
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/catalogue')
+  await page.goto('/catalogue?tab=movements')
   await expect(page.locator('[data-movement-equipment]')).toHaveText('Opcional: Banco plano.')
   await page.getByRole('button', { name: 'Editar el equipamiento de Press de banca' }).click()
   await page.locator('#movement-equipment-test_barbell').click()
   await page.getByRole('option', { name: 'Lo necesita', exact: true }).click()
   await page.locator('[data-movement-equipment-save]').click()
 
-  await expect(page.locator('[data-catalogue-outcome]')).toContainText(
-    'Necesita: Barra olímpica. Opcional: Banco plano.',
-  )
+  await expect(outcome(page)).toContainText('Necesita: Barra olímpica. Opcional: Banco plano.')
   await expect(page.locator('[data-movement-equipment]')).toHaveText(
     'Necesita: Barra olímpica. Opcional: Banco plano.',
   )
