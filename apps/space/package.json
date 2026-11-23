@@ -15,8 +15,8 @@
   "dependencies": {
     "@allfitone/brand": "0.4.1",
     "@allfitone/contracts": "workspace:*",
-    "@allfitone/icons": "0.5.1",
-    "@allfitone/react-native": "0.13.0",
+    "@allfitone/icons": "0.6.0",
+    "@allfitone/react-native": "0.14.0",
     "@allfitone/telemetry": "workspace:*",
     "@allfitone/tokens": "0.4.1",
     "expo": "57.0.11",
