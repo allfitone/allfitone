@@ -22,7 +22,7 @@ test('localizes the credential dialog and safely retries a declaration', async (
   })
   await installStudioApiMock(page, fixture)
   await page.goto('/profile')
-  await page.getByRole('tab', { name: 'Credenciales' }).click()
+  await page.getByRole('tab', { name: 'Perfil' }).click()
 
   const trigger = page.getByRole('button', { name: 'Añadir credencial' })
   await trigger.click()
@@ -66,7 +66,7 @@ test('revises once, refreshes exact history, and retires the successor', async (
   })
   await installStudioApiMock(page, fixture)
   await page.goto('/profile')
-  await page.getByRole('tab', { name: 'Credenciales' }).click()
+  await page.getByRole('tab', { name: 'Perfil' }).click()
 
   await page.getByRole('button', { name: 'Crear revisión' }).click()
   const revisionDialog = page.getByRole('dialog')
@@ -89,7 +89,10 @@ test('revises once, refreshes exact history, and retires the successor', async (
   ).toHaveLength(1)
   await expect(page.getByRole('button', { name: 'Historial retirado · 1' })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Retirar' }).click()
+  // Exact: the presentation sits in this panel too now, and its specialty
+  // chips each carry a «Retirar <especialidad>» control. The two are distinct
+  // to a screen reader; this locator just has to say which it means.
+  await page.getByRole('button', { name: 'Retirar', exact: true }).click()
   const retirementDialog = page.getByRole('alertdialog')
   await retirementDialog.getByRole('button', { name: 'Retirar credencial' }).click()
   await expect(page.getByText('La credencial pasó al historial.')).toBeVisible()
@@ -112,7 +115,7 @@ for (const staleStatus of [404, 409] as const) {
     })
     await installStudioApiMock(page, fixture)
     await page.goto('/profile')
-    await page.getByRole('tab', { name: 'Credenciales' }).click()
+    await page.getByRole('tab', { name: 'Perfil' }).click()
     await page.getByRole('button', { name: 'Crear revisión' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Crear revisión' }).click()
 

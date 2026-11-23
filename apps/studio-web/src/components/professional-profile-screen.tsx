@@ -1,19 +1,51 @@
 'use client'
 
+/**
+ * Mi cuenta: the account a person signs in with, and the optional professional
+ * profile that travels with it.
+ *
+ * Shaped after the library (`organization-content.tsx`), the screen the other
+ * registers copy. Three things follow from that, and each replaces something
+ * this screen used to do differently from every other one.
+ *
+ * **The sections are always the same three.** The screen used to be a flat
+ * stack for a person with no professional profile and a set of tabs for a
+ * person with one, so the way to move around it depended on data the reader
+ * cannot see. Now the profile, the memberships and the preferences are always
+ * present; what changes is which one opens first and what the first one holds.
+ * A person who only administers spaces lands on «Vinculaciones».
+ *
+ * **Every tab is a section of the account.** The old set mixed two levels: two
+ * tabs were sections of the professional profile, one was the account's
+ * memberships, and the account's theme sat outside the tabs entirely — rightly,
+ * since it is not part of the profile, but with nowhere of its own to live. The
+ * profile is now one tab that holds its own sections, so the strip announced as
+ * «Secciones de mi cuenta» is exactly that.
+ *
+ * **A panel is read only while open.** The professional catalogues are fetched
+ * when that tab is open and something there needs them, never because the tab
+ * exists. Someone who never opens it never pays for it, which is what the
+ * screen used to get by not drawing the tab at all.
+ *
+ * No badge names a state the product does not have. `StudioMe` carries only
+ * `profile` and `memberships`: there is no inactive account and no unpublished
+ * profile, so «Cuenta activa» and «Perfil creado» said nothing a reader could
+ * act on. The same reasoning already removed «Sin publicar» from the setup
+ * screen; this finishes it.
+ */
+
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
-import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@allfitone/react/components/empty'
 import { Toaster } from '@allfitone/react/components/sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
 import {
   WorkspaceActions,
   WorkspaceContent,
@@ -23,6 +55,7 @@ import {
   WorkspaceShell,
   WorkspaceTitle,
 } from '@allfitone/react/components/workspace-shell'
+import { FoundationIcon } from '@allfitone/react/icons'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -43,10 +76,19 @@ import {
   studioQueryKeys,
 } from '@/lib/studio-query'
 
+/** The three sections of the account, in the order the strip shows them. */
+type AccountTab = 'profile' | 'spaces' | 'preferences'
+
+function isAccountTab(value: unknown): value is AccountTab {
+  return value === 'profile' || value === 'spaces' || value === 'preferences'
+}
+
 export function ProfessionalProfileScreen() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [setupStarted, setSetupStarted] = useState(false)
+  // Null until the reader chooses, so the first open can follow the account.
+  const [chosenTab, setChosenTab] = useState<AccountTab | null>(null)
 
   const routeSessionFailure = useCallback(
     (error: unknown): boolean => {
@@ -63,7 +105,17 @@ export function ProfessionalProfileScreen() {
   )
 
   const meQuery = useQuery(studioMeQueryOptions())
-  const catalogsEnabled = Boolean(meQuery.data?.profile || setupStarted)
+  const me = meQuery.data
+
+  /**
+   * A person with a profile lands on it; a person without one lands on the
+   * spaces they came for. The strip is the same either way — only which tab
+   * opens first follows the account.
+   */
+  const tab: AccountTab = chosenTab ?? (me?.profile ? 'profile' : 'spaces')
+
+  // Read only while that panel is open, and only once it has something to show.
+  const catalogsEnabled = tab === 'profile' && Boolean(me?.profile || setupStarted)
   const specialtiesQuery = useQuery({
     ...professionalSpecialtiesQueryOptions(),
     enabled: catalogsEnabled,
@@ -73,7 +125,7 @@ export function ProfessionalProfileScreen() {
     enabled: catalogsEnabled,
   })
   const catalogError = specialtiesQuery.error ?? credentialTypesQuery.error
-  const catalogsReady = specialtiesQuery.data && credentialTypesQuery.data
+  const catalogsReady = Boolean(specialtiesQuery.data && credentialTypesQuery.data)
 
   useEffect(() => {
     const error = meQuery.error ?? catalogError
@@ -106,7 +158,7 @@ export function ProfessionalProfileScreen() {
           Actualizando tu cuenta…
         </p>
       ) : null}
-      {meQuery.isError && meQuery.data ? (
+      {meQuery.isError && me ? (
         <Alert variant="danger" live="polite">
           <AlertTitle>No pudimos actualizar tu cuenta</AlertTitle>
           <AlertDescription>La información cargada permanece visible.</AlertDescription>
@@ -120,7 +172,7 @@ export function ProfessionalProfileScreen() {
           spinner's open arc read as a letter C. */}
       {meQuery.isPending ? (
         <LoadingCard label="Reuniendo tus espacios y opciones personales…" />
-      ) : !meQuery.data ? (
+      ) : !me ? (
         <div data-profile-state>
           <Alert variant="danger" live="assertive">
             <AlertTitle role="heading" aria-level={1}>
@@ -136,195 +188,196 @@ export function ProfessionalProfileScreen() {
             </AlertAction>
           </Alert>
         </div>
-      ) : !meQuery.data.profile && !setupStarted ? (
-        <AccountOverview
-          me={meQuery.data}
-          onStartProfessionalSetup={() => {
-            setSetupStarted(true)
-          }}
-        />
-      ) : catalogsReady ? (
-        <ProfessionalArea
-          me={meQuery.data}
-          specialties={specialtiesQuery.data.items}
-          credentialTypes={credentialTypesQuery.data.items}
+      ) : (
+        <AccountSections
+          me={me}
+          tab={tab}
+          onTabChange={setChosenTab}
+          specialties={specialtiesQuery.data?.items}
+          credentialTypes={credentialTypesQuery.data?.items}
+          catalogError={catalogError}
+          catalogsReady={catalogsReady}
+          onRetryCatalogs={retryCatalogs}
           setupStarted={setupStarted}
+          onStartSetup={() => setSetupStarted(true)}
           onCancelSetup={() => setSetupStarted(false)}
           onSessionFailure={routeSessionFailure}
           onRefreshMe={refreshMe}
-          onMeChange={(me) => queryClient.setQueryData(studioQueryKeys.me(), me)}
+          onMeChange={(next) => queryClient.setQueryData(studioQueryKeys.me(), next)}
         />
-      ) : catalogError ? (
-        <ProfessionalCatalogError
-          retryable={catalogError instanceof StudioApiError && catalogError.status === 503}
-          onRetry={retryCatalogs}
-          onBack={!meQuery.data.profile ? () => setSetupStarted(false) : undefined}
-        />
-      ) : (
-        <LoadingCard label="Reuniendo especialidades y tipos de credencial…" />
       )}
     </AccountShell>
   )
 }
 
-function AccountOverview({
-  me,
-  onStartProfessionalSetup,
-}: {
+interface ProfessionalPanelProps {
   me: StudioMe
-  onStartProfessionalSetup: () => void
+  specialties: ProfessionalCatalogItem[] | undefined
+  credentialTypes: ProfessionalCatalogItem[] | undefined
+  catalogError: unknown
+  catalogsReady: boolean
+  onRetryCatalogs: () => void
+  setupStarted: boolean
+  onStartSetup: () => void
+  onCancelSetup: () => void
+  onSessionFailure: (error: unknown) => boolean
+  onRefreshMe: () => Promise<StudioMe | undefined>
+  onMeChange: (me: StudioMe) => void
+}
+
+function AccountSections({
+  me,
+  tab,
+  onTabChange,
+  ...panel
+}: ProfessionalPanelProps & {
+  tab: AccountTab
+  onTabChange: (tab: AccountTab) => void
 }) {
   return (
     <>
+      {/* One heading for the page, whichever section is open. The title used to
+          change with the state — «Tu cuenta de Studio», «Configura tu perfil
+          profesional», the profile's own headline — so one address announced
+          itself three ways and a reader could not tell whether they had
+          navigated. */}
       <header data-profile-heading>
         <div data-profile-heading-text>
           <WorkspaceEyebrow>Mi cuenta</WorkspaceEyebrow>
           <WorkspaceTitle>Tu cuenta de Studio</WorkspaceTitle>
           <p data-page-header-description>
-            Administra tus espacios. Si también entrenas o prestas servicios, puedes crear un perfil
-            profesional separado cuando lo necesites.
+            Tus vinculaciones con espacios de Studio y tus opciones personales. Si además entrenas o
+            prestas servicios, tu perfil profesional vive aquí y viaja contigo.
           </p>
         </div>
-        <Badge variant="success">Cuenta activa</Badge>
       </header>
 
-      {/* There used to be a card here signposting the memberships section two
-          hundred pixels below it on the same screen. It repeated that
-          section's own heading, so the page offered the same h2 twice and a
-          heading list read as two destinations for one. */}
-      <Card data-account-track>
-        <CardHeader>
-          <CardDescription>Solo si prestas servicios</CardDescription>
-          <CardTitle role="heading" aria-level={2}>
-            Perfil profesional
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">Opcional</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent data-account-body>
-          <p>
-            Presenta tu experiencia y, si quieres, declara credenciales. Administrar un espacio no
-            requiere completar esta información.
-          </p>
-        </CardContent>
-        <CardFooter>
-          <div data-card-footer-actions>
-            <Button onClick={onStartProfessionalSetup}>Configurar perfil profesional</Button>
-          </div>
-        </CardFooter>
-      </Card>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => onTabChange(isAccountTab(value) ? value : 'spaces')}
+        data-profile-tabs
+      >
+        <TabsList variant="line" aria-label="Secciones de mi cuenta">
+          {/* One word each, as in the library. «Perfil profesional» took half
+              the strip on a phone and left the third tab nowhere to sit; the
+              panel opens by saying whose profile it is. */}
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="spaces">Vinculaciones</TabsTrigger>
+          <TabsTrigger value="preferences">Preferencias</TabsTrigger>
+        </TabsList>
 
-      <ProfessionalMemberships memberships={me.memberships} />
-      <AccountTheme />
+        <TabsContent value="profile">
+          {/* The panel's own rhythm. Its sections used to live in a tab each,
+              so nothing ever had to space two of them against each other;
+              `TabsContent` brings no spacing of its own, and the credentials
+              heading sat flush against the presentation above it. */}
+          <div data-profile-panel>
+            <ProfessionalPanel me={me} {...panel} />
+          </div>
+        </TabsContent>
+        <TabsContent value="spaces">
+          <ProfessionalMemberships memberships={me.memberships} />
+        </TabsContent>
+        <TabsContent value="preferences">
+          <AccountTheme />
+        </TabsContent>
+      </Tabs>
     </>
   )
 }
 
-function ProfessionalArea({
+/**
+ * The professional profile, and the invitation to start one.
+ *
+ * Four states share this panel and the strip above it does not move between
+ * them: no profile yet, the catalogues it needs are missing, one is being set
+ * up, or one exists.
+ */
+function ProfessionalPanel({
   me,
   specialties,
   credentialTypes,
+  catalogError,
+  catalogsReady,
+  onRetryCatalogs,
   setupStarted,
+  onStartSetup,
   onCancelSetup,
   onSessionFailure,
   onRefreshMe,
   onMeChange,
-}: {
-  me: StudioMe
-  specialties: ProfessionalCatalogItem[]
-  credentialTypes: ProfessionalCatalogItem[]
-  setupStarted: boolean
-  onCancelSetup: () => void
-  onSessionFailure: (error: unknown) => boolean
-  onRefreshMe: () => Promise<StudioMe | undefined>
-  onMeChange: (me: StudioMe) => void
-}) {
+}: ProfessionalPanelProps) {
   const profile = me.profile
 
-  if (!profile && setupStarted) {
+  if (!profile && !setupStarted) {
+    return (
+      <Empty data-profile-empty>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FoundationIcon name="people" decorative />
+          </EmptyMedia>
+          <EmptyTitle>Todavía no tienes un perfil profesional</EmptyTitle>
+          <EmptyDescription>
+            Solo lo necesitas si entrenas o prestas servicios. Administrar un espacio no lo
+            requiere, y crearlo no cambia tus roles, permisos ni vinculaciones.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <Button onClick={onStartSetup}>Crear mi perfil profesional</Button>
+        </EmptyContent>
+      </Empty>
+    )
+  }
+
+  if (catalogError && !catalogsReady) {
+    return (
+      <ProfessionalCatalogError
+        retryable={catalogError instanceof StudioApiError && catalogError.status === 503}
+        onRetry={onRetryCatalogs}
+        onBack={!profile ? onCancelSetup : undefined}
+      />
+    )
+  }
+
+  if (!specialties || !credentialTypes) {
+    return <LoadingCard label="Reuniendo especialidades y tipos de credencial…" />
+  }
+
+  if (!profile) {
     return (
       <>
-        <header data-profile-heading>
-          <div data-profile-heading-text>
-            <WorkspaceEyebrow>Opcional · Personal</WorkspaceEyebrow>
-            <WorkspaceTitle>Configura tu perfil profesional</WorkspaceTitle>
-            <p data-page-header-description>
-              Hazlo únicamente si entrenas o prestas servicios. Este perfil es tuyo y no cambia
-              roles, permisos ni membresías.
-            </p>
-          </div>
-          {/* No badge here. "Sin publicar" named a state the product does not
-              have — `ProfessionalProfile` carries no published, draft or
-              visibility field — and implied that saving would make the profile
-              public, which nothing does. Its counterpart on the created screen
-              says "Perfil creado", so it was not even the same vocabulary. */}
-        </header>
-        <div data-profile-setup-actions>
-          <Button variant="ghost" onClick={onCancelSetup}>
-            Volver a mi cuenta
-          </Button>
-        </div>
         <ProfessionalPresentation
           profile={null}
           specialties={specialties}
           onSessionFailure={onSessionFailure}
           onSaved={(savedProfile) => onMeChange({ ...me, profile: savedProfile })}
         />
+        <div data-profile-setup-actions>
+          <Button variant="ghost" onClick={onCancelSetup}>
+            Cancelar
+          </Button>
+        </div>
       </>
     )
   }
 
-  if (!profile) return null
-
   return (
     <>
-      <header data-profile-heading>
-        <div data-profile-heading-text>
-          <WorkspaceEyebrow>Perfil profesional</WorkspaceEyebrow>
-          <WorkspaceTitle>{profile.headline}</WorkspaceTitle>
-          <p data-page-header-description>
-            Tu presentación personal viaja contigo entre espacios. Sus credenciales son opcionales y
-            nunca cambian tus permisos.
-          </p>
-        </div>
-        <Badge variant="success">Perfil creado</Badge>
-      </header>
-
-      <Tabs defaultValue="presentation" data-profile-tabs>
-        <TabsList variant="line" aria-label="Secciones de mi cuenta">
-          <TabsTrigger value="presentation">Presentación</TabsTrigger>
-          {/* One word, like its two siblings. "Credenciales opcionales" was
-              193px of a 358px strip and left no room for the third tab;
-              the panel itself opens by saying they are not required. */}
-          <TabsTrigger value="credentials">Credenciales</TabsTrigger>
-          <TabsTrigger value="spaces">Vinculaciones</TabsTrigger>
-        </TabsList>
-        <TabsContent value="presentation">
-          <ProfessionalPresentation
-            profile={profile}
-            specialties={specialties}
-            onSessionFailure={onSessionFailure}
-            onSaved={(savedProfile) => onMeChange({ ...me, profile: savedProfile })}
-          />
-        </TabsContent>
-        <TabsContent value="credentials">
-          <ProfessionalCredentials
-            credentials={profile.credentials}
-            credentialTypes={credentialTypes}
-            onSessionFailure={onSessionFailure}
-            onRefreshMe={onRefreshMe}
-            onCredentialsChange={(credentials) =>
-              onMeChange({ ...me, profile: { ...profile, credentials } })
-            }
-          />
-        </TabsContent>
-        <TabsContent value="spaces">
-          <ProfessionalMemberships memberships={me.memberships} />
-        </TabsContent>
-      </Tabs>
-      {/* Outside the tabs: it belongs to the account, not to a section of the profile. */}
-      <AccountTheme />
+      <ProfessionalPresentation
+        profile={profile}
+        specialties={specialties}
+        onSessionFailure={onSessionFailure}
+        onSaved={(savedProfile) => onMeChange({ ...me, profile: savedProfile })}
+      />
+      <ProfessionalCredentials
+        credentials={profile.credentials}
+        credentialTypes={credentialTypes}
+        onSessionFailure={onSessionFailure}
+        onRefreshMe={onRefreshMe}
+        onCredentialsChange={(credentials) =>
+          onMeChange({ ...me, profile: { ...profile, credentials } })
+        }
+      />
     </>
   )
 }
@@ -341,7 +394,9 @@ function ProfessionalCatalogError({
   return (
     <div data-profile-state>
       <Alert variant="danger" live="assertive">
-        <AlertTitle role="heading" aria-level={1}>
+        {/* Level 2: this sits inside a panel now, under the page's own heading.
+            Replacing the whole screen it was the only title on it. */}
+        <AlertTitle role="heading" aria-level={2}>
           No pudimos preparar el perfil profesional
         </AlertTitle>
         <AlertDescription>
@@ -353,7 +408,7 @@ function ProfessionalCatalogError({
           <Button onClick={onRetry}>Reintentar</Button>
           {onBack ? (
             <Button variant="ghost" onClick={onBack}>
-              Volver a mi cuenta
+              Cancelar
             </Button>
           ) : null}
         </AlertAction>
@@ -364,6 +419,7 @@ function ProfessionalCatalogError({
 
 function AccountShell({ children, onSpaces }: { children: React.ReactNode; onSpaces: () => void }) {
   const compact = useCompactViewport()
+
   return (
     <WorkspaceShell>
       <WorkspaceMain data-profile-canvas>

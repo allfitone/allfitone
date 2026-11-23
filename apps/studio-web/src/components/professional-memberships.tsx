@@ -22,7 +22,7 @@ import {
   EmptyTitle,
 } from '@allfitone/react/components/empty'
 import { StatStrip, StatStripItem } from '@allfitone/react/components/stat-strip'
-import { WorkspaceEyebrow, WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { FoundationIcon } from '@allfitone/react/icons'
 
 import { MembershipResignation } from './membership-resignation'
@@ -45,7 +45,10 @@ export function ProfessionalMemberships({ memberships }: { memberships: Membersh
     <section data-profile-section aria-labelledby="memberships-title">
       <header data-profile-section-heading>
         <div data-profile-section-heading-text>
-          <WorkspaceEyebrow data-profile-kicker>Actividad en Studio</WorkspaceEyebrow>
+          {/* No kicker, for the reason the credentials section gives: «Actividad
+              en Studio» said what the heading and the sentence under it already
+              say, and only one of the three sections on this screen carried
+              one. */}
           <WorkspaceTitle as="h2" id="memberships-title">
             Vinculaciones
           </WorkspaceTitle>
