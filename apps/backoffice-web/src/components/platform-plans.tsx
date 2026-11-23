@@ -15,21 +15,17 @@
  *
  * Commands keep their identifiers across a lost response, so a retry replays rather
  * than proposing twice.
+ *
+ * Creating a plan is the page's one primary action, in a dialog over the plans.
+ * Publishing asks first: it changes what everybody who subscribes from then on pays.
+ * What a command did pops up as a toast instead of above the first card.
  */
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ConfirmAction } from './confirm-action'
+import { PageHeader } from './page-header'
 import { ScreenFailure, ScreenLoading } from './screen-state'
 
 import {
@@ -40,6 +36,16 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import { Checkbox } from '@allfitone/react/components/checkbox'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@allfitone/react/components/dialog'
 import {
   Field,
   FieldDescription,
@@ -56,6 +62,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@allfitone/react/components/select'
+import { toast } from '@allfitone/react/components/sonner'
+import { FoundationIcon } from '@allfitone/react/icons'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
@@ -104,6 +112,12 @@ import { isRefusal } from '@/lib/screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
+/** Which field of the create form is wrong, so its message sits under it. */
+interface CreateIssue {
+  field: 'code' | 'name' | 'kind'
+  message: string
+}
+
 export function PlatformPlans() {
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
@@ -111,14 +125,14 @@ export function PlatformPlans() {
   const [catalogue, setCatalogue] = useState<PlatformPlanCatalogue | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<string | null>(null)
   const [commandFailure, setCommandFailure] = useState<string | null>(null)
   const pending = useRef(new Map<string, BackofficeCommand>())
 
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [kind, setKind] = useState<PlatformPlanKind | ''>('')
-  const [createIssue, setCreateIssue] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [createIssue, setCreateIssue] = useState<CreateIssue | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -152,12 +166,11 @@ export function PlatformPlans() {
     const command = pending.current.get(key) ?? newBackofficeCommand()
     pending.current.set(key, command)
     setBusy(key)
-    setOutcome(null)
     setCommandFailure(null)
     try {
       const plan = await send(command)
       pending.current.delete(key)
-      setOutcome(planOutcomeMessage(action, plan))
+      toast.success(planOutcomeMessage(action, plan))
       setReload((value) => value + 1)
       return true
     } catch (error) {
@@ -183,17 +196,22 @@ export function PlatformPlans() {
   function createPlan(event: FormEvent) {
     event.preventDefault()
     if (!isValidPlanCode(code)) {
-      setCreateIssue(
-        'El código va en minúsculas, sin espacios ni tildes: letras, números y guion bajo.',
-      )
+      setCreateIssue({
+        field: 'code',
+        message:
+          'El código va en minúsculas, sin espacios ni tildes: letras, números y guion bajo.',
+      })
       return
     }
     if (!isValidPlanName(name)) {
-      setCreateIssue('El nombre no puede quedar vacío ni pasar de 80 caracteres.')
+      setCreateIssue({
+        field: 'name',
+        message: 'El nombre no puede quedar vacío ni pasar de 80 caracteres.',
+      })
       return
     }
     if (kind === '') {
-      setCreateIssue('Elige si el plan es gratis o de pago.')
+      setCreateIssue({ field: 'kind', message: 'Elige si el plan es gratis o de pago.' })
       return
     }
     setCreateIssue(null)
@@ -202,6 +220,7 @@ export function PlatformPlans() {
       backofficeApi.createPlatformPlan(plan, command),
     ).then((done) => {
       if (!done) return
+      setCreating(false)
       setCode('')
       setName('')
       setKind('')
@@ -213,47 +232,150 @@ export function PlatformPlans() {
 
   return (
     <div data-platform-plans>
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Planes de Allfit One
-          </CardTitle>
-          <CardDescription>
-            Lo que Allfit One le vende a las personas, el plan gratuito incluido. Un cambio de
-            precio o de lo que incluye un plan es una versión nueva: la propone una persona y la
-            publica otra, y quien ya estaba suscrito conserva la versión que aceptó. Nada de esto
-            cobra: las funciones de privacidad no se pueden limitar en ningún plan.
-          </CardDescription>
-        </CardHeader>
-        <CardContent data-card-body>
-          {state === 'loading' ? <ScreenLoading /> : null}
+      <PageHeader
+        description="Lo que Allfit One le vende a las personas, el plan gratuito incluido. Un cambio de precio o de lo que incluye un plan es una versión nueva: la propone una persona y la publica otra, y quien ya estaba suscrito conserva la versión que aceptó. Nada de esto cobra: las funciones de privacidad no se pueden limitar en ningún plan."
+        actions={
+          <Dialog
+            open={creating}
+            onOpenChange={(next) => {
+              // Closing mid-flight would hide a request that is still going to land.
+              if (busy !== null) return
+              setCreating(next)
+              if (!next) setCreateIssue(null)
+            }}
+          >
+            <DialogTrigger render={<Button type="button" disabled={state !== 'ready'} />}>
+              <FoundationIcon name="add" decorative />
+              Crear un plan
+            </DialogTrigger>
+            <DialogContent data-plans-create>
+              <DialogHeader>
+                <DialogTitle>Crear un plan</DialogTitle>
+                <DialogDescription>
+                  Un plan es un código estable, un nombre y un tipo. Nace sin nada en vigor: su
+                  primera versión se propone después y la publica otra persona.
+                  {freeExists
+                    ? ' Ya existe el plan gratuito: sus límites cambian publicando versiones de ese mismo plan.'
+                    : ''}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={createPlan} data-plans-create-form noValidate>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="plan-code">Código</FieldLabel>
+                    <Input
+                      id="plan-code"
+                      value={code}
+                      onChange={(event) => setCode(event.target.value)}
+                      placeholder={PRO_PLAN_CODE}
+                      aria-invalid={createIssue?.field === 'code' ? true : undefined}
+                      aria-describedby={
+                        createIssue?.field === 'code' ? 'plan-code-issue' : undefined
+                      }
+                      disabled={busy !== null}
+                    />
+                    <FieldDescription>
+                      Un código no se cambia después. Allfit One da Pro solo con el plan de pago
+                      cuyo código es <code>{PRO_PLAN_CODE}</code>.
+                    </FieldDescription>
+                    {createIssue?.field === 'code' ? (
+                      <FieldError id="plan-code-issue">{createIssue.message}</FieldError>
+                    ) : null}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="plan-name">Nombre</FieldLabel>
+                    <Input
+                      id="plan-name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Pro"
+                      aria-invalid={createIssue?.field === 'name' ? true : undefined}
+                      aria-describedby={
+                        createIssue?.field === 'name' ? 'plan-name-issue' : undefined
+                      }
+                      disabled={busy !== null}
+                    />
+                    {createIssue?.field === 'name' ? (
+                      <FieldError id="plan-name-issue">{createIssue.message}</FieldError>
+                    ) : null}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="plan-kind">Tipo</FieldLabel>
+                    <Select
+                      items={kindOptions}
+                      value={kind}
+                      onValueChange={(value) => setKind((value ?? '') as PlatformPlanKind | '')}
+                    >
+                      <SelectTrigger
+                        id="plan-kind"
+                        aria-invalid={createIssue?.field === 'kind' ? true : undefined}
+                        disabled={busy !== null}
+                      >
+                        <SelectValue placeholder="Gratis o de pago" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {kindOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {createIssue?.field === 'kind' ? (
+                      <FieldError>{createIssue.message}</FieldError>
+                    ) : null}
+                  </Field>
+                  {chargesWithoutPro(code, kind) ? (
+                    <Alert live="polite" variant="warning" data-plans-create-without-pro>
+                      <AlertTitle>Este plan cobraría sin dar Pro</AlertTitle>
+                      <AlertDescription>
+                        Con el código «{code.trim()}», quien lo pague no recibe Pro. Para vender
+                        Pro, el código debe ser <code>{PRO_PLAN_CODE}</code>.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                  {commandFailure ? (
+                    <Alert live="assertive" variant="danger" data-plans-create-failure>
+                      <AlertTitle>No se creó el plan</AlertTitle>
+                      <AlertDescription>{commandFailure}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </FieldGroup>
+                <DialogFooter data-confirm-footer>
+                  <DialogClose
+                    render={<Button type="button" variant="outline" disabled={busy !== null} />}
+                  >
+                    Cancelar
+                  </DialogClose>
+                  <Button type="submit" disabled={busy !== null}>
+                    Crear plan
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-          {state === 'failed' ? (
-            <ScreenFailure
-              refused={refused}
-              duties={['manage_platform_commercial']}
-              title="No se pudieron leer los planes"
-              message={failure ?? plansMessage('upstream-unavailable')}
-              onRetry={() => setReload((value) => value + 1)}
-              data-plans-failure
-            />
-          ) : null}
+      {state === 'loading' ? <ScreenLoading /> : null}
 
-          {outcome ? (
-            <Alert live="polite" variant="success" data-plans-outcome>
-              <AlertTitle>Listo</AlertTitle>
-              <AlertDescription>{outcome}</AlertDescription>
-            </Alert>
-          ) : null}
+      {state === 'failed' ? (
+        <ScreenFailure
+          refused={refused}
+          duties={['manage_platform_commercial']}
+          title="No se pudieron leer los planes"
+          message={failure ?? plansMessage('upstream-unavailable')}
+          onRetry={() => setReload((value) => value + 1)}
+          data-plans-failure
+        />
+      ) : null}
 
-          {commandFailure ? (
-            <Alert live="assertive" variant="danger" data-plans-command-failure>
-              <AlertTitle>No se completó</AlertTitle>
-              <AlertDescription>{commandFailure}</AlertDescription>
-            </Alert>
-          ) : null}
-        </CardContent>
-      </Card>
+      {commandFailure && !creating ? (
+        <Alert live="assertive" variant="danger" data-plans-command-failure>
+          <AlertTitle>No se completó</AlertTitle>
+          <AlertDescription>{commandFailure}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {state === 'ready' && catalogue ? (
         <>
@@ -298,7 +420,7 @@ export function PlatformPlans() {
                 )
               }
               onPublish={(version) =>
-                void run(`publish:${version.id}`, 'publish', (command) =>
+                run(`publish:${version.id}`, 'publish', (command) =>
                   backofficeApi.publishPlatformPlanVersion(plan.id, version.id, command),
                 )
               }
@@ -309,83 +431,6 @@ export function PlatformPlans() {
               }
             />
           ))}
-
-          <Card data-plans-create>
-            <CardHeader>
-              <CardTitle role="heading" aria-level={2}>
-                Crear un plan
-              </CardTitle>
-              <CardDescription>
-                Un plan es un código estable, un nombre y un tipo. Nace sin nada en vigor: su
-                primera versión se propone después y la publica otra persona.
-                {freeExists
-                  ? ' Ya existe el plan gratuito: sus límites cambian publicando versiones de ese mismo plan.'
-                  : ''}
-              </CardDescription>
-            </CardHeader>
-            <CardContent data-card-body>
-              <form onSubmit={createPlan} data-plans-create-form>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="plan-code">Código</FieldLabel>
-                    <Input
-                      id="plan-code"
-                      value={code}
-                      onChange={(event) => setCode(event.target.value)}
-                      placeholder={PRO_PLAN_CODE}
-                      disabled={busy !== null}
-                    />
-                    <FieldDescription>
-                      Un código no se cambia después. Allfit One da Pro solo con el plan de pago
-                      cuyo código es <code>{PRO_PLAN_CODE}</code>.
-                    </FieldDescription>
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="plan-name">Nombre</FieldLabel>
-                    <Input
-                      id="plan-name"
-                      value={name}
-                      onChange={(event) => setName(event.target.value)}
-                      placeholder="Pro"
-                      disabled={busy !== null}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="plan-kind">Tipo</FieldLabel>
-                    <Select
-                      items={kindOptions}
-                      value={kind}
-                      onValueChange={(value) => setKind((value ?? '') as PlatformPlanKind | '')}
-                    >
-                      <SelectTrigger id="plan-kind" disabled={busy !== null}>
-                        <SelectValue placeholder="Gratis o de pago" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {kindOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  {chargesWithoutPro(code, kind) ? (
-                    <Alert live="polite" variant="warning" data-plans-create-without-pro>
-                      <AlertTitle>Este plan cobraría sin dar Pro</AlertTitle>
-                      <AlertDescription>
-                        Con el código «{code.trim()}», quien lo pague no recibe Pro. Para vender
-                        Pro, el código debe ser <code>{PRO_PLAN_CODE}</code>.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                  {createIssue ? <FieldError>{createIssue}</FieldError> : null}
-                </FieldGroup>
-                <Button type="submit" disabled={busy !== null}>
-                  Crear plan
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
         </>
       ) : null}
     </div>
@@ -404,10 +449,9 @@ function PlanCard({
   catalogue: PlatformPlanCatalogue
   busy: string | null
   onPropose: (proposal: PlatformPlanVersionProposal) => Promise<boolean>
-  onPublish: (version: PlatformPlanVersion) => void
+  onPublish: (version: PlatformPlanVersion) => Promise<boolean>
   onWithdraw: (version: PlatformPlanVersion) => Promise<boolean>
 }) {
-  const [withdrawing, setWithdrawing] = useState(false)
   const inForce = plan.current_version
   const proposal = plan.proposal
   const past = plan.history.filter(
@@ -452,54 +496,36 @@ function PlanCard({
               </ul>
               <VersionSummary version={proposal} catalogue={catalogue} />
               <div data-plan-actions>
-                <Button
-                  type="button"
-                  onClick={() => onPublish(proposal)}
-                  disabled={busy !== null || proposal.proposed_by_self}
+                <ConfirmAction
+                  tone="default"
+                  trigger={
+                    <Button type="button" disabled={busy !== null || proposal.proposed_by_self} />
+                  }
+                  label={`Publicar versión ${proposal.version_number}`}
+                  title={`¿Publicar la versión ${proposal.version_number} de ${plan.name}?`}
+                  confirmLabel="Publicar"
+                  busyLabel="Publicando…"
+                  keepLabel="Mantener la versión en vigor"
+                  busy={busy !== null}
+                  onConfirm={() => onPublish(proposal).then(() => undefined)}
                 >
-                  Publicar versión {proposal.version_number}
-                </Button>
-                <AlertDialog
-                  open={withdrawing}
-                  onOpenChange={(next) => {
-                    // Closing mid-flight would hide a request that is still going to land.
-                    if (busy !== null) return
-                    setWithdrawing(next)
-                  }}
+                  Desde ahora, quien se suscriba recibe esta versión, y quien ya estaba suscrito
+                  conserva la suya. La versión en vigor pasa al historial como reemplazada.
+                </ConfirmAction>
+                <ConfirmAction
+                  trigger={<Button type="button" variant="outline" disabled={busy !== null} />}
+                  label="Retirar propuesta"
+                  title={`¿Retirar la propuesta de la versión ${proposal.version_number}?`}
+                  confirmLabel="Retirar"
+                  busyLabel="Retirando…"
+                  keepLabel="Conservar la propuesta"
+                  busy={busy !== null}
+                  onConfirm={() => onWithdraw(proposal).then(() => undefined)}
                 >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setWithdrawing(true)}
-                    disabled={busy !== null}
-                  >
-                    Retirar propuesta
-                  </Button>
-                  <AlertDialogContent data-withdraw-proposal-dialog>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        ¿Retirar la propuesta de la versión {proposal.version_number}?
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Nadie podrá publicarla: queda en el historial como retirada y el plan sigue
-                        con lo que tiene en vigor. No se puede deshacer; para volver a cambiar el
-                        plan habría que proponer una versión nueva.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={busy !== null}>
-                        Conservar la propuesta
-                      </AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        disabled={busy !== null}
-                        onClick={() => void onWithdraw(proposal).then(() => setWithdrawing(false))}
-                      >
-                        {busy === `withdraw:${proposal.id}` ? 'Retirando…' : 'Retirar'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                  Nadie podrá publicarla: queda en el historial como retirada y el plan sigue con lo
+                  que tiene en vigor. No se puede deshacer; para volver a cambiar el plan habría que
+                  proponer una versión nueva.
+                </ConfirmAction>
               </div>
             </section>
           ) : (
@@ -593,7 +619,7 @@ function ProposalForm({
   const [drafts, setDrafts] = useState<FeatureDraft[]>(() =>
     initialFeatureDrafts(catalogue, inForce),
   )
-  const [issue, setIssue] = useState<string | null>(null)
+  const [issue, setIssue] = useState<{ field: string; message: string } | null>(null)
   const idPrefix = `plan-${plan.code}`
 
   function update(index: number, change: Partial<FeatureDraft>) {
@@ -608,20 +634,21 @@ function ProposalForm({
     if (paid) {
       const parsed = parsePriceToMinor(price, currency)
       if (parsed === undefined) {
-        setIssue(priceIssue())
+        setIssue({ field: 'price', message: priceIssue() })
         return
       }
       if (period === '') {
-        setIssue('Elige si el cobro es mensual o anual.')
+        setIssue({ field: 'period', message: 'Elige si el cobro es mensual o anual.' })
         return
       }
       amount = parsed
     }
     const limits = featureLimits(drafts)
     if ('invalid' in limits) {
-      setIssue(
-        `El límite de «${featureName(catalogue, limits.invalid)}» debe ser un número entero, o quedar vacío para no tener límite.`,
-      )
+      setIssue({
+        field: limits.invalid,
+        message: `El límite de «${featureName(catalogue, limits.invalid)}» debe ser un número entero, o quedar vacío para no tener límite.`,
+      })
       return
     }
     setIssue(null)
@@ -638,7 +665,7 @@ function ProposalForm({
   return (
     <section data-plan-propose>
       <h3>Proponer una versión</h3>
-      <form onSubmit={propose} data-plan-propose-form>
+      <form onSubmit={propose} data-backoffice-form data-plan-propose-form noValidate>
         <FieldGroup>
           {paid ? (
             <>
@@ -650,11 +677,18 @@ function ProposalForm({
                   value={price}
                   onChange={(event) => setPrice(event.target.value)}
                   placeholder="39900"
+                  aria-invalid={issue?.field === 'price' ? true : undefined}
+                  aria-describedby={
+                    issue?.field === 'price' ? `${idPrefix}-price-issue` : undefined
+                  }
                   disabled={busy !== null}
                 />
                 <FieldDescription>
                   Sin puntos de miles. Los centavos van después de una coma.
                 </FieldDescription>
+                {issue?.field === 'price' ? (
+                  <FieldError id={`${idPrefix}-price-issue`}>{issue.message}</FieldError>
+                ) : null}
               </Field>
               <Field>
                 <FieldLabel htmlFor={`${idPrefix}-currency`}>Moneda</FieldLabel>
@@ -687,7 +721,11 @@ function ProposalForm({
                     setPeriod((value ?? '') as PlatformPlanBillingPeriod | '')
                   }
                 >
-                  <SelectTrigger id={`${idPrefix}-period`} disabled={busy !== null}>
+                  <SelectTrigger
+                    id={`${idPrefix}-period`}
+                    aria-invalid={issue?.field === 'period' ? true : undefined}
+                    disabled={busy !== null}
+                  >
                     <SelectValue placeholder="Mensual o anual" />
                   </SelectTrigger>
                   <SelectContent>
@@ -698,6 +736,7 @@ function ProposalForm({
                     ))}
                   </SelectContent>
                 </Select>
+                {issue?.field === 'period' ? <FieldError>{issue.message}</FieldError> : null}
               </Field>
             </>
           ) : (
@@ -716,30 +755,38 @@ function ProposalForm({
             drafts.map((draft, index) => (
               <Field key={draft.code} data-plan-feature-draft={draft.code}>
                 <FieldTitle>{featureName(catalogue, draft.code)}</FieldTitle>
-                <Checkbox
-                  checked={draft.enabled}
-                  onCheckedChange={(checked) =>
-                    update(index, { enabled: checked === true, limit: checked ? draft.limit : '' })
-                  }
-                  disabled={busy !== null}
-                  aria-label={`Incluir ${featureName(catalogue, draft.code)}`}
-                >
-                  Incluida en este plan
-                </Checkbox>
+                {/* The box had its words inside the control, where nothing tied them to it; the
+                    words it shows are now its name. */}
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id={`${idPrefix}-${draft.code}-included`}
+                    checked={draft.enabled}
+                    onCheckedChange={(checked) =>
+                      update(index, {
+                        enabled: checked === true,
+                        limit: checked ? draft.limit : '',
+                      })
+                    }
+                    disabled={busy !== null}
+                  />
+                  <FieldLabel htmlFor={`${idPrefix}-${draft.code}-included`}>
+                    Incluir {featureName(catalogue, draft.code)}
+                  </FieldLabel>
+                </Field>
                 <Input
                   id={`${idPrefix}-${draft.code}`}
                   aria-label={`Límite de ${featureName(catalogue, draft.code)}`}
+                  aria-invalid={issue?.field === draft.code ? true : undefined}
                   inputMode="numeric"
                   value={draft.limit}
                   onChange={(event) => update(index, { limit: event.target.value })}
                   placeholder="Sin límite"
                   disabled={busy !== null || !draft.enabled}
                 />
+                {issue?.field === draft.code ? <FieldError>{issue.message}</FieldError> : null}
               </Field>
             ))
           )}
-
-          {issue ? <FieldError>{issue}</FieldError> : null}
         </FieldGroup>
         <Button type="submit" disabled={busy !== null}>
           Proponer versión

@@ -29,6 +29,8 @@ import {
 import { useState, type ReactElement, type ReactNode, type RefObject } from 'react'
 
 interface Question {
+  /** A publication asks too, but its answer is not destructive, so it is not red. */
+  tone?: 'destructive' | 'default'
   title: string
   /** What it costs, in this record's numbers. */
   children: ReactNode
@@ -71,6 +73,7 @@ export function ConfirmDialog({
   onOpenChange,
   trigger,
   returnFocus,
+  tone = 'destructive',
   title,
   children,
   confirmLabel,
@@ -102,7 +105,7 @@ export function ConfirmDialog({
         <AlertDialogFooter data-confirm-footer>
           <AlertDialogCancel disabled={busy}>{keepLabel}</AlertDialogCancel>
           <AlertDialogAction
-            variant="destructive"
+            variant={tone}
             disabled={busy}
             onClick={() => void onConfirm().then(() => onOpenChange(false))}
           >

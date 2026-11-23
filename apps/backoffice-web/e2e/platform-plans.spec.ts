@@ -26,6 +26,19 @@ function commands(fixture: ReturnType<typeof fixtureWith>, suffix = '') {
   )
 }
 
+/** Creating is the page header's one primary action, in a dialog over the plans. */
+async function openCreate(page: Page) {
+  await page.getByRole('button', { name: 'Crear un plan' }).click()
+  const dialog = page.locator('[data-plans-create]')
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+/** What a command answered, in the toast every workspace screen shares. */
+function outcome(page: Page) {
+  return page.locator('[data-sonner-toast]')
+}
+
 async function choose(
   page: Page,
   scope: ReturnType<Page['locator']>,
@@ -49,13 +62,13 @@ test('a plan is created and proposed with no functions to limit, and waits for s
     'qué incluye cada plan no está decidido',
   )
 
-  const create = page.locator('[data-plans-create]')
+  const create = await openCreate(page)
   await create.getByLabel('Código').fill('premium')
   await create.getByLabel('Nombre').fill('Premium')
   await choose(page, create, 'Tipo', 'De pago')
   await create.getByRole('button', { name: 'Crear plan' }).click()
 
-  await expect(page.locator('[data-plans-outcome]')).toContainText('la publica otra persona')
+  await expect(outcome(page)).toContainText('la publica otra persona')
   const card = page.locator('[data-plan="premium"]')
   await expect(card.locator('[data-plan-in-force]')).toContainText('Nada todavía')
   expect(commands(fixture)[0]?.body).toEqual({
@@ -126,8 +139,12 @@ test('a reviewer reads what changes, publishes it, and the replaced version stay
   await expect(card.locator('[data-plan-review-note]')).toContainText('La propuso otra persona')
 
   await card.getByRole('button', { name: 'Publicar versión 2' }).click()
+  // Publishing changes what everybody who subscribes from now on pays, so it asks first.
+  const question = page.getByRole('alertdialog')
+  await expect(question).toContainText('quien ya estaba suscrito conserva la suya')
+  await question.getByRole('button', { name: 'Publicar', exact: true }).click()
 
-  await expect(page.locator('[data-plans-outcome]')).toContainText('conserva la suya')
+  await expect(outcome(page)).toContainText('conserva la suya')
   await expect(card.locator('[data-plan-in-force] [data-plan-version="2"]')).toBeVisible()
   await expect(card.locator('[data-plan-in-force]')).toContainText('Hasta 24 semanas')
   const history = card.locator('[data-plan-history-version="1"]')
@@ -164,7 +181,7 @@ test('withdrawing a proposal keeps it in the history and opens the form again', 
   await card.getByRole('button', { name: 'Retirar propuesta' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Retirar', exact: true }).click()
 
-  await expect(page.locator('[data-plans-outcome]')).toContainText('Queda en el historial')
+  await expect(outcome(page)).toContainText('Queda en el historial')
   await expect(card.locator('[data-plan-history-version="1"]')).toContainText('Retirada')
   await expect(card.locator('[data-plan-propose-form]')).toBeVisible()
   expect(commands(fixture, '/withdrawal')).toHaveLength(1)
@@ -234,7 +251,7 @@ test('a paid plan under any code but pro is warned that it charges without givin
 
   await page.goto('/plans')
 
-  const create = page.locator('[data-plans-create]')
+  const create = await openCreate(page)
   const warning = create.locator('[data-plans-create-without-pro]')
   await expect(create.getByLabel('Código')).toHaveAttribute('placeholder', 'pro')
 
@@ -265,13 +282,16 @@ test('the free plan is created once, costs nothing, and its limits are what a ve
 
   await page.goto('/plans')
 
-  const create = page.locator('[data-plans-create]')
+  const create = await openCreate(page)
   await create.getByRole('combobox', { name: 'Tipo' }).click()
   // Wait for the list to be open, or an absent option proves nothing.
   await expect(page.getByRole('option', { name: 'De pago', exact: true })).toBeVisible()
   await expect(page.getByRole('option', { name: 'Gratis', exact: true })).toHaveCount(0)
   // Choosing the only kind left closes the list.
   await page.getByRole('option', { name: 'De pago', exact: true }).click()
+  // Back to the plans: the dialog covers them while it is open.
+  await page.keyboard.press('Escape')
+  await expect(create).toHaveCount(0)
 
   const card = page.locator('[data-plan="free"]')
   await expect(card.locator('[data-plan-free-note]')).toBeVisible()
@@ -376,4 +396,38 @@ test('a proposal that meets another one open is explained, not retried', async (
   await expect(page.locator('[data-plans-command-failure]')).toContainText(
     'ya tiene una propuesta abierta',
   )
+})
+
+test('keeping the version in force from the publish question publishes nothing', async ({
+  context,
+  page,
+}) => {
+  const inForce = platformPlanVersion()
+  const proposal = platformPlanVersion({
+    version_number: 2,
+    status: 'draft',
+    amount_minor: 4490000,
+    supersedes_version_id: inForce.id,
+    published_by_person_id: null,
+    published_at: null,
+  })
+  const fixture = fixtureWith(
+    platformPlansFixture({
+      plans: [platformPlan({ status: 'published', versions: [inForce, proposal] })],
+    }),
+  )
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto('/plans')
+  await page
+    .locator('[data-plan="premium"]')
+    .getByRole('button', { name: 'Publicar versión 2' })
+    .click()
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Mantener la versión en vigor' })
+    .click()
+
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  expect(commands(fixture, '/publication')).toHaveLength(0)
 })
