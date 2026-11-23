@@ -34,7 +34,7 @@ export const REVIEW_OUTCOMES: readonly BreakGlassReviewOutcome[] = [
 export const EMPTY_QUEUE = 'No hay ningún caso esperando revisión. Es lo que debe pasar.'
 
 export const WHY_IT_IS_REVIEWED =
-  'Break-glass es el único camino que lee los datos de una persona sin ella. Todos los demás controles actúan antes de la lectura; esta revisión es la que actúa después, y tiene que hacerse sobre el 100 % de los casos que se usaron.'
+  'El acceso excepcional es el único camino que lee los datos de una persona sin ella. Todos los demás controles actúan antes de la lectura; esta revisión es la que actúa después, y tiene que hacerse sobre el 100 % de los casos que se usaron.'
 
 export const LATE_IS_STILL_REQUIRED =
   'Pasadas las 24 horas la revisión sigue siendo obligatoria y se puede hacer. Queda registrada como tardía, porque un caso sin revisar es peor que uno revisado tarde.'

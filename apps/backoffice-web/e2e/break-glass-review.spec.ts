@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 
 import {
   activeSession,
@@ -18,6 +18,12 @@ import {
 
 function queue() {
   return [reviewRecord('CASE-2026-FRESH', 2), reviewRecord('CASE-2026-OLD', 30)]
+}
+
+/** A verdict is chosen, then registered: one click never decides a case. */
+async function decide(reviewCase: Locator, verdict: string) {
+  await reviewCase.locator(`[data-review-verdict="${verdict}"]`).click()
+  await reviewCase.getByRole('button', { name: 'Registrar la revisión' }).click()
 }
 
 test('the queue is a debt: the oldest case is first and the backlog is counted', async ({
@@ -79,7 +85,7 @@ test('a late verdict is accepted and recorded as late', async ({ context, page }
   await page.goto('/break-glass?tab=review')
 
   const overdue = page.locator('[data-review-case="CASE-2026-OLD"]')
-  await overdue.locator('[data-review-verdict="unjustified"]').click()
+  await decide(overdue, 'unjustified')
 
   await expect(page.locator('[data-review-outcome]')).toContainText('no justificado')
   await expect(page.locator('[data-review-outcome]')).toContainText('tardía')
@@ -107,7 +113,7 @@ test('an incident says it asks somebody to act, before it is pressed', async ({
     'pide que alguien haga algo',
   )
 
-  await fresh.locator('[data-review-verdict="incident_opened"]').click()
+  await decide(fresh, 'incident_opened')
   await expect(page.locator('[data-review-outcome]')).toContainText('Incidente abierto')
 })
 
@@ -145,9 +151,7 @@ test('a case somebody else just reviewed conflicts rather than taking a second v
 
   await page.goto('/break-glass?tab=review')
 
-  await page
-    .locator('[data-review-case="CASE-2026-FRESH"] [data-review-verdict="justified"]')
-    .click()
+  await decide(page.locator('[data-review-case="CASE-2026-FRESH"]'), 'justified')
 
   await expect(page.locator('[data-review-failure]')).toContainText('ya fue revisado')
   await expect(page.locator('[data-review-failure]')).toContainText('no se reescribe')
@@ -165,10 +169,36 @@ test('nothing on this screen leaks what the window actually read', async ({ cont
   await page.goto('/break-glass?tab=review')
 
   const review = page.locator('[data-review-queue]')
+  // Named in words, not by the code the API carries.
   await expect(review.locator('[data-review-categories]').first()).toContainText(
-    'prior_training_history',
+    'Historial previo de entrenamiento',
   )
   // The category is metadata. The content behind it never travels to this screen.
   await expect(review).not.toContainText('@')
   await expect(review).not.toContainText('kg')
+})
+
+test('choosing a verdict decides nothing until it is registered', async ({ context, page }) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    breakGlass: { files: [], reviews: queue() },
+  })
+  await mockBackofficeApi(context, fixture)
+  const verdicts = () =>
+    fixture.requests.filter(
+      (request) => request.method === 'POST' && request.path.includes('review'),
+    )
+
+  await page.goto('/break-glass?tab=review')
+  const fresh = page.locator('[data-review-case="CASE-2026-FRESH"]')
+
+  // Three filled buttons in a row read as a severity scale and decided on one click.
+  await fresh.getByRole('button', { name: 'Registrar la revisión' }).click()
+  await expect(fresh.getByText('Elige un veredicto.')).toBeVisible()
+  await fresh.locator('[data-review-verdict="justified"]').click()
+  expect(verdicts()).toHaveLength(0)
+
+  await fresh.getByRole('button', { name: 'Registrar la revisión' }).click()
+  await expect(page.locator('[data-review-outcome]')).toBeVisible()
+  expect(verdicts()).toHaveLength(1)
 })

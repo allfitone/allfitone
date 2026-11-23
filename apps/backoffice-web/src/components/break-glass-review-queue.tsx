@@ -12,9 +12,11 @@
  * permanent hole in the audit, which is the outcome the twenty-four hours exist to
  * prevent.
  *
- * **Each verdict says what it means before it is pressed.** Three buttons that read
+ * **Each verdict says what it means before it is chosen.** Three buttons that read
  * as a severity scale would make `incident_opened` the angry option; it is not a worse
- * verdict, it is the one that asks somebody to act.
+ * verdict, it is the one that asks somebody to act. So a verdict is chosen among
+ * equals, each with its meaning, and only one button registers it: a stray click on
+ * three filled buttons in a row used to decide a case.
  *
  * **A lost answer never decides twice.** The command is kept until an answer arrives,
  * so a retry after a network failure replays instead of writing a second verdict over
@@ -31,6 +33,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '@allfitone/react/components/field'
+import { RadioGroup, RadioGroupItem } from '@allfitone/react/components/radio-group'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
@@ -56,6 +66,7 @@ import {
   reviewMessage,
   reviewOutcomeMessage,
 } from '@/lib/break-glass-review'
+import { categoryLabel } from '@/lib/break-glass'
 import { formatInstant } from '@/lib/platform-access'
 
 export function BreakGlassReviewQueue() {
@@ -181,24 +192,15 @@ export function BreakGlassReviewQueue() {
             <CardContent data-card-body>
               <p data-review-debt>{debtSentence(entry, now)}</p>
               <p data-review-due>{dueSentence(entry, now)}</p>
-              <p data-review-categories>{entry.categories.join(', ')}</p>
+              <p data-review-categories>{entry.categories.map(categoryLabel).join(' · ')}</p>
 
               {entry.reviewed_at === null ? (
-                <div data-review-actions>
-                  {REVIEW_OUTCOMES.map((verdict) => (
-                    <div key={verdict}>
-                      <Button
-                        type="button"
-                        disabled={busy !== null}
-                        data-review-verdict={verdict}
-                        onClick={() => void review(entry.request_id, verdict)}
-                      >
-                        {busy === entry.request_id ? 'Guardando…' : outcomeLabel(verdict)}
-                      </Button>
-                      <p data-review-meaning={verdict}>{outcomeMeaning(verdict)}</p>
-                    </div>
-                  ))}
-                </div>
+                <ReviewVerdict
+                  entry={entry}
+                  busy={busy !== null}
+                  saving={busy === entry.request_id}
+                  onReview={(verdict) => void review(entry.request_id, verdict)}
+                />
               ) : (
                 <p data-review-verdict-given>
                   {reviewOutcomeMessage(entry)} {formatInstant(entry.reviewed_at)}.
@@ -208,6 +210,70 @@ export function BreakGlassReviewQueue() {
           </Card>
         )
       })}
+    </div>
+  )
+}
+
+function ReviewVerdict({
+  entry,
+  busy,
+  saving,
+  onReview,
+}: {
+  entry: BreakGlassReview
+  busy: boolean
+  saving: boolean
+  onReview: (verdict: BreakGlassReviewOutcome) => void
+}) {
+  const [verdict, setVerdict] = useState<BreakGlassReviewOutcome | null>(null)
+  const [missing, setMissing] = useState(false)
+  const issueId = `review-${entry.request_id}-issue`
+
+  return (
+    <div data-review-actions>
+      <RadioGroup
+        value={verdict ?? ''}
+        aria-label={`Veredicto sobre ${entry.case_reference}`}
+        aria-describedby={missing ? issueId : undefined}
+        onValueChange={(value) => {
+          const chosen = REVIEW_OUTCOMES.find((option) => option === value)
+          if (!chosen) return
+          setVerdict(chosen)
+          setMissing(false)
+        }}
+      >
+        {REVIEW_OUTCOMES.map((option) => (
+          <Field key={option} orientation="horizontal">
+            <RadioGroupItem
+              id={`review-${entry.request_id}-${option}`}
+              value={option}
+              disabled={busy}
+              data-review-verdict={option}
+            />
+            <FieldContent>
+              <FieldLabel htmlFor={`review-${entry.request_id}-${option}`}>
+                {outcomeLabel(option)}
+              </FieldLabel>
+              <FieldDescription data-review-meaning={option}>
+                {outcomeMeaning(option)}
+              </FieldDescription>
+            </FieldContent>
+          </Field>
+        ))}
+      </RadioGroup>
+      {missing ? <FieldError id={issueId}>Elige un veredicto.</FieldError> : null}
+      <div data-form-actions>
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            if (verdict) onReview(verdict)
+            else setMissing(true)
+          }}
+        >
+          {saving ? 'Guardando…' : 'Registrar la revisión'}
+        </Button>
+      </div>
     </div>
   )
 }
