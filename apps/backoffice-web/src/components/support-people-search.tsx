@@ -43,6 +43,7 @@ import { useState, type FormEvent } from 'react'
 
 import { BackofficeApiError, BackofficeNetworkError, backofficeApi } from '@/lib/backoffice-api'
 import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
+import { personFileHref } from '@/lib/person-file'
 import {
   accountStatusLabel,
   accountStatusTone,
@@ -205,7 +206,7 @@ function PeopleSearch({ addressCase }: { addressCase: string }) {
                 <TableRow key={person.person_id} data-support-result>
                   <TableCell>
                     <Link
-                      href={fileHref(person.person_id, shown.caseReference)}
+                      href={personFileHref(person.person_id, shown.caseReference)}
                       data-support-result-link
                     >
                       {person.display_name}
@@ -226,12 +227,6 @@ function PeopleSearch({ addressCase }: { addressCase: string }) {
       ) : null}
     </div>
   )
-}
-
-function fileHref(personId: string, caseReference: string): string {
-  return caseReference
-    ? `/people/${personId}?case_reference=${encodeURIComponent(caseReference)}`
-    : `/people/${personId}`
 }
 
 function failureMessage(error: unknown): string {

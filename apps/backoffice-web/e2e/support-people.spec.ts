@@ -40,7 +40,7 @@ test('finds a person by part of her name, without a case, and opens her file', a
   await row.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
 
   await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}`)
-  await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: SUPPORT_SUBJECT_NAME, level: 2 })).toBeVisible()
   await expect(page.locator('#person-name')).toHaveText(SUPPORT_SUBJECT_NAME)
   await expect(page.locator('#person-email')).toHaveText(SUPPORT_SUBJECT_EMAIL)
   await expect(page.locator('#person-phone')).toHaveText('+573001234567')
@@ -120,7 +120,7 @@ test('a case, when there is one, travels with the search and into the file', asy
   await page.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
 
   await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
-  await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: SUPPORT_SUBJECT_NAME, level: 2 })).toBeVisible()
   // A window for this person starts here, under the same case, instead of from a typed identifier.
   await expect(page.locator('[data-person-break-glass-link]')).toHaveAttribute(
     'href',
@@ -281,6 +281,7 @@ test('shows what she pays, telling the charge that failed from the one that did 
   )
 
   await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
+  await page.getByRole('tab', { name: 'Pagos' }).click()
 
   const panel = page.locator('[data-payments-panel]')
   await expect(panel.getByText(/Tiene Pro porque se lo paga a Allfit One por Apple/)).toBeVisible()
@@ -322,7 +323,8 @@ test('a suspended subscription says since when, which is what a complaint needs'
     }),
   )
 
-  await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
+  // An address can open the payments tab directly, as «Cobros por seguir» does.
+  await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}&tab=payments`)
 
   await expect(page.locator('[data-payments-state="suspended"]')).toContainText(
     'En pausa por falta de cobro desde el',
@@ -345,10 +347,43 @@ test('the duty that opens the card does not open her money, and the panel says w
   await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
 
   // The card still loads: one duty refused is not the whole screen failing.
-  await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: SUPPORT_SUBJECT_NAME, level: 2 })).toBeVisible()
+  await page.getByRole('tab', { name: 'Pagos' }).click()
   const refused = page.locator('[data-payments-refused]')
   await expect(refused).toContainText('view_billing_metadata')
   await expect(refused).toContainText('distinto del que abre su ficha')
+})
+
+test('opening her file reads her state; payments and recovery only when their tab opens', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession(), support: support() })
+  await mockBackofficeApi(context, fixture)
+  const reads = (suffix: string) =>
+    fixture.requests.filter((request) => request.method === 'GET' && request.path.endsWith(suffix))
+      .length
+
+  await page.goto(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`)
+  await expect(page.getByRole('heading', { name: SUPPORT_SUBJECT_NAME, level: 2 })).toBeVisible()
+  await expect(page.locator('#person-email')).toBeVisible()
+  // Every read is recorded on her, so what nobody opened is not read.
+  expect(reads('/payments')).toBe(0)
+  expect(reads('/account-recovery')).toBe(0)
+
+  await page.getByRole('tab', { name: 'Pagos' }).click()
+  await expect(page).toHaveURL(`/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}&tab=payments`)
+  await expect(page.locator('[data-payments-panel]')).toBeVisible()
+  const payments = reads('/payments')
+  expect(payments).toBeGreaterThan(0)
+
+  // Going back and forth keeps what was read on screen instead of reading it again.
+  await page.getByRole('tab', { name: 'Estado' }).click()
+  await expect(page.locator('#person-email')).toBeVisible()
+  await page.getByRole('tab', { name: 'Pagos' }).click()
+  await expect(page.locator('[data-payments-panel]')).toBeVisible()
+  expect(reads('/payments')).toBe(payments)
+  expect(reads('/account-recovery')).toBe(0)
 })
 
 test('will not open a card under a case written in free text', async ({ context, page }) => {

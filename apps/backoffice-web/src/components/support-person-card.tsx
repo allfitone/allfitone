@@ -12,13 +12,17 @@
  * or the platform lacks it, and the second is the truth. Criterion 5 asks for
  * unknown to read as empty rather than as zero; this goes one step further,
  * because "esta persona no tiene relaciones" would be a claim we cannot make.
+ *
+ * Three tabs, each its own read. Her payments and her access recovery are read,
+ * and recorded on her, only when their tab is first opened: a file opened to
+ * answer «no puedo entrar» does not look at her money. Once opened, a panel
+ * stays mounted, so going back and forth does not record the same look twice.
+ * The tab lives in the address beside the case, so a reload stays on it.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenLoading } from './screen-state'
-
 import {
   Card,
   CardContent,
@@ -34,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Fragment, useEffect, useState } from 'react'
@@ -47,6 +52,9 @@ import {
   type SupportPersonMetadata,
 } from '@/lib/backoffice-api'
 import { menuCrumb } from '@/lib/backoffice-routes'
+import { breakGlassRequestHref } from '@/lib/break-glass'
+import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
+import { personFileHref, personTabFromQuery, type PersonTab } from '@/lib/person-file'
 import { formatInstant } from '@/lib/platform-access'
 import {
   accountStatusLabel,
@@ -55,20 +63,25 @@ import {
   supportMetadataMessage,
   verificationLabel,
 } from '@/lib/support-metadata'
-import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
-import { breakGlassRequestHref } from '@/lib/break-glass'
 
 import { RecordHeader } from './page-header'
 import { RecordId } from './record-id'
+import { ScreenLoading } from './screen-state'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
 export function SupportPersonCard({ personId }: { personId: string }) {
-  const caseReference = normalizeCaseReference(useSearchParams().get('case_reference') ?? '')
+  const parameters = useSearchParams()
+  const caseReference = normalizeCaseReference(parameters.get('case_reference') ?? '')
+  const tab = personTabFromQuery(parameters.get('tab'))
   const traceable = isValidOptionalCaseReference(caseReference)
   const [state, setState] = useState<LoadState>('loading')
   const [metadata, setMetadata] = useState<SupportPersonMetadata | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const [opened, setOpened] = useState<ReadonlySet<PersonTab>>(() => new Set([tab]))
+
+  // A tab named by the address counts as opened, whichever way it got there.
+  if (!opened.has(tab)) setOpened(new Set([...opened, tab]))
 
   useEffect(() => {
     if (!traceable) return
@@ -91,6 +104,11 @@ export function SupportPersonCard({ personId }: { personId: string }) {
     })()
     return () => controller.abort()
   }, [personId, caseReference, traceable])
+
+  // Next keeps `useSearchParams` in step with the history API: no navigation, no reload.
+  function showTab(next: PersonTab): void {
+    window.history.replaceState(null, '', personFileHref(personId, caseReference, next))
+  }
 
   // The way back keeps the case, so the search the operator came from records it too.
   const trail = [menuCrumb('/people', { case_reference: traceable ? caseReference : '' })]
@@ -119,7 +137,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
       <div data-support-person>
         <RecordHeader trail={trail} name="Ficha de la persona" />
         <Alert live="assertive" variant="danger">
-          <AlertTitle>No se pudo abrir el estado operativo</AlertTitle>
+          <AlertTitle>No se pudo abrir la ficha</AlertTitle>
           <AlertDescription>
             {failure ?? supportMetadataMessage('upstream-unavailable')}
           </AlertDescription>
@@ -138,22 +156,58 @@ export function SupportPersonCard({ personId }: { personId: string }) {
             {accountStatusLabel(metadata.account_status)}
           </Badge>
         }
+        description={`${caseReference ? `Caso ${caseReference}. ` : ''}Para resolver un caso de entrenamiento, cuerpo, salud o nutrición hace falta un acceso excepcional aparte.`}
+        actions={
+          <Button
+            variant="outline"
+            render={<Link href={breakGlassRequestHref(metadata.person_id, caseReference)} />}
+            nativeButton={false}
+            data-person-break-glass-link
+          >
+            Pedir acceso excepcional
+          </Button>
+        }
       />
+
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          showTab(personTabFromQuery(typeof value === 'string' ? value : null))
+        }
+        data-person-tabs
+      >
+        <TabsList variant="line" aria-label="Secciones de la ficha">
+          <TabsTrigger value="state">Estado</TabsTrigger>
+          <TabsTrigger value="payments">Pagos</TabsTrigger>
+          <TabsTrigger value="recovery">Recuperación</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="state" keepMounted data-person-tab>
+          <PersonState metadata={metadata} />
+        </TabsContent>
+        <TabsContent value="payments" keepMounted data-person-tab>
+          {opened.has('payments') ? (
+            <SupportPaymentsPanel personId={personId} caseReference={caseReference} />
+          ) : null}
+        </TabsContent>
+        <TabsContent value="recovery" keepMounted data-person-tab>
+          {opened.has('recovery') ? (
+            <AccountRecoveryPanel personId={personId} caseReference={caseReference} />
+          ) : null}
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+function PersonState({ metadata }: { metadata: SupportPersonMetadata }) {
+  return (
+    <>
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            Estado operativo
+            Identidad y contacto
           </CardTitle>
-          <CardDescription>
-            {caseReference ? `Caso ${caseReference}. ` : ''}Para resolver un caso de entrenamiento,
-            cuerpo, salud o nutrición hace falta un acceso excepcional aparte.{' '}
-            <Link
-              href={breakGlassRequestHref(metadata.person_id, caseReference)}
-              data-person-break-glass-link
-            >
-              Pedir acceso excepcional para esta persona
-            </Link>
-          </CardDescription>
         </CardHeader>
         <CardContent data-card-body>
           <dl data-facts>
@@ -253,10 +307,6 @@ export function SupportPersonCard({ personId }: { personId: string }) {
         </CardContent>
       </Card>
 
-      <SupportPaymentsPanel personId={personId} caseReference={caseReference} />
-
-      <AccountRecoveryPanel personId={personId} caseReference={caseReference} />
-
       <Card data-support-person-blocks>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
@@ -278,7 +328,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
           </dl>
         </CardContent>
       </Card>
-    </div>
+    </>
   )
 }
 

@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 
 import {
   SUPPORT_SUBJECT_ID,
+  SUPPORT_SUBJECT_NAME,
   accountRecoveryRequest,
   accountRecoveryState,
   activeSession,
@@ -13,7 +14,7 @@ import {
 
 const CASE = 'CASE-2026-001'
 const HINT = '••••••••on@example.test'
-const CARD = `/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}`
+const CARD = `/people/${SUPPORT_SUBJECT_ID}?case_reference=${CASE}&tab=recovery`
 
 function fixtureWith(accountRecovery: AccountRecoveryFixture) {
   return createBackofficeFixture({
@@ -324,7 +325,7 @@ test('without the support duty the section says which duty it needs, and the car
   await page.goto(CARD)
 
   await expect(page.locator('[data-account-recovery]')).toContainText('deber de soporte')
-  await expect(page.getByRole('heading', { name: 'Estado operativo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: SUPPORT_SUBJECT_NAME, level: 2 })).toBeVisible()
 })
 
 test('opened without a case, the card reads the recovery and asks for the case only to send it', async ({
@@ -334,7 +335,7 @@ test('opened without a case, the card reads the recovery and asks for the case o
   const fixture = fixtureWith({ states: { [SUPPORT_SUBJECT_ID]: accountRecoveryState() } })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/people/${SUPPORT_SUBJECT_ID}`)
+  await page.goto(`/people/${SUPPORT_SUBJECT_ID}?tab=recovery`)
 
   // Reading needs no case (ADR-046); sending opens one, so it waits for a traceable one.
   const section = page.locator('[data-account-recovery]')
