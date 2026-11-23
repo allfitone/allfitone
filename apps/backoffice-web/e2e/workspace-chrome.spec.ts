@@ -179,11 +179,12 @@ test('the home screen says who is signed in and until when', async ({ context, p
 
 test('a form keeps a readable measure and its button its own width', async ({ context, page }) => {
   await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
-  await page.goto('/people')
+  // Personas became a toolbar; the follow-up keeps the stacked form this rule is for.
+  await page.goto('/people/billing')
 
   const form = page.locator('form[data-backoffice-form]')
   const formBox = await form.boundingBox()
-  const buttonBox = await form.getByRole('button', { name: 'Buscar' }).boundingBox()
+  const buttonBox = await form.getByRole('button', { name: 'Ver la lista' }).boundingBox()
   expect(formBox?.width).toBeLessThanOrEqual(36 * 16)
   expect(buttonBox?.width).toBeLessThan((formBox?.width ?? 0) / 2)
   const label = form.getByText('Referencia del caso')
