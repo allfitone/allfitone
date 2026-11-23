@@ -2092,12 +2092,6 @@ button.pill-link {
   gap: 12px;
 }
 
-/* The Design System's outline button loses its border to its own
-   `border-transparent`, which comes later in its stylesheet (DS 0.15.0). */
-.footer-family__outline {
-  border-color: var(--border);
-}
-
 /* ------------------------------------------------------------- keyframes */
 
 @keyframes rise {

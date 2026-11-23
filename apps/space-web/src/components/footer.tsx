@@ -55,7 +55,7 @@ export function Footer({ locale, copy }: { locale: Locale; copy: Dictionary }) {
           {family.map(({ name, href, variant }) => (
             <a
               key={href}
-              className={`${buttonVariants({ variant })} footer-family__${variant}`}
+              className={buttonVariants({ variant })}
               href={href}
               target="_blank"
               rel="noopener noreferrer"
