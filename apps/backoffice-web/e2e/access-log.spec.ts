@@ -106,7 +106,9 @@ test('a long answer is read to the end, a page at a time', async ({ context, pag
   const answer = page.locator('[data-access-log-answer]')
   await expect(answer).toContainText('Van 50 accesos, los más recientes')
   await expect(answer).toContainText('Hay más accesos que cumplen estos filtros')
-  await expect(page.locator('[data-access-log-entry]')).toHaveCount(50)
+  await expect(
+    page.getByRole('table', { name: 'Accesos registrados' }).locator('[data-access-log-entry]'),
+  ).toHaveCount(50)
 
   await page.getByRole('button', { name: 'Ver más accesos' }).click()
 
@@ -163,7 +165,9 @@ test('says who accessed, what, about whom and when', async ({ context, page }) =
   await page.getByLabel('Persona afectada').fill(SUPPORT_SUBJECT_ID)
   await page.getByRole('button', { name: 'Consultar' }).click()
 
-  await expect(page.getByRole('heading', { name: 'nutrition.intake_entries' })).toBeVisible()
+  // One row per access, read down the columns, instead of a card per access.
+  const table = page.getByRole('table', { name: 'Accesos registrados' })
+  await expect(table.getByRole('cell', { name: 'nutrition.intake_entries' })).toBeVisible()
   // Read short, whole in its title and in what the copy button hands over.
   await expect(page.locator(`code[title="${SUBJECT_PERSON_ID}"]`).first()).toBeVisible()
   await expect(page.getByText('nutrition_intake · v2')).toBeVisible()
@@ -326,4 +330,21 @@ test("a read by Allfit staff is never presented as the person's permission", asy
   await expect(page.getByText('Lectura del equipo de Allfit One')).toBeVisible()
   await expect(page.getByText(/No hubo permiso de la persona/)).toBeVisible()
   await expect(page.getByText(/tenía un permiso vigente/)).toHaveCount(0)
+})
+
+test('a malformed identifier is said under the field it is about', async ({ context, page }) => {
+  const fixture = createBackofficeFixture({ session: activeSession(), accessLog: { events: [] } })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  const subject = page.getByLabel('Persona afectada')
+  await subject.fill('no es un identificador')
+  await page.getByRole('button', { name: 'Consultar' }).click()
+
+  await expect(subject).toHaveAttribute('aria-invalid', 'true')
+  await expect(subject).toHaveAccessibleDescription(/.+/)
+  await expect(page.getByLabel('Integrante del equipo')).not.toHaveAttribute('aria-invalid', 'true')
+  expect(
+    fixture.requests.filter((request) => request.path === '/backoffice/v1/access-events'),
+  ).toHaveLength(0)
 })

@@ -227,6 +227,19 @@
   gap: var(--afo-space-3);
 }
 
+/* What authorised a read is a sentence: it wraps in its column instead of widening the
+   table past the auditor's view. */
+[data-access-log-basis] {
+  min-width: 16rem;
+  width: 20rem;
+  white-space: normal;
+}
+
+[data-access-log-basis] p {
+  margin-block: var(--afo-space-1) 0;
+  font-size: var(--afo-font-size-sm);
+}
+
 /* The menu is as wide as its 44px trigger by default, which cut every action in two. */
 [data-row-menu-content] {
   min-width: max-content;
