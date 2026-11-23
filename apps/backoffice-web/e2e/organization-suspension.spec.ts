@@ -37,7 +37,7 @@ test('the panel says what suspending does not do, not only what it does', async 
     createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
 
   await expect(page.locator('[data-suspension-does]')).toContainText('deja de operar')
   await expect(page.locator('[data-suspension-does]')).toContainText('plan gratuito')
@@ -58,7 +58,7 @@ test('the cost is on screen while the reason is being picked, counted against th
     createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
 
   const cost = page.locator('[data-suspension-cost]')
   await expect(cost).toBeVisible()
@@ -73,7 +73,7 @@ test('stops a gym and reads back how many people it cost', async ({ context, pag
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
 
   await suspend(page, 'Incumplió los términos')
 
@@ -103,7 +103,7 @@ test('reactivating is offered as subtractive, never as a restore', async ({ cont
     createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
   await suspend(page)
   await expect(page.locator('[data-suspension-state]')).toContainText('Suspendido')
 
@@ -137,7 +137,7 @@ test('without the lifecycle duty the panel says which duty it needs', async ({ c
     }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
   await suspend(page)
 
   await expect(page.locator('[data-suspension-failure]')).toContainText(
@@ -161,7 +161,7 @@ test('a gym that does not operate is offered neither suspending nor reactivating
     createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
 
   await expect(page.locator('[data-suspension-out-of-cycle]')).toContainText('sin reclamar')
   await expect(page.locator('[data-suspension-save]')).toHaveCount(0)
@@ -182,7 +182,7 @@ test('a gym that does not qualify is told which states do', async ({ context, pa
     }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
   await suspend(page)
 
   await expect(page.locator('[data-suspension-failure]')).toContainText(
@@ -205,7 +205,7 @@ test('asks before stopping a gym, repeating the cost, and picks no reason for th
       (request) => request.method === 'POST' && request.path.endsWith('/suspension'),
     )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=suspension`)
   await expect(page.locator('#suspension-reason')).toContainText('Elige un motivo')
 
   // No reason, no question: the field says what is missing.

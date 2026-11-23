@@ -30,7 +30,7 @@ test('support resends a live invitation as it is, and the first email keeps work
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${gym.organization.organization_id}`)
+  await page.goto(`/organizations/${gym.organization.organization_id}?tab=invitations`)
 
   const section = page.locator('[data-team-invitations]')
   await expect(section.getByRole('heading', { name: 'Invitaciones de equipo' })).toBeVisible()
@@ -78,7 +78,7 @@ test('an expired invitation is replaced by a new one Allfit signs, and the old o
     }),
   )
 
-  await page.goto(`/organizations/${gym.organization.organization_id}`)
+  await page.goto(`/organizations/${gym.organization.organization_id}?tab=invitations`)
   const section = page.locator('[data-team-invitations]')
   await section.getByRole('button', { name: 'Reenviar la invitación a e***@example.test' }).click()
 
@@ -107,7 +107,7 @@ test('a resend lost to the network is retried with the same command, so nobody g
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${gym.organization.organization_id}`)
+  await page.goto(`/organizations/${gym.organization.organization_id}?tab=invitations`)
   const section = page.locator('[data-team-invitations]')
   const resend = section.getByRole('button', {
     name: 'Reenviar la invitación a l***@example.test',
@@ -147,7 +147,7 @@ test('a resend over the daily limit says the gym’s own invitations count too',
     }),
   )
 
-  await page.goto(`/organizations/${gym.organization.organization_id}`)
+  await page.goto(`/organizations/${gym.organization.organization_id}?tab=invitations`)
   await page.getByRole('button', { name: 'Reenviar la invitación a l***@example.test' }).click()
 
   await expect(page.locator('[data-team-invitation-failure]')).toContainText(
@@ -166,7 +166,7 @@ test('without the support duty the section says which duty it needs', async ({ c
     }),
   )
 
-  await page.goto(`/organizations/${gym.organization.organization_id}`)
+  await page.goto(`/organizations/${gym.organization.organization_id}?tab=invitations`)
 
   await expect(page.locator('[data-team-invitations]')).toContainText('deber de soporte')
   // The refusal is the section's alone: the rest of the file still opens.
@@ -187,9 +187,10 @@ test('a gym nobody claimed has no team invitations to resend', async ({ context,
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${unclaimed.organization.organization_id}`)
+  // The address asks for a tab this gym does not have, and lands on its summary.
+  await page.goto(`/organizations/${unclaimed.organization.organization_id}?tab=invitations`)
 
-  await expect(page.getByText('Sin dueño: nadie ha reclamado el gimnasio.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ver la entrega a su dueño' })).toBeVisible()
   await expect(page.locator('[data-team-invitations]')).toHaveCount(0)
   expect(fixture.requests.some((request) => request.path.endsWith('/team-invitations'))).toBe(false)
 })

@@ -54,6 +54,7 @@ import {
 import { menuCrumb } from '@/lib/backoffice-routes'
 import { breakGlassRequestHref } from '@/lib/break-glass'
 import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
+import { useOpenedTabs } from '@/lib/use-opened-tabs'
 import { personFileHref, personTabFromQuery, type PersonTab } from '@/lib/person-file'
 import { formatInstant } from '@/lib/platform-access'
 import {
@@ -78,10 +79,7 @@ export function SupportPersonCard({ personId }: { personId: string }) {
   const [state, setState] = useState<LoadState>('loading')
   const [metadata, setMetadata] = useState<SupportPersonMetadata | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
-  const [opened, setOpened] = useState<ReadonlySet<PersonTab>>(() => new Set([tab]))
-
-  // A tab named by the address counts as opened, whichever way it got there.
-  if (!opened.has(tab)) setOpened(new Set([...opened, tab]))
+  const opened = useOpenedTabs(tab)
 
   useEffect(() => {
     if (!traceable) return
@@ -182,15 +180,15 @@ export function SupportPersonCard({ personId }: { personId: string }) {
           <TabsTrigger value="recovery">Recuperación</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="state" keepMounted data-person-tab>
+        <TabsContent value="state" keepMounted data-record-tab>
           <PersonState metadata={metadata} />
         </TabsContent>
-        <TabsContent value="payments" keepMounted data-person-tab>
+        <TabsContent value="payments" keepMounted data-record-tab>
           {opened.has('payments') ? (
             <SupportPaymentsPanel personId={personId} caseReference={caseReference} />
           ) : null}
         </TabsContent>
-        <TabsContent value="recovery" keepMounted data-person-tab>
+        <TabsContent value="recovery" keepMounted data-record-tab>
           {opened.has('recovery') ? (
             <AccountRecoveryPanel personId={personId} caseReference={caseReference} />
           ) : null}

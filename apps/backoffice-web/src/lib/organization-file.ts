@@ -165,6 +165,33 @@ export function handsOverHere(file: OrganizationFile): boolean {
   return file.organization.status === 'unclaimed' || file.organization.status === 'cancelled'
 }
 
+export const ORGANIZATION_TABS = ['summary', 'team', 'invitations', 'plan', 'suspension'] as const
+
+export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]
+
+/** A gym nobody claimed has no team or clients to invite, so its file has no such tab. */
+export function organizationTabs(file: OrganizationFile): readonly OrganizationTab[] {
+  return handsOverHere(file)
+    ? ORGANIZATION_TABS.filter((tab) => tab !== 'invitations')
+    : ORGANIZATION_TABS
+}
+
+/** An unknown tab, or one this gym does not have, opens the summary. */
+export function organizationTabFromQuery(
+  value: string | null,
+  tabs: readonly OrganizationTab[],
+): OrganizationTab {
+  return tabs.find((tab) => tab === value) ?? 'summary'
+}
+
+export function organizationFileHref(
+  organizationId: string,
+  tab: OrganizationTab = 'summary',
+): string {
+  const file = `/organizations/${organizationId}`
+  return tab === 'summary' ? file : `${file}?tab=${tab}`
+}
+
 export function fileMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:

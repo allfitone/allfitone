@@ -65,8 +65,16 @@ test('opens a gym’s file with its data, owner, team and sites, and no names', 
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
 
+  // The summary: who answers for it, and its sites.
   await expect(page.getByRole('heading', { name: record.organization.display_name })).toBeVisible()
   await expect(page.getByText('Norte Fitness SAS')).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'Calle 80 # 1-10' })).toBeVisible()
+  await expect(page.locator('[data-file-people-served]')).toContainText(
+    'Atiende a 3 personas, y 1 relación ya terminó.',
+  )
+
+  await page.getByRole('tab', { name: 'Equipo' }).click()
+  await expect(page).toHaveURL(`/organizations/${record.organization.organization_id}?tab=team`)
   // Read short, whole in its title: the 36 characters ran off a phone.
   await expect(page.locator('[data-file-owner] code')).toHaveText('019a9100…0006')
   await expect(page.locator('[data-file-owner] code')).toHaveAttribute('title', OWNER)
@@ -74,10 +82,8 @@ test('opens a gym’s file with its data, owner, team and sites, and no names', 
   await expect(page.getByRole('cell', { name: 'Coach', exact: true })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Administrador', exact: true })).toBeVisible()
   await expect(page.getByText('3 personas activas, y 1 que ya no está.')).toBeVisible()
-  await expect(page.locator('[data-file-people-served]')).toContainText(
-    'Atiende a 3 personas, y 1 relación ya terminó.',
-  )
-  await expect(page.getByRole('cell', { name: 'Calle 80 # 1-10' })).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Cupo y plan' }).click()
   // What it charges, who pays it, and that no credential of its gateway is here.
   await expect(page.locator('[data-file-plans] li')).toContainText('Mensual')
   await expect(page.locator('[data-file-plans] li')).toContainText('2 personas lo pagan')
@@ -93,6 +99,42 @@ test('opens a gym’s file with its data, owner, team and sites, and no names', 
   expect(reads.every((request) => request.query === '')).toBe(true)
 })
 
+test('reads the invitations, which name people, only once their tab is opened', async ({
+  context,
+  page,
+}) => {
+  const record = norte()
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    organizationFiles: { files: [record] },
+  })
+  await mockBackofficeApi(context, fixture)
+  const invitationReads = () =>
+    fixture.requests.filter(
+      (request) => request.method === 'GET' && request.path.endsWith('-invitations'),
+    ).length
+
+  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await expect(page.getByText('Norte Fitness SAS')).toBeVisible()
+  expect(invitationReads()).toBe(0)
+
+  await page.getByRole('tab', { name: 'Invitaciones' }).click()
+  await expect(page).toHaveURL(
+    `/organizations/${record.organization.organization_id}?tab=invitations`,
+  )
+  await expect.poll(invitationReads).toBeGreaterThan(0)
+  const read = invitationReads()
+
+  // Back and forth shows what was read instead of reading it again.
+  await page.getByRole('tab', { name: 'Resumen' }).click()
+  await page.getByRole('tab', { name: 'Invitaciones' }).click()
+  await expect(page.getByRole('tab', { name: 'Invitaciones' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  expect(invitationReads()).toBe(read)
+})
+
 test('opens a person’s card only once a traceable case reference is written', async ({
   context,
   page,
@@ -103,7 +145,7 @@ test('opens a person’s card only once a traceable case reference is written', 
     createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=team`)
   await expect(page.locator('[data-file-member]')).toHaveCount(3)
   await expect(page.locator('[data-record-id-link]')).toHaveCount(0)
 
@@ -168,12 +210,16 @@ test('a gym nobody claimed shows no owner and leads to its handover', async ({ c
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
 
-  await expect(page.getByText('Sin dueño: nadie ha reclamado el gimnasio.')).toBeVisible()
-  await expect(page.getByText(/nunca tuvo dueño/)).toBeVisible()
   await expect(page.getByRole('link', { name: 'Ver la entrega a su dueño' })).toHaveAttribute(
     'href',
     `/organizations/${record.organization.organization_id}/handover`,
   )
+  // Nobody to invite until somebody owns it.
+  await expect(page.getByRole('tab', { name: 'Invitaciones' })).toHaveCount(0)
+
+  await page.getByRole('tab', { name: 'Equipo' }).click()
+  await expect(page.getByText('Sin dueño: nadie ha reclamado el gimnasio.')).toBeVisible()
+  await expect(page.getByText(/nunca tuvo dueño/)).toBeVisible()
 })
 
 test('a withdrawn duty is explained as expiry by design', async ({ context, page }) => {
@@ -225,7 +271,7 @@ test('the directory opens an operating gym’s file', async ({ context, page }) 
   await page.getByRole('link', { name: record.organization.display_name }).click()
 
   await expect(page).toHaveURL(`/organizations/${record.organization.organization_id}`)
-  await expect(page.locator('[data-file-member]')).toHaveCount(3)
+  await expect(page.getByRole('heading', { name: record.organization.display_name })).toBeVisible()
 })
 
 test('copies a person’s whole identifier from the short one it shows', async ({
@@ -239,7 +285,7 @@ test('copies a person’s whole identifier from the short one it shows', async (
     createBackofficeFixture({ session: activeSession(), organizationFiles: { files: [record] } }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=team`)
   await page
     .locator('[data-file-owner]')
     .getByRole('button', { name: 'Copiar el identificador completo' })

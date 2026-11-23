@@ -207,7 +207,7 @@
 
 /* A tab stacks its cards like a screen does. A panel kept mounted while hidden
    stays hidden: `display` here would otherwise beat the `hidden` attribute. */
-[data-person-tab]:not([hidden]) {
+[data-record-tab]:not([hidden]) {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--afo-space-6);
