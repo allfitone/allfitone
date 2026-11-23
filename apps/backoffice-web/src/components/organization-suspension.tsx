@@ -16,6 +16,10 @@
  * recomputes; it restores nothing. Saying "restore" here would promise a rollback the
  * platform cannot perform and should not.
  *
+ * **It asks before it stops anyone's service, and picks no reason for the operator.**
+ * The reason came preselected as nonpayment and one click on the primary button
+ * suspended the gym; now the reason is chosen, and the question repeats the cost.
+ *
  * **A lost answer never decides twice.** The command is kept until an answer arrives,
  * so retrying after a network failure replays it rather than stopping a gym twice.
  */
@@ -30,7 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import {
   Select,
   SelectContent,
@@ -68,6 +72,8 @@ import {
 } from '@/lib/organization-suspension'
 import { formatInstant } from '@/lib/platform-access'
 
+import { ConfirmAction } from './confirm-action'
+
 export function OrganizationSuspensionPanel({
   suspension: initial,
   peopleServed,
@@ -76,7 +82,8 @@ export function OrganizationSuspensionPanel({
   peopleServed: number
 }) {
   const [suspension, setSuspension] = useState<Suspension>(initial)
-  const [reason, setReason] = useState<OrganizationSuspensionReason>('nonpayment')
+  const [reason, setReason] = useState<OrganizationSuspensionReason | null>(null)
+  const [reasonMissing, setReasonMissing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<string | null>(null)
@@ -84,6 +91,7 @@ export function OrganizationSuspensionPanel({
   const action = suspensionAction(suspension.status)
 
   async function run(action: 'suspend' | 'reactivate') {
+    if (action === 'suspend' && !reason) return
     const command = pending.current ?? newBackofficeCommand()
     pending.current = command
     setBusy(true)
@@ -91,7 +99,7 @@ export function OrganizationSuspensionPanel({
     setOutcome(null)
     try {
       const saved =
-        action === 'suspend'
+        action === 'suspend' && reason
           ? await backofficeApi.suspendOrganization(suspension.organization_id, reason, command)
           : await backofficeApi.reactivateOrganization(suspension.organization_id, command)
       pending.current = null
@@ -123,7 +131,7 @@ export function OrganizationSuspensionPanel({
           cancelar.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <p data-suspension-state>
           {stateSentence(suspension)}{' '}
           {suspension.suspended ? <Badge variant="destructive">Suspendido</Badge> : null}
@@ -159,16 +167,23 @@ export function OrganizationSuspensionPanel({
           </div>
         ) : (
           <FieldGroup data-suspension-form>
-            <Field>
+            <Field data-invalid={reasonMissing || undefined}>
               <FieldLabel htmlFor="suspension-reason">Motivo</FieldLabel>
               <Select
                 value={reason}
-                onValueChange={(next) =>
-                  setReason((next ?? reason) as OrganizationSuspensionReason)
-                }
+                onValueChange={(next) => {
+                  if (!next) return
+                  setReason(next as OrganizationSuspensionReason)
+                  setReasonMissing(false)
+                }}
               >
-                <SelectTrigger id="suspension-reason" disabled={busy}>
-                  <SelectValue>{reasonLabel(reason)}</SelectValue>
+                <SelectTrigger
+                  id="suspension-reason"
+                  disabled={busy}
+                  aria-invalid={reasonMissing || undefined}
+                  aria-describedby={reasonMissing ? 'suspension-reason-error' : undefined}
+                >
+                  <SelectValue>{reason ? reasonLabel(reason) : 'Elige un motivo'}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {SUSPENSION_REASONS.map((code) => (
@@ -178,20 +193,36 @@ export function OrganizationSuspensionPanel({
                   ))}
                 </SelectContent>
               </Select>
+              {reasonMissing ? (
+                <FieldError id="suspension-reason-error">
+                  Elige el motivo de la suspensión.
+                </FieldError>
+              ) : null}
             </Field>
             <Alert live="polite" variant="warning" data-suspension-cost>
               <AlertTitle>Lo que cuesta esta decisión</AlertTitle>
               <AlertDescription>{costWarning(peopleServed)}</AlertDescription>
             </Alert>
             <div data-form-actions>
-              <Button
-                type="button"
-                disabled={busy}
-                data-suspension-save
-                onClick={() => void run('suspend')}
+              <ConfirmAction
+                trigger={
+                  <Button type="button" variant="outline" disabled={busy} data-suspension-save />
+                }
+                label="Suspender el gimnasio"
+                title="¿Suspender este gimnasio?"
+                confirmLabel="Suspender"
+                busyLabel="Suspendiendo…"
+                keepLabel="Dejarlo operando"
+                busy={busy}
+                canOpen={() => {
+                  setReasonMissing(!reason)
+                  return reason !== null
+                }}
+                onConfirm={() => run('suspend')}
               >
-                {busy ? 'Guardando…' : 'Suspender el gimnasio'}
-              </Button>
+                {costWarning(peopleServed)} Motivo: {reason ? reasonLabel(reason) : ''}. Se puede
+                levantar después.
+              </ConfirmAction>
             </div>
           </FieldGroup>
         )}

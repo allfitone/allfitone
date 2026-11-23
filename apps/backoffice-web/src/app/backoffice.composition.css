@@ -15,6 +15,44 @@
   max-width: 84rem;
 }
 
+/* Every screen root stacks its blocks one gap apart. A root left out of this list
+   lets its cards touch, which is how the gym's file read as one wall. */
+[data-access-log],
+[data-attention-panel],
+[data-billing-follow-up],
+[data-break-glass],
+[data-business-panel],
+[data-credential-verification],
+[data-erasure-requests],
+[data-global-catalogue],
+[data-legal-holds],
+[data-organization-directory],
+[data-organization-file],
+[data-organization-handover],
+[data-organization-handover-form],
+[data-panel-home],
+[data-platform-access],
+[data-platform-plans],
+[data-result-contracts],
+[data-review-queue],
+[data-scope-definitions],
+[data-support-diagnosis],
+[data-support-person],
+[data-support-search],
+[data-waitlist-review] {
+  display: grid;
+  /* An `auto` track grows to a wide table's min-content; this one scrolls the table. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-6);
+  align-content: start;
+}
+
+/* A card body stacks its children with no space of its own: a nested card sat
+   flush against the table above it. Every CardContent here carries the attribute. */
+[data-card-body] > * + * {
+  margin-block-start: var(--afo-space-4);
+}
+
 [data-backoffice-content] p {
   max-width: 72ch;
 }
@@ -37,6 +75,169 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* -------------------------------------------------------------- page head */
+
+/* A menu entry's own screen: what it is for, and its one primary action. */
+[data-page-header] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--afo-space-4);
+}
+
+[data-page-header-description] {
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
+[data-page-header-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-3);
+}
+
+/* One row above a list: the search takes what the filters leave, and the row
+   wraps when it does not fit, as the toolbar of Studio's library does. */
+[data-list-toolbar] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--afo-space-3);
+}
+
+[data-list-search] {
+  display: grid;
+  gap: var(--afo-space-1);
+  flex: 1 1 14rem;
+  max-width: 26rem;
+}
+
+/* A grid like the search, so a field's own error sits under it. */
+[data-list-filter] {
+  display: grid;
+  gap: var(--afo-space-1);
+  flex: 0 1 14rem;
+}
+
+/* What a search found: its count, the table, a note and the way to more. */
+[data-list-results] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-4);
+  justify-items: start;
+}
+
+[data-list-results] > * {
+  max-width: 100%;
+}
+
+[data-list-count],
+[data-list-note] {
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
+/* ------------------------------------------------------------ record head */
+
+/* The way back, then the name of what is open: a screen below a menu entry. */
+[data-record-header] {
+  display: grid;
+  gap: var(--afo-space-2);
+  min-width: 0;
+}
+
+/* A crumb's own padding is its touch target; pulled back, its text lines up
+   with the name under it. */
+[data-backoffice-trail] {
+  margin-inline-start: calc(var(--afo-space-2) * -1);
+}
+
+/* The stylesheet carries no preflight, so a crumb came out in the browser's
+   blue. It takes the trail's own colour, as in Studio. */
+[data-backoffice-crumb] {
+  color: inherit;
+  text-decoration: none;
+}
+
+[data-record-title] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+[data-record-heading] {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--afo-font-size-2xl);
+  font-weight: var(--afo-font-weight-bold);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+[data-record-actions] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--afo-space-2);
+  margin-inline-start: auto;
+}
+
+[data-record-description] {
+  margin: 0;
+  color: var(--afo-color-text-secondary);
+}
+
+/* On a phone the name is the heading right under the trail, so it is said once. */
+@media (max-width: 639px) {
+  [data-backoffice-crumb-current],
+  [data-backoffice-crumb-current-separator] {
+    display: none;
+  }
+}
+
+/* The Design System keeps a question's two answers on one row, and two long
+   labels pushed the dialog's text and its red answer past its edge. */
+[data-confirm-footer] {
+  flex-wrap: wrap;
+}
+
+/* A tab stacks its cards like a screen does. A panel kept mounted while hidden
+   stays hidden: `display` here would otherwise beat the `hidden` attribute. */
+[data-record-tab]:not([hidden]) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-6);
+}
+
+/* What an exceptional read returned, right under its window: the outcome, then each
+   table, spaced like a card's own blocks. */
+[data-break-glass-read] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--afo-space-4);
+}
+
+/* A review's choice, its error and the one button that registers it, spaced apart. */
+[data-review-actions] {
+  display: grid;
+  gap: var(--afo-space-3);
+}
+
+/* The menu is as wide as its 44px trigger by default, which cut every action in two. */
+[data-row-menu-content] {
+  min-width: max-content;
+}
+
+/* An identifier and the button that copies it whole read as one value. */
+[data-record-id] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--afo-space-1);
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------- shared states */
@@ -101,10 +302,10 @@
   color: var(--afo-color-text-secondary, currentColor);
 }
 
-/* A link inside a sentence keeps the line's height; the block links above carry
-   their own 44px target because they stand alone. */
-[data-inline-link] {
-  color: var(--afo-color-text-accent, currentColor);
+/* Every link of the app reads as one: the browser's own blue is 1.97:1 on a card.
+   A Design System link (button, crumb, menu) carries classes; an app link has none. */
+[data-backoffice-content] a:not([class]) {
+  color: var(--afo-color-text-accent);
   font-weight: var(--afo-font-weight-semibold);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -134,15 +335,8 @@
   overflow-wrap: anywhere;
 }
 
-/* A card body stacks its children without a gap; the list keeps its distance
-   from the table, form or note beside it. */
-* + [data-facts],
-[data-facts] + * {
-  margin-top: 16px;
-}
-
 [data-facts] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
 }
 
@@ -164,30 +358,12 @@
   padding-inline: 4px;
 }
 
-[data-platform-access] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
-[data-platform-form] {
-  display: grid;
-  margin-block-end: 24px;
-  gap: 12px;
-}
-
 /* The identifier is the column an operator quotes in a case, so it stays
    readable and selectable rather than wrapping mid-value. */
 [data-platform-access] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
-}
-
-[data-result-contracts] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
 }
 
 [data-result-contract-form] {
@@ -196,25 +372,12 @@
 }
 
 [data-result-contracts] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
 }
 
-[data-support-search],
 [data-support-diagnosis],
 [data-scope-definitions],
-[data-break-glass],
-[data-access-log],
-[data-credential-verification],
-[data-organization-directory],
-[data-waitlist-review],
-[data-attention-panel],
-[data-support-person] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
 /* Four notices side by side when there is room, one column on a phone. */
 [data-attention-notices] {
   display: grid;
@@ -248,20 +411,13 @@
   display: grid;
   gap: 2px;
   padding-inline-start: 12px;
-  box-shadow: inset 2px 0 0 var(--color-warning, currentColor);
+  box-shadow: inset 2px 0 0 var(--afo-color-status-warning);
   overflow-wrap: anywhere;
 }
 
 [data-attention-list] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
-}
-
-[data-panel-home],
-[data-business-panel] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
 }
 
 [data-business-metrics] {
@@ -306,15 +462,8 @@
   gap: 12px;
 }
 
-[data-organization-handover],
-[data-organization-handover-form] {
-  display: grid;
-  gap: 24px;
-  align-content: start;
-}
-
 [data-organization-handover] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }
@@ -327,31 +476,21 @@
   gap: 8px;
 }
 
-/* The same treatment as the registry link: a destination is a link, with a touch
-   target of its own. */
+/* A link that stands alone carries a touch target of its own; one inside a
+   sentence keeps the line's height. */
 [data-handover-link],
 [data-organization-create-link],
-[data-attention-link],
-[data-backoffice-link] {
+[data-attention-link] {
   display: inline-flex;
   min-height: 44px;
   width: fit-content;
   align-items: center;
-  /* The browser's default link blue is unreadable on the dark workspace. */
-  color: var(--afo-color-text-accent, currentColor);
-  font-weight: var(--afo-font-weight-semibold);
-  text-decoration: underline;
 }
 
 /* An unclaimed organization exists but does not operate, so its row carries an
    edge instead of sitting flush with the gyms that do. */
 [data-organization-row][data-status='unclaimed'] {
-  box-shadow: inset 3px 0 0 var(--color-warning, currentColor);
-}
-
-[data-support-search-form] {
-  display: grid;
-  gap: 12px;
+  box-shadow: inset 3px 0 0 var(--afo-color-status-warning);
 }
 
 /* The identifier and the masked contact are what an operator quotes back into a
@@ -363,7 +502,7 @@
 [data-access-log] code,
 [data-credential-verification] code,
 [data-support-person] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }
@@ -444,7 +583,7 @@
 
 [data-erasure-resolution] ul {
   margin: 0;
-  padding-inline-start: var(--spacing-4, 1rem);
+  padding-inline-start: var(--afo-space-4);
 }
 
 /* The actions sit under the lines they act on, and wrap before they shrink. */
@@ -455,14 +594,14 @@
 [data-legal-holds-controls] {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-2, 0.5rem);
-  margin-block-start: var(--spacing-2, 0.5rem);
+  gap: var(--afo-space-2);
+  margin-block-start: var(--afo-space-2);
 }
 
 [data-legal-hold-categories] {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2, 0.5rem);
+  gap: var(--afo-space-2);
 }
 
 /* A hold names a person by identifier: it wraps rather than widening the table. */
@@ -508,8 +647,6 @@
   min-height: 44px;
   width: fit-content;
   align-items: center;
-  font-weight: var(--afo-font-weight-semibold);
-  text-decoration: underline;
 }
 
 /* A moment's day and time sit side by side, and stack when the form is narrow. */
@@ -713,7 +850,7 @@
 }
 
 [data-waitlist-review] code {
-  font-family: var(--afo-font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--afo-font-size-xs);
   white-space: nowrap;
 }

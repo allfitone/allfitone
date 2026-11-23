@@ -212,6 +212,8 @@ test('backing out of cancelling changes nothing', async ({ context, page }) => {
   await page.goto(`/organizations/${record.organization_id}/handover`)
   await page.getByRole('button', { name: 'Cancelar la creación' }).click()
   const dialog = page.getByRole('alertdialog')
+  // Its text and both answers fit inside it.
+  expect(await dialog.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
   await dialog.getByRole('button', { name: 'No, dejarlo como está' }).click()
 
   await expect(dialog).toBeHidden()
@@ -296,7 +298,11 @@ test('the directory leads to creating a gym and to an unclaimed gym’s handover
   )
 
   await page.goto('/organizations')
-  await expect(page.getByRole('link', { name: 'Crear un gimnasio para una venta' })).toBeVisible()
+  // The screen's one primary action; the library renders the link with the button role.
+  await expect(page.getByRole('button', { name: 'Crear un gimnasio' })).toHaveAttribute(
+    'href',
+    '/organizations/new',
+  )
   // An operating gym opens on its file, never on a handover it does not have.
   await expect(page.getByRole('link', { name: 'Gimnasio Operando' })).toHaveAttribute(
     'href',

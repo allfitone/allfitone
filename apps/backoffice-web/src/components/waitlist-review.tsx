@@ -356,7 +356,7 @@ export function WaitlistReview() {
             tabla; los totales de arriba son siempre de la lista completa.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-waitlist-filters noValidate>
             <div data-waitlist-filter-row>
               <Field>

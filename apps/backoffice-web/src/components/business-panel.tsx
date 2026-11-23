@@ -137,7 +137,7 @@ export function BusinessPanel() {
               lo que sus clientes le pagan no aparece aquí y no es ingreso de Allfit One.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             <div data-business-metrics>
               {panel.money.map((metric) => {
                 const lines = moneyLines(metric)
@@ -183,7 +183,7 @@ export function BusinessPanel() {
             </CardTitle>
             <CardDescription>{section.description}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             <div data-business-metrics>
               {section.metrics.map((metric) => {
                 const badge = metricBadge(metric)
@@ -203,7 +203,7 @@ export function BusinessPanel() {
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent data-card-body>
                       <div data-business-body>
                         <p data-business-value>{metricValue(metric)}</p>
                         <p data-business-period>{periodPhrase(metric.period)}</p>

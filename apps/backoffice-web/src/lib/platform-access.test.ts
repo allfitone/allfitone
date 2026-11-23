@@ -2,8 +2,12 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   actorModeLabel,
+  assuranceLabel,
+  teamHref,
+  teamTabFromQuery,
   PLATFORM_DUTY_CODES,
   dutyLabel,
+  dutyOutcome,
   dutyStatusLabel,
   dutyStatusTone,
   dutyWindowLabel,
@@ -15,8 +19,8 @@ import {
   isValidPersonId,
   personName,
   platformAccessMessage,
+  roleOutcome,
   roleStatusLabel,
-  shortIdentifier,
 } from './platform-access'
 
 describe('platform access presentation rules', () => {
@@ -77,12 +81,6 @@ describe('platform access presentation rules', () => {
     expect(DUTY_STATUS_FILTERS[0]?.label).toBe('Todos los estados')
   })
 
-  test('shortens an identifier for reading without inventing a new one', () => {
-    const id = '019a3000-0000-7000-8000-000000000001'
-    expect(shortIdentifier(id)).toBe('019a3000…0001')
-    expect(shortIdentifier('short')).toBe('short')
-  })
-
   test('shows an unknown instant as absent, never as a zero', () => {
     expect(formatInstant(null)).toBe('—')
     expect(formatInstant(undefined)).toBe('—')
@@ -127,5 +125,51 @@ describe('platform access presentation rules', () => {
     expect(platformAccessMessage('conflict')).toContain('llega con el rol')
     expect(platformAccessMessage('unauthenticated')).toContain('sesión')
     expect(platformAccessMessage('something-new')).toBe('No se pudo completar la operación.')
+  })
+})
+
+describe('what a Team command answers', () => {
+  test('names who received the base role and who lost it', () => {
+    expect(roleOutcome('granted', 'Lucía Nueva')).toBe('Rol base otorgado a Lucía Nueva.')
+    expect(roleOutcome('revoked', ' Ada Lovelace ')).toBe(
+      'Rol base retirado a Ada Lovelace. Se cerraron sus deberes y su sesión.',
+    )
+  })
+
+  test('names the duty and whose it is', () => {
+    const duty = dutyLabel('diagnose_support_metadata')
+    expect(dutyOutcome('suspended', 'diagnose_support_metadata', 'Ada')).toBe(
+      `«${duty}» suspendido para Ada. Deja de autorizar desde su próxima operación.`,
+    )
+    expect(dutyOutcome('revoked', 'diagnose_support_metadata', 'Ada')).toBe(
+      `«${duty}» revocado para Ada.`,
+    )
+    expect(dutyOutcome('recertified', 'diagnose_support_metadata', 'Ada')).toBe(
+      `«${duty}» recertificado para Ada. Queda registrado quién lo confirmó y cuándo; no alarga su vigencia.`,
+    )
+  })
+
+  // The inventory may hold a person with no name on file; the sentence still reads.
+  test('says who it was when there is no name on file', () => {
+    expect(roleOutcome('granted', null)).toBe(
+      'Rol base otorgado a una persona sin nombre registrado.',
+    )
+  })
+})
+
+describe('the team screen', () => {
+  test('names the assurance a duty asks for, not its code in the standard', () => {
+    expect(assuranceLabel(2)).toBe('Dos factores')
+    expect(assuranceLabel(1)).toBe('Un factor')
+    expect(assuranceLabel(3)).toBe('Dos factores')
+    expect(assuranceLabel(0)).toBe('Nivel 0')
+  })
+
+  test('opens on the base role, and names the duties tab in its address', () => {
+    expect(teamTabFromQuery(null)).toBe('roles')
+    expect(teamTabFromQuery('deberes')).toBe('roles')
+    expect(teamTabFromQuery('duties')).toBe('duties')
+    expect(teamHref('roles')).toBe('/team')
+    expect(teamHref('duties')).toBe('/team?tab=duties')
   })
 })

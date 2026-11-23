@@ -132,7 +132,7 @@ export function OrganizationGuestQuotaPanel({ quota: initial }: { quota: Quota }
           invitaciones sin responder. Lo fija Allfit One; el gimnasio no lo cambia.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <p data-quota-seats>
           {quotaSentence(quota)}{' '}
           {quota.over_quota ? <Badge variant="destructive">Por encima del cupo</Badge> : null}

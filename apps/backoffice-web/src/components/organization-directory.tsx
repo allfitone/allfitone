@@ -3,7 +3,7 @@
 /**
  * `HU-BO-012` — finding a gym and seeing whether it operates.
  *
- * Three decisions, and none of them is layout.
+ * Four decisions, and none of them is layout.
  *
  * **Unclaimed is told apart, not merely labelled.** An organization Allfit created
  * for a sale exists but does not operate until its owner accepts. It carries its
@@ -13,6 +13,9 @@
  * relationships, which do not exist yet. The column says so rather than printing a
  * zero that would claim the gym serves nobody.
  *
+ * **The search lives in the address.** Going back from a gym's file lands on the
+ * list the operator left, and a link from Inicio arrives already filtered.
+ *
  * **Nothing here identifies a person.** The directory is organizations only: no
  * legal name — for an independent professional it is a person's name — and no
  * owner. Who owns a gym belongs to its file, not to a list anyone may scroll.
@@ -21,16 +24,7 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenFailure, ScreenLoading } from './screen-state'
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { FieldError } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
   Select,
@@ -47,9 +41,10 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { FoundationIcon } from '@allfitone/react/icons'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import {
   BackofficeApiError,
@@ -58,12 +53,15 @@ import {
   type BackofficeOrganizationSummary,
 } from '@/lib/backoffice-api'
 import {
+  EMPTY_DIRECTORY_FILTERS,
   ORGANIZATION_STATUSES,
+  directoryAddress,
   directoryAnswer,
   directoryFilterIssue,
   directoryFilterIssueMessage,
-  directoryFiltersFromStatus,
+  directoryFiltersFromAddress,
   directoryMessage,
+  isFiltered,
   peopleServedLabel,
   statusFilterLabel,
   statusLabel,
@@ -76,13 +74,17 @@ import {
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
+import { PageHeader } from './page-header'
+import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+
 type LoadState = 'loading' | 'ready' | 'failed'
 
 const ANY = 'any'
 
 export function OrganizationDirectory() {
-  // The attention panel links here already filtered, so the first read honours it.
-  const initial = directoryFiltersFromStatus(useSearchParams().get('status'))
+  const router = useRouter()
+  const search = useSearchParams().toString()
+  const applied = useMemo(() => directoryFiltersFromAddress(new URLSearchParams(search)), [search])
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
@@ -90,9 +92,17 @@ export function OrganizationDirectory() {
   const [cursor, setCursor] = useState<string | null>(null)
   const [appending, setAppending] = useState(false)
   const [appendFailure, setAppendFailure] = useState<string | null>(null)
-  const [draft, setDraft] = useState<DirectoryFilters>(initial)
-  const [applied, setApplied] = useState<DirectoryFilters>(initial)
+  const [draft, setDraft] = useState<DirectoryFilters>(applied)
+  // Keyed by the address, not by the object: a recomputed memo must not wipe what is typed.
+  const appliedAddress = directoryAddress(applied)
+  const [draftFor, setDraftFor] = useState(appliedAddress)
   const [issue, setIssue] = useState<string | null>(null)
+
+  // Going back or forward changes the address: the toolbar shows what it now asks.
+  if (draftFor !== appliedAddress) {
+    setDraftFor(appliedAddress)
+    setDraft(applied)
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -116,6 +126,15 @@ export function OrganizationDirectory() {
     return () => controller.abort()
   }, [applied])
 
+  function show(filters: DirectoryFilters) {
+    setIssue(null)
+    setAppendFailure(null)
+    const address = directoryAddress(filters)
+    if (address === appliedAddress) return
+    setState('loading')
+    router.replace(address)
+  }
+
   function submit(event: FormEvent) {
     event.preventDefault()
     const broken = directoryFilterIssue(draft)
@@ -123,10 +142,7 @@ export function OrganizationDirectory() {
       setIssue(directoryFilterIssueMessage(broken))
       return
     }
-    setIssue(null)
-    setAppendFailure(null)
-    setState('loading')
-    setApplied({ query: draft.query.trim(), status: draft.status })
+    show(draft)
   }
 
   async function loadMore() {
@@ -148,89 +164,81 @@ export function OrganizationDirectory() {
     }
   }
 
+  const create = (
+    <Button render={<Link href="/organizations/new" />} nativeButton={false}>
+      <FoundationIcon name="add" decorative />
+      Crear un gimnasio
+    </Button>
+  )
+
   return (
     <div data-organization-directory>
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Buscar un gimnasio
-          </CardTitle>
-          <CardDescription>
-            Por su nombre visible. El directorio muestra organizaciones, nunca personas: ni la razón
-            social ni quién es su dueño.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={submit}
-            data-backoffice-form
-            data-organization-directory-filters
-            noValidate
+      <PageHeader
+        description="Por su nombre visible. El directorio muestra organizaciones, nunca personas: ni la razón social ni quién es su dueño."
+        actions={create}
+      />
+
+      <form
+        onSubmit={submit}
+        role="search"
+        aria-label="Buscar gimnasios"
+        data-list-toolbar
+        noValidate
+      >
+        <div data-list-search>
+          <Input
+            type="search"
+            aria-label="Nombre"
+            aria-invalid={issue ? true : undefined}
+            aria-describedby={issue ? 'org-query-issue' : undefined}
+            value={draft.query}
+            onChange={(event) => setDraft((current) => ({ ...current, query: event.target.value }))}
+            placeholder="Buscar por nombre"
+            autoComplete="off"
+            disabled={state === 'loading'}
+          />
+          {issue ? <FieldError id="org-query-issue">{issue}</FieldError> : null}
+        </div>
+        <div data-list-filter>
+          {/* Without the labels the trigger shows the raw state until the popup
+              has opened once, which is exactly what a filtered link lands on. */}
+          <Select
+            items={[
+              { value: ANY, label: 'Todos los estados' },
+              ...ORGANIZATION_STATUSES.map((option) => ({
+                value: option,
+                label: statusLabel(option),
+              })),
+            ]}
+            value={draft.status}
+            onValueChange={(next) =>
+              setDraft((current) => ({
+                ...current,
+                status: (next ?? ANY) as OrganizationStatus | typeof ANY,
+              }))
+            }
           >
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="org-query">Nombre</FieldLabel>
-                <Input
-                  id="org-query"
-                  type="search"
-                  value={draft.query}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, query: event.target.value }))
-                  }
-                  placeholder="Gimnasio Norte"
-                  autoComplete="off"
-                  disabled={state === 'loading'}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="org-status">Estado</FieldLabel>
-                {/* Without the labels the trigger shows the raw state until the popup
-                    has opened once, which is exactly what a filtered link lands on. */}
-                <Select
-                  items={[
-                    { value: ANY, label: 'Todos' },
-                    ...ORGANIZATION_STATUSES.map((option) => ({
-                      value: option,
-                      label: statusLabel(option),
-                    })),
-                  ]}
-                  value={draft.status}
-                  onValueChange={(next) =>
-                    setDraft((current) => ({
-                      ...current,
-                      status: (next ?? ANY) as OrganizationStatus | typeof ANY,
-                    }))
-                  }
-                >
-                  <SelectTrigger id="org-status">
-                    <SelectValue>{statusFilterLabel(draft.status)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={ANY}>Todos</SelectItem>
-                    {ORGANIZATION_STATUSES.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {statusLabel(option)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              {issue ? <FieldError>{issue}</FieldError> : null}
-              <div data-form-actions>
-                <Button type="submit" disabled={state === 'loading'}>
-                  Buscar
-                </Button>
-              </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+            <SelectTrigger aria-label="Estado">
+              <SelectValue>
+                {draft.status === ANY ? 'Todos los estados' : statusFilterLabel(draft.status)}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY}>Todos los estados</SelectItem>
+              {ORGANIZATION_STATUSES.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {statusLabel(option)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button type="submit" variant="outline" disabled={state === 'loading'}>
+          Buscar
+        </Button>
+      </form>
 
-      <Link href="/organizations/new" data-organization-create-link>
-        Crear un gimnasio para una venta
-      </Link>
-
-      {state === 'loading' ? <ScreenLoading /> : null}
+      {state === 'loading' ? <ScreenLoading label="Cargando los gimnasios" /> : null}
 
       {state === 'failed' ? (
         <ScreenFailure
@@ -241,98 +249,109 @@ export function OrganizationDirectory() {
         />
       ) : null}
 
-      {state === 'ready' ? (
-        <Card>
-          <CardHeader>
-            <CardTitle role="heading" aria-level={2}>
-              Gimnasios
-            </CardTitle>
-            <CardDescription>
-              «Sin reclamar» es un gimnasio que Allfit One creó y cuyo dueño todavía no aceptó:
-              existe, pero no opera.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Alert live="polite" variant="info" data-organization-directory-answer>
-              <AlertTitle>Resultado</AlertTitle>
-              <AlertDescription>
-                {directoryAnswer(organizations.length, cursor !== null, applied)}
-              </AlertDescription>
-            </Alert>
-
-            {organizations.length > 0 ? (
-              <Table scrollAreaLabel="Gimnasios">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Personas que atiende</TableHead>
-                    <TableHead>Equipo activo</TableHead>
-                    <TableHead>Sedes</TableHead>
-                    <TableHead>Creado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organizations.map((organization) => (
-                    <TableRow
-                      key={organization.organization_id}
-                      data-organization-row
-                      data-status={organization.status}
-                    >
-                      <TableCell>
-                        {/* A gym nobody has claimed opens on its handover; any other on its file. */}
-                        <Link
-                          href={
-                            organization.status === 'unclaimed' ||
-                            organization.status === 'cancelled'
-                              ? `/organizations/${organization.organization_id}/handover`
-                              : `/organizations/${organization.organization_id}`
-                          }
-                          data-handover-link
-                        >
-                          {organization.display_name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{organization.type_name}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={statusTone(organization.status)}
-                          title={statusMeaning(organization.status)}
-                        >
-                          {statusLabel(organization.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{peopleServedLabel(organization.people_served)}</TableCell>
-                      <TableCell>{organization.active_member_count}</TableCell>
-                      <TableCell>{organization.site_count}</TableCell>
-                      <TableCell>{formatInstant(organization.created_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : null}
-
-            {appendFailure ? (
-              <Alert live="assertive" variant="danger">
-                <AlertTitle>No se pudieron cargar más gimnasios</AlertTitle>
-                <AlertDescription>{appendFailure}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {cursor ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={appending}
-                onClick={() => void loadMore()}
-              >
-                {appending ? 'Cargando…' : 'Ver más gimnasios'}
+      {state === 'ready' && organizations.length === 0 ? (
+        isFiltered(applied) ? (
+          <ScreenEmpty
+            icon="search"
+            title={directoryAnswer(0, false, applied)}
+            actions={
+              <Button variant="outline" onClick={() => show(EMPTY_DIRECTORY_FILTERS)}>
+                Quitar los filtros
               </Button>
-            ) : null}
-          </CardContent>
-        </Card>
+            }
+          >
+            El nombre se busca en el nombre visible del gimnasio, nunca en su razón social.
+          </ScreenEmpty>
+        ) : (
+          <ScreenEmpty
+            icon="organization"
+            title={directoryAnswer(0, false, applied)}
+            actions={create}
+          >
+            Un gimnasio aparece aquí cuando su dueño lo crea en Studio, o cuando Allfit One lo crea
+            para una venta.
+          </ScreenEmpty>
+        )
+      ) : null}
+
+      {state === 'ready' && organizations.length > 0 ? (
+        <div data-list-results>
+          <p data-list-count role="status">
+            {directoryAnswer(organizations.length, cursor !== null, applied)}
+          </p>
+          <Table scrollAreaLabel="Gimnasios">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Personas que atiende</TableHead>
+                <TableHead>Equipo activo</TableHead>
+                <TableHead>Sedes</TableHead>
+                <TableHead>Creado</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {organizations.map((organization) => (
+                <TableRow
+                  key={organization.organization_id}
+                  data-organization-row
+                  data-status={organization.status}
+                >
+                  <TableCell>
+                    {/* A gym nobody has claimed opens on its handover; any other on its file. */}
+                    <Link
+                      href={
+                        organization.status === 'unclaimed' || organization.status === 'cancelled'
+                          ? `/organizations/${organization.organization_id}/handover`
+                          : `/organizations/${organization.organization_id}`
+                      }
+                      data-handover-link
+                    >
+                      {organization.display_name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{organization.type_name}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={statusTone(organization.status)}
+                      title={statusMeaning(organization.status)}
+                    >
+                      {statusLabel(organization.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{peopleServedLabel(organization.people_served)}</TableCell>
+                  <TableCell>{organization.active_member_count}</TableCell>
+                  <TableCell>{organization.site_count}</TableCell>
+                  <TableCell>{formatInstant(organization.created_at)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <p data-list-note>
+            «Sin reclamar» es un gimnasio que Allfit One creó y cuyo dueño todavía no aceptó:
+            existe, pero no opera.
+          </p>
+
+          {appendFailure ? (
+            <Alert live="assertive" variant="danger">
+              <AlertTitle>No se pudieron cargar más gimnasios</AlertTitle>
+              <AlertDescription>{appendFailure}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {cursor ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={appending}
+              onClick={() => void loadMore()}
+            >
+              {appending ? 'Cargando…' : 'Ver más gimnasios'}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

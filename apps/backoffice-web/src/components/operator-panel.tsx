@@ -37,7 +37,7 @@ export function OperatorPanel() {
           Sesión confirmada con tu autenticador el {formatInstant(session.assurance_verified_at)}.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <dl data-operator-session>
           <div>
             <dt>Nivel de garantía</dt>
@@ -57,10 +57,7 @@ export function OperatorPanel() {
         <p data-operator-note>
           Lo que puedes hacer lo deciden tus deberes vigentes, no el rol: cada pantalla lo vuelve a
           comprobar. Se otorgan, vencen y se renuevan en{' '}
-          <Link href="/team" data-inline-link>
-            Equipo de Allfit One
-          </Link>
-          .
+          <Link href="/team">Equipo de Allfit One</Link>.
         </p>
       </CardContent>
     </Card>

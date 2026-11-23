@@ -238,7 +238,7 @@ export function CredentialVerification() {
                   {request.holder_given_name} {request.holder_family_name}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent data-card-body>
                 <dl data-facts>
                   <dt>Solicitud</dt>
                   <dd>
@@ -467,7 +467,7 @@ export function CredentialVerification() {
                 {due.holder_given_name} {due.holder_family_name} · {due.issuer}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               <Alert live="off" variant="warning">
                 <AlertTitle>{renewalSentence(due)}</AlertTitle>
                 <AlertDescription>

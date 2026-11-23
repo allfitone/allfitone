@@ -29,6 +29,9 @@ test('a tripped channel is said first, before any individual failure', async ({
 
   await expect(page.getByText('Un canal de entrega está caído')).toBeVisible()
   await expect(page.getByText(/causa más probable/)).toBeVisible()
+  // The breaker's state in words: support staff read `open` as "working".
+  await expect(page.getByRole('cell', { name: 'Cortado', exact: true })).toBeVisible()
+  await expect(page.getByRole('cell', { name: 'open', exact: true })).toHaveCount(0)
 })
 
 test('a healthy platform says nothing rather than reassuring', async ({ context, page }) => {
@@ -112,7 +115,7 @@ test('shows the identifiers of each operation and finds those of one subject', a
 
   await page.goto(PATH)
   await expect(page.locator('[data-operation-subject]').first()).toHaveText(
-    'organization 019a7000…',
+    'organization 019a7000…0777',
   )
   await expect(page.locator('[data-operation-subject]').first()).toHaveAttribute('title', subject)
 

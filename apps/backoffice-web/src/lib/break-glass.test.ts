@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  breakGlassHref,
+  breakGlassTabFromQuery,
   BREAK_GLASS_CATEGORIES,
   breakGlassRequestHref,
   decisionReasonLabel,
@@ -982,5 +984,15 @@ describe('a request started from the card of the person', () => {
       subject: '',
       caseReference: '',
     })
+  })
+})
+
+describe('the exceptional access tabs', () => {
+  test('open on the windows, and name the review in the address', () => {
+    expect(breakGlassTabFromQuery(null)).toBe('windows')
+    expect(breakGlassTabFromQuery('revision')).toBe('windows')
+    expect(breakGlassTabFromQuery('review')).toBe('review')
+    expect(breakGlassHref('windows')).toBe('/break-glass')
+    expect(breakGlassHref('review')).toBe('/break-glass?tab=review')
   })
 })

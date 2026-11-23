@@ -245,3 +245,53 @@ test('an empty directory says there are no gyms yet rather than that a search fa
   await expect(page.getByText('Todavía no hay ningún gimnasio en Allfit One.')).toBeVisible()
   await expect(page.locator('[data-organization-people-served-note]')).toHaveCount(0)
 })
+
+test('the search lives in the address, so going back from a gym lands on the same list', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    organizationDirectory: {
+      organizations: [
+        directoryOrganization({ display_name: 'Gimnasio Norte', status: 'active' }),
+        directoryOrganization({ display_name: 'Estudio Sur', status: 'active' }),
+      ],
+    },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  await page.getByLabel('Nombre').fill('norte')
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  await expect(page).toHaveURL('/organizations?q=norte')
+  await expect(page.locator('[data-organization-row]')).toHaveCount(1)
+
+  await page.getByRole('link', { name: 'Gimnasio Norte' }).click()
+  await expect(page).toHaveURL(new RegExp('/organizations/[0-9a-f-]{36}$'))
+  await page.goBack()
+
+  await expect(page).toHaveURL('/organizations?q=norte')
+  await expect(page.getByLabel('Nombre')).toHaveValue('norte')
+  await expect(page.locator('[data-organization-row]')).toHaveCount(1)
+})
+
+test('a search that finds nothing offers to clear it', async ({ context, page }) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      organizationDirectory: {
+        organizations: [directoryOrganization({ display_name: 'Gimnasio Norte' })],
+      },
+    }),
+  )
+
+  await page.goto(`${PATH}?q=ninguno`)
+  await expect(page.getByText('Ningún gimnasio coincide con esta búsqueda.')).toBeVisible()
+  await page.getByRole('button', { name: 'Quitar los filtros' }).click()
+
+  await expect(page).toHaveURL(PATH)
+  await expect(page.locator('[data-organization-row]')).toHaveCount(1)
+  await expect(page.getByLabel('Nombre')).toHaveValue('')
+})

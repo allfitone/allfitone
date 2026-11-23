@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import {
   BREAK_GLASS_PEER_ID,
@@ -10,6 +10,12 @@ import {
 } from './backoffice-api-mock'
 
 const PATH = '/break-glass'
+
+/** Asking is the screen's one primary action, in a dialog over the windows. */
+async function openRequest(page: Page) {
+  await page.getByRole('button', { name: 'Pedir una ventana excepcional' }).click()
+  await expect(page.getByRole('dialog', { name: 'Pedir una ventana excepcional' })).toBeVisible()
+}
 const SUBJECT = '019a3000-0000-7000-8000-000000000002'
 
 test('offers only the categories that can be approved', async ({ context, page }) => {
@@ -19,6 +25,7 @@ test('offers only the categories that can be approved', async ({ context, page }
   )
 
   await page.goto(PATH)
+  await openRequest(page)
 
   // Six, and the forbidden ones are absent rather than disabled: an option that can
   // never be granted is an invitation to try.
@@ -40,6 +47,7 @@ test('the tier is a consequence of the scope, never a field to choose', async ({
   await mockBackofficeApi(context, fixture)
 
   await page.goto(PATH)
+  await openRequest(page)
 
   // Nothing states a tier until a scope exists to derive one from.
   await expect(page.locator('[data-break-glass-consequence]')).toHaveCount(0)
@@ -71,11 +79,14 @@ test('asking opens the window at once, without naming the tier or the duration',
   await mockBackofficeApi(context, fixture)
 
   await page.goto(PATH)
+  await openRequest(page)
   await page.getByLabel('Persona afectada').fill(SUBJECT)
   await page.getByLabel('Referencia del caso').fill('CASE-2026-777')
   await page.getByRole('checkbox', { name: 'Contexto de salud' }).click()
   await page.getByRole('button', { name: 'Pedir la ventana' }).click()
 
+  // The dialog closes on the order; the toast says what was opened.
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByText(/Ventana abierta por 60 minutos/)).toBeVisible()
   // The requester reads at once: nobody else has to approve it first.
   await expect(page.getByText('Ventana abierta', { exact: true })).toBeVisible()
@@ -107,11 +118,16 @@ test('refuses a request with no scope instead of sending one', async ({ context,
   await mockBackofficeApi(context, fixture)
 
   await page.goto(PATH)
+  await openRequest(page)
   await page.getByLabel('Persona afectada').fill(SUBJECT)
   await page.getByLabel('Referencia del caso').fill('CASE-2026-778')
   await page.getByRole('button', { name: 'Pedir la ventana' }).click()
 
-  await expect(page.getByText(/no existe acceso a «toda la cuenta»/)).toBeVisible()
+  // Said under the categories, the field it is about, in the dialog that stays open.
+  await expect(page.locator('[data-break-glass-categories-issue]')).toContainText(
+    /no existe acceso a «toda la cuenta»/,
+  )
+  await expect(page.getByLabel('Persona afectada')).not.toHaveAttribute('aria-invalid', 'true')
   expect(
     fixture.requests.filter(
       (request) =>
@@ -1106,6 +1122,74 @@ test("a request started from the person's card arrives with the subject and the 
 
   await page.goto(`/break-glass?subject=${subject}&case_reference=CASE-2026-321`)
 
+  // Arriving to ask, the dialog is already open.
+  await expect(page.getByRole('dialog', { name: 'Pedir una ventana excepcional' })).toBeVisible()
+
   await expect(page.getByLabel('Persona afectada')).toHaveValue(subject)
   await expect(page.getByLabel('Referencia del caso')).toHaveValue('CASE-2026-321')
+})
+
+test('the review is its own tab, read only once it is opened', async ({ context, page }) => {
+  const fixture = createBackofficeFixture({ session: activeSession(), breakGlass: { files: [] } })
+  await mockBackofficeApi(context, fixture)
+  const reviewReads = () =>
+    fixture.requests.filter((request) => request.path === '/backoffice/v1/break-glass/reviews')
+      .length
+
+  await page.goto(PATH)
+  await expect(page.getByText('No hay expedientes')).toBeVisible()
+  expect(reviewReads()).toBe(0)
+
+  await page.getByRole('tab', { name: 'Revisión' }).click()
+  await expect(page).toHaveURL('/break-glass?tab=review')
+  await expect.poll(reviewReads).toBeGreaterThan(0)
+})
+
+test('what a read returned appears right under its window, the card that asked', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      breakGlass: {
+        files: [openBreakGlassWindow(10, { categories: ['health_context'] })],
+        healthContext: [SHOULDER],
+      },
+    }),
+  )
+
+  await page.goto(PATH)
+  await page.getByRole('button', { name: 'Leer contexto de salud' }).click()
+
+  // It used to appear at the top of the page, far from the button that asked for it.
+  const read = page.locator('[data-break-glass-file] + [data-break-glass-read]')
+  await expect(read.locator('[data-break-glass-outcome]')).toBeVisible()
+  await expect(read.getByRole('table', { name: 'Contexto de salud de la persona' })).toBeVisible()
+})
+
+test('while the windows load, the screen does not say there are none', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), breakGlass: { files: [] } }),
+  )
+  let release = () => {}
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/backoffice/v1/break-glass/requests*', async (route) => {
+    await held
+    await route.fallback()
+  })
+
+  await page.goto(PATH)
+  await expect(page.getByRole('tab', { name: 'Ventanas' })).toBeVisible()
+  await expect(page.getByText('No hay expedientes')).toHaveCount(0)
+
+  release()
+  await expect(page.getByText('No hay expedientes')).toBeVisible()
 })

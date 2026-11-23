@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   SUPPORT_OPERATION_STATES,
+  circuitStateLabel,
   circuitSummary,
   circuitTone,
   needsAttention,
@@ -16,7 +17,6 @@ import {
   jobHealthTone,
   jobLabel,
   silentJobs,
-  shortIdentifier,
   subjectLine,
   type SupportDeliveryCircuit,
   type SupportOperation,
@@ -121,10 +121,6 @@ describe('technical diagnosis vocabulary', () => {
 
 // HU-BO-031 c1 and c3: the identifiers were in the answer and nowhere on screen.
 describe('the identifiers an operation carries', () => {
-  test('an identifier is shortened for the row and kept whole for its title', () => {
-    expect(shortIdentifier('019a7000-0000-7000-8000-000000000001')).toBe('019a7000…')
-  })
-
   test('the subject says what kind of thing it is and which one', () => {
     expect(
       subjectLine(
@@ -133,7 +129,7 @@ describe('the identifiers an operation carries', () => {
           subject_id: '019a7000-0000-7000-8000-000000000001',
         }),
       ),
-    ).toBe('organization 019a7000…')
+    ).toBe('organization 019a7000…0001')
     expect(subjectLine(operation({ subject_kind: null, subject_id: null }))).toBe('Sin sujeto')
   })
 
@@ -191,5 +187,17 @@ describe('what failed silently', () => {
     expect(jobHealthLine(stale, NOW)).toContain('No corre desde hace 20 min')
     expect(silentJobs([job, stale], NOW)).toEqual(['privacy_disposition'])
     expect(silentJobs([job], NOW)).toEqual([])
+  })
+})
+
+describe('the state of a delivery channel, in words', () => {
+  test('names each state the breaker can be in', () => {
+    expect(circuitStateLabel('closed')).toBe('Entregando')
+    expect(circuitStateLabel('half_open')).toBe('Probando de nuevo')
+    expect(circuitStateLabel('open')).toBe('Cortado')
+  })
+
+  test('shows a state it does not know as it came', () => {
+    expect(circuitStateLabel('throttled')).toBe('throttled')
   })
 })

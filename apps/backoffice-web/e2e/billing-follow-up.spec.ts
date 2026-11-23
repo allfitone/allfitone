@@ -65,8 +65,8 @@ test('the list opens without a case, and under one each row opens the payments u
     '2 personas por seguir.',
   )
   await expect(
-    page.locator('[data-billing-follow-up-row]').first().locator('[data-billing-follow-up-person]'),
-  ).toHaveAttribute('href', `/people/${suspended.person_id}`)
+    page.locator('[data-billing-follow-up-row]').first().locator('[data-record-id-link]'),
+  ).toHaveAttribute('href', `/people/${suspended.person_id}?tab=payments`)
 
   await page.locator('#billing-case').fill('sin caso')
   await page.getByRole('button', { name: 'Ver la lista' }).click()
@@ -84,9 +84,9 @@ test('the list opens without a case, and under one each row opens the payments u
   await expect(rows.first()).toHaveAttribute('data-status', 'suspended')
   await expect(rows.first()).toContainText('Suspendida desde')
   await expect(rows.nth(1)).toContainText('1 cobro fallido en 30 días')
-  await expect(rows.first().locator('[data-billing-follow-up-person]')).toHaveAttribute(
+  await expect(rows.first().locator('[data-record-id-link]')).toHaveAttribute(
     'href',
-    `/people/${suspended.person_id}?case_reference=${CASE}`,
+    `/people/${suspended.person_id}?case_reference=${CASE}&tab=payments`,
   )
   // StrictMode may read the first page twice; the read under the case is the last one.
   const queries = reads(fixture).map((request) => request.query)

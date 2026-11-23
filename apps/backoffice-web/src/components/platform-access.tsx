@@ -18,23 +18,15 @@
  * the short identifier beside it for a case. The person who receives the role is found
  * with the same search as /people, so nobody types an identifier; that search is
  * recorded on everyone it answers, as it is there.
+ *
+ * Granting the role is the screen's one primary action, in a dialog over the
+ * inventory, and the inventory is two tabs kept in the address: the base role, and
+ * the duties with their filters on one row.
  */
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
-
 import {
   Card,
   CardContent,
@@ -42,8 +34,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@allfitone/react/components/dialog'
+import { DropdownMenuItem, DropdownMenuSeparator } from '@allfitone/react/components/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import { toast } from '@allfitone/react/components/sonner'
 import {
   Select,
   SelectContent,
@@ -60,7 +64,10 @@ import {
   TableRow,
   TableState,
 } from '@allfitone/react/components/table'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
+import { FoundationIcon } from '@allfitone/react/icons'
+import { useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
   BackofficeApiError,
@@ -75,10 +82,12 @@ import {
 } from '@/lib/backoffice-api'
 import {
   actorModeLabel,
+  assuranceLabel,
   canRecertify,
   DUTY_STATUS_FILTERS,
   PLATFORM_DUTY_CODES,
   dutyLabel,
+  dutyOutcome,
   dutyStatusLabel,
   dutyStatusTone,
   dutyWindowLabel,
@@ -88,12 +97,20 @@ import {
   isValidPersonId,
   personName,
   platformAccessMessage,
+  roleOutcome,
   roleStatusLabel,
   roleStatusTone,
-  shortIdentifier,
+  teamHref,
+  teamTabFromQuery,
   type PlatformDutyStatus,
 } from '@/lib/platform-access'
 import { isSearchable, supportMetadataMessage } from '@/lib/support-metadata'
+
+import { ConfirmDialog } from './confirm-action'
+import { PageHeader } from './page-header'
+import { RecordId } from './record-id'
+import { RowMenu } from './row-menu'
+import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
 
 type PersonMatch = SupportPeopleSearch['items'][number]
 
@@ -125,9 +142,10 @@ function dutyQuery(filter: DutyFilter): PlatformDutyFilters {
 }
 
 export function PlatformAccess() {
+  const tab = teamTabFromQuery(useSearchParams().get('tab'))
   const [state, setState] = useState<LoadState>('loading')
   const [inventory, setInventory] = useState<Inventory>(EMPTY)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [appending, setAppending] = useState<'roles' | 'duties' | null>(null)
   const [dutyFilter, setDutyFilter] = useState<DutyFilter>({ status: '', dutyCode: '' })
@@ -177,7 +195,7 @@ export function PlatformAccess() {
     const cursor = which === 'roles' ? inventory.roleCursor : inventory.dutyCursor
     if (!cursor) return
     setAppending(which)
-    setNotice(null)
+    setFailure(null)
     try {
       if (which === 'roles') {
         const page = await backofficeApi.platformRoles(cursor)
@@ -195,7 +213,7 @@ export function PlatformAccess() {
         }))
       }
     } catch (error) {
-      setNotice({ tone: 'danger', message: failureMessage(error) })
+      setFailure(failureMessage(error))
     } finally {
       setAppending(null)
     }
@@ -204,13 +222,14 @@ export function PlatformAccess() {
   const run = useCallback(
     async (operation: () => Promise<unknown>, success: string) => {
       setBusy(true)
-      setNotice(null)
+      setFailure(null)
       try {
         await operation()
         await load()
-        setNotice({ tone: 'success', message: success })
+        // Where the operator looks, whichever section the command came from.
+        toast.success(success)
       } catch (error) {
-        setNotice({ tone: 'danger', message: failureMessage(error) })
+        setFailure(failureMessage(error))
       } finally {
         setBusy(false)
       }
@@ -226,8 +245,8 @@ export function PlatformAccess() {
         title="No puedes ver este inventario"
         duties={['manage_platform_access', 'audit_platform_access']}
       >
-        Consultarlo exige el rol de administrador vigente, con AAL2. Si lo tenías, puede haber sido
-        retirado.
+        Consultarlo exige el rol de administrador vigente, con dos factores. Si lo tenías, puede
+        haber sido retirado.
       </ScreenRefusal>
     )
   }
@@ -246,60 +265,89 @@ export function PlatformAccess() {
 
   return (
     <div data-platform-access>
-      {notice ? (
-        <Alert live="polite" variant={notice.tone === 'success' ? 'success' : 'danger'}>
-          <AlertTitle>{notice.tone === 'success' ? 'Hecho' : 'No se aplicó'}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
+      <PageHeader
+        description="Quién del equipo de Allfit One llega a los datos, con qué deber y desde cuándo. El rol de administrador trae todos los deberes mientras dure."
+        actions={
+          <GrantRoleDialog
+            busy={busy}
+            onGrant={(person) =>
+              void run(
+                () => backofficeApi.grantPlatformRole(person.person_id, newBackofficeCommand()),
+                roleOutcome('granted', person.display_name),
+              )
+            }
+          />
+        }
+      />
+
+      {failure ? (
+        <Alert live="polite" variant="danger">
+          <AlertTitle>No se aplicó</AlertTitle>
+          <AlertDescription>{failure}</AlertDescription>
         </Alert>
       ) : null}
 
-      <BaseRoleSection
-        assignments={inventory.roles}
-        busy={busy}
-        hasMore={inventory.roleCursor !== null}
-        appending={appending === 'roles'}
-        onLoadMore={() => void loadMore('roles')}
-        onGrant={(personId) =>
-          run(
-            () => backofficeApi.grantPlatformRole(personId, newBackofficeCommand()),
-            'Rol base otorgado.',
+      {/* Next keeps `useSearchParams` in step with the history API: no navigation, no reload. */}
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          window.history.replaceState(
+            null,
+            '',
+            teamHref(teamTabFromQuery(typeof value === 'string' ? value : null)),
           )
         }
-        onRevoke={(assignmentId) =>
-          run(
-            () => backofficeApi.revokePlatformRole(assignmentId, newBackofficeCommand()),
-            'Rol base retirado. Se cerraron sus deberes y su sesión.',
-          )
-        }
-      />
-
-      <DutySection
-        assignments={inventory.duties}
-        filter={dutyFilter}
-        onFilter={setDutyFilter}
-        busy={busy}
-        hasMore={inventory.dutyCursor !== null}
-        appending={appending === 'duties'}
-        onLoadMore={() => void loadMore('duties')}
-        onSuspend={(assignmentId) =>
-          run(
-            () => backofficeApi.suspendPlatformDuty(assignmentId, newBackofficeCommand()),
-            'Deber suspendido. Deja de autorizar desde la próxima transacción.',
-          )
-        }
-        onRevoke={(assignmentId) =>
-          run(
-            () => backofficeApi.revokePlatformDuty(assignmentId, newBackofficeCommand()),
-            'Deber revocado.',
-          )
-        }
-        onRecertify={(assignmentId) =>
-          run(
-            () => backofficeApi.recertifyPlatformDuty(assignmentId, newBackofficeCommand()),
-            'Deber recertificado: queda registrado quién lo confirmó y cuándo. No alarga su vigencia.',
-          )
-        }
-      />
+        data-team-tabs
+      >
+        <TabsList variant="line" aria-label="Secciones del equipo">
+          <TabsTrigger value="roles">Rol base</TabsTrigger>
+          <TabsTrigger value="duties">Deberes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="roles" data-record-tab>
+          <BaseRoleSection
+            assignments={inventory.roles}
+            busy={busy}
+            hasMore={inventory.roleCursor !== null}
+            appending={appending === 'roles'}
+            onLoadMore={() => void loadMore('roles')}
+            onRevoke={(assignment) =>
+              run(
+                () => backofficeApi.revokePlatformRole(assignment.id, newBackofficeCommand()),
+                roleOutcome('revoked', assignment.person_name),
+              )
+            }
+          />
+        </TabsContent>
+        <TabsContent value="duties" data-record-tab>
+          <DutySection
+            assignments={inventory.duties}
+            filter={dutyFilter}
+            onFilter={setDutyFilter}
+            busy={busy}
+            hasMore={inventory.dutyCursor !== null}
+            appending={appending === 'duties'}
+            onLoadMore={() => void loadMore('duties')}
+            onSuspend={(assignment) =>
+              run(
+                () => backofficeApi.suspendPlatformDuty(assignment.id, newBackofficeCommand()),
+                dutyOutcome('suspended', assignment.duty_code, assignment.person_name),
+              )
+            }
+            onRevoke={(assignment) =>
+              run(
+                () => backofficeApi.revokePlatformDuty(assignment.id, newBackofficeCommand()),
+                dutyOutcome('revoked', assignment.duty_code, assignment.person_name),
+              )
+            }
+            onRecertify={(assignment) =>
+              run(
+                () => backofficeApi.recertifyPlatformDuty(assignment.id, newBackofficeCommand()),
+                dutyOutcome('recertified', assignment.duty_code, assignment.person_name),
+              )
+            }
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -310,7 +358,6 @@ function BaseRoleSection({
   hasMore,
   appending,
   onLoadMore,
-  onGrant,
   onRevoke,
 }: {
   assignments: PlatformRoleAssignment[]
@@ -318,15 +365,270 @@ function BaseRoleSection({
   hasMore: boolean
   appending: boolean
   onLoadMore: () => void
-  onGrant: (personId: string) => void
-  onRevoke: (assignmentId: string) => Promise<void>
+  onRevoke: (assignment: PlatformRoleAssignment) => Promise<void>
 }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2}>
+          Rol base
+        </CardTitle>
+        <CardDescription>
+          El rol de administrador trae todos los deberes mientras dure. Nadie se lo otorga a sí
+          mismo, y retirarlo revoca sus deberes y cierra su sesión.
+        </CardDescription>
+      </CardHeader>
+      <CardContent data-card-body>
+        <Table scrollAreaLabel="Asignaciones de rol base">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Persona</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Otorgó</TableHead>
+              <TableHead>Desde</TableHead>
+              <TableHead>Retirado</TableHead>
+              <TableHead align="end" aria-label="Acciones" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {assignments.length === 0 ? (
+              <TableState
+                colSpan={6}
+                state="empty"
+                title="Nadie tiene rol base"
+                description="Sólo la ceremonia de arranque puede crear los primeros dos administradores."
+              />
+            ) : (
+              assignments.map((assignment) => (
+                <TableRow key={assignment.id}>
+                  <TableCell>
+                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={roleStatusTone(assignment.status)}>
+                      {roleStatusLabel(assignment.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <PersonCell
+                      name={assignment.granted_by_name}
+                      personId={assignment.granted_by_person_id}
+                    />
+                  </TableCell>
+                  <TableCell>{formatInstant(assignment.granted_at)}</TableCell>
+                  <TableCell>{formatInstant(assignment.revoked_at)}</TableCell>
+                  <TableCell align="end">
+                    {assignment.status === 'active' ? (
+                      <RoleActions assignment={assignment} busy={busy} onRevoke={onRevoke} />
+                    ) : (
+                      <span>—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <LoadMore
+          label="Ver más asignaciones de rol base"
+          hasMore={hasMore}
+          appending={appending}
+          onLoadMore={onLoadMore}
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+function DutySection({
+  assignments,
+  filter,
+  onFilter,
+  busy,
+  hasMore,
+  appending,
+  onLoadMore,
+  onSuspend,
+  onRevoke,
+  onRecertify,
+}: {
+  assignments: PlatformDutyAssignment[]
+  filter: DutyFilter
+  onFilter: (next: DutyFilter) => void
+  busy: boolean
+  hasMore: boolean
+  appending: boolean
+  onLoadMore: () => void
+  onSuspend: (assignment: PlatformDutyAssignment) => void
+  onRevoke: (assignment: PlatformDutyAssignment) => Promise<void>
+  onRecertify: (assignment: PlatformDutyAssignment) => void
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle role="heading" aria-level={2}>
+          Deberes de plataforma
+        </CardTitle>
+        <CardDescription>
+          El rol de administrador trae los trece deberes, con dos factores, y duran lo que dure el
+          rol. Un deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
+        </CardDescription>
+      </CardHeader>
+      <CardContent data-card-body>
+        <div role="group" aria-label="Filtrar los deberes" data-list-toolbar>
+          <div data-list-filter>
+            <Select
+              value={filter.status === '' ? ALL : filter.status}
+              onValueChange={(value) =>
+                onFilter({
+                  ...filter,
+                  status: value === ALL || value === null ? '' : (value as PlatformDutyStatus),
+                })
+              }
+            >
+              <SelectTrigger aria-label="Estado del deber" disabled={busy}>
+                <SelectValue>
+                  {DUTY_STATUS_FILTERS.find((option) => option.value === filter.status)?.label}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {DUTY_STATUS_FILTERS.map((option) => (
+                  <SelectItem key={option.value || ALL} value={option.value || ALL}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div data-list-filter>
+            <Select
+              value={filter.dutyCode === '' ? ALL : filter.dutyCode}
+              onValueChange={(value) =>
+                onFilter({
+                  ...filter,
+                  dutyCode: value === ALL || value === null ? '' : (value as PlatformDutyCode),
+                })
+              }
+            >
+              <SelectTrigger aria-label="Filtrar por deber" disabled={busy}>
+                <SelectValue>
+                  {filter.dutyCode === '' ? 'Todos los deberes' : dutyLabel(filter.dutyCode)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Todos los deberes</SelectItem>
+                {PLATFORM_DUTY_CODES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {dutyLabel(code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Table scrollAreaLabel="Asignaciones de deber">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Persona</TableHead>
+              <TableHead>Deber</TableHead>
+              <TableHead>Modo</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Verificación</TableHead>
+              <TableHead>Vigencia</TableHead>
+              <TableHead>Otorgó</TableHead>
+              <TableHead>Recertificado</TableHead>
+              <TableHead align="end" aria-label="Acciones" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {assignments.length === 0 ? (
+              <TableState
+                colSpan={9}
+                state="empty"
+                title="Nadie tiene deberes"
+                description="Los deberes llegan con el rol de administrador."
+              />
+            ) : (
+              assignments.map((assignment) => (
+                <TableRow key={assignment.id}>
+                  <TableCell>
+                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
+                  </TableCell>
+                  <TableCell>{dutyLabel(assignment.duty_code)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{actorModeLabel(assignment.actor_mode)}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={dutyStatusTone(assignment.status)}>
+                      {dutyStatusLabel(assignment.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{assuranceLabel(assignment.required_aal)}</TableCell>
+                  <TableCell>{dutyWindowLabel(assignment)}</TableCell>
+                  <TableCell>
+                    <PersonCell
+                      name={assignment.granted_by_name}
+                      personId={assignment.granted_by_person_id}
+                    />
+                  </TableCell>
+                  <TableCell>{formatInstant(assignment.recertified_at)}</TableCell>
+                  <TableCell align="end">
+                    {isDutyClosed(assignment.status) ? (
+                      <span>—</span>
+                    ) : isHeldThroughRole(assignment) ? (
+                      <span>Sigue al rol</span>
+                    ) : (
+                      <DutyActions
+                        assignment={assignment}
+                        busy={busy}
+                        onSuspend={onSuspend}
+                        onRevoke={onRevoke}
+                        onRecertify={onRecertify}
+                      />
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <LoadMore
+          label="Ver más deberes"
+          hasMore={hasMore}
+          appending={appending}
+          onLoadMore={onLoadMore}
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * The person who receives the role is found with the same search as /people, so
+ * nobody types an identifier. That search is recorded on everyone it answers, and
+ * the dialog says so before anyone searches.
+ */
+function GrantRoleDialog({
+  busy,
+  onGrant,
+}: {
+  busy: boolean
+  onGrant: (person: PersonMatch) => void
+}) {
+  const [open, setOpen] = useState(false)
   const [term, setTerm] = useState('')
   const [searching, setSearching] = useState(false)
   const [found, setFound] = useState<SupportPeopleSearch | null>(null)
   const [chosen, setChosen] = useState<PersonMatch | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [revoking, setRevoking] = useState<string | null>(null)
+
+  function reset() {
+    setTerm('')
+    setFound(null)
+    setChosen(null)
+    setError(null)
+  }
 
   async function search(event: FormEvent) {
     event.preventDefault()
@@ -348,37 +650,39 @@ function BaseRoleSection({
     }
   }
 
+  // The dialog closes on the order; the toast or the screen's alert says how it went.
   function grant() {
     if (!chosen || !isValidPersonId(chosen.person_id)) {
       setError('Elige a la persona que recibe el rol.')
       return
     }
-    const personId = chosen.person_id
-    setError(null)
-    setChosen(null)
-    setFound(null)
-    setTerm('')
-    onGrant(personId)
+    const person = chosen
+    setOpen(false)
+    reset()
+    onGrant(person)
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Rol base
-        </CardTitle>
-        <CardDescription>
-          `allfit_admin` trae todos los deberes mientras dure. Nadie se lo otorga a sí mismo, y
-          retirarlo revoca sus deberes y cierra su sesión.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={(event) => void search(event)}
-          data-backoffice-form
-          data-platform-form
-          noValidate
-        >
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset()
+        setOpen(next)
+      }}
+    >
+      <DialogTrigger render={<Button type="button" disabled={busy} />}>
+        <FoundationIcon name="add" decorative />
+        Otorgar el rol base
+      </DialogTrigger>
+      <DialogContent data-grant-role-dialog>
+        <DialogHeader>
+          <DialogTitle>Otorgar el rol base</DialogTitle>
+          <DialogDescription>
+            Trae todos los deberes mientras dure. Nadie se lo otorga a sí mismo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={(event) => void search(event)} data-backoffice-form noValidate>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="platform-role-person">Buscar a quien recibe el rol</FieldLabel>
@@ -388,10 +692,12 @@ function BaseRoleSection({
                 onChange={(event) => setTerm(event.target.value)}
                 placeholder="Nombre, correo o teléfono"
                 autoComplete="off"
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'platform-role-person-issue' : undefined}
                 disabled={busy || searching}
               />
+              {error ? <FieldError id="platform-role-person-issue">{error}</FieldError> : null}
             </Field>
-            {error ? <FieldError>{error}</FieldError> : null}
             <div data-form-actions>
               <Button type="submit" variant="outline" disabled={busy || searching}>
                 {searching ? 'Buscando…' : 'Buscar'}
@@ -432,342 +738,117 @@ function BaseRoleSection({
         ) : null}
 
         {chosen ? (
-          <div data-role-chosen>
-            <p>
-              Recibirá el rol base: <strong>{chosen.display_name}</strong>
-              {chosen.contact_email ? ` (${chosen.contact_email})` : ''}
-            </p>
-            <Button type="button" disabled={busy} onClick={grant}>
-              Otorgar rol base
-            </Button>
-          </div>
+          <p data-role-chosen>
+            Recibirá el rol base: <strong>{chosen.display_name}</strong>
+            {chosen.contact_email ? ` (${chosen.contact_email})` : ''}
+          </p>
         ) : null}
 
-        <Table scrollAreaLabel="Asignaciones de rol base">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Persona</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Otorgó</TableHead>
-              <TableHead>Desde</TableHead>
-              <TableHead>Retirado</TableHead>
-              <TableHead align="end">Acción</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {assignments.length === 0 ? (
-              <TableState
-                colSpan={6}
-                state="empty"
-                title="Nadie tiene rol base"
-                description="Sólo la ceremonia de arranque puede crear los primeros dos administradores."
-              />
-            ) : (
-              assignments.map((assignment) => (
-                <TableRow key={assignment.id}>
-                  <TableCell>
-                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={roleStatusTone(assignment.status)}>
-                      {roleStatusLabel(assignment.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <PersonCell
-                      name={assignment.granted_by_name}
-                      personId={assignment.granted_by_person_id}
-                    />
-                  </TableCell>
-                  <TableCell>{formatInstant(assignment.granted_at)}</TableCell>
-                  <TableCell>{formatInstant(assignment.revoked_at)}</TableCell>
-                  <TableCell align="end">
-                    {assignment.status === 'active' ? (
-                      <AlertDialog
-                        open={revoking === assignment.id}
-                        onOpenChange={(next) => {
-                          // Closing mid-flight would hide a request that is still going to land.
-                          if (busy) return
-                          setRevoking(next ? assignment.id : null)
-                        }}
-                      >
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          disabled={busy}
-                          onClick={() => setRevoking(assignment.id)}
-                        >
-                          Retirar
-                        </Button>
-                        <AlertDialogContent data-revoke-role-dialog>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>¿Retirar el rol base?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              {personName(assignment.person_name)} deja de poder entrar al
-                              Backoffice ahora mismo: se cierran sus deberes vigentes y su sesión.
-                              No se puede deshacer; volver a darle acceso exige otorgar el rol de
-                              nuevo.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel disabled={busy}>Conservar el rol</AlertDialogCancel>
-                            <AlertDialogAction
-                              variant="destructive"
-                              disabled={busy}
-                              onClick={() =>
-                                void onRevoke(assignment.id).then(() => setRevoking(null))
-                              }
-                            >
-                              {busy ? 'Retirando…' : 'Retirar el rol'}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    ) : (
-                      <span>—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <LoadMore
-          label="Ver más asignaciones de rol base"
-          hasMore={hasMore}
-          appending={appending}
-          onLoadMore={onLoadMore}
-        />
-      </CardContent>
-    </Card>
+        <DialogFooter data-confirm-footer>
+          <DialogClose render={<Button type="button" variant="outline" />}>Cancelar</DialogClose>
+          {chosen ? (
+            <Button type="button" disabled={busy} onClick={grant}>
+              Otorgar el rol a {chosen.display_name}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-function DutySection({
-  assignments,
-  filter,
-  onFilter,
+/** Withdrawing cuts the person out at once, so the menu only opens the question. */
+function RoleActions({
+  assignment,
   busy,
-  hasMore,
-  appending,
-  onLoadMore,
+  onRevoke,
+}: {
+  assignment: PlatformRoleAssignment
+  busy: boolean
+  onRevoke: (assignment: PlatformRoleAssignment) => Promise<void>
+}) {
+  const [asking, setAsking] = useState(false)
+  const menu = useRef<HTMLButtonElement>(null)
+  const name = personName(assignment.person_name)
+
+  return (
+    <>
+      <RowMenu label={`Acciones del rol base de ${name}`} disabled={busy} triggerRef={menu}>
+        <DropdownMenuItem variant="destructive" onClick={() => setAsking(true)}>
+          Retirar el rol base
+        </DropdownMenuItem>
+      </RowMenu>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        returnFocus={menu}
+        title="¿Retirar el rol base?"
+        confirmLabel="Retirar el rol"
+        busyLabel="Retirando…"
+        keepLabel="Conservar el rol"
+        busy={busy}
+        onConfirm={() => onRevoke(assignment)}
+      >
+        {name} deja de poder entrar al Backoffice ahora mismo: se cierran sus deberes vigentes y su
+        sesión. No se puede deshacer; volver a darle acceso exige otorgar el rol de nuevo.
+      </ConfirmDialog>
+    </>
+  )
+}
+
+/**
+ * Recertifying and suspending run at once and the toast says what changed;
+ * revoking cannot be undone, so it asks first and comes last, set apart.
+ */
+function DutyActions({
+  assignment,
+  busy,
   onSuspend,
   onRevoke,
   onRecertify,
 }: {
-  assignments: PlatformDutyAssignment[]
-  filter: DutyFilter
-  onFilter: (next: DutyFilter) => void
+  assignment: PlatformDutyAssignment
   busy: boolean
-  hasMore: boolean
-  appending: boolean
-  onLoadMore: () => void
-  onSuspend: (assignmentId: string) => void
-  onRevoke: (assignmentId: string) => Promise<void>
-  onRecertify: (assignmentId: string) => void
+  onSuspend: (assignment: PlatformDutyAssignment) => void
+  onRevoke: (assignment: PlatformDutyAssignment) => Promise<void>
+  onRecertify: (assignment: PlatformDutyAssignment) => void
 }) {
-  const [revoking, setRevoking] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
+  const menu = useRef<HTMLButtonElement>(null)
+  const name = personName(assignment.person_name)
+  const duty = dutyLabel(assignment.duty_code)
+  const recertifiable = canRecertify(assignment.status)
+  const suspendable = assignment.status !== 'suspended'
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Deberes de plataforma
-        </CardTitle>
-        <CardDescription>
-          El rol de administrador trae los trece deberes, con AAL2, y duran lo que dure el rol. Un
-          deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <FieldGroup data-platform-duty-filters>
-          <Field>
-            <FieldLabel htmlFor="platform-duty-status-filter">Estado del deber</FieldLabel>
-            <Select
-              value={filter.status === '' ? ALL : filter.status}
-              onValueChange={(value) =>
-                onFilter({
-                  ...filter,
-                  status: value === ALL || value === null ? '' : (value as PlatformDutyStatus),
-                })
-              }
-            >
-              <SelectTrigger id="platform-duty-status-filter" disabled={busy}>
-                <SelectValue>
-                  {DUTY_STATUS_FILTERS.find((option) => option.value === filter.status)?.label}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {DUTY_STATUS_FILTERS.map((option) => (
-                  <SelectItem key={option.value || ALL} value={option.value || ALL}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="platform-duty-code-filter">Filtrar por deber</FieldLabel>
-            <Select
-              value={filter.dutyCode === '' ? ALL : filter.dutyCode}
-              onValueChange={(value) =>
-                onFilter({
-                  ...filter,
-                  dutyCode: value === ALL || value === null ? '' : (value as PlatformDutyCode),
-                })
-              }
-            >
-              <SelectTrigger id="platform-duty-code-filter" disabled={busy}>
-                <SelectValue>
-                  {filter.dutyCode === '' ? 'Todos los deberes' : dutyLabel(filter.dutyCode)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Todos los deberes</SelectItem>
-                {PLATFORM_DUTY_CODES.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {dutyLabel(code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </FieldGroup>
-
-        <Table scrollAreaLabel="Asignaciones de deber">
-          <TableHeader>
-            <TableRow>
-              <TableHead>Persona</TableHead>
-              <TableHead>Deber</TableHead>
-              <TableHead>Modo</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>AAL</TableHead>
-              <TableHead>Vigencia</TableHead>
-              <TableHead>Otorgó</TableHead>
-              <TableHead>Recertificado</TableHead>
-              <TableHead align="end">Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {assignments.length === 0 ? (
-              <TableState
-                colSpan={9}
-                state="empty"
-                title="Nadie tiene deberes"
-                description="Los deberes llegan con el rol de administrador."
-              />
-            ) : (
-              assignments.map((assignment) => (
-                <TableRow key={assignment.id}>
-                  <TableCell>
-                    <PersonCell name={assignment.person_name} personId={assignment.person_id} />
-                  </TableCell>
-                  <TableCell>{dutyLabel(assignment.duty_code)}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{actorModeLabel(assignment.actor_mode)}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={dutyStatusTone(assignment.status)}>
-                      {dutyStatusLabel(assignment.status)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell numeric>{assignment.required_aal}</TableCell>
-                  <TableCell>{dutyWindowLabel(assignment)}</TableCell>
-                  <TableCell>
-                    <PersonCell
-                      name={assignment.granted_by_name}
-                      personId={assignment.granted_by_person_id}
-                    />
-                  </TableCell>
-                  <TableCell>{formatInstant(assignment.recertified_at)}</TableCell>
-                  <TableCell align="end">
-                    {isDutyClosed(assignment.status) ? (
-                      <span>—</span>
-                    ) : isHeldThroughRole(assignment) ? (
-                      <span>Sigue al rol</span>
-                    ) : (
-                      <>
-                        {canRecertify(assignment.status) ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => onRecertify(assignment.id)}
-                          >
-                            Recertificar
-                          </Button>
-                        ) : null}
-                        {assignment.status !== 'suspended' ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy}
-                            onClick={() => onSuspend(assignment.id)}
-                          >
-                            Suspender
-                          </Button>
-                        ) : null}
-                        <AlertDialog
-                          open={revoking === assignment.id}
-                          onOpenChange={(next) => {
-                            if (busy) return
-                            setRevoking(next ? assignment.id : null)
-                          }}
-                        >
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            disabled={busy}
-                            onClick={() => setRevoking(assignment.id)}
-                          >
-                            Revocar
-                          </Button>
-                          <AlertDialogContent data-revoke-duty-dialog>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Revocar este deber?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                {personName(assignment.person_name)} deja de poder{' '}
-                                {dutyLabel(assignment.duty_code).toLowerCase()} desde la siguiente
-                                transacción. A diferencia de suspender, no se puede deshacer: para
-                                devolvérselo hay que otorgar un deber nuevo.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel disabled={busy}>
-                                Conservar el deber
-                              </AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                disabled={busy}
-                                onClick={() =>
-                                  void onRevoke(assignment.id).then(() => setRevoking(null))
-                                }
-                              >
-                                {busy ? 'Revocando…' : 'Revocar el deber'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <LoadMore
-          label="Ver más deberes"
-          hasMore={hasMore}
-          appending={appending}
-          onLoadMore={onLoadMore}
-        />
-      </CardContent>
-    </Card>
+    <>
+      <RowMenu label={`Acciones de «${duty}» de ${name}`} disabled={busy} triggerRef={menu}>
+        {recertifiable ? (
+          <DropdownMenuItem onClick={() => onRecertify(assignment)}>Recertificar</DropdownMenuItem>
+        ) : null}
+        {suspendable ? (
+          <DropdownMenuItem onClick={() => onSuspend(assignment)}>Suspender</DropdownMenuItem>
+        ) : null}
+        {recertifiable || suspendable ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem variant="destructive" onClick={() => setAsking(true)}>
+          Revocar el deber
+        </DropdownMenuItem>
+      </RowMenu>
+      <ConfirmDialog
+        open={asking}
+        onOpenChange={setAsking}
+        returnFocus={menu}
+        title="¿Revocar este deber?"
+        confirmLabel="Revocar el deber"
+        busyLabel="Revocando…"
+        keepLabel="Conservar el deber"
+        busy={busy}
+        onConfirm={() => onRevoke(assignment)}
+      >
+        {name} deja de poder {duty.toLowerCase()} desde la siguiente transacción. A diferencia de
+        suspender, no se puede deshacer: para devolvérselo hay que otorgar un deber nuevo.
+      </ConfirmDialog>
+    </>
   )
 }
 
@@ -798,7 +879,7 @@ function LoadMore({
 function PersonCell({ name, personId }: { name: string | null; personId: string }) {
   return (
     <span data-person-cell>
-      {personName(name)} <code title={personId}>{shortIdentifier(personId)}</code>
+      {personName(name)} <RecordId id={personId} />
     </span>
   )
 }

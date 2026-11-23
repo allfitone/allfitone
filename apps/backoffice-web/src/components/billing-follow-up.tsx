@@ -32,7 +32,6 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, type FormEvent } from 'react'
 
@@ -51,17 +50,20 @@ import {
   followUpSummary,
   followUpTone,
 } from '@/lib/billing-follow-up'
+import { menuCrumb } from '@/lib/backoffice-routes'
 import { isRefusal } from '@/lib/screen-state'
-import { isValidOptionalCaseReference } from '@/lib/support-metadata'
+import { isValidOptionalCaseReference, normalizeCaseReference } from '@/lib/case-reference'
 
+import { RecordHeader } from './page-header'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+import { RecordId } from './record-id'
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'failed'
 
 export function BillingFollowUp() {
   const router = useRouter()
   const parameters = useSearchParams()
-  const fromAddress = parameters.get('case_reference') ?? ''
+  const fromAddress = normalizeCaseReference(parameters.get('case_reference') ?? '')
   const traceable = isValidOptionalCaseReference(fromAddress)
   const [caseReference, setCaseReference] = useState(fromAddress)
   const [issue, setIssue] = useState(false)
@@ -101,7 +103,7 @@ export function BillingFollowUp() {
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    const reference = caseReference.trim()
+    const reference = normalizeCaseReference(caseReference)
     if (!isValidOptionalCaseReference(reference)) {
       setIssue(true)
       return
@@ -120,18 +122,22 @@ export function BillingFollowUp() {
 
   return (
     <div data-billing-follow-up>
+      <RecordHeader
+        trail={[menuCrumb('/people', { case_reference: traceable ? fromAddress : '' })]}
+        name="Cobros por seguir"
+        description="Suscripciones a Allfit One suspendidas o en gracia, y cobros que fallaron en los últimos 30 días."
+      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            Cobros por seguir
+            El caso que lo justifica
           </CardTitle>
           <CardDescription>
-            Suscripciones a Allfit One suspendidas o en gracia, y cobros que fallaron en los últimos
-            30 días. Nombra a quien paga, así que queda registrado contra cada persona de la lista,
+            La lista nombra a quien paga, así que queda registrado contra cada persona de la lista,
             y contra el caso si escribes uno.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <form onSubmit={submit} data-backoffice-form data-billing-follow-up-form noValidate>
             <FieldGroup>
               <Field>
@@ -178,7 +184,7 @@ export function BillingFollowUp() {
               {followUpSummary(followUp)}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent data-card-body>
             {followUp.items.length === 0 ? (
               <ScreenEmpty icon="business" title="Nadie por seguir." data-billing-follow-up-empty>
                 Cuando una suscripción se suspenda, entre en gracia o un cobro falle, aparece aquí.
@@ -200,13 +206,11 @@ export function BillingFollowUp() {
                       data-status={item.subscription_status ?? 'none'}
                     >
                       <TableCell>
-                        <Link
+                        <RecordId
+                          id={item.person_id}
                           href={followUpHref(item, fromAddress)}
-                          data-billing-follow-up-person
-                          aria-label={`Abrir los pagos de ${item.person_id}`}
-                        >
-                          <code>{item.person_id.slice(0, 8)}</code>
-                        </Link>
+                          linkLabel={`Abrir los pagos de ${item.person_id}`}
+                        />
                       </TableCell>
                       <TableCell>
                         <Badge variant={followUpTone(item)}>{followUpStateLabel(item)}</Badge>
@@ -226,8 +230,8 @@ export function BillingFollowUp() {
         <Alert live="off" variant="info" data-billing-follow-up-idle>
           <AlertTitle>La referencia del caso no tiene la forma esperada</AlertTitle>
           <AlertDescription>
-            Va en mayúsculas, como CASE-2026-001, o se deja vacía. La lista no se lee con una
-            referencia en texto libre.
+            Va como CASE-2026-001, o se deja vacía. La lista no se lee con una referencia en texto
+            libre.
           </AlertDescription>
         </Alert>
       ) : null}

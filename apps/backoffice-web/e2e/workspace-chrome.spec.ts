@@ -1,6 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { activeSession, createBackofficeFixture, mockBackofficeApi } from './backoffice-api-mock'
+import {
+  SUPPORT_SUBJECT_ID,
+  SUPPORT_SUBJECT_NAME,
+  activeSession,
+  createBackofficeFixture,
+  handoverRecord,
+  mockBackofficeApi,
+  organizationFileRecord,
+  supportPerson,
+} from './backoffice-api-mock'
 
 /**
  * The chrome every Backoffice screen shares. Each check here is a defect that
@@ -114,7 +123,8 @@ test('groups the navigation by area and names the area over the title', async ({
     'Solicitudes de eliminación',
   )
 
-  const header = page.locator('header')
+  // The shell's header: the screen's content opens with a header of its own.
+  const header = page.locator('[data-backoffice-header]')
   await expect(header).toContainText('Seguridad y privacidad')
   await expect(header.getByRole('heading', { level: 1 })).toHaveText('Solicitudes de eliminación')
 
@@ -170,11 +180,12 @@ test('the home screen says who is signed in and until when', async ({ context, p
 
 test('a form keeps a readable measure and its button its own width', async ({ context, page }) => {
   await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
-  await page.goto('/people')
+  // Personas became a toolbar; the follow-up keeps the stacked form this rule is for.
+  await page.goto('/people/billing')
 
   const form = page.locator('form[data-backoffice-form]')
   const formBox = await form.boundingBox()
-  const buttonBox = await form.getByRole('button', { name: 'Buscar' }).boundingBox()
+  const buttonBox = await form.getByRole('button', { name: 'Ver la lista' }).boundingBox()
   expect(formBox?.width).toBeLessThanOrEqual(36 * 16)
   expect(buttonBox?.width).toBeLessThan((formBox?.width ?? 0) / 2)
   const label = form.getByText('Referencia del caso')
@@ -182,4 +193,225 @@ test('a form keeps a readable measure and its button its own width', async ({ co
   const [labelBox, inputBox] = [await label.boundingBox(), await input.boundingBox()]
   // Stacked, not side by side: the control starts below its label.
   expect(inputBox?.y).toBeGreaterThan((labelBox?.y ?? 0) + (labelBox?.height ?? 0) - 1)
+})
+
+/** The links of the workspace content that do not reach 4.5:1 against what they sit on. */
+function unreadableLinks(page: Page) {
+  return page.evaluate(() => {
+    const channels = (color: string): number[] => (color.match(/[\d.]+/g) ?? []).map(Number)
+    const linear = (channel: number): number => {
+      const value = channel / 255
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    }
+    const luminance = ([r = 0, g = 0, b = 0]: number[]): number =>
+      0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+    // The first painted ancestor is the surface the link is read on.
+    const surface = (element: Element): number[] => {
+      for (let node: Element | null = element; node; node = node.parentElement) {
+        const color = channels(getComputedStyle(node).backgroundColor)
+        if (color.length >= 3 && (color[3] ?? 1) > 0) return color
+      }
+      return [255, 255, 255]
+    }
+    return [...document.querySelectorAll('[data-backoffice-content] a:not([data-slot])')]
+      .filter((link) => link.getClientRects().length > 0)
+      .map((link) => {
+        const [lighter, darker] = [
+          luminance(channels(getComputedStyle(link).color)),
+          luminance(surface(link)),
+        ].sort((a, b) => b - a)
+        return {
+          name: link.textContent?.trim() ?? '',
+          ratio: ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05),
+        }
+      })
+      .filter((link) => link.ratio < 4.5)
+      .map((link) => `${link.name}: ${link.ratio.toFixed(2)}:1`)
+  })
+}
+
+/*
+ * A link left to the browser is #0000EE, 1.97:1 on a card here. Links were styled
+ * one data attribute at a time, and six kinds had none, among them the name that
+ * opens a person's card and the way to ask for an exceptional access.
+ */
+test('every link on a workspace screen reads against what it sits on', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), support: { people: [supportPerson()] } }),
+  )
+  await page.goto('/people')
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
+  await page.getByLabel('Referencia del caso (opcional)').fill('CASE-2026-001')
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  const found = page.getByRole('link', { name: SUPPORT_SUBJECT_NAME })
+  await expect(found).toBeVisible()
+  expect(await unreadableLinks(page)).toEqual([])
+
+  await found.click()
+  await expect(page.locator('[data-person-break-glass-link]')).toBeVisible()
+  expect(await unreadableLinks(page)).toEqual([])
+})
+
+/** Stacked blocks with less than 8px between them, in a screen root or a card body. */
+function touchingBlocks(page: Page) {
+  return page.evaluate(() => {
+    const label = (element: Element): string => {
+      const slot = element.getAttribute('data-slot')
+      const own = [...element.attributes].find(
+        (attribute) => attribute.name.startsWith('data-') && attribute.name !== 'data-slot',
+      )
+      return own?.name ?? slot ?? element.tagName.toLowerCase()
+    }
+    // A Design System component spaces its own parts; the app owns the space between blocks.
+    const containers = [
+      ...document.querySelectorAll('[data-backoffice-content] > :not([data-slot])'),
+      ...document.querySelectorAll('[data-backoffice-content] [data-slot="card-content"]'),
+    ]
+    const found: string[] = []
+    for (const container of containers) {
+      const blocks = [...container.children].filter((child) => child.getClientRects().length > 0)
+      blocks.forEach((below, index) => {
+        const above = blocks[index - 1]
+        if (!above) return
+        const [top, bottom] = [
+          below.getBoundingClientRect().top,
+          above.getBoundingClientRect().bottom,
+        ]
+        if (top >= bottom - 1 && top - bottom < 8) {
+          found.push(`${label(container)}: ${label(above)} → ${label(below)}`)
+        }
+      })
+    }
+    return found
+  })
+}
+
+/*
+ * Ten screen roots had no layout rule, so their cards touched — the gym's file
+ * read as one wall of nine cards — and a card body stacks its children with no
+ * space at all: a nested card sat flush against the table above it.
+ */
+test('every screen keeps its blocks apart, and every card its contents', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({ session: activeSession(), support: { people: [supportPerson()] } }),
+  )
+  const touching: string[] = []
+  const screens = [
+    '/panel',
+    '/organizations',
+    '/organizations/new',
+    '/organizations/019a9999-0000-7000-8000-000000000000',
+    '/diagnosis',
+    '/plans',
+    '/waitlist',
+    '/verifications',
+    '/catalogue',
+    '/catalogue/result-contracts',
+    '/team',
+    '/access-log',
+    '/break-glass',
+    '/erasure-requests',
+    '/permissions',
+    '/people/billing',
+  ]
+  for (const screen of screens) {
+    await page.goto(screen)
+    await expect(page.locator('[data-backoffice-content]')).toBeVisible()
+    await expect(page.locator('[data-backoffice-content] [role="status"][aria-label]')).toHaveCount(
+      0,
+    )
+    touching.push(...(await touchingBlocks(page)).map((block) => `${screen} ${block}`))
+  }
+
+  await page.goto('/people')
+  await page.getByLabel('Nombre, correo o teléfono').fill('epsi')
+  await page.getByLabel('Referencia del caso (opcional)').fill('CASE-2026-001')
+  await page.getByRole('button', { name: 'Buscar' }).click()
+  await page.getByRole('link', { name: SUPPORT_SUBJECT_NAME }).click()
+  await expect(page.locator('[data-person-break-glass-link]')).toBeVisible()
+  touching.push(...(await touchingBlocks(page)).map((block) => `card ${block}`))
+
+  expect(touching).toEqual([])
+})
+
+/*
+ * A screen below a menu entry used to keep the entry's title: the `h1` said
+ * «Gimnasios» over a gym's file, and the way back was a link at the foot of the
+ * page. Each one now names what is open and starts with the way back to its list.
+ */
+test('every screen below a menu entry names what is open and leads back to its list', async ({
+  context,
+  page,
+}) => {
+  const file = organizationFileRecord()
+  const handover = handoverRecord()
+  await mockBackofficeApi(
+    context,
+    createBackofficeFixture({
+      session: activeSession(),
+      organizationFiles: { files: [file] },
+      organizationHandover: { handovers: [handover] },
+      support: { people: [supportPerson()] },
+    }),
+  )
+
+  const screens = [
+    {
+      path: `/organizations/${file.organization.organization_id}`,
+      name: file.organization.display_name,
+      back: { title: 'Gimnasios', href: '/organizations' },
+    },
+    {
+      path: `/organizations/${handover.organization_id}/handover`,
+      name: handover.display_name,
+      back: { title: 'Gimnasios', href: '/organizations' },
+    },
+    {
+      path: '/organizations/new',
+      name: 'Crear un gimnasio',
+      back: { title: 'Gimnasios', href: '/organizations' },
+    },
+    // The way back keeps the case, so the search it leads to records against it too.
+    {
+      path: `/people/${SUPPORT_SUBJECT_ID}?case_reference=CASE-2026-001`,
+      name: SUPPORT_SUBJECT_NAME,
+      back: { title: 'Personas', href: '/people?case_reference=CASE-2026-001' },
+    },
+    {
+      path: '/people/billing',
+      name: 'Cobros por seguir',
+      back: { title: 'Personas', href: '/people' },
+    },
+  ]
+
+  for (const screen of screens) {
+    await page.goto(screen.path)
+    const content = page.locator('[data-backoffice-content]')
+    await expect(content.getByRole('heading', { level: 2, name: screen.name })).toBeVisible()
+    const trail = content.getByRole('navigation', { name: 'Ruta' })
+    await expect(trail.getByRole('link', { name: screen.back.title })).toHaveAttribute(
+      'href',
+      screen.back.href,
+    )
+    // Nothing above the way back: it is the first thing the screen shows.
+    const firstTop = await content.evaluate((element) =>
+      Math.min(...[...element.children].map((child) => child.getBoundingClientRect().top)),
+    )
+    expect((await trail.boundingBox())?.y).toBeCloseTo(firstTop, 0)
+  }
+
+  await page.goto(`/organizations/${file.organization.organization_id}`)
+  await page
+    .getByRole('navigation', { name: 'Ruta' })
+    .getByRole('link', { name: 'Gimnasios' })
+    .click()
+  await expect(page).toHaveURL('/organizations')
 })

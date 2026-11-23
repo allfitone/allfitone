@@ -20,11 +20,12 @@
  * The person is an identifier here. This screen tracks the request; reading what
  * the person recorded is a break-glass window, and a different screen.
  *
- * Suspending is offered where something of a kind the platform deletes still waits.
- * It opens the hold form on that person, with those kinds marked: a hold keeps the
- * person's data of those kinds, this request's and whatever they ask to delete while
- * it lasts. The form is `legal-hold-form.tsx`, shared with «Retenciones legales».
- * Releasing says what it will do before it does it: the erasure continues.
+ * Holding — «Retener», one verb for one thing — is offered where something of a kind
+ * the platform deletes still waits. It opens the hold dialog on that person, with
+ * those kinds marked: a hold keeps the person's data of those kinds, this request's
+ * and whatever they ask to delete while it lasts. The dialog is `legal-hold-form.tsx`,
+ * shared with «Retenciones legales», the screen's second tab. Releasing asks first and
+ * says what it will do: the erasure continues.
  *
  * Applying a hold opens no view of anything. The refusal for whoever already asked
  * to read that person's file is its own message and not a generic "no": being told
@@ -35,18 +36,15 @@
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { toast } from '@allfitone/react/components/sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
 import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import { LegalHoldForm } from './legal-hold-form'
-import { LegalHolds } from './legal-holds'
+import { HOLD_APPLIED, LegalHolds, ReleaseHold } from './legal-holds'
+import { PageHeader } from './page-header'
+import { RecordId } from './record-id'
 import { ScreenEmpty, ScreenLoading, ScreenRefusal } from './screen-state'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
 import {
   Table,
   TableBody,
@@ -56,6 +54,7 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
 import {
@@ -67,7 +66,9 @@ import {
 } from '@/lib/backoffice-api'
 import {
   emptyMessage,
+  erasureHref,
   erasureMessage,
+  erasureTabFromQuery,
   holdableCategories,
   holdableKinds,
   appendPage,
@@ -86,6 +87,7 @@ import {
   type HoldIssue,
 } from '@/lib/legal-holds'
 import { isRefusal } from '@/lib/screen-state'
+import { useOpenedTabs } from '@/lib/use-opened-tabs'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -95,6 +97,9 @@ const HALVES: readonly { status: ErasureRequestState; label: string }[] = [
 ]
 
 export function ErasureRequests() {
+  const tab = erasureTabFromQuery(useSearchParams().get('tab'))
+  // The holds are read, and recorded on everyone they name, only once their tab opens.
+  const opened = useOpenedTabs(tab)
   const [status, setStatus] = useState<ErasureRequestState>('open')
   const [state, setState] = useState<LoadState>('loading')
   const [page, setPage] = useState<ErasureRequestPage | null>(null)
@@ -103,7 +108,7 @@ export function ErasureRequests() {
   const [holding, setHolding] = useState<ErasureRequest | null>(null)
   const [draft, setDraft] = useState<HoldDraft>(emptyHold())
   const [issue, setIssue] = useState<HoldIssue | null>(null)
-  const [releasing, setReleasing] = useState<string | null>(null)
+  const [holdFailure, setHoldFailure] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [moreFailure, setMoreFailure] = useState<string | null>(null)
@@ -154,13 +159,14 @@ export function ErasureRequests() {
   const rows = page ? requestRows(page) : []
   const byId = new Map((page?.items ?? []).map((request) => [request.id, request]))
 
-  async function suspend() {
+  async function hold() {
     const broken = holdIssue(draft)
     if (broken) {
       setIssue(broken)
       return
     }
     setIssue(null)
+    setHoldFailure(null)
     setBusy(true)
     try {
       await backofficeApi.applyLegalHold(holdApplication(draft), newBackofficeCommand())
@@ -168,9 +174,10 @@ export function ErasureRequests() {
       setDraft(emptyHold())
       setHoldsVersion((version) => version + 1)
       setFailure(null)
+      toast.success(HOLD_APPLIED)
       await load(status)
     } catch (caught) {
-      setFailure(failureMessage(caught))
+      setHoldFailure(failureMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -180,9 +187,9 @@ export function ErasureRequests() {
     setBusy(true)
     try {
       await backofficeApi.releaseLegalHold(holdId, newBackofficeCommand())
-      setReleasing(null)
       setHoldsVersion((version) => version + 1)
       setFailure(null)
+      toast.success('Retención liberada. La eliminación sigue su curso.')
       await load(status)
     } catch (caught) {
       setFailure(failureMessage(caught))
@@ -193,208 +200,199 @@ export function ErasureRequests() {
 
   return (
     <div data-erasure-requests>
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Solicitudes de eliminación de datos
-          </CardTitle>
-          <CardDescription>
-            Qué pidió borrar cada persona, qué falta para cerrarlo y cómo se resolvió, categoría por
-            categoría. El plazo objetivo es de 30 días desde que llegó la solicitud. La persona
-            aparece por identificador: esta pantalla sigue la solicitud, no abre sus datos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ToggleGroup
-            value={[status]}
-            onValueChange={(values) => {
-              const next = values[0]
-              if (next && next !== status) setStatus(next)
-            }}
-            aria-label="Qué mitad del seguimiento ver"
-            data-erasure-halves
-          >
-            {HALVES.map((half) => (
-              <ToggleGroupItem key={half.status} value={half.status}>
-                {half.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </CardContent>
-      </Card>
+      <PageHeader description="Qué pidió borrar cada persona, qué falta para cerrarlo y cómo se resolvió, categoría por categoría, y qué se conserva por una obligación legal. El plazo objetivo es de 30 días desde que llegó la solicitud. La persona aparece por identificador: esta pantalla no abre sus datos." />
 
-      {state === 'loading' ? <ScreenLoading label="Leyendo el seguimiento" /> : null}
-
+      {/* Same duty: an officer refused the requests is refused the holds, and told once. */}
       {state === 'failed' && failure && refused ? (
         <ScreenRefusal duties={['manage_privacy_requests']} data-erasure-failure>
           {failure}
         </ScreenRefusal>
-      ) : failure ? (
-        <Alert live="assertive" variant="danger" data-erasure-failure>
-          <AlertTitle>
-            {state === 'failed' ? 'No se pudo leer el seguimiento' : 'No se pudo completar'}
-          </AlertTitle>
-          <AlertDescription>{failure}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      {state === 'ready' && page ? (
-        <>
-          {/* The whole answer, late requests counted, before any row. */}
-          <Alert live="polite" variant={hasLate(rows) ? 'warning' : 'info'} data-erasure-summary>
-            <AlertTitle>
-              {hasLate(rows) ? 'Hay solicitudes fuera de plazo' : 'Estado del seguimiento'}
-            </AlertTitle>
-            <AlertDescription>{panelSummary(page, status)}</AlertDescription>
-          </Alert>
-
-          {rows.length === 0 ? (
-            <ScreenEmpty
-              icon="remove"
-              title="Nada que seguir aquí"
-              role="status"
-              data-erasure-empty
+      ) : (
+        // Next keeps `useSearchParams` in step with the history API: no navigation, no reload.
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            window.history.replaceState(
+              null,
+              '',
+              erasureHref(erasureTabFromQuery(typeof value === 'string' ? value : null)),
+            )
+          }
+          data-erasure-tabs
+        >
+          <TabsList variant="line" aria-label="Secciones de la privacidad">
+            <TabsTrigger value="requests">Solicitudes</TabsTrigger>
+            <TabsTrigger value="holds">Retenciones legales</TabsTrigger>
+          </TabsList>
+          <TabsContent value="requests" keepMounted data-record-tab>
+            <ToggleGroup
+              value={[status]}
+              onValueChange={(values) => {
+                const next = values[0]
+                if (next && next !== status) setStatus(next)
+              }}
+              aria-label="Qué mitad del seguimiento ver"
+              data-erasure-halves
             >
-              {emptyMessage(status)}
-            </ScreenEmpty>
-          ) : (
-            <Table scrollAreaLabel="Solicitudes de eliminación" data-erasure-table>
-              <TableCaption>Solicitudes de eliminación</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Persona</TableHead>
-                  <TableHead>Solicitada</TableHead>
-                  <TableHead>Fecha objetivo</TableHead>
-                  <TableHead>Plazo</TableHead>
-                  <TableHead>Falta</TableHead>
-                  <TableHead>Resolución</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id} data-erasure-row data-urgency={row.urgency}>
-                    <TableCell data-erasure-subject>
-                      <code>{row.subject}</code>
-                    </TableCell>
-                    <TableCell>{row.opened}</TableCell>
-                    <TableCell>{row.due}</TableCell>
-                    <TableCell>
-                      <Badge variant={urgencyTone(row.urgency)}>{row.urgencyLabel}</Badge>
-                    </TableCell>
-                    <TableCell data-erasure-missing>{row.missing}</TableCell>
-                    <TableCell data-erasure-resolution>
-                      <ul>
-                        {row.resolution.map((line) => (
-                          <li key={line}>{line}</li>
-                        ))}
-                      </ul>
-                      <div data-erasure-actions>
-                        {holdableCategories(byId.get(row.id) ?? emptyRequest).length > 0 ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => {
-                              const request = byId.get(row.id) ?? null
-                              setHolding(request)
-                              setDraft(
-                                request
-                                  ? emptyHold(request.subject_person_id, holdableKinds(request))
-                                  : emptyHold(),
-                              )
-                              setIssue(null)
-                            }}
-                          >
-                            Suspender
-                          </Button>
-                        ) : null}
-                        {heldBy(byId.get(row.id) ?? emptyRequest).map((held) => (
-                          <Button
-                            key={held}
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            data-erasure-release
-                            onClick={() => setReleasing(held)}
-                          >
-                            Liberar
-                          </Button>
-                        ))}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+              {HALVES.map((half) => (
+                <ToggleGroupItem key={half.status} value={half.status}>
+                  {half.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
 
-          {page.has_more ? (
-            <div data-form-actions>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={loadingMore}
-                onClick={() => void loadMore()}
-                data-erasure-more
-              >
-                {loadingMore ? 'Cargando…' : 'Ver más solicitudes'}
-              </Button>
-            </div>
-          ) : null}
+            {state === 'loading' ? <ScreenLoading label="Leyendo el seguimiento" /> : null}
 
-          {moreFailure ? (
-            <Alert live="assertive" variant="danger" data-erasure-more-failure>
-              <AlertTitle>No se cargaron más</AlertTitle>
-              <AlertDescription>{moreFailure}</AlertDescription>
-            </Alert>
-          ) : null}
-        </>
-      ) : null}
+            {failure ? (
+              <Alert live="assertive" variant="danger" data-erasure-failure>
+                <AlertTitle>
+                  {state === 'failed' ? 'No se pudo leer el seguimiento' : 'No se pudo completar'}
+                </AlertTitle>
+                <AlertDescription>{failure}</AlertDescription>
+              </Alert>
+            ) : null}
 
-      {releasing ? (
-        <Alert live="polite" variant="warning" data-erasure-release-confirm>
-          <AlertTitle>Al liberar, la eliminación sigue su curso</AlertTitle>
-          <AlertDescription>
-            Lo que retiene pasa a otra retención vigente sobre los mismos datos, si la hay; si no,
-            se borra como la persona pidió, en el siguiente minuto. Liberar no se deshace, y la
-            retención queda registrada.
-            <div data-erasure-confirm-actions>
-              <Button type="button" disabled={busy} onClick={() => void release(releasing)}>
-                Confirmar liberación
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => setReleasing(null)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+            {state === 'ready' && page ? (
+              <>
+                {/* The whole answer, late requests counted, before any row. */}
+                <Alert
+                  live="polite"
+                  variant={hasLate(rows) ? 'warning' : 'info'}
+                  data-erasure-summary
+                >
+                  <AlertTitle>
+                    {hasLate(rows) ? 'Hay solicitudes fuera de plazo' : 'Estado del seguimiento'}
+                  </AlertTitle>
+                  <AlertDescription>{panelSummary(page, status)}</AlertDescription>
+                </Alert>
 
-      {holding ? (
-        <LegalHoldForm
-          draft={draft}
-          onChange={setDraft}
-          issue={issue}
-          busy={busy}
-          subjectFixed
-          submitLabel="Suspender"
-          onSubmit={() => void suspend()}
-          onCancel={() => {
-            setHolding(null)
-            setIssue(null)
-          }}
-        />
-      ) : null}
+                {rows.length === 0 ? (
+                  <ScreenEmpty
+                    icon="remove"
+                    title="Nada que seguir aquí"
+                    role="status"
+                    data-erasure-empty
+                  >
+                    {emptyMessage(status)}
+                  </ScreenEmpty>
+                ) : (
+                  <Table scrollAreaLabel="Solicitudes de eliminación" data-erasure-table>
+                    <TableCaption>Solicitudes de eliminación</TableCaption>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Persona</TableHead>
+                        <TableHead>Solicitada</TableHead>
+                        <TableHead>Fecha objetivo</TableHead>
+                        <TableHead>Plazo</TableHead>
+                        <TableHead>Falta</TableHead>
+                        <TableHead>Resolución</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow key={row.id} data-erasure-row data-urgency={row.urgency}>
+                          <TableCell data-erasure-subject>
+                            <RecordId id={row.subject} />
+                          </TableCell>
+                          <TableCell>{row.opened}</TableCell>
+                          <TableCell>{row.due}</TableCell>
+                          <TableCell>
+                            <Badge variant={urgencyTone(row.urgency)}>{row.urgencyLabel}</Badge>
+                          </TableCell>
+                          <TableCell data-erasure-missing>{row.missing}</TableCell>
+                          <TableCell data-erasure-resolution>
+                            <ul>
+                              {row.resolution.map((line) => (
+                                <li key={line}>{line}</li>
+                              ))}
+                            </ul>
+                            <div data-erasure-actions>
+                              {holdableCategories(byId.get(row.id) ?? emptyRequest).length > 0 ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    const request = byId.get(row.id) ?? null
+                                    setHolding(request)
+                                    setDraft(
+                                      request
+                                        ? emptyHold(
+                                            request.subject_person_id,
+                                            holdableKinds(request),
+                                          )
+                                        : emptyHold(),
+                                    )
+                                    setIssue(null)
+                                    setHoldFailure(null)
+                                  }}
+                                >
+                                  Retener
+                                </Button>
+                              ) : null}
+                              {heldBy(byId.get(row.id) ?? emptyRequest).map((held) => (
+                                <ReleaseHold
+                                  key={held}
+                                  busy={busy}
+                                  onRelease={() => release(held)}
+                                />
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
 
-      {/* Same duty: an officer refused the requests is refused the holds, and told once. */}
-      {state === 'failed' && refused ? null : (
-        <LegalHolds key={holdsVersion} onChange={() => void load(status)} />
+                {page.has_more ? (
+                  <div data-form-actions>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={loadingMore}
+                      onClick={() => void loadMore()}
+                      data-erasure-more
+                    >
+                      {loadingMore ? 'Cargando…' : 'Ver más solicitudes'}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {moreFailure ? (
+                  <Alert live="assertive" variant="danger" data-erasure-more-failure>
+                    <AlertTitle>No se cargaron más</AlertTitle>
+                    <AlertDescription>{moreFailure}</AlertDescription>
+                  </Alert>
+                ) : null}
+              </>
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="holds" keepMounted data-record-tab>
+            {opened.has('holds') ? (
+              <LegalHolds key={holdsVersion} onChange={() => void load(status)} />
+            ) : null}
+          </TabsContent>
+        </Tabs>
       )}
+
+      <LegalHoldForm
+        open={holding !== null}
+        draft={draft}
+        onChange={setDraft}
+        issue={issue}
+        busy={busy}
+        subjectFixed
+        submitLabel="Retener"
+        failure={holdFailure}
+        onSubmit={() => void hold()}
+        onCancel={() => {
+          setHolding(null)
+          setIssue(null)
+          setHoldFailure(null)
+        }}
+      />
     </div>
   )
 }

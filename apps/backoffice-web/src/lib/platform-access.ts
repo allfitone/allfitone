@@ -132,6 +132,28 @@ export function canRecertify(status: PlatformDutyStatus): boolean {
   return status === 'active'
 }
 
+/**
+ * The assurance a duty asks of the session, in the words an operator uses: «AAL2»
+ * is the standard's name for signing in with a second factor.
+ */
+export function assuranceLabel(aal: number): string {
+  if (aal >= 2) return 'Dos factores'
+  if (aal === 1) return 'Un factor'
+  return `Nivel ${String(aal)}`
+}
+
+export const TEAM_TABS = ['roles', 'duties'] as const
+
+export type TeamTab = (typeof TEAM_TABS)[number]
+
+export function teamTabFromQuery(value: string | null): TeamTab {
+  return TEAM_TABS.find((tab) => tab === value) ?? 'roles'
+}
+
+export function teamHref(tab: TeamTab): string {
+  return tab === 'roles' ? '/team' : `/team?tab=${tab}`
+}
+
 /** HU-BO-029 c2: every effective state the API filters on, and none. */
 export const DUTY_STATUS_FILTERS: readonly { value: PlatformDutyStatus | ''; label: string }[] = [
   { value: '', label: 'Todos los estados' },
@@ -142,19 +164,39 @@ export const DUTY_STATUS_FILTERS: readonly { value: PlatformDutyStatus | ''; lab
   { value: 'revoked', label: DUTY_STATUS_LABELS.revoked },
 ]
 
-/**
- * The identifier is what an operator quotes in a case, and a full UUID is
- * unreadable in a table. The short form is for reading, never for matching: the
- * full value stays available for copying.
- */
-export function shortIdentifier(id: string): string {
-  return id.length <= 13 ? id : `${id.slice(0, 8)}…${id.slice(-4)}`
-}
-
 /** HU-BO-029 c1: who holds access is a person. A missing name is said, never left blank. */
 export function personName(name: string | null | undefined): string {
   const trimmed = name?.trim()
   return trimmed ? trimmed : 'Sin nombre registrado'
+}
+
+function whom(name: string | null | undefined): string {
+  const trimmed = name?.trim()
+  return trimmed ? trimmed : 'una persona sin nombre registrado'
+}
+
+/** What granting or withdrawing the base role answers, naming whose it was. */
+export function roleOutcome(
+  outcome: 'granted' | 'revoked',
+  name: string | null | undefined,
+): string {
+  return outcome === 'granted'
+    ? `Rol base otorgado a ${whom(name)}.`
+    : `Rol base retirado a ${whom(name)}. Se cerraron sus deberes y su sesión.`
+}
+
+/** What acting on one duty answers, naming the duty and whose it is. */
+export function dutyOutcome(
+  outcome: 'suspended' | 'revoked' | 'recertified',
+  code: PlatformDutyCode,
+  name: string | null | undefined,
+): string {
+  const duty = `«${dutyLabel(code)}»`
+  if (outcome === 'suspended') {
+    return `${duty} suspendido para ${whom(name)}. Deja de autorizar desde su próxima operación.`
+  }
+  if (outcome === 'revoked') return `${duty} revocado para ${whom(name)}.`
+  return `${duty} recertificado para ${whom(name)}. Queda registrado quién lo confirmó y cuándo; no alarga su vigencia.`
 }
 
 /** Unknown is shown as absent, never as a zero or a false. */

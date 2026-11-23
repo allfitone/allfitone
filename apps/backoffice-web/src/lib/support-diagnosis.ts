@@ -9,6 +9,8 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { shortIdentifier } from './identifier'
+
 export type SupportOperation = AllfitV1Schemas['SupportOperation']
 export type SupportOperationState = AllfitV1Schemas['SupportOperationState']
 export type SupportOperationSourceKind = AllfitV1Schemas['SupportOperationSourceKind']
@@ -147,6 +149,17 @@ export function silentJobs(jobs: readonly SupportJobHealthItem[], now = Date.now
   return jobs.filter((job) => isSilent(job, now)).map((job) => job.job_name)
 }
 
+const CIRCUIT_STATE_LABELS: Record<string, string> = {
+  closed: 'Entregando',
+  half_open: 'Probando de nuevo',
+  open: 'Cortado',
+}
+
+/** A breaker's state, said as what the channel is doing; one added later shows as it came. */
+export function circuitStateLabel(state: string): string {
+  return CIRCUIT_STATE_LABELS[state] ?? state
+}
+
 export function circuitTone(state: string): StateTone {
   if (state === 'open') return 'destructive'
   if (state === 'half_open') return 'warning'
@@ -167,11 +180,6 @@ export function circuitSummary(circuits: readonly SupportDeliveryCircuit[]): str
 }
 
 const IDENTIFIER = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-/** Short enough for a row; the whole identifier travels in the element's title. */
-export function shortIdentifier(id: string): string {
-  return `${id.slice(0, 8)}…`
-}
 
 /** What the operation is about: the kind of thing and which one. */
 export function subjectLine(operation: SupportOperation): string {

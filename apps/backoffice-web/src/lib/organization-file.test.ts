@@ -4,6 +4,9 @@ import {
   NO_PLANS_NOTE,
   fileMessage,
   handsOverHere,
+  organizationFileHref,
+  organizationTabFromQuery,
+  organizationTabs,
   memberCardHref,
   paymentMethodLine,
   planLine,
@@ -248,5 +251,23 @@ describe('organization file presentation', () => {
   test('a withdrawn duty is explained as expiry by design', () => {
     expect(fileMessage('forbidden')).toContain('llegan con el rol de administrador')
     expect(fileMessage('unknown-code')).toBe('No se pudo abrir la ficha.')
+  })
+
+  test('a gym nobody claimed has no invitations tab, and its address cannot open one', () => {
+    const unclaimed = file({ organization: { ...file().organization, status: 'unclaimed' } })
+    expect(organizationTabs(file())).toContain('invitations')
+    expect(organizationTabs(unclaimed)).not.toContain('invitations')
+    expect(organizationTabFromQuery('invitations', organizationTabs(unclaimed))).toBe('summary')
+    expect(organizationTabFromQuery('plan', organizationTabs(unclaimed))).toBe('plan')
+    expect(organizationTabFromQuery(null, organizationTabs(file()))).toBe('summary')
+  })
+
+  test('the summary needs no parameter; any other tab is named in the address', () => {
+    expect(organizationFileHref('019a9100-0000-7000-8000-000000000001')).toBe(
+      '/organizations/019a9100-0000-7000-8000-000000000001',
+    )
+    expect(organizationFileHref('019a9100-0000-7000-8000-000000000001', 'suspension')).toBe(
+      '/organizations/019a9100-0000-7000-8000-000000000001?tab=suspension',
+    )
   })
 })

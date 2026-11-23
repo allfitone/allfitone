@@ -17,28 +17,14 @@
  * again rather than showing a state it no longer has.
  */
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { ConfirmAction } from './confirm-action'
+import { RecordHeader } from './page-header'
 import { ScreenFailure, ScreenLoading } from './screen-state'
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@allfitone/react/components/card'
 import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
@@ -65,6 +51,7 @@ import {
   stageSentence,
   stageTone,
 } from '@/lib/organization-handover'
+import { menuCrumb } from '@/lib/backoffice-routes'
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
@@ -78,7 +65,6 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   const [refused, setRefused] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
 
   const load = useCallback(
@@ -141,15 +127,13 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   if (state === 'failed' || !handover) {
     return (
       <div data-organization-handover>
+        <RecordHeader trail={[menuCrumb('/organizations')]} name="Entrega del gimnasio" />
         <ScreenFailure
           refused={refused}
           duties={['manage_organization_lifecycle']}
           title="No se pudo leer la entrega"
           message={failure ?? handoverMessage('upstream-unavailable')}
         />
-        <Link href="/organizations" data-handover-link>
-          Volver al directorio
-        </Link>
       </div>
     )
   }
@@ -161,14 +145,18 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
 
   return (
     <div data-organization-handover data-stage={stage}>
+      <RecordHeader
+        trail={[menuCrumb('/organizations')]}
+        name={handover.display_name}
+        description={handover.type_name}
+      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
-            {handover.display_name}
+            Entrega a su dueño
           </CardTitle>
-          <CardDescription>{handover.type_name}</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <Alert
             live="polite"
             variant={stage === 'claimed' ? 'success' : 'info'}
@@ -221,42 +209,19 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
               <Button type="button" disabled={busy} onClick={() => void run('resend')}>
                 {busy ? 'Enviando…' : 'Enviar la invitación de nuevo'}
               </Button>
-              <AlertDialog
-                open={cancelling}
-                onOpenChange={(next) => {
-                  // Closing mid-flight would hide a request that is still going to land.
-                  if (busy) return
-                  setCancelling(next)
-                }}
+              <ConfirmAction
+                trigger={<Button type="button" variant="outline" disabled={busy} />}
+                label="Cancelar la creación"
+                title="¿Cancelar la creación?"
+                confirmLabel="Sí, cancelar la creación"
+                busyLabel="Cancelando…"
+                keepLabel="No, dejarlo como está"
+                busy={busy}
+                onConfirm={() => run('cancel')}
               >
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => setCancelling(true)}
-                >
-                  Cancelar la creación
-                </Button>
-                <AlertDialogContent data-cancel-handover-dialog>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>¿Cancelar la creación?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      El gimnasio queda cancelado y su invitación retirada. Nadie podrá reclamarlo y
-                      no se puede deshacer.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={busy}>No, dejarlo como está</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={busy}
-                      onClick={() => void run('cancel').then(() => setCancelling(false))}
-                    >
-                      {busy ? 'Cancelando…' : 'Sí, cancelar la creación'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                El gimnasio queda cancelado y su invitación retirada. Nadie podrá reclamarlo y no se
+                puede deshacer.
+              </ConfirmAction>
             </span>
           ) : null}
         </CardContent>
@@ -270,10 +235,6 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
           <AlertDescription>{notice.message}</AlertDescription>
         </Alert>
       ) : null}
-
-      <Link href="/organizations" data-handover-link>
-        Volver al directorio
-      </Link>
     </div>
   )
 }

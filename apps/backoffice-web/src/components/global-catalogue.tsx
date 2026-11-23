@@ -16,6 +16,10 @@
  * **A code is never reused.** The form explains the shape a code must have and the server
  * refuses a code that already names something else; the screen does not pretend it can
  * rename one.
+ *
+ * Four forms and four tables were one page with four primary buttons. Each kind of
+ * entry is now a tab in the address, so the screen shows one «Publicar» at a time,
+ * and what a command did pops up as a toast instead of above the first card.
  */
 
 import {
@@ -57,6 +61,9 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { toast } from '@allfitone/react/components/sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
+import { useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 
 import {
@@ -70,6 +77,8 @@ import {
   type GlobalCatalogueEquipment,
 } from '@/lib/backoffice-api'
 import {
+  catalogueHref,
+  catalogueTabFromQuery,
   catalogueCodeIssue,
   catalogueCommandMessage,
   catalogueKindLabel,
@@ -93,16 +102,18 @@ import {
 } from '@/lib/global-catalogue'
 import { isRefusal } from '@/lib/screen-state'
 
+import { PageHeader } from './page-header'
+
 type LoadState = 'loading' | 'ready' | 'failed'
 
 export function GlobalCatalogue() {
+  const tab = catalogueTabFromQuery(useSearchParams().get('tab'))
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
   const [catalogue, setCatalogue] = useState<BackofficeGlobalCatalogue | null>(null)
   const [reload, setReload] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
-  const [outcome, setOutcome] = useState<string | null>(null)
   const [commandFailure, setCommandFailure] = useState<string | null>(null)
   const pending = useRef(new Map<string, BackofficeCommand>())
 
@@ -148,12 +159,11 @@ export function GlobalCatalogue() {
     const command = pending.current.get(key) ?? newBackofficeCommand()
     pending.current.set(key, command)
     setBusy(key)
-    setOutcome(null)
     setCommandFailure(null)
     try {
       const result = await send(command)
       pending.current.delete(key)
-      setOutcome(message(result))
+      toast.success(message(result))
       onDone?.()
       setReload((value) => value + 1)
     } catch (error) {
@@ -313,299 +323,309 @@ export function GlobalCatalogue() {
 
   return (
     <div data-global-catalogue>
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Catálogo global
-          </CardTitle>
-          <CardDescription>
-            Lo que se publica aquí lo ven todos los gimnasios y todas las personas. Un gimnasio crea
-            sus propios movimientos privados y nunca los sube aquí. Un código publicado es estable:
-            no se reutiliza para otra cosa, y archivar retira de las búsquedas sin romper las
-            sesiones ni las plantillas que ya lo usaban.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {state === 'loading' ? <ScreenLoading /> : null}
+      <PageHeader description="Lo que se publica aquí lo ven todos los gimnasios y todas las personas. Un gimnasio crea sus propios movimientos privados y nunca los sube aquí. Un código publicado es estable: no se reutiliza para otra cosa, y archivar retira de las búsquedas sin romper las sesiones ni las plantillas que ya lo usaban." />
 
-          {state === 'failed' ? (
-            <ScreenFailure
-              refused={refused}
-              duties={['curate_global_catalog']}
-              title="No se pudo leer el catálogo"
-              message={failure ?? globalCatalogueMessage('upstream-unavailable')}
-              onRetry={() => setReload((value) => value + 1)}
-            />
-          ) : null}
+      {state === 'loading' ? <ScreenLoading /> : null}
 
-          {outcome ? (
-            <Alert live="polite" variant="success" data-catalogue-outcome>
-              <AlertTitle>Listo</AlertTitle>
-              <AlertDescription>{outcome}</AlertDescription>
-            </Alert>
-          ) : null}
+      {state === 'failed' ? (
+        <ScreenFailure
+          refused={refused}
+          duties={['curate_global_catalog']}
+          title="No se pudo leer el catálogo"
+          message={failure ?? globalCatalogueMessage('upstream-unavailable')}
+          onRetry={() => setReload((value) => value + 1)}
+        />
+      ) : null}
 
-          {commandFailure ? (
-            <Alert live="assertive" variant="danger" data-catalogue-failure>
-              <AlertTitle>No se completó</AlertTitle>
-              <AlertDescription>{commandFailure}</AlertDescription>
-            </Alert>
-          ) : null}
-        </CardContent>
-      </Card>
+      {commandFailure ? (
+        <Alert live="assertive" variant="danger" data-catalogue-failure>
+          <AlertTitle>No se completó</AlertTitle>
+          <AlertDescription>{commandFailure}</AlertDescription>
+        </Alert>
+      ) : null}
 
       {state === 'ready' && catalogue ? (
-        <>
-          <CatalogueSection
-            kind="discipline"
-            title="Disciplinas"
-            description="La familia de actividad a la que pertenece todo lo demás."
-            entries={catalogue.disciplines}
-            busy={busy}
-            onArchive={archive}
-            form={
-              <form
-                onSubmit={publishDiscipline}
-                data-backoffice-form
-                data-catalogue-form="discipline"
-              >
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="discipline-code">Código</FieldLabel>
-                    <Input
-                      id="discipline-code"
-                      value={disciplineCode}
-                      onChange={(event) => setDisciplineCode(event.target.value)}
-                      placeholder="yoga"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.discipline_code ? (
-                      <FieldError>{formIssue.discipline_code}</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="discipline-name">Nombre</FieldLabel>
-                    <Input
-                      id="discipline-name"
-                      value={disciplineName}
-                      onChange={(event) => setDisciplineName(event.target.value)}
-                      placeholder="Yoga"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.discipline_name ? (
-                      <FieldError>{formIssue.discipline_name}</FieldError>
-                    ) : null}
-                  </Field>
-                </FieldGroup>
-                <div data-form-actions>
-                  <Button type="submit" disabled={busy !== null}>
-                    Publicar disciplina
-                  </Button>
-                </div>
-              </form>
-            }
-          />
-
-          <CatalogueSection
-            kind="activity_type"
-            title="Tipos de actividad"
-            description="La clase concreta de actividad; decide qué reglas de resultado aplican."
-            entries={catalogue.activity_types}
-            busy={busy}
-            onArchive={archive}
-            form={
-              <form
-                onSubmit={publishActivityType}
-                data-backoffice-form
-                data-catalogue-form="activity_type"
-              >
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="activity-discipline">Disciplina</FieldLabel>
-                    {/* With the labels the trigger reads the name, not the raw code. */}
-                    <Select
-                      items={disciplineOptions.map((entry) => ({
-                        value: entry.code ?? '',
-                        label: entry.name,
-                      }))}
-                      value={activityDiscipline}
-                      onValueChange={(value) => setActivityDiscipline(String(value ?? ''))}
-                    >
-                      <SelectTrigger
-                        id="activity-discipline"
-                        disabled={busy !== null || disciplineOptions.length === 0}
-                      >
-                        <SelectValue placeholder="Elige una disciplina publicada" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {disciplineOptions.map((entry) => (
-                          <SelectItem key={entry.id} value={entry.code ?? ''}>
-                            {entry.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {formIssue.activity_discipline ? (
-                      <FieldError>Elige una disciplina publicada.</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="activity-code">Código</FieldLabel>
-                    <Input
-                      id="activity-code"
-                      value={activityCode}
-                      onChange={(event) => setActivityCode(event.target.value)}
-                      placeholder="vinyasa"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.activity_code ? (
-                      <FieldError>{formIssue.activity_code}</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="activity-name">Nombre</FieldLabel>
-                    <Input
-                      id="activity-name"
-                      value={activityName}
-                      onChange={(event) => setActivityName(event.target.value)}
-                      placeholder="Vinyasa"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.activity_name ? (
-                      <FieldError>{formIssue.activity_name}</FieldError>
-                    ) : null}
-                  </Field>
-                </FieldGroup>
-                <div data-form-actions>
-                  <Button type="submit" disabled={busy !== null}>
-                    Publicar tipo de actividad
-                  </Button>
-                </div>
-              </form>
-            }
-          />
-
-          <CatalogueSection
-            kind="movement"
-            title="Movimientos"
-            description="La acción o técnica reutilizable. Se identifica por su nombre, así que el mismo nombre escrito distinto es el mismo movimiento."
-            entries={catalogue.movements}
-            busy={busy}
-            onArchive={archive}
-            equipment={{ onEdit: editEquipment }}
-            form={
-              <form onSubmit={publishMovement} data-backoffice-form data-catalogue-form="movement">
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="movement-discipline">Disciplina</FieldLabel>
-                    <Select
-                      items={disciplineOptions.map((entry) => ({
-                        value: entry.code ?? '',
-                        label: entry.name,
-                      }))}
-                      value={movementDiscipline}
-                      onValueChange={(value) => setMovementDiscipline(String(value ?? ''))}
-                    >
-                      <SelectTrigger
-                        id="movement-discipline"
-                        disabled={busy !== null || disciplineOptions.length === 0}
-                      >
-                        <SelectValue placeholder="Elige una disciplina publicada" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {disciplineOptions.map((entry) => (
-                          <SelectItem key={entry.id} value={entry.code ?? ''}>
-                            {entry.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {formIssue.movement_discipline ? (
-                      <FieldError>Elige una disciplina publicada.</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="movement-name">Nombre</FieldLabel>
-                    <Input
-                      id="movement-name"
-                      value={movementName}
-                      onChange={(event) => setMovementName(event.target.value)}
-                      placeholder="Guerrero II"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.movement_name ? (
-                      <FieldError>{formIssue.movement_name}</FieldError>
-                    ) : null}
-                  </Field>
-                </FieldGroup>
-                <div data-form-actions>
-                  <Button type="submit" disabled={busy !== null}>
-                    Publicar movimiento
-                  </Button>
-                </div>
-              </form>
-            }
-          />
-
-          {editing ? (
-            <MovementEquipmentEditor
-              movement={editing}
-              available={publishedEquipment(catalogue)}
-              draft={draft}
+        // Next keeps `useSearchParams` in step with the history API: no navigation, no reload.
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            window.history.replaceState(
+              null,
+              '',
+              catalogueHref(catalogueTabFromQuery(typeof value === 'string' ? value : null)),
+            )
+          }
+          data-catalogue-tabs
+        >
+          <TabsList variant="line" aria-label="Secciones del catálogo">
+            <TabsTrigger value="disciplines">Disciplinas</TabsTrigger>
+            <TabsTrigger value="activity_types">Tipos de actividad</TabsTrigger>
+            <TabsTrigger value="movements">Movimientos</TabsTrigger>
+            <TabsTrigger value="equipment">Equipamiento</TabsTrigger>
+          </TabsList>
+          {/* Every form stays mounted: what is half typed in one tab survives a look at another. */}
+          <TabsContent value="disciplines" keepMounted data-record-tab>
+            <CatalogueSection
+              kind="discipline"
+              title="Disciplinas"
+              description="La familia de actividad a la que pertenece todo lo demás."
+              entries={catalogue.disciplines}
               busy={busy}
-              onChange={(code, choice) => setDraft((current) => ({ ...current, [code]: choice }))}
-              onSave={saveEquipment}
-              onCancel={() => setEditing(null)}
+              onArchive={archive}
+              form={
+                <form
+                  onSubmit={publishDiscipline}
+                  data-backoffice-form
+                  data-catalogue-form="discipline"
+                >
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="discipline-code">Código</FieldLabel>
+                      <Input
+                        id="discipline-code"
+                        value={disciplineCode}
+                        onChange={(event) => setDisciplineCode(event.target.value)}
+                        placeholder="yoga"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.discipline_code ? (
+                        <FieldError>{formIssue.discipline_code}</FieldError>
+                      ) : null}
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="discipline-name">Nombre</FieldLabel>
+                      <Input
+                        id="discipline-name"
+                        value={disciplineName}
+                        onChange={(event) => setDisciplineName(event.target.value)}
+                        placeholder="Yoga"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.discipline_name ? (
+                        <FieldError>{formIssue.discipline_name}</FieldError>
+                      ) : null}
+                    </Field>
+                  </FieldGroup>
+                  <div data-form-actions>
+                    <Button type="submit" disabled={busy !== null}>
+                      Publicar disciplina
+                    </Button>
+                  </div>
+                </form>
+              }
             />
-          ) : null}
+          </TabsContent>
 
-          <EquipmentSection
-            entries={catalogue.equipment}
-            busy={busy}
-            onArchive={archiveEquipment}
-            form={
-              <form
-                onSubmit={publishEquipment}
-                data-backoffice-form
-                data-catalogue-form="equipment"
-              >
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="equipment-code">Código</FieldLabel>
-                    <Input
-                      id="equipment-code"
-                      value={equipmentCode}
-                      onChange={(event) => setEquipmentCode(event.target.value)}
-                      placeholder="barbell"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.equipment_code ? (
-                      <FieldError>{formIssue.equipment_code}</FieldError>
-                    ) : null}
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="equipment-name">Nombre</FieldLabel>
-                    <Input
-                      id="equipment-name"
-                      value={equipmentName}
-                      onChange={(event) => setEquipmentName(event.target.value)}
-                      placeholder="Barra olímpica"
-                      disabled={busy !== null}
-                    />
-                    {formIssue.equipment_name ? (
-                      <FieldError>{formIssue.equipment_name}</FieldError>
-                    ) : null}
-                  </Field>
-                </FieldGroup>
-                <div data-form-actions>
-                  <Button type="submit" disabled={busy !== null}>
-                    Publicar equipamiento
-                  </Button>
-                </div>
-              </form>
-            }
-          />
-        </>
+          <TabsContent value="activity_types" keepMounted data-record-tab>
+            <CatalogueSection
+              kind="activity_type"
+              title="Tipos de actividad"
+              description="La clase concreta de actividad; decide qué reglas de resultado aplican."
+              entries={catalogue.activity_types}
+              busy={busy}
+              onArchive={archive}
+              form={
+                <form
+                  onSubmit={publishActivityType}
+                  data-backoffice-form
+                  data-catalogue-form="activity_type"
+                >
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="activity-discipline">Disciplina</FieldLabel>
+                      {/* With the labels the trigger reads the name, not the raw code. */}
+                      <Select
+                        items={disciplineOptions.map((entry) => ({
+                          value: entry.code ?? '',
+                          label: entry.name,
+                        }))}
+                        value={activityDiscipline}
+                        onValueChange={(value) => setActivityDiscipline(String(value ?? ''))}
+                      >
+                        <SelectTrigger
+                          id="activity-discipline"
+                          disabled={busy !== null || disciplineOptions.length === 0}
+                        >
+                          <SelectValue placeholder="Elige una disciplina publicada" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {disciplineOptions.map((entry) => (
+                            <SelectItem key={entry.id} value={entry.code ?? ''}>
+                              {entry.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formIssue.activity_discipline ? (
+                        <FieldError>Elige una disciplina publicada.</FieldError>
+                      ) : null}
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="activity-code">Código</FieldLabel>
+                      <Input
+                        id="activity-code"
+                        value={activityCode}
+                        onChange={(event) => setActivityCode(event.target.value)}
+                        placeholder="vinyasa"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.activity_code ? (
+                        <FieldError>{formIssue.activity_code}</FieldError>
+                      ) : null}
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="activity-name">Nombre</FieldLabel>
+                      <Input
+                        id="activity-name"
+                        value={activityName}
+                        onChange={(event) => setActivityName(event.target.value)}
+                        placeholder="Vinyasa"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.activity_name ? (
+                        <FieldError>{formIssue.activity_name}</FieldError>
+                      ) : null}
+                    </Field>
+                  </FieldGroup>
+                  <div data-form-actions>
+                    <Button type="submit" disabled={busy !== null}>
+                      Publicar tipo de actividad
+                    </Button>
+                  </div>
+                </form>
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="movements" keepMounted data-record-tab>
+            <CatalogueSection
+              kind="movement"
+              title="Movimientos"
+              description="La acción o técnica reutilizable. Se identifica por su nombre, así que el mismo nombre escrito distinto es el mismo movimiento."
+              entries={catalogue.movements}
+              busy={busy}
+              onArchive={archive}
+              equipment={{ onEdit: editEquipment }}
+              form={
+                <form
+                  onSubmit={publishMovement}
+                  data-backoffice-form
+                  data-catalogue-form="movement"
+                >
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="movement-discipline">Disciplina</FieldLabel>
+                      <Select
+                        items={disciplineOptions.map((entry) => ({
+                          value: entry.code ?? '',
+                          label: entry.name,
+                        }))}
+                        value={movementDiscipline}
+                        onValueChange={(value) => setMovementDiscipline(String(value ?? ''))}
+                      >
+                        <SelectTrigger
+                          id="movement-discipline"
+                          disabled={busy !== null || disciplineOptions.length === 0}
+                        >
+                          <SelectValue placeholder="Elige una disciplina publicada" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {disciplineOptions.map((entry) => (
+                            <SelectItem key={entry.id} value={entry.code ?? ''}>
+                              {entry.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formIssue.movement_discipline ? (
+                        <FieldError>Elige una disciplina publicada.</FieldError>
+                      ) : null}
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="movement-name">Nombre</FieldLabel>
+                      <Input
+                        id="movement-name"
+                        value={movementName}
+                        onChange={(event) => setMovementName(event.target.value)}
+                        placeholder="Guerrero II"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.movement_name ? (
+                        <FieldError>{formIssue.movement_name}</FieldError>
+                      ) : null}
+                    </Field>
+                  </FieldGroup>
+                  <div data-form-actions>
+                    <Button type="submit" disabled={busy !== null}>
+                      Publicar movimiento
+                    </Button>
+                  </div>
+                </form>
+              }
+            />
+
+            {editing ? (
+              <MovementEquipmentEditor
+                movement={editing}
+                available={publishedEquipment(catalogue)}
+                draft={draft}
+                busy={busy}
+                onChange={(code, choice) => setDraft((current) => ({ ...current, [code]: choice }))}
+                onSave={saveEquipment}
+                onCancel={() => setEditing(null)}
+              />
+            ) : null}
+          </TabsContent>
+
+          <TabsContent value="equipment" keepMounted data-record-tab>
+            <EquipmentSection
+              entries={catalogue.equipment}
+              busy={busy}
+              onArchive={archiveEquipment}
+              form={
+                <form
+                  onSubmit={publishEquipment}
+                  data-backoffice-form
+                  data-catalogue-form="equipment"
+                >
+                  <FieldGroup>
+                    <Field>
+                      <FieldLabel htmlFor="equipment-code">Código</FieldLabel>
+                      <Input
+                        id="equipment-code"
+                        value={equipmentCode}
+                        onChange={(event) => setEquipmentCode(event.target.value)}
+                        placeholder="barbell"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.equipment_code ? (
+                        <FieldError>{formIssue.equipment_code}</FieldError>
+                      ) : null}
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="equipment-name">Nombre</FieldLabel>
+                      <Input
+                        id="equipment-name"
+                        value={equipmentName}
+                        onChange={(event) => setEquipmentName(event.target.value)}
+                        placeholder="Barra olímpica"
+                        disabled={busy !== null}
+                      />
+                      {formIssue.equipment_name ? (
+                        <FieldError>{formIssue.equipment_name}</FieldError>
+                      ) : null}
+                    </Field>
+                  </FieldGroup>
+                  <div data-form-actions>
+                    <Button type="submit" disabled={busy !== null}>
+                      Publicar equipamiento
+                    </Button>
+                  </div>
+                </form>
+              }
+            />
+          </TabsContent>
+        </Tabs>
       ) : null}
     </div>
   )
@@ -641,7 +661,7 @@ function CatalogueSection({
         </CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {form}
 
         {entries.length === 0 ? (
@@ -793,7 +813,7 @@ function MovementEquipmentEditor({
           así que solo se nombra equipamiento publicado.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {available.length === 0 ? (
           <p data-movement-equipment-none>
             Todavía no hay equipamiento publicado. Publícalo abajo y vuelve a editar el movimiento.
@@ -872,7 +892,7 @@ function EquipmentSection({
           los movimientos por esto.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {form}
 
         {entries.length === 0 ? (

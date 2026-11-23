@@ -242,8 +242,8 @@ export function erasureMessage(code: string): string {
       'Pediste o aprobaste un acceso excepcional a los datos de esta persona, así que no puedes decidir qué se conserva de ella. Pídeselo a alguien del equipo que no haya participado.',
     conflict:
       'Esa retención ya terminó: alguien la liberó o venció su fecha. Vuelve a abrir la página para ver el estado actual.',
-    'not-found': 'Esa suspensión ya no existe.',
-    'validation-failed': 'La suspensión no cumple el contrato. Revisa alcance, motivo y vigencia.',
+    'not-found': 'Esa retención ya no existe.',
+    'validation-failed': 'La retención no cumple el contrato. Revisa alcance, motivo y vigencia.',
     'idempotency-in-progress': 'El comando anterior sigue procesándose. Reintenta en un momento.',
     'invalid-request': 'La consulta no es válida. Vuelve a abrir la página.',
     unauthenticated: 'Tu sesión terminó. Vuelve a iniciar sesión.',
@@ -261,4 +261,17 @@ function formatDay(value: string): string {
   const parsed = Date.parse(value)
   if (Number.isNaN(parsed)) return '—'
   return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(parsed)
+}
+
+/** The requests open the screen; the legal holds are its second tab. */
+export const ERASURE_TABS = ['requests', 'holds'] as const
+
+export type ErasureTab = (typeof ERASURE_TABS)[number]
+
+export function erasureTabFromQuery(value: string | null): ErasureTab {
+  return ERASURE_TABS.find((tab) => tab === value) ?? 'requests'
+}
+
+export function erasureHref(tab: ErasureTab): string {
+  return tab === 'requests' ? '/erasure-requests' : `/erasure-requests?tab=${tab}`
 }

@@ -11,6 +11,7 @@ import { typeInto, typedDay } from './date-fields'
 // HU-BO-033: the holds an officer answers for, applied before anyone asks to delete. They
 // are the erasure screen's second section: same duty, and the menu is full.
 const PATH = '/erasure-requests'
+const HOLDS = '/erasure-requests?tab=holds'
 const SUBJECT = '019ac000-0000-7000-8000-000000000005'
 
 function day(offset: number): string {
@@ -61,7 +62,7 @@ test('lists the holds in force, the one ending soonest first, with its last week
     }),
   )
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto(PATH)
+  await page.goto(HOLDS)
 
   await expect(page.locator('[data-legal-holds-summary]')).toContainText(
     '2 retenciones vigentes, 1 vence esta semana',
@@ -100,7 +101,7 @@ test('reads the ended holds only when asked, and says how each one ended', async
   })
   await mockBackofficeApi(context, fixture)
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto(PATH)
+  await page.goto(HOLDS)
 
   await expect(page.locator('[data-legal-holds-empty]')).toContainText(
     'No hay retenciones vigentes',
@@ -125,12 +126,12 @@ test('applies a hold over a person before anyone asks to delete anything', async
   const fixture = createBackofficeFixture({ session: activeSession(), legalHolds: [] })
   await mockBackofficeApi(context, fixture)
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto(PATH)
+  await page.goto(HOLDS)
 
   await page.getByRole('button', { name: 'Nueva retención' }).click()
   const form = page.locator('[data-legal-hold-form]')
   await expect(form).toContainText('No da acceso a nada')
-  await expect(form).toContainText('No existen suspensiones indefinidas')
+  await expect(form).toContainText('No existen retenciones indefinidas')
 
   const apply = form.getByRole('button', { name: 'Aplicar retención' })
   await apply.click()
@@ -177,20 +178,42 @@ test('says what releasing does before it does it: the deletion follows its cours
   const fixture = createBackofficeFixture({ session: activeSession(), legalHolds: [hold()] })
   await mockBackofficeApi(context, fixture)
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto(PATH)
+  await page.goto(HOLDS)
 
   await page.locator('[data-legal-hold-row]').getByRole('button', { name: 'Liberar' }).click()
-  const confirm = page.locator('[data-legal-hold-release-confirm]')
+  const confirm = page.getByRole('alertdialog')
   await expect(confirm).toContainText('la eliminación sigue su curso')
   await expect(confirm).toContainText('otra retención vigente')
   expect(fixture.requests.filter((request) => request.path.includes('/release'))).toHaveLength(0)
 
-  await confirm.getByRole('button', { name: 'Confirmar liberación' }).click()
+  await confirm.getByRole('button', { name: 'Liberar la retención' }).click()
 
   await expect(page.locator('[data-legal-holds-empty]')).toContainText(
     'No hay retenciones vigentes',
   )
   expect(fixture.requests.filter((request) => request.path.includes('/release'))).toHaveLength(1)
+})
+
+test('reads the holds, which name people, only once their tab is opened', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession(), legalHolds: [hold()] })
+  await mockBackofficeApi(context, fixture)
+  const holdReads = () =>
+    fixture.requests.filter(
+      (request) => request.method === 'GET' && request.path === '/backoffice/v1/legal-holds',
+    ).length
+
+  await page.goto(PATH)
+  await expect(page.locator('[data-erasure-summary]')).toBeVisible()
+  // Reading the holds records an access on everyone they name.
+  expect(holdReads()).toBe(0)
+
+  await page.getByRole('tab', { name: 'Retenciones legales' }).click()
+  await expect(page).toHaveURL(HOLDS)
+  await expect(page.locator('[data-legal-hold-row]')).toHaveCount(1)
+  expect(holdReads()).toBeGreaterThan(0)
 })
 
 test('a refused read names the duty it needs, not a failure', async ({ context, page }) => {
@@ -201,7 +224,7 @@ test('a refused read names the duty it needs, not a failure', async ({ context, 
       legalHoldsRefusal: { status: 403, code: 'forbidden' },
     }),
   )
-  await page.goto(PATH)
+  await page.goto(HOLDS)
 
   await expect(page.locator('[data-legal-holds-failure]')).toContainText('manage_privacy_requests')
   await expect(page.locator('[data-legal-hold-row]')).toHaveCount(0)
@@ -223,7 +246,7 @@ test('the separation refusal says why this officer, and not the duty', async ({
     }),
   )
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto(PATH)
+  await page.goto(HOLDS)
 
   await page.getByRole('button', { name: 'Nueva retención' }).click()
   const form = page.locator('[data-legal-hold-form]')
@@ -234,7 +257,8 @@ test('the separation refusal says why this officer, and not the duty', async ({
   await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(30))
   await form.getByRole('button', { name: 'Aplicar retención' }).click()
 
-  const failure = page.locator('[data-legal-holds-failure]')
+  // Said inside the dialog the officer is looking at, not behind it.
+  const failure = form.locator('[data-legal-hold-failure]')
   await expect(failure).toContainText('acceso excepcional')
   await expect(failure).not.toContainText('manage_privacy_requests')
 })

@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  catalogueHref,
+  catalogueTabFromQuery,
   catalogueCommandMessage,
   catalogueKindLabel,
   catalogueOutcomeMessage,
@@ -151,5 +153,15 @@ describe('global catalogue presentation', () => {
     expect(catalogueCommandMessage('conflict')).toContain('ya nombra otra cosa')
     expect(catalogueCommandMessage('not-found')).toContain('contenido privado')
     expect(catalogueCommandMessage('something-new')).toBe('No se pudo completar la acción.')
+  })
+})
+
+describe('the catalogue tabs', () => {
+  test('open on disciplines, and name any other kind in the address', () => {
+    expect(catalogueTabFromQuery(null)).toBe('disciplines')
+    expect(catalogueTabFromQuery('movimientos')).toBe('disciplines')
+    expect(catalogueTabFromQuery('movements')).toBe('movements')
+    expect(catalogueHref('disciplines')).toBe('/catalogue')
+    expect(catalogueHref('equipment')).toBe('/catalogue?tab=equipment')
   })
 })

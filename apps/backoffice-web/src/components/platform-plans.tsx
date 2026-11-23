@@ -225,7 +225,7 @@ export function PlatformPlans() {
             cobra: las funciones de privacidad no se pueden limitar en ningún plan.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {state === 'loading' ? <ScreenLoading /> : null}
 
           {state === 'failed' ? (
@@ -267,7 +267,7 @@ export function PlatformPlans() {
                 con un despliegue y no desde aquí.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               {catalogue.feature_catalog.length === 0 ? (
                 <p data-plans-features-empty>
                   Todavía no hay funciones definidas: qué incluye cada plan no está decidido.
@@ -323,7 +323,7 @@ export function PlatformPlans() {
                   : ''}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent data-card-body>
               <form onSubmit={createPlan} data-plans-create-form>
                 <FieldGroup>
                   <Field>
@@ -428,7 +428,7 @@ function PlanCard({
           </Badge>
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         <div data-plan-body>
           <section data-plan-in-force>
             <h3>En vigor</h3>

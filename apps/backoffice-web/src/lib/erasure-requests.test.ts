@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
+  erasureHref,
+  erasureTabFromQuery,
   categoryLine,
   emptyMessage,
   erasureMessage,
@@ -348,5 +350,15 @@ describe('erasure request presentation rules', () => {
     expect(erasureMessage('separation-of-duties')).toContain('acceso excepcional')
     expect(erasureMessage('separation-of-duties')).not.toBe(erasureMessage('forbidden'))
     expect(erasureMessage('conflict')).toContain('ya terminó')
+  })
+})
+
+describe('the erasure screen tabs', () => {
+  test('open on the requests, and name the holds tab in the address', () => {
+    expect(erasureTabFromQuery(null)).toBe('requests')
+    expect(erasureTabFromQuery('retenciones')).toBe('requests')
+    expect(erasureTabFromQuery('holds')).toBe('holds')
+    expect(erasureHref('requests')).toBe('/erasure-requests')
+    expect(erasureHref('holds')).toBe('/erasure-requests?tab=holds')
   })
 })

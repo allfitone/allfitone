@@ -70,7 +70,7 @@ import {
   type BackofficeCommand,
 } from '@/lib/backoffice-api'
 import { formatInstant } from '@/lib/platform-access'
-import { isValidCaseReference } from '@/lib/support-metadata'
+import { isValidCaseReference, normalizeCaseReference } from '@/lib/case-reference'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -91,7 +91,7 @@ export function AccountRecoveryPanel({
   const [typedCase, setTypedCase] = useState('')
   const pending = useRef(new Map<string, BackofficeCommand>())
   // The card's case when it has one; otherwise the one written here, for the actions only.
-  const commandCase = caseReference || typedCase.trim()
+  const commandCase = caseReference || normalizeCaseReference(typedCase)
   const commandReady = isValidCaseReference(commandCase)
 
   useEffect(() => {
@@ -176,7 +176,7 @@ export function AccountRecoveryPanel({
           enlace temporal, de un solo uso, que solo ella puede usar.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {state === 'loading' ? <Spinner /> : null}
 
         {state === 'failed' ? (

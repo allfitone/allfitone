@@ -102,7 +102,8 @@ test('shows what is still owed, with the ones past the thirty days called out', 
     },
   })
   await mockBackofficeApi(context, fixture)
-  // A laptop screen: the six columns fit without scrolling sideways.
+  // A laptop screen: the page never scrolls sideways. Six columns with a full
+  // identifier are wider than the room, so the table scrolls inside its named region.
   await page.setViewportSize({ width: 1280, height: 900 })
 
   await page.goto(PATH)
@@ -116,18 +117,25 @@ test('shows what is still owed, with the ones past the thirty days called out', 
   const table = page.getByRole('table', { name: 'Solicitudes de eliminación' })
   // The oldest request is answered first, so it is the first row.
   const rows = table.locator('[data-erasure-row]')
-  await expect(rows.first()).toContainText('019ac000-0000-7000-8000-000000000006')
+  // Short, whole in its title and its copy button: the 36 characters ran over the date.
+  await expect(
+    rows.first().locator('code[title="019ac000-0000-7000-8000-000000000006"]'),
+  ).toHaveText('019ac000…0006')
   await expect(rows.first()).toContainText('En espera legal')
   await expect(rows.first()).not.toContainText('retraso')
   await expect(rows.first()).toContainText('en espera por una obligación legal')
-  await expect(rows.nth(1)).toContainText('019ac000-0000-7000-8000-000000000007')
+  await expect(
+    rows.nth(1).locator('code[title="019ac000-0000-7000-8000-000000000007"]'),
+  ).toHaveText('019ac000…0007')
   await expect(rows.nth(1)).toContainText('5 días de retraso')
   await expect(rows.nth(2)).toContainText('Faltan 3 días')
   await expect(rows.nth(2)).toContainText('Cuerpo · eliminado (2)')
   await expect(rows.nth(2)).toContainText('Salud · pendiente de eliminar (1)')
 
-  const region = page.getByRole('region', { name: 'Solicitudes de eliminación' })
-  expect(await region.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+  await expect(page.getByRole('region', { name: 'Solicitudes de eliminación' })).toBeVisible()
+  const content = page.locator('[data-backoffice-content]')
+  expect(await content.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 
   // The panel tracks the request; it never carries what was erased.
   await expect(page.getByText(/kg|peso|medición/i)).toHaveCount(0)
@@ -221,10 +229,7 @@ test('reads the resolved half only when it is asked for', async ({ context, page
   expect(reads.at(-1)?.query).toContain('status=closed')
 })
 
-test('suspends a category by an obligation, and the panel then says so', async ({
-  context,
-  page,
-}) => {
+test('holds a category by an obligation, and the panel then says so', async ({ context, page }) => {
   const fixture = createBackofficeFixture({
     session: activeSession(),
     erasureRequests: { requests: [openRequest()] },
@@ -233,7 +238,7 @@ test('suspends a category by an obligation, and the panel then says so', async (
   await page.setViewportSize({ width: 1280, height: 900 })
 
   await page.goto(PATH)
-  await page.getByRole('button', { name: 'Suspender', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Retener', exact: true }).first().click()
 
   const form = page.locator('[data-legal-hold-form]')
   await expect(form).toContainText('No da acceso a nada')
@@ -244,7 +249,7 @@ test('suspends a category by an obligation, and the panel then says so', async (
   await expect(form.getByRole('checkbox', { name: 'Cuerpo' })).not.toBeChecked()
 
   // The form will not let a hold leave without an end date.
-  await form.getByRole('button', { name: 'Suspender', exact: true }).click()
+  await form.getByRole('button', { name: 'Retener', exact: true }).click()
   await expect(form).toContainText('Describe qué cubre la retención')
   expect(
     fixture.requests.filter(
@@ -254,12 +259,14 @@ test('suspends a category by an obligation, and the panel then says so', async (
 
   await form.getByLabel('Alcance').fill('Mediciones del expediente 2026-114')
   await form.getByLabel('Referencia del requerimiento').fill('JUZGADO-2026-114')
-  await form.getByRole('button', { name: 'Suspender', exact: true }).click()
-  await expect(form).toContainText('No existen suspensiones indefinidas')
+  await form.getByRole('button', { name: 'Retener', exact: true }).click()
+  await expect(form).toContainText('No existen retenciones indefinidas')
 
   await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(60))
-  await form.getByRole('button', { name: 'Suspender', exact: true }).click()
+  await form.getByRole('button', { name: 'Retener', exact: true }).click()
 
+  await expect(form).toHaveCount(0)
+  await expect(page.locator('[data-sonner-toast]')).toContainText('Retención aplicada')
   const table = page.getByRole('table', { name: 'Solicitudes de eliminación' })
   await expect(table.locator('[data-erasure-row]')).toContainText('orden judicial')
   await expect(table.locator('[data-erasure-row]')).toContainText(
@@ -311,13 +318,17 @@ test('says what releasing will do before it does it', async ({ context, page }) 
   await page.setViewportSize({ width: 1280, height: 900 })
 
   await page.goto(PATH)
-  await page.locator('[data-erasure-release]').first().click()
+  await page
+    .locator('[data-erasure-row]')
+    .first()
+    .getByRole('button', { name: 'Liberar', exact: true })
+    .click()
 
-  const confirm = page.locator('[data-erasure-release-confirm]')
+  const confirm = page.getByRole('alertdialog')
   await expect(confirm).toContainText('la eliminación sigue su curso')
   expect(fixture.requests.filter((request) => request.path.includes('/release'))).toHaveLength(0)
 
-  await confirm.getByRole('button', { name: 'Confirmar liberación' }).click()
+  await confirm.getByRole('button', { name: 'Liberar la retención' }).click()
 
   await expect(page.getByRole('table', { name: 'Solicitudes de eliminación' })).toContainText(
     'pendiente de eliminar',
@@ -340,15 +351,16 @@ test('a separation conflict is explained as itself, not as a refusal', async ({
   await page.setViewportSize({ width: 1280, height: 900 })
 
   await page.goto(PATH)
-  await page.getByRole('button', { name: 'Suspender', exact: true }).first().click()
+  await page.getByRole('button', { name: 'Retener', exact: true }).first().click()
 
   const form = page.locator('[data-legal-hold-form]')
   await form.getByLabel('Alcance').fill('Mediciones del expediente 2026-114')
   await form.getByLabel('Referencia del requerimiento').fill('JUZGADO-2026-114')
   await typeInto(form.getByLabel('Vigente hasta', { exact: true }), typedDay(60))
-  await form.getByRole('button', { name: 'Suspender', exact: true }).click()
+  await form.getByRole('button', { name: 'Retener', exact: true }).click()
 
-  const failure = page.locator('[data-erasure-failure]')
+  // Said inside the dialog the officer is looking at, not behind it.
+  const failure = form.locator('[data-legal-hold-failure]')
   await expect(failure).toContainText('acceso excepcional')
   await expect(failure).not.toContainText('manage_privacy_requests')
 })

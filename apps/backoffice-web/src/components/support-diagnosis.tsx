@@ -17,6 +17,7 @@ import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
+import { RecordId } from './record-id'
 
 import {
   Card,
@@ -55,6 +56,7 @@ import { formatInstant } from '@/lib/platform-access'
 import {
   SUPPORT_OPERATION_SOURCES,
   SUPPORT_OPERATION_STATES,
+  circuitStateLabel,
   circuitSummary,
   circuitTone,
   operationStateFilterLabel,
@@ -67,7 +69,6 @@ import {
   jobHealthLine,
   jobHealthTone,
   jobLabel,
-  shortIdentifier,
   silentJobs,
   type SupportJobHealthItem,
   subjectLine,
@@ -222,7 +223,7 @@ export function SupportDiagnosis() {
             fallos del último día.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {jobsFailed ? (
             <p data-diagnosis-jobs-unavailable>
               No se pudo leer el estado de las tareas. El resto del diagnóstico sigue abajo.
@@ -255,7 +256,7 @@ export function SupportDiagnosis() {
             caído el canal entero?» antes de perseguir un aviso suelto.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           {circuits.length === 0 ? (
             <ScreenEmpty icon="activity" title="Ningún canal ha reportado entregas">
               Todavía no hay ventanas de entrega registradas. No es una falla: es que aún no se ha
@@ -279,7 +280,9 @@ export function SupportDiagnosis() {
                       <code>{circuit.event_type}</code>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={circuitTone(circuit.state)}>{circuit.state}</Badge>
+                      <Badge variant={circuitTone(circuit.state)}>
+                        {circuitStateLabel(circuit.state)}
+                      </Badge>
                     </TableCell>
                     <TableCell>{circuit.success_count}</TableCell>
                     <TableCell>{circuit.failure_count}</TableCell>
@@ -305,7 +308,7 @@ export function SupportDiagnosis() {
             el dato de nadie.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent data-card-body>
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="diagnosis-source">Tipo</FieldLabel>
@@ -406,8 +409,8 @@ export function SupportDiagnosis() {
                       <code>{operation.label}</code>
                       {/* c1: the identifiers, whole in the title, so they can be searched. */}
                       <div data-operation-ids>
-                        <span title={operation.reference_id}>
-                          ref <code>{shortIdentifier(operation.reference_id)}</code>
+                        <span>
+                          ref <RecordId id={operation.reference_id} />
                         </span>{' '}
                         ·{' '}
                         <span title={operation.subject_id ?? undefined} data-operation-subject>

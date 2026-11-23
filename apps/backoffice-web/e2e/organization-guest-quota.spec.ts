@@ -34,7 +34,7 @@ test('a gym nobody sold a number to has no limit, and says nobody has set one', 
     }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=plan`)
 
   await expect(page.locator('[data-quota-seats]')).toContainText('No tiene cupo fijado')
   await expect(page.locator('[data-quota-occupancy]')).toContainText(
@@ -56,7 +56,7 @@ test('fixes a number and reads back what it replaced', async ({ context, page })
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=plan`)
 
   await page.getByRole('checkbox', { name: 'Sin límite' }).click()
   await page.locator('#quota-seats').fill('50')
@@ -107,7 +107,7 @@ test('a number below the occupancy is warned about before it is sent, and ends n
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=plan`)
 
   await page.locator('#quota-seats').fill('1')
   await expect(page.locator('[data-quota-warning]')).toContainText('por debajo de lo que ya ocupa')
@@ -119,6 +119,7 @@ test('a number below the occupancy is warned about before it is sent, and ends n
   await expect(page.locator('[data-quota-seats]')).toContainText('Puede tener 1 persona')
   await expect(page.locator('[data-quota-left]')).toContainText('por encima de su cupo en 2')
   // The three people it already has are still there: the file still counts them.
+  await page.getByRole('tab', { name: 'Resumen' }).click()
   await expect(page.locator('[data-file-people-served]')).toContainText('Atiende a 3 personas')
 })
 
@@ -136,7 +137,7 @@ test('removing the limit is its own decision, and an empty box is not one', asyn
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=plan`)
 
   // Clearing the field decides nothing: the command is refused before it is sent.
   await page.locator('#quota-seats').fill('')
@@ -178,7 +179,7 @@ test('without the commercial duty the panel says which one is missing', async ({
     }),
   )
 
-  await page.goto(`/organizations/${record.organization.organization_id}`)
+  await page.goto(`/organizations/${record.organization.organization_id}?tab=plan`)
 
   await page.getByRole('checkbox', { name: 'Sin límite' }).click()
   await page.locator('#quota-seats').fill('50')

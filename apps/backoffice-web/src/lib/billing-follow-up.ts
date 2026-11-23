@@ -13,6 +13,7 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { personFileHref } from './person-file'
 import { formatInstant } from './platform-access'
 
 export type BillingFollowUp = AllfitV1Schemas['SupportBillingFollowUp']
@@ -58,9 +59,9 @@ export function followUpDetail(item: BillingFollowUpItem): string {
   return parts.join(' ')
 }
 
+/** A follow-up is about money, so her file opens on its payments. */
 export function followUpHref(item: BillingFollowUpItem, caseReference: string): string {
-  const file = `/people/${item.person_id}`
-  return caseReference ? `${file}?case_reference=${encodeURIComponent(caseReference)}` : file
+  return personFileHref(item.person_id, caseReference, 'payments')
 }
 
 export function followUpSummary(followUp: BillingFollowUp): string {

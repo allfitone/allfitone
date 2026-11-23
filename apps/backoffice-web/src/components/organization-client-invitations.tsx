@@ -144,7 +144,7 @@ export function OrganizationClientInvitations({ organizationId }: { organization
           nueva que firma Allfit One y que pide exactamente lo mismo.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent data-card-body>
         {state === 'loading' ? <ScreenLoading /> : null}
 
         {state === 'failed' ? (

@@ -11,16 +11,23 @@
  * It refuses to send what the server would refuse — no person, no kind of data, no end
  * date — and says which field is missing, in the order it shows them. What applying
  * does is said before it happens: it keeps, it opens nothing, and it ends on its date.
+ *
+ * It is a dialog over the list it was opened from. It used to appear at the foot of
+ * the page, below the tables, and a refusal was said in an alert above them, which
+ * the dialog would now cover; so the refusal is said inside it, beside the button.
  */
 
 import { Button } from '@allfitone/react/components/button'
+import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@allfitone/react/components/dialog'
 import { Checkbox } from '@allfitone/react/components/checkbox'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
@@ -47,6 +54,7 @@ import {
 } from '@/lib/legal-holds'
 
 export interface LegalHoldFormProps {
+  open: boolean
   draft: HoldDraft
   onChange: (draft: HoldDraft) => void
   issue: HoldIssue | null
@@ -54,17 +62,21 @@ export interface LegalHoldFormProps {
   /** Opened from a request: the person is that request's. */
   subjectFixed?: boolean
   submitLabel: string
+  /** Why the last attempt was refused, said where the officer is looking. */
+  failure: string | null
   onSubmit: () => void
   onCancel: () => void
 }
 
 export function LegalHoldForm({
+  open,
   draft,
   onChange,
   issue,
   busy,
   subjectFixed = false,
   submitLabel,
+  failure,
   onSubmit,
   onCancel,
 }: LegalHoldFormProps) {
@@ -77,19 +89,23 @@ export function LegalHoldForm({
     })
 
   return (
-    <Card data-legal-hold-form>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Retener datos por una obligación legal
-        </CardTitle>
-        <CardDescription>
-          Conserva los datos de esta persona de los tipos que marques: lo que ya espera borrarse se
-          detiene, y lo que pida borrar mientras dure se queda, y se le dice por qué y hasta cuándo.
-          No da acceso a nada: para leer lo que registró hace falta una ventana excepcional. No
-          existen suspensiones indefinidas: en su fecha, la retención vence sola.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Closing mid-flight would hide a request that is still going to land.
+        if (!next && !busy) onCancel()
+      }}
+    >
+      <DialogContent data-legal-hold-form>
+        <DialogHeader>
+          <DialogTitle>Retener datos por una obligación legal</DialogTitle>
+          <DialogDescription>
+            Conserva los datos de esta persona de los tipos que marques: lo que ya espera borrarse
+            se detiene, y lo que pida borrar mientras dure se queda, y se le dice por qué y hasta
+            cuándo. No da acceso a nada: para leer lo que registró hace falta una ventana
+            excepcional. No existen retenciones indefinidas: en su fecha, la retención vence sola.
+          </DialogDescription>
+        </DialogHeader>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="hold-subject">Persona</FieldLabel>
@@ -179,15 +195,22 @@ export function LegalHoldForm({
           </Field>
         </FieldGroup>
 
-        <div data-legal-hold-actions>
+        {failure ? (
+          <Alert live="assertive" variant="danger" data-legal-hold-failure>
+            <AlertTitle>No se aplicó la retención</AlertTitle>
+            <AlertDescription>{failure}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <DialogFooter data-confirm-footer>
+          <DialogClose render={<Button type="button" variant="outline" disabled={busy} />}>
+            Cancelar
+          </DialogClose>
           <Button type="button" disabled={busy} onClick={onSubmit}>
             {submitLabel}
           </Button>
-          <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
-            Cancelar
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

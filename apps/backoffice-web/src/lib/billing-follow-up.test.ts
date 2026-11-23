@@ -78,9 +78,9 @@ describe('the charges to follow up (HU-BO-005, HU-BO-020)', () => {
 
   test('each row leads to the person’s payments under the same case, or under none', () => {
     expect(followUpHref(item(), 'CASE-2026-FU')).toBe(
-      `/people/${PERSON}?case_reference=CASE-2026-FU`,
+      `/people/${PERSON}?case_reference=CASE-2026-FU&tab=payments`,
     )
-    expect(followUpHref(item(), '')).toBe(`/people/${PERSON}`)
+    expect(followUpHref(item(), '')).toBe(`/people/${PERSON}?tab=payments`)
   })
 
   test('the summary counts who is listed and says when the list is cut', () => {

@@ -23,21 +23,21 @@
  *
  * What an allowed read returned lives only as long as its window: when the window
  * closes or lapses, the content leaves the screen with it.
+ *
+ * Asking, reading and reviewing were one page. Asking is now the page's primary
+ * action, in a dialog that opens by itself when a person's card sent the operator
+ * here; the review of used windows is a second tab, read only once it is opened.
+ * What a read returns appears right under its window, the card with the button
+ * that asked, instead of at the top of the page.
  */
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@allfitone/react/components/alert-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
+import { BreakGlassReviewQueue } from './break-glass-review-queue'
+import { ConfirmAction } from './confirm-action'
+import { PageHeader } from './page-header'
+import { RecordId } from './record-id'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
 import {
@@ -48,6 +48,16 @@ import {
   CardTitle,
 } from '@allfitone/react/components/card'
 import { Checkbox } from '@allfitone/react/components/checkbox'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@allfitone/react/components/dialog'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
@@ -66,6 +76,9 @@ import {
   TableHeader,
   TableRow,
 } from '@allfitone/react/components/table'
+import { toast } from '@allfitone/react/components/sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
+import { FoundationIcon } from '@allfitone/react/icons'
 import { useSearchParams } from 'next/navigation'
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react'
 
@@ -80,7 +93,9 @@ import { formatInstant } from '@/lib/platform-access'
 import {
   BREAK_GLASS_CATEGORIES,
   BREAK_GLASS_PURPOSES,
+  breakGlassHref,
   breakGlassMessage,
+  breakGlassTabFromQuery,
   canExercise,
   categoryLabel,
   emptyReadMessage,
@@ -96,6 +111,7 @@ import {
   olderSessionsCursor,
   outcomeMessage,
   purposeLabel,
+  remainingMinutes,
   requestIssue,
   requestIssueMessage,
   resourceTypeFor,
@@ -107,8 +123,11 @@ import {
   type BreakGlassCategory,
   type BreakGlassExerciseOutcome,
   type BreakGlassPurpose,
+  type RequestIssue,
 } from '@/lib/break-glass'
+import { normalizeCaseReference } from '@/lib/case-reference'
 import { isRefusal } from '@/lib/screen-state'
+import { useOpenedTabs } from '@/lib/use-opened-tabs'
 
 type LoadState = 'loading' | 'ready' | 'failed'
 
@@ -117,21 +136,26 @@ export function BreakGlassWindows() {
   const [files, setFiles] = useState<BreakGlassRequest[]>([])
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
-  const [notice, setNotice] = useState<{ tone: 'success' | 'danger'; message: string } | null>(null)
+  // Only what failed stays on the page; what worked pops up as a toast.
+  const [notice, setNotice] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // From the person's card the subject and the case arrive in the link.
-  const prefill = requestPrefill(useSearchParams())
+  const parameters = useSearchParams()
+  const tab = breakGlassTabFromQuery(parameters.get('tab'))
+  const opened = useOpenedTabs(tab)
+  // From the person's card the subject and the case arrive in the link, to ask at once.
+  const prefill = requestPrefill(parameters)
+  const [requesting, setRequesting] = useState(prefill.subject !== '')
+  const [requestFailure, setRequestFailure] = useState<string | null>(null)
   const [subject, setSubject] = useState(prefill.subject)
   const [caseReference, setCaseReference] = useState(prefill.caseReference)
   const [purpose, setPurpose] = useState<BreakGlassPurpose>('customer_support_request')
   const [categories, setCategories] = useState<BreakGlassCategory[]>([])
-  const [error, setError] = useState<string | null>(null)
+  const [issue, setIssue] = useState<RequestIssue | null>(null)
   const [outcome, setOutcome] = useState<{
     fileId: string
     answer: BreakGlassExerciseOutcome
   } | null>(null)
   const [now, setNow] = useState(() => Date.now())
-  const [closing, setClosing] = useState<string | null>(null)
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -186,9 +210,9 @@ export function BreakGlassWindows() {
     try {
       await operation()
       await load()
-      setNotice({ tone: 'success', message: success })
+      toast.success(success)
     } catch (caught) {
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
+      setNotice(failureMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -197,25 +221,31 @@ export function BreakGlassWindows() {
   async function submit(event: FormEvent) {
     event.preventDefault()
     const broken = requestIssue({ subject, caseReference, categories })
-    if (broken) {
-      setError(requestIssueMessage(broken))
-      return
+    setIssue(broken ?? null)
+    if (broken) return
+    setRequestFailure(null)
+    setBusy(true)
+    try {
+      await backofficeApi.requestBreakGlass(
+        {
+          subject_person_id: subject.trim(),
+          categories,
+          purpose,
+          case_reference: normalizeCaseReference(caseReference),
+        },
+        newBackofficeCommand(),
+      )
+      await load()
+      setRequesting(false)
+      setCategories([])
+      toast.success(
+        'Ventana abierta por 60 minutos. Cada lectura queda registrada y otra persona la revisa después.',
+      )
+    } catch (caught) {
+      setRequestFailure(failureMessage(caught))
+    } finally {
+      setBusy(false)
     }
-    setError(null)
-    await run(
-      () =>
-        backofficeApi.requestBreakGlass(
-          {
-            subject_person_id: subject.trim(),
-            categories,
-            purpose,
-            case_reference: caseReference.trim(),
-          },
-          newBackofficeCommand(),
-        ),
-      'Ventana abierta por 60 minutos. Cada lectura queda registrada y otra persona la revisa después.',
-    )
-    setCategories([])
   }
 
   async function exercise(file: BreakGlassRequest, category: BreakGlassCategory) {
@@ -232,7 +262,7 @@ export function BreakGlassWindows() {
       setOutcome({ fileId: file.id, answer })
       await load()
     } catch (caught) {
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
+      setNotice(failureMessage(caught))
     } finally {
       setBusy(false)
     }
@@ -256,35 +286,15 @@ export function BreakGlassWindows() {
       setOutcome({ fileId, answer: appendSessionPage(current, answer) })
       await load()
     } catch (caught) {
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
+      setNotice(failureMessage(caught))
     } finally {
       setBusy(false)
     }
   }
 
-  if (state === 'loading') return <ScreenLoading />
-
-  if (state === 'failed') {
-    return (
-      <ScreenFailure
-        refused={refused}
-        duties={['request_break_glass']}
-        title="No se pudo leer la bandeja"
-        message={failure ?? breakGlassMessage('upstream-unavailable')}
-        onRetry={() => void load()}
-      />
-    )
-  }
-
-  return (
-    <div data-break-glass>
-      {notice ? (
-        <Alert live="polite" variant={notice.tone === 'success' ? 'success' : 'danger'}>
-          <AlertTitle>{notice.tone === 'success' ? 'Hecho' : 'No se aplicó'}</AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
+  // What a read returned, shown right under the window it came from.
+  const readResult = (
+    <>
       {outcome ? (
         <Alert live="assertive" variant={outcomeTone(outcome.answer)} data-break-glass-outcome>
           <AlertTitle>{outcomeTitle(outcome.answer)}</AlertTitle>
@@ -515,246 +525,326 @@ export function BreakGlassWindows() {
           </TableBody>
         </Table>
       ) : null}
+    </>
+  )
 
-      <Card>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Pedir una ventana excepcional
-          </CardTitle>
-          <CardDescription>
-            Sólo cuando el estado operativo no alcanza. Se abre al pedirla y dura 60 minutos. Cada
-            lectura queda registrada para la persona afectada, y otra persona revisa la ventana
-            después. No existe acceso a «toda la cuenta» ni extensión de una ventana.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={submit} data-backoffice-form data-break-glass-form noValidate>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="bg-subject">Persona afectada</FieldLabel>
-                <Input
-                  id="bg-subject"
-                  value={subject}
-                  onChange={(event) => setSubject(event.target.value)}
-                  placeholder="019a8000-0000-7000-8000-000000000006"
-                  autoComplete="off"
-                  disabled={busy}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bg-case">Referencia del caso</FieldLabel>
-                <Input
-                  id="bg-case"
-                  value={caseReference}
-                  onChange={(event) => setCaseReference(event.target.value)}
-                  placeholder="CASE-2026-001"
-                  autoComplete="off"
-                  disabled={busy}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="bg-purpose">Propósito</FieldLabel>
-                <Select
-                  value={purpose}
-                  onValueChange={(next) =>
-                    setPurpose((next ?? 'customer_support_request') as BreakGlassPurpose)
-                  }
-                >
-                  <SelectTrigger id="bg-purpose" disabled={busy}>
-                    <SelectValue>{purposeLabel(purpose)}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {BREAK_GLASS_PURPOSES.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {purposeLabel(option)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
+  return (
+    <div data-break-glass>
+      <PageHeader
+        description="Leer datos de una persona cuando su estado operativo no alcanza: por categoría, durante 60 minutos. Cada lectura queda registrada para esa persona, y otra persona revisa la ventana después."
+        actions={
+          <Dialog
+            open={requesting}
+            onOpenChange={(next) => {
+              // Closing mid-flight would hide a request that is still going to land.
+              if (busy) return
+              setRequesting(next)
+              if (!next) {
+                setIssue(null)
+                setRequestFailure(null)
+              }
+            }}
+          >
+            <DialogTrigger render={<Button type="button" />}>
+              <FoundationIcon name="add" decorative />
+              Pedir una ventana excepcional
+            </DialogTrigger>
+            <DialogContent data-break-glass-request>
+              <DialogHeader>
+                <DialogTitle>Pedir una ventana excepcional</DialogTitle>
+                <DialogDescription>
+                  Sólo cuando el estado operativo no alcanza. Se abre al pedirla y dura 60 minutos.
+                  Cada lectura queda registrada para la persona afectada, y otra persona revisa la
+                  ventana después. No existe acceso a «toda la cuenta» ni extensión de una ventana.
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                onSubmit={(event) => void submit(event)}
+                data-backoffice-form
+                data-break-glass-form
+                noValidate
+              >
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="bg-subject">Persona afectada</FieldLabel>
+                    <Input
+                      id="bg-subject"
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                      placeholder="019a8000-0000-7000-8000-000000000006"
+                      autoComplete="off"
+                      aria-invalid={issue === 'subject' ? true : undefined}
+                      aria-describedby={issue === 'subject' ? 'bg-subject-issue' : undefined}
+                      disabled={busy}
+                    />
+                    {issue === 'subject' ? (
+                      <FieldError id="bg-subject-issue">{requestIssueMessage(issue)}</FieldError>
+                    ) : null}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="bg-case">Referencia del caso</FieldLabel>
+                    <Input
+                      id="bg-case"
+                      value={caseReference}
+                      onChange={(event) => setCaseReference(event.target.value)}
+                      placeholder="CASE-2026-001"
+                      autoComplete="off"
+                      aria-invalid={issue === 'case' ? true : undefined}
+                      aria-describedby={issue === 'case' ? 'bg-case-issue' : undefined}
+                      disabled={busy}
+                    />
+                    {issue === 'case' ? (
+                      <FieldError id="bg-case-issue">{requestIssueMessage(issue)}</FieldError>
+                    ) : null}
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="bg-purpose">Propósito</FieldLabel>
+                    <Select
+                      value={purpose}
+                      onValueChange={(next) =>
+                        setPurpose((next ?? 'customer_support_request') as BreakGlassPurpose)
+                      }
+                    >
+                      <SelectTrigger id="bg-purpose" disabled={busy}>
+                        <SelectValue>{purposeLabel(purpose)}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BREAK_GLASS_PURPOSES.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {purposeLabel(option)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-              <Field>
-                <FieldLabel htmlFor="bg-categories">Qué necesitas ver</FieldLabel>
-                <div id="bg-categories" data-break-glass-categories>
-                  {BREAK_GLASS_CATEGORIES.map((category) => (
-                    <Field key={category} orientation="horizontal">
-                      <Checkbox
-                        id={`bg-category-${category}`}
-                        checked={categories.includes(category)}
-                        onCheckedChange={(checked) =>
-                          setCategories((current) =>
-                            checked === true
-                              ? [...current, category]
-                              : current.filter((kept) => kept !== category),
-                          )
-                        }
-                        disabled={busy}
-                      />
-                      <FieldLabel htmlFor={`bg-category-${category}`}>
-                        {categoryLabel(category)}
-                      </FieldLabel>
-                    </Field>
-                  ))}
-                </div>
-              </Field>
+                  <Field>
+                    <FieldLabel htmlFor="bg-categories">Qué necesitas ver</FieldLabel>
+                    <div id="bg-categories" data-break-glass-categories>
+                      {BREAK_GLASS_CATEGORIES.map((category) => (
+                        <Field key={category} orientation="horizontal">
+                          <Checkbox
+                            id={`bg-category-${category}`}
+                            checked={categories.includes(category)}
+                            onCheckedChange={(checked) =>
+                              setCategories((current) =>
+                                checked === true
+                                  ? [...current, category]
+                                  : current.filter((kept) => kept !== category),
+                              )
+                            }
+                            disabled={busy}
+                          />
+                          <FieldLabel htmlFor={`bg-category-${category}`}>
+                            {categoryLabel(category)}
+                          </FieldLabel>
+                        </Field>
+                      ))}
+                    </div>
+                    {issue === 'categories' ? (
+                      <FieldError data-break-glass-categories-issue>
+                        {requestIssueMessage(issue)}
+                      </FieldError>
+                    ) : null}
+                  </Field>
 
-              {consequence ? (
-                <Alert live="polite" variant="info" data-break-glass-consequence>
-                  <AlertTitle>Alcance {tierLabel(consequence.tier).toLowerCase()}</AlertTitle>
-                  <AlertDescription>
-                    {consequence.sentence} Eso lo decide el servidor a partir de lo que elegiste; no
-                    se puede pedir otro.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
+                  {consequence ? (
+                    <Alert live="polite" variant="info" data-break-glass-consequence>
+                      <AlertTitle>Alcance {tierLabel(consequence.tier).toLowerCase()}</AlertTitle>
+                      <AlertDescription>
+                        {consequence.sentence} Eso lo decide el servidor a partir de lo que
+                        elegiste; no se puede pedir otro.
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
 
-              {error ? <FieldError>{error}</FieldError> : null}
+                  {requestFailure ? (
+                    <Alert live="assertive" variant="danger" data-break-glass-request-failure>
+                      <AlertTitle>No se abrió la ventana</AlertTitle>
+                      <AlertDescription>{requestFailure}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </FieldGroup>
 
-              <div data-form-actions>
-                <Button type="submit" disabled={busy}>
-                  Pedir la ventana
-                </Button>
-              </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+                <DialogFooter data-confirm-footer>
+                  <DialogClose render={<Button type="button" variant="outline" disabled={busy} />}>
+                    Cancelar
+                  </DialogClose>
+                  <Button type="submit" disabled={busy}>
+                    Pedir la ventana
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-      {files.length === 0 ? (
-        <ScreenEmpty icon="warning" title="No hay expedientes">
-          Aquí aparecerán las ventanas, con el tiempo que les queda y cuántas veces se ejercieron.
-        </ScreenEmpty>
-      ) : (
-        files.map((file) => (
-          <Card key={file.id} data-break-glass-file>
-            <CardHeader>
-              <CardTitle role="heading" aria-level={2}>
-                {file.case_reference} · {purposeLabel(file.purpose)}
-              </CardTitle>
-              <CardDescription>
-                {file.categories.map((category) => categoryLabel(category)).join(' · ')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl data-facts>
-                <dt>Estado</dt>
-                <dd>
-                  <Badge id={`bg-status-${file.id}`} variant={statusTone(file.status)}>
-                    {statusLabel(file.status)}
-                  </Badge>
-                </dd>
-                <dt>Alcance</dt>
-                <dd>
-                  <span id={`bg-tier-${file.id}`}>
-                    {tierLabel(file.sensitivity_tier)} · {file.requested_duration_minutes} minutos
-                  </span>
-                </dd>
-                <dt>Persona afectada</dt>
-                <dd>
-                  <code id={`bg-subject-${file.id}`}>{file.subject_person_id}</code>
-                </dd>
-                <dt>Veces ejercida</dt>
-                <dd>
-                  <span id={`bg-exercises-${file.id}`}>{file.exercise_count}</span>
-                </dd>
-              </dl>
+      {notice ? (
+        <Alert live="polite" variant="danger">
+          <AlertTitle>No se aplicó</AlertTitle>
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      ) : null}
 
-              {windowSentence(file, now) ? (
-                <Alert
-                  live="off"
-                  variant={canExercise(file, now) ? 'success' : 'warning'}
-                  data-break-glass-window
-                >
-                  <AlertTitle>{windowSentence(file, now)}</AlertTitle>
-                  <AlertDescription>
-                    Cierra el {formatInstant(file.window_ends_at)}. Para continuar después hay que
-                    pedir otra ventana.
-                  </AlertDescription>
-                </Alert>
-              ) : null}
+      {/* Next keeps `useSearchParams` in step with the history API: no navigation, no reload. */}
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          window.history.replaceState(
+            null,
+            '',
+            breakGlassHref(breakGlassTabFromQuery(typeof value === 'string' ? value : null)),
+          )
+        }
+        data-break-glass-tabs
+      >
+        <TabsList variant="line" aria-label="Secciones del acceso excepcional">
+          <TabsTrigger value="windows">Ventanas</TabsTrigger>
+          <TabsTrigger value="review">Revisión</TabsTrigger>
+        </TabsList>
 
-              {file.approvals.length > 0 ? (
-                <dl data-facts>
-                  {file.approvals.map((approval) => (
-                    <Fragment key={approval.approver_person_id}>
-                      <dt>{approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}</dt>
+        <TabsContent value="windows" keepMounted data-record-tab>
+          {state === 'loading' ? <ScreenLoading /> : null}
+
+          {state === 'failed' ? (
+            <ScreenFailure
+              refused={refused}
+              duties={['request_break_glass']}
+              title="No se pudo leer la bandeja"
+              message={failure ?? breakGlassMessage('upstream-unavailable')}
+              onRetry={() => void load()}
+            />
+          ) : null}
+
+          {state === 'ready' && files.length === 0 ? (
+            <ScreenEmpty icon="warning" title="No hay expedientes">
+              Aquí aparecerán las ventanas, con el tiempo que les queda y cuántas veces se
+              ejercieron.
+            </ScreenEmpty>
+          ) : (
+            files.map((file) => (
+              <Fragment key={file.id}>
+                <Card data-break-glass-file>
+                  <CardHeader>
+                    <CardTitle role="heading" aria-level={2}>
+                      {file.case_reference} · {purposeLabel(file.purpose)}
+                    </CardTitle>
+                    <CardDescription>
+                      {file.categories.map((category) => categoryLabel(category)).join(' · ')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent data-card-body>
+                    <dl data-facts>
+                      <dt>Estado</dt>
                       <dd>
-                        <span id={`bg-approval-${approval.approver_person_id}`}>
-                          <code>{approval.approver_person_id}</code> ·{' '}
-                          {formatInstant(approval.decided_at)} ·{' '}
-                          <span data-break-glass-decision-reason>
-                            {decisionReasonLabel(approval.reason_code)}
-                          </span>
+                        <Badge id={`bg-status-${file.id}`} variant={statusTone(file.status)}>
+                          {statusLabel(file.status)}
+                        </Badge>
+                      </dd>
+                      <dt>Alcance</dt>
+                      <dd>
+                        <span id={`bg-tier-${file.id}`}>
+                          {tierLabel(file.sensitivity_tier)} · {file.requested_duration_minutes}{' '}
+                          minutos
                         </span>
                       </dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              ) : null}
+                      <dt>Persona afectada</dt>
+                      <dd>
+                        <RecordId id={file.subject_person_id} />
+                      </dd>
+                      <dt>Veces ejercida</dt>
+                      <dd>
+                        <span id={`bg-exercises-${file.id}`}>{file.exercise_count}</span>
+                      </dd>
+                    </dl>
 
-              {canExercise(file, now) ? (
-                <div data-form-actions>
-                  {file.categories.map((category) => (
-                    <Button
-                      key={category}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => void exercise(file, category)}
-                    >
-                      Leer {categoryLabel(category).toLowerCase()}
-                    </Button>
-                  ))}
-                  <AlertDialog
-                    open={closing === file.id}
-                    onOpenChange={(next) => {
-                      if (busy) return
-                      setClosing(next ? file.id : null)
-                    }}
-                  >
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      disabled={busy}
-                      onClick={() => setClosing(file.id)}
-                    >
-                      Cerrar la ventana
-                    </Button>
-                    <AlertDialogContent data-close-break-glass-dialog>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Cerrar la ventana?</AlertDialogTitle>
-                        <AlertDialogDescription>
+                    {windowSentence(file, now) ? (
+                      <Alert live="off" variant={windowTone(file, now)} data-break-glass-window>
+                        <AlertTitle>{windowSentence(file, now)}</AlertTitle>
+                        <AlertDescription>
+                          Cierra el {formatInstant(file.window_ends_at)}. Para continuar después hay
+                          que pedir otra ventana.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+
+                    {file.approvals.length > 0 ? (
+                      <dl data-facts>
+                        {file.approvals.map((approval) => (
+                          <Fragment key={approval.approver_person_id}>
+                            <dt>{approval.decision === 'approved' ? 'Aprobó' : 'Rechazó'}</dt>
+                            <dd>
+                              <span id={`bg-approval-${approval.approver_person_id}`}>
+                                <RecordId id={approval.approver_person_id} /> ·{' '}
+                                {formatInstant(approval.decided_at)} ·{' '}
+                                <span data-break-glass-decision-reason>
+                                  {decisionReasonLabel(approval.reason_code)}
+                                </span>
+                              </span>
+                            </dd>
+                          </Fragment>
+                        ))}
+                      </dl>
+                    ) : null}
+
+                    {canExercise(file, now) ? (
+                      <div data-form-actions>
+                        {file.categories.map((category) => (
+                          <Button
+                            key={category}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => void exercise(file, category)}
+                          >
+                            Leer {categoryLabel(category).toLowerCase()}
+                          </Button>
+                        ))}
+                        <ConfirmAction
+                          trigger={<Button type="button" variant="outline" disabled={busy} />}
+                          label="Cerrar la ventana"
+                          title="¿Cerrar la ventana?"
+                          confirmLabel="Cerrar ahora"
+                          busyLabel="Cerrando…"
+                          keepLabel="Dejarla abierta"
+                          busy={busy}
+                          onConfirm={() =>
+                            run(
+                              () => backofficeApi.closeBreakGlass(file.id, newBackofficeCommand()),
+                              'Ventana cerrada. Ninguna lectura entrega contenido desde ahora.',
+                            )
+                          }
+                        >
                           Lo que ya se leyó deja de mostrarse y ninguna lectura vuelve a entregar
                           contenido. No se puede reabrir ni extender: para continuar habría que
                           pedir otra ventana.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel disabled={busy}>Dejarla abierta</AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          disabled={busy}
-                          onClick={() =>
-                            void run(
-                              () => backofficeApi.closeBreakGlass(file.id, newBackofficeCommand()),
-                              'Ventana cerrada. Ninguna lectura entrega contenido desde ahora.',
-                            ).then(() => setClosing(null))
-                          }
-                        >
-                          {busy ? 'Cerrando…' : 'Cerrar ahora'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        ))
-      )}
+                        </ConfirmAction>
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+                {/* Right under its window, at the full width its tables need. */}
+                {outcome?.fileId === file.id ? <div data-break-glass-read>{readResult}</div> : null}
+              </Fragment>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="review" keepMounted data-record-tab>
+          {opened.has('review') ? <BreakGlassReviewQueue /> : null}
+        </TabsContent>
+      </Tabs>
     </div>
   )
+}
+
+/** «Quedan 5 minutos» is a warning, not a success; an hour left is just information. */
+function windowTone(file: BreakGlassRequest, now: number): 'info' | 'warning' {
+  const left = remainingMinutes(file, now)
+  if (!canExercise(file, now) || left === null) return 'warning'
+  return left <= 10 ? 'warning' : 'info'
 }
 
 function outcomeTitle(answer: BreakGlassExerciseOutcome): string {

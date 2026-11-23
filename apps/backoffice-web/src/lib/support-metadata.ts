@@ -13,8 +13,6 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 export type SupportPersonMetadata = AllfitV1Schemas['SupportPersonMetadata']
 export type SupportPeopleSearch = AllfitV1Schemas['SupportPeopleSearch']
 
-const CASE_REFERENCE = /^[A-Z][A-Z0-9_-]{2,63}$/
-
 /** What the API accepts as a search term, checked here so a typo is not a recorded search. */
 export const SEARCH_QUERY = { min: 2, max: 100 } as const
 
@@ -23,21 +21,29 @@ export function isSearchable(value: string): boolean {
   return term.length >= SEARCH_QUERY.min && term.length <= SEARCH_QUERY.max
 }
 
-export function isValidCaseReference(value: string): boolean {
-  return CASE_REFERENCE.test(value.trim())
-}
-
-/** A read may name no case (ADR-046); one given in free text is still refused. */
-export function isValidOptionalCaseReference(value: string): boolean {
-  return value.trim() === '' || isValidCaseReference(value)
-}
-
 export interface FileFact {
   label: string
   value: string
 }
 
 const UNKNOWN = 'Sin dato'
+
+/** `identity.person_status`, said as the state of her account. */
+const ACCOUNT_STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'secondary' }> =
+  {
+    pending_activation: { label: 'Sin activar', tone: 'warning' },
+    active: { label: 'Activa', tone: 'success' },
+    closed: { label: 'Cerrada', tone: 'secondary' },
+  }
+
+/** The contract types the state as text, so one added later shows as it came, not as nothing. */
+export function accountStatusLabel(status: string): string {
+  return ACCOUNT_STATUS[status]?.label ?? status
+}
+
+export function accountStatusTone(status: string): 'success' | 'warning' | 'secondary' {
+  return ACCOUNT_STATUS[status]?.tone ?? 'secondary'
+}
 
 const PLAN_STATUS: Record<'active' | 'grace' | 'suspended' | 'ended', string> = {
   active: 'De pago, al día',
