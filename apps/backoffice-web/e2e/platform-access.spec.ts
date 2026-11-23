@@ -43,10 +43,13 @@ async function act(row: Locator, action: string) {
   await row.page().getByRole('menuitem', { name: action, exact: true }).click()
 }
 
+/** Granting starts from the screen's one primary action, in a dialog over the inventory. */
 async function chooseRecipient(page: Page) {
-  await page.getByLabel('Buscar a quien recibe el rol').fill('Lucía')
-  await page.getByRole('button', { name: 'Buscar', exact: true }).click()
-  await page
+  await page.getByRole('button', { name: 'Otorgar el rol base' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Otorgar el rol base' })
+  await dialog.getByLabel('Buscar a quien recibe el rol').fill('Lucía')
+  await dialog.getByRole('button', { name: 'Buscar', exact: true }).click()
+  await dialog
     .getByRole('listitem')
     .filter({ hasText: NEW_PERSON_NAME })
     .getByRole('button', { name: 'Elegir' })
@@ -84,6 +87,16 @@ test('shows who reaches the data, with the state and window of every duty', asyn
   await page.goto('/team')
 
   await expect(page.getByRole('heading', { name: 'Rol base' })).toBeVisible()
+  // HU-BO-029 c1: who holds the role and who granted it read as people, not identifiers.
+  const subjectRole = page
+    .getByRole('row')
+    .filter({ hasText: SUBJECT_PERSON_NAME })
+    .filter({ hasText: 'Vigente' })
+    .first()
+  await expect(subjectRole).toContainText(ACTOR_PERSON_NAME)
+
+  await page.getByRole('tab', { name: 'Deberes' }).click()
+  await expect(page).toHaveURL('/team?tab=duties')
   await expect(page.getByRole('heading', { name: 'Deberes de plataforma' })).toBeVisible()
   // Scoped to the table, and whole: the filter's options and each row's menu carry the names too.
   await expect(
@@ -92,18 +105,11 @@ test('shows who reaches the data, with the state and window of every duty', asyn
   await expect(
     page.getByRole('cell', { name: 'Diagnosticar metadatos de soporte', exact: true }),
   ).toBeVisible()
-  // The duty carries its mode and its required assurance, not just its name.
+  // The duty carries its mode and the assurance it asks, in words rather than «AAL2».
   await expect(
     page.getByRole('cell', { name: 'Seguridad y privacidad', exact: true }),
   ).toBeVisible()
-  await expect(page.getByRole('cell', { name: '2', exact: true }).first()).toBeVisible()
-  // HU-BO-029 c1: who holds the role and who granted it read as people, not identifiers.
-  const subjectRole = page
-    .getByRole('row')
-    .filter({ hasText: SUBJECT_PERSON_NAME })
-    .filter({ hasText: 'Vigente' })
-    .first()
-  await expect(subjectRole).toContainText(ACTOR_PERSON_NAME)
+  await expect(page.getByRole('cell', { name: 'Dos factores', exact: true }).first()).toBeVisible()
   await expect(page.getByText(SUBJECT_PERSON_ID)).toHaveCount(0)
 })
 
@@ -135,10 +141,14 @@ test('grants a base role, and the role brings every duty with it', async ({ cont
   // ADR-046: there is nothing to grant one by one, so the screen offers no duty form.
   await expect(page.getByRole('button', { name: 'Otorgar deber' })).toHaveCount(0)
   // Nothing to grant until somebody is chosen.
-  await expect(page.getByRole('button', { name: 'Otorgar rol base' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Otorgar el rol base' }).click()
+  await expect(page.getByRole('dialog', { name: 'Otorgar el rol base' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Otorgar el rol a / })).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
   await chooseRecipient(page)
-  await page.getByRole('button', { name: 'Otorgar rol base' }).click()
+  await page.getByRole('button', { name: `Otorgar el rol a ${NEW_PERSON_NAME}` }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   // The outcome pops up where the operator looks, naming who received the role.
   await expect(outcome(page)).toHaveText(`Rol base otorgado a ${NEW_PERSON_NAME}.`)
 
@@ -149,6 +159,7 @@ test('grants a base role, and the role brings every duty with it', async ({ cont
   expect(grants).toHaveLength(1)
   expect((grants[0]?.body as { person_id?: string } | undefined)?.person_id).toBe(NEW_PERSON_ID)
 
+  await page.getByRole('tab', { name: 'Deberes' }).click()
   const duties = page
     .getByRole('row')
     .filter({ hasText: NEW_PERSON_NAME })
@@ -171,7 +182,7 @@ test('a duty the role brings reads as permanent and offers no action of its own'
     createBackofficeFixture({ session: activeSession(), platformAccess: seeded() }),
   )
 
-  await page.goto('/team')
+  await page.goto('/team?tab=duties')
 
   const standing = page.getByRole('row').filter({ hasText: 'Administrar accesos de plataforma' })
   await expect(standing).toContainText('Permanente · rol admin')
@@ -207,6 +218,11 @@ test('keeps the actions of each row in a menu that names it, and red only in the
   await expect(
     page.getByRole('button', { name: `Acciones del rol base de ${SUBJECT_PERSON_NAME}` }),
   ).toBeVisible()
+
+  await page.getByRole('tab', { name: 'Deberes' }).click()
+  await expect(
+    page.getByRole('button', { name: /^(Retirar|Revocar|Suspender|Recertificar)/ }),
+  ).toHaveCount(0)
   await expect(
     page.getByRole('button', {
       name: `Acciones de «Diagnosticar metadatos de soporte» de ${SUBJECT_PERSON_NAME}`,
@@ -236,6 +252,7 @@ test('withdrawing the base role closes the duties it carried', async ({ context,
   await expect(outcome(page)).toContainText(`Rol base retirado a ${ACTOR_PERSON_NAME}.`)
   await expect(row).toContainText('Retirado')
   // The duty the person carried is now revoked, not silently missing.
+  await page.getByRole('tab', { name: 'Deberes' }).click()
   await expect(page.getByRole('cell', { name: 'Revocado' }).first()).toBeVisible()
 })
 
@@ -275,7 +292,7 @@ test('keeping a duty from the confirmation revokes nothing', async ({ context, p
   const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/team')
+  await page.goto('/team?tab=duties')
   await expect(page.getByRole('heading', { name: 'Deberes de plataforma' })).toBeVisible()
 
   await act(
@@ -315,7 +332,7 @@ test('explains a refused command as an order about oneself or a withdrawn role',
 
   await page.goto('/team')
   await chooseRecipient(page)
-  await page.getByRole('button', { name: 'Otorgar rol base' }).click()
+  await page.getByRole('button', { name: `Otorgar el rol a ${NEW_PERSON_NAME}` }).click()
 
   await expect(page.getByText(/ya no tiene el rol de administrador/)).toBeVisible()
 })
@@ -329,7 +346,7 @@ test('recertifies a duty in force, and the inventory says who and when', async (
   const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/team')
+  await page.goto('/team?tab=duties')
   await act(
     page.getByRole('row').filter({ hasText: 'Diagnosticar metadatos de soporte' }),
     'Recertificar',
@@ -358,7 +375,7 @@ test('a duty no longer in force offers no recertification', async ({ context, pa
     createBackofficeFixture({ session: activeSession(), platformAccess: access }),
   )
 
-  await page.goto('/team')
+  await page.goto('/team?tab=duties')
   const revoked = page.getByRole('row').filter({ hasText: 'Ver métricas de plataforma' })
   await expect(revoked).toContainText('Revocado')
   await expect(rowMenu(revoked)).toHaveCount(0)
@@ -372,7 +389,7 @@ test('suspends a temporary duty from its menu, and the toast says from when it s
   const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/team')
+  await page.goto('/team?tab=duties')
   const row = page.getByRole('row').filter({ hasText: 'Diagnosticar metadatos de soporte' })
   await act(row, 'Suspender')
 
@@ -404,7 +421,7 @@ test('filters the duties by state, asking the API rather than hiding rows', asyn
   const fixture = createBackofficeFixture({ session: activeSession(), platformAccess: access })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto('/team')
+  await page.goto('/team?tab=duties')
   await page.getByRole('combobox', { name: 'Estado del deber' }).click()
   await page.getByRole('option', { name: 'Suspendido', exact: true }).click()
 

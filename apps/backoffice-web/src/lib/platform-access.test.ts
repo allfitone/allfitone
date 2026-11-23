@@ -2,6 +2,9 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   actorModeLabel,
+  assuranceLabel,
+  teamHref,
+  teamTabFromQuery,
   PLATFORM_DUTY_CODES,
   dutyLabel,
   dutyOutcome,
@@ -151,5 +154,22 @@ describe('what a Team command answers', () => {
     expect(roleOutcome('granted', null)).toBe(
       'Rol base otorgado a una persona sin nombre registrado.',
     )
+  })
+})
+
+describe('the team screen', () => {
+  test('names the assurance a duty asks for, not its code in the standard', () => {
+    expect(assuranceLabel(2)).toBe('Dos factores')
+    expect(assuranceLabel(1)).toBe('Un factor')
+    expect(assuranceLabel(3)).toBe('Dos factores')
+    expect(assuranceLabel(0)).toBe('Nivel 0')
+  })
+
+  test('opens on the base role, and names the duties tab in its address', () => {
+    expect(teamTabFromQuery(null)).toBe('roles')
+    expect(teamTabFromQuery('deberes')).toBe('roles')
+    expect(teamTabFromQuery('duties')).toBe('duties')
+    expect(teamHref('roles')).toBe('/team')
+    expect(teamHref('duties')).toBe('/team?tab=duties')
   })
 })

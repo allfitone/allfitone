@@ -344,12 +344,6 @@
   padding-inline: 4px;
 }
 
-[data-platform-form] {
-  display: grid;
-  margin-block-end: 24px;
-  gap: 12px;
-}
-
 /* The identifier is the column an operator quotes in a case, so it stays
    readable and selectable rather than wrapping mid-value. */
 [data-platform-access] code {

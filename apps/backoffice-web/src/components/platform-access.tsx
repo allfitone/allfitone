@@ -18,6 +18,10 @@
  * the short identifier beside it for a case. The person who receives the role is found
  * with the same search as /people, so nobody types an identifier; that search is
  * recorded on everyone it answers, as it is there.
+ *
+ * Granting the role is the screen's one primary action, in a dialog over the
+ * inventory, and the inventory is two tabs kept in the address: the base role, and
+ * the duties with their filters on one row.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -30,6 +34,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@allfitone/react/components/dialog'
 import { DropdownMenuItem, DropdownMenuSeparator } from '@allfitone/react/components/dropdown-menu'
 import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
@@ -50,6 +64,9 @@ import {
   TableRow,
   TableState,
 } from '@allfitone/react/components/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
+import { FoundationIcon } from '@allfitone/react/icons'
+import { useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 
 import {
@@ -65,6 +82,7 @@ import {
 } from '@/lib/backoffice-api'
 import {
   actorModeLabel,
+  assuranceLabel,
   canRecertify,
   DUTY_STATUS_FILTERS,
   PLATFORM_DUTY_CODES,
@@ -82,11 +100,14 @@ import {
   roleOutcome,
   roleStatusLabel,
   roleStatusTone,
+  teamHref,
+  teamTabFromQuery,
   type PlatformDutyStatus,
 } from '@/lib/platform-access'
 import { isSearchable, supportMetadataMessage } from '@/lib/support-metadata'
 
 import { ConfirmDialog } from './confirm-action'
+import { PageHeader } from './page-header'
 import { RecordId } from './record-id'
 import { RowMenu } from './row-menu'
 import { ScreenFailure, ScreenLoading, ScreenRefusal } from './screen-state'
@@ -121,6 +142,7 @@ function dutyQuery(filter: DutyFilter): PlatformDutyFilters {
 }
 
 export function PlatformAccess() {
+  const tab = teamTabFromQuery(useSearchParams().get('tab'))
   const [state, setState] = useState<LoadState>('loading')
   const [inventory, setInventory] = useState<Inventory>(EMPTY)
   const [failure, setFailure] = useState<string | null>(null)
@@ -223,8 +245,8 @@ export function PlatformAccess() {
         title="No puedes ver este inventario"
         duties={['manage_platform_access', 'audit_platform_access']}
       >
-        Consultarlo exige el rol de administrador vigente, con AAL2. Si lo tenías, puede haber sido
-        retirado.
+        Consultarlo exige el rol de administrador vigente, con dos factores. Si lo tenías, puede
+        haber sido retirado.
       </ScreenRefusal>
     )
   }
@@ -243,6 +265,21 @@ export function PlatformAccess() {
 
   return (
     <div data-platform-access>
+      <PageHeader
+        description="Quién del equipo de Allfit One llega a los datos, con qué deber y desde cuándo. El rol de administrador trae todos los deberes mientras dure."
+        actions={
+          <GrantRoleDialog
+            busy={busy}
+            onGrant={(person) =>
+              void run(
+                () => backofficeApi.grantPlatformRole(person.person_id, newBackofficeCommand()),
+                roleOutcome('granted', person.display_name),
+              )
+            }
+          />
+        }
+      />
+
       {failure ? (
         <Alert live="polite" variant="danger">
           <AlertTitle>No se aplicó</AlertTitle>
@@ -250,53 +287,67 @@ export function PlatformAccess() {
         </Alert>
       ) : null}
 
-      <BaseRoleSection
-        assignments={inventory.roles}
-        busy={busy}
-        hasMore={inventory.roleCursor !== null}
-        appending={appending === 'roles'}
-        onLoadMore={() => void loadMore('roles')}
-        onGrant={(person) =>
-          run(
-            () => backofficeApi.grantPlatformRole(person.person_id, newBackofficeCommand()),
-            roleOutcome('granted', person.display_name),
+      {/* Next keeps `useSearchParams` in step with the history API: no navigation, no reload. */}
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          window.history.replaceState(
+            null,
+            '',
+            teamHref(teamTabFromQuery(typeof value === 'string' ? value : null)),
           )
         }
-        onRevoke={(assignment) =>
-          run(
-            () => backofficeApi.revokePlatformRole(assignment.id, newBackofficeCommand()),
-            roleOutcome('revoked', assignment.person_name),
-          )
-        }
-      />
-
-      <DutySection
-        assignments={inventory.duties}
-        filter={dutyFilter}
-        onFilter={setDutyFilter}
-        busy={busy}
-        hasMore={inventory.dutyCursor !== null}
-        appending={appending === 'duties'}
-        onLoadMore={() => void loadMore('duties')}
-        onSuspend={(assignment) =>
-          run(
-            () => backofficeApi.suspendPlatformDuty(assignment.id, newBackofficeCommand()),
-            dutyOutcome('suspended', assignment.duty_code, assignment.person_name),
-          )
-        }
-        onRevoke={(assignment) =>
-          run(
-            () => backofficeApi.revokePlatformDuty(assignment.id, newBackofficeCommand()),
-            dutyOutcome('revoked', assignment.duty_code, assignment.person_name),
-          )
-        }
-        onRecertify={(assignment) =>
-          run(
-            () => backofficeApi.recertifyPlatformDuty(assignment.id, newBackofficeCommand()),
-            dutyOutcome('recertified', assignment.duty_code, assignment.person_name),
-          )
-        }
-      />
+        data-team-tabs
+      >
+        <TabsList variant="line" aria-label="Secciones del equipo">
+          <TabsTrigger value="roles">Rol base</TabsTrigger>
+          <TabsTrigger value="duties">Deberes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="roles" data-record-tab>
+          <BaseRoleSection
+            assignments={inventory.roles}
+            busy={busy}
+            hasMore={inventory.roleCursor !== null}
+            appending={appending === 'roles'}
+            onLoadMore={() => void loadMore('roles')}
+            onRevoke={(assignment) =>
+              run(
+                () => backofficeApi.revokePlatformRole(assignment.id, newBackofficeCommand()),
+                roleOutcome('revoked', assignment.person_name),
+              )
+            }
+          />
+        </TabsContent>
+        <TabsContent value="duties" data-record-tab>
+          <DutySection
+            assignments={inventory.duties}
+            filter={dutyFilter}
+            onFilter={setDutyFilter}
+            busy={busy}
+            hasMore={inventory.dutyCursor !== null}
+            appending={appending === 'duties'}
+            onLoadMore={() => void loadMore('duties')}
+            onSuspend={(assignment) =>
+              run(
+                () => backofficeApi.suspendPlatformDuty(assignment.id, newBackofficeCommand()),
+                dutyOutcome('suspended', assignment.duty_code, assignment.person_name),
+              )
+            }
+            onRevoke={(assignment) =>
+              run(
+                () => backofficeApi.revokePlatformDuty(assignment.id, newBackofficeCommand()),
+                dutyOutcome('revoked', assignment.duty_code, assignment.person_name),
+              )
+            }
+            onRecertify={(assignment) =>
+              run(
+                () => backofficeApi.recertifyPlatformDuty(assignment.id, newBackofficeCommand()),
+                dutyOutcome('recertified', assignment.duty_code, assignment.person_name),
+              )
+            }
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -307,7 +358,6 @@ function BaseRoleSection({
   hasMore,
   appending,
   onLoadMore,
-  onGrant,
   onRevoke,
 }: {
   assignments: PlatformRoleAssignment[]
@@ -315,48 +365,8 @@ function BaseRoleSection({
   hasMore: boolean
   appending: boolean
   onLoadMore: () => void
-  onGrant: (person: PersonMatch) => void
   onRevoke: (assignment: PlatformRoleAssignment) => Promise<void>
 }) {
-  const [term, setTerm] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [found, setFound] = useState<SupportPeopleSearch | null>(null)
-  const [chosen, setChosen] = useState<PersonMatch | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  async function search(event: FormEvent) {
-    event.preventDefault()
-    const wanted = term.trim()
-    if (!isSearchable(wanted)) {
-      setError('Escribe al menos dos caracteres del nombre, el correo o el teléfono.')
-      return
-    }
-    setError(null)
-    setChosen(null)
-    setSearching(true)
-    try {
-      setFound(await backofficeApi.searchSupportPeople({ query: wanted, caseReference: '' }))
-    } catch (failure) {
-      setFound(null)
-      setError(searchFailureMessage(failure))
-    } finally {
-      setSearching(false)
-    }
-  }
-
-  function grant() {
-    if (!chosen || !isValidPersonId(chosen.person_id)) {
-      setError('Elige a la persona que recibe el rol.')
-      return
-    }
-    const person = chosen
-    setError(null)
-    setChosen(null)
-    setFound(null)
-    setTerm('')
-    onGrant(person)
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -364,81 +374,11 @@ function BaseRoleSection({
           Rol base
         </CardTitle>
         <CardDescription>
-          `allfit_admin` trae todos los deberes mientras dure. Nadie se lo otorga a sí mismo, y
-          retirarlo revoca sus deberes y cierra su sesión.
+          El rol de administrador trae todos los deberes mientras dure. Nadie se lo otorga a sí
+          mismo, y retirarlo revoca sus deberes y cierra su sesión.
         </CardDescription>
       </CardHeader>
       <CardContent data-card-body>
-        <form
-          onSubmit={(event) => void search(event)}
-          data-backoffice-form
-          data-platform-form
-          noValidate
-        >
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="platform-role-person">Buscar a quien recibe el rol</FieldLabel>
-              <Input
-                id="platform-role-person"
-                value={term}
-                onChange={(event) => setTerm(event.target.value)}
-                placeholder="Nombre, correo o teléfono"
-                autoComplete="off"
-                disabled={busy || searching}
-              />
-            </Field>
-            {error ? <FieldError>{error}</FieldError> : null}
-            <div data-form-actions>
-              <Button type="submit" variant="outline" disabled={busy || searching}>
-                {searching ? 'Buscando…' : 'Buscar'}
-              </Button>
-            </div>
-          </FieldGroup>
-        </form>
-        <p data-role-search-note>
-          La búsqueda queda registrada, y cada persona que aparece la ve en su historial.
-        </p>
-
-        {found ? (
-          found.items.length === 0 ? (
-            <p data-role-candidates-empty>Nadie coincide con esa búsqueda.</p>
-          ) : (
-            <ul data-role-candidates aria-label="Personas que coinciden">
-              {found.items.map((person) => (
-                <li key={person.person_id} data-role-candidate={person.person_id}>
-                  <strong>{person.display_name}</strong>{' '}
-                  <span>{person.contact_email ?? 'Sin correo'}</span>{' '}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={chosen?.person_id === person.person_id ? 'default' : 'outline'}
-                    aria-pressed={chosen?.person_id === person.person_id}
-                    disabled={busy}
-                    onClick={() => setChosen(person)}
-                  >
-                    Elegir
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )
-        ) : null}
-        {found?.has_more ? (
-          <p data-role-candidates-more>Coinciden más personas: escribe algo más preciso.</p>
-        ) : null}
-
-        {chosen ? (
-          <div data-role-chosen>
-            <p>
-              Recibirá el rol base: <strong>{chosen.display_name}</strong>
-              {chosen.contact_email ? ` (${chosen.contact_email})` : ''}
-            </p>
-            <Button type="button" disabled={busy} onClick={grant}>
-              Otorgar rol base
-            </Button>
-          </div>
-        ) : null}
-
         <Table scrollAreaLabel="Asignaciones de rol base">
           <TableHeader>
             <TableRow>
@@ -530,14 +470,13 @@ function DutySection({
           Deberes de plataforma
         </CardTitle>
         <CardDescription>
-          El rol de administrador trae los trece deberes, con AAL2, y duran lo que dure el rol. Un
-          deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
+          El rol de administrador trae los trece deberes, con dos factores, y duran lo que dure el
+          rol. Un deber temporal de antes vence en su fecha y aún se puede suspender o revocar.
         </CardDescription>
       </CardHeader>
       <CardContent data-card-body>
-        <FieldGroup data-platform-duty-filters>
-          <Field>
-            <FieldLabel htmlFor="platform-duty-status-filter">Estado del deber</FieldLabel>
+        <div role="group" aria-label="Filtrar los deberes" data-list-toolbar>
+          <div data-list-filter>
             <Select
               value={filter.status === '' ? ALL : filter.status}
               onValueChange={(value) =>
@@ -547,7 +486,7 @@ function DutySection({
                 })
               }
             >
-              <SelectTrigger id="platform-duty-status-filter" disabled={busy}>
+              <SelectTrigger aria-label="Estado del deber" disabled={busy}>
                 <SelectValue>
                   {DUTY_STATUS_FILTERS.find((option) => option.value === filter.status)?.label}
                 </SelectValue>
@@ -560,9 +499,8 @@ function DutySection({
                 ))}
               </SelectContent>
             </Select>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="platform-duty-code-filter">Filtrar por deber</FieldLabel>
+          </div>
+          <div data-list-filter>
             <Select
               value={filter.dutyCode === '' ? ALL : filter.dutyCode}
               onValueChange={(value) =>
@@ -572,7 +510,7 @@ function DutySection({
                 })
               }
             >
-              <SelectTrigger id="platform-duty-code-filter" disabled={busy}>
+              <SelectTrigger aria-label="Filtrar por deber" disabled={busy}>
                 <SelectValue>
                   {filter.dutyCode === '' ? 'Todos los deberes' : dutyLabel(filter.dutyCode)}
                 </SelectValue>
@@ -586,8 +524,8 @@ function DutySection({
                 ))}
               </SelectContent>
             </Select>
-          </Field>
-        </FieldGroup>
+          </div>
+        </div>
 
         <Table scrollAreaLabel="Asignaciones de deber">
           <TableHeader>
@@ -596,7 +534,7 @@ function DutySection({
               <TableHead>Deber</TableHead>
               <TableHead>Modo</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead>AAL</TableHead>
+              <TableHead>Verificación</TableHead>
               <TableHead>Vigencia</TableHead>
               <TableHead>Otorgó</TableHead>
               <TableHead>Recertificado</TableHead>
@@ -626,7 +564,7 @@ function DutySection({
                       {dutyStatusLabel(assignment.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell numeric>{assignment.required_aal}</TableCell>
+                  <TableCell>{assuranceLabel(assignment.required_aal)}</TableCell>
                   <TableCell>{dutyWindowLabel(assignment)}</TableCell>
                   <TableCell>
                     <PersonCell
@@ -663,6 +601,159 @@ function DutySection({
         />
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * The person who receives the role is found with the same search as /people, so
+ * nobody types an identifier. That search is recorded on everyone it answers, and
+ * the dialog says so before anyone searches.
+ */
+function GrantRoleDialog({
+  busy,
+  onGrant,
+}: {
+  busy: boolean
+  onGrant: (person: PersonMatch) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [term, setTerm] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [found, setFound] = useState<SupportPeopleSearch | null>(null)
+  const [chosen, setChosen] = useState<PersonMatch | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  function reset() {
+    setTerm('')
+    setFound(null)
+    setChosen(null)
+    setError(null)
+  }
+
+  async function search(event: FormEvent) {
+    event.preventDefault()
+    const wanted = term.trim()
+    if (!isSearchable(wanted)) {
+      setError('Escribe al menos dos caracteres del nombre, el correo o el teléfono.')
+      return
+    }
+    setError(null)
+    setChosen(null)
+    setSearching(true)
+    try {
+      setFound(await backofficeApi.searchSupportPeople({ query: wanted, caseReference: '' }))
+    } catch (failure) {
+      setFound(null)
+      setError(searchFailureMessage(failure))
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  // The dialog closes on the order; the toast or the screen's alert says how it went.
+  function grant() {
+    if (!chosen || !isValidPersonId(chosen.person_id)) {
+      setError('Elige a la persona que recibe el rol.')
+      return
+    }
+    const person = chosen
+    setOpen(false)
+    reset()
+    onGrant(person)
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) reset()
+        setOpen(next)
+      }}
+    >
+      <DialogTrigger render={<Button type="button" disabled={busy} />}>
+        <FoundationIcon name="add" decorative />
+        Otorgar el rol base
+      </DialogTrigger>
+      <DialogContent data-grant-role-dialog>
+        <DialogHeader>
+          <DialogTitle>Otorgar el rol base</DialogTitle>
+          <DialogDescription>
+            Trae todos los deberes mientras dure. Nadie se lo otorga a sí mismo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={(event) => void search(event)} data-backoffice-form noValidate>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="platform-role-person">Buscar a quien recibe el rol</FieldLabel>
+              <Input
+                id="platform-role-person"
+                value={term}
+                onChange={(event) => setTerm(event.target.value)}
+                placeholder="Nombre, correo o teléfono"
+                autoComplete="off"
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'platform-role-person-issue' : undefined}
+                disabled={busy || searching}
+              />
+              {error ? <FieldError id="platform-role-person-issue">{error}</FieldError> : null}
+            </Field>
+            <div data-form-actions>
+              <Button type="submit" variant="outline" disabled={busy || searching}>
+                {searching ? 'Buscando…' : 'Buscar'}
+              </Button>
+            </div>
+          </FieldGroup>
+        </form>
+        <p data-role-search-note>
+          La búsqueda queda registrada, y cada persona que aparece la ve en su historial.
+        </p>
+
+        {found ? (
+          found.items.length === 0 ? (
+            <p data-role-candidates-empty>Nadie coincide con esa búsqueda.</p>
+          ) : (
+            <ul data-role-candidates aria-label="Personas que coinciden">
+              {found.items.map((person) => (
+                <li key={person.person_id} data-role-candidate={person.person_id}>
+                  <strong>{person.display_name}</strong>{' '}
+                  <span>{person.contact_email ?? 'Sin correo'}</span>{' '}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={chosen?.person_id === person.person_id ? 'default' : 'outline'}
+                    aria-pressed={chosen?.person_id === person.person_id}
+                    disabled={busy}
+                    onClick={() => setChosen(person)}
+                  >
+                    Elegir
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : null}
+        {found?.has_more ? (
+          <p data-role-candidates-more>Coinciden más personas: escribe algo más preciso.</p>
+        ) : null}
+
+        {chosen ? (
+          <p data-role-chosen>
+            Recibirá el rol base: <strong>{chosen.display_name}</strong>
+            {chosen.contact_email ? ` (${chosen.contact_email})` : ''}
+          </p>
+        ) : null}
+
+        <DialogFooter data-confirm-footer>
+          <DialogClose render={<Button type="button" variant="outline" />}>Cancelar</DialogClose>
+          {chosen ? (
+            <Button type="button" disabled={busy} onClick={grant}>
+              Otorgar el rol a {chosen.display_name}
+            </Button>
+          ) : null}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

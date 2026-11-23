@@ -132,6 +132,28 @@ export function canRecertify(status: PlatformDutyStatus): boolean {
   return status === 'active'
 }
 
+/**
+ * The assurance a duty asks of the session, in the words an operator uses: «AAL2»
+ * is the standard's name for signing in with a second factor.
+ */
+export function assuranceLabel(aal: number): string {
+  if (aal >= 2) return 'Dos factores'
+  if (aal === 1) return 'Un factor'
+  return `Nivel ${String(aal)}`
+}
+
+export const TEAM_TABS = ['roles', 'duties'] as const
+
+export type TeamTab = (typeof TEAM_TABS)[number]
+
+export function teamTabFromQuery(value: string | null): TeamTab {
+  return TEAM_TABS.find((tab) => tab === value) ?? 'roles'
+}
+
+export function teamHref(tab: TeamTab): string {
+  return tab === 'roles' ? '/team' : `/team?tab=${tab}`
+}
+
 /** HU-BO-029 c2: every effective state the API filters on, and none. */
 export const DUTY_STATUS_FILTERS: readonly { value: PlatformDutyStatus | ''; label: string }[] = [
   { value: '', label: 'Todos los estados' },
