@@ -39,7 +39,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
   Select,
@@ -198,7 +204,7 @@ export function ResultContractPublication() {
       return false
     }
     if (!parseJsonDocument(envelope).ok) {
-      setError('El envelope debe ser un objeto JSON.')
+      setError('Los campos de la sesión deben ser un objeto JSON.')
       return false
     }
     if (!parseJsonDocument(minimums).ok) {
@@ -390,14 +396,20 @@ export function ResultContractPublication() {
                 </Select>
               </Field>
               <Field>
-                <FieldLabel htmlFor="contract-envelope">Envelope</FieldLabel>
+                {/* The contract calls it the envelope; the operator is told what it holds. */}
+                <FieldLabel htmlFor="contract-envelope">Campos de la sesión</FieldLabel>
                 <Textarea
                   id="contract-envelope"
                   value={envelope}
                   onChange={(event) => setEnvelope(event.target.value)}
                   rows={5}
+                  aria-describedby="contract-envelope-description"
                   disabled={busy}
                 />
+                <FieldDescription id="contract-envelope-description">
+                  Lo que registra toda sesión de este tipo, campo por campo, y desde qué nivel de
+                  detalle se exige cada uno. Va en JSON.
+                </FieldDescription>
               </Field>
               <Field>
                 <FieldLabel htmlFor="contract-minimums">Mínimos por completitud</FieldLabel>

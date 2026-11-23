@@ -325,3 +325,31 @@ test('keeping the current version from the publish question publishes nothing', 
     ),
   ).toHaveLength(0)
 })
+
+test('names what every session records in words, not by its technical name', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({ session: activeSession() })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  // «Envelope» named nothing an operator knows; the field says what it holds.
+  const fields = page.getByLabel('Campos de la sesión')
+  await expect(fields).toHaveAccessibleDescription(/desde qué nivel/)
+  await expect(page.getByText('Envelope', { exact: true })).toHaveCount(0)
+
+  await fillPublication(page)
+  await fields.fill('[]')
+  await page.getByRole('button', { name: 'Publicar versión' }).click()
+  await expect(page.getByText('Los campos de la sesión deben ser un objeto JSON.')).toBeVisible()
+
+  await fields.fill('{"schema":1}')
+  await publish(page)
+  await expect(page.getByText('Publicada la versión 1 de test.backoffice_front')).toBeVisible()
+  // Only the words on screen changed: the contract still calls the document the envelope.
+  const published = fixture.requests.find(
+    (request) => request.method === 'POST' && request.path === '/backoffice/v1/result-contracts',
+  )
+  expect(published?.body).toHaveProperty('envelope', { schema: 1 })
+})
