@@ -142,3 +142,25 @@ test('a figure the API sends without a period is not shown at all', async ({ con
   await expect(page.locator('[data-business-metric="organizations"]')).toBeVisible()
   await expect(page.locator('[data-business-metric="registered_people"]')).toHaveCount(0)
 })
+
+test('what needs attention comes first, then the business, and the session last', async ({
+  context,
+  page,
+}) => {
+  await mockBackofficeApi(context, createBackofficeFixture({ session: activeSession() }))
+
+  await page.goto('/panel')
+  await expect(page.locator('[data-business-panel]')).toBeVisible()
+
+  // The session asks nobody to act, so it no longer pushes the notices down the page.
+  const order = await page.evaluate(() =>
+    ['[data-attention-panel]', '[data-business-panel]', '[data-operator-panel]'].map((selector) => {
+      const element = document.querySelector(selector)
+      return element ? element.getBoundingClientRect().top + window.scrollY : -1
+    }),
+  )
+  expect(order.every((top) => top >= 0)).toBe(true)
+  expect(order).toEqual([...order].sort((a, b) => a - b))
+  // A measured figure is the normal case: only one that is not says so.
+  await expect(page.locator('[data-business-panel]').getByText('Medido')).toHaveCount(0)
+})

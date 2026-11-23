@@ -3,8 +3,10 @@
 /**
  * `HU-BO-004` — how the business is going.
  *
- * One number per card, with the period under it, because a figure whose period
- * the reader has to assume is worse than no figure. A figure the platform cannot
+ * One number per figure, with the period under it, because a figure whose period
+ * the reader has to assume is worse than no figure. Each section is one card and its
+ * figures sit in a grid inside it: sixteen cards of their own, each with a «Medido»
+ * badge, made Inicio 3473px tall. A figure the platform cannot
  * give is drawn blank with the reason in its place: never a zero, which would be
  * read as "the business is at zero" rather than "we cannot answer".
  *
@@ -190,28 +192,20 @@ export function BusinessPanel() {
                 const note = metricNote(metric, panel.minimum_aggregate)
                 const hint = metricHint(metric.key)
                 return (
-                  <Card
+                  <div
                     key={metric.key}
                     data-business-metric={metric.key}
                     data-availability={metric.availability}
                   >
-                    <CardHeader>
-                      <CardTitle role="heading" aria-level={4}>
-                        {metricLabel(metric.key)}
-                      </CardTitle>
-                      <CardDescription>
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent data-card-body>
-                      <div data-business-body>
-                        <p data-business-value>{metricValue(metric)}</p>
-                        <p data-business-period>{periodPhrase(metric.period)}</p>
-                        {note ? <p data-business-note>{note}</p> : null}
-                        {hint ? <p data-business-hint>{hint}</p> : null}
-                      </div>
-                    </CardContent>
-                  </Card>
+                    <div data-business-body>
+                      <h4 data-business-label>{metricLabel(metric.key)}</h4>
+                      <p data-business-value>{metricValue(metric)}</p>
+                      <p data-business-period>{periodPhrase(metric.period)}</p>
+                      {badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : null}
+                      {note ? <p data-business-note>{note}</p> : null}
+                      {hint ? <p data-business-hint>{hint}</p> : null}
+                    </div>
+                  </div>
                 )
               })}
             </div>

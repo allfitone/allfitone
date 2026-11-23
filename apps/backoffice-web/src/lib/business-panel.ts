@@ -190,12 +190,16 @@ export function metricNote(metric: SupportBusinessMetric, minimum: number): stri
   return (metric.reason ? REASONS[metric.reason] : null) ?? NOT_MODELLED_NOTE
 }
 
-/** What a badge should say about a figure, which is never "cero". */
+/**
+ * What a badge should say about a figure that is not there, which is never "cero".
+ * A measured figure is the normal case and carries none: «Medido» on all sixteen
+ * said nothing, and hid the few that were blank for a reason.
+ */
 export function metricBadge(metric: SupportBusinessMetric): {
   label: string
-  variant: 'secondary' | 'success'
-} {
-  if (metric.availability === 'available') return { label: 'Medido', variant: 'success' }
+  variant: 'secondary'
+} | null {
+  if (metric.availability === 'available') return null
   if (metric.availability === 'below_threshold') {
     return { label: 'Grupo muy pequeño', variant: 'secondary' }
   }

@@ -9,16 +9,17 @@ export const metadata: Metadata = {
 }
 
 /**
- * The session first, because it is the one thing every operator can read. What
- * needs attention comes next because it asks somebody to act; how the business
- * is going comes last and refuses on its own without taking the screen down.
+ * What needs attention first, because it asks somebody to act; how the business
+ * is going next, refusing on its own without taking the screen down; the session
+ * last. It used to come first, and pushed the notices below the fold of a page
+ * whose point is them.
  */
 export default function PanelPage() {
   return (
     <div data-panel-home>
-      <OperatorPanel />
       <AttentionPanel />
       <BusinessPanel />
+      <OperatorPanel />
     </div>
   )
 }

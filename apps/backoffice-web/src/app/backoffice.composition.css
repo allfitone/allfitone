@@ -432,8 +432,21 @@
   gap: 8px;
 }
 
-[data-business-body] p {
+[data-business-body] p,
+[data-business-body] [data-business-label] {
   margin: 0;
+}
+
+/* Each figure is a block inside its section's card, set apart by a rule rather than
+   a card of its own. */
+[data-business-metric] {
+  border-inline-start: 2px solid var(--afo-color-border-subtle);
+  padding-inline-start: var(--afo-space-3);
+}
+
+[data-business-body] [data-business-label] {
+  font-size: var(--afo-font-size-sm);
+  font-weight: var(--afo-font-weight-semibold);
 }
 
 /* The number is the point of the card; the period under it is what makes it mean
