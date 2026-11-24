@@ -25,7 +25,7 @@ test('renames a site and the list shows the new name', async ({ page }) => {
 
   await expect(page).toHaveURL(new RegExp(`${organizationPath}$`))
   await expect(
-    page.getByRole('list', { name: 'Sedes de la organización' }).getByText('Sede Chapinero Norte'),
+    page.getByRole('table', { name: 'Sedes de la organización' }).getByText('Sede Chapinero Norte'),
   ).toBeVisible()
 
   /*
@@ -91,9 +91,9 @@ test('withdrawing a site says what it leaves alone, and keeps it on the list', a
   await dialog.getByRole('button', { name: 'Retirar de servicio' }).click()
 
   await expect(page).toHaveURL(new RegExp(`${organizationPath}$`))
-  const sites = page.getByRole('list', { name: 'Sedes de la organización' })
+  const sites = page.getByRole('table', { name: 'Sedes de la organización' })
   await expect(sites.getByText(chapineroSite.name)).toBeVisible()
-  await expect(sites.getByRole('listitem').filter({ hasText: chapineroSite.name })).toContainText(
+  await expect(sites.getByRole('row').filter({ hasText: chapineroSite.name })).toContainText(
     'Inactiva',
   )
 
@@ -159,7 +159,7 @@ test('a role that does not manage sites cannot reach the edit screen', async ({ 
   const coachOrganization = `/organizations/${secondActiveMembership.organization_id}/organization`
 
   await page.goto(coachOrganization)
-  await expect(page.getByRole('list', { name: 'Sedes de la organización' })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Sedes de la organización' })).toBeVisible()
   await expect(page.getByRole('link', { name: /^Editar / })).toHaveCount(0)
 
   await page.goto(`${coachOrganization}/sites/${chapineroSite.id}`)

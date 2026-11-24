@@ -11,21 +11,32 @@
   /* One measure for reading, one for the workspace canvas. Without them the
      product stretches a single sentence across 1400px on a wide display.
 
-     The canvas is 64rem because that is what the content it holds turned out to
-     want: the overview had already been pulled back to it on its own, since at
-     82rem its rows put a name at one edge and a badge at the other. Leaving the
-     two at different widths made the page jump 144px per side on every move
-     between sections. A workspace has one canvas. */
-  --studio-measure: 58rem;
-  --studio-canvas: 64rem;
+     **A workspace has one canvas**, and this is it. Two of them were tried and
+     did not survive contact: the reading screens sat at 64rem while the home,
+     the library and the billing register took 100rem, so on a 1920px display
+     moving between two sidebar entries shifted the whole page 288px per side.
+     A jump that size reads as a different product, not a different section.
 
-  /* The screens that leave that canvas, and why they may. The home is a
-     board: given more room its notices take a third column and its figures
-     move beside the day, so the width goes to another card and never to a
-     longer row — which was the whole case for 64rem. Held to that canvas on a
-     1920px display it sat in a third of the screen between two empty ones. The
-     library is a grid of small cards, so more room is another column too. */
-  --studio-canvas-board: 100rem;
+     100rem rather than 64rem because the screens that had already earned the
+     room are the ones whose content answers for it, and the narrow ones lose
+     nothing by matching: their lists become tables sooner and their figures
+     share a row. What the width must never buy is a longer row — the overview
+     was pulled back from 82rem precisely because its rows put a name at one
+     edge and a badge at the other. So anything inside that would stretch
+     instead of re-flowing carries its own limit, which is what the prose rule
+     under the canvases below applies. */
+  --studio-measure: 58rem;
+  --studio-canvas: 100rem;
+
+  /* What a register of rows is allowed to span. A row holds a name at one end
+     and a badge or an action at the other, so given the whole canvas its two
+     ends stop reading as one row — the failure that pulled the overview back
+     from 82rem. The library answers the same width by packing cards of their
+     own size to the left and leaving the rest, and a capped register is that
+     answer for a list: the strip of figures above it takes the same measure,
+     so their right edges line up. Tables are exempt, since a column absorbs
+     the room. */
+  --studio-row-measure: 48rem;
 
   /* The privacy control floats over the bottom-right corner: 16px of offset and
      a 44px target. Content that ends underneath it cannot be scrolled clear,
@@ -40,15 +51,6 @@
 [data-profile-content] > * {
   width: min(100%, var(--studio-canvas));
   margin-inline: auto;
-}
-
-/* Only the board, and its placeholder so nothing widens when the answer
-   arrives. A refusal or a failure is a sentence and keeps the reading canvas. */
-[data-organization-content] > [data-today-panel='board'],
-[data-organization-content] > [data-content-page='library'],
-[data-organization-content] > [data-content-page='program'],
-[data-organization-content] > [data-billing-page='register'] {
-  width: min(100%, var(--studio-canvas-board));
 }
 
 /* WorkspaceContent is a padded block with no rhythm of its own, so sections
@@ -746,9 +748,9 @@
 }
 
 /* Two or more stats take the canvas, so the strip's right edge lines up with
-   the cards below it instead of stopping 576px short of them. The cap above
-   still applies to a lone stat, and one number centred in 1024px is what the
-   cap was put there to prevent. */
+   the register below it instead of stopping short of it. The cap above still
+   applies to a lone stat, and one number centred in a canvas is what the cap
+   was put there to prevent. */
 [data-organization-signals][data-signals-multiple],
 [data-profile-signals][data-signals-multiple] {
   min-width: 100%;
@@ -792,7 +794,16 @@
   gap: var(--afo-space-3);
 }
 
-[data-organization-site-list] > li,
+/* The rows that hold a name at one end and a badge or an action at the other,
+   so they are the ones the canvas cannot simply be given to — see
+   `--studio-row-measure`. Capped on the row rather than on the list, because
+   one of these is not in a list at all.
+
+   The organization's sites are deliberately not here any more: a register that
+   answers the canvas with columns and a heading row does not need the cap, and
+   the cap is what made that section stop 500px before the hairline above it.
+   These five still take it, and each becomes a candidate for the same
+   treatment when its screen is next worked on. */
 [data-relationship-substitution-list] > li,
 [data-content-version-list] > li,
 [data-role-capability-list] > li,
@@ -800,6 +811,7 @@
 [data-historical-case-chosen] {
   display: flex;
   min-width: 0;
+  max-width: var(--studio-row-measure);
   align-items: center;
   gap: var(--afo-space-3);
 }
@@ -3198,15 +3210,15 @@
 /* Label above value, the same pairing the rest of Studio uses. The grid stays
    single-column on a phone and pairs up once there is room for two to read as
    columns rather than as one long ladder. */
+/* Columns of their own size, packed to the left — the shape the library's card
+   grid already answers a wide canvas with. Two stretched halves put «Nombre»
+   and «Razón social» 500px apart on a 1920px display and dropped «Tipo» onto a
+   second row with nothing beside it; three facts belong on one line. */
 [data-organization-facts] {
   display: grid;
-  gap: var(--afo-space-4);
-}
-
-@media (width >= 40rem) {
-  [data-organization-facts] {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 18rem));
+  justify-content: start;
+  gap: var(--afo-space-4) var(--afo-space-8);
 }
 
 [data-organization-fact] {
@@ -3969,9 +3981,26 @@
 
 [data-relationship-termination-lead],
 [data-organization-closure-lead] {
-  max-width: 62ch;
   margin-block: 0;
   color: var(--afo-color-text-muted);
+}
+
+/* The closure is the one section of this page that is prose, and it takes the
+   canvas like every section above it. The reading measure was kept here first
+   and read as an unfinished section: the hairline, the headings and the sites
+   table all reached the edge and this stopped two thirds of the way, with no
+   reason a reader could see. The cost is a long line, and it is a real one —
+   this is a product decision taken knowing it.
+
+   The sibling on the client's screen keeps the measure until that screen is
+   looked at, rather than being changed from here on a judgement made about
+   this one. */
+[data-relationship-termination-lead] {
+  max-width: 62ch;
+}
+
+[data-organization-closure-lead] {
+  justify-self: stretch;
 }
 
 [data-relationship-termination] > [data-relationship-terminate],
@@ -3979,9 +4008,10 @@
   margin-block-start: var(--afo-space-3);
 }
 
-/* El motivo del bloqueo toma el ancho: es una alerta, no una etiqueta, y con
-   `justify-items: start` encima se encogeria a su texto y se leeria como un
-   badge en vez de como lo que impide cerrar. */
+/* The reason it is blocked takes the width: it is an alert, not a label, and
+   under the `justify-items: start` above it would shrink to its text and read
+   as a badge rather than as what stands in the way of closing. It takes the
+   whole section, like the lead above it — see that rule for why. */
 [data-organization-closure] > [data-organization-closure-blocked] {
   justify-self: stretch;
 }

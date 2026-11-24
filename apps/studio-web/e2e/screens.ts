@@ -111,6 +111,18 @@ async function settledByHeading(page: Page): Promise<void> {
 }
 
 /**
+ * The organization's sites, in whichever presentation the room allows: a table
+ * where it fits, a list of stacked rows where it does not. Every screen here is
+ * swept at the mobile viewport as well as its own, so a locator naming one of
+ * the two finds nothing on half the runs — which is how the register landing on
+ * `getByRole('table')` broke the phone sweep of a screen it was not about.
+ */
+function sitesRegister(page: Page) {
+  const name = 'Sedes de la organización'
+  return page.getByRole('table', { name }).or(page.getByRole('list', { name }))
+}
+
+/**
  * A screen that opens with a dialog over it. The page's `h1` is behind a modal
  * then, out of the accessibility tree, so the dialog is what says it arrived.
  */
@@ -3987,19 +3999,21 @@ export const SCREENS: Screen[] = [
     settled: async (page) => {
       await settledByHeading(page)
       await expect(page.getByText('Allfit Gym SAS')).toBeVisible()
-      await expect(page.getByRole('list', { name: 'Sedes de la organización' })).toBeVisible()
+      await expect(sitesRegister(page)).toBeVisible()
     },
   },
   {
-    // Label-above-value pairs and the site rows both reflow here: the facts
-    // drop from two columns to one, and each site stacks its address.
+    // The same register in its other presentation, which is why both are
+    // swept: with the room the sites are a table, and on a phone they are a
+    // list that stacks each address under its name. The facts above them
+    // reflow here too, from a row of columns to one.
     stories: 'HU-011 · the organization and its sites on a phone',
     path: `${workspace}/organization`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
     settled: async (page) => {
       await settledByHeading(page)
-      await expect(page.getByRole('list', { name: 'Sedes de la organización' })).toBeVisible()
+      await expect(sitesRegister(page)).toBeVisible()
     },
   },
   {

@@ -31,8 +31,9 @@ test('reads the organization and every site it operates from', async ({ page }) 
 
   // A withdrawn site stays on the list. It is the only way to tell that the
   // organization once operated from there, and the count says so out loud.
-  const sites = page.getByRole('list', { name: 'Sedes de la organización' })
-  await expect(sites.getByRole('listitem')).toHaveCount(3)
+  const sites = page.getByRole('table', { name: 'Sedes de la organización' })
+  // Four rows for three sites: the register names its columns.
+  await expect(sites.getByRole('row')).toHaveCount(4)
   await expect(sites.getByText('Sede Chicó')).toBeVisible()
   await expect(sites.getByText('Sin dirección registrada')).toBeVisible()
 })
@@ -113,10 +114,16 @@ test('an outage offers a retry, and the retry succeeds once the read recovers', 
  * as one word. Every axe and layout check passed on it: no rule was broken,
  * the screen was simply unreadable.
  *
+ * The register now answers a wide canvas with columns and a narrow one with
+ * stacked rows, so the two can only be checked by what they must both deliver:
+ * the name and the address never touch. Where they stack, the gap is vertical
+ * and smaller than the gap to the next site, because what belongs together
+ * separates less than what merely follows.
+ *
  * The assertions measure the relationship rather than the pixel values, so a
  * change to the spacing scale keeps this honest instead of brittle.
  */
-test('each site reads as a block, not as a run of lines', async ({ page }) => {
+test('a site never reads as one word, in columns or stacked', async ({ page }) => {
   for (const viewport of [
     { width: 1440, height: 900 },
     { width: 390, height: 844 },
@@ -124,21 +131,23 @@ test('each site reads as a block, not as a run of lines', async ({ page }) => {
     await page.setViewportSize(viewport)
     await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
     await page.goto(organizationPath)
-    await expect(page.getByRole('list', { name: 'Sedes de la organización' })).toBeVisible()
+    await expect(page.locator('[data-organization-site]').first()).toBeVisible()
 
     const rows = await page.evaluate(() => {
       const entries = [...document.querySelectorAll('[data-organization-site]')]
       return entries.map((entry, index) => {
-        const name = entry.querySelector('strong') as HTMLElement
+        const name = entry.querySelector('[data-organization-site-name]') as HTMLElement
         const address = entry.querySelector('[data-organization-site-address]') as HTMLElement
+        const nameBox = name.getBoundingClientRect()
+        const addressBox = address.getBoundingClientRect()
         const next = entries[index + 1]
+        const stacked = addressBox.top >= nameBox.bottom
         return {
           name: name.textContent ?? '',
-          insideRow: Math.round(
-            address.getBoundingClientRect().top - name.getBoundingClientRect().bottom,
+          stacked,
+          apart: Math.round(
+            stacked ? addressBox.top - nameBox.bottom : addressBox.left - nameBox.right,
           ),
-          sharesLine:
-            Math.abs(address.getBoundingClientRect().top - name.getBoundingClientRect().top) < 2,
           toNextRow: next
             ? Math.round(next.getBoundingClientRect().top - entry.getBoundingClientRect().bottom)
             : null,
@@ -148,11 +157,9 @@ test('each site reads as a block, not as a run of lines', async ({ page }) => {
 
     expect(rows.length).toBeGreaterThan(1)
     for (const row of rows) {
-      expect(row.sharesLine, `${row.name} at ${viewport.width}px`).toBe(false)
-      expect(row.insideRow, `${row.name} at ${viewport.width}px`).toBeGreaterThan(0)
-      // What belongs together separates less than what merely follows it.
-      if (row.toNextRow !== null) {
-        expect(row.toNextRow, `${row.name} at ${viewport.width}px`).toBeGreaterThan(row.insideRow)
+      expect(row.apart, `${row.name} at ${viewport.width}px`).toBeGreaterThan(0)
+      if (row.stacked && row.toNextRow !== null) {
+        expect(row.toNextRow, `${row.name} at ${viewport.width}px`).toBeGreaterThan(row.apart)
       }
     }
   }
