@@ -81,12 +81,20 @@ export function OrganizationDetails() {
   if (!organization) return <FailureState onRetry={() => void query.refetch()} />
 
   const sites = partitionSites(organization.sites)
-  // Offered only to a role the server would accept, for the same reason the
-  // sites section gates its own action: a click that can only be refused costs
-  // the person a trip and teaches them nothing.
-  const editPath = canManageOrganization(current.roles, rolesQuery.data?.items)
-    ? `/organizations/${current.organization_id}/organization/edit`
-    : null
+  /*
+   * Offered only where the server would accept it, on both axes. The role is
+   * the familiar one; the status is the database's: `update_organization`,
+   * `create_site` and `update_site` each require `organization.status =
+   * 'active'` and raise `P0002` otherwise, which these forms report as «Esta
+   * organización ya no existe» — false, and alarming, about an organization
+   * that does exist and is closed. A click that can only be refused costs the
+   * person a trip and teaches them nothing.
+   */
+  const organizationIsActive = organization.status === 'active'
+  const editPath =
+    organizationIsActive && canManageOrganization(current.roles, rolesQuery.data?.items)
+      ? `/organizations/${current.organization_id}/organization/edit`
+      : null
 
   return (
     <section data-organization-details aria-label="Organización">
@@ -97,10 +105,10 @@ export function OrganizationDetails() {
       ) : null}
 
       {/* No title of its own: the workspace bar above already carries the h1
-          for this route, and a second one repeated the word it was reading. */}
-      {/* Without the organization's name: it is already one of the three facts
-          below, and the bar above carries it too. Said three times it informs
-          nobody, and it made every locator for that name ambiguous. */}
+          for this route, and a second one repeated the word it was reading.
+          No organization name either — it is one of the three facts below, and
+          the bar carries it too. Said three times it informs nobody, and it
+          made every locator for that name ambiguous. */}
       <WorkspacePageHeader description="Los datos con los que Allfit identifica a tu organización, y las sedes desde las que opera." />
 
       <section data-workspace-section aria-labelledby="organization-facts-title">
@@ -143,7 +151,7 @@ export function OrganizationDetails() {
         sites={sites}
         total={organization.sites.length}
         newSitePath={
-          canManageSites(current.roles, rolesQuery.data?.items)
+          organizationIsActive && canManageSites(current.roles, rolesQuery.data?.items)
             ? `/organizations/${current.organization_id}/organization/sites/new`
             : null
         }
