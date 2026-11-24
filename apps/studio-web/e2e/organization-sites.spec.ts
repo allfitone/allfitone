@@ -26,7 +26,7 @@ test('registers a site and finds it on the list it came from', async ({ page }) 
   // Back on the screen that asked for it, with the site already in place —
   // a redirect that left a stale list would be the same as not saving.
   await expect(page).toHaveURL(new RegExp(`${organizationPath}$`))
-  const sites = page.getByRole('list', { name: 'Sedes de la organización' })
+  const sites = page.getByRole('table', { name: 'Sedes de la organización' })
   await expect(sites.getByText('Sede Suba')).toBeVisible()
   await expect(sites.getByText('Calle 145 #91-19')).toBeVisible()
 
@@ -81,7 +81,7 @@ test('a role that does not manage sites is refused in place, and never offered t
   const coachOrganization = `/organizations/${secondActiveMembership.organization_id}/organization`
 
   await page.goto(coachOrganization)
-  await expect(page.getByRole('list', { name: 'Sedes de la organización' })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Sedes de la organización' })).toBeVisible()
   // Readable, but not writable: the panel is there and the control is not.
   await expect(page.getByRole('link', { name: 'Registrar sede' })).toHaveCount(0)
 

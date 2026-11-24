@@ -29,6 +29,14 @@ import {
 } from '@allfitone/react/components/empty'
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { StatStrip, StatStripItem } from '@allfitone/react/components/stat-strip'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@allfitone/react/components/table'
 import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
@@ -50,6 +58,7 @@ import {
   organizationRolesQueryOptions,
   organizationSubscriptionsQueryOptions,
 } from '@/lib/studio-query'
+import { useCompactTable } from '@/lib/use-compact-table'
 
 const LEGAL_NAME_ABSENT = 'Sin razón social registrada'
 const SUBSCRIPTION_PAGE_SIZE = 50
@@ -182,8 +191,13 @@ function SitesSection({
   total: number
   newSitePath: string | null
 }) {
+  const ordered = [...sites.active, ...sites.inactive]
+  const editBasePath = newSitePath?.replace(/\/new$/, '') ?? null
+  const { compact, measuredRef } = useCompactTable<HTMLElement>()
+
   return (
     <section
+      ref={measuredRef}
       data-workspace-section
       data-organization-sites
       aria-labelledby="organization-sites-title"
@@ -232,15 +246,47 @@ function SitesSection({
               <StatStripItem value={sites.inactive.length} label="Sedes inactivas" />
             </StatStrip>
           </div>
-          <ul data-organization-site-list aria-label="Sedes de la organización">
-            {[...sites.active, ...sites.inactive].map((site) => (
-              <SiteRow
-                key={site.id}
-                site={site}
-                editPath={newSitePath ? `${newSitePath.replace(/\/new$/, '')}/${site.id}` : null}
-              />
-            ))}
-          </ul>
+          {/* Four facts per site do not fit the space a narrow register has,
+              so it gets the same data as rows. Only one presentation is
+              rendered — see useCompactTable. */}
+          {compact ? (
+            <ul data-organization-site-list aria-label="Sedes de la organización">
+              {ordered.map((site) => (
+                <SiteRow
+                  key={site.id}
+                  site={site}
+                  editPath={editBasePath ? `${editBasePath}/${site.id}` : null}
+                />
+              ))}
+            </ul>
+          ) : (
+            <Table
+              aria-label="Sedes de la organización"
+              scrollAreaLabel="Tabla de sedes de la organización"
+              data-studio-register="sites"
+            >
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Sede</TableHead>
+                  <TableHead>Dirección</TableHead>
+                  <TableHead>Estado</TableHead>
+                  {/* No column for an action nobody on this screen may take:
+                      an empty one would be four headings and three facts. */}
+                  {editBasePath ? <TableHead>Acciones</TableHead> : null}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ordered.map((site) => (
+                  <SiteTableRow
+                    key={site.id}
+                    site={site}
+                    editPath={editBasePath ? `${editBasePath}/${site.id}` : null}
+                    withActions={editBasePath !== null}
+                  />
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </>
       )}
     </section>
@@ -275,6 +321,57 @@ function SiteRow({ site, editPath }: { site: OrganizationSite; editPath: string 
         </Link>
       ) : null}
     </li>
+  )
+}
+
+/**
+ * The same four facts as the row above, in columns. The heading row is what
+ * makes them legible once the canvas is wide: without it a name at the left of
+ * a 400px column and a badge at the left of the next read as a row that drifted
+ * apart, which is the shape the canvas is not allowed to buy.
+ */
+function SiteTableRow({
+  site,
+  editPath,
+  withActions,
+}: {
+  site: OrganizationSite
+  editPath: string | null
+  withActions: boolean
+}) {
+  return (
+    <TableRow
+      data-organization-site
+      {...(site.status === 'inactive' ? { 'data-site-inactive': '' } : {})}
+    >
+      <TableCell>
+        <strong data-organization-site-name>{site.name}</strong>
+      </TableCell>
+      <TableCell>
+        <span data-organization-site-address>{site.address ?? 'Sin dirección registrada'}</span>
+      </TableCell>
+      <TableCell>
+        <Badge variant={site.status === 'active' ? 'success' : 'secondary'}>
+          {siteStatusLabel(site.status)}
+        </Badge>
+      </TableCell>
+      {withActions ? (
+        <TableCell>
+          {editPath ? (
+            <Link
+              href={editPath}
+              data-organization-site-edit
+              aria-label={`Editar ${site.name}`}
+              className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+              data-slot="button"
+              data-variant="ghost"
+            >
+              Editar
+            </Link>
+          ) : null}
+        </TableCell>
+      ) : null}
+    </TableRow>
   )
 }
 

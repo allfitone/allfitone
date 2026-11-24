@@ -186,10 +186,15 @@ test('the figures sit beside the day when both fit, and under it when not', asyn
 })
 
 /*
- * Only the board leaves the reading canvas. A refusal is a sentence, and a
- * sentence stretched across a wide display is the thing that canvas prevents.
+ * Studio refuses in eight other places and every one of them is an alert at
+ * the top of the page, as wide as what holds it. This used to be the ninth
+ * with a width of its own, which read as a section that had stopped halfway
+ * while the hairlines and registers beside it reached the edge.
+ *
+ * The room is read as well as the panel, so the assertion still means
+ * something: equal widths prove nothing on a display with no room to spare.
  */
-test('a refusal keeps the reading canvas on a wide display', async ({ page }) => {
+test('a refusal takes the canvas, like every other refusal in Studio', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await installStudioApiMock(
     page,
@@ -198,8 +203,21 @@ test('a refusal keeps the reading canvas on a wide display', async ({ page }) =>
   await page.goto(workspace)
   await expect(page.getByText('No puedes ver el estado de esta organización')).toBeVisible()
 
-  const panel = await page.locator('[data-today-panel]').boundingBox()
-  expect(panel?.width).toBeLessThanOrEqual(1024)
+  const measured = await page.locator('[data-today-panel]').evaluate((panel) => {
+    const content = panel.closest('[data-organization-content]')
+    const style = content ? getComputedStyle(content) : null
+    return {
+      panel: panel.getBoundingClientRect().width,
+      room: content
+        ? content.getBoundingClientRect().width -
+          parseFloat(style?.paddingLeft ?? '0') -
+          parseFloat(style?.paddingRight ?? '0')
+        : 0,
+    }
+  })
+
+  expect(measured.room).toBeGreaterThan(1200)
+  expect(Math.round(measured.panel)).toBe(Math.round(measured.room))
 })
 
 test('a single notice takes the whole board instead of half of it', async ({ page }) => {
