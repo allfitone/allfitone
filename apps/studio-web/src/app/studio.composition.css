@@ -120,7 +120,8 @@
    the grid the button was a row of its own and stretched to the full 1024px
    canvas, which is what made the credentials tab read as a different width from
    its two siblings even though all three measure 208-1232. */
-[data-profile-section-heading] {
+[data-profile-section-heading],
+[data-workspace-section-heading] {
   display: flex;
   min-width: 0;
   align-items: flex-start;
@@ -129,10 +130,43 @@
 }
 
 [data-profile-section-heading-text],
+[data-workspace-section-heading-text],
 [data-ready-later-heading] {
   display: grid;
   min-width: 0;
   gap: var(--afo-space-2);
+}
+
+/* A region of a workspace read screen, set apart by a hairline and space
+   rather than by a box: the page is a spread, not a stack of widgets. The two
+   cards the organization screen used to stack were the only page regions in
+   Studio drawn as boxes.
+
+   Not `data-studio-section`, which the public landing already owns with a
+   168px marketing padding — this rule reached its sections too. */
+[data-workspace-section] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-5);
+}
+
+/* The closure block is the organization page's third region, so it takes the
+   rule above it. It is named here rather than given the attribute because it
+   keeps a tighter rhythm of its own, and inheriting this one's grid would
+   depend on which rule the file happens to declare last. */
+[data-workspace-section] + [data-workspace-section],
+[data-workspace-section] + [data-organization-closure] {
+  padding-block-start: var(--afo-space-6);
+  border-block-start: 1px solid var(--afo-color-border-subtle);
+}
+
+/* 24px, so the space above a section's hairline matches the padding below it
+   and the rhythm is the one «Mi cuenta» and the site withdrawal panel already
+   use. The shared 20px rung above would have left the rule 4px off centre. */
+[data-organization-details] {
+  display: grid;
+  min-width: 0;
+  gap: var(--afo-space-6);
 }
 
 /* Two stacked actions that the Design System's own container does not space:
@@ -261,7 +295,6 @@
 [data-program-weeks],
 [data-category-register],
 [data-today-panel],
-[data-organization-details],
 [data-profile-presentation],
 [data-account-map],
 [data-relationship-state],
@@ -2931,7 +2964,8 @@
 
   [data-page-header],
   [data-profile-heading],
-  [data-profile-section-heading] {
+  [data-profile-section-heading],
+  [data-workspace-section-heading] {
     flex-direction: column;
     align-items: stretch;
   }
@@ -3198,10 +3232,6 @@
   color: var(--afo-color-text-muted);
 }
 
-[data-organization-sites] [data-organization-signals] {
-  margin-block-end: var(--afo-space-5);
-}
-
 /* Name over address, not name beside address. An address is long enough that
    set on one line it either breaks mid-street or squeezes the status badge off
    the row, and inline it ran straight into the name with nothing between. */
@@ -3230,10 +3260,11 @@
   gap: var(--afo-space-5);
 }
 
-/* Status and the way to change it share the card's action slot. They are two
-   different kinds of thing, so they get space between them, and they wrap
-   rather than push the card's title out of its own box on a narrow screen. */
-[data-organization-identity-action],
+/* What a section heading carries beside its title: a state badge, a link to
+   edit, or both. They are different kinds of thing, so they get space between
+   them, and they wrap rather than push the title out of its own row on a
+   narrow screen. */
+[data-workspace-section-heading-actions],
 [data-movement-badges] {
   display: flex;
   flex-wrap: wrap;
@@ -3313,11 +3344,6 @@
   margin-block-start: var(--afo-space-6);
   padding-block-start: var(--afo-space-6);
   border-block-start: 1px solid var(--afo-color-border-subtle);
-}
-
-[data-site-status-title] {
-  margin: 0;
-  font-size: var(--afo-font-size-lg);
 }
 
 [data-site-status-description],
@@ -3920,11 +3946,6 @@
 }
 
 [data-relationship-subheading],
-[data-organization-closure-title] {
-  margin: 0;
-  font-size: var(--afo-font-size-lg);
-}
-
 /* The form sits under the empty state it resolves, separated the way the
    substitutions block is: a rule and space, not another card inside a card. */
 /* La acción más pesada de la ficha, y por eso suelta del resto: título, una

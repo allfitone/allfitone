@@ -39,6 +39,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Button } from '@allfitone/react/components/button'
 import { Spinner } from '@allfitone/react/components/spinner'
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -105,9 +106,12 @@ export function OrganizationClosure({
 
   return (
     <section data-organization-closure aria-labelledby="organization-closure-title">
-      <h2 data-organization-closure-title id="organization-closure-title">
+      {/* `WorkspaceTitle as="h2"`, like the other regions of this page: a bare
+          `h2` sized by this app's stylesheet read 18px/700 beside their
+          24px/600, which is a rung the scale does not have. */}
+      <WorkspaceTitle as="h2" id="organization-closure-title">
         Cerrar la organización
-      </h2>
+      </WorkspaceTitle>
       {/* Enough to decide whether to open the dialog, not enough to decide. */}
       <p data-organization-closure-lead>
         Termina la operación de forma ordenada: cierra todas las relaciones, las membresías y las

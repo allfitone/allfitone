@@ -42,6 +42,7 @@ import {
   SetupPanelTitle,
 } from '@allfitone/react/components/setup-shell'
 import { Spinner } from '@allfitone/react/components/spinner'
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import { type FormEvent, useState } from 'react'
@@ -261,9 +262,13 @@ export function OrganizationSiteEdit() {
       </SetupPanel>
 
       <section data-site-status-panel aria-labelledby="site-status-title">
-        <h2 id="site-status-title" data-site-status-title>
-          {withdrawing ? 'Retirar de servicio' : 'Volver a poner en servicio'}
-        </h2>
+        {/* `WorkspaceTitle as="h2"`, like every other section opener in Studio:
+            a bare `h2` sized by this app's stylesheet was a rung of its own in
+            a scale that already has one. It says what the button says, so the
+            heading and the action cannot disagree. */}
+        <WorkspaceTitle as="h2" id="site-status-title">
+          {withdrawing ? 'Retirar de servicio' : 'Poner en servicio'}
+        </WorkspaceTitle>
         <p data-site-status-description>
           {withdrawing
             ? 'La sede deja de aparecer como activa y sigue en la lista, con su historial intacto.'
