@@ -50,6 +50,46 @@ test('keeps professional setup dormant until the person opts in', async ({ page 
   await expect(page.getByRole('tab', { name: 'Vinculaciones' })).toBeVisible()
 })
 
+/*
+ * The account was the last register keeping its open section in component
+ * state alone: reloading sent the reader back to the first one and no link to
+ * a section existed. The library settled the rule for the product — the
+ * address names the tab — and this follows it, `replaceState` included, so
+ * back leaves the account rather than walking through the tabs just read.
+ */
+test('the address names the open section, and a reload keeps it', async ({ page }) => {
+  await installStudioApiMock(
+    page,
+    createStudioApiFixture({
+      me: {
+        profile: { ...professionalProfile, credentials: [professionalCredential] },
+        memberships: [activeMembership],
+      },
+    }),
+  )
+
+  // An address that asks for nothing still lets the account decide.
+  await page.goto('/account')
+  await expect(page.getByRole('tab', { name: 'Perfil' })).toHaveAttribute('aria-selected', 'true')
+
+  await page.getByRole('tab', { name: 'Preferencias' }).click()
+  await expect(page).toHaveURL(/\/account\?tab=preferences$/)
+
+  await page.reload()
+  await expect(page.getByRole('tab', { name: 'Preferencias' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+
+  // A link to a section opens it, over the one the account would have chosen.
+  await page.goto('/account?tab=spaces')
+  await expect(page.getByRole('tab', { name: 'Vinculaciones' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.getByRole('heading', { name: 'Vinculaciones' })).toBeVisible()
+})
+
 test('presents an optional profile with active and terminated membership context', async ({
   page,
 }) => {
