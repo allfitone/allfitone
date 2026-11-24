@@ -3945,7 +3945,11 @@
   margin: 0;
 }
 
-[data-relationship-subheading],
+[data-relationship-subheading] {
+  margin: 0;
+  font-size: var(--afo-font-size-lg);
+}
+
 /* The form sits under the empty state it resolves, separated the way the
    substitutions block is: a rule and space, not another card inside a card. */
 /* La acción más pesada de la ficha, y por eso suelta del resto: título, una
