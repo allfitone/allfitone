@@ -309,7 +309,6 @@ test('every screen keeps its blocks apart, and every card its contents', async (
   const screens = [
     '/panel',
     '/organizations',
-    '/organizations/new',
     '/organizations/019a9999-0000-7000-8000-000000000000',
     '/diagnosis',
     '/plans',
@@ -371,14 +370,10 @@ test('every screen below a menu entry names what is open and leads back to its l
       name: file.organization.display_name,
       back: { title: 'Gimnasios', href: '/organizations' },
     },
+    // A handover is a tab of its gym's file, under the gym's name.
     {
-      path: `/organizations/${handover.organization_id}/handover`,
+      path: `/organizations/${handover.organization_id}?tab=handover`,
       name: handover.display_name,
-      back: { title: 'Gimnasios', href: '/organizations' },
-    },
-    {
-      path: '/organizations/new',
-      name: 'Crear un gimnasio',
       back: { title: 'Gimnasios', href: '/organizations' },
     },
     // The way back keeps the case, so the search it leads to records against it too.

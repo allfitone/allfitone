@@ -2,31 +2,29 @@
 
 /**
  * `HU-BO-014` and `HU-BO-015` — where a handover stands, and the only two things
- * Allfit may do while it waits.
+ * Allfit may do while it waits. It is the «Entrega» tab of the gym's file, which
+ * already names the gym and leads back to the directory.
  *
  * **Waiting is not done.** The badge and the sentence say whether the owner has not
  * answered, let the invitation lapse, rejected it, accepted it, or whether the
  * creation was cancelled. Only the first three allow any action.
  *
  * **Neither action changes the address.** Resending goes to the same email, and the
- * screen says whether the original invitation was sent again or replaced.
+ * toast says whether the original invitation was sent again or replaced.
  * Cancelling asks once more before it happens, because it cannot be undone.
  *
  * **A lost race is re-read, not guessed.** If the owner accepted or someone else
- * cancelled meanwhile, the command is refused and the screen reads the handover
- * again rather than showing a state it no longer has.
+ * cancelled meanwhile, the command is refused and the panel reads the handover
+ * again rather than showing a state it no longer has. Whatever it learns about the
+ * gym's state is handed to the file, so the header never contradicts the tab.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button } from '@allfitone/react/components/button'
-import { ConfirmAction } from './confirm-action'
-import { RecordHeader } from './page-header'
-import { ScreenFailure, ScreenLoading } from './screen-state'
-
 import { Card, CardContent, CardHeader, CardTitle } from '@allfitone/react/components/card'
 import { Field, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
-import Link from 'next/link'
+import { toast } from '@allfitone/react/components/sonner'
 import { useCallback, useEffect, useState } from 'react'
 
 import {
@@ -41,7 +39,6 @@ import {
   canActOn,
   cancelledBySentence,
   createdBySentence,
-  fileLink,
   handoverMessage,
   handoverStage,
   siteLine,
@@ -51,28 +48,52 @@ import {
   stageSentence,
   stageTone,
 } from '@/lib/organization-handover'
-import { menuCrumb } from '@/lib/backoffice-routes'
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
-type LoadState = 'loading' | 'ready' | 'failed'
-type Notice = { tone: 'success' | 'danger'; message: string }
+import { ConfirmAction } from './confirm-action'
+import { ScreenFailure, ScreenLoading } from './screen-state'
 
-export function OrganizationHandover({ organizationId }: { organizationId: string }) {
+type LoadState = 'loading' | 'ready' | 'failed'
+
+/** The part of a handover that is also the gym's own state, for the file to follow. */
+export type HandoverLifecycle = Pick<Handover, 'status' | 'claimed_at' | 'cancelled_at'>
+
+export function OrganizationHandoverPanel({
+  organizationId,
+  onLifecycle,
+  onShowQuota,
+}: {
+  organizationId: string
+  onLifecycle: (lifecycle: HandoverLifecycle) => void
+  onShowQuota: () => void
+}) {
   const [state, setState] = useState<LoadState>('loading')
   const [handover, setHandover] = useState<Handover | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [busy, setBusy] = useState(false)
-  const [notice, setNotice] = useState<Notice | null>(null)
+  // Only what failed stays on the page; what worked pops up as a toast.
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const accept = useCallback(
+    (next: Handover) => {
+      setHandover(next)
+      setNow(Date.now())
+      onLifecycle({
+        status: next.status,
+        claimed_at: next.claimed_at,
+        cancelled_at: next.cancelled_at,
+      })
+    },
+    [onLifecycle],
+  )
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const next = await backofficeApi.organizationHandover(organizationId, signal)
-        setHandover(next)
-        setNow(Date.now())
+        accept(await backofficeApi.organizationHandover(organizationId, signal))
         setState('ready')
       } catch (caught) {
         if (signal?.aborted) return
@@ -85,7 +106,7 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
         setState('failed')
       }
     },
-    [organizationId],
+    [accept, organizationId],
   )
 
   useEffect(() => {
@@ -100,22 +121,18 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
     setBusy(true)
     setNotice(null)
     try {
-      const next =
+      accept(
         action === 'resend'
           ? await backofficeApi.resendOrganizationHandover(organizationId, newBackofficeCommand())
-          : await backofficeApi.cancelOrganizationHandover(organizationId, newBackofficeCommand())
-      setHandover(next)
-      setNow(Date.now())
-      setNotice({
-        tone: 'success',
-        message: action === 'resend' ? resendNotice(stageBefore) : CANCELLED_NOTICE,
-      })
+          : await backofficeApi.cancelOrganizationHandover(organizationId, newBackofficeCommand()),
+      )
+      toast.success(action === 'resend' ? resendNotice(stageBefore) : CANCELLED_NOTICE)
     } catch (caught) {
       if (caught instanceof BackofficeApiError && caught.status === 401) {
         window.location.assign('/')
         return
       }
-      setNotice({ tone: 'danger', message: failureMessage(caught) })
+      setNotice(failureMessage(caught))
       if (caught instanceof BackofficeApiError && caught.code === 'conflict') await load()
     } finally {
       setBusy(false)
@@ -127,7 +144,6 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   if (state === 'failed' || !handover) {
     return (
       <div data-organization-handover>
-        <RecordHeader trail={[menuCrumb('/organizations')]} name="Entrega del gimnasio" />
         <ScreenFailure
           refused={refused}
           duties={['manage_organization_lifecycle']}
@@ -141,15 +157,9 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
   const stage = handoverStage(handover, now)
   const invitation = handover.invitation
   const cancelledBy = cancelledBySentence(handover)
-  const file = fileLink(handover)
 
   return (
     <div data-organization-handover data-stage={stage}>
-      <RecordHeader
-        trail={[menuCrumb('/organizations')]}
-        name={handover.display_name}
-        description={handover.type_name}
-      />
       <Card>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
@@ -198,10 +208,11 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
             ) : null}
           </FieldGroup>
 
-          {file ? (
-            <Link href={file.href} data-handover-file-link>
-              {file.label}
-            </Link>
+          {/* HU-BO-034 c1: a gym that waits for its owner is sold its quota, one tab away. */}
+          {handover.status === 'unclaimed' ? (
+            <Button type="button" variant="link" onClick={onShowQuota} data-handover-file-link>
+              Fijar su cupo en «Cupo y plan»
+            </Button>
           ) : null}
 
           {canActOn(stage) ? (
@@ -228,11 +239,9 @@ export function OrganizationHandover({ organizationId }: { organizationId: strin
       </Card>
 
       {notice ? (
-        <Alert live={notice.tone === 'danger' ? 'assertive' : 'polite'} variant={notice.tone}>
-          <AlertTitle>
-            {notice.tone === 'danger' ? 'No se completó la operación' : 'Listo'}
-          </AlertTitle>
-          <AlertDescription>{notice.message}</AlertDescription>
+        <Alert live="assertive" variant="danger">
+          <AlertTitle>No se completó la operación</AlertTitle>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       ) : null}
     </div>

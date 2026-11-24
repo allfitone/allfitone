@@ -52,8 +52,9 @@ function circuit(overrides: Partial<SupportDeliveryCircuit> = {}): SupportDelive
 
 describe('technical diagnosis vocabulary', () => {
   test('each closed filter says what it filters, including when it filters nothing', () => {
-    expect(sourceFilterLabel('any')).toBe('Todo')
-    expect(operationStateFilterLabel('any')).toBe('Todo')
+    // Without a label above it, «Todo» alone would not say which filter is empty.
+    expect(sourceFilterLabel('any')).toBe('Todos los tipos')
+    expect(operationStateFilterLabel('any')).toBe('Todos los estados')
     expect(sourceFilterLabel('command')).toBe(sourceLabel('command'))
     for (const state of SUPPORT_OPERATION_STATES) {
       expect(operationStateFilterLabel(state)).toBe(operationStateLabel(state))

@@ -165,15 +165,24 @@ export function handsOverHere(file: OrganizationFile): boolean {
   return file.organization.status === 'unclaimed' || file.organization.status === 'cancelled'
 }
 
-export const ORGANIZATION_TABS = ['summary', 'team', 'invitations', 'plan', 'suspension'] as const
+export const ORGANIZATION_TABS = [
+  'summary',
+  'handover',
+  'team',
+  'invitations',
+  'plan',
+  'suspension',
+] as const
 
 export type OrganizationTab = (typeof ORGANIZATION_TABS)[number]
 
-/** A gym nobody claimed has no team or clients to invite, so its file has no such tab. */
+/**
+ * A gym nobody claimed is about its handover and has no team or clients to invite; a
+ * claimed one is the other way round. Its owner's own gym was never handed over at all.
+ */
 export function organizationTabs(file: OrganizationFile): readonly OrganizationTab[] {
-  return handsOverHere(file)
-    ? ORGANIZATION_TABS.filter((tab) => tab !== 'invitations')
-    : ORGANIZATION_TABS
+  const without: OrganizationTab = handsOverHere(file) ? 'invitations' : 'handover'
+  return ORGANIZATION_TABS.filter((tab) => tab !== without)
 }
 
 /** An unknown tab, or one this gym does not have, opens the summary. */

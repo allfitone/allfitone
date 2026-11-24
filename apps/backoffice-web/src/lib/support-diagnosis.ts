@@ -65,11 +65,11 @@ export function operationStateLabel(state: SupportOperationState): string {
 
 /** What each closed filter says, including when it filters nothing. */
 export function sourceFilterLabel(source: SupportOperationSourceKind | 'any'): string {
-  return source === 'any' ? 'Todo' : SOURCE_LABELS[source]
+  return source === 'any' ? 'Todos los tipos' : SOURCE_LABELS[source]
 }
 
 export function operationStateFilterLabel(state: SupportOperationState | 'any'): string {
-  return state === 'any' ? 'Todo' : STATE_LABELS[state]
+  return state === 'any' ? 'Todos los estados' : STATE_LABELS[state]
 }
 
 export type StateTone = 'success' | 'destructive' | 'warning' | 'secondary'

@@ -29,7 +29,6 @@
 [data-organization-directory],
 [data-organization-file],
 [data-organization-handover],
-[data-organization-handover-form],
 [data-panel-home],
 [data-platform-access],
 [data-platform-plans],
@@ -399,6 +398,17 @@
   align-items: start;
 }
 
+/* The feed is a six-column table under a toolbar: half a row clipped both. */
+[data-diagnosis-operations] {
+  grid-column: 1 / -1;
+}
+
+/* Two closed filters, an identifier and its button: each filter as wide as its
+   control, so the four fit on one row and the identifier takes what is left. */
+[data-diagnosis-identifier-form] [data-list-filter] {
+  flex: 0 0 auto;
+}
+
 [data-attention-body] {
   display: grid;
   gap: 12px;
@@ -506,6 +516,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* The way to the quota tab lines up with the facts above it, not with a button's inset. */
+[data-handover-file-link] {
+  width: fit-content;
+  padding-inline: 0;
 }
 
 /* A link that stands alone carries a touch target of its own; one inside a

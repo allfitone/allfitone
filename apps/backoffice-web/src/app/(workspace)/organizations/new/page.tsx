@@ -1,11 +1,6 @@
-import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 
-import { OrganizationHandoverForm } from '@/components/organization-handover-form'
-
-export const metadata: Metadata = {
-  title: 'Crear un gimnasio | Allfit Backoffice',
-}
-
+// Creating a gym is a dialog over the directory now; the old address opens it there.
 export default function NewOrganizationPage() {
-  return <OrganizationHandoverForm />
+  redirect('/organizations?new=1')
 }

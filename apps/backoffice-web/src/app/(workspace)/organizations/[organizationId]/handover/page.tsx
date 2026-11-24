@@ -1,16 +1,13 @@
-import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 
-import { OrganizationHandover } from '@/components/organization-handover'
+import { organizationFileHref } from '@/lib/organization-file'
 
-export const metadata: Metadata = {
-  title: 'Entrega del gimnasio | Allfit Backoffice',
-}
-
+// The handover is a tab of the gym's file now; the old address opens it there.
 export default async function OrganizationHandoverPage({
   params,
 }: {
   params: Promise<{ organizationId: string }>
 }) {
   const { organizationId } = await params
-  return <OrganizationHandover organizationId={organizationId} />
+  redirect(organizationFileHref(organizationId, 'handover'))
 }

@@ -14,13 +14,14 @@
  * reserved because it can be their home, and people served, plans, the payment method
  * and Premium are listed as not yet stored by Allfit rather than as empty.
  *
- * **A gym that never had an owner is handed over, not run.** Its file offers the way
- * to its handover and nothing that would act on the gym itself.
+ * **A gym that never had an owner is handed over, not run.** Its handover is the tab
+ * right after the summary, where the only two things Allfit may do wait.
  *
- * Nine cards became five tabs in the address, so a reload or a link lands on the
- * one meant: Resumen, Equipo, Invitaciones, Cupo y plan and Suspensión. The
- * invitations are read only when their tab first opens, since they name the
- * people invited; a gym nobody claimed has no such tab at all.
+ * Nine cards and a screen apart became tabs in the address, so a reload or a link
+ * lands on the one meant: Resumen, Entrega, Equipo, Invitaciones, Cupo y plan and
+ * Suspensión. The handover and the invitations are read only when their tab first
+ * opens, since they name the people invited. A gym nobody claimed has no invitations,
+ * and a claimed one no handover: its owner's own gym never had one.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -45,7 +46,6 @@ import {
   TableRow,
 } from '@allfitone/react/components/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -82,6 +82,7 @@ import { useOpenedTabs } from '@/lib/use-opened-tabs'
 
 import { OrganizationClientInvitations } from './organization-client-invitations'
 import { OrganizationGuestQuotaPanel } from './organization-guest-quota'
+import { OrganizationHandoverPanel, type HandoverLifecycle } from './organization-handover'
 import { OrganizationSuspensionPanel } from './organization-suspension'
 import { OrganizationTeamInvitations } from './organization-team-invitations'
 import { RecordHeader } from './page-header'
@@ -95,6 +96,8 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
   const [caseReference, setCaseReference] = useState('')
+  // What the handover tab learned since the file was read: a cancellation, or a claim.
+  const [lifecycle, setLifecycle] = useState<HandoverLifecycle | null>(null)
   const requested = useSearchParams().get('tab')
   const tab = file ? organizationTabFromQuery(requested, organizationTabs(file)) : 'summary'
   const opened = useOpenedTabs(tab)
@@ -135,7 +138,8 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
     )
   }
 
-  const organization = file.organization
+  // The tabs stay those of the file as read, so a claim does not pull the open tab away.
+  const organization = { ...file.organization, ...lifecycle }
   const ownerHref = file.owner ? memberCardHref(file.owner.person_id, caseReference) : undefined
   const tabs = organizationTabs(file)
 
@@ -213,14 +217,6 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
                 <AlertTitle>Personas que atiende</AlertTitle>
                 <AlertDescription>{peopleServedSentence(file)}</AlertDescription>
               </Alert>
-              {handsOverHere(file) ? (
-                <Link
-                  href={`/organizations/${organization.organization_id}/handover`}
-                  data-handover-link
-                >
-                  Ver la entrega a su dueño
-                </Link>
-              ) : null}
             </CardContent>
           </Card>
 
@@ -264,6 +260,18 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
             </CardContent>
           </Card>
         </TabsContent>
+
+        {handsOverHere(file) ? (
+          <TabsContent value="handover" keepMounted data-record-tab>
+            {opened.has('handover') ? (
+              <OrganizationHandoverPanel
+                organizationId={organization.organization_id}
+                onLifecycle={setLifecycle}
+                onShowQuota={() => showTab('plan')}
+              />
+            ) : null}
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="team" keepMounted data-record-tab>
           {opened.has('team') ? (
@@ -401,6 +409,7 @@ export function OrganizationFile({ organizationId }: { organizationId: string })
 
 const TAB_LABELS: Record<OrganizationTab, string> = {
   summary: 'Resumen',
+  handover: 'Entrega',
   team: 'Equipo',
   invitations: 'Invitaciones',
   plan: 'Cupo y plan',

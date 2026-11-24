@@ -6,7 +6,6 @@ import {
   canActOn,
   cancelledBySentence,
   createdBySentence,
-  fileLink,
   handoverDraftIssue,
   siteLine,
   handoverMessage,
@@ -96,16 +95,6 @@ describe('who on the team created and cancelled a gym', () => {
     expect(createdBySentence(handover({ created_by: null }))).toBe(
       'No lo creó nadie del equipo de Allfit One.',
     )
-  })
-
-  // HU-BO-034 c1: the quota is set in the gym's file, and an unclaimed gym had no way there.
-  test('an unclaimed gym leads to its file, where its quota is set', () => {
-    expect(fileLink(handover())).toEqual({
-      href: '/organizations/019a6000-0000-7000-8000-000000000001',
-      label: 'Fijar su cupo en la ficha del gimnasio',
-    })
-    expect(fileLink(handover({ status: 'active' }))?.label).toBe('Ver la ficha del gimnasio')
-    expect(fileLink(handover({ status: 'cancelled' }))).toBeUndefined()
   })
 })
 

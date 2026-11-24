@@ -262,6 +262,22 @@ describe('organization file presentation', () => {
     expect(organizationTabFromQuery(null, organizationTabs(file()))).toBe('summary')
   })
 
+  test('only a gym handed over, or cancelled before anyone claimed it, has a handover tab', () => {
+    const unclaimed = file({ organization: { ...file().organization, status: 'unclaimed' } })
+    const cancelled = file({ organization: { ...file().organization, status: 'cancelled' } })
+    // Waiting for its owner is what such a gym is about, so it comes right after the summary.
+    expect(organizationTabs(unclaimed)).toEqual([
+      'summary',
+      'handover',
+      'team',
+      'plan',
+      'suspension',
+    ])
+    expect(organizationTabs(cancelled)).toContain('handover')
+    expect(organizationTabs(file())).not.toContain('handover')
+    expect(organizationTabFromQuery('handover', organizationTabs(file()))).toBe('summary')
+  })
+
   test('the summary needs no parameter; any other tab is named in the address', () => {
     expect(organizationFileHref('019a9100-0000-7000-8000-000000000001')).toBe(
       '/organizations/019a9100-0000-7000-8000-000000000001',

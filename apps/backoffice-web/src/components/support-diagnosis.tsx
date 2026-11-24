@@ -26,7 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@allfitone/react/components/card'
-import { Field, FieldError, FieldGroup, FieldLabel } from '@allfitone/react/components/field'
+import { FieldError } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
 import {
   Select,
@@ -297,7 +297,7 @@ export function SupportDiagnosis() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card data-diagnosis-operations>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
             Operaciones
@@ -309,20 +309,28 @@ export function SupportDiagnosis() {
           </CardDescription>
         </CardHeader>
         <CardContent data-card-body>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="diagnosis-source">Tipo</FieldLabel>
+          {/* One row, like every other list. Type and state apply as soon as they change;
+              the identifier is searched, since half of one finds nothing. */}
+          <form
+            onSubmit={searchIdentifier}
+            role="search"
+            aria-label="Filtrar operaciones"
+            data-list-toolbar
+            data-diagnosis-identifier-form
+            noValidate
+          >
+            <div data-list-filter>
               <Select
                 value={source}
                 onValueChange={(next) =>
                   setSource((next ?? ANY) as SupportOperationSourceKind | typeof ANY)
                 }
               >
-                <SelectTrigger id="diagnosis-source">
+                <SelectTrigger id="diagnosis-source" aria-label="Tipo">
                   <SelectValue>{sourceFilterLabel(source)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ANY}>Todo</SelectItem>
+                  <SelectItem value={ANY}>{sourceFilterLabel(ANY)}</SelectItem>
                   {SUPPORT_OPERATION_SOURCES.map((option) => (
                     <SelectItem key={option} value={option}>
                       {sourceLabel(option)}
@@ -330,20 +338,19 @@ export function SupportDiagnosis() {
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="diagnosis-state">Estado</FieldLabel>
+            </div>
+            <div data-list-filter>
               <Select
                 value={operationState}
                 onValueChange={(next) =>
                   setOperationState((next ?? ANY) as SupportOperationState | typeof ANY)
                 }
               >
-                <SelectTrigger id="diagnosis-state">
+                <SelectTrigger id="diagnosis-state" aria-label="Estado">
                   <SelectValue>{operationStateFilterLabel(operationState)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ANY}>Todo</SelectItem>
+                  <SelectItem value={ANY}>{operationStateFilterLabel(ANY)}</SelectItem>
                   {SUPPORT_OPERATION_STATES.map((option) => (
                     <SelectItem key={option} value={option}>
                       {operationStateLabel(option)}
@@ -351,37 +358,33 @@ export function SupportDiagnosis() {
                   ))}
                 </SelectContent>
               </Select>
-            </Field>
-          </FieldGroup>
-
-          <form onSubmit={searchIdentifier} data-diagnosis-identifier-form noValidate>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="diagnosis-identifier">Identificador del sujeto</FieldLabel>
-                <Input
-                  id="diagnosis-identifier"
-                  value={identifierDraft}
-                  onChange={(event) => setIdentifierDraft(event.target.value)}
-                  placeholder="019a7000-0000-7000-8000-000000000001"
-                  autoComplete="off"
-                />
-                {identifierIssue ? (
-                  <FieldError>
-                    Escribe el identificador completo, como aparece en la operación.
-                  </FieldError>
-                ) : null}
-              </Field>
-            </FieldGroup>
-            <div data-form-actions>
-              <Button type="submit" size="sm">
-                Buscar sus operaciones
-              </Button>
-              {identifier !== '' ? (
-                <Button type="button" size="sm" variant="outline" onClick={clearIdentifier}>
-                  Ver todas
-                </Button>
+            </div>
+            <div data-list-search>
+              <Input
+                id="diagnosis-identifier"
+                type="search"
+                aria-label="Identificador del sujeto"
+                aria-invalid={identifierIssue ? true : undefined}
+                aria-describedby={identifierIssue ? 'diagnosis-identifier-issue' : undefined}
+                value={identifierDraft}
+                onChange={(event) => setIdentifierDraft(event.target.value)}
+                placeholder="Identificador completo del sujeto"
+                autoComplete="off"
+              />
+              {identifierIssue ? (
+                <FieldError id="diagnosis-identifier-issue">
+                  Escribe el identificador completo, como aparece en la operación.
+                </FieldError>
               ) : null}
             </div>
+            <Button type="submit" variant="outline">
+              Buscar sus operaciones
+            </Button>
+            {identifier !== '' ? (
+              <Button type="button" variant="ghost" onClick={clearIdentifier}>
+                Ver todas
+              </Button>
+            ) : null}
           </form>
 
           {operations.length === 0 ? (
