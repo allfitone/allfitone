@@ -9,19 +9,17 @@
  * this account has no membership in must render the same screen. PostgreSQL
  * already answers both with the same error, and telling them apart here would
  * hand anyone a way to probe which organizations exist.
+ *
+ * The shape is the one every other read register in Studio uses: the page
+ * header carries the sentence that explains the view, and each region below is
+ * a section with its own heading and its own action, set apart by a hairline
+ * rather than boxed in a card. The two cards this screen used to stack were
+ * the only page regions in Studio drawn as boxes.
  */
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@allfitone/react/components/card'
 import {
   Empty,
   EmptyDescription,
@@ -31,6 +29,7 @@ import {
 } from '@allfitone/react/components/empty'
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { StatStrip, StatStripItem } from '@allfitone/react/components/stat-strip'
+import { WorkspaceTitle } from '@allfitone/react/components/workspace-shell'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -38,6 +37,7 @@ import Link from 'next/link'
 import { organizationTypeLabel } from './membership-selector'
 import { OrganizationClosure } from './organization-closure'
 import { useOrganizationContext } from './organization-context'
+import { WorkspacePageHeader } from './workspace-page-header'
 import { canCloseOrganization, closureBlockedReason } from '@/lib/organization-closure'
 import { partitionSites, siteStatusLabel } from '@/lib/organization-details'
 import { canManageOrganization } from '@/lib/organization-profile'
@@ -81,15 +81,23 @@ export function OrganizationDetails() {
   if (!organization) return <FailureState onRetry={() => void query.refetch()} />
 
   const sites = partitionSites(organization.sites)
-  // Offered only to a role the server would accept, for the same reason the
-  // sites panel gates its own action: a click that can only be refused costs
-  // the person a trip and teaches them nothing.
-  const editPath = canManageOrganization(current.roles, rolesQuery.data?.items)
-    ? `/organizations/${current.organization_id}/organization/edit`
-    : null
+  /*
+   * Offered only where the server would accept it, on both axes. The role is
+   * the familiar one; the status is the database's: `update_organization`,
+   * `create_site` and `update_site` each require `organization.status =
+   * 'active'` and raise `P0002` otherwise, which these forms report as «Esta
+   * organización ya no existe» — false, and alarming, about an organization
+   * that does exist and is closed. A click that can only be refused costs the
+   * person a trip and teaches them nothing.
+   */
+  const organizationIsActive = organization.status === 'active'
+  const editPath =
+    organizationIsActive && canManageOrganization(current.roles, rolesQuery.data?.items)
+      ? `/organizations/${current.organization_id}/organization/edit`
+      : null
 
   return (
-    <div data-organization-details>
+    <section data-organization-details aria-label="Organización">
       {query.isFetching ? (
         <p data-query-refreshing role="status" aria-live="polite">
           Actualizando los datos de la organización…
@@ -97,19 +105,24 @@ export function OrganizationDetails() {
       ) : null}
 
       {/* No title of its own: the workspace bar above already carries the h1
-          for this route, and a second one repeated the word it was reading. */}
-      <Card data-organization-identity>
-        <CardHeader>
-          <CardTitle role="heading" aria-level={2}>
-            Datos
-          </CardTitle>
-          <CardDescription>
-            Así identifica Allfit a tu organización. Esta vista no cambia roles ni permisos.
-          </CardDescription>
-          <CardAction data-organization-identity-action>
-            <Badge variant={organization.status === 'active' ? 'success' : 'secondary'}>
-              {organization.status === 'active' ? 'Activa' : 'Cerrada'}
-            </Badge>
+          for this route, and a second one repeated the word it was reading.
+          No organization name either — it is one of the three facts below, and
+          the bar carries it too. Said three times it informs nobody, and it
+          made every locator for that name ambiguous. */}
+      <WorkspacePageHeader description="Los datos con los que Allfit identifica a tu organización, y las sedes desde las que opera." />
+
+      <section data-workspace-section aria-labelledby="organization-facts-title">
+        <header data-workspace-section-heading>
+          <div data-workspace-section-heading-text>
+            <WorkspaceTitle as="h2" id="organization-facts-title">
+              Datos
+            </WorkspaceTitle>
+          </div>
+          <div data-workspace-section-heading-actions>
+            {/* Only the closure is worth a badge. «Activa» said the same thing
+                on every visit, which is what made the account screen drop its
+                own two: a badge that never varies carries no information. */}
+            {organization.status === 'active' ? null : <Badge variant="secondary">Cerrada</Badge>}
             {editPath ? (
               <Link
                 href={editPath}
@@ -121,26 +134,24 @@ export function OrganizationDetails() {
                 Editar datos
               </Link>
             ) : null}
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          <dl data-organization-facts>
-            <DetailFact label="Nombre" value={organization.display_name} />
-            <DetailFact
-              label="Razón social"
-              value={organization.legal_name ?? LEGAL_NAME_ABSENT}
-              absent={organization.legal_name === null}
-            />
-            <DetailFact label="Tipo" value={organizationTypeLabel(organization.type_code)} />
-          </dl>
-        </CardContent>
-      </Card>
+          </div>
+        </header>
+        <dl data-organization-facts>
+          <DetailFact label="Nombre" value={organization.display_name} />
+          <DetailFact
+            label="Razón social"
+            value={organization.legal_name ?? LEGAL_NAME_ABSENT}
+            absent={organization.legal_name === null}
+          />
+          <DetailFact label="Tipo" value={organizationTypeLabel(organization.type_code)} />
+        </dl>
+      </section>
 
-      <SitesPanel
+      <SitesSection
         sites={sites}
         total={organization.sites.length}
         newSitePath={
-          canManageSites(current.roles, rolesQuery.data?.items)
+          organizationIsActive && canManageSites(current.roles, rolesQuery.data?.items)
             ? `/organizations/${current.organization_id}/organization/sites/new`
             : null
         }
@@ -158,11 +169,11 @@ export function OrganizationDetails() {
           )}
         />
       ) : null}
-    </div>
+    </section>
   )
 }
 
-function SitesPanel({
+function SitesSection({
   sites,
   total,
   newSitePath,
@@ -172,16 +183,21 @@ function SitesPanel({
   newSitePath: string | null
 }) {
   return (
-    <Card data-organization-sites>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={2}>
-          Sedes
-        </CardTitle>
-        <CardDescription>Los lugares desde los que opera tu organización.</CardDescription>
+    <section
+      data-workspace-section
+      data-organization-sites
+      aria-labelledby="organization-sites-title"
+    >
+      <header data-workspace-section-heading>
+        <div data-workspace-section-heading-text>
+          <WorkspaceTitle as="h2" id="organization-sites-title">
+            Sedes
+          </WorkspaceTitle>
+        </div>
         {/* Only for a role the server would accept. Offering it to everyone
             would spend a click to reach a refusal. */}
         {newSitePath ? (
-          <CardAction>
+          <div data-workspace-section-heading-actions>
             <Link
               href={newSitePath}
               data-slot="button"
@@ -190,46 +206,44 @@ function SitesPanel({
             >
               Registrar sede
             </Link>
-          </CardAction>
+          </div>
         ) : null}
-      </CardHeader>
-      <CardContent>
-        {total === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <FoundationIcon name="organization" decorative />
-              </EmptyMedia>
-              <EmptyTitle>Aún no hay sedes registradas</EmptyTitle>
-              <EmptyDescription>
-                Cuando registres una sede aparecerá aquí con su dirección y su estado.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <>
-            {/* Two figures, so the strip shares the row the way the account
-                screen does. Withdrawn sites still count: they are the reason
-                a site never disappears from this list. */}
-            <div data-organization-signals data-signals-multiple>
-              <StatStrip>
-                <StatStripItem value={sites.active.length} label="Sedes activas" />
-                <StatStripItem value={sites.inactive.length} label="Sedes inactivas" />
-              </StatStrip>
-            </div>
-            <ul data-organization-site-list aria-label="Sedes de la organización">
-              {[...sites.active, ...sites.inactive].map((site) => (
-                <SiteRow
-                  key={site.id}
-                  site={site}
-                  editPath={newSitePath ? `${newSitePath.replace(/\/new$/, '')}/${site.id}` : null}
-                />
-              ))}
-            </ul>
-          </>
-        )}
-      </CardContent>
-    </Card>
+      </header>
+      {total === 0 ? (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FoundationIcon name="organization" decorative />
+            </EmptyMedia>
+            <EmptyTitle>Aún no hay sedes registradas</EmptyTitle>
+            <EmptyDescription>
+              Cuando registres una sede aparecerá aquí con su dirección y su estado.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          {/* Two figures, so the strip shares the row the way the account
+              screen does. Withdrawn sites still count: they are the reason
+              a site never disappears from this list. */}
+          <div data-organization-signals data-signals-multiple>
+            <StatStrip>
+              <StatStripItem value={sites.active.length} label="Sedes activas" />
+              <StatStripItem value={sites.inactive.length} label="Sedes inactivas" />
+            </StatStrip>
+          </div>
+          <ul data-organization-site-list aria-label="Sedes de la organización">
+            {[...sites.active, ...sites.inactive].map((site) => (
+              <SiteRow
+                key={site.id}
+                site={site}
+                editPath={newSitePath ? `${newSitePath.replace(/\/new$/, '')}/${site.id}` : null}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
   )
 }
 

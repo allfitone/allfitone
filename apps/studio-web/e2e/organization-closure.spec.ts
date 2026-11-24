@@ -236,7 +236,9 @@ test('somebody who stopped being the owner is told that, not given a failure', a
   await expect(page.getByRole('alertdialog')).toContainText('transferir la propiedad')
 })
 
-test('an organization already closed is not offered the closure again', async ({ page }) => {
+test('a closed organization says so and offers nothing the database would refuse', async ({
+  page,
+}) => {
   const fixture = closeable()
   if (typeof fixture.organization === 'object' && fixture.organization !== null) {
     fixture.organization = { ...fixture.organization, status: 'closed' }
@@ -246,6 +248,18 @@ test('an organization already closed is not offered the closure again', async ({
 
   await expect(page.getByText('Cerrada')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Cerrar la organización' })).toHaveCount(0)
+
+  /*
+   * The same owner and the same three sites as every other case here, so each
+   * of these controls is present while the organization is active. Every write
+   * this screen reaches — `update_organization`, `create_site`, `update_site`
+   * — requires `organization.status = 'active'` and raises `P0002` otherwise,
+   * which the forms report as «Esta organización ya no existe»: false, and
+   * alarming, about an organization that does exist and is closed.
+   */
+  await expect(page.getByRole('link', { name: 'Editar datos' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Registrar sede' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /^Editar Sede/ })).toHaveCount(0)
 })
 
 test('a coach never reads the subscriptions this screen needs to decide', async ({ page }) => {
