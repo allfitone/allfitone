@@ -190,7 +190,10 @@ test('a gym nobody claimed has no team invitations to resend', async ({ context,
   // The address asks for a tab this gym does not have, and lands on its summary.
   await page.goto(`/organizations/${unclaimed.organization.organization_id}?tab=invitations`)
 
-  await expect(page.getByRole('link', { name: 'Ver la entrega a su dueño' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Resumen', selected: true })).toBeVisible()
+  // Its handover is what it has instead.
+  await expect(page.getByRole('tab', { name: 'Entrega' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Invitaciones' })).toHaveCount(0)
   await expect(page.locator('[data-team-invitations]')).toHaveCount(0)
   expect(fixture.requests.some((request) => request.path.endsWith('/team-invitations'))).toBe(false)
 })
