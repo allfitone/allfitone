@@ -38,12 +38,17 @@ test('creates a gym for a company and shows that it waits for its owner', async 
   })
   await mockBackofficeApi(context, fixture)
 
+  // The old address opens the dialog over the directory, and forgets it asked.
   await page.goto('/organizations/new')
-  await expect(page.getByText('Crear no es entregar')).toBeVisible()
+  const dialog = page.getByRole('dialog', { name: 'Crear un gimnasio' })
+  await expect(dialog).toBeVisible()
+  await expect(page).toHaveURL(/\/organizations$/)
+  await expect(dialog.getByText('Crear no es entregar')).toBeVisible()
   await fillCompany(page)
   await page.getByRole('button', { name: 'Crear y enviar la invitación' }).click()
 
-  // The new gym's file opens on its handover, under its own name.
+  // The new gym's file opens on its handover, under its own name, and says what happened.
+  await expect(page.getByText('Se creó Gimnasio Norte y su invitación va en camino.')).toBeVisible()
   await expect(page).toHaveURL(/\/organizations\/[0-9a-f-]{36}\?tab=handover$/)
   await expect(page.getByRole('heading', { level: 2, name: 'Gimnasio Norte' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Entrega', selected: true })).toBeVisible()
@@ -107,8 +112,65 @@ test('refuses an incomplete form before it is sent', async ({ context, page }) =
   await page.getByLabel('Nombre del gimnasio').fill('Gimnasio Norte')
   await page.getByRole('button', { name: 'Crear y enviar la invitación' }).click()
 
-  await expect(page.getByText('Elige qué tipo de organización es.')).toBeVisible()
+  // The problem is said under the field it is about, not at the foot of the form.
+  const type = page.getByRole('combobox', { name: 'Tipo' })
+  await expect(type).toHaveAttribute('aria-invalid', 'true')
+  await expect(type).toHaveAccessibleDescription('Elige qué tipo de organización es.')
+  await expect(page.getByLabel('Nombre del gimnasio')).not.toHaveAttribute('aria-invalid', 'true')
   expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+
+  // A malformed address is said under the address.
+  await page.getByRole('combobox', { name: 'Tipo' }).click()
+  await page.getByRole('option', { name: 'Gimnasio', exact: true }).click()
+  await page.getByRole('button', { name: 'Una empresa' }).click()
+  await page.getByLabel('Razón social').fill('Norte Fitness SAS')
+  await page.getByLabel('Correo de quien será el dueño').fill('no es un correo')
+  await page.getByRole('button', { name: 'Crear y enviar la invitación' }).click()
+  const email = page.getByLabel('Correo de quien será el dueño')
+  await expect(email).toHaveAttribute('aria-invalid', 'true')
+  await expect(type).not.toHaveAttribute('aria-invalid', 'true')
+  expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+})
+
+test('closing the dialog leaves the directory as it was and creates nothing', async ({
+  context,
+  page,
+}) => {
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    organizationDirectory: {
+      organizations: [directoryOrganization({ display_name: 'Gimnasio Operando' })],
+    },
+    organizationHandover: { handovers: [] },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  const reads = () =>
+    fixture.requests.filter(
+      (request) => request.method === 'GET' && request.path === '/backoffice/v1/organizations',
+    ).length
+
+  await page.goto('/organizations?q=Operando')
+  await expect(page.getByRole('link', { name: 'Gimnasio Operando' })).toBeVisible()
+  await page.waitForLoadState('networkidle')
+  const plainLoad = reads()
+  await page.getByRole('button', { name: 'Crear un gimnasio' }).click()
+  const dialog = page.getByRole('dialog', { name: 'Crear un gimnasio' })
+  await page.getByLabel('Nombre del gimnasio').fill('A medio escribir')
+  await dialog.getByRole('button', { name: 'Cancelar' }).click()
+
+  await expect(dialog).toBeHidden()
+  await expect(page).toHaveURL(/\/organizations\?q=Operando$/)
+  await expect(page.getByRole('link', { name: 'Gimnasio Operando' })).toBeVisible()
+  expect(fixture.requests.filter((request) => request.method === 'POST')).toHaveLength(0)
+  expect(reads()).toBe(plainLoad)
+
+  // Opened from the address, the list is read as for a plain visit: forgetting `new` is no new search.
+  await page.goto('/organizations/new')
+  await expect(page.getByRole('dialog', { name: 'Crear un gimnasio' })).toBeVisible()
+  await expect(page).toHaveURL(/\/organizations$/)
+  await page.waitForLoadState('networkidle')
+  expect(reads()).toBe(plainLoad * 2)
 })
 
 test('a retry after a lost answer converges on one gym', async ({ context, page }) => {
@@ -324,11 +386,11 @@ test('the directory leads to creating a gym and to an unclaimed gym’s handover
   )
 
   await page.goto('/organizations')
-  // The screen's one primary action; the library renders the link with the button role.
-  await expect(page.getByRole('button', { name: 'Crear un gimnasio' })).toHaveAttribute(
-    'href',
-    '/organizations/new',
-  )
+  // The screen's one primary action opens a dialog over the list, not another screen.
+  await page.getByRole('button', { name: 'Crear un gimnasio' }).click()
+  await expect(page.getByRole('dialog', { name: 'Crear un gimnasio' })).toBeVisible()
+  await expect(page).toHaveURL(/\/organizations$/)
+  await page.keyboard.press('Escape')
   // An operating gym opens on its file, never on a handover it does not have.
   await expect(page.getByRole('link', { name: 'Gimnasio Operando' })).toHaveAttribute(
     'href',

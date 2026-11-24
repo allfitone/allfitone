@@ -19,6 +19,9 @@
  * **Nothing here identifies a person.** The directory is organizations only: no
  * legal name — for an independent professional it is a person's name — and no
  * owner. Who owns a gym belongs to its file, not to a list anyone may scroll.
+ *
+ * Creating a gym is a dialog over the list, as in Studio's library. `?new=1`, which
+ * the old `/organizations/new` redirects to, opens it once and is then forgotten.
  */
 
 import { Alert, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
@@ -75,6 +78,7 @@ import { organizationFileHref } from '@/lib/organization-file'
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
+import { OrganizationCreateDialog } from './organization-create-dialog'
 import { PageHeader } from './page-header'
 import { ScreenEmpty, ScreenFailure, ScreenLoading } from './screen-state'
 
@@ -84,8 +88,14 @@ const ANY = 'any'
 
 export function OrganizationDirectory() {
   const router = useRouter()
-  const search = useSearchParams().toString()
+  const params = useSearchParams()
+  // Only the search's own parameters: dropping `new` must not read the list again.
+  const search = new URLSearchParams(
+    toDirectoryQuery(directoryFiltersFromAddress(params)),
+  ).toString()
   const applied = useMemo(() => directoryFiltersFromAddress(new URLSearchParams(search)), [search])
+  const requestedCreate = params.get('new') === '1'
+  const [creating, setCreating] = useState(requestedCreate)
   const [state, setState] = useState<LoadState>('loading')
   const [failure, setFailure] = useState<string | null>(null)
   const [refused, setRefused] = useState(false)
@@ -104,6 +114,11 @@ export function OrganizationDirectory() {
     setDraftFor(appliedAddress)
     setDraft(applied)
   }
+
+  // A request to create is answered once: going back or reloading must not open it again.
+  useEffect(() => {
+    if (requestedCreate) window.history.replaceState(null, '', appliedAddress)
+  }, [requestedCreate, appliedAddress])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -166,7 +181,7 @@ export function OrganizationDirectory() {
   }
 
   const create = (
-    <Button render={<Link href="/organizations/new" />} nativeButton={false}>
+    <Button type="button" onClick={() => setCreating(true)}>
       <FoundationIcon name="add" decorative />
       Crear un gimnasio
     </Button>
@@ -178,6 +193,7 @@ export function OrganizationDirectory() {
         description="Por su nombre visible. El directorio muestra organizaciones, nunca personas: ni la razón social ni quién es su dueño."
         actions={create}
       />
+      <OrganizationCreateDialog open={creating} onOpenChange={setCreating} />
 
       <form
         onSubmit={submit}
