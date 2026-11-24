@@ -280,3 +280,33 @@ test('sends an unauthenticated operator back to the access screen', async ({ con
 
   await expect(page.getByRole('heading', { name: 'Identifica tu acceso.' })).toBeVisible()
 })
+
+test('the filters sit on one row above the operations, and a bad identifier is said under it', async ({
+  context,
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  const fixture = createBackofficeFixture({
+    session: activeSession(),
+    diagnosis: { circuits: [], operations: [diagnosisOperation()] },
+  })
+  await mockBackofficeApi(context, fixture)
+
+  await page.goto(PATH)
+  const toolbar = page.getByRole('search', { name: 'Filtrar operaciones' })
+  const type = toolbar.getByRole('combobox', { name: 'Tipo' })
+  const state = toolbar.getByRole('combobox', { name: 'Estado' })
+  const identifier = toolbar.getByLabel('Identificador del sujeto')
+  await expect(type).toContainText('Todos los tipos')
+  await expect(state).toContainText('Todos los estados')
+  // One row, like every other list: three stacked fields pushed the operations down.
+  const tops = await Promise.all(
+    [type, state, identifier].map(async (control) => (await control.boundingBox())?.y ?? -1),
+  )
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThan(4)
+
+  await identifier.fill('019a7000')
+  await toolbar.getByRole('button', { name: 'Buscar sus operaciones' }).click()
+  await expect(identifier).toHaveAttribute('aria-invalid', 'true')
+  await expect(identifier).toHaveAccessibleDescription(/identificador completo/)
+})
