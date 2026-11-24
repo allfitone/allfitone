@@ -71,6 +71,7 @@ import {
   type DirectoryFilters,
   type OrganizationStatus,
 } from '@/lib/organization-directory'
+import { organizationFileHref } from '@/lib/organization-file'
 import { formatInstant } from '@/lib/platform-access'
 import { isRefusal } from '@/lib/screen-state'
 
@@ -299,13 +300,14 @@ export function OrganizationDirectory() {
                   data-status={organization.status}
                 >
                   <TableCell>
-                    {/* A gym nobody has claimed opens on its handover; any other on its file. */}
+                    {/* A gym nobody has claimed opens on its handover tab; any other on its summary. */}
                     <Link
-                      href={
+                      href={organizationFileHref(
+                        organization.organization_id,
                         organization.status === 'unclaimed' || organization.status === 'cancelled'
-                          ? `/organizations/${organization.organization_id}/handover`
-                          : `/organizations/${organization.organization_id}`
-                      }
+                          ? 'handover'
+                          : 'summary',
+                      )}
                       data-handover-link
                     >
                       {organization.display_name}

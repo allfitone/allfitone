@@ -10,6 +10,15 @@ import {
 
 const CREATE = '/backoffice/v1/organizations'
 
+/** The handover is a tab of the gym's file, not a screen of its own. */
+function handoverTab(organizationId: string): string {
+  return `/organizations/${organizationId}?tab=handover`
+}
+
+function handoverPanel(page: Page) {
+  return page.locator('[data-organization-handover]')
+}
+
 async function fillCompany(page: Page) {
   await page.getByLabel('Nombre del gimnasio').fill('Gimnasio Norte')
   await page.getByRole('combobox', { name: 'Tipo' }).click()
@@ -34,7 +43,10 @@ test('creates a gym for a company and shows that it waits for its owner', async 
   await fillCompany(page)
   await page.getByRole('button', { name: 'Crear y enviar la invitación' }).click()
 
-  await expect(page).toHaveURL(/\/organizations\/[0-9a-f-]{36}\/handover$/)
+  // The new gym's file opens on its handover, under its own name.
+  await expect(page).toHaveURL(/\/organizations\/[0-9a-f-]{36}\?tab=handover$/)
+  await expect(page.getByRole('heading', { level: 2, name: 'Gimnasio Norte' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Entrega', selected: true })).toBeVisible()
   await expect(page.getByText('Esperando a su dueño')).toBeVisible()
   await expect(page.getByText(/no opera hasta que su dueño acepte/)).toBeVisible()
   await expect(page.locator('#ho-invited')).toHaveText('d***@example.test')
@@ -131,7 +143,7 @@ test('resending a live invitation says the first link still works', async ({ con
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization_id}/handover`)
+  await page.goto(handoverTab(record.organization_id))
   await page.getByRole('button', { name: 'Enviar la invitación de nuevo' }).click()
 
   await expect(
@@ -162,7 +174,7 @@ test('resending a lapsed invitation says a new one went to the same address', as
     }),
   )
 
-  await page.goto(`/organizations/${record.organization_id}/handover`)
+  await page.goto(handoverTab(record.organization_id))
   await expect(page.getByText('La invitación venció')).toBeVisible()
   await page.getByRole('button', { name: 'Enviar la invitación de nuevo' }).click()
 
@@ -178,7 +190,7 @@ test('cancelling asks again, then withdraws the invitation for good', async ({ c
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization_id}/handover`)
+  await page.goto(handoverTab(record.organization_id))
   await page.getByRole('button', { name: 'Cancelar la creación' }).click()
   await expect(page.getByText(/no se puede deshacer/)).toBeVisible()
   expect(fixture.requests.filter((request) => request.path.endsWith('/cancellation'))).toHaveLength(
@@ -190,8 +202,10 @@ test('cancelling asks again, then withdraws the invitation for good', async ({ c
     .getByRole('button', { name: 'Sí, cancelar la creación' })
     .click()
 
-  await expect(page.getByText('Cancelado', { exact: true })).toBeVisible()
+  await expect(handoverPanel(page).getByText('Cancelado', { exact: true })).toBeVisible()
   await expect(page.getByText(/invitación retirada/).first()).toBeVisible()
+  // The file's own state follows, without reading the file again.
+  await expect(page.locator('#file-status')).toHaveText('Cancelado sin reclamar')
   // HU-BO-015 c3: who cancelled it.
   await expect(page.locator('[data-handover-cancelled-by]')).toContainText('Lo canceló Sara Ciclo.')
   await expect(page.locator('[data-handover-file-link]')).toHaveCount(0)
@@ -209,7 +223,7 @@ test('backing out of cancelling changes nothing', async ({ context, page }) => {
   })
   await mockBackofficeApi(context, fixture)
 
-  await page.goto(`/organizations/${record.organization_id}/handover`)
+  await page.goto(handoverTab(record.organization_id))
   await page.getByRole('button', { name: 'Cancelar la creación' }).click()
   const dialog = page.getByRole('alertdialog')
   // Its text and both answers fit inside it.
@@ -234,15 +248,21 @@ test('an owner who accepted meanwhile is read again instead of guessed', async (
     }),
   )
 
-  await page.goto(`/organizations/${record.organization_id}/handover`)
+  await page.goto(handoverTab(record.organization_id))
   await page.getByRole('button', { name: 'Enviar la invitación de nuevo' }).click()
 
   await expect(page.getByText(/ya no espera a su dueño/)).toBeVisible()
-  await expect(page.getByText('Entregado', { exact: true })).toBeVisible()
+  // Accepted is final: nothing is left to do, and the tab says who runs it now.
+  await expect(handoverPanel(page).getByText('Entregado', { exact: true })).toBeVisible()
+  await expect(page.getByText(/lo administra su dueño en Studio/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Cancelar la creación' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Enviar la invitación de nuevo' })).toHaveCount(0)
 })
 
-test('a handover its owner accepted offers nothing to do', async ({ context, page }) => {
+test('a gym its owner claimed has no handover tab, and the old address opens its file', async ({
+  context,
+  page,
+}) => {
   const record = handoverRecord({ status: 'active', claimed_at: new Date().toISOString() })
   await mockBackofficeApi(
     context,
@@ -254,23 +274,29 @@ test('a handover its owner accepted offers nothing to do', async ({ context, pag
 
   await page.goto(`/organizations/${record.organization_id}/handover`)
 
-  await expect(page.getByText('Entregado', { exact: true })).toBeVisible()
-  await expect(page.getByText(/lo administra su dueño en Studio/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Enviar la invitación de nuevo' })).toHaveCount(0)
+  await expect(page).toHaveURL(
+    new RegExp(`/organizations/${record.organization_id}\\?tab=handover$`),
+  )
+  await expect(page.getByRole('tab', { name: 'Resumen', selected: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Entrega' })).toHaveCount(0)
+  await expect(page.locator('#file-claimed')).toBeVisible()
 })
 
 test('a withdrawn lifecycle duty is explained as expiry by design', async ({ context, page }) => {
+  const record = handoverRecord()
   await mockBackofficeApi(
     context,
     createBackofficeFixture({
       session: activeSession(),
-      organizationHandover: { refusal: { status: 403, code: 'forbidden' }, handovers: [] },
+      organizationHandover: { refusal: { status: 403, code: 'forbidden' }, handovers: [record] },
     }),
   )
 
-  await page.goto('/organizations/019a7000-0000-7000-8000-000000009999/handover')
+  await page.goto(handoverTab(record.organization_id))
 
-  await expect(page.getByText('Esta pantalla pide un deber vigente')).toBeVisible()
+  // The rest of the file still opens: only the tab that needs the duty says so.
+  await expect(page.getByRole('heading', { level: 2, name: record.display_name })).toBeVisible()
+  await expect(handoverPanel(page).getByText('Esta pantalla pide un deber vigente')).toBeVisible()
   await expect(page.getByText(/llegan con el rol de administrador/)).toBeVisible()
 })
 
@@ -310,45 +336,41 @@ test('the directory leads to creating a gym and to an unclaimed gym’s handover
   )
   await page.getByRole('link', { name: 'Gimnasio Nuevo' }).click()
 
-  await expect(page).toHaveURL(`/organizations/${record.organization_id}/handover`)
+  await expect(page).toHaveURL(`/organizations/${record.organization_id}?tab=handover`)
   await expect(page.getByText('Esperando a su dueño')).toBeVisible()
-  // HU-BO-034 c1: the quota is set in the file, and a gym that waits for its owner leads there.
-  await expect(page.locator('[data-handover-file-link]')).toHaveText(
-    'Fijar su cupo en la ficha del gimnasio',
-  )
-  await expect(page.locator('[data-handover-file-link]')).toHaveAttribute(
-    'href',
-    `/organizations/${record.organization_id}`,
-  )
+  // HU-BO-034 c1: a gym that waits for its owner is sold its quota, one tab away.
+  await page.getByRole('button', { name: 'Fijar su cupo en «Cupo y plan»' }).click()
+  await expect(page.getByRole('tab', { name: 'Cupo y plan', selected: true })).toBeVisible()
+  await expect(page).toHaveURL(`/organizations/${record.organization_id}?tab=plan`)
 })
 
 // HU-BO-013 c5: once a natural person claims the gym, the address the file reserves is
-// not one link away on the handover.
-test('the address of a claimed natural person is withheld on the handover', async ({
+// not shown on the handover either, even when the claim lands while the tab is open.
+test('the address of a natural person who claims meanwhile is withheld on the handover', async ({
   context,
   page,
 }) => {
   const record = handoverRecord({
     party_kind: 'natural_person',
     legal_name: null,
-    status: 'active',
-    claimed_at: new Date().toISOString(),
     site: {
       site_id: '019a7200-0000-7000-8000-000000000009',
       name: 'Sede Casa',
-      address: null,
-      address_withheld: true,
+      address: 'Calle 1 # 2-3',
+      address_withheld: false,
     },
   })
   await mockBackofficeApi(
     context,
     createBackofficeFixture({
       session: activeSession(),
-      organizationHandover: { handovers: [record] },
+      organizationHandover: { handovers: [record], nextCommandClaimedElsewhere: true },
     }),
   )
 
-  await page.goto(`/organizations/${record.organization_id}/handover`)
+  await page.goto(handoverTab(record.organization_id))
+  await expect(page.locator('#ho-site-view')).toHaveText('Sede Casa · Calle 1 # 2-3')
+  await page.getByRole('button', { name: 'Enviar la invitación de nuevo' }).click()
 
   await expect(page.locator('#ho-site-view')).toHaveText(
     'Sede Casa · dirección reservada: es de la persona natural que responde por el gimnasio',

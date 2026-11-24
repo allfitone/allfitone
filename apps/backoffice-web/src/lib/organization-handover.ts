@@ -206,21 +206,6 @@ export function cancelledBySentence(handover: OrganizationHandover): string | un
   return actor === null ? undefined : `Lo canceló ${staffName(actor.name, actor.person_id)}.`
 }
 
-/**
- * HU-BO-034 c1: the quota is set in the gym's file, which the directory opens only once
- * the gym is claimed. A gym that waits for its owner is sold its number from here.
- */
-export function fileLink(
-  handover: OrganizationHandover,
-): { href: string; label: string } | undefined {
-  const href = `/organizations/${handover.organization_id}`
-  if (handover.status === 'unclaimed') {
-    return { href, label: 'Fijar su cupo en la ficha del gimnasio' }
-  }
-  if (handover.status === 'cancelled') return undefined
-  return { href, label: 'Ver la ficha del gimnasio' }
-}
-
 export function handoverMessage(code: string): string {
   const messages: Record<string, string> = {
     forbidden:

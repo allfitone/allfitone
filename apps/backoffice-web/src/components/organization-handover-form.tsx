@@ -54,6 +54,7 @@ import {
   type OrganizationTypeCode,
 } from '@/lib/organization-handover'
 import { menuCrumb } from '@/lib/backoffice-routes'
+import { organizationFileHref } from '@/lib/organization-file'
 
 import { RecordHeader } from './page-header'
 
@@ -89,7 +90,7 @@ export function OrganizationHandoverForm() {
         pending.current.command,
       )
       pending.current = null
-      router.push(`/organizations/${handover.organization_id}/handover`)
+      router.push(organizationFileHref(handover.organization_id, 'handover'))
     } catch (caught) {
       if (caught instanceof BackofficeApiError && caught.status === 401) {
         window.location.assign('/')

@@ -3792,12 +3792,50 @@ async function routeOrganizationFile(
     return
   }
   const organizationId = request.path.split('/').filter(Boolean)[3]
-  const record = state.files.find((file) => file.organization.organization_id === organizationId)
+  const handover = fixture.organizationHandover?.handovers.find(
+    (row) => row.organization_id === organizationId,
+  )
+  const record =
+    state.files.find((file) => file.organization.organization_id === organizationId) ??
+    (handover ? fileFromHandover(handover) : undefined)
   if (!record) {
     await fulfillProblem(route, 404, 'not-found')
     return
   }
   await fulfill(route, 200, record)
+}
+
+/**
+ * One organization, two reads: a gym created for a sale has a file as well as a
+ * handover, read from the same rows, so its file follows a cancellation.
+ */
+function fileFromHandover(handover: HandoverRecordFixture): OrganizationFileRecordFixture {
+  const id = handover.organization_id
+  return organizationFileRecord({
+    organization: {
+      organization_id: id,
+      display_name: handover.display_name,
+      type_code: handover.type_code,
+      type_name: handover.type_name,
+      status: handover.status,
+      party_kind: handover.party_kind,
+      legal_name: handover.legal_name,
+      created_at: handover.created_at,
+      claimed_at: handover.claimed_at,
+      cancelled_at: handover.cancelled_at,
+    },
+    sites: handover.site ? [{ ...handover.site, status: 'active' }] : [],
+    people_served: 0,
+    relationship_counts: { active: 0, terminated: 0 },
+    plans: [],
+    payment_method: { connected: false, provider: null, connected_at: null },
+    premium: {
+      gives_pro: false,
+      reason: handover.status === 'active' ? null : 'organization_not_active',
+    },
+    guest_quota: guestQuotaRecord(id),
+    suspension: suspensionRecord(id),
+  })
 }
 
 const SUSPENSION_PATH = new RegExp('^/backoffice/v1/organizations/[^/]+/(suspension|reactivation)$')
@@ -4353,6 +4391,10 @@ async function routeOrganizationHandover(
     if (record.invitation) {
       record.invitation.status = 'completed'
       record.invitation.intent_status = 'accepted'
+    }
+    // As the API does: once a natural person claims it, the address is theirs and withheld.
+    if (record.party_kind === 'natural_person' && record.site) {
+      record.site = { ...record.site, address: null, address_withheld: true }
     }
   }
 

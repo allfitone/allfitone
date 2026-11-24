@@ -195,7 +195,10 @@ test('an independent professional’s name and home address stay out of the file
   await expect(page.getByText(/Reservada: puede ser la casa de quien atiende/)).toBeVisible()
 })
 
-test('a gym nobody claimed shows no owner and leads to its handover', async ({ context, page }) => {
+test('a gym nobody claimed shows no owner and has its handover as a tab', async ({
+  context,
+  page,
+}) => {
   const base = organizationFileRecord()
   const record = organizationFileRecord({
     organization: { ...base.organization, status: 'unclaimed', claimed_at: null },
@@ -210,10 +213,9 @@ test('a gym nobody claimed shows no owner and leads to its handover', async ({ c
 
   await page.goto(`/organizations/${record.organization.organization_id}`)
 
-  await expect(page.getByRole('link', { name: 'Ver la entrega a su dueño' })).toHaveAttribute(
-    'href',
-    `/organizations/${record.organization.organization_id}/handover`,
-  )
+  // Its handover is part of the file, right after the summary, not a screen of its own.
+  const tabs = page.getByRole('tablist', { name: 'Secciones de la ficha' }).getByRole('tab')
+  await expect(tabs).toHaveText(['Resumen', 'Entrega', 'Equipo', 'Cupo y plan', 'Suspensión'])
   // Nobody to invite until somebody owns it.
   await expect(page.getByRole('tab', { name: 'Invitaciones' })).toHaveCount(0)
 

@@ -371,8 +371,9 @@ test('every screen below a menu entry names what is open and leads back to its l
       name: file.organization.display_name,
       back: { title: 'Gimnasios', href: '/organizations' },
     },
+    // A handover is a tab of its gym's file, under the gym's name.
     {
-      path: `/organizations/${handover.organization_id}/handover`,
+      path: `/organizations/${handover.organization_id}?tab=handover`,
       name: handover.display_name,
       back: { title: 'Gimnasios', href: '/organizations' },
     },

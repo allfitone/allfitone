@@ -508,6 +508,12 @@
   gap: 8px;
 }
 
+/* The way to the quota tab lines up with the facts above it, not with a button's inset. */
+[data-handover-file-link] {
+  width: fit-content;
+  padding-inline: 0;
+}
+
 /* A link that stands alone carries a touch target of its own; one inside a
    sentence keeps the line's height. */
 [data-handover-link],
