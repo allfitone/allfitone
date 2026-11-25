@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
+
 import {
   bandFigureSize,
   cardScale,
@@ -26,6 +28,9 @@ import {
   whenLine,
   type ShareSummary,
 } from './share-cards'
+
+const es = textFor('es').session
+const en = textFor('en').session
 
 const summary: ShareSummary = {
   executed_session_id: '019e4000-0000-7000-8000-000000000201',
@@ -136,16 +141,16 @@ describe('which cards a finished session shares (ADR-036)', () => {
 
 describe('what the share screen and its cards say', () => {
   test('T-SPC-UNIT-153 the subtitle names the routine, the session and the records', () => {
-    expect(shareSubtitle(summary)).toBe('Tirón · sesión 14 · 2 récords')
-    expect(shareSubtitle({ ...summary, records: summary.records.slice(0, 1) })).toBe(
+    expect(shareSubtitle(summary, es)).toBe('Tirón · sesión 14 · 2 récords')
+    expect(shareSubtitle({ ...summary, records: summary.records.slice(0, 1) }, es)).toBe(
       'Tirón · sesión 14 · 1 récord',
     )
-    expect(shareSubtitle({ ...summary, title: null, records: [] })).toBe('Sesión 14')
+    expect(shareSubtitle({ ...summary, title: null, records: [] }, es)).toBe('Sesión 14')
   })
 
   test("T-SPC-UNIT-154 the day and the number, in the person's zone", () => {
     // 17:00 UTC on the 29th is noon in Bogotá, a Tuesday.
-    expect(whenLine(summary, 'America/Bogota', 'es')).toBe('MAR 29 · SESIÓN 14')
+    expect(whenLine(summary, 'America/Bogota', 'es', es)).toBe('MAR 29 · SESIÓN 14')
   })
 
   test('T-SPC-UNIT-155 the duration reads as a clock', () => {
@@ -154,12 +159,16 @@ describe('what the share screen and its cards say', () => {
   })
 
   test('T-SPC-UNIT-156 an exercise shows its sets by its reps, a range when they varied', () => {
-    expect(summary.exercises.map(exerciseShape)).toEqual(['4×6', '4×8–10', '3 series'])
+    expect(summary.exercises.map((one) => exerciseShape(one, es))).toEqual([
+      '4×6',
+      '4×8–10',
+      '3 series',
+    ])
   })
 
   test('T-SPC-UNIT-157 the title is the two most worked muscle groups, or the routine', () => {
-    expect(groupsTitle(summary, catalogue)).toBe('DORSAL Y BÍCEPS')
-    expect(groupsTitle({ ...summary, exercises: [] }, catalogue)).toBe('TIRÓN')
+    expect(groupsTitle(summary, catalogue, es)).toBe('DORSAL Y BÍCEPS')
+    expect(groupsTitle({ ...summary, exercises: [] }, catalogue, es)).toBe('TIRÓN')
   })
 
   test('T-SPC-UNIT-158 the muscles card lists every muscle worked, main ones first', () => {
@@ -186,20 +195,25 @@ describe('the record card', () => {
 
   test('T-SPC-UNIT-160 each kind of record reads as what it is', () => {
     const [e1rm] = summary.records
-    expect(recordFigure(heaviestRecord(), 'es')).toEqual({
+    expect(recordFigure(heaviestRecord(), 'es', 'kg', es)).toEqual({
       big: '10',
       unit: 'KG',
       tail: '× 6',
       label: 'PESO MÁXIMO',
     })
-    expect(e1rm && recordFigure(e1rm, 'es')).toEqual({
+    expect(e1rm && recordFigure(e1rm, 'es', 'kg', es)).toEqual({
       big: '84',
       unit: 'KG',
       tail: '1RM',
       label: 'MEJOR 1RM ESTIMADO',
     })
     expect(
-      recordFigure({ ...heaviestRecord(), kind: 'best_set', value: 720, reps: null }, 'es'),
+      recordFigure(
+        { ...heaviestRecord(), kind: 'best_set', value: 720, reps: null },
+        'es',
+        'kg',
+        es,
+      ),
     ).toEqual({
       big: '720',
       unit: 'KG',
@@ -210,6 +224,8 @@ describe('the record card', () => {
       recordFigure(
         { ...heaviestRecord(), kind: 'session_volume', value: 1345.5, reps: null },
         'es',
+        'kg',
+        es,
       ),
     ).toEqual({ big: '1.345,5', unit: 'KG', tail: 'en la sesión', label: 'MÁS VOLUMEN' })
   })
@@ -236,7 +252,7 @@ describe('the anatomical plate and the record bars', () => {
   })
 
   test('T-SPC-UNIT-166 a record is told as the jump: before, now, by how much, to scale', () => {
-    expect(recordJump(heaviestRecord(), 'es')).toEqual({
+    expect(recordJump(heaviestRecord(), 'es', 'kg')).toEqual({
       before: '7,5',
       now: '10',
       delta: '+2,5',
@@ -251,7 +267,7 @@ describe('the anatomical plate and the record bars', () => {
   })
 
   test('T-SPC-UNIT-168 a record day reads short, as the bars label it', () => {
-    expect(shortDay('2026-09-17')).toBe('17 SEP')
+    expect(shortDay('2026-09-17', es)).toBe('17 SEP')
   })
 })
 
@@ -263,14 +279,14 @@ describe('the record row under the bars', () => {
   })
 
   test('T-SPC-UNIT-170 the header names the routine; the muscles are for the card itself', () => {
-    expect(routineTitle(summary, catalogue)).toBe('TIRÓN')
-    expect(routineTitle({ ...summary, title: null }, catalogue)).toBe('DORSAL Y BÍCEPS')
+    expect(routineTitle(summary, catalogue, es)).toBe('TIRÓN')
+    expect(routineTitle({ ...summary, title: null }, catalogue, es)).toBe('DORSAL Y BÍCEPS')
   })
 })
 
 test('T-SPC-UNIT-171 one exercise is «1 ejercicio», not «1 ejercicios»', () => {
-  expect(exercisesLabel(1)).toBe('1 ejercicio')
-  expect(exercisesLabel(5)).toBe('5 ejercicios')
+  expect(exercisesLabel(1, es)).toBe('1 ejercicio')
+  expect(exercisesLabel(5, es)).toBe('5 ejercicios')
 })
 
 test('T-SPC-UNIT-172 Historias goes straight to Instagram only with an app id and the app', () => {
@@ -281,8 +297,8 @@ test('T-SPC-UNIT-172 Historias goes straight to Instagram only with an app id an
 })
 
 test('T-SPC-UNIT-173 undoing a picked background says what comes back', () => {
-  expect(restoreLabel('https://media.example/back.webp')).toBe('Volver a la foto de la rutina')
-  expect(restoreLabel(null)).toBe('Quitar mi foto')
+  expect(restoreLabel('https://media.example/back.webp', es)).toBe('Volver a la foto de la rutina')
+  expect(restoreLabel(null, es)).toBe('Quitar mi foto')
 })
 
 describe('the streak as steps', () => {
@@ -294,8 +310,8 @@ describe('the streak as steps', () => {
 
   test("T-SPC-UNIT-175 a week is named by its Monday, in the person's zone", () => {
     // 17:00 UTC on Tuesday the 29th is noon in Bogotá: that week began Monday the 28th.
-    expect(weekStartLabel(summary, 'America/Bogota', 0)).toBe('EL 28 DE SEPTIEMBRE')
-    expect(weekStartLabel(summary, 'America/Bogota', 7)).toBe('EL 10 DE AGOSTO')
+    expect(weekStartLabel(summary, 'America/Bogota', 0, es)).toBe('EL 28 DE SEPTIEMBRE')
+    expect(weekStartLabel(summary, 'America/Bogota', 7, es)).toBe('EL 10 DE AGOSTO')
   })
 })
 
@@ -319,19 +335,49 @@ describe('the minimal cards and the stickers', () => {
 
   test('T-SPC-UNIT-177 a record reads as the gain and what it means', () => {
     const [estimated, heaviest] = summary.records
-    expect(heaviest && recordGain(heaviest, 'es')).toEqual({
+    expect(heaviest && recordGain(heaviest, 'es', 'kg', es)).toEqual({
       gain: '+2,5 KG',
       meaning: 'MÁS PESO QUE NUNCA',
     })
-    expect(estimated && recordGain(estimated, 'es')).toEqual({
+    expect(estimated && recordGain(estimated, 'es', 'kg', es)).toEqual({
       gain: '+4 KG',
       meaning: 'TU MEJOR 1RM ESTIMADO',
     })
   })
 
   test('T-SPC-UNIT-178 the time reads in minutes, in hours past one', () => {
-    expect(minutesLine(1565)).toBe('EN 26 MINUTOS')
-    expect(minutesLine(45)).toBe('EN 1 MINUTO')
-    expect(minutesLine(3900)).toBe('EN 1 H 05')
+    expect(minutesLine(1565, es)).toBe('EN 26 MINUTOS')
+    expect(minutesLine(45, es)).toBe('EN 1 MINUTO')
+    expect(minutesLine(3900, es)).toBe('EN 1 H 05')
+  })
+})
+
+describe('the cards in English and in pounds (TECH-44)', () => {
+  test('T-SPC-UNIT-646 the cards speak English', () => {
+    expect(shareSubtitle(summary, en)).toBe('Tirón · session 14 · 2 records')
+    expect(whenLine(summary, 'America/Bogota', 'en', en)).toBe('TUE 29 · SESSION 14')
+    expect(groupsTitle(summary, catalogue, en)).toBe('DORSAL AND BÍCEPS')
+    expect(shortDay('2026-09-17', en)).toBe('SEP 17')
+    expect(weekStartLabel(summary, 'America/Bogota', 0, en)).toBe('SEPTEMBER 28')
+    expect(minutesLine(45, en)).toBe('IN 1 MINUTE')
+    expect(exercisesLabel(1, en)).toBe('1 exercise')
+  })
+
+  test('T-SPC-UNIT-647 a record reads in her unit', () => {
+    expect(recordFigure(heaviestRecord(), 'en', 'lb', en)).toEqual({
+      big: '22',
+      unit: 'LB',
+      tail: '× 6',
+      label: 'TOP WEIGHT',
+    })
+    expect(recordJump(heaviestRecord(), 'en', 'lb')).toMatchObject({
+      before: '16.5',
+      now: '22',
+      delta: '+5.5',
+    })
+    expect(recordGain(heaviestRecord(), 'en', 'lb', en)).toEqual({
+      gain: '+5.5 LB',
+      meaning: 'HEAVIEST EVER',
+    })
   })
 })

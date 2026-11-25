@@ -58,20 +58,15 @@ import {
   whenRange,
 } from '../../src/client/finished'
 import { ApiError } from '../../src/client/index'
-import { SET_KIND_NAMES } from '../../src/client/set-scheme'
 import { durationLabel, groupsTitle } from '../../src/client/share-cards'
 import { deviceTimezone } from '../../src/client/timezone'
 import { ActionRow } from '../../src/components/action-row'
 import { BodyFigure } from '../../src/components/body-figure'
 import { INERT_SLUGS } from '../../src/client/focus-form'
 import type { ShareCatalogue } from '../../src/components/share-card'
-import { useLocale } from '../../src/i18n/use-text'
-import { intlLocale } from '../../src/i18n'
-
-const READ_FAILED = 'No pudimos abrir este entreno. Inténtalo otra vez.'
-const REPEAT_FAILED = 'No pudimos empezar el entreno. Inténtalo otra vez.'
-const STILL_OPEN = 'Tienes otro entreno abierto. Termínalo o déjalo antes de repetir este.'
-const ANNUL_FAILED = 'No pudimos eliminarlo. Inténtalo otra vez.'
+import { volumeFigure } from '../../src/client/history'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 /**
  * The sheet's steps move like pages: forward slides in from the right, back from the
@@ -95,6 +90,8 @@ type Catalogue = ShareCatalogue & { readonly pictures: ReadonlyMap<string, strin
 
 export default function FinishedSessionScreen() {
   const { executionId } = useLocalSearchParams<{ executionId: string }>()
+  const words = useText().session
+  const said = words.finished
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
@@ -132,14 +129,14 @@ export default function FinishedSessionScreen() {
             pictures: new Map(movements.map((one) => [one.id, one.demo_url])),
           })
         })
-        .catch(() => active && setFailure(READ_FAILED))
+        .catch(() => active && setFailure(said.readFailed))
       return () => {
         active = false
       }
-    }, [flow, executionId, timeZone]),
+    }, [flow, executionId, timeZone, said]),
   )
 
-  const name = detail?.title ?? 'Entreno libre'
+  const name = detail?.title ?? words.freeSession
 
   const repeat = () => {
     setSheet(undefined)
@@ -152,7 +149,9 @@ export default function FinishedSessionScreen() {
       )
       .catch((cause: unknown) =>
         setFailure(
-          cause instanceof ApiError && cause.failure === 'conflict' ? STILL_OPEN : REPEAT_FAILED,
+          cause instanceof ApiError && cause.failure === 'conflict'
+            ? said.stillOpen
+            : said.repeatFailed,
         ),
       )
       .finally(() => setRepeating(false))
@@ -171,21 +170,16 @@ export default function FinishedSessionScreen() {
       <View style={styles.header}>
         <IconButton
           icon="back"
-          accessibilityLabel="Volver al historial"
+          accessibilityLabel={said.backToHistory}
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/history'))}
         />
         <Text role="control" size="lg" color="secondary" style={styles.title}>
-          Detalle del entreno
+          {said.title}
         </Text>
-        <IconButton
-          icon="edit"
-          accessibilityLabel="Editar entreno"
-          disabled={!detail}
-          onPress={edit}
-        />
+        <IconButton icon="edit" accessibilityLabel={said.edit} disabled={!detail} onPress={edit} />
         <IconButton
           icon="more"
-          accessibilityLabel="Más opciones"
+          accessibilityLabel={said.more}
           disabled={!detail}
           onPress={() => {
             setBack(false)
@@ -200,10 +194,10 @@ export default function FinishedSessionScreen() {
           {failure ? <InlineAlert message={failure} /> : null}
           <View style={styles.sectionHead}>
             <Text role="eyebrow" size="xs" color="muted" uppercase>
-              Ejercicios
+              {said.exercises}
             </Text>
             <Text role="body" size="xs" color="muted">
-              {exercisesLine(detail)}
+              {exercisesLine(detail, words)}
             </Text>
           </View>
           {detail.exercises.map((exercise) => (
@@ -240,21 +234,16 @@ export default function FinishedSessionScreen() {
           ]}
         >
           <View style={styles.footRow}>
-            <IconButton icon="share" accessibilityLabel="Compartir" onPress={share} />
+            <IconButton icon="share" accessibilityLabel={said.share} onPress={share} />
             {detail.repeatable ? (
               <View style={styles.grow}>
-                <Button
-                  label="Repetir este entreno"
-                  icon="duplicate"
-                  loading={repeating}
-                  onPress={repeat}
-                />
+                <Button label={said.repeat} icon="duplicate" loading={repeating} onPress={repeat} />
               </View>
             ) : null}
           </View>
           {detail.repeatable ? (
             <Text role="body" size="xs" color="muted" align="center">
-              Mismos ejercicios, en blanco
+              {said.repeatNote}
             </Text>
           ) : null}
         </View>
@@ -265,12 +254,12 @@ export default function FinishedSessionScreen() {
         onDismiss={() => setSheet(undefined)}
         title={
           sheet === 'deleted'
-            ? 'Entreno eliminado'
+            ? said.deleted
             : sheet === 'delete'
-              ? '¿Eliminar este entreno?'
+              ? said.deleteAsk
               : detail
-                ? menuTitle(name, detail.started_at, timeZone)
-                : 'Entreno'
+                ? menuTitle(name, detail.started_at, timeZone, words)
+                : words.workout
         }
       >
         {/* Keyed by step, so each step enters as a page and the sheet resizes to it. */}
@@ -292,7 +281,7 @@ export default function FinishedSessionScreen() {
                 />
               </Animated.View>
               <Text role="body" size="md" color="secondary" align="center">
-                Ya no cuenta en tu historial, tus récords ni tu racha.
+                {said.deletedNote}
               </Text>
             </Animated.View>
           ) : sheet === 'delete' && detail ? (
@@ -320,30 +309,20 @@ export default function FinishedSessionScreen() {
             </Animated.View>
           ) : (
             <Animated.View key="menu" {...(back ? { entering: BACKWARD } : {})} style={styles.menu}>
-              <ActionRow
-                icon="edit"
-                name="Editar entreno"
-                detail="Corrige pesos, repeticiones o ejercicios"
-                onPress={edit}
-              />
+              <ActionRow icon="edit" name={said.edit} detail={said.editDetail} onPress={edit} />
               {detail?.repeatable ? (
                 <ActionRow
                   icon="duplicate"
-                  name="Repetir este entreno"
-                  detail="Empieza uno nuevo con los mismos ejercicios, en blanco"
+                  name={said.repeat}
+                  detail={said.repeatDetail}
                   onPress={repeat}
                 />
               ) : null}
-              <ActionRow
-                icon="share"
-                name="Compartir"
-                detail="Elige una tarjeta para tus historias"
-                onPress={share}
-              />
+              <ActionRow icon="share" name={said.share} detail={said.shareDetail} onPress={share} />
               <ActionRow
                 icon="remove"
-                name="Eliminar entreno"
-                detail="Se borra de tu historial"
+                name={said.delete}
+                detail={said.deleteDetail}
                 danger
                 onPress={() => {
                   void Haptics.selectionAsync()
@@ -369,6 +348,9 @@ function Hero({
   readonly timeZone: string
 }) {
   const locale = useLocale()
+  const words = useText().session
+  const said = words.finished
+  const { mass } = useUnits()
   const theme = useTheme()
   // The groups title and the figure read the same exercises the share cards do.
   const worked = {
@@ -383,16 +365,14 @@ function Hero({
     exercise.movement_id ? (musclesOf.get(exercise.movement_id) ?? []).slice(0, 1) : [],
   )
   const lit = litSlugsFor(catalogue.muscles, main)
-  const comparison = comparisonLine(detail.previous, timeZone)
+  const comparison = comparisonLine(detail.previous, timeZone, words)
   const change = detail.previous?.change_percent ?? null
-  const kilos = (detail.total_volume_kg ?? 0).toLocaleString(intlLocale(locale), {
-    maximumFractionDigits: 0,
-  })
+  const kilos = volumeFigure(detail.total_volume_kg ?? 0, mass, locale)
   const figures: readonly (readonly [string, string, boolean])[] = [
-    [durationLabel(detail.duration_seconds), 'Duración', false],
-    [String(detail.work_sets), 'Series', false],
-    [kilos, 'Kg', false],
-    [String(detail.record_count), 'Récords', true],
+    [durationLabel(detail.duration_seconds), said.duration, false],
+    [String(detail.work_sets), said.sets, false],
+    [kilos, said.volume(mass), false],
+    [String(detail.record_count), said.records, true],
   ]
 
   return (
@@ -403,17 +383,17 @@ function Hero({
       ]}
     >
       <Text role="eyebrow" size="xs" color="accent" uppercase numberOfLines={1}>
-        {`Entreno completado · N.º ${String(detail.session_number)}`}
+        {said.completed(detail.session_number)}
       </Text>
       <View style={styles.heroTop}>
         <View style={styles.heroText}>
           <Text role="poster" size="3xl" uppercase numberOfLines={2}>
-            {groupsTitle(worked, catalogue)}
+            {groupsTitle(worked, catalogue, words)}
           </Text>
           <Text role="body" size="sm" color="secondary">
             {[
-              detail.title ? `Rutina ${detail.title}` : 'Entreno libre',
-              whenRange(detail, timeZone),
+              detail.title ? said.routine(detail.title) : words.freeSession,
+              whenRange(detail, timeZone, words),
             ].join(' · ')}
           </Text>
         </View>
@@ -434,13 +414,14 @@ function Hero({
         ) : null}
       </View>
       <View style={[styles.figureRow, { borderTopColor: theme.color.border.subtle }]}>
-        {figures.map(([value, label, accent]) => (
+        {figures.map(([value, label, accent], index) => (
           <View key={label} style={styles.figure}>
             <View style={styles.figureValue}>
               <Text role="poster" size="xl" color={accent ? 'accent' : 'primary'} numberOfLines={1}>
                 {value}
               </Text>
-              {label === 'Kg' && change !== null && change !== 0 ? (
+              {/* The volume, third, carries the change against last time. */}
+              {index === 2 && change !== null && change !== 0 ? (
                 <Badge
                   label={`${change > 0 ? '+' : '−'}${String(Math.abs(change))}%`}
                   tone="accent"
@@ -470,8 +451,10 @@ function ExerciseCard({
   readonly picture: string | null
 }) {
   const locale = useLocale()
+  const words = useText().session
+  const { mass } = useUnits()
   const theme = useTheme()
-  const best = bestSetLine(exercise.best_set, locale)
+  const best = bestSetLine(exercise.best_set, locale, mass, words)
   return (
     <View
       style={[
@@ -485,7 +468,7 @@ function ExerciseCard({
         </CoverTile>
         <View style={styles.grow}>
           <Text role="control" size="md" numberOfLines={2}>
-            {exercise.movement ?? 'Ejercicio'}
+            {exercise.movement ?? words.exercise}
           </Text>
           {best ? (
             <Text role="body" size="sm" color="secondary">
@@ -494,7 +477,7 @@ function ExerciseCard({
           ) : null}
         </View>
         {exercise.record ? (
-          <Badge label="Récord" tone="accent" variant="outline" icon="record" />
+          <Badge label={words.finished.record} tone="accent" variant="outline" icon="record" />
         ) : null}
       </View>
       {exercise.sets.map((one, index) => (
@@ -506,7 +489,7 @@ function ExerciseCard({
           ]}
         >
           <Text role="control" size="xs" color="muted" style={styles.setNumber}>
-            {one.kind === 'warmup' ? 'C' : String(index + 1)}
+            {one.kind === 'warmup' ? words.warmupMark : String(index + 1)}
           </Text>
           <Text
             role="control"
@@ -514,15 +497,15 @@ function ExerciseCard({
             color={one.best_ever ? 'primary' : 'secondary'}
             style={styles.grow}
           >
-            {setLine(one, locale)}
+            {setLine(one, locale, mass, words)}
           </Text>
           {one.best_ever ? (
             <Text role="body" size="xs" color="primary">
-              Mejor de siempre
+              {words.finished.bestEver}
             </Text>
           ) : one.kind !== 'normal' ? (
             <Text role="body" size="xs" color="muted">
-              {SET_KIND_NAMES[one.kind]}
+              {words.setKinds[one.kind].name}
             </Text>
           ) : null}
         </View>
@@ -545,6 +528,8 @@ function DeleteStep({
   readonly onCancel: () => void
   readonly onDeleted: () => void
 }) {
+  const text = useText()
+  const words = text.session
   const theme = useTheme()
   const flow = useMemo(() => createSpaceExecutionFlow(), [])
   const [preview, setPreview] = useState<InvalidationPreview | undefined>(undefined)
@@ -573,21 +558,21 @@ function DeleteStep({
       .catch(() => {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
         setBusy(false)
-        setFailure(ANNUL_FAILED)
+        setFailure(words.finished.annulFailed)
       })
   }
 
   return (
     <View style={styles.menu}>
       <Text role="body" size="md" color="secondary">
-        {deletionLine(name, detail.started_at, timeZone)}
+        {deletionLine(name, detail.started_at, timeZone, words)}
       </Text>
       <View style={[styles.consequences, { backgroundColor: theme.color.background.surfaceMuted }]}>
         <Text role="eyebrow" size="xs" color="muted" uppercase>
-          También cambia
+          {words.finished.alsoChanges}
         </Text>
         {preview ? (
-          annulConsequences(preview).map((line, index) => (
+          annulConsequences(preview, words).map((line, index) => (
             <Animated.View key={line.text} entering={LINE(index)}>
               <Note size="md" icon={line.icon}>
                 {line.text}
@@ -603,8 +588,8 @@ function DeleteStep({
           <InlineAlert message={failure} />
         </Animated.View>
       ) : null}
-      <Button label="Eliminar entreno" variant="danger" loading={busy} onPress={confirm} />
-      <Button label="Cancelar" variant="ghost" onPress={onCancel} disabled={busy} />
+      <Button label={words.finished.delete} variant="danger" loading={busy} onPress={confirm} />
+      <Button label={text.common.cancel} variant="ghost" onPress={onCancel} disabled={busy} />
     </View>
   )
 }

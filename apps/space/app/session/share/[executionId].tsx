@@ -71,10 +71,8 @@ import {
   copyImage,
   openStory,
   saveFile,
-  SAVE_FAILED,
   shareFile,
   ShareActionRow,
-  SHARE_FAILED,
   useShareMode,
   useShareRun,
   type ShareAction,
@@ -88,6 +86,7 @@ import {
   type ShareCatalogue,
 } from '../../../src/components/share-card'
 import { SESSION_STICKER_SIZE, SessionSticker } from '../../../src/components/session-stickers'
+import { useText } from '../../../src/i18n/use-text'
 
 /** The gap between two cards in the carousel, as FIN-17a spaces them. */
 const GAP = 27
@@ -105,8 +104,6 @@ const STORY_INKS = { top: '#0D1D28', bottom: color.ink.void } as const
 const STICKER_CAPTURE = 2
 /** The width a sticker takes over the preview photograph. */
 const PREVIEW_WIDTH = 260
-const STICKER_HELP =
-  'Copia el sticker y pégalo sobre tu foto en Instagram, o guárdalo sin fondo en tu galería.'
 
 /** Past the sheet's exit for iOS to drop its modal: 80 ms was not enough, 350 is. */
 const SHEET_GONE = 350
@@ -114,11 +111,11 @@ const SHEET_GONE = 350
 /** Just above the dots: over the foot of the card, clear of the title and the actions. */
 const TOAST_FROM_BOTTOM = 214
 
-const LOAD_FAILED = 'No pudimos preparar tus tarjetas. Tu entreno ya quedó guardado.'
-
 export default function ShareSessionScreen() {
   const { executionId, back } = useLocalSearchParams<{ executionId: string; back?: string }>()
   const router = useRouter()
+  const words = useText().session
+  const said = words.share
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const reduceMotion = useReducedMotion()
@@ -208,10 +205,7 @@ export default function ShareSessionScreen() {
     captureRef(transparent, { format: 'png', quality: 1, result })
 
   const sheet = async () =>
-    shareFile(
-      await (mode === 'image' ? image('tmpfile') : stickerImage('tmpfile')),
-      'Compartir tu entreno',
-    )
+    shareFile(await (mode === 'image' ? image('tmpfile') : stickerImage('tmpfile')), said.dialog)
 
   const story = () =>
     run(async () => {
@@ -221,26 +215,26 @@ export default function ShareSessionScreen() {
           : await stickerImage('base64')
       const background = mode === 'sticker' ? (picked ?? undefined) : undefined
       return (await openStory({ sticker: png, inks: STORY_INKS, background })) ? undefined : sheet()
-    }, SHARE_FAILED)
+    }, said.shareFailed)
 
-  const share = () => run(sheet, SHARE_FAILED)
+  const share = () => run(sheet, said.shareFailed)
 
   const save = () =>
     run(
       async () =>
         mode === 'image'
-          ? saveFile(await image('tmpfile'), 'Guardada en Fotos.')
-          : saveFile(await stickerImage('tmpfile'), 'Sticker guardado sin fondo en Fotos.'),
-      SAVE_FAILED,
+          ? saveFile(await image('tmpfile'), said.savedImage, said.noPermission)
+          : saveFile(await stickerImage('tmpfile'), said.savedSticker, said.noPermission),
+      said.saveFailed,
     )
 
   const copy = () =>
     run(
       async () =>
         mode === 'image'
-          ? copyImage(await image('base64'), 'Imagen copiada.')
-          : copyImage(await stickerImage('base64'), 'Sticker copiado. Pégalo en tu historia.'),
-      SHARE_FAILED,
+          ? copyImage(await image('base64'), said.copiedImage)
+          : copyImage(await stickerImage('base64'), said.copiedSticker),
+      said.shareFailed,
     )
 
   // The system picker needs no permission: it hands back only the picture chosen.
@@ -255,7 +249,7 @@ export default function ShareSessionScreen() {
       const index = kinds.indexOf('photo')
       deck.current?.scrollTo({ x: index * interval, animated: !reduceMotion })
       return undefined
-    }, SHARE_FAILED)
+    }, said.shareFailed)
 
   // A picture already picked can be swapped or taken back; none yet goes straight in.
   const background = () => (picked ? setChoosing(true) : pick())
@@ -270,13 +264,13 @@ export default function ShareSessionScreen() {
       <Screen edges={['top', 'bottom']} padded={false}>
         <View style={styles.waiting}>
           {failed ? (
-            <InlineAlert message={LOAD_FAILED} />
+            <InlineAlert message={said.loadFailed} />
           ) : (
             <ActivityIndicator color={theme.color.icon.accent} />
           )}
         </View>
         <View style={styles.finish}>
-          <Button label="Terminar" variant="secondary" onPress={done} />
+          <Button label={said.finish} variant="secondary" onPress={done} />
         </View>
       </Screen>
     )
@@ -285,17 +279,17 @@ export default function ShareSessionScreen() {
   const actions: readonly ShareAction[] =
     mode === 'image'
       ? [
-          { label: 'Fondo', icon: 'image', onPress: background },
-          { label: 'Historias', icon: 'instagram', onPress: story },
-          { label: 'Guardar', icon: 'download', onPress: save },
-          { label: 'Copiar', icon: 'duplicate', onPress: copy },
-          { label: 'Más', icon: 'more', onPress: share },
+          { label: said.background, icon: 'image', onPress: background },
+          { label: said.stories, icon: 'instagram', onPress: story },
+          { label: said.save, icon: 'download', onPress: save },
+          { label: said.copy, icon: 'duplicate', onPress: copy },
+          { label: said.more, icon: 'more', onPress: share },
         ]
       : [
-          { label: 'Copiar', icon: 'duplicate', onPress: copy, primary: true },
-          { label: 'Guardar', icon: 'download', onPress: save },
-          { label: 'Historias', icon: 'instagram', onPress: story },
-          { label: 'Más', icon: 'more', onPress: share },
+          { label: said.copy, icon: 'duplicate', onPress: copy, primary: true },
+          { label: said.save, icon: 'download', onPress: save },
+          { label: said.stories, icon: 'instagram', onPress: story },
+          { label: said.more, icon: 'more', onPress: share },
         ]
   const previewScale = (kind: keyof typeof SESSION_STICKER_SIZE) =>
     Math.min(1.15, PREVIEW_WIDTH / SESSION_STICKER_SIZE[kind].width)
@@ -304,22 +298,22 @@ export default function ShareSessionScreen() {
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
         <Text role="control" size="lg" align="center" accessibilityRole="header">
-          Compártelo
+          {said.title}
         </Text>
         <Text role="body" size="sm" color="muted" align="center" numberOfLines={1}>
-          {shareSubtitle(summary)}
+          {shareSubtitle(summary, words)}
         </Text>
       </View>
 
       <SegmentedControl
         size="sm"
         items={[
-          { value: 'image', label: 'Imagen' },
-          { value: 'sticker', label: 'Sticker' },
+          { value: 'image', label: said.image },
+          { value: 'sticker', label: said.sticker },
         ]}
         value={mode}
         onChange={switchTo}
-        accessibilityLabel="Compartir como"
+        accessibilityLabel={said.shareAs}
         style={styles.switch}
         testID="share-mode"
       />
@@ -340,7 +334,7 @@ export default function ShareSessionScreen() {
       >
         {mode === 'image'
           ? kinds.map((kind) => (
-              <View key={kind} accessible accessibilityLabel={`Tarjeta ${kind}`}>
+              <View key={kind} accessible accessibilityLabel={said.card(kind)}>
                 <Scaled scale={scale}>
                   <ShareCard
                     kind={kind}
@@ -353,7 +347,7 @@ export default function ShareSessionScreen() {
               </View>
             ))
           : stickers.map((kind) => (
-              <View key={kind} accessible accessibilityLabel={`Sticker ${kind}`}>
+              <View key={kind} accessible accessibilityLabel={said.stickerOf(kind)}>
                 <Scaled scale={scale}>
                   <View style={styles.preview}>
                     <Image
@@ -378,7 +372,7 @@ export default function ShareSessionScreen() {
 
       {mode === 'sticker' ? (
         <Chip
-          label={picked ? 'Vista sobre tu foto · Cambiar' : 'Vista sobre una foto · Cambiar'}
+          label={picked ? said.overYourPhoto : said.overAPhoto}
           icon="image"
           selected={false}
           onPress={pick}
@@ -391,7 +385,7 @@ export default function ShareSessionScreen() {
         count={mode === 'image' ? kinds.length : stickers.length}
         active={page}
         at={at}
-        accessibilityLabel={mode === 'image' ? 'Tarjetas' : 'Stickers'}
+        accessibilityLabel={mode === 'image' ? said.cards : said.stickers}
         reduceMotion={reduceMotion}
         style={styles.dots}
       />
@@ -400,18 +394,18 @@ export default function ShareSessionScreen() {
 
       {mode === 'sticker' ? (
         <Text role="body" size="xs" color="muted" align="center" style={styles.help}>
-          {STICKER_HELP}
+          {said.stickerHelp}
         </Text>
       ) : null}
 
       <View style={styles.finish}>
-        <Button label="Terminar" variant="secondary" onPress={done} testID="share-finish" />
+        <Button label={said.finish} variant="secondary" onPress={done} testID="share-finish" />
       </View>
 
-      <Sheet visible={choosing} onDismiss={() => setChoosing(false)} title="Fondo de la tarjeta">
+      <Sheet visible={choosing} onDismiss={() => setChoosing(false)} title={said.backgroundSheet}>
         <View style={styles.choices}>
           <Button
-            label="Elegir otra foto"
+            label={said.otherPhoto}
             icon="image"
             onPress={() => {
               setChoosing(false)
@@ -420,7 +414,7 @@ export default function ShareSessionScreen() {
             }}
           />
           <Button
-            label={restoreLabel(summary.cover_url)}
+            label={restoreLabel(summary.cover_url, words)}
             variant="secondary"
             onPress={restore}
             testID="share-restore"

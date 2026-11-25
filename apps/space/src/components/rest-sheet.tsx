@@ -11,12 +11,8 @@ import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { StyleSheet, View } from 'react-native'
 
-import {
-  REST_MAX_SECONDS,
-  REST_PRESETS,
-  REST_STEP_SECONDS,
-  restPresetLabel,
-} from '../client/set-scheme'
+import { REST_MAX_SECONDS, REST_PRESETS, REST_STEP_SECONDS, restLabel } from '../client/set-scheme'
+import { useText } from '../i18n/use-text'
 
 export function RestSheetBody({
   value,
@@ -26,36 +22,39 @@ export function RestSheetBody({
   readonly onChange: (seconds: number) => void
 }) {
   const theme = useTheme()
+  const text = useText().session.rest
+  // «Ninguno» is a choice and the only word; any other rest reads as a clock.
+  const shown = (seconds: number) => (seconds === 0 ? text.none : restLabel(seconds))
 
   return (
     <View style={styles.sheet}>
       <Text role="body" size="sm" color="muted">
-        Cuánto esperas antes de la siguiente serie.
+        {text.sheetLead}
       </Text>
 
       {/* Any rest, not one of seven. The presets below are a shortcut to the common
           answers, never the whole set of them. */}
       <Stepper
-        accessibilityLabel="Descanso entre series"
+        accessibilityLabel={text.stepper}
         value={value}
         min={0}
         max={REST_MAX_SECONDS}
         step={REST_STEP_SECONDS}
-        format={restPresetLabel}
-        caption={`de ${REST_STEP_SECONDS} en ${REST_STEP_SECONDS} segundos`}
+        format={shown}
+        caption={text.stepCaption(REST_STEP_SECONDS)}
         grow
         style={{ borderColor: theme.color.border.accent }}
         onChange={onChange}
       />
 
       <Text role="control" size="sm" color="secondary">
-        O elige uno habitual
+        {text.presets}
       </Text>
       <View style={styles.chips}>
         {REST_PRESETS.map((preset) => (
           <Chip
             key={preset}
-            label={restPresetLabel(preset)}
+            label={shown(preset)}
             selected={value === preset}
             onPress={() => onChange(preset)}
           />
