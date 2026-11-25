@@ -6,6 +6,9 @@
  * qué pueden ver» (N-8a). There is no «aceptar todo», and accepting the relationship
  * shares nothing by itself. Nothing leaves the phone until she confirms.
  *
+ * An offered program comes after the categories because it depends on one: it stays
+ * locked until she shares her training with them, and opens as a no (TECH-362).
+ *
  * An invitation that does not exist, expired, or was already answered reads the same:
  * no longer available (ADR-008).
  */
@@ -31,6 +34,16 @@ import {
   decisionOf,
   invitationExpiry,
   type InvitationKey,
+  type InvitationPresentation,
+  localDate,
+  programAnswer,
+  programNote,
+  programOutcomeLine,
+  programSpan,
+  programStanding,
+  type ProgramStanding,
+  scopeName,
+  scopeTitle,
   sharedSummary,
 } from '../../src/client/gym-affiliation'
 import { createSpaceInvitationFlow } from '../../src/client/gym-affiliation-transport'
@@ -41,6 +54,7 @@ import {
   takeLinkToken,
   type InvitationDraft,
 } from '../../src/client/invitation-draft'
+import { deviceTimezone } from '../../src/client/timezone'
 import { GymMark, RowCard } from '../../src/components/gym-ui'
 
 const ANSWER: readonly { readonly value: Decision; readonly label: string }[] = [
@@ -113,6 +127,11 @@ export default function InvitationScreen() {
 
   const invitation = draft?.invitation
   const asked = invitation?.scope_options.length ?? 0
+  const offer = invitation?.program_proposal ?? null
+  const standing = draft && offer ? programStanding(offer, draft.relationship, draft.scopes) : null
+  // Locked or off, it goes back to a no: reopening it never brings back an old yes.
+  if (draft && standing && standing !== 'open') draft.program = 'rejected'
+  const today = localDate()
 
   const confirm = async () => {
     if (!draft || !invitation) return
@@ -124,6 +143,14 @@ export default function InvitationScreen() {
         intentId: invitation.invitation_intent_id,
         relationship: draft.relationship,
         scopes: draft.relationship === 'accepted' ? draft.scopes : {},
+        ...(standing
+          ? {
+              program: {
+                decision: programAnswer(standing, draft.program),
+                timezone: deviceTimezone(),
+              },
+            }
+          : {}),
       })
       closeDraft()
       if (result.relationship_id) {
@@ -133,6 +160,12 @@ export default function InvitationScreen() {
             gym: invitation.organization.display_name,
             shared: String(result.granted_scope_codes.length),
             asked: String(asked),
+            ...(offer
+              ? {
+                  program: offer.title,
+                  programLine: programOutcomeLine(offer, result.program_proposal, today) ?? '',
+                }
+              : {}),
           },
         })
       } else {
@@ -226,6 +259,29 @@ export default function InvitationScreen() {
                 </RowCard>
               </View>
             </View>
+
+            {offer && standing ? (
+              <ProgramSection
+                title={offer.title}
+                span={
+                  standing === 'off' ? 'Sin relación no hay programa' : programSpan(offer, today)
+                }
+                standing={standing}
+                decision={draft.program}
+                note={programNote(
+                  offer,
+                  standing,
+                  draft.program,
+                  requiredTitle(invitation, offer.required_scope.scope_code),
+                  today,
+                )}
+                onChange={(value) => {
+                  draft.program = value
+                  redraw((tick) => tick + 1)
+                }}
+                onShare={() => router.push('/invitation/share')}
+              />
+            ) : null}
           </>
         ) : !failure ? (
           <Text role="body" size="sm" color="muted">
@@ -251,6 +307,69 @@ export default function InvitationScreen() {
   )
 }
 
+/** The permission the program needs, by the name N-8a shows it with. */
+function requiredTitle(invitation: InvitationPresentation, code: string): string {
+  const option = invitation.scope_options.find((candidate) => candidate.scope_code === code)
+  return option ? scopeTitle(option) : scopeName(code)
+}
+
+function ProgramSection({
+  title,
+  span,
+  standing,
+  decision,
+  note,
+  onChange,
+  onShare,
+}: {
+  readonly title: string
+  readonly span: string
+  readonly standing: ProgramStanding
+  readonly decision: Decision
+  readonly note: string | null
+  readonly onChange: (value: Decision) => void
+  readonly onShare: () => void
+}) {
+  return (
+    <View style={styles.section}>
+      <Text role="control" size="sm" color="muted">
+        El programa que te proponen
+      </Text>
+      <View style={standing === 'off' && styles.dimmed}>
+        <RowCard>
+          <ContentRow
+            icon="calendar"
+            name={title}
+            caption={span}
+            disabled={standing !== 'open'}
+            trailing={
+              standing === 'open'
+                ? {
+                    kind: 'choice',
+                    items: ANSWER,
+                    value: decision,
+                    accessibilityLabel: `Empezar ${title}`,
+                    onChange: (value) => onChange(decisionOf(value)),
+                  }
+                : { kind: 'badge', label: 'Bloqueado', tone: 'neutral' }
+            }
+          />
+        </RowCard>
+      </View>
+      {note ? <Note>{note}</Note> : null}
+      {standing === 'locked' ? (
+        <Button
+          label="Elegir qué compartes"
+          variant="ghost"
+          size="sm"
+          onPress={onShare}
+          style={styles.link}
+        />
+      ) : null}
+    </View>
+  )
+}
+
 /** `INV-7`: the same answer for an invitation that never was, expired or was used. */
 function Unavailable({ onLeave }: { readonly onLeave: () => void }) {
   const theme = useTheme()
@@ -263,7 +382,8 @@ function Unavailable({ onLeave }: { readonly onLeave: () => void }) {
           Invitación
         </Text>
       </View>
-      <View style={styles.gone}>
+      {/* Centred in what the fixed footer leaves visible, not behind it. */}
+      <View style={[styles.gone, { paddingBottom: insets.bottom + 96 }]}>
         <View style={[styles.goneGlyph, { backgroundColor: theme.color.background.surface }]}>
           <FoundationIcon name="external" size="lg" color={theme.color.icon.secondary} decorative />
         </View>
@@ -276,7 +396,7 @@ function Unavailable({ onLeave }: { readonly onLeave: () => void }) {
         </Text>
       </View>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 14 }]}>
-        <Button label="Entrar a Allfit" variant="secondary" onPress={onLeave} />
+        <Button label="Entrar a Allfit" onPress={onLeave} />
       </View>
     </Screen>
   )
@@ -299,6 +419,7 @@ const styles = StyleSheet.create({
   answer: { width: 112 },
   note: { paddingRight: 4 },
   dimmed: { opacity: 0.5 },
+  link: { alignSelf: 'flex-start' },
   pressed: { opacity: 0.6 },
   footer: {
     position: 'absolute',
