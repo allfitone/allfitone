@@ -86,6 +86,7 @@ import { elapsedLabel } from '../../src/client/session-form'
 import { HistoryGroupHeader, HistoryPanel, HistoryRow } from '../../src/components/history-row'
 import { PendingInvitationCard } from '../../src/components/gym-ui'
 import { HomeCard } from '../../src/components/home-card'
+import { NoticesBell } from '../../src/components/notices-ui'
 import { OfferRow } from '../../src/components/offer-row'
 import { PHOTO_COVER } from '../../src/client/routine-cover'
 import { PageDots } from '@allfitone/react-native/page-dots'
@@ -102,14 +103,6 @@ const localToday = (timezone: string) =>
 const READ_FAILED = 'No pudimos cargar tu día. Inténtalo otra vez.'
 const START_FAILED = 'No pudimos empezar la sesión. Inténtalo otra vez.'
 const DISCARD_FAILED = 'No pudimos descartar el entrenamiento. Inténtalo otra vez.'
-
-/** What a destination that does not exist yet answers, instead of a blank screen. */
-const PENDING: Record<string, string> = {
-  routines: 'Tus rutinas llegan con tu contenido personal.',
-  food: 'Comida llega con el registro de nutrición.',
-  progress: 'Tu progreso llega con el historial.',
-  notices: 'Tus avisos llegan con las notificaciones.',
-}
 
 /** El margen de la pantalla cuando hay programa. El carrusel lo sangra para asomar. */
 const GUTTER = 24
@@ -147,7 +140,6 @@ export default function Today() {
   const [plan, setPlan] = useState<WeekPlan | undefined>(undefined)
   const [routines, setRoutines] = useState<readonly MyRoutine[]>([])
   const [library, setLibrary] = useState<ExerciseLibrary | undefined>(undefined)
-  const [pending, setPending] = useState<string | undefined>(undefined)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [starting, setStarting] = useState<string | undefined>(undefined)
   const [failure, setFailure] = useState<string | undefined>(undefined)
@@ -369,7 +361,7 @@ export default function Today() {
             </Text>
           )}
         </View>
-        <Bell onPress={() => setPending(PENDING.notices)} />
+        <NoticesBell />
       </View>
 
       <ScrollView
@@ -541,12 +533,6 @@ export default function Today() {
               </Text>
             )}
           </View>
-        ) : null}
-
-        {pending ? (
-          <Text role="body" size="sm" color="muted">
-            {pending}
-          </Text>
         ) : null}
       </ScrollView>
 
@@ -934,11 +920,6 @@ function Figure({
       </Text>
     </View>
   )
-}
-
-/** The notices, on the design system's round icon button. */
-function Bell({ onPress }: { readonly onPress: () => void }) {
-  return <IconButton icon="notification" accessibilityLabel="Tus avisos" onPress={onPress} />
 }
 
 const styles = StyleSheet.create({
