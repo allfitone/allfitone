@@ -3,7 +3,8 @@
  *
  * What accepting did, and only that: Pro comes with the gym, and she shares exactly the
  * categories she said yes to. The coach is assigned afterwards in Studio (HU-STUDIO-023),
- * so this screen does not promise one.
+ * so this screen does not promise one. An offered program she accepted says when it
+ * starts, or why it was not set (TECH-362).
  */
 
 import { Button } from '@allfitone/react-native/button'
@@ -23,10 +24,14 @@ export default function InvitationDone() {
     gym = '',
     shared = '0',
     asked = '0',
+    program = '',
+    programLine = '',
   } = useLocalSearchParams<{
     gym?: string
     shared?: string
     asked?: string
+    program?: string
+    programLine?: string
   }>()
 
   return (
@@ -48,6 +53,9 @@ export default function InvitationDone() {
               name={`Compartes ${shared} de ${asked} categorías`}
               caption="Las cambias cuando quieras en Perfil"
             />
+            {program && programLine ? (
+              <ContentRow icon="calendar" name={program} caption={programLine} />
+            ) : null}
           </RowCard>
         </View>
       </View>
