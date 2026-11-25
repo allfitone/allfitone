@@ -4,10 +4,9 @@ import { textFor } from '../i18n'
 import {
   canSubmitExperience,
   chooseLevel,
-  EXPERIENCE_LEVELS,
+  experienceLevels,
   experienceStops,
   levelDefinition,
-  PICK_A_LEVEL,
   readLevel,
   TRAINING_EXPERIENCE,
   type TrainingExperience,
@@ -15,6 +14,7 @@ import {
 
 const es = textFor('es').fitness.experience
 const en = textFor('en').fitness.experience
+const EXPERIENCE_LEVELS = experienceLevels(es)
 
 describe('EXPERIENCE_LEVELS', () => {
   test('offers the three simple terms the story names', () => {
@@ -54,8 +54,8 @@ describe('EXPERIENCE_LEVELS', () => {
 
   test('the lede asks for an answer before it explains why', () => {
     // Sin el «marca» delante, tres círculos huecos se leen como una explicación.
-    expect(PICK_A_LEVEL.startsWith('Marca')).toBe(true)
-    expect(PICK_A_LEVEL).toContain('principiante')
+    expect(es.pickALevel.startsWith('Marca')).toBe(true)
+    expect(es.pickALevel).toContain('principiante')
   })
 })
 
@@ -78,7 +78,6 @@ describe('the levels in English (TECH-44)', () => {
     for (const banned of ['beginner', 'intermediate', 'advanced']) {
       expect(words).not.toContain(banned)
     }
-    expect(PICK_A_LEVEL).toBe(es.pickALevel)
   })
 })
 

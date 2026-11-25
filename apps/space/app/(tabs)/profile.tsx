@@ -42,12 +42,13 @@ import { createSpaceProFlow } from '../../src/client/pro-transport'
 import { initialsOf, paymentsCaption, planCaption } from '../../src/client/profile'
 import type { SignOutFlow } from '../../src/client/sign-out'
 import { createSpaceSignOutFlow } from '../../src/client/sign-out-transport'
-import { latestOf, tenths } from '../../src/client/body'
+import { latestOf, massTenths, tenths } from '../../src/client/body'
 import { readBodyRecords } from '../../src/client/body-transport'
 import { deviceTimezone } from '../../src/client/timezone'
 import { PlanCard, ProfileGroup, ProfileRow, ProTeaser } from '../../src/components/profile-ui'
 import { DOCK_HEIGHT } from '../../src/components/tab-bar'
 import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 export interface ProfileSources {
   readonly readName: () => Promise<string>
@@ -86,6 +87,7 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
   const theme = useTheme()
   const text = useText()
   const locale = useLocale()
+  const { mass } = useUnits()
   const t = text.profile
   const [name, setName] = useState('')
   const [founding, setFounding] = useState<string | undefined>(undefined)
@@ -219,7 +221,11 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
             title={t.rows.body.title}
             caption={t.rows.body.caption}
             end="open"
-            value={weight === undefined ? undefined : `${tenths(weight, locale)} kg`}
+            value={
+              weight === undefined
+                ? undefined
+                : `${tenths(massTenths(weight, mass), locale)} ${mass}`
+            }
             onPress={() => router.push('/body')}
           />
           <ProfileRow

@@ -79,6 +79,7 @@ const STORE_NAME: Record<ProStore, string> = { app_store: 'Apple', google_play: 
 export const storeName = (store: ProStore) => STORE_NAME[store]
 
 /** «3 oct», «Oct 3», in the phone's own time zone. */
+// The default serves the invitation and gym-affiliation code, which still reads Spanish.
 export function shortDate(instant: string, locale: Locale = DEFAULT_LOCALE): string {
   const date = new Date(instant)
   const text = textFor(locale)
@@ -158,7 +159,7 @@ const MINOR_DIGITS: Readonly<Record<string, number>> = { CLP: 0, JPY: 0, KRW: 0,
 export function money(
   amountMinor: number | null,
   currency: string | null,
-  locale: Locale = DEFAULT_LOCALE,
+  locale: Locale,
 ): string | undefined {
   if (amountMinor === null || !currency) return undefined
   const digits = MINOR_DIGITS[currency] ?? 2

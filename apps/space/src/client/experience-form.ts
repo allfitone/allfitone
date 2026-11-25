@@ -41,7 +41,7 @@
  * `allfitone-docs`, que es donde vive una afirmación de producto.
  */
 
-import { textFor, type Dictionary } from '../i18n'
+import type { Dictionary } from '../i18n'
 
 /** The three simple terms of HU-SP-012 criterion 2, least to most. */
 export const TRAINING_EXPERIENCE = ['starting', 'some_practice', 'experienced'] as const
@@ -76,17 +76,6 @@ type ExperienceText = Dictionary['fitness']['experience']
 export function experienceLevels(text: ExperienceText): readonly LevelDefinition[] {
   return TRAINING_EXPERIENCE.map((level) => ({ level, ...text.levels[level] }))
 }
-
-const SPANISH = textFor('es').fitness.experience
-
-/** The levels in Spanish, for the screens not yet translated (onboarding). */
-export const EXPERIENCE_LEVELS: readonly LevelDefinition[] = experienceLevels(SPANISH)
-
-/**
- * The screen's lede, in Spanish for the onboarding. It says what to do before why:
- * without «Marca» first, three hollow stops read as an explanation, not a question.
- */
-export const PICK_A_LEVEL = SPANISH.pickALevel
 
 /** The definition of a level, or undefined for a code this version cannot draw. */
 export function levelDefinition(

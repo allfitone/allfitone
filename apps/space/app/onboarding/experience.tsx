@@ -66,8 +66,8 @@ import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import {
   canSubmitExperience,
-  EXPERIENCE_LEVELS,
   readLevel,
+  TRAINING_EXPERIENCE,
   type TrainingExperience,
 } from '../../src/client/experience-form'
 import { ExperiencePicker } from '../../src/components/experience-picker'
@@ -93,7 +93,7 @@ export default function OnboardingExperience() {
   // Built outside the JSX: an inline chain rebuilds the builder on every render,
   // and a per-index delay cannot live at module scope.
   const entrances = useMemo(() => {
-    const delays = staggerDelays(EXPERIENCE_LEVELS.length + 2, reduceMotion)
+    const delays = staggerDelays(TRAINING_EXPERIENCE.length + 2, reduceMotion)
     return delays.map((delay) =>
       FadeInDown.duration(durationFor('fast', reduceMotion))
         .delay(delay)

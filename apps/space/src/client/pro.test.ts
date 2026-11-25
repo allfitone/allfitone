@@ -154,12 +154,12 @@ describe('what the screens say', () => {
   })
 
   test('T-SPC-UNIT-292 money is shown as on a receipt', () => {
-    expect(money(2_490_000, 'COP')).toBe('$24.900')
-    expect(money(999, 'USD')).toBe('$9,99 USD')
-    expect(money(null, 'COP')).toBe(undefined)
+    expect(money(2_490_000, 'COP', 'es')).toBe('$24.900')
+    expect(money(999, 'USD', 'es')).toBe('$9,99 USD')
+    expect(money(null, 'COP', 'es')).toBe(undefined)
     expect(money(2_490_000, 'COP', 'en')).toBe('$24,900')
     expect(money(999, 'USD', 'en')).toBe('$9.99 USD')
-    expect(money(1050, 'USD')).toBe('$10,50 USD')
+    expect(money(1050, 'USD', 'es')).toBe('$10,50 USD')
   })
 
   test('T-SPC-UNIT-293 Pro is sold only where Allfit has a product for it', () => {

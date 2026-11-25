@@ -24,12 +24,13 @@ import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
-import { decimal, latestOf, tenths, type BodyRecord } from '../../src/client/body'
+import { decimal, latestOf, massTenths, tenths, type BodyRecord } from '../../src/client/body'
 import { readBodyRecords } from '../../src/client/body-transport'
 import { fitnessSections, type Editor, type FitnessProfile } from '../../src/client/fitness-profile'
 import { readFitnessProfile } from '../../src/client/profile-transport'
 import { FitnessGroup } from '../../src/components/fitness-profile-ui'
 import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 const EDITOR_ROUTE: Record<Editor, Href> = {
   goal: '/me/goal',
@@ -54,6 +55,7 @@ export default function FitnessProfileRoute() {
 export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSources }) {
   const router = useRouter()
   const locale = useLocale()
+  const { mass } = useUnits()
   const text = useText()
   const t = text.fitness
   const [profile, setProfile] = useState<FitnessProfile | undefined>(undefined)
@@ -137,7 +139,9 @@ export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSou
             />
             <DatumRow
               label={t.rows.weight}
-              {...(weight ? { value: `${tenths(weight.value, locale)} kg` } : {})}
+              {...(weight
+                ? { value: `${tenths(massTenths(weight.value, mass), locale)} ${mass}` }
+                : {})}
               origin={t.provenance.person_declared}
               onPress={() => router.push('/body')}
             />
