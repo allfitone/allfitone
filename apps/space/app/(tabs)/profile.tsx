@@ -257,13 +257,15 @@ export function ProfileScreen({ sources }: { readonly sources: ProfileSources })
             icon="notification"
             title={t.rows.notifications.title}
             caption={t.rows.notifications.caption}
-            end="soon"
+            end="open"
+            onPress={() => router.push('/me/notifications')}
           />
           <ProfileRow
             icon="settings"
             title={t.rows.preferences.title}
             caption={t.rows.preferences.caption}
-            end="soon"
+            end="open"
+            onPress={() => router.push('/me/preferences')}
           />
           <ProfileRow
             icon="activity"

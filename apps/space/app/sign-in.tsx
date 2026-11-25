@@ -32,6 +32,7 @@ import { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError, signIn, unreachable } from '../src/client'
+import { startPersonSession } from '../src/client/person-start-transport'
 import { storeSession } from '../src/client/session'
 import { createSpaceOnboardingFlow } from '../src/client/onboarding-transport'
 import { routeAfterAuthentication } from '../src/client/resume-route'
@@ -59,6 +60,7 @@ export default function SignIn() {
       const trimmed = email.trim()
       const session = await signIn(trimmed, password)
       await storeSession({ ...session, email: trimmed })
+      startPersonSession()
       router.replace(await routeAfterAuthentication(() => createSpaceOnboardingFlow().resume()))
     } catch (cause) {
       setFailure(cause instanceof ApiError && unreachable(cause) ? 'unreachable' : 'wrong')

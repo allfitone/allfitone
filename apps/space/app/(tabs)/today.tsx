@@ -87,6 +87,7 @@ import { elapsedLabel } from '../../src/client/session-form'
 import { HistoryGroupHeader, HistoryPanel, HistoryRow } from '../../src/components/history-row'
 import { PendingInvitationCard } from '../../src/components/gym-ui'
 import { HomeCard } from '../../src/components/home-card'
+import { NoticesBell } from '../../src/components/notices-ui'
 import { OfferRow } from '../../src/components/offer-row'
 import { PHOTO_COVER } from '../../src/client/routine-cover'
 import { PageDots } from '@allfitone/react-native/page-dots'
@@ -144,7 +145,6 @@ export default function Today() {
   const [plan, setPlan] = useState<WeekPlan | undefined>(undefined)
   const [routines, setRoutines] = useState<readonly MyRoutine[]>([])
   const [library, setLibrary] = useState<ExerciseLibrary | undefined>(undefined)
-  const [pending, setPending] = useState<string | undefined>(undefined)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [starting, setStarting] = useState<string | undefined>(undefined)
   const [failure, setFailure] = useState<Failure | undefined>(undefined)
@@ -366,7 +366,7 @@ export default function Today() {
             </Text>
           )}
         </View>
-        <Bell onPress={() => setPending(words.noticesSoon)} />
+        <NoticesBell />
       </View>
 
       <ScrollView
@@ -538,12 +538,6 @@ export default function Today() {
               </Text>
             )}
           </View>
-        ) : null}
-
-        {pending ? (
-          <Text role="body" size="sm" color="muted">
-            {pending}
-          </Text>
         ) : null}
       </ScrollView>
 
@@ -943,12 +937,6 @@ function Figure({
       </Text>
     </View>
   )
-}
-
-/** The notices, on the design system's round icon button. */
-function Bell({ onPress }: { readonly onPress: () => void }) {
-  const words = useText().training.today
-  return <IconButton icon="notification" accessibilityLabel={words.notices} onPress={onPress} />
 }
 
 const styles = StyleSheet.create({

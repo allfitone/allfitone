@@ -32,6 +32,7 @@ import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-nat
 
 import { ApiError } from '../src/client'
 import { createSpaceOnboardingFlow } from '../src/client/onboarding-transport'
+import { startPersonSession } from '../src/client/person-start-transport'
 import { introLeftMs, resolveEntryRoute } from '../src/client/session-gate'
 import { clearSession, readSession } from '../src/client/session'
 
@@ -56,6 +57,7 @@ export default function Opening() {
       // the cheapest authenticated read, and it renews before giving up.
       try {
         const onboarding = await createSpaceOnboardingFlow().resume()
+        startPersonSession()
         return resolveEntryRoute({ session, onboarding })
       } catch (cause) {
         const rejected = cause instanceof ApiError && cause.failure === 'unauthenticated'

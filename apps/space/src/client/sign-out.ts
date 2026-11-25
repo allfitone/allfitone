@@ -16,6 +16,10 @@
  * The order matters and is the opposite of what it looks like: **revoke, then erase.**
  * Erasing first would leave no token to revoke with, and the revocation is the half
  * that stops a stolen refresh token.
+ *
+ * Before both, the phone stops receiving push (`OP-IDN-073`, ADR-054): it needs the
+ * session too, and a phone signed out must not keep showing her notices. It is best
+ * effort like the revocation, and never stops the erasure.
  */
 
 export interface SignOutTransport {
@@ -28,6 +32,8 @@ export interface SignOutDependencies {
   clearSession: () => Promise<void>
   /** The execution left open on this phone, if any. */
   openExecutionId: () => Promise<string | null>
+  /** `OP-IDN-073`: this phone stops receiving push. Its failure changes nothing. */
+  retirePushDevice?: () => Promise<void>
 }
 
 export type SignOutOutcome =
@@ -51,6 +57,8 @@ export function createSignOutFlow(dependencies: SignOutDependencies): SignOutFlo
         const open = await dependencies.openExecutionId().catch(() => null)
         if (open !== null) return { state: 'unsynced-workout', executionId: open }
       }
+
+      await dependencies.retirePushDevice?.().catch(() => undefined)
 
       let revoked = true
       try {

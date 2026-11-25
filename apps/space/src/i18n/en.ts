@@ -15,10 +15,12 @@ import { fitness } from './en/fitness'
 import { gyms } from './en/gyms'
 import { health } from './en/health'
 import { identity } from './en/identity'
+import { notices } from './en/notices'
 import { nutrition } from './en/nutrition'
 import { onboarding } from './en/onboarding'
 import { password } from './en/password'
 import { plans } from './en/plans'
+import { preferences } from './en/preferences'
 import { pro } from './en/pro'
 import { profile } from './en/profile'
 import { progress } from './en/progress'
@@ -34,10 +36,12 @@ export const en: Dictionary = {
   gyms,
   health,
   identity,
+  notices,
   nutrition,
   onboarding,
   password,
   plans,
+  preferences,
   pro,
   profile,
   progress,

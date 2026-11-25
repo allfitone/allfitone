@@ -20,10 +20,12 @@ import { fitness } from './es/fitness'
 import { gyms } from './es/gyms'
 import { health } from './es/health'
 import { identity } from './es/identity'
+import { notices } from './es/notices'
 import { nutrition } from './es/nutrition'
 import { onboarding } from './es/onboarding'
 import { password } from './es/password'
 import { plans } from './es/plans'
+import { preferences } from './es/preferences'
 import { pro } from './es/pro'
 import { profile } from './es/profile'
 import { progress } from './es/progress'
@@ -39,10 +41,12 @@ export const es = {
   gyms,
   health,
   identity,
+  notices,
   nutrition,
   onboarding,
   password,
   plans,
+  preferences,
   pro,
   profile,
   progress,
