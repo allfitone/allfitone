@@ -56,6 +56,7 @@ describe('telling a person their professional changed', () => {
     const email = emailSpy()
     const process = createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -78,6 +79,7 @@ describe('telling a person their professional changed', () => {
     const email = emailSpy()
     await createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -95,6 +97,7 @@ describe('telling a person their professional changed', () => {
     const email = emailSpy()
     await createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -109,6 +112,7 @@ describe('telling a person their professional changed', () => {
     const email = emailSpy()
     await createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -124,6 +128,7 @@ describe('telling a person their professional changed', () => {
     const email = emailSpy()
     const result = await createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -140,6 +145,7 @@ describe('telling a person their professional changed', () => {
     const { queue, nacked } = queueWith([message()])
     const process = createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: {
         send: async () => {
@@ -160,6 +166,7 @@ describe('telling a person their professional changed', () => {
     const email = emailSpy()
     const result = await createReassignmentBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -179,6 +186,7 @@ test('T-WRK-REASSIGN-EMAIL-01 email off for her relationship notices: acknowledg
   const email = emailSpy()
   const result = await createReassignmentBatchProcessor({
     emailAllowed: async () => false,
+    emailLocale: async () => 'es',
     queue,
     email: email.sender as never,
     brandAssetUrl: 'https://studio.example.test/email/lockup.png',

@@ -62,6 +62,7 @@ function deliver(payload: unknown = NOTICE) {
   const email = emailSpy()
   const run = createSubstitutionBatchProcessor({
     emailAllowed: async () => true,
+    emailLocale: async () => 'es',
     queue,
     email: email.sender as never,
     brandAssetUrl: BRAND,
@@ -167,6 +168,7 @@ describe('asking a person to accept a cover', () => {
     const { queue, nacked } = queueWith([message()])
     const run = createSubstitutionBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: {
         send: async () => {
@@ -187,6 +189,7 @@ describe('asking a person to accept a cover', () => {
     const email = emailSpy()
     const result = await createSubstitutionBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: BRAND,
@@ -206,6 +209,7 @@ test('T-WRK-COVER-EMAIL-01 email off for her relationship notices: acknowledged,
   const email = emailSpy()
   const result = await createSubstitutionBatchProcessor({
     emailAllowed: async () => false,
+    emailLocale: async () => 'es',
     queue,
     email: email.sender as never,
     brandAssetUrl: BRAND,

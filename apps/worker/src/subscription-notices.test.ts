@@ -74,6 +74,7 @@ function deliver(
   const spy = emailSpy()
   const run = createSubscriptionNoticeBatchProcessor({
     emailAllowed: async () => true,
+    emailLocale: async () => 'es',
     queue,
     email: (overrides.email ?? spy.sender) as never,
     brandAssetUrl: BRAND,
@@ -240,6 +241,7 @@ describe('telling a person what happened to the plan they pay', () => {
     const spy = emailSpy()
     const run = createSubscriptionNoticeBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: spy.sender as never,
       brandAssetUrl: BRAND,
@@ -259,6 +261,7 @@ test('T-WRK-SUB-EMAIL-01 email off for her relationship notices: acknowledged, n
   const spy = emailSpy()
   const result = await createSubscriptionNoticeBatchProcessor({
     emailAllowed: async () => false,
+    emailLocale: async () => 'es',
     queue,
     email: spy.sender as never,
     brandAssetUrl: BRAND,

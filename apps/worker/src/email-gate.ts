@@ -8,8 +8,7 @@
  * with a missing row reading as on, and an event with no person behind it, such as an
  * invitation to an address nobody holds yet, goes as it always did.
  *
- * Every email here is still worded in Spanish: none of these templates has an English
- * version yet, so her language changes nothing about an email today.
+ * Which language the email is written in is a separate question, `email-locale.ts`.
  */
 
 import type postgres from 'postgres'

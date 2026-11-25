@@ -31,6 +31,7 @@ import {
 import type { Queue, QueueMessage } from '@allfitone/queue'
 import type postgres from 'postgres'
 
+import type { EmailLocale } from './email-locale.js'
 import { mapWithConcurrency } from './invitations.js'
 
 export const EMAIL_CHANGE_CODE_TOPIC = 'identity.contact_changed.v1'
@@ -143,6 +144,8 @@ export function createEmailChangeBatchProcessor(dependencies: {
   brandAssetUrl: string
   generateCode?: () => string
   deliveryEnabled?: boolean
+  /** The language she chose for her email; Spanish while she has none. */
+  emailLocale: EmailLocale
 }) {
   const generateCode = dependencies.generateCode ?? sixDigitCode
 
@@ -176,6 +179,7 @@ export function createEmailChangeBatchProcessor(dependencies: {
         return 'failed'
       }
 
+      const locale = await dependencies.emailLocale(message.id)
       const code = generateCode()
       await dependencies.database.recordCode(message.id, code)
       const minutes = Math.max(1, Math.round((Date.parse(target.expiresAt) - Date.now()) / 60_000))
@@ -186,6 +190,7 @@ export function createEmailChangeBatchProcessor(dependencies: {
             code,
             minutes,
             brandAssetUrl: dependencies.brandAssetUrl,
+            locale,
           }),
           idempotencyKey: `email-change-code/${message.id}/${String(message.attempt)}`,
         })
@@ -220,6 +225,7 @@ export function createEmailChangeBatchProcessor(dependencies: {
         await dependencies.queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
       }
+      const locale = await dependencies.emailLocale(message.id)
 
       try {
         await dependencies.identity.updateEmail(subject, newEmail)
@@ -244,6 +250,7 @@ export function createEmailChangeBatchProcessor(dependencies: {
           ...renderEmailChangedNoticeEmail({
             newEmailHint: maskEmail(newEmail),
             brandAssetUrl: dependencies.brandAssetUrl,
+            locale,
           }),
           idempotencyKey: `email-changed-notice/${message.id}`,
         })

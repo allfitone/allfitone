@@ -20,6 +20,7 @@ import type { Queue, QueueMessage } from '@allfitone/queue'
 
 import { mapWithConcurrency } from './invitations.js'
 import type { EmailGate } from './email-gate.js'
+import type { EmailLocale } from './email-locale.js'
 
 export interface ReassignmentBatchResult {
   claimed: number
@@ -42,6 +43,8 @@ export function createReassignmentBatchProcessor(dependencies: {
   deliveryEnabled?: boolean
   /** Her email preference for the event's category; a no keeps the notice and sends nothing. */
   emailAllowed: EmailGate
+  /** The language she chose for her email; Spanish when she chose none or is nobody yet. */
+  emailLocale: EmailLocale
 }): () => Promise<ReassignmentBatchResult> {
   return async function processReassignmentBatch(): Promise<ReassignmentBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -79,6 +82,7 @@ export function createReassignmentBatchProcessor(dependencies: {
         professionalName: notice.professional_name,
         previousProfessionalName: notice.previous_professional_name,
         brandAssetUrl: dependencies.brandAssetUrl,
+        locale: await dependencies.emailLocale(message.id),
       })
       await dependencies.email.send({
         to: notice.contact,

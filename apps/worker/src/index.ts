@@ -88,6 +88,7 @@ import {
 } from './password-change.js'
 import { createJobRunRecorder, type JobRun } from './job-runs.js'
 import { createEmailGate } from './email-gate.js'
+import { createEmailLocale } from './email-locale.js'
 import {
   createPushDeliveryDatabase,
   createPushDeliveryProcessor,
@@ -342,6 +343,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
   const queue = createPostgresQueue(sql, { visibilityTimeoutMs: 120_000, maxAttempts: 5 })
   // Her email preference, asked of the database for every email that carries a notice.
   const emailAllowed = createEmailGate(sql)
+  // Her language, asked of the database for every email written to a person.
+  const emailLocale = createEmailLocale(sql)
   const deliveryEnabled = process.env.STAFF_INVITATION_DELIVERY_ENABLED === 'true'
   const email = deliveryEnabled
     ? createEmailSenderFromEnvironment(process.env)
@@ -378,6 +381,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         email,
         publicBaseUrl: required('CLIENT_INVITATION_PUBLIC_BASE_URL'),
         emailAllowed,
+        emailLocale,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   /*
@@ -392,6 +396,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
     emailAllowed,
+    emailLocale,
   })
   const resignations = createResignationBatchProcessor({
     queue,
@@ -405,6 +410,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
     emailAllowed,
+    emailLocale,
   })
   const correctionProposals = createCorrectionProposalBatchProcessor({
     queue,
@@ -412,6 +418,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
     emailAllowed,
+    emailLocale,
   })
   const backofficeAuthentication = createBackofficeAuthBatchProcessor({
     queue,
@@ -441,6 +448,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         identity: createEmailChangeIdentityFromEnv(),
         email,
         brandAssetUrl,
+        emailLocale,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   // Off until the environment says so: the change is in force, and the sessions wait.
@@ -453,6 +461,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         identity: createPasswordChangeIdentityFromEnv(),
         email,
         brandAssetUrl,
+        emailLocale,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   let store: ObjectStore | undefined
@@ -466,6 +475,7 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     brandAssetUrl,
     deliveryEnabled,
     emailAllowed,
+    emailLocale,
   })
   // Off until space-web serves the pages these emails link to (TECH-296). Until then the
   // events wait unclaimed, and the waitlist routes are closed anyway without their secret.

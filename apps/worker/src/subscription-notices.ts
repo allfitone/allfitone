@@ -28,12 +28,14 @@ import {
   renderSubscriptionEndedEmail,
   renderSubscriptionReactivatedEmail,
   renderSubscriptionSuspendedEmail,
+  type EmailLanguage,
   type EmailSender,
 } from '@allfitone/notifications'
 import type { Queue, QueueMessage } from '@allfitone/queue'
 
 import { mapWithConcurrency } from './invitations.js'
 import type { EmailGate } from './email-gate.js'
+import type { EmailLocale } from './email-locale.js'
 
 export const SUBSCRIPTION_NOTICE_EVENTS = [
   'payments.subscription_suspended.v1',
@@ -65,6 +67,8 @@ export function createSubscriptionNoticeBatchProcessor(dependencies: {
   deliveryEnabled?: boolean
   /** Her email preference for the event's category; a no keeps the notice and sends nothing. */
   emailAllowed: EmailGate
+  /** The language she chose for her email; Spanish when she chose none or is nobody yet. */
+  emailLocale: EmailLocale
 }): () => Promise<SubscriptionNoticeBatchResult> {
   return async function processSubscriptionNoticeBatch(): Promise<SubscriptionNoticeBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -112,7 +116,8 @@ export function createSubscriptionNoticeBatchProcessor(dependencies: {
         await dependencies.queue.ack(message.id)
         return 'skipped'
       }
-      const rendered = render(event, notice, dependencies.brandAssetUrl)
+      const locale = await dependencies.emailLocale(message.id)
+      const rendered = render(event, notice, dependencies.brandAssetUrl, locale)
       await dependencies.email.send({
         to: notice.contact,
         ...rendered,
@@ -137,6 +142,7 @@ function render(
   event: SubscriptionNoticeEvent,
   notice: SubscriptionNotice,
   brandAssetUrl: string,
+  locale: EmailLanguage,
 ): { subject: string; text: string; html: string } {
   if (event === 'payments.subscription_suspended.v1') {
     return renderSubscriptionSuspendedEmail({
@@ -145,6 +151,7 @@ function render(
       amountMinor: notice.amount_minor,
       currencyCode: notice.currency_code,
       brandAssetUrl,
+      locale,
     })
   }
   if (event === 'payments.subscription_reactivated.v1') {
@@ -152,12 +159,14 @@ function render(
       organizationName: notice.organization_name,
       planName: notice.plan_name,
       brandAssetUrl,
+      locale,
     })
   }
   return renderSubscriptionEndedEmail({
     organizationName: notice.organization_name,
     planName: notice.plan_name,
     brandAssetUrl,
+    locale,
   })
 }
 

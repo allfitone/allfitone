@@ -62,6 +62,7 @@ function deliver(payload: unknown = NOTICE) {
   const email = emailSpy()
   const run = createCorrectionProposalBatchProcessor({
     emailAllowed: async () => true,
+    emailLocale: async () => 'es',
     queue,
     email: email.sender as never,
     brandAssetUrl: BRAND,
@@ -149,6 +150,7 @@ describe('telling a person a professional proposes a correction (HU-STUDIO-059 c
     const { queue, nacked } = queueWith([message()])
     const run = createCorrectionProposalBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: {
         send: async () => {
@@ -169,6 +171,7 @@ describe('telling a person a professional proposes a correction (HU-STUDIO-059 c
     const email = emailSpy()
     const result = await createCorrectionProposalBatchProcessor({
       emailAllowed: async () => true,
+      emailLocale: async () => 'es',
       queue,
       email: email.sender as never,
       brandAssetUrl: BRAND,
@@ -193,6 +196,7 @@ test('T-WRK-CORR-EMAIL-01 email off for her correction notices: acknowledged, no
       asked.push(eventId)
       return false
     },
+    emailLocale: async () => 'es',
     queue,
     email: email.sender as never,
     brandAssetUrl: BRAND,

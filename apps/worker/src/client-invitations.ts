@@ -33,6 +33,7 @@ import type postgres from 'postgres'
 
 import { mapWithConcurrency, trustedPublicBaseUrl } from './invitations.js'
 import type { EmailGate } from './email-gate.js'
+import type { EmailLocale } from './email-locale.js'
 
 export interface ClientInvitationDelivery {
   state: 'expired' | 'ready' | 'skipped'
@@ -94,6 +95,8 @@ export function createClientInvitationBatchProcessor(dependencies: {
   deliveryEnabled?: boolean
   /** Her email preference for her relationship notices; a no keeps the notice and sends nothing. */
   emailAllowed: EmailGate
+  /** The language she chose for her email; Spanish when she chose none or is nobody yet. */
+  emailLocale: EmailLocale
 }) {
   const environment = dependencies.environment ?? process.env
   const baseUrl = trustedPublicBaseUrl(dependencies.publicBaseUrl, environment)
@@ -144,6 +147,7 @@ export function createClientInvitationBatchProcessor(dependencies: {
         invitationUrl: invitationUrl.toString(),
         brandAssetUrl: emailBrandAssetUrl(baseUrl),
         expiresAt: delivery.expiresAt,
+        locale: await dependencies.emailLocale(message.id),
       })
       await dependencies.email.send({
         to: delivery.contact,
