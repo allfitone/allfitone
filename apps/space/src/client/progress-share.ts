@@ -16,6 +16,7 @@
  * gives: a bare `YYYY-MM-DD` is UTC and lands on the previous day west of Greenwich.
  */
 
+import type { Dictionary } from '../i18n'
 import type { HistoryItem } from './history'
 import {
   liftedUp,
@@ -33,7 +34,7 @@ export type ProgressStickerKind =
   'figures' | 'change' | 'bars' | 'ring' | 'streak' | 'lift' | 'strip' | 'calendar' | 'muscles'
 
 export interface Bar {
-  /** «L» for a day of the week, «7–13» for a week of the month. */
+  /** «L» for a day of the week, «7–13» for a week of the month; repeats in English. */
   readonly label: string
   /** Null when nothing was trained; zero when trained with nothing weighed. */
   readonly kg: number | null
@@ -62,7 +63,6 @@ export interface ShareFacts {
   readonly label: string
   /** The month alone, for the calendar: «SEPTIEMBRE». */
   readonly monthName: string
-  readonly noun: 'semana' | 'mes'
   /** What the change is against: «LA SEMANA PASADA», «AGOSTO». */
   readonly against: string
   readonly sessions: number
@@ -90,22 +90,6 @@ export interface ShareFacts {
   readonly lift: Lift | null
 }
 
-const MONTHS = [
-  'ENERO',
-  'FEBRERO',
-  'MARZO',
-  'ABRIL',
-  'MAYO',
-  'JUNIO',
-  'JULIO',
-  'AGOSTO',
-  'SEPTIEMBRE',
-  'OCTUBRE',
-  'NOVIEMBRE',
-  'DICIEMBRE',
-]
-const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
-const RECEIPT_DAYS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM']
 const DAY = 86_400_000
 /** Below this, a run of periods is not yet a streak worth its own sticker. */
 const SHORTEST_STREAK = 2
@@ -117,9 +101,12 @@ function dayOf(iso: string): Date {
 
 const isoOf = (date: Date) => date.toISOString().slice(0, 10)
 const plus = (iso: string, days: number) => isoOf(new Date(dayOf(iso).getTime() + days * DAY))
-const shortMonth = (date: Date) => (MONTHS[date.getUTCMonth()] ?? '').slice(0, 3)
+const shortMonth = (date: Date, text: Dictionary) =>
+  (text.common.months[date.getUTCMonth()] ?? '').toUpperCase()
+const monthName = (date: Date, text: Dictionary) =>
+  (text.progress.monthNames[date.getUTCMonth()] ?? '').toUpperCase()
 
-/** «3H 40», or «45 MIN» under an hour. */
+/** «3H 40», or «45 MIN» under an hour: the same in both languages. */
 export function hoursAndMinutes(seconds: number): string {
   const minutes = Math.round(Math.max(0, seconds) / 60)
   if (minutes < 60) return `${String(minutes)} MIN`
@@ -151,9 +138,14 @@ function sumOf(loads: Map<string, number>, from: string, count: number): number 
 }
 
 /** A week's bars are its days; a month's, its calendar weeks cut at the month's ends. */
-function barsOf(loads: Map<string, number>, startsOn: string, kind: PeriodKind): Bar[] {
+function barsOf(
+  loads: Map<string, number>,
+  startsOn: string,
+  kind: PeriodKind,
+  weekdays: readonly string[],
+): Bar[] {
   if (kind === 'week')
-    return WEEKDAYS.map((label, index) => ({ label, kg: sumOf(loads, plus(startsOn, index), 1) }))
+    return weekdays.map((label, index) => ({ label, kg: sumOf(loads, plus(startsOn, index), 1) }))
   const length = daysIn(startsOn)
   const bars: Bar[] = []
   let first = 1
@@ -179,12 +171,14 @@ function cellsOf(loads: Map<string, number>, startsOn: string): CalendarCell[] {
   })
 }
 
-function periodTag(startsOn: string, kind: PeriodKind): string {
+function periodTag(startsOn: string, kind: PeriodKind, text: Dictionary): string {
   const start = dayOf(startsOn)
-  return kind === 'week' ? `${String(start.getUTCDate())} ${shortMonth(start)}` : shortMonth(start)
+  return kind === 'week'
+    ? text.progress.day(start.getUTCDate(), shortMonth(start, text))
+    : shortMonth(start, text)
 }
 
-function liftAt(comparison: PeriodComparison, index: number): Lift | null {
+function liftAt(comparison: PeriodComparison, index: number, text: Dictionary): Lift | null {
   const [top] = liftedUp(movementsAt(comparison.movements, index))
   if (!top || top.previous_best_kg === null || top.change_kg === null) return null
   const source = comparison.movements.find((one) => one.movement_id === top.movement_id)
@@ -196,18 +190,23 @@ function liftAt(comparison: PeriodComparison, index: number): Lift | null {
     points: (source?.bests ?? []).slice(0, index + 1),
     labels: comparison.periods
       .slice(0, index + 1)
-      .map((one) => periodTag(one.starts_on, comparison.period)),
+      .map((one) => periodTag(one.starts_on, comparison.period, text)),
   }
 }
 
-/** Everything a card or a sticker can say about the period at `index`. */
-export function shareFacts(comparison: PeriodComparison, index: number): ShareFacts {
+/** Everything a card or a sticker can say about the period at `index`, in `text`'s words. */
+export function shareFacts(
+  comparison: PeriodComparison,
+  index: number,
+  text: Dictionary,
+): ShareFacts {
   const kind = comparison.period
   const current = comparison.periods[index]
   const previous = comparison.periods[index - 1]
   const startsOn = current?.starts_on ?? '1970-01-01'
   const start = dayOf(startsOn)
-  const label = periodLabel(startsOn, kind).toUpperCase()
+  const label = periodLabel(startsOn, kind, text).toUpperCase()
+  const poster = text.progress.poster
   const loads = loadsOf(current?.days ?? [])
   const kept = comparison.periods.map((one) => one.planned > 0 && one.fulfilled >= one.planned)
   const streak = kept
@@ -216,14 +215,13 @@ export function shareFacts(comparison: PeriodComparison, index: number): ShareFa
     .findIndex((one) => !one)
   return {
     kind,
-    kicker: `${kind === 'week' ? 'MI SEMANA' : 'MI MES'} · ${label}`,
+    kicker: `${kind === 'week' ? poster.myWeek : poster.myMonth} · ${label}`,
     label,
-    monthName: MONTHS[start.getUTCMonth()] ?? '',
-    noun: kind === 'week' ? 'semana' : 'mes',
+    monthName: monthName(start, text),
     against: previous
       ? kind === 'week'
-        ? 'LA SEMANA PASADA'
-        : (MONTHS[dayOf(previous.starts_on).getUTCMonth()] ?? '')
+        ? poster.lastWeek
+        : monthName(dayOf(previous.starts_on), text)
       : '',
     sessions: current?.sessions ?? 0,
     planned: current?.planned ?? 0,
@@ -235,13 +233,13 @@ export function shareFacts(comparison: PeriodComparison, index: number): ShareFa
     setsChange:
       current && previous && previous.work_sets > 0 ? current.work_sets - previous.work_sets : null,
     duration: hoursAndMinutes(current?.trained_seconds ?? 0),
-    bars: barsOf(loads, startsOn, kind),
+    bars: barsOf(loads, startsOn, kind, text.progress.weekdays),
     offset: (start.getUTCDay() + 6) % 7,
     cells: kind === 'month' ? cellsOf(loads, startsOn) : [],
     kept,
     streak: streak === -1 ? index + 1 : streak,
     muscles: current?.muscles ?? [],
-    lift: liftAt(comparison, index),
+    lift: liftAt(comparison, index, text),
   }
 }
 
@@ -287,8 +285,12 @@ export interface ReceiptRow {
 }
 
 /** The week a line per day: what was trained, its load and its minutes. */
-export function receiptRows(items: readonly HistoryItem[], startsOn: string): ReceiptRow[] {
-  return RECEIPT_DAYS.map((weekday, index) => {
+export function receiptRows(
+  items: readonly HistoryItem[],
+  startsOn: string,
+  text: Dictionary['progress']['poster'],
+): ReceiptRow[] {
+  return text.receiptDays.map((weekday, index) => {
     const iso = plus(startsOn, index)
     const day = `${weekday} ${String(dayOf(iso).getUTCDate())}`
     const trained = items.filter((item) => item.trained_on === iso)
@@ -298,8 +300,8 @@ export function receiptRows(items: readonly HistoryItem[], startsOn: string): Re
       day,
       title:
         trained.length > 1
-          ? `${String(trained.length)} SESIONES`
-          : (trained[0]?.title ?? 'ENTRENO LIBRE').toUpperCase(),
+          ? text.manySessions(trained.length)
+          : (trained[0]?.title ?? text.freeWorkout).toUpperCase(),
       kg:
         weighed.length === 0
           ? null

@@ -49,7 +49,7 @@ import { opens } from '../../src/client/plan'
 import { selectionTick } from '../../src/client/selection-tick'
 import {
   cumulativeVolume,
-  formatKilos,
+  formatMass,
   liftedUp,
   movementsAt,
   muscleRows,
@@ -70,13 +70,12 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { BodyFigure } from '../../src/components/body-figure'
 import { CardGlow, FIGURE_TRACKING, Ring } from '../../src/components/nutrition-ui'
 import { refusedFeature, usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 /** Six periods: the two compared, and four more so a movement's trend has a shape. */
 const PERIODS = 6
 const CHART_HEIGHT = 104
-const WEEKDAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
-
-const READ_FAILED = 'No pudimos cargar tu progreso. Inténtalo otra vez.'
 
 const AnimatedPath = Animated.createAnimatedComponent(Path)
 
@@ -89,6 +88,8 @@ type Muscles = Awaited<ReturnType<typeof readExerciseLibrary>>['muscles']
 export default function ProgressScreen() {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const words = text.progress.screen
   const timezone = deviceTimezone()
   const today = localToday(timezone)
   const features = usePlan()
@@ -125,12 +126,12 @@ export default function ProgressScreen() {
         .catch((cause: unknown) => {
           if (!active) return
           if (refusedFeature(cause) === 'period_analysis') setRefused(true)
-          else setFailure(READ_FAILED)
+          else setFailure(words.readFailed)
         })
       return () => {
         active = false
       }
-    }, [open, kind, timezone, program]),
+    }, [open, kind, timezone, program, words]),
   )
 
   const index = comparison ? comparison.periods.length - 1 - offset : -1
@@ -140,7 +141,9 @@ export default function ProgressScreen() {
   const start = current?.starts_on ?? periodStart(today, kind)
   const before = previous?.starts_on ?? previousStart(start, kind)
   const oldest = !comparison || index <= 1
-  const options = comparison ? programOptions(comparison.programs, comparison.periods, index) : []
+  const options = comparison
+    ? programOptions(comparison.programs, comparison.periods, index, text.progress.programs)
+    : []
   const chosen = options.find((option) => option.key === program) ?? options[0]
 
   const share = () => {
@@ -159,18 +162,18 @@ export default function ProgressScreen() {
       <View style={styles.header}>
         <IconButton
           icon="back"
-          accessibilityLabel="Volver"
+          accessibilityLabel={text.common.back}
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/profile'))}
         />
         <View style={styles.titles}>
           <Text role="control" size="xl" accessibilityRole="header" align="center">
-            Progreso
+            {words.title}
           </Text>
           {/* What is being read, under the title, as Apple's Health and Fitness do. */}
           {chosen ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Ver el progreso de: ${chosen.label}. Cambiar`}
+              accessibilityLabel={words.programLabel(chosen.label)}
               hitSlop={10}
               testID="progress-program"
               onPress={() => setChoosing(true)}
@@ -195,44 +198,44 @@ export default function ProgressScreen() {
             </Pressable>
           ) : null}
         </View>
-        <IconButton icon="share" accessibilityLabel="Compartir tu progreso" onPress={share} />
+        <IconButton icon="share" accessibilityLabel={words.share} onPress={share} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
         <SegmentedControl
           items={[
-            { value: 'week', label: 'Semana' },
-            { value: 'month', label: 'Mes' },
+            { value: 'week', label: words.week },
+            { value: 'month', label: words.month },
           ]}
           value={kind}
           onChange={(next) => {
             setOffset(0)
             setKind(next)
           }}
-          accessibilityLabel="Comparar por"
+          accessibilityLabel={words.compareBy}
         />
         <View style={styles.period}>
           <IconButton
             icon="back"
             variant="plain"
             size="sm"
-            accessibilityLabel={kind === 'week' ? 'Semana anterior' : 'Mes anterior'}
+            accessibilityLabel={words.previous[kind]}
             disabled={oldest}
             onPress={() => setOffset(offset + 1)}
             style={oldest ? styles.off : null}
           />
           <View style={styles.periodText}>
             <Text role="control" size="md">
-              {periodLabel(start, kind)}
+              {periodLabel(start, kind, text)}
             </Text>
             <Text role="body" size="xs" color="muted">
-              {`Frente a ${periodLabel(before, kind)}`}
+              {words.against(periodLabel(before, kind, text))}
             </Text>
           </View>
           <IconButton
             icon="forward"
             variant="plain"
             size="sm"
-            accessibilityLabel={kind === 'week' ? 'Semana siguiente' : 'Mes siguiente'}
+            accessibilityLabel={words.next[kind]}
             disabled={offset === 0}
             onPress={() => setOffset(offset - 1)}
             style={offset === 0 ? styles.off : null}
@@ -252,7 +255,7 @@ export default function ProgressScreen() {
           <ProVeil kind={kind} today={today} onUpgrade={() => router.push('/pro/plans')} />
         ) : null}
       </ScrollView>
-      <Sheet visible={choosing} onDismiss={() => setChoosing(false)} title="Ver el progreso de">
+      <Sheet visible={choosing} onDismiss={() => setChoosing(false)} title={words.chooseTitle}>
         <View style={styles.options}>
           {options.map((option, position) => (
             <ProgramChoice
@@ -304,10 +307,9 @@ function ProgramChoice({
   readonly onPress: () => void
 }) {
   const theme = useTheme()
+  const words = useText().progress.screen
   const figure =
-    option.planned === null
-      ? String(option.done)
-      : `${String(option.done)} de ${String(option.planned)}`
+    option.planned === null ? String(option.done) : words.doneOf(option.done, option.planned)
   return (
     <Pressable
       accessibilityRole="button"
@@ -363,6 +365,7 @@ function Comparison({
   readonly kind: PeriodKind
   readonly today: string
 }) {
+  const words = useText().progress.screen
   const rows = muscleRows(current)
   const missing = untrained(current, previous)
   const lit = litSlugsFor(
@@ -383,18 +386,19 @@ function Comparison({
       <View style={styles.tiles}>
         <Tile
           value={String(current.sessions)}
-          label="Sesiones"
-          detail={current.planned > 0 ? `De ${String(current.planned)} planeadas` : 'Sin plan'}
+          label={words.sessions}
+          detail={current.planned > 0 ? words.plannedOf(current.planned) : words.noPlan}
           share={current.planned > 0 ? current.fulfilled / current.planned : 0}
           tone="strength"
         />
         <Tile
           value={String(Math.round(current.trained_seconds / 60))}
-          label="Minutos"
+          label={words.minutes}
           detail={changeLine(
             current.trained_seconds / 60,
             previous ? previous.trained_seconds / 60 : null,
-            'min',
+            words.minutesAmount,
+            words.same,
           )}
           share={
             previous && previous.trained_seconds > 0
@@ -405,22 +409,24 @@ function Comparison({
         />
         <Tile
           value={String(current.work_sets)}
-          label="Series"
-          detail={changeLine(current.work_sets, previous?.work_sets ?? null, 'series')}
+          label={words.sets}
+          detail={changeLine(
+            current.work_sets,
+            previous?.work_sets ?? null,
+            words.setsAmount,
+            words.same,
+          )}
           share={previous && previous.work_sets > 0 ? current.work_sets / previous.work_sets : 0}
           tone="rhythm"
         />
       </View>
 
-      <SectionTitle
-        title={kind === 'week' ? 'Músculos de la semana' : 'Músculos del mes'}
-        extra="Series"
-      />
+      <SectionTitle title={words.muscles[kind]} extra={words.sets} />
       <MusclesCard rows={rows} lit={lit} missing={missing} />
 
       {risen.length > 0 ? (
         <>
-          <SectionTitle title="Cargas que subieron" />
+          <SectionTitle title={words.loadsUp} />
           <LoadsCard movements={risen} />
         </>
       ) : null}
@@ -429,11 +435,16 @@ function Comparison({
 }
 
 /** «+25 min», «−6 series», or how much there was when nothing came before. */
-function changeLine(current: number, previous: number | null, unit: string): string {
-  if (previous === null) return `${String(Math.round(current))} ${unit}`
+function changeLine(
+  current: number,
+  previous: number | null,
+  amount: (count: number, sign: string) => string,
+  same: string,
+): string {
+  if (previous === null) return amount(Math.round(current), '')
   const change = Math.round(current - previous)
-  if (change === 0) return 'Igual que antes'
-  return `${change > 0 ? '+' : '−'}${String(Math.abs(change))} ${unit}`
+  if (change === 0) return same
+  return amount(Math.abs(change), change > 0 ? '+' : '−')
 }
 
 function VolumeCard({
@@ -450,6 +461,10 @@ function VolumeCard({
   readonly previous: PeriodComparison['periods'][number] | undefined
 }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.progress.screen
+  const locale = useLocale()
+  const { mass } = useUnits()
   const [width, setWidth] = useState(0)
   const change = percentChange(current.volume_kg, previous?.volume_kg ?? null)
   const now = cumulativeVolume(days, current.starts_on, kind, today)
@@ -465,33 +480,33 @@ function VolumeCard({
       <CardGlow />
       <View style={styles.heroTop}>
         <Text role="control" size="2xs" color="muted" uppercase tracking={0.12}>
-          Volumen levantado
+          {words.volume}
         </Text>
         <View style={styles.legend}>
-          <Legend label="Esta" color={theme.color.icon.accent} />
-          <Legend label="Anterior" color={theme.color.text.muted} />
+          <Legend label={words.legendThis} color={theme.color.icon.accent} />
+          <Legend label={words.legendBefore} color={theme.color.text.muted} />
         </View>
       </View>
       <View style={styles.figure}>
         <Text role="display" tracking={FIGURE_TRACKING} size="6xl">
-          {current.volume_kg === null ? '—' : formatKilos(current.volume_kg)}
+          {current.volume_kg === null ? '—' : formatMass(current.volume_kg, mass, locale)}
         </Text>
         <Text role="control" size="lg" color="secondary" style={styles.unit}>
-          kg
+          {mass}
         </Text>
       </View>
       {change !== null ? (
         <View style={styles.change}>
           <FoundationIcon name="progress" size="sm" color={theme.color.icon.accent} decorative />
           <Text role="control" size="xs" color="accent">
-            {`${change > 0 ? '+' : ''}${String(change)} % frente ${kind === 'week' ? 'a la semana pasada' : 'al mes pasado'}`}
+            {words.versus[kind](`${change > 0 ? '+' : ''}${String(change)}`)}
           </Text>
         </View>
       ) : null}
       <View onLayout={(event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width)}>
         {width > 0 ? <CumulativeChart width={width} now={now} before={before} /> : null}
         <View style={styles.axis}>
-          {axisLabels(kind, now.length).map((label, index) => (
+          {axisLabels(kind, now.length, text.progress.weekdays).map((label, index) => (
             <Text
               key={`${label}-${String(index)}`}
               role="control"
@@ -508,8 +523,12 @@ function VolumeCard({
   )
 }
 
-function axisLabels(kind: PeriodKind, days: number): readonly string[] {
-  if (kind === 'week') return WEEKDAYS
+function axisLabels(
+  kind: PeriodKind,
+  days: number,
+  weekdays: readonly string[],
+): readonly string[] {
+  if (kind === 'week') return weekdays
   return ['1', '8', '15', '22', String(days)]
 }
 
@@ -684,6 +703,7 @@ function MusclesCard({
   readonly missing: readonly string[]
 }) {
   const theme = useTheme()
+  const words = useText().progress.screen
   if (rows.length === 0) {
     return (
       <View
@@ -696,7 +716,7 @@ function MusclesCard({
         ]}
       >
         <Text role="body" size="sm" color="secondary">
-          Cuando registres series con carga, aquí verás qué músculos trabajaste.
+          {words.noMuscles}
         </Text>
       </View>
     )
@@ -727,7 +747,7 @@ function MusclesCard({
           <View
             key={row.code}
             accessible
-            accessibilityLabel={`${row.name}: ${String(row.sets)} series`}
+            accessibilityLabel={words.muscleSets(row.name, row.sets)}
             style={styles.muscleRow}
           >
             <View style={styles.muscleTop}>
@@ -752,7 +772,7 @@ function MusclesCard({
           </View>
         ))}
         {missing.length > 0 ? (
-          <InlineAlert tone="warning" message={`Sin trabajar: ${missing.slice(0, 2).join(', ')}`} />
+          <InlineAlert tone="warning" message={words.untrained(missing.slice(0, 2).join(', '))} />
         ) : null}
       </View>
     </View>
@@ -760,16 +780,19 @@ function MusclesCard({
 }
 
 function LoadsCard({ movements }: { readonly movements: ReturnType<typeof liftedUp> }) {
+  const locale = useLocale()
+  const { mass } = useUnits()
+  const figure = (kg: number) => formatMass(kg, mass, locale)
   return (
     <ContentGroup>
       {movements.map((movement) => (
         <ContentRow
           key={movement.movement_id}
           name={movement.name}
-          caption={`${formatKilos(movement.previous_best_kg ?? 0)} → ${formatKilos(movement.best_kg)} kg`}
+          caption={`${figure(movement.previous_best_kg ?? 0)} → ${figure(movement.best_kg)} ${mass}`}
           trailing={{
             kind: 'badge',
-            label: `+${formatKilos(movement.change_kg ?? 0)} kg`,
+            label: `+${figure(movement.change_kg ?? 0)} ${mass}`,
             tone: 'accent',
           }}
         />
@@ -793,6 +816,7 @@ function ProVeil({
   readonly onUpgrade: () => void
 }) {
   const theme = useTheme()
+  const words = useText().progress.screen.veil
   const start = periodStart(today, kind)
   const sample = (
     startsOn: string,
@@ -811,10 +835,10 @@ function ProVeil({
     unplanned: 0,
     days,
     muscles: [
-      { code: 'chest', name: 'Pecho', sets: 12 },
-      { code: 'lats', name: 'Dorsal', sets: 10 },
-      { code: 'quadriceps', name: 'Cuádriceps', sets: 8 },
-      { code: 'shoulders', name: 'Hombros', sets: 6 },
+      { code: 'chest', name: words.sampleMuscles.chest, sets: 12 },
+      { code: 'lats', name: words.sampleMuscles.lats, sets: 10 },
+      { code: 'quadriceps', name: words.sampleMuscles.quadriceps, sets: 8 },
+      { code: 'shoulders', name: words.sampleMuscles.shoulders, sets: 6 },
     ],
   })
   const earlier = previousStart(start, kind)
@@ -836,13 +860,13 @@ function ProVeil({
           previous={before}
           movements={(
             [
-              ['Sentadilla', 80, 92.5],
-              ['Press banca', 60, 65],
-              ['Remo con barra', 50, 55],
+              [80, 92.5],
+              [60, 65],
+              [50, 55],
             ] as const
-          ).map(([name, from, to]) => ({
-            movement_id: name,
-            name,
+          ).map(([from, to], position) => ({
+            movement_id: String(position),
+            name: words.sampleMovements[position] ?? '',
             best_kg: to,
             previous_best_kg: from,
             change_kg: to - from,
@@ -872,18 +896,17 @@ function ProVeil({
         >
           <Badge label="Pro" tone="accent" style={styles.centered} />
           <Text role="display" size="4xl" uppercase align="center">
-            {'Mira cuánto\nhas avanzado'}
+            {words.title}
           </Text>
           <Text role="body" size="sm" color="secondary" align="center">
-            Compara esta semana con la anterior: tu volumen, tus cargas, los músculos que trabajaste
-            y tu constancia.
+            {words.body}
           </Text>
           <View style={styles.includes}>
             {(
               [
-                ['progress', 'Semana a semana o mes a mes'],
-                ['weight', 'Las cargas que subieron'],
-                ['arms', 'Tus músculos trabajados'],
+                ['progress', words.byPeriod],
+                ['weight', words.loads],
+                ['arms', words.muscles],
               ] as const
             ).map(([icon, label]) => (
               <Note key={label} size="md" icon={icon} accent>
@@ -891,9 +914,9 @@ function ProVeil({
               </Note>
             ))}
           </View>
-          <Button label="Hazte Pro" size="sm" onPress={onUpgrade} style={styles.centered} />
+          <Button label={words.upgrade} size="sm" onPress={onUpgrade} style={styles.centered} />
           <Text role="body" size="xs" color="muted" align="center">
-            El resumen de cada sesión sigue siendo gratis.
+            {words.free}
           </Text>
         </View>
       </View>

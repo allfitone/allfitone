@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { kilogramsFrom, massIn } from '../units/units'
 import {
   CANONICAL_LENGTH,
   CANONICAL_MASS,
@@ -32,6 +33,16 @@ describe('the factors agree with the catalogue', () => {
     // people. The database is the authority; this only draws.
     for (const [unit, factor] of Object.entries(CATALOGUE_FACTORS)) {
       expect(toCanonical(1, unit as MeasureUnit)).toBeCloseTo(factor, 10)
+    }
+  })
+
+  test('kilos and pounds convert as every other screen converts them', () => {
+    // One home for the mass factor: the ruler and the units preference cannot disagree.
+    for (const pounds of [77, 163, 397]) {
+      expect(toCanonical(pounds, 'lb')).toBe(kilogramsFrom(pounds, 'lb'))
+      expect(displayIn(toCanonical(pounds, 'lb'), 'lb')).toBe(
+        Math.round(massIn(kilogramsFrom(pounds, 'lb'), 'lb')),
+      )
     }
   })
 

@@ -6,6 +6,9 @@
  * the frames' own coordinates, scaled as a whole by the caller, painted with the
  * brand's primitives because it leaves the app and is always dark. It borrows that
  * screen's ground, faces and type helper rather than drawing its own.
+ *
+ * It speaks the app's language and weighs in the person's unit: every mass in `facts`
+ * is canonical kilos, converted only here, where it is printed.
  */
 
 import { ProductLockup } from '@allfitone/react-native/brand'
@@ -24,8 +27,12 @@ import Svg, {
 import type { MuscleTerm } from '../client/content'
 import { litSlugsFor } from '../client/exercise-catalogue'
 import { INERT_SLUGS } from '../client/focus-form'
-import { formatKilos } from '../client/progress'
+import { formatMass } from '../client/progress'
 import type { ProgressCardKind, ReceiptRow, ShareFacts } from '../client/progress-share'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
+import { massIn, type MassUnit } from '../units/units'
+import { useUnits } from '../units/use-units'
 import { BodyFigure } from './body-figure'
 import {
   BODY_BOLD,
@@ -50,22 +57,60 @@ export interface ProgressCardProps {
   readonly muscles: readonly MuscleTerm[]
 }
 
-/** «+18 %», «−4 %». */
-export const signed = (value: number, unit = '') =>
-  `${value > 0 ? '+' : value < 0 ? '−' : ''}${String(Math.abs(value)).replace('.', ',')}${unit}`
+/** How a card speaks and weighs: the poster's words, the locale, the person's mass unit. */
+export interface Voice {
+  readonly poster: Dictionary['progress']['poster']
+  readonly weekdays: readonly string[]
+  readonly locale: Locale
+  readonly mass: MassUnit
+}
 
-const tons = (kg: number) => (kg / 1000).toFixed(1).replace('.', ',')
+type CardProps = ProgressCardProps & { readonly voice: Voice }
+
+/** The voice of whoever is looking: for a card, a sticker, or anything else that prints. */
+export function useVoice(): Voice {
+  const text = useText()
+  return {
+    poster: text.progress.poster,
+    weekdays: text.progress.weekdays,
+    locale: useLocale(),
+    mass: useUnits().mass,
+  }
+}
+
+/** «+18 %», «−4 %», «+7,5 kg»: the sign, then the figure as the locale writes it. */
+export const signed = (value: number, locale: Locale, unit = '') =>
+  `${value > 0 ? '+' : value < 0 ? '−' : ''}${Math.abs(value).toLocaleString(intlLocale(locale), {
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  })}${unit}`
+
+/** Kilos as they are, so 1,25 stays 1,25; pounds in tenths, since they never come out round. */
+export const liftFigure = (kg: number, mass: MassUnit) =>
+  mass === 'kg' ? kg : Math.round(massIn(kg, mass) * 10) / 10
+
+/** «KG», «LB». */
+export const unitMark = (mass: MassUnit) => mass.toUpperCase()
+
+/** Thousands of the unit shown, with its tenth: tonnes for kilos. */
+const tons = (kg: number, voice: Voice) =>
+  (massIn(kg, voice.mass) / 1000).toLocaleString(intlLocale(voice.locale), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  })
 
 export function ProgressCard(props: ProgressCardProps) {
+  const voice = useVoice()
   return (
     <View style={styles.card}>
-      <Frame>{cardFor(props)}</Frame>
+      <Frame>{cardFor({ ...props, voice })}</Frame>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.rim]} />
     </View>
   )
 }
 
-function cardFor(props: ProgressCardProps) {
+function cardFor(props: CardProps) {
   switch (props.kind) {
     case 'load':
       return <LoadCard {...props} />
@@ -123,7 +168,15 @@ function Kicker({ children, centred }: { readonly children: string; readonly cen
 }
 
 /** The count of sessions, big, with what it is and how it stands against the plan. */
-function Sessions({ facts, size }: { readonly facts: ShareFacts; readonly size: number }) {
+function Sessions({
+  facts,
+  size,
+  voice,
+}: {
+  readonly facts: ShareFacts
+  readonly size: number
+  readonly voice: Voice
+}) {
   const unit = Math.round(size * 0.27)
   const pips = facts.planned > 0 && facts.planned <= 8
   return (
@@ -131,7 +184,7 @@ function Sessions({ facts, size }: { readonly facts: ShareFacts; readonly size: 
       <Text style={type(POSTER, size, INK.accent, { leading: 0.9 })}>{String(facts.sessions)}</Text>
       <View style={[styles.heroSide, { paddingTop: size * 0.16 }]}>
         <Text style={type(POSTER, unit, INK.text, { leading: 0.9 })}>
-          {facts.sessions === 1 ? 'SESIÓN' : 'SESIONES'}
+          {voice.poster.sessions(facts.sessions)}
         </Text>
         {pips ? (
           <View style={styles.pips}>
@@ -155,16 +208,16 @@ function Sessions({ facts, size }: { readonly facts: ShareFacts; readonly size: 
             />
           </View>
         ) : null}
-        <Text style={type(BODY_HEAVY, 9, INK.muted, { tracking: 1.4 })}>{planLine(facts)}</Text>
+        <Text style={type(BODY_HEAVY, 9, INK.muted, { tracking: 1.4 })}>
+          {planLine(facts, voice)}
+        </Text>
       </View>
     </View>
   )
 }
 
-const planLine = (facts: ShareFacts) =>
-  facts.planned > 0
-    ? `${String(facts.fulfilled)} DE ${String(facts.planned)} DEL PLAN`
-    : 'ENTRENO LIBRE'
+const planLine = (facts: ShareFacts, voice: Voice) =>
+  facts.planned > 0 ? voice.poster.ofPlan(facts.fulfilled, facts.planned) : voice.poster.freeWorkout
 
 /** Three figures between a hairline and the foot. */
 function Figures({
@@ -192,8 +245,11 @@ function Figures({
   )
 }
 
-export const kilosOf = (facts: ShareFacts) =>
-  facts.volumeKg === null ? '0' : formatKilos(facts.volumeKg)
+/** The period's volume in the unit shown, «0» when nothing was weighed. */
+export const volumeOf = (facts: ShareFacts, voice: Voice) =>
+  facts.volumeKg === null ? '0' : formatMass(facts.volumeKg, voice.mass, voice.locale)
+
+const massOf = (kg: number, voice: Voice) => formatMass(kg, voice.mass, voice.locale)
 
 /** Cyan falling to the brand's deep turquoise, top to foot. */
 function Fill({
@@ -224,7 +280,7 @@ function Fill({
 
 const COLUMNS = { top: 232, height: 160, left: 20, width: 260 } as const
 
-function LoadCard({ facts }: ProgressCardProps) {
+function LoadCard({ facts, voice }: CardProps) {
   const week = facts.kind === 'week'
   const gap = week ? 6 : 7
   const width = (COLUMNS.width - gap * (facts.bars.length - 1)) / facts.bars.length
@@ -233,7 +289,7 @@ function LoadCard({ facts }: ProgressCardProps) {
     <>
       <Lockup />
       <Kicker>{facts.kicker}</Kicker>
-      <Sessions facts={facts} size={week && facts.sessions < 10 ? 150 : 110} />
+      <Sessions facts={facts} size={week && facts.sessions < 10 ? 150 : 110} voice={voice} />
       <Text
         style={[
           styles.at,
@@ -241,14 +297,15 @@ function LoadCard({ facts }: ProgressCardProps) {
           type(BODY_HEAVY, 7.5, INK.ash, { tracking: 1.4 }),
         ]}
       >
-        {week ? 'TONELADAS POR DÍA' : 'TONELADAS POR SEMANA'}
+        {(week ? voice.poster.perDay : voice.poster.perWeek)[voice.mass]}
       </Text>
       {facts.bars.map((bar, index) => {
         const x = COLUMNS.left + index * (width + gap)
         const height =
           bar.kg === null ? 0 : Math.max(28, Math.round((COLUMNS.height * bar.kg) / heaviest))
         return (
-          <View key={bar.label}>
+          // English repeats a weekday's letter, so the label cannot be the key.
+          <View key={index}>
             <View style={[styles.at, styles.column, { left: x, top: COLUMNS.top, width }]} />
             {bar.kg === null ? (
               <View
@@ -275,7 +332,7 @@ function LoadCard({ facts }: ProgressCardProps) {
                   <Text
                     style={[styles.centre, { marginTop: 8 }, type(POSTER, week ? 14 : 16, INK.ink)]}
                   >
-                    {tons(bar.kg)}
+                    {tons(bar.kg, voice)}
                   </Text>
                 ) : null}
               </View>
@@ -295,11 +352,11 @@ function LoadCard({ facts }: ProgressCardProps) {
       })}
       <Figures
         figures={[
-          [kilosOf(facts), 'KG', false],
-          [facts.duration, 'ENTRENANDO', false],
+          [volumeOf(facts, voice), unitMark(voice.mass), false],
+          [facts.duration, voice.poster.training, false],
           facts.change === null
-            ? [String(facts.workSets), 'SERIES', false]
-            : [signed(facts.change, ' %'), 'VOLUMEN', true],
+            ? [String(facts.workSets), voice.poster.sets, false]
+            : [signed(facts.change, voice.locale, ' %'), voice.poster.volume, true],
         ]}
       />
     </>
@@ -310,15 +367,18 @@ function LoadCard({ facts }: ProgressCardProps) {
 
 const RECEIPT = { top: 184, row: 34 } as const
 
-function ReceiptCard({ facts, receipt }: ProgressCardProps) {
+function ReceiptCard({ facts, receipt, voice }: CardProps) {
   const total = RECEIPT.top + receipt.length * RECEIPT.row + 6
   const detail = [facts.duration]
-  if (facts.change !== null) detail.push(`${signed(facts.change, ' %')} FRENTE A ${facts.against}`)
+  if (facts.change !== null)
+    detail.push(
+      `${signed(facts.change, voice.locale, ' %')} ${voice.poster.against(facts.against)}`,
+    )
   return (
     <>
       <Lockup />
       <Kicker>{facts.kicker}</Kicker>
-      <Sessions facts={facts} size={96} />
+      <Sessions facts={facts} size={96} voice={voice} />
       <View style={[styles.at, styles.rule, { top: RECEIPT.top - 8 }]} />
       {receipt.map((row, index) => {
         const y = RECEIPT.top + index * RECEIPT.row
@@ -342,7 +402,7 @@ function ReceiptCard({ facts, receipt }: ProgressCardProps) {
                 type(POSTER, 17, row.title ? INK.text : REST),
               ]}
             >
-              {row.title ?? 'DESCANSO'}
+              {row.title ?? voice.poster.rest}
             </Text>
             {row.title ? (
               <>
@@ -354,7 +414,7 @@ function ReceiptCard({ facts, receipt }: ProgressCardProps) {
                     type(BODY_HEAVY, 9, INK.text, { tracking: 0.6 }),
                   ]}
                 >
-                  {row.kg === null ? '' : `${formatKilos(row.kg)} KG`}
+                  {row.kg === null ? '' : `${massOf(row.kg, voice)} ${unitMark(voice.mass)}`}
                 </Text>
                 <Text
                   style={[
@@ -379,7 +439,7 @@ function ReceiptCard({ facts, receipt }: ProgressCardProps) {
           type(BODY_HEAVY, 9, INK.muted, { tracking: 1.6 }),
         ]}
       >
-        TOTAL
+        {voice.poster.total}
       </Text>
       <Text
         style={[
@@ -389,7 +449,7 @@ function ReceiptCard({ facts, receipt }: ProgressCardProps) {
           type(POSTER, 34, INK.accent, { leading: 0.9 }),
         ]}
       >
-        {`${kilosOf(facts)} KG`}
+        {`${volumeOf(facts, voice)} ${unitMark(voice.mass)}`}
       </Text>
       <Text
         style={[
@@ -407,16 +467,16 @@ function ReceiptCard({ facts, receipt }: ProgressCardProps) {
 
 // ———————————————————————————————————————————— 3 · against the period before
 
-function VersusCard({ facts }: ProgressCardProps) {
+function VersusCard({ facts, voice }: CardProps) {
   const change = facts.change ?? 0
   const now = facts.volumeKg ?? 0
   const before = facts.previousKg ?? 0
   const heaviest = Math.max(1, now, before)
   const week = facts.kind === 'week'
-  const what = `${change >= 0 ? 'MÁS' : 'MENOS'} VOLUMEN QUE\n${week ? 'LA SEMANA PASADA' : `EN ${facts.against}`}`
+  const what = voice.poster.versus(change >= 0, week, facts.against)
   const bars: readonly [string, number, boolean][] = [
-    [week ? 'ESTA SEMANA' : 'ESTE MES', now, true],
-    [week ? 'LA PASADA' : facts.against, before, false],
+    [week ? voice.poster.thisWeek : voice.poster.thisMonth, now, true],
+    [week ? voice.poster.theLastOne : facts.against, before, false],
   ]
   return (
     <>
@@ -431,7 +491,7 @@ function VersusCard({ facts }: ProgressCardProps) {
           type(POSTER, 120, INK.accent, { leading: 0.9 }),
         ]}
       >
-        {signed(change, '%')}
+        {signed(change, voice.locale, '%')}
       </Text>
       <Text
         style={[styles.at, { left: 20, top: 200 }, type(POSTER, 26, INK.text, { leading: 0.95 })]}
@@ -462,15 +522,15 @@ function VersusCard({ facts }: ProgressCardProps) {
           >
             <Text
               style={type(POSTER, 22, current ? INK.ink : INK.text)}
-            >{`${formatKilos(kg)} KG`}</Text>
+            >{`${massOf(kg, voice)} ${unitMark(voice.mass)}`}</Text>
           </View>
         </View>
       ))}
       <Figures
         figures={[
-          [String(facts.sessions), facts.sessions === 1 ? 'SESIÓN' : 'SESIONES', false],
-          [String(facts.workSets), 'SERIES', false],
-          [facts.duration, 'ENTRENANDO', false],
+          [String(facts.sessions), voice.poster.sessions(facts.sessions), false],
+          [String(facts.workSets), voice.poster.sets, false],
+          [facts.duration, voice.poster.training, false],
         ]}
       />
     </>
@@ -507,7 +567,7 @@ export const pathOf = (points: readonly { x: number; y: number }[]) =>
     .map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
     .join(' ')
 
-function LiftCard({ facts }: ProgressCardProps) {
+function LiftCard({ facts, voice }: CardProps) {
   const lift = facts.lift
   if (!lift) return null
   const points = trendPoints(lift.points, CHART)
@@ -530,11 +590,18 @@ function LiftCard({ facts }: ProgressCardProps) {
         {lift.name.toUpperCase()}
       </Text>
       <View style={[styles.at, styles.hero, { left: 16, top: 128, alignItems: 'flex-end' }]}>
-        <Text style={type(POSTER, 96, INK.accent, { leading: 0.9 })}>{signed(lift.change)}</Text>
-        <Text style={[{ marginBottom: 8 }, type(POSTER, 30, INK.accent)]}>KG</Text>
+        <Text style={type(POSTER, 96, INK.accent, { leading: 0.9 })}>
+          {signed(liftFigure(lift.change, voice.mass), voice.locale)}
+        </Text>
+        <Text style={[{ marginBottom: 8 }, type(POSTER, 30, INK.accent)]}>
+          {unitMark(voice.mass)}
+        </Text>
       </View>
       <Text style={[styles.at, { left: 20, top: 250 }, type(BODY_BOLD, 13, INK.muted)]}>
-        {`De ${formatKilos(lift.from)} kg a ${formatKilos(lift.to)} kg`}
+        {voice.poster.liftFrom(
+          `${massOf(lift.from, voice)} ${voice.mass}`,
+          `${massOf(lift.to, voice)} ${voice.mass}`,
+        )}
       </Text>
       <Svg width={CARD_WIDTH} height={CARD_HEIGHT} style={StyleSheet.absoluteFill}>
         <Defs>
@@ -620,28 +687,28 @@ export function Faces({
   )
 }
 
-function SetsHead({ facts }: { readonly facts: ShareFacts }) {
+function SetsHead({ facts, voice }: { readonly facts: ShareFacts; readonly voice: Voice }) {
   const count = facts.muscles.length
   return (
     <View style={[styles.at, styles.hero, { left: 18, top: 84 }]}>
       <Text style={type(POSTER, 96, INK.accent, { leading: 0.9 })}>{String(facts.workSets)}</Text>
       <View style={[styles.heroSide, { paddingTop: 12, gap: 2 }]}>
-        <Text style={type(POSTER, 34, INK.text, { leading: 0.9 })}>SERIES</Text>
+        <Text style={type(POSTER, 34, INK.text, { leading: 0.9 })}>{voice.poster.sets}</Text>
         <Text style={type(POSTER, 17, INK.muted, { leading: 0.9 })}>
-          {`EN ${String(count)} ${count === 1 ? 'MÚSCULO' : 'MÚSCULOS'}`}
+          {voice.poster.inMuscles(count)}
         </Text>
       </View>
     </View>
   )
 }
 
-function FigureCard({ facts, muscles }: ProgressCardProps) {
+function FigureCard({ facts, muscles, voice }: CardProps) {
   const top = facts.muscles.slice(0, 5)
   return (
     <>
       <Lockup />
       <Kicker>{facts.kicker}</Kicker>
-      <SetsHead facts={facts} />
+      <SetsHead facts={facts} voice={voice} />
       <Svg width={CARD_WIDTH} height={CARD_HEIGHT} style={StyleSheet.absoluteFill}>
         <Defs>
           <RadialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
@@ -693,20 +760,21 @@ function FigureCard({ facts, muscles }: ProgressCardProps) {
 
 const SHADES = [TRACK, '#55EFFB55', '#55EFFB99', INK.accent] as const
 
-function CalendarCard({ facts }: ProgressCardProps) {
+function CalendarCard({ facts, voice }: CardProps) {
   const rows = Math.ceil((facts.offset + facts.cells.length) / 7)
   const step = rows > 5 ? 31 : 36
   const trained = facts.cells.filter((cell) => cell.level > 0).length
+  const words = voice.poster
   const [big, small] =
     facts.streak >= 2
-      ? [`${String(facts.streak)} MESES`, 'SIN FALLARLE AL PLAN']
+      ? [words.months(facts.streak), words.keptPlan]
       : facts.planned > 0
-        ? [`${String(facts.fulfilled)} DE ${String(facts.planned)}`, 'SESIONES DEL PLAN']
-        : [`${String(trained)} ${trained === 1 ? 'DÍA' : 'DÍAS'}`, 'ENTRENADOS']
+        ? [words.doneOf(facts.fulfilled, facts.planned), words.planSessions]
+        : [words.days(trained), words.trained]
   return (
     <>
       <Lockup />
-      <Kicker>MI MES</Kicker>
+      <Kicker>{words.myMonth}</Kicker>
       <Text
         numberOfLines={1}
         adjustsFontSizeToFit
@@ -719,11 +787,14 @@ function CalendarCard({ facts }: ProgressCardProps) {
         {facts.monthName}
       </Text>
       <Text style={[styles.at, { left: 20, top: 142 }, type(BODY_BOLD, 12, INK.muted)]}>
-        {`${String(facts.sessions)} ${facts.sessions === 1 ? 'sesión' : 'sesiones'} · ${kilosOf(facts)} kg levantados`}
+        {words.monthLine(
+          words.sessionsLower(facts.sessions),
+          `${volumeOf(facts, voice)} ${voice.mass}`,
+        )}
       </Text>
-      {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day, index) => (
+      {voice.weekdays.map((day, index) => (
         <Text
-          key={day}
+          key={index}
           style={[
             styles.at,
             styles.centre,
@@ -782,23 +853,23 @@ function Centred({
   return <Text style={[styles.at, styles.wide, { top: y }, style]}>{children}</Text>
 }
 
-function TotalCard({ facts }: ProgressCardProps) {
+function TotalCard({ facts, voice }: CardProps) {
   return (
     <>
       <Kicker centred>{minimalKicker(facts)}</Kicker>
       <Centred y={196} style={type(POSTER, 76, INK.text, { leading: 0.9 })}>
-        {kilosOf(facts)}
+        {volumeOf(facts, voice)}
       </Centred>
       <Centred y={272} style={type(BODY_HEAVY, 10, INK.muted, { tracking: 3 })}>
-        KILOS LEVANTADOS
+        {voice.poster.lifted[voice.mass]}
       </Centred>
       {facts.change === null ? null : (
         <>
           <Centred y={318} style={type(POSTER, 20, INK.accent)}>
-            {signed(facts.change, ' %')}
+            {signed(facts.change, voice.locale, ' %')}
           </Centred>
           <Centred y={342} style={type(BODY_HEAVY, 8, INK.ash, { tracking: 1.6 })}>
-            {`FRENTE A ${facts.against}`}
+            {voice.poster.against(facts.against)}
           </Centred>
         </>
       )}
@@ -807,9 +878,7 @@ function TotalCard({ facts }: ProgressCardProps) {
   )
 }
 
-const WEEK_DOTS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
-
-function DotsCard({ facts }: ProgressCardProps) {
+function DotsCard({ facts, voice }: CardProps) {
   const week = facts.kind === 'week'
   return (
     <>
@@ -818,14 +887,14 @@ function DotsCard({ facts }: ProgressCardProps) {
         {String(facts.sessions)}
       </Centred>
       <Centred y={week ? 262 : 222} style={type(BODY_HEAVY, 10, INK.muted, { tracking: 3 })}>
-        {facts.sessions === 1 ? 'SESIÓN' : 'SESIONES'}
+        {voice.poster.sessions(facts.sessions)}
       </Centred>
       {week ? (
         facts.bars.map((bar, index) => {
           const x = 53 + index * 30
           const on = bar.kg !== null
           return (
-            <View key={bar.label}>
+            <View key={index}>
               <View
                 style={[
                   styles.at,
@@ -845,16 +914,16 @@ function DotsCard({ facts }: ProgressCardProps) {
                   type(BODY_HEAVY, 8.5, on ? INK.accent : INK.ash),
                 ]}
               >
-                {WEEK_DOTS[index] ?? ''}
+                {voice.weekdays[index] ?? ''}
               </Text>
             </View>
           )
         })
       ) : (
         <>
-          {WEEK_DOTS.map((day, index) => (
+          {voice.weekdays.map((day, index) => (
             <Text
-              key={day}
+              key={index}
               style={[
                 styles.at,
                 styles.centre,
@@ -900,7 +969,7 @@ const SEGMENT_SHADES = [
   '#132F34',
 ]
 
-function MusclesCard({ facts }: ProgressCardProps) {
+function MusclesCard({ facts, voice }: CardProps) {
   const total = facts.muscles.reduce((sum, muscle) => sum + muscle.sets, 0) || 1
   const gaps = 2 * (facts.muscles.length - 1)
   let x = 50
@@ -911,7 +980,7 @@ function MusclesCard({ facts }: ProgressCardProps) {
         {String(facts.workSets)}
       </Centred>
       <Centred y={242} style={type(BODY_HEAVY, 10, INK.muted, { tracking: 3 })}>
-        SERIES
+        {voice.poster.sets}
       </Centred>
       {facts.muscles.map((muscle, index) => {
         const width = Math.max(2, Math.round(((200 - gaps) * muscle.sets) / total))
