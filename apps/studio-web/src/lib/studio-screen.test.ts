@@ -22,9 +22,13 @@ describe('studioScreen', () => {
     expect(studioScreen(TEAM, 'nonsense')).toBe('studio.team_directory')
   })
 
-  // The form is still an address of its own, and it is matched before the team.
-  test('reports the invitation form, not the section it sits under', () => {
-    expect(studioScreen(`${TEAM}/invitations/new`, null)).toBe('studio.team_invitation_new')
+  /*
+   * Inviting is a dialog over the invitations, not a screen, and the button
+   * that opens it never touches the address. The old form address redirects
+   * into the invitations, so that is what it reports.
+   */
+  test('reports the invitations for the address the form used to have', () => {
+    expect(studioScreen(`${TEAM}/invitations/new`, 'invitations')).toBe('studio.team_invitations')
   })
 
   test('names the account, an invitation decision and the entry', () => {

@@ -1,22 +1,19 @@
 'use client'
 
-import { buttonVariants } from '@allfitone/react/components/button'
+import { Button } from '@allfitone/react/components/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@allfitone/react/components/tabs'
-import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
+import { LibraryToaster } from './library-views'
 import { useOrganizationContext } from './organization-context'
 import { OrganizationRoleCatalog } from './organization-role-catalog'
+import { TeamInvitationCreateDialog } from './team-invitation-create'
 import { TeamInvitationList } from './team-invitation-list'
 import { TeamMembershipList } from './team-membership-list'
 import { WorkspacePageHeader } from './workspace-page-header'
 import { canInviteTeam } from '@/lib/team-invitations'
-import {
-  teamInvitationFormPath,
-  teamPath,
-  teamTabFromQuery,
-  type TeamTab,
-} from '@/lib/team-sections'
+import { teamPath, teamTabFromQuery, type TeamTab } from '@/lib/team-sections'
 
 /**
  * The team: its members, the invitations it has out, and what each role may do.
@@ -56,16 +53,25 @@ function sectionDescription(tab: TeamTab, organizationName: string): string {
   return `Las membresías activas y finalizadas de ${organizationName}.`
 }
 
-export function TeamScreen() {
+export function TeamScreen({ initialInvite = false }: { initialInvite?: boolean }) {
   const { current } = useOrganizationContext()
   const organizationId = current.organization_id
   // The address is the only place the tab lives, so going back restores it.
   const tab = teamTabFromQuery(useSearchParams().get('tab') ?? undefined)
 
+  const [inviting, setInviting] = useState(initialInvite)
+
   // Next keeps `useSearchParams` in step with the history API: no navigation, no reload.
   function showTab(next: TeamTab): void {
     window.history.replaceState(null, '', teamPath(organizationId, next))
   }
+
+  // A request to invite is answered once: going back must not reopen the dialog.
+  useEffect(() => {
+    if (initialInvite) {
+      window.history.replaceState(null, '', teamPath(organizationId, 'invitations'))
+    }
+  }, [initialInvite, organizationId])
 
   const inviteLabel = INVITE_LABEL[tab]
   const mayInvite = INVITATIONS_ENABLED && canInviteTeam(current.roles)
@@ -76,14 +82,7 @@ export function TeamScreen() {
         description={sectionDescription(tab, current.display_name)}
         actions={
           inviteLabel && mayInvite ? (
-            <Link
-              href={teamInvitationFormPath(organizationId)}
-              data-slot="button"
-              data-variant="default"
-              className={buttonVariants()}
-            >
-              {inviteLabel}
-            </Link>
+            <Button onClick={() => setInviting(true)}>{inviteLabel}</Button>
           ) : null
         }
       />
@@ -113,6 +112,17 @@ export function TeamScreen() {
           <OrganizationRoleCatalog />
         </TabsContent>
       </Tabs>
+
+      {/* A request that came by address still waits on the capability: no form
+          for a role the command would refuse. */}
+      <TeamInvitationCreateDialog
+        open={inviting && mayInvite}
+        onOpenChange={(open) => {
+          if (!open) setInviting(false)
+        }}
+        onCreated={() => showTab('invitations')}
+      />
+      <LibraryToaster />
     </section>
   )
 }

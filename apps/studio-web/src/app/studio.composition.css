@@ -702,8 +702,12 @@
 /* The card is the table row stacked, so every value keeps the name its column
    had. The label track sizes to its widest word, which lines the values up
    down the card instead of leaving each one to start wherever its label ends. */
-/* CardContent pads sideways and nothing else, so the action sat against the
-   last fact. The gap belongs to Studio's own element, not to the component. */
+/* CardContent pads sideways and nothing else, so the action sits against the
+   last fact. The gap belongs to Studio's own element, not to the component.
+   The selector used to name the card as well, which read as if the member card
+   were the one that needed it; moving that card's menu to its header took the
+   rule away from the invitation card, which was the one using it. */
+[data-team-invitation-actions],
 [data-historical-case-actions] {
   margin-block-start: var(--afo-space-4);
 }
@@ -1337,6 +1341,14 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* The row stretches each item to its tallest, but the card inside one is not
+   the item: a pending invitation carries «Revocar» and a decided one does not,
+   so the card beside it stopped 44px short of its own cell and the pair read as
+   two sizes. A grid item with one child hands it the whole cell. */
+[data-team-directory-card-list] > li {
+  display: grid;
+}
+
 /* Grid, not the flex above: `minmax(0, 1fr)` is what lets the name track
    shrink below its content. As flex, a value with no break opportunity — a
    masked contact like `c***@correo-institucional-muy-largo.example.test` —
@@ -1389,6 +1401,7 @@
    target to it. The page behind is inert meanwhile, so the control steps aside. */
 @media (max-width: 640px) {
   :root:has([data-library-create]) [data-analytics-controls][data-expanded='false'],
+  :root:has([data-team-invite]) [data-analytics-controls][data-expanded='false'],
   :root:has([data-plan-publish-dialog]) [data-analytics-controls][data-expanded='false'],
   :root:has([data-billing-confirm]) [data-analytics-controls][data-expanded='false'] {
     visibility: hidden;

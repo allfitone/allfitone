@@ -16,13 +16,22 @@ test('owner proposes a staff invitation without exposing contact in the URL', as
   await page.getByRole('link', { name: 'Ver equipo', exact: true }).click()
   await expect(page).toHaveURL(/\/team$/)
 
-  await page.getByRole('link', { name: 'Invitar integrante', exact: true }).click()
-  await expect(page).toHaveURL(/\/team\/invitations\/new$/)
-  await page.getByLabel('Correo electrónico').fill('person@example.test')
-  await page.getByRole('button', { name: 'Enviar invitación' }).click()
+  // A dialog over the register, so the address does not leave the team.
+  await page.getByRole('button', { name: 'Invitar integrante', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Nueva invitación' })
+  await dialog.getByLabel('Correo electrónico').fill('person@example.test')
+  await dialog.getByRole('button', { name: 'Enviar invitación' }).click()
 
-  await expect(page.getByRole('heading', { name: 'La propuesta quedó pendiente.' })).toBeVisible()
-  await expect(page.getByText('p***@example.test')).toBeVisible()
+  /*
+   * The register carries the rest — the address, the role, «Vence», pending —
+   * so the notice only says the command answered, and the tab it landed in
+   * opens behind it. The result screen this replaced said all four again.
+   */
+  await expect(dialog).toBeHidden()
+  await expect(page.getByText('Enviamos la invitación a p***@example.test.')).toBeVisible()
+  await expect(page).toHaveURL(
+    `/organizations/${activeMembership.organization_id}/team?tab=invitations`,
+  )
   await expect(page).not.toHaveURL(/person%40example\.test|person@example\.test/)
 
   // The workspace home reads pending invitations, so match the command itself
@@ -34,16 +43,24 @@ test('owner proposes a staff invitation without exposing contact in the URL', as
   expect(command?.headers['command-id']).toMatch(/^[0-9a-f-]{36}$/)
 })
 
-test('cancel returns a directly opened form to the invitation list', async ({ page }) => {
+/*
+ * The address the form had for months, in bookmarks and in links already sent.
+ * It opens the dialog over the invitations, and the request leaves the address
+ * as soon as it is answered, so going back does not open the dialog again.
+ */
+test('the address the form used to have opens the dialog, once', async ({ page }) => {
   const fixture = createStudioApiFixture({ memberships: [activeMembership] })
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations/new`)
 
+  const team = `/organizations/${activeMembership.organization_id}/team`
+  await expect(page.getByRole('dialog', { name: 'Nueva invitación' })).toBeVisible()
+  await expect(page).toHaveURL(`${team}?tab=invitations`)
+
   await page.getByRole('button', { name: 'Cancelar' }).click()
 
-  await expect(page).toHaveURL(
-    `/organizations/${activeMembership.organization_id}/team?tab=invitations`,
-  )
+  await expect(page.getByRole('dialog', { name: 'Nueva invitación' })).toBeHidden()
+  await expect(page).toHaveURL(`${team}?tab=invitations`)
 })
 
 // A role that cannot invite is told so in place, the way the directory does it.
@@ -71,9 +88,7 @@ test('a coach keeps the invitations section, is refused in place, and never read
   expect(fixture.requests.filter(isInvitationListRequest)).toHaveLength(0)
 })
 
-test('a coach opening the invitation form directly lands on the refusal, not on an empty promise', async ({
-  page,
-}) => {
+test('a coach asking for the dialog gets the refusal instead of a form', async ({ page }) => {
   const coach = { ...secondActiveMembership, roles: ['coach'] }
   const fixture = createStudioApiFixture({ memberships: [coach] })
   await installStudioApiMock(page, fixture)
@@ -85,6 +100,9 @@ test('a coach opening the invitation form directly lands on the refusal, not on 
     'true',
   )
   await expect(page.getByText('No puedes consultar las invitaciones')).toBeVisible()
+  // The address asked for a form the command would refuse, so none is drawn.
+  await expect(page.getByRole('dialog', { name: 'Nueva invitación' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Invitar integrante' })).toHaveCount(0)
 })
 
 function isInvitationListRequest(request: { method: string; path: string }): boolean {

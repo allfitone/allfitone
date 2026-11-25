@@ -31,11 +31,16 @@ export function teamPath(organizationId: string, tab: TeamTab = DEFAULT_TAB): st
   return tab === DEFAULT_TAB ? base : `${base}?tab=${tab}`
 }
 
+/** `?new=1` opens the invitation dialog over the invitations, as the library does. */
+export function teamInviteFromQuery(value: string | string[] | undefined): boolean {
+  return single(value) === '1'
+}
+
 /**
- * Where «Invitar integrante» leads. Two registers link to it, so the address
- * is built once: when this form becomes a dialog over the invitations, only
- * this function changes.
+ * Where «Invitar integrante» leads: the invitations, with the dialog open.
+ * Both registers and the old form address build it here, so the shape of the
+ * request to invite is written once.
  */
-export function teamInvitationFormPath(organizationId: string): string {
-  return `/organizations/${organizationId}/team/invitations/new`
+export function teamInvitePath(organizationId: string): string {
+  return `${teamPath(organizationId, 'invitations')}&new=1`
 }

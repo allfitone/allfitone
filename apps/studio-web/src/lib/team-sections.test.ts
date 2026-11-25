@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { teamInvitationFormPath, teamPath, teamTabFromQuery } from './team-sections'
+import { teamInviteFromQuery, teamInvitePath, teamPath, teamTabFromQuery } from './team-sections'
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111'
 
@@ -56,10 +56,35 @@ describe('teamPath', () => {
   })
 })
 
-describe('teamInvitationFormPath', () => {
-  test('leads to the form of the organization it was asked about', () => {
-    expect(teamInvitationFormPath(ORGANIZATION)).toBe(
-      `/organizations/${ORGANIZATION}/team/invitations/new`,
+describe('teamInvitePath', () => {
+  /*
+   * It names the tab as well as the request, so the dialog opens over the
+   * register it adds to rather than over the members.
+   */
+  test('opens the invitations with the dialog asked for', () => {
+    expect(teamInvitePath(ORGANIZATION)).toBe(
+      `/organizations/${ORGANIZATION}/team?tab=invitations&new=1`,
     )
+  })
+
+  test('round-trips through both readers', () => {
+    const asked = new URL(teamInvitePath(ORGANIZATION), 'https://studio.test')
+    expect(teamTabFromQuery(asked.searchParams.get('tab') ?? undefined)).toBe('invitations')
+    expect(teamInviteFromQuery(asked.searchParams.get('new') ?? undefined)).toBe(true)
+  })
+})
+
+describe('teamInviteFromQuery', () => {
+  test('asks for the dialog only for the value the library uses', () => {
+    expect(teamInviteFromQuery('1')).toBe(true)
+    expect(teamInviteFromQuery(undefined)).toBe(false)
+    expect(teamInviteFromQuery('')).toBe(false)
+    expect(teamInviteFromQuery('true')).toBe(false)
+    expect(teamInviteFromQuery('0')).toBe(false)
+  })
+
+  test('takes the first when the address repeats the parameter', () => {
+    expect(teamInviteFromQuery(['1', '0'])).toBe(true)
+    expect(teamInviteFromQuery(['0', '1'])).toBe(false)
   })
 })

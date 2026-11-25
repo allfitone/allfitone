@@ -179,7 +179,7 @@ test('a solo owner keeps the invitation within reach and is not told about it ag
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${activeMembership.organization_id}/team`)
 
-  await expect(page.getByRole('link', { name: 'Invitar integrante' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Invitar integrante' })).toBeVisible()
   await expect(page.getByText(/sumar equipo/i)).toHaveCount(0)
   await expect(page.getByText('Opcional', { exact: true })).toHaveCount(0)
 })

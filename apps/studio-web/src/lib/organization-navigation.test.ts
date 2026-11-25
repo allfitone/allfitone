@@ -134,12 +134,6 @@ describe('organization workspace navigation', () => {
     expect(resolveWorkspaceRoute(teamPath, organizationId)).toEqual({ title: 'Equipo' })
   })
 
-  test('resolves the invitation creation title', () => {
-    expect(resolveWorkspaceRoute(`${basePath}/team/invitations/new`, organizationId)).toEqual({
-      title: 'Nueva invitación',
-    })
-  })
-
   /*
    * A route missing from this map does not fail anywhere — it silently falls
    * through to "Studio", and the screen ships with the product's name where its
