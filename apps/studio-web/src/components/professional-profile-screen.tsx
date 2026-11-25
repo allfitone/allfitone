@@ -67,6 +67,7 @@ import { ProfessionalMemberships } from './professional-memberships'
 import { ProfessionalPresentation } from './professional-presentation'
 import { LoadingCard } from './studio-frame'
 import { StudioWordmark } from './studio-wordmark'
+import { accountPath, isAccountTab, type AccountTab } from '@/lib/account-tabs'
 import { StudioApiError, type ProfessionalCatalogItem, type StudioMe } from '@/lib/studio-api'
 import { useCompactViewport } from '@/lib/use-compact-viewport'
 import {
@@ -76,19 +77,32 @@ import {
   studioQueryKeys,
 } from '@/lib/studio-query'
 
-/** The three sections of the account, in the order the strip shows them. */
-type AccountTab = 'profile' | 'spaces' | 'preferences'
-
-function isAccountTab(value: unknown): value is AccountTab {
-  return value === 'profile' || value === 'spaces' || value === 'preferences'
-}
-
-export function ProfessionalProfileScreen() {
+export function ProfessionalProfileScreen({
+  initialTab = null,
+}: {
+  /** The section the address asked for, or null when it asked for none. */
+  initialTab?: AccountTab | null
+}) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [setupStarted, setSetupStarted] = useState(false)
-  // Null until the reader chooses, so the first open can follow the account.
-  const [chosenTab, setChosenTab] = useState<AccountTab | null>(null)
+  // Null until the address or the reader chooses, so the first open can
+  // follow the account.
+  const [chosenTab, setChosenTab] = useState<AccountTab | null>(initialTab)
+
+  /**
+   * The address follows the tab, the way the library's does: a reload reopens
+   * the section the reader was in, and a section can be sent to somebody.
+   *
+   * `replaceState` rather than `pushState`, also like the library: pressing
+   * back after reading three tabs should leave the account, not walk back
+   * through them. Next keeps its own router in step with the history API, so
+   * this is no navigation and no reload.
+   */
+  function chooseTab(next: AccountTab): void {
+    setChosenTab(next)
+    window.history.replaceState(null, '', accountPath(next))
+  }
 
   const routeSessionFailure = useCallback(
     (error: unknown): boolean => {
@@ -108,9 +122,10 @@ export function ProfessionalProfileScreen() {
   const me = meQuery.data
 
   /**
-   * A person with a profile lands on it; a person without one lands on the
-   * spaces they came for. The strip is the same either way — only which tab
-   * opens first follows the account.
+   * An address that names a section wins. Where it names none, a person with
+   * a profile lands on it and a person without one lands on the spaces they
+   * came for. The strip is the same either way — only which tab opens first
+   * follows the account, and only when nothing was asked for.
    */
   const tab: AccountTab = chosenTab ?? (me?.profile ? 'profile' : 'spaces')
 
@@ -192,7 +207,7 @@ export function ProfessionalProfileScreen() {
         <AccountSections
           me={me}
           tab={tab}
-          onTabChange={setChosenTab}
+          onTabChange={chooseTab}
           specialties={specialtiesQuery.data?.items}
           credentialTypes={credentialTypesQuery.data?.items}
           catalogError={catalogError}
