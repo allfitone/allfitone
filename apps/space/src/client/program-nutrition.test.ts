@@ -45,6 +45,10 @@ describe("the programme's nutrition, as the detail says it", () => {
     const copy = programNutritionCopy(nutrition, 5, 'es')
     expect(copy.energy).toBe('2.800–3.100')
     expect(copy.purpose).toBe('Para ganar músculo con 5 días por semana')
+    const english = programNutritionCopy(nutrition, 1, 'en')
+    expect(english.energy).toBe('2,800–3,100')
+    expect(english.purpose).toBe('To build muscle, training 1 day a week')
+    expect(english.macros.map((macro) => macro.label)).toEqual(['Protein', 'Carbs', 'Fat'])
   })
 
   test('T-SPC-UNIT-309 the three macros in order, each with its share of the energy', () => {

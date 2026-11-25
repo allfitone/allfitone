@@ -47,10 +47,6 @@ import {
   goalFigure,
   mealPrompt,
   mealTotals,
-  MEAL_NAMES,
-  mealSaved,
-  mealWithArticle,
-  NUTRIENT_SHORT_NAMES,
   goalLine,
   rangeProgress,
   remainingFor,
@@ -80,11 +76,8 @@ import { mealPhotos } from '../../src/client/meal-photos'
 import { DOCK_HEIGHT } from '../../src/components/tab-bar'
 import { RangeEnergyCard } from '../../src/components/range-energy-card'
 import { useMealPhoto } from '../../src/components/use-meal-photo'
-import { useLocale } from '../../src/i18n/use-text'
+import { useLocale, useText } from '../../src/i18n/use-text'
 import { intlLocale, type Locale } from '../../src/i18n'
-
-const READ_FAILED = 'No pudimos cargar tu día. Inténtalo otra vez.'
-const WEEK_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
 
 const localDay = (timeZone: string, at = new Date()) =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(at)
@@ -108,6 +101,7 @@ type LineEntry =
 
 export default function FoodScreen() {
   const locale = useLocale()
+  const text = useText()
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
@@ -156,11 +150,11 @@ export default function FoodScreen() {
           setWorkouts((held) => keepIfSame(held, history?.data ?? []))
           setFailure(undefined)
         })
-        .catch(() => active && setFailure(READ_FAILED))
+        .catch(() => active && setFailure(text.nutrition.food.readFailed))
       return () => {
         active = false
       }
-    }, [nutrition, training, monday, day, timeZone, version]),
+    }, [nutrition, training, monday, day, timeZone, version, text]),
   )
 
   // A photo that finished going up, or gave up, changes what the line should show.
@@ -175,7 +169,7 @@ export default function FoodScreen() {
         if (held) setFailure(deletionHeldNote(held, locale))
         setVersion((current) => current + 1)
       })
-      .catch(() => setFailure(READ_FAILED))
+      .catch(() => setFailure(text.nutrition.food.readFailed))
   }
 
   const summary = week.find((one) => one.local_date === day)
@@ -214,22 +208,22 @@ export default function FoodScreen() {
             role="control"
             size="sm"
             color="accent"
-            accessibilityLabel={`Racha de ${String(streak)} días`}
+            accessibilityLabel={text.nutrition.food.streak(streak)}
           >
             {String(streak)}
           </Text>
         </View>
         <Text role="control" size="lg" style={styles.headerTitle} accessibilityRole="header">
-          {dayTitle(day, today)}
+          {dayTitle(day, today, locale)}
         </Text>
         <IconButton
           icon="history"
-          accessibilityLabel="Historial de comidas"
+          accessibilityLabel={text.nutrition.food.history}
           onPress={() => router.push('/nutrition/history')}
         />
         <IconButton
           icon="target"
-          accessibilityLabel="Mi meta"
+          accessibilityLabel={text.nutrition.food.myGoal}
           onPress={() => router.push('/nutrition/goal')}
         />
       </View>
@@ -245,13 +239,13 @@ export default function FoodScreen() {
               key={date}
               accessibilityRole="button"
               accessibilityState={{ selected: picked, disabled: future }}
-              accessibilityLabel={dayTitle(date, today)}
+              accessibilityLabel={dayTitle(date, today, locale)}
               disabled={future}
               onPress={() => setDay(date)}
               style={styles.weekDay}
             >
               <Text role="eyebrow" size="2xs" color="muted">
-                {WEEK_LETTERS[index]}
+                {text.nutrition.weekdayLetters[(index + 1) % 7]}
               </Text>
               <View
                 style={[
@@ -297,7 +291,9 @@ export default function FoodScreen() {
           >
             <FoundationIcon name="target" size="sm" color={theme.color.icon.accent} decorative />
             <Text role="body" size="sm" style={styles.grow}>
-              {`${proposerOf(pending.author)} te propone una meta`}
+              {text.nutrition.food.proposes(
+                proposerOf(pending.author, text.nutrition.food.yourProfessional),
+              )}
             </Text>
             <FoundationIcon name="next" size="xs" color={theme.color.icon.secondary} decorative />
           </Pressable>
@@ -335,7 +331,7 @@ export default function FoodScreen() {
                   <View style={styles.grow}>
                     <View style={styles.mealHead}>
                       <Text role="control" size="lg">
-                        {MEAL_NAMES[entry.meal.meal_type]}
+                        {text.nutrition.meals[entry.meal.meal_type]}
                       </Text>
                       {mealTotals(entry.meal.items).energy !== undefined ? (
                         <Text role="poster" tracking={FIGURE_TRACKING} size="lg">
@@ -348,7 +344,7 @@ export default function FoodScreen() {
                     </View>
                     <MacroDots totals={mealTotals(entry.meal.items)} />
                     <Text role="body" size="xs" color="muted">
-                      {`${String(entry.meal.items.length)} ${entry.meal.items.length === 1 ? 'Alimento' : 'Alimentos'}`}
+                      {text.nutrition.food.foods(entry.meal.items.length)}
                     </Text>
                     <PhotoRetry mealId={entry.meal.id} />
                   </View>
@@ -378,10 +374,13 @@ export default function FoodScreen() {
                 >
                   <View style={styles.grow}>
                     <Text role="control" size="md">
-                      {entry.workout.title ?? 'Entreno libre'}
+                      {entry.workout.title ?? text.nutrition.food.freeWorkout}
                     </Text>
                     <Text role="body" size="sm" color="accent">
-                      {`${trainedLabel(entry.workout.duration_seconds)} · ${String(entry.workout.work_sets)} series`}
+                      {text.nutrition.food.workoutLine(
+                        trainedLabel(entry.workout.duration_seconds),
+                        entry.workout.work_sets,
+                      )}
                     </Text>
                   </View>
                   <View
@@ -397,7 +396,7 @@ export default function FoodScreen() {
                       decorative
                     />
                     <Text role="control" size="xs" color="accent">
-                      Entreno
+                      {text.nutrition.food.workout}
                     </Text>
                   </View>
                 </Pressable>
@@ -406,7 +405,9 @@ export default function FoodScreen() {
           )}
 
           <LineRow
-            time={day === today ? clock(new Date().toISOString(), timeZone) : 'Añadir'}
+            time={
+              day === today ? clock(new Date().toISOString(), timeZone) : text.nutrition.food.add
+            }
             accent={day === today}
           >
             <Pressable
@@ -423,7 +424,7 @@ export default function FoodScreen() {
             >
               <View style={styles.grow}>
                 <Text role="control" size="md">
-                  {day === today ? prompt.title : 'Registrar una comida'}
+                  {day === today ? prompt.title : text.nutrition.food.logMeal}
                 </Text>
                 {day === today && prompt.detail ? (
                   <Text role="body" size="sm" color="secondary">
@@ -467,16 +468,16 @@ export default function FoodScreen() {
         >
           <FoundationIcon name="success" size="sm" color={theme.color.text.inverse} decorative />
           <Text role="control" size="md" color="inverse" style={styles.grow}>
-            {`${mealSaved(saved.type)}${saved.kcal === null ? '' : ` · ${String(Math.round(saved.kcal))} kcal`}`}
+            {`${text.nutrition.mealSaved(saved.type)}${saved.kcal === null ? '' : ` · ${String(Math.round(saved.kcal))} kcal`}`}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Deshacer: borrar ${mealWithArticle(saved.type)}`}
+            accessibilityLabel={text.nutrition.undoMeal(saved.type)}
             onPress={() => undo(saved)}
             hitSlop={10}
           >
             <Text role="control" size="md" color="inverse">
-              Deshacer
+              {text.nutrition.food.undo}
             </Text>
           </Pressable>
         </Animated.View>
@@ -485,10 +486,10 @@ export default function FoodScreen() {
   )
 }
 
-const proposerOf = (author: Goals['proposals'][number]['author']) =>
+const proposerOf = (author: Goals['proposals'][number]['author'], fallback: string) =>
   ('display_name' in author && typeof author.display_name === 'string'
     ? author.display_name
-    : null) ?? 'Tu profesional'
+    : null) ?? fallback
 
 function EnergyCard({
   goal,
@@ -500,6 +501,7 @@ function EnergyCard({
   readonly onSetGoal: () => void
 }) {
   const locale = useLocale()
+  const text = useText().nutrition.food
   const theme = useTheme()
   const remaining = goal ? remainingFor(goal, eaten) : null
   const range = goal ? rangeProgress(goal, eaten) : null
@@ -522,16 +524,16 @@ function EnergyCard({
           </Text>
         </View>
         <Text role="body" size="md">
-          {remaining ? 'Restante para hoy' : 'Consumido hoy'}
+          {remaining ? text.leftToday : text.eatenToday}
         </Text>
         {goal ? (
           <Text role="body" size="sm" color="muted">
-            {`Consumido ${kcal(eaten, locale)} · Meta ${goalFigure(goal, locale).label}`}
+            {text.eatenAndGoal(kcal(eaten, locale), goalFigure(goal, locale).label)}
           </Text>
         ) : (
           <Pressable accessibilityRole="button" onPress={onSetGoal} hitSlop={8}>
             <Text role="control" size="sm" color="accent">
-              Fija tu meta
+              {text.setGoal}
             </Text>
           </Pressable>
         )}
@@ -542,7 +544,7 @@ function EnergyCard({
             {`${String(Math.round(remaining.share * 100))}%`}
           </Text>
           <Text role="body" size="xs" color="muted">
-            Consumido
+            {text.eaten}
           </Text>
         </Ring>
       ) : null}
@@ -552,17 +554,18 @@ function EnergyCard({
 
 /** Under a meal whose photo could not go up: says so, and sends it again. */
 function PhotoRetry({ mealId }: { readonly mealId: string }) {
+  const text = useText().nutrition.food
   const state = useMealPhoto(mealId)
   if (state?.kind !== 'failed') return null
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="La foto no se subió. Reintentar"
+      accessibilityLabel={text.photoRetryLabel}
       hitSlop={8}
       onPress={() => void mealPhotos.retry(mealId)}
     >
       <Text role="control" size="xs" color="accent">
-        La foto no se subió · Reintentar
+        {text.photoRetry}
       </Text>
     </Pressable>
   )
@@ -577,6 +580,7 @@ function MacroCards({
   readonly target: (code: NutrientCode) => GoalTarget | undefined
 }) {
   const locale = useLocale()
+  const text = useText()
   const theme = useTheme()
   const { width } = useWindowDimensions()
   const pages: readonly (readonly NutrientCode[])[] = [
@@ -646,7 +650,7 @@ function MacroCards({
                     minimumFontScale={0.85}
                     style={{ color: macroColor(theme, code) }}
                   >
-                    {NUTRIENT_SHORT_NAMES[code]}
+                    {text.nutrition.nutrientsShort[code]}
                   </Text>
                   <Text role="body" size="xs" color="muted">
                     {goalLine(goal, unit, locale)}
@@ -661,7 +665,7 @@ function MacroCards({
         count={pages.length}
         active={page}
         at={at}
-        accessibilityLabel={`Página ${String(page + 1)} de ${String(pages.length)}`}
+        accessibilityLabel={text.nutrition.food.page(page + 1, pages.length)}
       />
     </View>
   )

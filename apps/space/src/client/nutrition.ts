@@ -16,7 +16,7 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
-import { intlLocale, type Locale } from '../i18n'
+import { intlLocale, textFor, type Locale } from '../i18n'
 
 export type NutritionMeal = AllfitV1Schemas['NutritionMeal']
 export type MealItem = NutritionMeal['items'][number]
@@ -47,41 +47,8 @@ export type GoalNutrient = (typeof NUTRIENTS)[number]
 export type NutrientUnit = AllfitV1Schemas['NutrientValue']['unit']
 export type NutrientGroup = 'macro' | 'detail' | 'vitamin' | 'mineral'
 
-// Names, units and groups as `nutrition.nutrient_definitions` has them; exhaustive by type,
-// so a nutrient added to the contract cannot be left without one.
-export const NUTRIENT_NAMES: Readonly<Record<NutrientCode, string>> = {
-  energy: 'Energía',
-  protein: 'Proteína',
-  carbohydrates: 'Carbohidratos',
-  fat: 'Grasa',
-  fiber: 'Fibra',
-  water: 'Agua',
-  saturated_fat: 'Grasas saturadas',
-  trans_fat: 'Grasas trans',
-  cholesterol: 'Colesterol',
-  sodium: 'Sodio',
-  sugars: 'Azúcares',
-  vitamin_a: 'Vitamina A',
-  vitamin_c: 'Vitamina C',
-  vitamin_d: 'Vitamina D',
-  vitamin_e: 'Vitamina E',
-  vitamin_k: 'Vitamina K',
-  thiamin: 'Vitamina B1',
-  riboflavin: 'Vitamina B2',
-  niacin: 'Vitamina B3',
-  pantothenic_acid: 'Vitamina B5',
-  vitamin_b6: 'Vitamina B6',
-  vitamin_b12: 'Vitamina B12',
-  folate: 'Folato',
-  calcium: 'Calcio',
-  iron: 'Hierro',
-  magnesium: 'Magnesio',
-  phosphorus: 'Fósforo',
-  potassium: 'Potasio',
-  zinc: 'Zinc',
-  selenium: 'Selenio',
-  copper: 'Cobre',
-}
+// Units and groups as `nutrition.nutrient_definitions` has them; exhaustive by type, so a
+// nutrient added to the contract cannot be left without one. Names are in the dictionary.
 export const UNIT_OF: Readonly<Record<NutrientCode, NutrientUnit>> = {
   energy: 'kcal',
   protein: 'g',
@@ -214,62 +181,24 @@ export function dailyReference(code: NutrientCode, targets: readonly GoalTarget[
     : undefined
   return target ? goalValue(target) : (DAILY_VALUES[code] ?? null)
 }
-/** Where a card is narrow, as the macro cards are: «Carbohidratos» would wrap. */
-export const NUTRIENT_SHORT_NAMES: Readonly<Record<NutrientCode, string>> = {
-  ...NUTRIENT_NAMES,
-  carbohydrates: 'Carbos',
-}
 export const MEAL_TYPES: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack', 'other']
-export const MEAL_NAMES: Readonly<Record<MealType, string>> = {
-  breakfast: 'Desayuno',
-  lunch: 'Almuerzo',
-  dinner: 'Cena',
-  snack: 'Snack',
-  other: 'Otra',
-}
-const ARTICLED: Readonly<Record<MealType, string>> = {
-  breakfast: 'el desayuno',
-  lunch: 'el almuerzo',
-  dinner: 'la cena',
-  snack: 'el snack',
-  other: 'esta comida',
-}
-/** «¿Eliminar la cena?»: Spanish gives each meal its own article, and «Otra» has none. */
-export const mealWithArticle = (type: MealType): string => ARTICLED[type]
-
-const FEMININE: ReadonlySet<MealType> = new Set(['dinner', 'other'])
-/** «Snack guardado», «Cena guardada»: the notice agrees with the meal; «Otra» reads «Comida». */
-export const mealSaved = (type: MealType): string =>
-  `${type === 'other' ? 'Comida' : MEAL_NAMES[type]} ${FEMININE.has(type) ? 'guardada' : 'guardado'}`
-
-/** «Añadir al snack», «Añadir a la cena»: «a» + «el» contracts to «al». */
-export const addToMeal = (type: MealType): string =>
-  `Añadir ${ARTICLED[type].replace(/^el /, 'al ').replace(/^(la|esta) /, 'a $1 ')}`
-
 const figure = (value: number, locale: Locale) =>
   Math.round(value).toLocaleString(intlLocale(locale))
-
-/** The strong validator a correction carries, rebuilt from the meal's own revision. */
-const HOLD_GROUNDS: Readonly<Record<NonNullable<MealDeletionHeld['hold']>['reason_code'], string>> =
-  {
-    judicial_order: 'una orden judicial',
-    regulatory_request: 'un requerimiento de una autoridad',
-    service_dispute: 'una disputa sobre el servicio',
-    tax_or_accounting_obligation: 'una obligación contable o tributaria',
-  }
 
 /**
  * HU-BO-033 c3: a meal a legal hold keeps was not deleted, and the person is told on what
  * ground and until when. The request stands: it is deleted once the hold ends.
  */
 export function deletionHeldNote(held: MealDeletionHeld, locale: Locale): string {
-  if (!held.hold) return 'Ya la estamos eliminando; desaparecerá en un momento.'
+  const text = textFor(locale).nutrition.held
+  if (!held.hold) return text.pending
   const until = new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'medium' }).format(
     new Date(held.hold.valid_to),
   )
-  return `No la eliminamos todavía: la conservamos por ${HOLD_GROUNDS[held.hold.reason_code]} hasta el ${until}. Se eliminará sola cuando termine.`
+  return text.kept(text.grounds[held.hold.reason_code], until)
 }
 
+/** The strong validator a correction carries, rebuilt from the meal's own revision. */
 export const etagOf = (meal: Pick<NutritionMeal, 'id' | 'revision_number'>) =>
   `"nutrition-meal:${meal.id}:r${String(meal.revision_number)}"`
 
@@ -315,13 +244,14 @@ export function goalFigure(
   locale: Locale,
 ): { readonly value: number; readonly label: string } {
   const value = goalValue(target)
+  const text = textFor(locale).nutrition
   switch (target.mode) {
     case 'exact':
       return { value, label: figure(value, locale) }
     case 'minimum':
-      return { value, label: `mín. ${figure(value, locale)}` }
+      return { value, label: text.minimum(figure(value, locale)) }
     case 'maximum':
-      return { value, label: `máx. ${figure(value, locale)}` }
+      return { value, label: text.maximum(figure(value, locale)) }
     case 'range':
       return {
         value,
@@ -349,7 +279,8 @@ export function remainingFor(
  * on its own line, so it starts with a capital.
  */
 export function goalLine(goal: GoalTarget | undefined, unit: string, locale: Locale): string {
-  return goal ? `De ${goalFigure(goal, locale).label} ${unit}` : 'Sin meta'
+  const text = textFor(locale).nutrition
+  return goal ? text.goalLine(goalFigure(goal, locale).label, unit) : text.noGoal
 }
 
 /** Where the day stands against an energy range, and the arc that draws it. */
@@ -411,17 +342,18 @@ export function rangeCardCopy(
   locale: Locale,
 ): RangeCardCopy {
   const figure = (value: number) => Math.round(value).toLocaleString(intlLocale(locale))
+  const text = textFor(locale).nutrition
   const low = target.minimum ?? 0
   const high = target.maximum ?? 0
   const span = `${figure(low)}–${figure(high)}`
-  const detail = `Meta ${span}`
+  const detail = text.goal(span)
   if (range.state === 'below') {
     const share = low > 0 ? Math.round((eaten / low) * 100) : 0
     return {
       figure: figure(range.fromLow),
-      line: 'Te faltan para tu mínimo',
+      line: text.range.belowLine,
       center: `${String(share)}%`,
-      centerLabel: 'Del mínimo',
+      centerLabel: text.range.belowCenter,
       detail,
       over: false,
     }
@@ -429,18 +361,18 @@ export function rangeCardCopy(
   if (range.state === 'within') {
     return {
       figure: figure(range.fromHigh),
-      line: 'Margen hasta tu máximo',
-      center: 'En meta',
+      line: text.range.withinLine,
+      center: text.range.withinCenter,
       centerLabel: span,
-      detail: `Consumido ${figure(eaten)}`,
+      detail: text.range.eaten(figure(eaten)),
       over: false,
     }
   }
   return {
     figure: figure(range.over),
-    line: 'Por encima de tu máximo',
+    line: text.range.aboveLine,
     center: `+${figure(range.over)}`,
-    centerLabel: 'De más',
+    centerLabel: text.range.aboveCenter,
     detail,
     over: true,
   }
@@ -462,23 +394,24 @@ export function mealPrompt(
   locale: Locale,
 ): { readonly type: MealType; readonly title: string; readonly detail: string | null } {
   const hour = localHour(now, timeZone)
+  const text = textFor(locale).nutrition.prompt
   const byHour: MealType =
     hour < 11 ? 'breakfast' : hour < 16 ? 'lunch' : hour < 19 ? 'snack' : 'dinner'
   const [type, title]: readonly [MealType, string] =
     byHour !== 'snack' && logged.includes(byHour)
-      ? ['snack', '¿Comiste algo más?']
+      ? ['snack', text.more]
       : hour < 11
-        ? ['breakfast', '¿Qué desayunaste?']
+        ? ['breakfast', text.breakfast]
         : hour < 16
-          ? ['lunch', '¿Qué almorzaste?']
+          ? ['lunch', text.lunch]
           : hour < 19
-            ? ['snack', '¿Qué comiste?']
-            : ['dinner', '¿Qué cenaste?']
+            ? ['snack', text.snack]
+            : ['dinner', text.dinner]
   const parts = [
     typeof left.energy === 'number' ? `${figure(left.energy, locale)} kcal` : null,
-    typeof left.protein === 'number' ? `${figure(left.protein, locale)} g de proteína` : null,
+    typeof left.protein === 'number' ? text.protein(figure(left.protein, locale)) : null,
   ].filter((part): part is string => part !== null)
-  return { type, title, detail: parts.length > 0 ? `Restante: ${parts.join(' · ')}` : null }
+  return { type, title, detail: parts.length > 0 ? text.left(parts.join(' · ')) : null }
 }
 
 /** The mean over the days with something recorded: an empty day is no evidence. */
@@ -497,7 +430,6 @@ export function averageOfLogged(
   }
 }
 
-const WEEKDAYS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 const dateOf = (iso: string) => {
   const [year = 1970, month = 1, day = 1] = iso.split('-').map(Number)
   return new Date(Date.UTC(year, month - 1, day))
@@ -509,22 +441,27 @@ export function daysBefore(date: string, today: string): number {
 }
 
 /** «Hoy», «Ayer», «Domingo 27». */
-export function dayTitle(date: string, today: string): string {
+export function dayTitle(date: string, today: string, locale: Locale): string {
+  const text = textFor(locale).nutrition
   const days = daysBefore(date, today)
-  if (days === 0) return 'Hoy'
-  if (days === 1) return 'Ayer'
+  if (days === 0) return text.today
+  if (days === 1) return text.yesterday
   const at = dateOf(date)
-  return `${WEEKDAYS[at.getUTCDay()] ?? ''} ${String(at.getUTCDate())}`
+  return text.dayTitle(text.weekdays[at.getUTCDay()] ?? '', at.getUTCDate())
 }
 
 /** Days before today with nothing recorded: one is named, several are counted. */
-export function emptyDaysNote(days: readonly DailySummary[], today: string): string | null {
+export function emptyDaysNote(
+  days: readonly DailySummary[],
+  today: string,
+  locale: Locale,
+): string | null {
+  const text = textFor(locale).nutrition
   const empty = days.filter((one) => one.meal_count === 0 && one.local_date < today)
   const [only] = empty
   if (!only) return null
-  if (empty.length > 1) return `${String(empty.length)} días sin registro: no cuentan como cero.`
-  const weekday = WEEKDAYS[dateOf(only.local_date).getUTCDay()]?.toLowerCase() ?? ''
-  return `El ${weekday} no registraste nada: no cuenta como cero.`
+  if (empty.length > 1) return text.emptyDays(empty.length)
+  return text.emptyDay(text.weekdays[dateOf(only.local_date).getUTCDay()] ?? '')
 }
 
 /** The day before and after taking one meal out of it, for what both recorded. */
@@ -708,7 +645,8 @@ export const emptyItem = (key: string): FormItem => ({
   extras: [],
 })
 
-const typed = (value: number) => String(value).replace('.', ',')
+const typed = (value: number, locale: Locale) =>
+  value.toLocaleString(intlLocale(locale), { useGrouping: false, maximumFractionDigits: 10 })
 const parsed = (text: string | undefined): number | null => {
   if (text === undefined || text.trim() === '') return null
   const value = Number(text.trim().replace(',', '.'))
@@ -716,15 +654,19 @@ const parsed = (text: string | undefined): number | null => {
 }
 
 /** A meal in the form: each value as it was written, and nothing it did not have. */
-export function formFromMeal(meal: NutritionMeal): { readonly items: readonly FormItem[] } {
+export function formFromMeal(
+  meal: NutritionMeal,
+  locale: Locale,
+): { readonly items: readonly FormItem[] } {
   return {
     items: meal.items.map((item) => {
       const values: Partial<Record<NutrientCode, string>> = {}
-      for (const nutrient of item.nutrients) values[nutrient.nutrient_code] = typed(nutrient.value)
+      for (const nutrient of item.nutrients)
+        values[nutrient.nutrient_code] = typed(nutrient.value, locale)
       return {
         key: `item-${String(item.position)}`,
         name: item.name,
-        quantity: item.quantity === null ? '' : typed(item.quantity),
+        quantity: item.quantity === null ? '' : typed(item.quantity, locale),
         values,
         extras: (['fiber', 'water'] as const).filter((extra) => values[extra] !== undefined),
       }
@@ -775,9 +717,16 @@ export function compareTarget(
   proposed: GoalTarget | undefined,
   locale: Locale,
 ): string {
-  if (!now && proposed) return `Nueva · ${targetText(proposed, locale)}`
-  if (now && !proposed) return `${targetText(now, locale)} → Sin meta`
-  if (!now || !proposed) return 'Sin meta'
-  if (sameTarget(now, proposed)) return `${targetText(now, locale)} · sin cambio`
+  const text = textFor(locale).nutrition
+  if (!now && proposed) return text.compare.added(targetText(proposed, locale))
+  if (now && !proposed) return text.compare.dropped(targetText(now, locale))
+  if (!now || !proposed) return text.noGoal
+  if (sameTarget(now, proposed)) return text.compare.unchanged(targetText(now, locale))
   return `${goalFigure(now, locale).label} → ${targetText(proposed, locale)}`
 }
+
+/** Whether the proposal leaves a nutrient's goal exactly as it is now. */
+export const unchangedTarget = (
+  now: GoalTarget | undefined,
+  proposed: GoalTarget | undefined,
+): boolean => now !== undefined && proposed !== undefined && sameTarget(now, proposed)

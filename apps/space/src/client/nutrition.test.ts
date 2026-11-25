@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   averageOfLogged,
   compareTarget,
@@ -19,9 +20,6 @@ import {
   formFromGoal,
   goalFigure,
   mealPrompt,
-  mealWithArticle,
-  mealSaved,
-  addToMeal,
   mealTotals,
   goalLine,
   rangeCardCopy,
@@ -37,7 +35,11 @@ import {
   NUTRIENT_GROUP,
   type GoalTarget,
   type MealItem,
+  unchangedTarget,
 } from './nutrition'
+
+const es = textFor('es').nutrition
+const en = textFor('en').nutrition
 
 const ZONE = 'America/Bogota'
 
@@ -147,6 +149,12 @@ describe('the day against the goal (N-1e)', () => {
       mealPrompt('2026-10-01T01:30:00.000Z', ZONE, { energy: 880, protein: null }, [], 'es').title,
     ).toBe('¿Qué cenaste?')
     expect(mealPrompt('2026-09-30T18:30:00.000Z', ZONE, {}, [], 'es').detail).toBeNull()
+    expect(
+      mealPrompt('2026-09-30T13:30:00.000Z', ZONE, { energy: 1880, protein: 54 }, [], 'en'),
+    ).toMatchObject({
+      title: 'What did you have for breakfast?',
+      detail: 'Left: 1,880 kcal · 54 g of protein',
+    })
   })
 
   test('T-SPC-UNIT-217 a meal already logged is not asked for again', () => {
@@ -169,24 +177,33 @@ describe('days and history (N-5)', () => {
 
   test('T-SPC-UNIT-218 the empty days are named once, today aside', () => {
     const one = [day('2026-09-28', 2000), day('2026-10-01', null), day('2026-09-30', 2400)]
-    expect(emptyDaysNote(one, '2026-10-02')).toBe(
+    expect(emptyDaysNote(one, '2026-10-02', 'es')).toBe(
       'El jueves no registraste nada: no cuenta como cero.',
     )
+    expect(emptyDaysNote(one, '2026-10-02', 'en')).toBe(
+      "You logged nothing on Thursday: it doesn't count as zero.",
+    )
     const many = [day('2026-09-28', null), day('2026-09-29', null), day('2026-09-30', null)]
-    expect(emptyDaysNote(many, '2026-10-01')).toBe('3 días sin registro: no cuentan como cero.')
-    expect(emptyDaysNote([day('2026-10-01', null)], '2026-10-01')).toBeNull()
+    expect(emptyDaysNote(many, '2026-10-01', 'es')).toBe(
+      '3 días sin registro: no cuentan como cero.',
+    )
+    expect(emptyDaysNote([day('2026-10-01', null)], '2026-10-01', 'es')).toBeNull()
   })
 
   test('T-SPC-UNIT-219 a meal is named with its own article', () => {
-    expect(mealWithArticle('dinner')).toBe('la cena')
-    expect(mealWithArticle('lunch')).toBe('el almuerzo')
-    expect(mealWithArticle('other')).toBe('esta comida')
+    expect(es.deleteMeal('dinner')).toBe('¿Eliminar la cena?')
+    expect(es.deleteMeal('lunch')).toBe('¿Eliminar el almuerzo?')
+    expect(es.undoMeal('other')).toBe('Deshacer: borrar esta comida')
+    expect(en.deleteMeal('dinner')).toBe('Delete dinner?')
+    expect(en.undoMeal('other')).toBe('Undo: delete this meal')
   })
 
   test('T-SPC-UNIT-209 a day is named as people name it', () => {
-    expect(dayTitle('2026-09-30', '2026-09-30')).toBe('Hoy')
-    expect(dayTitle('2026-09-29', '2026-09-30')).toBe('Ayer')
-    expect(dayTitle('2026-09-27', '2026-09-30')).toBe('Domingo 27')
+    expect(dayTitle('2026-09-30', '2026-09-30', 'es')).toBe('Hoy')
+    expect(dayTitle('2026-09-29', '2026-09-30', 'es')).toBe('Ayer')
+    expect(dayTitle('2026-09-27', '2026-09-30', 'es')).toBe('Domingo 27')
+    expect(dayTitle('2026-09-29', '2026-09-30', 'en')).toBe('Yesterday')
+    expect(dayTitle('2026-09-27', '2026-09-30', 'en')).toBe('Sunday 27')
   })
 
   // The history screen adds the date under «Hoy» and «Ayer» from this, not from the words.
@@ -231,6 +248,7 @@ describe('deleting a meal (N-4c)', () => {
     expect(note).toContain('No la eliminamos todavía')
     expect(note).toContain('una orden judicial')
     expect(note).toContain('2027')
+    expect(deletionHeldNote(held, 'en')).toContain('because of a court order until Feb 1, 2027')
   })
 
   test('T-SPC-UNIT-329 a meal whose hold just ended says its deletion is on its way', async () => {
@@ -329,7 +347,7 @@ describe('the nutrition flow', () => {
 
 describe('the meal form (N-2c, N-4d)', () => {
   test('T-SPC-UNIT-213 a meal opens in the form with each written value, and nothing invented', () => {
-    const form = formFromMeal(meal())
+    const form = formFromMeal(meal(), 'es')
     expect(form.items[1]).toMatchObject({
       name: 'Arroz blanco',
       quantity: '180',
@@ -361,7 +379,7 @@ describe('the meal form (N-2c, N-4d)', () => {
   })
 
   test('T-SPC-UNIT-215 the totals as they are typed', () => {
-    expect(formTotals(formFromMeal(meal()).items)).toEqual({
+    expect(formTotals(formFromMeal(meal(), 'es').items)).toEqual({
       energy: 482,
       protein: 51,
       carbohydrates: 51,
@@ -394,6 +412,11 @@ describe('a proposal against the goal kept (N-3b)', () => {
     }
     expect(compareTarget(undefined, water, 'es')).toBe('Nueva · 2.500 ml')
     expect(compareTarget(now, undefined, 'es')).toBe('2.300 kcal → Sin meta')
+    expect(compareTarget(now, now, 'en')).toBe('2,300 kcal · no change')
+    expect(compareTarget(now, undefined, 'en')).toBe('2,300 kcal → No goal')
+    expect(unchangedTarget(now, now)).toBe(true)
+    expect(unchangedTarget(now, { ...now, exact: 2100 })).toBe(false)
+    expect(unchangedTarget(undefined, undefined)).toBe(false)
   })
 })
 
@@ -498,6 +521,11 @@ describe('progress against an energy range', () => {
       over: false,
     })
     expect(rangeCardCopy(goal, 1420, halfway, 'es')).toMatchObject({ figure: '580', center: '71%' })
+    expect(rangeCardCopy(goal, 0, nothing, 'en')).toMatchObject({
+      figure: '2,000',
+      line: 'Left to reach your minimum',
+      detail: 'Goal 2,000–2,850',
+    })
   })
 
   test('T-SPC-UNIT-306 inside it the margin to the maximum; past it, the excess, flagged', () => {
@@ -554,23 +582,29 @@ describe('the goal under a macro card', () => {
       'De 200–240 g',
     )
     expect(goalLine(undefined, 'g', 'es')).toBe('Sin meta')
+    expect(goalLine({ ...base, mode: 'minimum', minimum: 120 }, 'g', 'en')).toBe('Goal min. 120 g')
+    expect(goalLine(undefined, 'g', 'en')).toBe('No goal')
   })
 })
 
 describe('a meal named in a sentence', () => {
   test('T-SPC-UNIT-286 the saved notice agrees with each meal: el desayuno, la cena', () => {
-    expect(mealSaved('breakfast')).toBe('Desayuno guardado')
-    expect(mealSaved('lunch')).toBe('Almuerzo guardado')
-    expect(mealSaved('snack')).toBe('Snack guardado')
-    expect(mealSaved('dinner')).toBe('Cena guardada')
-    expect(mealSaved('other')).toBe('Comida guardada')
+    expect(es.mealSaved('breakfast')).toBe('Desayuno guardado')
+    expect(es.mealSaved('lunch')).toBe('Almuerzo guardado')
+    expect(es.mealSaved('snack')).toBe('Snack guardado')
+    expect(es.mealSaved('dinner')).toBe('Cena guardada')
+    expect(es.mealSaved('other')).toBe('Comida guardada')
+    expect(en.mealSaved('dinner')).toBe('Dinner saved')
+    expect(en.mealSaved('other')).toBe('Meal saved')
   })
 
   test('T-SPC-UNIT-287 adding a food names the meal with its own article', () => {
-    expect(addToMeal('breakfast')).toBe('Añadir al desayuno')
-    expect(addToMeal('lunch')).toBe('Añadir al almuerzo')
-    expect(addToMeal('snack')).toBe('Añadir al snack')
-    expect(addToMeal('dinner')).toBe('Añadir a la cena')
-    expect(addToMeal('other')).toBe('Añadir a esta comida')
+    expect(es.addToMeal('breakfast')).toBe('Añadir al desayuno')
+    expect(es.addToMeal('lunch')).toBe('Añadir al almuerzo')
+    expect(es.addToMeal('snack')).toBe('Añadir al snack')
+    expect(es.addToMeal('dinner')).toBe('Añadir a la cena')
+    expect(es.addToMeal('other')).toBe('Añadir a esta comida')
+    expect(en.addToMeal('dinner')).toBe('Add to dinner')
+    expect(en.addToMeal('other')).toBe('Add to this meal')
   })
 })

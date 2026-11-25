@@ -119,9 +119,9 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
   })
 
   test('T-SPC-UNIT-226 an amount reads as the person would say it: in its measure, else in grams', () => {
-    expect(portionText(fromFood(avocado, 50))).toBe('¼ unidad')
-    expect(portionText(fromFood(avocado, 400))).toBe('2 unidades')
-    expect(portionText(fromFood(avocado, 75))).toBe('75 g')
+    expect(portionText(fromFood(avocado, 50), 'es')).toBe('¼ unidad')
+    expect(portionText(fromFood(avocado, 400), 'es')).toBe('2 unidades')
+    expect(portionText(fromFood(avocado, 75), 'es')).toBe('75 g')
   })
 
   test('T-SPC-UNIT-240 an amount typed in a unit sets the grams, and a new food keeps them', () => {
@@ -129,8 +129,9 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
     if (!cup) throw new Error('an avocado comes by the unit')
     const item = withAmount(fromFood(avocado), 1.5, cup, 'fraction')
     expect(item).toMatchObject({ grams: 300, amount: 1.5 })
-    expect(portionText(item)).toBe('1 ½ unidades')
-    expect(portionText(withAmount(item, 1.5, cup, 'number'))).toBe('1,5 unidades')
+    expect(portionText(item, 'es')).toBe('1 ½ unidades')
+    expect(portionText(withAmount(item, 1.5, cup, 'number'), 'es')).toBe('1,5 unidades')
+    expect(portionText(withAmount(item, 1.5, cup, 'number'), 'en')).toBe('1.5 unidades')
     expect(withFood(item, { ...avocado, id: 'other', portions: [] })).toMatchObject({
       grams: 300,
       amount: 300,
@@ -147,6 +148,7 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
         occurredAt: '2026-10-04T20:30:00-05:00',
         timezone: 'America/Bogota',
         recognizedBy: 'google/gemini-3.5-flash-lite',
+        locale: 'es',
       }),
     ).toEqual({
       occurred_at: '2026-10-04T20:30:00-05:00',
@@ -222,6 +224,7 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
       occurredAt: '2026-10-05T07:00:00-05:00',
       timezone: 'America/Bogota',
       recognizedBy: null,
+      locale: 'es',
     })
     expect(meal.items.map(({ food_id, product_id }) => ({ food_id, product_id }))).toEqual([
       { food_id: null, product_id: milk.id },

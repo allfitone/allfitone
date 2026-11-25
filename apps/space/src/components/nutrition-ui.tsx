@@ -24,6 +24,7 @@ import Animated, {
 import Svg, { Circle, Defs, RadialGradient, Stop } from 'react-native-svg'
 
 import type { MealType, NutrientCode, NutritionMeal, Totals } from '../client/nutrition'
+import { useText } from '../i18n/use-text'
 import { useMealPhoto } from './use-meal-photo'
 
 type Theme = ReturnType<typeof useTheme>
@@ -241,6 +242,7 @@ export function MealThumb({
   const theme = useTheme()
   // A photo still on its way up is drawn from the phone, so the meal never shows bare.
   const pending = useMealPhoto(meal.id)
+  const text = useText().nutrition
   return (
     <View
       style={[
@@ -268,7 +270,7 @@ export function MealThumb({
       {pending?.kind === 'failed' ? (
         <View
           style={[styles.thumbFailed, { backgroundColor: theme.color.status.warning }]}
-          accessibilityLabel="La foto no se pudo subir"
+          accessibilityLabel={text.photoNotUploaded}
         >
           <FoundationIcon
             name="error"
