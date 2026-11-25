@@ -106,10 +106,7 @@ import {
   type WorkingStep,
 } from '../../src/client/routine-draft'
 import {
-  OPENING_UNIT,
   REST_OPENING_SECONDS,
-  SET_KIND_DETAILS,
-  SET_KIND_NAMES,
   SET_KIND_TONES,
   otherUnit,
   restLabel,
@@ -123,8 +120,8 @@ import {
 import { ScreenHeader } from '../../src/components/screen-header'
 import { SheetChoice } from '../../src/components/sheet-choice'
 import { refusedFeature, usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
-
-const SUGGESTIONS = ['Empuje', 'Tirón', 'Pierna', 'Full body']
+import { useText } from '../../src/i18n/use-text'
+import { useUnits } from '../../src/units/use-units'
 
 /** Long enough that a name is not a save per keystroke, short enough to feel saved. */
 const SAVE_DELAY_MS = 700
@@ -185,15 +182,13 @@ type Sheeted =
   | { readonly kind: 'superset'; readonly position: number }
   | { readonly kind: 'set-kind'; readonly position: number; readonly order: number }
 
-const LOAD_FAILED = 'No pudimos abrir el borrador. Revisa tu conexión.'
-
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
-
-const ROUTINE_LIMIT = 'Tu plan llegó a su límite de rutinas propias. Lo que escribiste sigue aquí.'
-
 export default function RoutineEditor() {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.routine
+  // An exercise with no unit of its own is loaded in the one the person reads.
+  const { mass } = useUnits()
   const flow = useMemo(() => createSpaceContentFlow(), [])
   const features = usePlan()
   const upgrade = useUpgradeSheet(features)
@@ -346,7 +341,7 @@ export default function RoutineEditor() {
           }
           await flow.saveTemplateDraft(
             identity.current,
-            stepsToContent(trimmed, nextSteps, activityType.current),
+            stepsToContent(trimmed, nextSteps, activityType.current, mass),
           )
           setSaved(true)
           setFailure(undefined)
@@ -356,17 +351,17 @@ export default function RoutineEditor() {
           const feature = refusedFeature(cause)
           if (feature) {
             offerPro(feature)
-            setFailure(ROUTINE_LIMIT)
+            setFailure(words.limit)
             return false
           }
-          setFailure(saveFailure(cause))
+          setFailure(saveFailure(cause, text.training.save))
           return false
         } finally {
           setSaving(false)
         }
       })
     },
-    [flow, loaded, saves, offerPro],
+    [flow, loaded, saves, offerPro, mass, words, text],
   )
 
   /**
@@ -427,7 +422,9 @@ export default function RoutineEditor() {
       activityType.current = draft.content.activity_type_id
       setTemplateId(id)
       setTitle(draft.content.title)
-      setSteps(stepsFromContent(draft.content, (movementId) => names.get(movementId)))
+      setSteps(
+        stepsFromContent(draft.content, (movementId) => names.get(movementId) ?? words.exercise),
+      )
       setEditing(known?.template_version_id != null)
       setSaved(true)
     }
@@ -436,7 +433,9 @@ export default function RoutineEditor() {
       .catch((cause: unknown) => {
         if (!active) return
         setFailure(
-          cause instanceof ApiError && cause.failure === 'unauthenticated' ? EXPIRED : LOAD_FAILED,
+          cause instanceof ApiError && cause.failure === 'unauthenticated'
+            ? text.training.expired
+            : words.loadFailed,
         )
       })
       // Whatever happened, the screen stops holding the pen. A failure that left it
@@ -448,6 +447,7 @@ export default function RoutineEditor() {
     return () => {
       active = false
     }
+    // The words are read once: a new language must not reopen the draft.
   }, [flow, params.templateId])
 
   // Read through a ref so the effect below does not depend on it: naming a routine is
@@ -490,7 +490,7 @@ export default function RoutineEditor() {
     schedule(title, next)
   }
 
-  const issues = reasonsNotToPublish(title, steps)
+  const issues = reasonsNotToPublish(title, steps, text.training.issues)
   const publishable = issues.length === 0 && templateId !== undefined
 
   /**
@@ -508,7 +508,7 @@ export default function RoutineEditor() {
       // No `saveFailure`: un conflicto aquí no es un borrador viejo, es que algún
       // programa se quedaría sin rutinas. Esta pantalla no sabe en cuáles está —abre un
       // borrador, no la fila de la biblioteca—, así que el mensaje va sin nombre.
-      setFailure(discardFailure(cause, []))
+      setFailure(discardFailure(cause, [], text.training.save))
     }
   }
 
@@ -531,7 +531,7 @@ export default function RoutineEditor() {
       offerPublishedRoutine({ templateId, versionId: version.id })
       router.back()
     } catch (cause: unknown) {
-      setFailure(saveFailure(cause))
+      setFailure(saveFailure(cause, text.training.save))
     }
   }
 
@@ -578,13 +578,7 @@ export default function RoutineEditor() {
   }
 
   const sheetTitle = () => {
-    if (sheet?.kind === 'leaving') return '¿Guardas esta rutina?'
-    if (sheet?.kind === 'discarding') return '¿Descartar cambios?'
-    if (sheet?.kind === 'set-kind') return 'Tipo de serie'
-    if (sheet?.kind === 'rest') return 'Descanso entre series'
-    if (sheet?.kind === 'superset') return 'Superserie'
-    if (sheet?.kind === 'menu') return 'Ejercicio'
-    return ''
+    return sheet === undefined ? '' : words.sheets[sheet.kind]
   }
 
   /**
@@ -606,13 +600,13 @@ export default function RoutineEditor() {
   }
 
   const subtitle = () => {
-    if (saving) return 'Guardando…'
-    if (failure) return 'Sin guardar'
-    // «Borrador guardado» would be a lie on a routine that is already out there and is
+    if (saving) return words.status.saving
+    if (failure) return words.status.unsaved
+    // «Draft saved» would be a lie on a routine that is already out there and is
     // deliberately not being written to until the tick.
-    if (editing) return saved ? 'Publicada' : 'Con cambios sin guardar'
-    if (saved) return 'Borrador guardado'
-    return 'Aún sin guardar'
+    if (editing) return saved ? words.status.published : words.status.changed
+    if (saved) return words.status.draftSaved
+    return words.status.notYet
   }
 
   return (
@@ -622,13 +616,13 @@ export default function RoutineEditor() {
           leaves somebody editing a list with no idea what they are editing. */}
       <View style={styles.frame}>
         <ScreenHeader
-          title={title.trim() === '' ? 'Nueva rutina' : title}
+          title={title.trim() === '' ? words.newRoutine : title}
           subtitle={subtitle()}
           // A named routine is already on the server, so leaving silently would keep
           // something nobody asked to keep.
           onClose={leave}
           onConfirm={templateId ? publish : undefined}
-          confirmLabel="Listo"
+          confirmLabel={words.done}
         />
 
         {failure ? <InlineAlert message={failure} onDismiss={() => setFailure(undefined)} /> : null}
@@ -651,9 +645,7 @@ export default function RoutineEditor() {
                 decorative
               />
               <Text role="control" size="xs" style={{ color: theme.color.status.danger }}>
-                {issues.length === 1
-                  ? 'Falta una cosa para guardar'
-                  : `Faltan ${issues.length} cosas para guardar`}
+                {words.missing(issues.length)}
               </Text>
             </View>
             {issues.map((issue) => (
@@ -673,8 +665,8 @@ export default function RoutineEditor() {
           <View style={styles.naming}>
             <View style={styles.namingField}>
               <TextField
-                label="Ponle un nombre"
-                placeholder="Empuje, Pierna, Día 1…"
+                label={words.nameLabel}
+                placeholder={words.namePlaceholder}
                 value={title}
                 onChangeText={rename}
                 autoCapitalize="sentences"
@@ -682,7 +674,7 @@ export default function RoutineEditor() {
             </View>
           </View>
           <View style={styles.chips}>
-            {SUGGESTIONS.map((suggestion) => (
+            {words.suggestions.map((suggestion) => (
               <Chip
                 key={suggestion}
                 label={suggestion}
@@ -703,9 +695,9 @@ export default function RoutineEditor() {
               },
             ]}
           >
-            <Figure icon="training" value={String(steps.length)} label="Ejercicios" />
+            <Figure icon="training" value={String(steps.length)} label={words.exercises} />
             <View style={[styles.divider, { backgroundColor: theme.color.border.subtle }]} />
-            <Figure icon="frequency" value={String(countSets(steps))} label="Series" accent />
+            <Figure icon="frequency" value={String(countSets(steps))} label={words.sets} accent />
           </View>
         )}
       </View>
@@ -741,15 +733,13 @@ export default function RoutineEditor() {
               decorative
             />
             <Text role="control" size="lg" align="center">
-              Todavía no hay ejercicios
+              {words.empty.title}
             </Text>
             <Text role="body" size="md" color="muted" style={styles.centered}>
-              Busca en el catálogo y añade el primero. Luego le pones series, peso y descanso.
+              {words.empty.body}
             </Text>
             <Text role="body" size="sm" color="muted" style={styles.centered}>
-              {editing
-                ? 'Los cambios se aplican al guardar. Necesita conexión.'
-                : 'Se guarda como borrador según escribes. Necesita conexión.'}
+              {editing ? words.empty.editing : words.empty.writing}
             </Text>
           </View>
         ) : (
@@ -794,7 +784,9 @@ export default function RoutineEditor() {
             >
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${open === step.position ? 'Cerrar' : 'Abrir'} ${step.name}`}
+                accessibilityLabel={
+                  open === step.position ? words.close(step.name) : words.open(step.name)
+                }
                 onPress={() => setOpen(open === step.position ? undefined : step.position)}
                 style={styles.rowHead}
               >
@@ -824,11 +816,14 @@ export default function RoutineEditor() {
                     {step.name}
                   </Text>
                   <Text role="body" size="sm" color="accent">
-                    {`${setsLabel(step.sets)} · ${restLabel(step.restSeconds)}`}
+                    {`${setsLabel(step.sets, text.training.sets)} · ${restLabel(
+                      step.restSeconds,
+                      text.training.sets,
+                    )}`}
                   </Text>
                   {chainMark(step.supersetGroup) === undefined ? null : (
                     <Badge
-                      label={`Superserie ${chainMark(step.supersetGroup)?.letter ?? ''}`}
+                      label={words.superset(chainMark(step.supersetGroup)?.letter ?? '')}
                       tone={chainMark(step.supersetGroup)?.tone ?? 'accent'}
                     />
                   )}
@@ -864,14 +859,13 @@ export default function RoutineEditor() {
                 <Animated.View entering={OPEN}>
                   <SetTable
                     step={step}
+                    unit={step.loadUnit ?? mass}
                     onChangeSets={(sets) => change(withSets(steps, step.position, sets))}
                     onKind={(order) =>
                       setSheet({ kind: 'set-kind', position: step.position, order })
                     }
                     onUnit={() =>
-                      change(
-                        withUnit(steps, step.position, otherUnit(step.loadUnit ?? OPENING_UNIT)),
-                      )
+                      change(withUnit(steps, step.position, otherUnit(step.loadUnit ?? mass)))
                     }
                     onRest={() => setSheet({ kind: 'rest', position: step.position })}
                     onMenu={() => setSheet({ kind: 'menu', position: step.position })}
@@ -888,7 +882,7 @@ export default function RoutineEditor() {
           tax that grows with the routine. */}
       <View style={styles.anchor}>
         <Button
-          label={steps.length === 0 ? 'Buscar y añadir ejercicio' : 'Añadir ejercicio'}
+          label={steps.length === 0 ? words.searchAndAdd : words.addExercise}
           variant={steps.length === 0 ? 'primary' : 'secondary'}
           icon={steps.length === 0 ? 'search' : 'add'}
           onPress={() => {
@@ -913,11 +907,10 @@ export default function RoutineEditor() {
         {sheet?.kind === 'discarding' ? (
           <View style={styles.sheet}>
             <Text role="body" size="md" color="muted">
-              Lo que cambiaste aquí no se ha aplicado todavía. Si lo descartas, la rutina se queda
-              como estaba.
+              {words.discarding.body}
             </Text>
             <Button
-              label="Descartar cambios"
+              label={words.discarding.discard}
               variant="ghost"
               icon="remove"
               onPress={() => {
@@ -926,7 +919,7 @@ export default function RoutineEditor() {
               }}
             />
             <Button
-              label="Seguir editando"
+              label={words.discarding.keep}
               variant="secondary"
               onPress={() => setSheet(undefined)}
             />
@@ -936,17 +929,17 @@ export default function RoutineEditor() {
         {sheet?.kind === 'leaving' ? (
           <View style={styles.sheet}>
             <Text role="body" size="md" color="muted">
-              Se está guardando como borrador según escribes. Puedes dejarla para después o tirarla.
+              {words.leaving.body}
             </Text>
             <Button
-              label="Guardar borrador"
+              label={words.leaving.save}
               onPress={() => {
                 setSheet(undefined)
                 router.back()
               }}
             />
             <Button
-              label="Descartar rutina"
+              label={words.leaving.discard}
               variant="ghost"
               icon="remove"
               onPress={() => {
@@ -962,10 +955,10 @@ export default function RoutineEditor() {
             {(['normal', 'warmup', 'to_failure', 'drop'] as const).map((kind) => (
               <SheetChoice
                 key={kind}
-                name={SET_KIND_NAMES[kind]}
+                name={text.training.sets.kinds[kind]}
                 tone={SET_KIND_TONES[kind]}
                 selected={kindAt(steps, sheet) === kind}
-                detail={SET_KIND_DETAILS[kind]}
+                detail={text.training.sets.details[kind]}
                 onPress={() => {
                   if (sheet?.kind !== 'set-kind') return
                   const step = steps.find((one) => one.position === sheet.position)
@@ -997,7 +990,7 @@ export default function RoutineEditor() {
         {sheet?.kind === 'superset' ? (
           <View style={styles.sheet}>
             <Text role="body" size="sm" color="muted">
-              Se hacen seguidos, sin descanso entre medias. El que elijas queda al lado de este.
+              {words.supersetNote}
             </Text>
             {others(steps, sheet).map((mate) => (
               <SheetChoice
@@ -1021,8 +1014,8 @@ export default function RoutineEditor() {
         {sheet?.kind === 'menu' ? (
           <View style={styles.sheet}>
             <SheetChoice
-              name="Reemplazar ejercicio"
-              detail="Buscar otro y conservar las series"
+              name={words.menu.replace}
+              detail={words.menu.replaceDetail}
               onPress={() => {
                 if (sheet?.kind !== 'menu') return
                 // Everything but the one being swapped, so the picker does not offer
@@ -1040,8 +1033,8 @@ export default function RoutineEditor() {
             {sheet?.kind === 'menu' &&
             steps.find((one) => one.position === sheet.position)?.supersetGroup !== undefined ? (
               <SheetChoice
-                name="Quitar de la superserie"
-                detail="Deja de encadenarse con su vecino"
+                name={words.menu.unchain}
+                detail={words.menu.unchainDetail}
                 onPress={() => {
                   if (sheet?.kind !== 'menu') return
                   change(unchained(steps, sheet.position))
@@ -1050,12 +1043,8 @@ export default function RoutineEditor() {
               />
             ) : (
               <SheetChoice
-                name="Hacer superserie"
-                detail={
-                  steps.length < 2
-                    ? 'Necesitas otro ejercicio en la rutina'
-                    : 'Encadenarlo con otro ejercicio'
-                }
+                name={words.menu.chain}
+                detail={steps.length < 2 ? words.menu.chainAlone : words.menu.chainDetail}
                 // Nothing to chain with. Offered and then refused is worse than offered
                 // as unavailable, because the second says why without being pressed.
                 disabled={steps.length < 2}
@@ -1130,6 +1119,7 @@ function withRest(
  */
 function SetTable({
   step,
+  unit,
   onChangeSets,
   onKind,
   onUnit,
@@ -1137,6 +1127,7 @@ function SetTable({
   onMenu,
 }: {
   readonly step: WorkingStep
+  readonly unit: MassUnit
   readonly onChangeSets: (sets: readonly WorkingSet[]) => void
   readonly onKind: (order: number) => void
   readonly onUnit: () => void
@@ -1144,8 +1135,9 @@ function SetTable({
   readonly onMenu: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.routine.table
 
-  const unit = step.loadUnit ?? OPENING_UNIT
   const edit = (order: number, set: WorkingSet) =>
     onChangeSets(step.sets.map((each, at) => (at === order ? set : each)))
 
@@ -1159,16 +1151,16 @@ function SetTable({
           #
         </Text>
         <Text role="eyebrow" size="xs" color="muted" style={styles.colKind}>
-          Tipo
+          {words.kind}
         </Text>
         <View style={styles.colCell}>
           <Text role="eyebrow" size="xs" color="muted">
-            Reps
+            {words.reps}
           </Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Peso en ${unit}. Cambiar a ${otherUnit(unit)}`}
+          accessibilityLabel={words.unit(unit, otherUnit(unit))}
           hitSlop={UNIT_SLOP}
           onPress={onUnit}
           style={styles.colCell}
@@ -1187,25 +1179,25 @@ function SetTable({
           </Text>
           <View style={styles.colKind}>
             <Badge
-              label={SET_KIND_NAMES[one.kind]}
+              label={text.training.sets.kinds[one.kind]}
               tone={SET_KIND_TONES[one.kind]}
-              accessibilityLabel={`Tipo de la serie ${order + 1}: ${SET_KIND_NAMES[one.kind]}`}
+              accessibilityLabel={words.kindOf(order + 1, text.training.sets.kinds[one.kind])}
               onPress={() => onKind(order)}
             />
           </View>
           <NumberField
-            accessibilityLabel={`Repeticiones de la serie ${order + 1}`}
+            accessibilityLabel={words.repsOf(order + 1)}
             value={one.reps}
-            unit="reps"
+            unit={words.repsUnit}
             min={1}
             max={100}
             // A set to failure has no number by definition, and the database refuses
             // the pair rather than correcting it.
-            {...(one.kind === 'to_failure' ? { fixedAs: 'máx' } : {})}
+            {...(one.kind === 'to_failure' ? { fixedAs: words.max } : {})}
             onChange={(reps) => edit(order, withReps(one, reps))}
           />
           <NumberField
-            accessibilityLabel={`Peso de la serie ${order + 1} en ${unit}`}
+            accessibilityLabel={words.loadOf(order + 1, unit)}
             value={one.load}
             unit={unit}
             max={500}
@@ -1215,7 +1207,7 @@ function SetTable({
             icon="close"
             variant="plain"
             size="sm"
-            accessibilityLabel={`Quitar la serie ${order + 1}`}
+            accessibilityLabel={words.removeSet(order + 1)}
             disabled={step.sets.length === 1}
             onPress={() => onChangeSets(step.sets.filter((_, at) => at !== order))}
           />
@@ -1225,11 +1217,11 @@ function SetTable({
       {/* Part of the table, not of a toolbar: it belongs after the last set, which is
           where the finger already is when somebody wants another one. */}
       <Button
-        label="Añadir serie"
+        label={words.addSet}
         icon="add"
         variant="ghost"
         size="sm"
-        accessibilityLabel="Añadir una serie"
+        accessibilityLabel={words.addSetLabel}
         onPress={() => onChangeSets([...step.sets, { kind: 'normal', reps: 8 }])}
         style={[styles.addSet, { borderTopColor: theme.color.border.subtle }]}
       />
@@ -1238,13 +1230,13 @@ function SetTable({
           a row under the table. */}
       <View style={styles.tableActions}>
         <Button
-          label={restLabel(step.restSeconds)}
+          label={restLabel(step.restSeconds, text.training.sets)}
           variant="secondary"
           size="sm"
           icon="time"
           onPress={onRest}
         />
-        <IconButton icon="more" size="sm" accessibilityLabel="Más opciones" onPress={onMenu} />
+        <IconButton icon="more" size="sm" accessibilityLabel={words.more} onPress={onMenu} />
       </View>
     </View>
   )
@@ -1275,19 +1267,23 @@ function Handle({
   readonly onMove: (to: number) => void
 }) {
   const theme = useTheme()
+  const words = useText().training.routine.handle
 
   return (
     <View
       accessible
       accessibilityRole="adjustable"
-      accessibilityLabel={`Orden de ${name}`}
-      accessibilityValue={{ min: 1, max: count, now: position, text: `${position} de ${count}` }}
-      accessibilityHint="Con el ejercicio cerrado, mantén pulsado y arrastra para moverlo"
+      accessibilityLabel={words.order(name)}
+      accessibilityValue={{ min: 1, max: count, now: position, text: words.of(position, count) }}
+      accessibilityHint={words.hint}
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === 'increment') onMove(Math.min(count, position + 1))
         if (event.nativeEvent.actionName === 'decrement') onMove(Math.max(1, position - 1))
       }}
-      accessibilityActions={ACCESSIBLE_MOVES}
+      accessibilityActions={[
+        { name: 'increment' as const, label: words.down },
+        { name: 'decrement' as const, label: words.up },
+      ]}
       style={styles.handle}
     >
       <FoundationIcon name="reorder" size="sm" color={theme.color.icon.secondary} decorative />
@@ -1295,19 +1291,15 @@ function Handle({
   )
 }
 
-const ACCESSIBLE_MOVES = [
-  { name: 'increment' as const, label: 'Bajarlo un lugar' },
-  { name: 'decrement' as const, label: 'Subirlo un lugar' },
-]
-
 /** The trash can: the design system's plain compact icon button. */
 function RemoveButton({ name, onPress }: { readonly name: string; readonly onPress: () => void }) {
+  const words = useText().training.exercises
   return (
     <IconButton
       icon="remove"
       variant="plain"
       size="xs"
-      accessibilityLabel={`Quitar ${name}`}
+      accessibilityLabel={words.removeFilter(name)}
       onPress={onPress}
     />
   )

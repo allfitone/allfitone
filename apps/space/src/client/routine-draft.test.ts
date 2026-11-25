@@ -24,6 +24,10 @@ import {
   withoutStep,
   type WorkingStep,
 } from './routine-draft'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training.issues
+const en = textFor('en').training.issues
 
 const step = (position: number, name: string, sets = 4, reps = 8): WorkingStep => ({
   position,
@@ -34,24 +38,24 @@ const step = (position: number, name: string, sets = 4, reps = 8): WorkingStep =
 
 describe('what stops a routine from being published', () => {
   test('T-SP-ROUTINE-01 a routine with no name and no exercises is missing two things', () => {
-    expect(reasonsNotToPublish('', []).map((issue) => issue.title)).toEqual([
+    expect(reasonsNotToPublish('', [], es).map((issue) => issue.title)).toEqual([
       'La rutina no tiene nombre',
       'La rutina no tiene ejercicios',
     ])
   })
 
   test('T-SP-ROUTINE-02 whitespace is not a name', () => {
-    expect(reasonsNotToPublish('   ', [step(1, 'Sentadilla')])).toHaveLength(1)
+    expect(reasonsNotToPublish('   ', [step(1, 'Sentadilla')], es)).toHaveLength(1)
   })
 
   test('T-SP-ROUTINE-03 an exercise with no series is named in the reason', () => {
-    const issues = reasonsNotToPublish('Empuje', [step(1, 'Press de banca', 0)])
+    const issues = reasonsNotToPublish('Empuje', [step(1, 'Press de banca', 0)], es)
 
     expect(issues[0]?.title).toBe('«Press de banca» no tiene ninguna serie')
   })
 
   test('T-SP-ROUTINE-04 a complete routine has nothing missing', () => {
-    expect(reasonsNotToPublish('Empuje', [step(1, 'Press de banca')])).toEqual([])
+    expect(reasonsNotToPublish('Empuje', [step(1, 'Press de banca')], es)).toEqual([])
   })
 
   test('T-SP-ROUTINE-05 series are counted across exercises, not per exercise', () => {
@@ -414,7 +418,7 @@ describe('a whole batch of exercises arrives at once', () => {
 
     expect(only?.kind).toBe('to_failure')
     expect(only?.target_reps).toBeUndefined()
-    expect(reasonsNotToPublish('Empuje', [failing])).toEqual([])
+    expect(reasonsNotToPublish('Empuje', [failing], es)).toEqual([])
   })
 })
 
@@ -455,5 +459,25 @@ describe('el esfuerzo no se planifica', () => {
 
     const sets = (content.steps[0]?.target as { sets: Record<string, unknown>[] }).sets
     expect(Object.keys(sets[0] ?? {})).not.toContain('target_rpe')
+  })
+})
+
+describe('the routine draft in English and in pounds (TECH-44)', () => {
+  test('T-SP-ROUTINE-34 the reasons not to publish name the exercise in English', () => {
+    expect(reasonsNotToPublish('', [step(1, 'Press de banca', 0)], en)).toEqual([
+      { title: 'The routine has no name', hint: 'Give it one above' },
+      { title: '“Press de banca” has no sets', hint: 'Add at least one' },
+    ])
+  })
+
+  test('T-SP-ROUTINE-35 an exercise with no unit of its own is loaded in the one she reads', () => {
+    const loaded: WorkingStep = {
+      ...step(1, 'A', 1),
+      sets: [{ kind: 'normal', reps: 8, load: 135 }],
+    }
+    const target = stepsToContent('Empuje', [loaded], 'activity', 'lb').steps[0]?.target as {
+      sets: { target_load_value: number; target_load_unit_code: string }[]
+    }
+    expect(target.sets[0]).toMatchObject({ target_load_value: 135, target_load_unit_code: 'lb' })
   })
 })

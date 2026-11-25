@@ -18,6 +18,10 @@ import {
   togglePick,
   type PickedMovement,
 } from './exercise-pick'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training.exercises
+const en = textFor('en').training.exercises
 
 const SQUAT: PickedMovement = { id: 'm-1', name: 'Sentadilla con barra' }
 const BENCH: PickedMovement = { id: 'm-2', name: 'Press de banca con barra' }
@@ -50,17 +54,17 @@ describe('choosing several exercises at once', () => {
   })
 
   test('T-SP-PICK-04 the confirm counts out loud, because the batch is otherwise invisible', () => {
-    expect(pickLabel(0)).toBe('Añadir')
-    expect(pickLabel(1)).toBe('Añadir 1 ejercicio')
-    expect(pickLabel(3)).toBe('Añadir 3 ejercicios')
+    expect(pickLabel(0, es)).toBe('Añadir')
+    expect(pickLabel(1, es)).toBe('Añadir 1 ejercicio')
+    expect(pickLabel(3, es)).toBe('Añadir 3 ejercicios')
   })
 
   test('T-SP-PICK-12 what is drawn is the count alone, and never longer than the name', () => {
-    expect(pickButton(0)).toBe('Añadir')
-    expect(pickButton(1)).toBe('Añadir 1')
-    expect(pickButton(3)).toBe('Añadir 3')
+    expect(pickButton(0, es)).toBe('Añadir')
+    expect(pickButton(1, es)).toBe('Añadir 1')
+    expect(pickButton(3, es)).toBe('Añadir 3')
     for (const count of [0, 1, 3, 12]) {
-      expect(pickButton(count).length).toBeLessThanOrEqual(pickLabel(count).length)
+      expect(pickButton(count, es).length).toBeLessThanOrEqual(pickLabel(count, es).length)
     }
   })
 
@@ -169,5 +173,13 @@ describe('addsToRoutine', () => {
 
   test('a repeated parameter still says where it came from', () => {
     expect(addsToRoutine(['program', 'program'])).toBe(false)
+  })
+})
+
+describe('picking in English (TECH-44)', () => {
+  test('T-SP-PICK-16 the confirm counts out loud in English', () => {
+    expect(pickLabel(0, en)).toBe('Add')
+    expect(pickLabel(1, en)).toBe('Add 1 exercise')
+    expect(pickButton(3, en)).toBe('Add 3')
   })
 })

@@ -20,6 +20,7 @@ import {
   settled,
   unchained,
 } from './chain-order'
+import type { Dictionary } from '../i18n'
 import type { SessionTemplateDraftContent } from './content'
 import type { PickedMovement } from './exercise-pick'
 import { OPENING_SETS, OPENING_UNIT, type MassUnit, type WorkingSet } from './set-scheme'
@@ -57,28 +58,29 @@ const MAX_TITLE = 160
 export function reasonsNotToPublish(
   title: string,
   steps: readonly WorkingStep[],
+  text: Dictionary['training']['issues'],
 ): readonly PublishIssue[] {
   const issues: PublishIssue[] = []
 
   if (title.trim() === '') {
-    issues.push({ title: 'La rutina no tiene nombre', hint: 'Ponle uno arriba' })
+    issues.push(text.unnamed)
   } else if (title.trim().length > MAX_TITLE) {
-    issues.push({ title: 'El nombre es demasiado largo', hint: 'Acórtalo un poco' })
+    issues.push(text.tooLong)
   }
 
   if (steps.length === 0) {
-    issues.push({ title: 'La rutina no tiene ejercicios', hint: 'Añade al menos uno' })
+    issues.push(text.noExercises)
   }
 
   for (const step of steps) {
     if (step.sets.length === 0) {
-      issues.push({ title: `«${step.name}» no tiene ninguna serie`, hint: 'Añádele al menos una' })
+      issues.push({ title: text.noSets(step.name), hint: text.noSetsHint })
       continue
     }
     // A set to failure is the one kind that legitimately has no number.
     const empty = step.sets.some((one) => one.kind !== 'to_failure' && (one.reps ?? 0) < 1)
     if (empty) {
-      issues.push({ title: `«${step.name}» tiene una serie vacía`, hint: 'Ponle repeticiones' })
+      issues.push({ title: text.emptySet(step.name), hint: text.emptySetHint })
     }
   }
 
@@ -104,6 +106,8 @@ export function stepsToContent(
   title: string,
   steps: readonly WorkingStep[],
   activityTypeId: string | null,
+  // What an exercise with no unit of its own is loaded in: the person's, on the screen.
+  opening: MassUnit = OPENING_UNIT,
 ): SessionTemplateDraftContent {
   return {
     title: title.trim(),
@@ -126,7 +130,7 @@ export function stepsToContent(
             ? {}
             : {
                 target_load_value: one.load,
-                target_load_unit_code: step.loadUnit ?? OPENING_UNIT,
+                target_load_unit_code: step.loadUnit ?? opening,
               }),
         })),
         ...(step.restSeconds === undefined ? {} : { target_rest_seconds: step.restSeconds }),
@@ -174,7 +178,7 @@ export function withPicked(
  */
 export function stepsFromContent(
   content: SessionTemplateDraftContent,
-  nameFor: (movementId: string) => string | undefined = () => undefined,
+  nameFor: (movementId: string) => string = () => '',
 ): readonly WorkingStep[] {
   return content.steps.map((step, index) => {
     const target = step.target as Record<string, unknown>
@@ -186,7 +190,7 @@ export function stepsFromContent(
     return {
       position: index + 1,
       movementId,
-      name: nameFor(movementId) ?? 'Ejercicio',
+      name: nameFor(movementId),
       sets:
         sets.length > 0
           ? sets.map((one) => ({

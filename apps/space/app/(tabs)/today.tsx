@@ -59,10 +59,10 @@ import {
   type ProgramSummary,
   type TrainingProfile,
 } from '../../src/client/program-catalogue'
-import { longDateLabel, trainedLabel } from '../../src/client/week'
+import { trainedLabel } from '../../src/client/week'
 import { weekGroups, type HistoryItem } from '../../src/client/history'
 import { deviceTimezone } from '../../src/client/timezone'
-import { freeOfferCaption, openSessionBar } from '../../src/client/free-training'
+import { openSessionBar } from '../../src/client/free-training'
 import { createSpaceContentFlow } from '../../src/client/content-transport'
 import { readExerciseLibrary, type ExerciseLibrary } from '../../src/client/exercise-library'
 import type { MyRoutine } from '../../src/client/content'
@@ -78,6 +78,7 @@ import {
   sessionInProgress,
   startable,
   startLabel,
+  tonnageFigure,
   weekDays,
   type RoutineCard,
   type WeekDay,
@@ -91,25 +92,19 @@ import { PHOTO_COVER } from '../../src/client/routine-cover'
 import { PageDots } from '@allfitone/react-native/page-dots'
 import { ProgramPoster } from '../../src/components/program-poster'
 import { DOCK_HEIGHT } from '../../src/components/tab-bar'
+import type { Locale } from '../../src/i18n'
+import { useLocale, useText } from '../../src/i18n/use-text'
+import type { MassUnit } from '../../src/units/units'
+import { useUnits } from '../../src/units/use-units'
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para continuar.'
 /** How many of the latest sessions Hoy shows before «Ver todo». */
 const HOME_HISTORY = 4
 
 /** Today's calendar date in the person's zone, which is how history rows are dated. */
 const localToday = (timezone: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date())
-const READ_FAILED = 'No pudimos cargar tu día. Inténtalo otra vez.'
-const START_FAILED = 'No pudimos empezar la sesión. Inténtalo otra vez.'
-const DISCARD_FAILED = 'No pudimos descartar el entrenamiento. Inténtalo otra vez.'
 
-/** What a destination that does not exist yet answers, instead of a blank screen. */
-const PENDING: Record<string, string> = {
-  routines: 'Tus rutinas llegan con tu contenido personal.',
-  food: 'Comida llega con el registro de nutrición.',
-  progress: 'Tu progreso llega con el historial.',
-  notices: 'Tus avisos llegan con las notificaciones.',
-}
+type Failure = 'expired' | 'read' | 'start' | 'discard'
 
 /** El margen de la pantalla cuando hay programa. El carrusel lo sangra para asomar. */
 const GUTTER = 24
@@ -132,6 +127,8 @@ const CARD_MAX = 420
 
 export default function Today() {
   const router = useRouter()
+  const text = useText()
+  const words = text.training.today
   const insets = useSafeAreaInsets()
   const programs = useMemo(() => createSpaceProgramFlow(), [])
   const content = useMemo(() => createSpaceContentFlow(), [])
@@ -150,7 +147,7 @@ export default function Today() {
   const [pending, setPending] = useState<string | undefined>(undefined)
   const [sessionExpired, setSessionExpired] = useState(false)
   const [starting, setStarting] = useState<string | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
   /**
    * Si el catálogo está plegado o extendido, que es lo único que «Ver todos» cambia.
    *
@@ -221,10 +218,10 @@ export default function Today() {
             if (!active) return
             if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
               setSessionExpired(true)
-              setFailure(EXPIRED)
+              setFailure('expired')
               return
             }
-            setFailure(READ_FAILED)
+            setFailure('read')
           })
       }
 
@@ -247,12 +244,11 @@ export default function Today() {
     () => catalogueList(catalogue?.programs ?? [], profile, expanded),
     [catalogue?.programs, profile, expanded],
   )
-  // Con mayúscula inicial: `longDateLabel` la escribe en minúscula porque en una frase
-  // va así, y aquí es una línea suelta debajo del saludo.
+  // A line on its own under the greeting, so it opens with a capital.
   const date = useMemo(() => {
-    const written = longDateLabel(new Date())
-    return `${written.slice(0, 1).toUpperCase()}${written.slice(1)}`
-  }, [])
+    const now = new Date()
+    return words.date(now.getDay(), now.getDate(), now.getMonth())
+  }, [words])
   const assigned = today?.current_assignment ?? null
   /**
    * Las tarjetas del carrusel: la semana, cada una con la rutina que es.
@@ -290,7 +286,7 @@ export default function Today() {
         setPlan(week)
         setDiscarding(false)
       })
-      .catch(() => setFailure(DISCARD_FAILED))
+      .catch(() => setFailure('discard'))
       .finally(() => setLeaving(false))
   }
 
@@ -307,7 +303,7 @@ export default function Today() {
       training
         .start(card.routine.planned_session_id, timezone)
         .then((id) => router.push(`/session/${id}`))
-        .catch(() => setFailure(START_FAILED))
+        .catch(() => setFailure('start'))
         .finally(() => setStarting(undefined))
     },
     [router, training, timezone],
@@ -323,7 +319,7 @@ export default function Today() {
     training
       .startFree(timezone)
       .then((id) => router.push(`/session/${id}`))
-      .catch(() => setFailure(START_FAILED))
+      .catch(() => setFailure('start'))
       .finally(() => setStartingFree(false))
   }, [openFree, router, startingFree, training, timezone])
   const openRoutine = useCallback(
@@ -354,7 +350,7 @@ export default function Today() {
           {/* En caja baja y en la cara de texto, no en la condensada en versalitas:
               es un saludo, y `FIN-2b` lo escribe como se escribe un saludo. */}
           <Text role="control" size="xl" accessibilityRole="header">
-            {profile.given_name ? `Hola, ${profile.given_name}` : 'Hola'}
+            {words.hello(profile.given_name)}
           </Text>
           {/* La fecha cuando hay algo que hacer hoy, y qué toca hacer cuando no lo hay:
               el primer día la fecha no dice nada y la frase sí. Y a un cuerpo mayor,
@@ -365,11 +361,11 @@ export default function Today() {
             </Text>
           ) : (
             <Text role="body" size="md" color="secondary">
-              Empecemos por elegir tu plan
+              {words.choosePlan}
             </Text>
           )}
         </View>
-        <Bell onPress={() => setPending(PENDING.notices)} />
+        <Bell onPress={() => setPending(words.noticesSoon)} />
       </View>
 
       <ScrollView
@@ -402,10 +398,10 @@ export default function Today() {
         {assigned && plan !== undefined && week.length === 0 ? (
           <View style={styles.heading}>
             <Text role="display" size="2xl" uppercase accessibilityRole="header">
-              Semana libre
+              {words.freeWeek}
             </Text>
             <Text role="body" size="sm" color="secondary">
-              Tu programa no pide nada esta semana.
+              {words.freeWeekNote}
             </Text>
           </View>
         ) : null}
@@ -416,29 +412,29 @@ export default function Today() {
           <View style={styles.heading}>
             <View style={styles.sectionHead}>
               <Text role="display" size="3xl" uppercase accessibilityRole="header">
-                Elige tu programa
+                {words.chooseProgram}
               </Text>
               {expanded || offered.hidden > 0 ? (
                 <Button
-                  label={expanded ? 'Ver menos' : 'Ver todos'}
+                  label={expanded ? words.seeLess : words.seeAll}
                   variant="ghost"
                   size="sm"
-                  accessibilityLabel={
-                    expanded ? 'Ver solo los sugeridos' : 'Ver todos los programas de Allfit'
-                  }
+                  accessibilityLabel={expanded ? words.seeSuggested : words.seeAllPrograms}
                   onPress={() => setExpanded(!expanded)}
                 />
               ) : null}
             </View>
             <Text role="body" size="sm" color="secondary">
-              {expanded
-                ? 'El catálogo completo, los que mejor encajan contigo primero.'
-                : 'Todavía no tienes ninguno. Estos encajan con lo que nos contaste.'}
+              {expanded ? words.catalogueExpanded : words.catalogueFolded}
             </Text>
           </View>
         ) : null}
 
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={failure === 'expired' ? text.training.expired : words.failure[failure]}
+          />
+        ) : null}
 
         {!assigned && offered.cards.length > 0 ? (
           <View style={styles.posters}>
@@ -455,12 +451,12 @@ export default function Today() {
         ) : null}
 
         {sessionExpired ? (
-          <Button label="Iniciar sesión" onPress={() => router.replace('/sign-in')} />
+          <Button label={words.signIn} onPress={() => router.replace('/sign-in')} />
         ) : null}
 
         {today === undefined && !failure ? (
           <Text role="body" size="sm" color="muted">
-            Cargando tu día…
+            {words.loading}
           </Text>
         ) : null}
 
@@ -474,8 +470,8 @@ export default function Today() {
         {!assigned ? (
           <OfferRow
             icon="create"
-            label="Crear el mío"
-            caption="Arma tu propio programa, día por día"
+            label={text.training.programs.createMine}
+            caption={text.training.programs.createMineCaption}
             tone="quiet"
             onPress={() => router.push('/programs/new')}
           />
@@ -488,8 +484,8 @@ export default function Today() {
             (`HU-SP-089` criterio 4). */}
         <OfferRow
           icon="freestyle"
-          label="Entrenamiento libre"
-          caption={freeOfferCaption(openFree)}
+          label={words.free}
+          caption={openFree ? words.freeWaiting : words.freeOffer}
           captionColor={openFree ? 'accent' : 'muted'}
           tone="quiet"
           onPress={trainFree}
@@ -499,14 +495,14 @@ export default function Today() {
           <View style={styles.section}>
             <View style={styles.sectionHead}>
               <Text role="control" size="md">
-                Historial
+                {words.history}
               </Text>
               {recent.length > 0 ? (
                 <Button
-                  label="Ver todo"
+                  label={words.seeEverything}
                   variant="ghost"
                   size="sm"
-                  accessibilityLabel="Ver todo el historial"
+                  accessibilityLabel={words.seeHistory}
                   onPress={() => router.push('/history')}
                 />
               ) : null}
@@ -537,7 +533,7 @@ export default function Today() {
               // The section stays rather than disappearing: an absent section reads as
               // a screen that is still loading, and "nothing yet" is an answer.
               <Text role="body" size="sm" color="muted">
-                Todavía no has terminado ninguna sesión. La primera aparece aquí.
+                {words.noHistory}
               </Text>
             )}
           </View>
@@ -553,7 +549,8 @@ export default function Today() {
       {bar ? (
         <InProgress
           executionId={bar.executionId}
-          title={bar.title}
+          // A free session has no title of its own; a planned one carries its routine's.
+          title={inProgress ? bar.title : words.free}
           bottom={Math.max(insets.bottom, 12) + DOCK_HEIGHT + 10}
           read={training.readExecution}
           onResume={() =>
@@ -563,21 +560,17 @@ export default function Today() {
         />
       ) : null}
 
-      <Sheet
-        visible={discarding}
-        onDismiss={() => setDiscarding(false)}
-        title="¿Descartar este entrenamiento?"
-      >
+      <Sheet visible={discarding} onDismiss={() => setDiscarding(false)} title={words.discardTitle}>
         <View style={styles.decisions}>
           <Button
-            label="Descartar entrenamiento"
+            label={words.discard}
             variant="secondary"
             loading={leaving}
             onPress={() => {
               if (bar) discard(bar.executionId)
             }}
           />
-          <Button label="Seguir entrenando" variant="ghost" onPress={() => setDiscarding(false)} />
+          <Button label={words.keepTraining} variant="ghost" onPress={() => setDiscarding(false)} />
         </View>
       </Sheet>
     </Screen>
@@ -606,6 +599,7 @@ function InProgress({
   readonly onDiscard: () => void
 }) {
   const theme = useTheme()
+  const words = useText().training.today
   const [startedAt, setStartedAt] = useState<number | undefined>(undefined)
   const [seconds, setSeconds] = useState(0)
 
@@ -644,32 +638,27 @@ function InProgress({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Volver a ${title}, en curso`}
+        accessibilityLabel={words.resume(title)}
         onPress={onResume}
         style={styles.inProgressResume}
       >
         <View style={[styles.live, { backgroundColor: theme.color.icon.accent }]} />
         <View style={styles.inProgressText}>
           <Text role="eyebrow" size="2xs" color="accent">
-            EN CURSO
+            {words.inProgress}
           </Text>
           <Text role="control" size="sm" numberOfLines={1}>
             {title}
           </Text>
         </View>
         {startedAt === undefined ? null : (
-          <Text role="data" size="md" accessibilityLabel={`Llevas ${elapsedLabel(seconds)}`}>
+          <Text role="data" size="md" accessibilityLabel={words.elapsed(elapsedLabel(seconds))}>
             {elapsedLabel(seconds)}
           </Text>
         )}
         <FoundationIcon name="collapse" size="sm" color={theme.color.icon.primary} decorative />
       </Pressable>
-      <IconButton
-        icon="close"
-        size="sm"
-        accessibilityLabel="Descartar entrenamiento"
-        onPress={onDiscard}
-      />
+      <IconButton icon="close" size="sm" accessibilityLabel={words.discard} onPress={onDiscard} />
     </View>
   )
 }
@@ -721,6 +710,9 @@ const Carousel = memo(function Carousel({
   readonly onStart: (card: RoutineCard) => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const locale = useLocale()
+  const { mass } = useUnits()
   const { width } = useWindowDimensions()
   const card = Math.min(CARD_MAX, width - DECK_GUTTER - PEEK)
   const step = card + CARD_GAP
@@ -758,7 +750,7 @@ const Carousel = memo(function Carousel({
     },
   )
   // The card in front says why it does not start; the others say it when they lead.
-  const notice = heldNotice(week[leadingIndex])
+  const notice = heldNotice(week[leadingIndex], text.training.week)
 
   return (
     <View style={styles.carousel}>
@@ -780,11 +772,14 @@ const Carousel = memo(function Carousel({
               key={one.routine.planned_session_id}
               width={card}
               title={one.routine.title}
-              figures={routineFigures({
-                exercise_count: one.routine.exercise_count,
-                set_count: one.routine.set_count,
-              })}
-              chip={dayChip(one.routine.program_day, today)}
+              figures={routineFigures(
+                {
+                  exercise_count: one.routine.exercise_count,
+                  set_count: one.routine.set_count,
+                },
+                text.training.library,
+              )}
+              chip={dayChip(one.routine.program_day, today, text.training.week)}
               load={routine?.muscle_sets}
               // Sin estilo elegido, la fotografía: es la que llena la tarjeta y la que
               // hace que una rutina se reconozca antes de leer su nombre. El servidor
@@ -796,11 +791,17 @@ const Carousel = memo(function Carousel({
               library={library}
               // El reverso. Lo que no se respondió no viaja, y la tarjeta que se queda
               // sin las dos cosas tampoco ofrece el botón de girar.
-              lastTime={lastTimeShown(one.routine.last_time, new Date())}
+              lastTime={lastTimeShown(
+                one.routine.last_time,
+                new Date(),
+                mass,
+                locale,
+                text.training.week,
+              )}
               actions={{
                 onOpen: () => routine && onOpen(routine.template_id),
                 onStart: () => onStart(one),
-                startLabel: startLabel(one.state),
+                startLabel: startLabel(one.state, text.training.week),
                 starting: starting === one.routine.planned_session_id,
                 held: !startable(one.state),
               }}
@@ -815,7 +816,7 @@ const Carousel = memo(function Carousel({
           active={leadingIndex}
           at={at}
           color={theme.color.icon.accent}
-          accessibilityLabel={`Rutina ${String(leadingIndex + 1)} de ${String(week.length)}`}
+          accessibilityLabel={text.training.today.routineOf(leadingIndex + 1, week.length)}
         />
       ) : null}
 
@@ -832,6 +833,9 @@ function Week({
   readonly days: readonly WeekDay[]
 }) {
   const theme = useTheme()
+  const words = useText().training.today
+  const locale = useLocale()
+  const { mass } = useUnits()
   const planned = Math.max(week.sessions_planned, 1)
   const done = Math.min(week.sessions_completed, planned)
   // The week's own work sets. Adding up `history` counted the latest sessions of any
@@ -842,14 +846,14 @@ function Week({
     <View style={styles.section}>
       <View style={styles.sectionHead}>
         <Text role="control" size="md">
-          Esta semana
+          {words.thisWeek}
         </Text>
         <Text
           role="control"
           size="xs"
           color={week.sessions_planned > 0 && done === planned ? 'success' : 'muted'}
         >
-          {`${week.sessions_completed} de ${week.sessions_planned}`}
+          {words.of(week.sessions_completed, week.sessions_planned)}
         </Text>
       </View>
       <View style={styles.bars}>
@@ -874,14 +878,18 @@ function Week({
           miran de un vistazo, y en una fila de texto la unidad se lee como parte del
           número de al lado. */}
       <View style={styles.figures}>
-        <Figure icon="time" value={trainedLabel(week.trained_seconds)} unit="Entrenando" />
+        <Figure icon="time" value={trainedLabel(week.trained_seconds)} unit={words.training} />
         {/* Las series de verdad en lugar de las calorías que el lienzo dibuja: no hay
             tablas de nutrición, así que aquello sólo podía ser un cero o una
             estimación, y esto es lo que la semana registró. */}
-        <Figure icon="checklist" value={String(sets)} unit={sets === 1 ? 'Serie' : 'Series'} />
+        <Figure icon="checklist" value={String(sets)} unit={words.sets(sets)} />
         {/* El peso que levantaste, no el que pesas. Lo segundo es una medida del
             cuerpo y vive en tu progreso; esta fila resume lo que hiciste. */}
-        <Figure icon="weight" value={liftedLabel(week.tonnage_kg)} unit="Levantado" />
+        <Figure
+          icon="weight"
+          value={liftedLabel(week.tonnage_kg, mass, locale)}
+          unit={words.lifted}
+        />
       </View>
     </View>
   )
@@ -894,10 +902,10 @@ function Week({
  * cifras que hay que leer despacio para saber si fue mucho. Nulo es que no se registró
  * carga, y eso es una raya y no un cero: cero diría que se entrenó sin mover nada.
  */
-function liftedLabel(kilos: number | null): string {
+function liftedLabel(kilos: number | null, mass: MassUnit, locale: Locale): string {
   if (kilos === null || kilos <= 0) return '—'
-  if (kilos >= 1000) return `${(kilos / 1000).toFixed(1).replace('.', ',')} t`
-  return `${String(Math.round(kilos))} kg`
+  const tonnage = tonnageFigure(kilos, mass, locale)
+  return `${tonnage.value} ${tonnage.unit}`
 }
 
 /** Una cifra de la semana: el glifo arriba, el número, y de qué es. */
@@ -938,7 +946,8 @@ function Figure({
 
 /** The notices, on the design system's round icon button. */
 function Bell({ onPress }: { readonly onPress: () => void }) {
-  return <IconButton icon="notification" accessibilityLabel="Tus avisos" onPress={onPress} />
+  const words = useText().training.today
+  return <IconButton icon="notification" accessibilityLabel={words.notices} onPress={onPress} />
 }
 
 const styles = StyleSheet.create({

@@ -15,5 +15,15 @@ import { identity } from './en/identity'
 import { password } from './en/password'
 import { pro } from './en/pro'
 import { profile } from './en/profile'
+import { training } from './en/training'
 
-export const en: Dictionary = { common, fitness, health, identity, password, pro, profile }
+export const en: Dictionary = {
+  common,
+  fitness,
+  health,
+  identity,
+  password,
+  pro,
+  profile,
+  training,
+}

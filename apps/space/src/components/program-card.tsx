@@ -17,16 +17,14 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import { programCaption, type ProgramSummary } from '../client/program-catalogue'
+import type { Dictionary } from '../i18n'
+import { useText } from '../i18n/use-text'
 
-export const ZONE_LABEL: Record<string, string> = {
-  chest: 'Pecho',
-  back: 'Espalda',
-  shoulders: 'Hombros',
-  arms: 'Brazos',
-  abs: 'Abdomen',
-  glutes: 'Glúteos',
-  legs: 'Piernas',
-  whole_body: 'Todo el cuerpo',
+/** A programme's emphasis, in the words the fitness profile uses for the same zones. */
+export function zoneLabel(zone: string, text: Dictionary): string {
+  if (zone === 'whole_body') return text.fitness.focus.wholeBody
+  const zones: Readonly<Record<string, string>> = text.fitness.focus.zones
+  return zones[zone] ?? zone
 }
 
 export interface ProgramCardProps {
@@ -42,19 +40,21 @@ export interface ProgramCardProps {
 export function ProgramCard({
   program,
   suggested,
-  badge = 'SUGERIDO PARA TI',
+  badge,
   busy,
   disabled,
   onPress,
 }: ProgramCardProps) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.catalogue
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${program.title}. ${programCaption(program)}. ${
-        program.weeks === null ? 'Sin fecha de fin' : `${program.weeks} semanas`
-      }${suggested ? '. Sugerido para ti' : ''}${program.locked ? '. Con Pro' : ''}`}
+      accessibilityLabel={`${program.title}. ${programCaption(program, words)}. ${
+        program.weeks === null ? words.noEndDate : words.weeks(program.weeks)
+      }${suggested ? `. ${words.suggested}` : ''}${program.locked ? `. ${words.withPro}` : ''}`}
       accessibilityState={{ disabled, busy }}
       disabled={disabled}
       onPress={onPress}
@@ -73,7 +73,7 @@ export function ProgramCard({
           {/* `control` and not `eyebrow`: the eyebrow's 0.2em tracking made a ten-point
               label physically wider than the eighteen-point name beneath it. */}
           <Text role="control" size="2xs" style={{ color: theme.color.action.onPrimary }}>
-            {badge}
+            {badge ?? words.suggestedBadge}
           </Text>
         </View>
       ) : null}
@@ -101,7 +101,7 @@ export function ProgramCard({
           </Text>
           {/* A size under the name: it qualifies the program, it does not announce it. */}
           <Text role="body" size="xs" color="muted">
-            {programCaption(program)}
+            {programCaption(program, words)}
           </Text>
           <View style={styles.zones}>
             {program.emphases.map((zone) => (
@@ -116,7 +116,7 @@ export function ProgramCard({
                 ]}
               >
                 <Text role="control" size="2xs" color="accent">
-                  {ZONE_LABEL[zone] ?? zone}
+                  {zoneLabel(zone, text)}
                 </Text>
               </View>
             ))}
@@ -131,7 +131,7 @@ export function ProgramCard({
             size={program.weeks === null ? 'md' : 'lg'}
             color={busy ? 'muted' : 'primary'}
           >
-            {busy ? '…' : program.weeks === null ? 'Sin fin' : `${program.weeks} sem`}
+            {busy ? '…' : program.weeks === null ? words.endless : words.weeksShort(program.weeks)}
           </Text>
           <FoundationIcon name="next" size="sm" color={theme.color.icon.accent} decorative />
         </View>

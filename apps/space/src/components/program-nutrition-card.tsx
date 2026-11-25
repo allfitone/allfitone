@@ -11,23 +11,25 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { StyleSheet, View } from 'react-native'
 
 import type { ProgramNutritionCopy } from '../client/program-nutrition'
+import { useText } from '../i18n/use-text'
 import { CardGlow, FIGURE_TRACKING, macroColor, Ring } from './nutrition-ui'
 
 export function ProgramNutritionCard({ copy }: { readonly copy: ProgramNutritionCopy }) {
   const theme = useTheme()
+  const text = useText().training.nutrition
   return (
     <View style={styles.section}>
       <View style={styles.head}>
         <Text role="eyebrow" size="2xs" color="muted">
-          NUTRICIÓN DEL PROGRAMA
+          {text.title}
         </Text>
         <Text role="control" size="xs" color="muted">
-          Ajustada a tu peso
+          {text.sized}
         </Text>
       </View>
       <View
         accessible
-        accessibilityLabel={`${copy.energy} kcal al día. ${copy.purpose}. ${copy.macros
+        accessibilityLabel={`${copy.energy} ${text.perDay}. ${copy.purpose}. ${copy.macros
           .map((macro) => `${macro.label} ${macro.value}`)
           .join(', ')}`}
         style={[
@@ -44,7 +46,7 @@ export function ProgramNutritionCard({ copy }: { readonly copy: ProgramNutrition
             {copy.energy}
           </Text>
           <Text role="control" size="sm" color="secondary" style={styles.unit}>
-            kcal al día
+            {text.perDay}
           </Text>
         </View>
         <Text role="body" size="sm" color="secondary">

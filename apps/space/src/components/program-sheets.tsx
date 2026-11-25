@@ -25,6 +25,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import type { MyRoutine } from '../client/content'
 import type { MyProgram } from '../client/programs'
 import { removalWarning, routinesNamed } from '../client/library'
+import { useText } from '../i18n/use-text'
 import { OfferRow } from './offer-row'
 
 /**
@@ -46,14 +47,15 @@ function DayHeading({
   /** Sólo cuando dice algo que el chip y la pregunta no dicen ya. */
   readonly line?: string
 }) {
+  const words = useText().training.sheets
   return (
     <View style={styles.heading}>
       <View style={styles.context}>
-        <Badge label={(day ?? 'ese día').toUpperCase()} tone="accent" variant="quiet" />
+        <Badge label={(day ?? words.thatDay).toUpperCase()} tone="accent" variant="quiet" />
         {/* La pregunta es el encabezado de la hoja, así que se anuncia como tal: la
             hoja no dibuja el suyo cuando este cuerpo está arriba. */}
         <Text role="control" size="lg" accessibilityRole="header">
-          ¿Qué toca este día?
+          {words.question}
         </Text>
       </View>
 
@@ -77,15 +79,16 @@ export function ProgramMenuBody({
   readonly onDuplicate: () => void
   readonly onRemove: () => void
 }) {
+  const words = useText().training.train
   return (
     <View style={styles.actions}>
       {program.editable ? (
-        <Button label="Editar" variant="secondary" icon="edit" onPress={onEdit} />
+        <Button label={words.edit} variant="secondary" icon="edit" onPress={onEdit} />
       ) : null}
       {/* Duplicar también el que no se puede editar: uno tomado de Allfit llega sin
           borrador, y la copia es la única manera de tener uno propio. */}
-      <Button label="Duplicar" variant="secondary" icon="duplicate" onPress={onDuplicate} />
-      <Button label="Eliminar" variant="ghost" icon="remove" onPress={onRemove} />
+      <Button label={words.duplicate} variant="secondary" icon="duplicate" onPress={onDuplicate} />
+      <Button label={words.remove} variant="ghost" icon="remove" onPress={onRemove} />
     </View>
   )
 }
@@ -104,21 +107,22 @@ export function ProgramRemovalBody({
   readonly onConfirm: () => void
   readonly onCancel: () => void
 }) {
+  const text = useText()
   return (
     <View style={styles.actions}>
       <Text role="body" size="md" color="muted">
-        {removalWarning(program, routines)}
+        {removalWarning(program, routines, text.training.library)}
       </Text>
       {/* Rojo, y es la primera vez que esta app lo usa en un botón: hasta ahora lo
           destructivo se dibujaba como un fantasma y se leía igual que «cancelar». */}
       <Button
-        label="Eliminar"
+        label={text.training.train.remove}
         variant="danger"
         icon="remove"
         loading={removing}
         onPress={onConfirm}
       />
-      <Button label="Cancelar" variant="secondary" onPress={onCancel} />
+      <Button label={text.common.cancel} variant="secondary" onPress={onCancel} />
     </View>
   )
 }
@@ -141,22 +145,20 @@ export function FirstRoutineBody({
   readonly day: string | undefined
   readonly onCreate: () => void
 }) {
+  const words = useText().training.sheets
   return (
     <View style={styles.first}>
-      <DayHeading
-        day={day}
-        line="Todavía está libre. Una rutina es la sesión que se repite: sus ejercicios, sus series y sus pesos."
-      />
+      <DayHeading day={day} line={words.first.line} />
 
       <OfferRow
         icon="add"
-        label="Crear una rutina"
-        caption="Eliges ejercicios, series y pesos"
+        label={words.first.create}
+        caption={words.first.createCaption}
         onPress={onCreate}
       />
 
       <Text role="body" size="xs" color="muted">
-        Cuando tengas una, podrás ponerla en cualquier día del programa.
+        {words.first.later}
       </Text>
     </View>
   )
@@ -197,6 +199,8 @@ export function DayRoutinesBody({
   readonly onCreate: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const words = text.training.sheets
   const [query, setQuery] = useState('')
   const shown = routinesNamed(routines, query)
   const searching = query.trim() !== ''
@@ -208,9 +212,9 @@ export function DayRoutinesBody({
       <DayHeading day={day} />
 
       <TextField
-        label="Buscar rutina"
+        label={words.search}
         hideLabel
-        placeholder="Busca por nombre"
+        placeholder={text.training.exercises.searchPlaceholder}
         value={query}
         onChangeText={setQuery}
         autoCapitalize="none"
@@ -242,7 +246,7 @@ export function DayRoutinesBody({
                   {routine.title}
                 </Text>
                 <Text role="body" size="xs" color="muted">
-                  {`${routine.exercise_count} ejercicios · ${routine.set_count} series`}
+                  {words.figures(routine.exercise_count, routine.set_count)}
                 </Text>
               </View>
               {chosen ? (
@@ -254,14 +258,14 @@ export function DayRoutinesBody({
 
         {searching && shown.length === 0 ? (
           <Text role="body" size="sm" color="muted">
-            Ninguna de tus rutinas se llama así.
+            {words.noMatch}
           </Text>
         ) : null}
 
         {searching ? null : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={day === undefined ? 'Dejar el día libre' : `Dejar el ${day} libre`}
+            accessibilityLabel={words.leaveFree(day)}
             onPress={onRest}
             style={[
               styles.option,
@@ -275,7 +279,7 @@ export function DayRoutinesBody({
             <FoundationIcon name="rest" size="sm" color={theme.color.icon.secondary} decorative />
             <View style={styles.optionText}>
               <Text role="control" size="sm">
-                Día de descanso
+                {words.rest}
               </Text>
             </View>
           </Pressable>
@@ -283,12 +287,12 @@ export function DayRoutinesBody({
 
         {hasDrafts ? (
           <Note icon="locked" style={styles.footnote}>
-            Tienes rutinas en borrador. Publícalas para poder ponerlas en un día.
+            {words.drafts}
           </Note>
         ) : null}
       </ScrollView>
 
-      <Button label="Crear una rutina nueva" variant="secondary" icon="add" onPress={onCreate} />
+      <Button label={words.createNew} variant="secondary" icon="add" onPress={onCreate} />
     </View>
   )
 }

@@ -38,6 +38,8 @@ import { IconButton } from '@allfitone/react-native/icon-button'
 import { Text } from '@allfitone/react-native/text'
 import { StyleSheet, View } from 'react-native'
 
+import { useText } from '../i18n/use-text'
+
 export function ScreenHeader({
   title,
   subtitle,
@@ -60,10 +62,11 @@ export function ScreenHeader({
   readonly onEdit?: (() => void) | undefined
 }) {
   const ready = onConfirm !== undefined
+  const text = useText()
 
   return (
     <View style={styles.row}>
-      <IconButton icon="close" accessibilityLabel="Cerrar" onPress={onClose} />
+      <IconButton icon="close" accessibilityLabel={text.training.header.close} onPress={onClose} />
       <View style={styles.heading}>
         <View style={styles.titleRow}>
           <Text role="control" size="xl" accessibilityRole="header" style={styles.title}>
@@ -74,7 +77,7 @@ export function ScreenHeader({
               icon="edit"
               variant="plain"
               size="sm"
-              accessibilityLabel="Cambiar el nombre"
+              accessibilityLabel={text.training.header.rename}
               onPress={onEdit}
             />
           ) : null}

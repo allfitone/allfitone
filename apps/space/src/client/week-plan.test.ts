@@ -1,20 +1,24 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   cardsFor,
   dayChip,
   firstCardShown,
   heldNotice,
-  LAST_TIME_LABEL,
   lastTimeShown,
   programDayOf,
   sessionInProgress,
   startLabel,
+  tonnageFigure,
   weekDays,
   weekPlanFailure,
   type WeekPlan,
   type WeekRoutine,
 } from './week-plan'
+
+const es = textFor('es').training.week
+const en = textFor('en').training.week
 
 function routine(overrides: Partial<WeekRoutine> = {}): WeekRoutine {
   return {
@@ -167,12 +171,12 @@ describe('a session the gym holds back (HU-BO-016, HU-SP-083)', () => {
       ]),
       1,
     )
-    expect(startLabel('paused')).toBe('En pausa')
-    expect(startLabel('missed')).toBe('No realizada')
-    expect(heldNotice(paused)).toBe(
+    expect(startLabel('paused', es)).toBe('En pausa')
+    expect(startLabel('missed', es)).toBe('No realizada')
+    expect(heldNotice(paused, es)).toBe(
       'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.',
     )
-    expect(heldNotice(missed)).toBe('No realizada: tu gimnasio estaba suspendido ese día.')
+    expect(heldNotice(missed, es)).toBe('No realizada: tu gimnasio estaba suspendido ese día.')
   })
 
   test('T-SPC-UNIT-334 a plan paused for a pending payment says so, not that the gym is suspended', () => {
@@ -184,11 +188,11 @@ describe('a session the gym holds back (HU-BO-016, HU-SP-083)', () => {
       1,
     )
     expect(paused?.state).toBe('paused')
-    expect(heldNotice(paused)).toBe(
+    expect(heldNotice(paused, es)).toBe(
       'Esta sesión está en pausa porque tu gimnasio pausó tu plan por un pago pendiente. Puedes seguir entrenando por tu cuenta.',
     )
     expect(missed?.state).toBe('missed')
-    expect(heldNotice(missed)).toBe('No realizada: tu plan estaba en pausa ese día.')
+    expect(heldNotice(missed, es)).toBe('No realizada: tu plan estaba en pausa ese día.')
   })
 
   test('T-SPC-UNIT-335 nothing to explain for a session that starts, or one left open', () => {
@@ -203,9 +207,9 @@ describe('a session the gym holds back (HU-BO-016, HU-SP-083)', () => {
       ]),
       1,
     )
-    expect(heldNotice(pending)).toBeUndefined()
-    expect(heldNotice(open)).toBeUndefined()
-    expect(heldNotice(undefined)).toBeUndefined()
+    expect(heldNotice(pending, es)).toBeUndefined()
+    expect(heldNotice(open, es)).toBeUndefined()
+    expect(heldNotice(undefined, es)).toBeUndefined()
   })
 })
 
@@ -232,8 +236,8 @@ describe('el carrusel de Hoy', () => {
   })
 
   test('T-SPC-UNIT-81 el chip dice el día, y «HOY» cuando toca hoy', () => {
-    expect(dayChip(3, 1)).toBe('MIÉRCOLES')
-    expect(dayChip(1, 1)).toBe('HOY')
+    expect(dayChip(3, 1, es)).toBe('MIÉRCOLES')
+    expect(dayChip(1, 1, es)).toBe('HOY')
   })
 
   test('T-SPC-UNIT-82 la semana son siete días, y se ve dónde están los libres', () => {
@@ -258,10 +262,10 @@ describe('el carrusel de Hoy', () => {
   })
 
   test('T-SPC-UNIT-84 el botón no promete empezar lo que ya está empezado', () => {
-    expect(startLabel('open')).toBe('Continuar')
-    expect(startLabel('done')).toBe('Repetir')
-    expect(startLabel('suggested')).toBe('Empezar')
-    expect(startLabel('pending')).toBe('Empezar')
+    expect(startLabel('open', es)).toBe('Continuar')
+    expect(startLabel('done', es)).toBe('Repetir')
+    expect(startLabel('suggested', es)).toBe('Empezar')
+    expect(startLabel('pending', es)).toBe('Empezar')
   })
 })
 
@@ -269,16 +273,17 @@ describe('lastTimeShown', () => {
   const today = new Date('2026-09-20T15:00:00Z')
 
   test('T-SPC-UNIT-85 una rutina sin pasado no dibuja la franja', () => {
-    expect(lastTimeShown(null, today)).toBeUndefined()
+    expect(lastTimeShown(null, today, 'kg', 'es', es)).toBeUndefined()
   })
 
   test('T-SPC-UNIT-86 dice a cuántos días quedó, y nombra el ayer', () => {
     const when = (trained_on: string) =>
-      lastTimeShown({ trained_on, seconds: 600, sets: 4, tonnage_kg: null }, today)?.when
+      lastTimeShown({ trained_on, seconds: 600, sets: 4, tonnage_kg: null }, today, 'kg', 'es', es)
+        ?.when
 
     // Hoy no se nombra: «la última vez, hoy» es una contradicción, y el rótulo solo
     // dice lo mismo sin ella.
-    expect(when('2026-09-20')).toBe(LAST_TIME_LABEL)
+    expect(when('2026-09-20')).toBe('LA ÚLTIMA VEZ')
     expect(when('2026-09-19')).toBe('LA ÚLTIMA VEZ, AYER')
     expect(when('2026-09-14')).toBe('LA ÚLTIMA VEZ, HACE 6 DÍAS')
   })
@@ -287,6 +292,9 @@ describe('lastTimeShown', () => {
     const shown = lastTimeShown(
       { trained_on: '2026-09-14', seconds: 3240, sets: 16, tonnage_kg: 5120.5 },
       today,
+      'kg',
+      'es',
+      es,
     )
 
     expect(shown?.figures).toEqual([
@@ -300,6 +308,9 @@ describe('lastTimeShown', () => {
     const shown = lastTimeShown(
       { trained_on: '2026-09-19', seconds: 60, sets: 1, tonnage_kg: 512.4 },
       today,
+      'kg',
+      'es',
+      es,
     )
 
     expect(shown?.figures).toEqual([
@@ -313,9 +324,51 @@ describe('lastTimeShown', () => {
     const shown = lastTimeShown(
       { trained_on: '2026-09-19', seconds: null, sets: 9, tonnage_kg: null },
       today,
+      'kg',
+      'es',
+      es,
     )
 
     expect(shown?.figures).toEqual([{ value: '9', unit: 'SERIES' }])
+  })
+})
+
+describe('the week in English and in pounds (TECH-44)', () => {
+  const today = new Date('2026-09-20T15:00:00Z')
+
+  test('T-SP-WEEK-23 the chip, the button and the notice speak English', () => {
+    expect(dayChip(3, 1, en)).toBe('WEDNESDAY')
+    expect(dayChip(1, 1, en)).toBe('TODAY')
+    expect(startLabel('done', en)).toBe('Repeat')
+    const [missed] = cardsFor(
+      plan([
+        routine({ program_day: 1, hold: { state: 'missed', cause: 'subscription_suspension' } }),
+      ]),
+      1,
+    )
+    expect(heldNotice(missed, en)).toBe('Missed: your plan was paused that day.')
+  })
+
+  test('T-SP-WEEK-24 the last time is counted in pounds when she reads pounds', () => {
+    const shown = lastTimeShown(
+      { trained_on: '2026-09-14', seconds: 60, sets: 1, tonnage_kg: 5120.5 },
+      today,
+      'lb',
+      'en',
+      en,
+    )
+    expect(shown?.when).toBe('LAST TIME, 6 DAYS AGO')
+    expect(shown?.figures).toEqual([
+      { value: '11,289', unit: 'POUNDS' },
+      { value: '1', unit: 'MINUTE' },
+      { value: '1', unit: 'SET' },
+    ])
+  })
+
+  test('T-SP-WEEK-25 tonnes are a metric figure; pounds never turn into tons', () => {
+    expect(tonnageFigure(5120.5, 'kg', 'en')).toEqual({ value: '5.1', unit: 't' })
+    expect(tonnageFigure(512.4, 'kg', 'es')).toEqual({ value: '512', unit: 'kg' })
+    expect(tonnageFigure(512.4, 'lb', 'es')).toEqual({ value: '1.130', unit: 'lb' })
   })
 })
 

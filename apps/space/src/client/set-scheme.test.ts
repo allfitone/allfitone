@@ -26,6 +26,10 @@ import {
   withLoad,
   withReps,
 } from './set-scheme'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training.sets
+const en = textFor('en').training.sets
 
 describe('what an exercise opens with', () => {
   test('T-SP-SETS-01 four working sets, every one of them editable', () => {
@@ -86,18 +90,18 @@ describe('changing what a set is', () => {
   })
 
   test('T-SP-SETS-10 a set nobody has loaded says so rather than showing a zero', () => {
-    expect(loadLabel(undefined, 'kg')).toBe('—')
-    expect(loadLabel(0, 'kg')).toBe('0 kg')
-    expect(loadLabel(60, 'lb')).toBe('60 lb')
+    expect(loadLabel(undefined, 'kg', 'es')).toBe('—')
+    expect(loadLabel(0, 'kg', 'es')).toBe('0 kg')
+    expect(loadLabel(60, 'lb', 'es')).toBe('60 lb')
   })
 })
 
 describe('choosing a rest', () => {
   test('T-SP-SETS-13 zero is a rest somebody chose, and reads as one', () => {
-    expect(restPresetLabel(0)).toBe('Ninguno')
-    expect(restLabel(0)).toBe('Sin descanso')
+    expect(restPresetLabel(0, es)).toBe('Ninguno')
+    expect(restLabel(0, es)).toBe('Sin descanso')
     // Not said at all is the third state, and is neither of those.
-    expect(restLabel(undefined)).toBe('Sin descanso definido')
+    expect(restLabel(undefined, es)).toBe('Sin descanso definido')
   })
 
   test('T-SP-SETS-14 every preset lands on the step the stepper moves by', () => {
@@ -115,33 +119,50 @@ describe('choosing a rest', () => {
 describe('what the row says', () => {
   test('T-SP-SETS-07 sets that agree read as a multiplication, and ones that differ do not', () => {
     expect(
-      setsLabel([
-        { kind: 'normal', reps: 8 },
-        { kind: 'normal', reps: 8 },
-      ]),
+      setsLabel(
+        [
+          { kind: 'normal', reps: 8 },
+          { kind: 'normal', reps: 8 },
+        ],
+        es,
+      ),
     ).toBe('2 × 8')
     expect(
-      setsLabel([
-        { kind: 'normal', reps: 12 },
-        { kind: 'normal', reps: 8 },
-      ]),
+      setsLabel(
+        [
+          { kind: 'normal', reps: 12 },
+          { kind: 'normal', reps: 8 },
+        ],
+        es,
+      ),
     ).toBe('2 series · varía')
-    expect(setsLabel([])).toBe('Sin series')
+    expect(setsLabel([], es)).toBe('Sin series')
   })
 
   test('T-SP-SETS-08 rest reads as a clock, and none is different from zero', () => {
-    expect(restLabel(90)).toBe('1 min 30 s')
-    expect(restLabel(120)).toBe('2 min')
-    expect(restLabel(45)).toBe('45 s')
+    expect(restLabel(90, es)).toBe('1 min 30 s')
+    expect(restLabel(120, es)).toBe('2 min')
+    expect(restLabel(45, es)).toBe('45 s')
     // Nobody said and "no rest" are different instructions, so they read differently.
-    expect(restLabel(0)).toBe('Sin descanso')
-    expect(restLabel(undefined)).toBe('Sin descanso definido')
+    expect(restLabel(0, es)).toBe('Sin descanso')
+    expect(restLabel(undefined, es)).toBe('Sin descanso definido')
   })
 
   test('T-SP-SETS-09 every preset has a label somebody can read', () => {
     for (const preset of REST_PRESETS) {
-      expect(restLabel(preset).length).toBeGreaterThan(0)
+      expect(restLabel(preset, es).length).toBeGreaterThan(0)
     }
     expect(Object.keys(SET_KIND_NAMES)).toHaveLength(4)
+  })
+})
+
+describe('the sets in English (TECH-44)', () => {
+  test('T-SP-SETS-16 the row and the rest speak English, and a load is written as the locale writes it', () => {
+    expect(setsLabel([{ kind: 'to_failure' }], en)).toBe('1 set · to failure')
+    expect(restLabel(undefined, en)).toBe('No rest set')
+    expect(restPresetLabel(0, en)).toBe('None')
+    expect(restPresetLabel(0)).toBe('Ninguno')
+    expect(loadLabel(22.5, 'kg', 'es')).toBe('22,5 kg')
+    expect(loadLabel(22.5, 'lb', 'en')).toBe('22.5 lb')
   })
 })

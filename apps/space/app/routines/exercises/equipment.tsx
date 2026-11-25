@@ -41,6 +41,7 @@ import {
 } from '../../../src/client/exercise-catalogue'
 import { exerciseFilter, rememberExerciseFilter } from '../../../src/client/exercise-pick'
 import { ScreenHeader } from '../../../src/components/screen-header'
+import { useText } from '../../../src/i18n/use-text'
 
 const PER_ROW = 3
 
@@ -59,6 +60,7 @@ function rowsOf<T>(items: readonly T[], size: number): readonly (readonly T[])[]
 
 export default function EquipmentFilter() {
   const router = useRouter()
+  const words = useText().training.exercises
   const flow = useMemo(() => createSpaceContentFlow(), [])
 
   const [filter, setFilter] = useState<ExerciseFilter>(() => exerciseFilter())
@@ -94,11 +96,11 @@ export default function EquipmentFilter() {
           somebody has to scroll back up to find. */}
       <View style={styles.head}>
         <ScreenHeader
-          title="Equipamiento"
+          title={words.equipment}
           subtitle={
             filter.equipment.length === 0
-              ? 'Con qué vas a entrenar'
-              : `${filter.equipment.length} ${filter.equipment.length === 1 ? 'tipo' : 'tipos'}`
+              ? words.equipmentHint
+              : words.kinds(filter.equipment.length)
           }
           onClose={() => router.back()}
           onConfirm={
@@ -106,14 +108,14 @@ export default function EquipmentFilter() {
               ? undefined
               : () => change(clearFacet(filter, 'equipment'))
           }
-          confirmLabel="Quitar"
-          confirmText="Quitar"
+          confirmLabel={words.remove}
+          confirmText={words.remove}
         />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text role="eyebrow" size="2xs" color="muted">
-          CON QUÉ
+          {words.withWhat}
         </Text>
 
         {rowsOf(equipment, PER_ROW).map((row, index) => (
@@ -143,12 +145,12 @@ export default function EquipmentFilter() {
         ))}
 
         <Text role="body" size="xs" color="muted">
-          Dice con qué es compatible un ejercicio, no qué hay en tu gimnasio.
+          {words.equipmentNote}
         </Text>
       </ScrollView>
 
       <Button
-        label={resultLabel(left.length)}
+        label={resultLabel(left.length, words)}
         disabled={left.length === 0}
         onPress={() => router.back()}
       />

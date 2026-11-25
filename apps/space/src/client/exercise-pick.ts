@@ -23,6 +23,7 @@
  * picked nothing, would append the previous batch again.
  */
 
+import type { Dictionary } from '../i18n'
 import type { Movement } from './content'
 import { NOTHING_FILTERED, type ExerciseFilter } from './exercise-catalogue'
 
@@ -53,10 +54,8 @@ export function isPicked(picked: readonly PickedMovement[], id: string): boolean
 }
 
 /** What the confirm says. Counting out loud is the only way the batch is visible. */
-export function pickLabel(count: number): string {
-  if (count <= 0) return 'Añadir'
-  if (count === 1) return 'Añadir 1 ejercicio'
-  return `Añadir ${count} ejercicios`
+export function pickLabel(count: number, text: Dictionary['training']['exercises']): string {
+  return count <= 0 ? text.add : text.addCount(count)
 }
 
 /**
@@ -66,8 +65,8 @@ export function pickLabel(count: number): string {
  * face; the noun is already on the screen, in its heading, so only the count is news.
  * `pickLabel` stays the accessible name, which is where the whole sentence belongs.
  */
-export function pickButton(count: number): string {
-  return count <= 0 ? 'Añadir' : `Añadir ${count}`
+export function pickButton(count: number, text: Dictionary['training']['exercises']): string {
+  return count <= 0 ? text.add : text.addShort(count)
 }
 
 /** The catalogue minus what the routine already trains, which is not offered twice. */

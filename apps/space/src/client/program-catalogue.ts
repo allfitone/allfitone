@@ -20,6 +20,11 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import type { Dictionary, Locale } from '../i18n'
+import { distanceLabel, kilometresFrom, type DistanceUnit } from '../units/units'
+
+type CatalogueWords = Dictionary['training']['catalogue']
+
 export type ProgramDay = AllfitV1Schemas['SpaceProgramDay']
 export type ProgramStep = AllfitV1Schemas['SpaceProgramStep']
 
@@ -133,42 +138,29 @@ function bestAt(
     }, undefined)
 }
 
-/** What the card says under the title: "5 días · con práctica". */
-export const LEVEL_LABEL: Record<TrainingExperience, string> = {
-  // Short forms of what the onboarding calls them — "Estoy empezando", "Tengo algo de
-  // práctica", "Tengo experiencia". Never "principiante": that vocabulary was
-  // rejected there, and a chip is not the place to bring it back.
-  starting: 'empezando',
-  some_practice: 'con práctica',
-  experienced: 'con experiencia',
-}
-
-export function programCaption(program: ProgramSummary): string {
-  const days = `${program.days_per_week} días`
-  // The lowest band it serves: a program for both is described by where it starts.
-  const level = (['starting', 'some_practice', 'experienced'] as const).find((candidate) =>
-    program.levels.includes(candidate),
-  )
-  return level ? `${days} · ${LEVEL_LABEL[level]}` : days
-}
-
 /**
- * Lo que la tarjeta del catálogo escribe debajo del nombre.
- *
- * Las tres cosas que `HU-SP-100` criterio 4 pide que se vean antes de elegir y que caben
- * en una línea: cuántos días, cuánto dura y para qué nivel es. Las zonas son la cuarta y
- * no van aquí —son fichas, no palabras—, porque siete zonas en una línea son un párrafo.
- *
- * **«Sin fin» y no un hueco**: un programa que se repite hasta que alguien lo cambie no
- * tiene un número que dar, y dejar el sitio vacío se lee como un dato que falta.
+ * What the card says under the title: «5 días · con práctica». The level words are short
+ * forms of the onboarding's, never «principiante», which was rejected there.
  */
-export function posterCaption(program: ProgramSummary): string {
-  const days = `${program.days_per_week} días`
-  const lasting = program.weeks === null ? 'Sin fin' : `${program.weeks} semanas`
-  const level = (['starting', 'some_practice', 'experienced'] as const).find((candidate) =>
+function levelOf(program: ProgramSummary): TrainingExperience | undefined {
+  // The lowest band it serves: a program for both is described by where it starts.
+  return (['starting', 'some_practice', 'experienced'] as const).find((candidate) =>
     program.levels.includes(candidate),
   )
-  return level ? `${days} · ${lasting} · ${LEVEL_LABEL[level]}` : `${days} · ${lasting}`
+}
+
+export function programCaption(program: ProgramSummary, text: CatalogueWords): string {
+  const days = text.days(program.days_per_week)
+  const level = levelOf(program)
+  return level ? `${days} · ${text.levels[level]}` : days
+}
+
+/** The poster's line also says how long it lasts, which the poster has room for. */
+export function posterCaption(program: ProgramSummary, text: CatalogueWords): string {
+  const days = text.days(program.days_per_week)
+  const lasting = program.weeks === null ? text.endless : text.weeks(program.weeks)
+  const level = levelOf(program)
+  return level ? `${days} · ${lasting} · ${text.levels[level]}` : `${days} · ${lasting}`
 }
 
 /** La lista que el primer día enseña, y cuántos programas quedan sin enseñar. */
@@ -245,8 +237,8 @@ export function totalExercises(days: readonly ProgramDay[]): number {
 }
 
 /** Lo que la tarjeta de un día escribe bajo su nombre: «5 ej · ~50 min». */
-export function dayFigures(day: ProgramDay): string {
-  const exercises = `${day.steps.length} ej`
+export function dayFigures(day: ProgramDay, text: CatalogueWords): string {
+  const exercises = text.exercisesShort(day.steps.length)
   const minutes = estimatedMinutes(day)
   return minutes > 0 ? `${exercises} · ~${minutes} min` : exercises
 }
@@ -258,7 +250,12 @@ export function dayFigures(day: ProgramDay): string {
  * asserted in a test instead of being judged from a screenshot, and so the same
  * numbers can be shown differently somewhere else without a second endpoint.
  */
-export function targetLabel(target: ProgramStep['target']): string {
+export function targetLabel(
+  target: ProgramStep['target'],
+  text: CatalogueWords,
+  distanceUnit: DistanceUnit,
+  locale: Locale,
+): string {
   const value = (key: string): number | undefined => {
     const raw = (target as Record<string, unknown>)[key]
     return typeof raw === 'number' ? raw : undefined
@@ -270,13 +267,13 @@ export function targetLabel(target: ProgramStep['target']): string {
     const reps = value('target_reps')
     if (sets === undefined) return ''
     // No reps is a hold — a plank is three sets of "as long as you can".
-    return reps === undefined ? `${sets} series` : `${sets} × ${reps}`
+    return reps === undefined ? text.sets(sets) : `${sets} × ${reps}`
   }
   if (family === 'endurance') {
     const distance = value('target_distance_value')
     if (distance !== undefined) {
       const unit = (target as { target_distance_unit_code?: unknown }).target_distance_unit_code
-      return `${distance} ${typeof unit === 'string' ? unit : ''}`.trim()
+      return distanceTarget(distance, typeof unit === 'string' ? unit : '', distanceUnit, locale)
     }
     const seconds = value('target_duration_seconds')
     return seconds === undefined ? '' : `${Math.round(seconds / 60)} min`
@@ -291,9 +288,23 @@ export function targetLabel(target: ProgramStep['target']): string {
     const hold = value('hold_duration_seconds')
     const reps = value('target_repetitions')
     if (hold !== undefined) return `${hold}s`
-    return reps === undefined ? '' : `${reps} rep`
+    return reps === undefined ? '' : text.reps(reps)
   }
   return ''
+}
+
+/**
+ * A distance in the person's unit. Metres stay metres for somebody who reads kilometres:
+ * «400 m» is how a track interval is said, and «0,4 km» is not.
+ */
+function distanceTarget(value: number, code: string, unit: DistanceUnit, locale: Locale): string {
+  if (code === 'km' || code === 'mi') {
+    return distanceLabel(kilometresFrom(value, code), unit, locale)
+  }
+  if (code === 'm') {
+    return unit === 'km' ? `${String(value)} m` : distanceLabel(value / 1000, unit, locale)
+  }
+  return `${String(value)} ${code}`.trim()
 }
 
 /** Rest between strength sets, which nothing in the catalogue records. */

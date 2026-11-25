@@ -15,6 +15,7 @@ import { Image } from 'expo-image'
 import { Pressable, StyleSheet, View } from 'react-native'
 
 import { dayFigures, type ProgramDay } from '../client/program-catalogue'
+import { useText } from '../i18n/use-text'
 
 /**
  * Lo que mide una tarjeta de día, y lo que mide la previa de un ejercicio.
@@ -58,12 +59,13 @@ export function DayCard({
   readonly onPress: () => void
 }) {
   const theme = useTheme()
+  const words = useText().training.catalogue
 
   return (
     <Pressable
       accessibilityRole="tab"
       accessibilityState={{ selected: open }}
-      accessibilityLabel={`${day.title}. ${dayFigures(day)}`}
+      accessibilityLabel={`${day.title}. ${dayFigures(day, words)}`}
       onPress={onPress}
       style={[
         styles.dayCard,
@@ -96,7 +98,7 @@ export function DayCard({
           {day.title}
         </Text>
         <Text role="body" size="xs" color="secondary">
-          {dayFigures(day)}
+          {dayFigures(day, words)}
         </Text>
       </View>
     </Pressable>
@@ -117,6 +119,7 @@ export function ExerciseCard({
   readonly onPress?: (() => void) | undefined
 }) {
   const theme = useTheme()
+  const words = useText().training.catalogue
 
   return (
     <Pressable
@@ -124,7 +127,7 @@ export function ExerciseCard({
       disabled={!onPress}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={onPress ? `Ver ${name}` : undefined}
+      accessibilityLabel={onPress ? words.seeNamed(name) : undefined}
     >
       <View
         style={[

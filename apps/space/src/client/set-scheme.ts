@@ -20,6 +20,10 @@
 
 import type { BadgeTone } from '@allfitone/react-native/badge'
 
+import { intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
+
+type SetWords = Dictionary['training']['sets']
+
 export type SetKind = 'normal' | 'warmup' | 'to_failure' | 'drop'
 
 export type MassUnit = 'kg' | 'lb'
@@ -41,6 +45,7 @@ const NORMAL = (reps: number): WorkingSet => ({ kind: 'normal', reps })
 /** What an exercise starts with. Four of eight, and every one of them editable. */
 export const OPENING_SETS: readonly WorkingSet[] = [NORMAL(8), NORMAL(8), NORMAL(8), NORMAL(8)]
 
+/** Spanish, for the session screens until they read `text.training.sets.kinds`. */
 export const SET_KIND_NAMES: Readonly<Record<SetKind, string>> = {
   normal: 'Normal',
   warmup: 'Calentamiento',
@@ -64,6 +69,7 @@ export const SET_KIND_TONES: Readonly<Record<SetKind, BadgeTone>> = {
   drop: 'sport',
 }
 
+/** Spanish, for the session screens until they read `text.training.sets.details`. */
 export const SET_KIND_DETAILS: Readonly<Record<SetKind, string>> = {
   normal: 'Serie de trabajo, la que cuenta para el volumen',
   warmup: 'Carga ligera, no suma al volumen',
@@ -98,8 +104,8 @@ export function withLoad(set: WorkingSet, load: number | undefined): WorkingSet 
 }
 
 /** What the weight column shows. A set nobody has loaded says so, not «0». */
-export function loadLabel(load: number | undefined, unit: MassUnit): string {
-  return load === undefined ? '—' : `${load} ${unit}`
+export function loadLabel(load: number | undefined, unit: MassUnit, locale: Locale): string {
+  return load === undefined ? '—' : `${load.toLocaleString(intlLocale(locale))} ${unit}`
 }
 
 /** The other one. The exercise carries a unit, so there is always one to swap to. */
@@ -108,22 +114,22 @@ export function otherUnit(unit: MassUnit): MassUnit {
 }
 
 /** What the row says under the name: «4 × 8», «3 series», «4 series · varía». */
-export function setsLabel(sets: readonly WorkingSet[]): string {
-  if (sets.length === 0) return 'Sin series'
+export function setsLabel(sets: readonly WorkingSet[], text: SetWords): string {
+  if (sets.length === 0) return text.none
   const counted = sets.filter((one) => one.kind !== 'warmup').length || sets.length
   const reps = new Set(sets.map((one) => one.reps))
   if (reps.size === 1) {
     const only = sets[0]?.reps
-    if (only === undefined) return `${counted} series · al fallo`
+    if (only === undefined) return text.toFailure(counted)
     return `${counted} × ${only}`
   }
-  return `${counted} series · varía`
+  return text.varies(counted)
 }
 
 /** Rest reads as a clock, because that is how somebody waiting for it thinks of it. */
-export function restLabel(seconds: number | undefined): string {
-  if (seconds === undefined) return 'Sin descanso definido'
-  if (seconds === 0) return 'Sin descanso'
+export function restLabel(seconds: number | undefined, text: SetWords): string {
+  if (seconds === undefined) return text.restUnset
+  if (seconds === 0) return text.noRest
   const minutes = Math.floor(seconds / 60)
   const rest = seconds % 60
   if (minutes === 0) return `${rest} s`
@@ -133,8 +139,12 @@ export function restLabel(seconds: number | undefined): string {
 export const REST_PRESETS: readonly number[] = [0, 45, 60, 90, 120, 180, 300]
 
 /** The same seconds as a chip reads them. «Ninguno» is a choice; «sin definir» is not. */
-export function restPresetLabel(seconds: number): string {
-  return seconds === 0 ? 'Ninguno' : restLabel(seconds)
+// The default keeps the session screens, which do not pass their words yet, in Spanish.
+export function restPresetLabel(
+  seconds: number,
+  text: SetWords = textFor('es').training.sets,
+): string {
+  return seconds === 0 ? text.restNone : restLabel(seconds, text)
 }
 
 /** The ceiling the stepper stops at. Ten minutes between sets is not a rest any more. */

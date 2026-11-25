@@ -22,8 +22,12 @@
  * refuses the start anyway.
  */
 
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
 import type { PreviewFigure } from './home-preview'
 import type { WeekPlan, WeekRoutine } from './programs'
+
+type WeekWords = Dictionary['training']['week']
 
 export type { WeekPlan, WeekRoutine }
 
@@ -91,8 +95,6 @@ export function weekPlanFailure(failure: string | undefined): WeekPlanFailure {
 }
 
 /** De lunes a domingo, como los cuenta el programa: 1 es lunes y 7 domingo. */
-const DAY_NAMES = ['', 'LUNES', 'MARTES', 'MIÉRCOLES', 'JUEVES', 'VIERNES', 'SÁBADO', 'DOMINGO']
-
 /**
  * Qué día es hoy en el mismo sistema que usa el programa.
  *
@@ -110,9 +112,10 @@ export function programDayOf(date: Date): number {
  * El día y no la fecha: el carrusel enseña la semana entera y lo que distingue una
  * tarjeta de otra es el día que el programa le puso, no cuándo cae en el calendario.
  */
-export function dayChip(programDay: number, today: number): string {
-  if (programDay === today) return 'HOY'
-  return DAY_NAMES[programDay] ?? ''
+/** `program_day` runs from 1, Monday, to 7, Sunday; `text.days` starts at Monday. */
+export function dayChip(programDay: number, today: number, text: WeekWords): string {
+  if (programDay === today) return text.today
+  return text.days[programDay - 1] ?? ''
 }
 
 /**
@@ -177,11 +180,11 @@ export function weekDays(cards: readonly RoutineCard[], today: number): readonly
  * Un intento abierto se continúa y una sesión cerrada se repite: prometer «empezar» sobre
  * algo a medias es lo que hace que alguien pierda lo que llevaba.
  */
-export function startLabel(state: RoutineState): string {
-  if (state === 'open') return 'Continuar'
-  if (state === 'paused') return 'En pausa'
-  if (state === 'missed') return 'No realizada'
-  return state === 'done' ? 'Repetir' : 'Empezar'
+export function startLabel(state: RoutineState, text: WeekWords): string {
+  if (state === 'open') return text.start.open
+  if (state === 'paused') return text.start.paused
+  if (state === 'missed') return text.start.missed
+  return state === 'done' ? text.start.done : text.start.start
 }
 
 /** Whether the button starts anything: a session the gym holds back does not. */
@@ -190,30 +193,13 @@ export function startable(state: RoutineState): boolean {
 }
 
 /**
- * What each cause says, paused and missed. The pause reminds her that training does
- * not depend on the gym: its programs pause, her own and free training go on.
- */
-const HELD_NOTICES: Record<RoutineHold['cause'], Record<RoutineHold['state'], string>> = {
-  organization_suspension: {
-    paused:
-      'Esta sesión está en pausa porque tu gimnasio está suspendido. Puedes seguir entrenando por tu cuenta.',
-    missed: 'No realizada: tu gimnasio estaba suspendido ese día.',
-  },
-  subscription_suspension: {
-    paused:
-      'Esta sesión está en pausa porque tu gimnasio pausó tu plan por un pago pendiente. Puedes seguir entrenando por tu cuenta.',
-    missed: 'No realizada: tu plan estaba en pausa ese día.',
-  },
-}
-
-/**
  * Why a gym's session does not start, said next to the button that does not. Nothing
  * for one that starts, including one held but already open, which is finished.
  */
-export function heldNotice(card: RoutineCard | undefined): string | undefined {
+export function heldNotice(card: RoutineCard | undefined, text: WeekWords): string | undefined {
   const hold = card?.routine.hold
   if (!card || !hold || startable(card.state)) return undefined
-  return HELD_NOTICES[hold.cause][hold.state]
+  return text.held[hold.cause][hold.state]
 }
 
 /** Cómo fue la última vez que se hizo esta rutina, tal y como la responde la agenda. */
@@ -234,63 +220,56 @@ function daysBetween(trainedOn: string, today: Date): number {
   return Math.round((now - then) / 86_400_000)
 }
 
-/**
- * Lo que el reverso de la tarjeta escribe de la última vez.
- *
- * **Se omite lo que no se respondió, y nunca se dibuja como cero.** Una rutina que no es
- * de fuerza no tiene tonelaje y una ejecución que nadie cerró no tiene duración; poner un
- * cero ahí afirmaría un entrenamiento sin trabajo, que es justo lo que no ocurrió.
- *
- * El tonelaje baja a kilos por debajo de la tonelada: «0,5 TONELADAS» es una cifra que
- * hay que traducir mentalmente para saber si fue mucho o poco.
- */
-/** El rótulo del bloque, que está siempre aunque no haya nada debajo. */
-export const LAST_TIME_LABEL = 'LA ÚLTIMA VEZ'
+/** Above a tonne kilos read as tonnes; pounds stay whole, grouped as the locale groups. */
+export function tonnageFigure(
+  kilograms: number,
+  unit: MassUnit,
+  locale: Locale,
+): { readonly value: string; readonly unit: 't' | MassUnit } {
+  const figure = (value: number, digits: number) =>
+    value.toLocaleString(intlLocale(locale), {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })
+  if (unit === 'kg' && kilograms >= 1000) return { value: figure(kilograms / 1000, 1), unit: 't' }
+  return { value: figure(Math.round(massIn(kilograms, unit)), 0), unit }
+}
 
 /**
- * Lo que va donde irían las cifras cuando nunca se entrenó.
+ * What the back of the card writes about the last time.
  *
- * El bloque no desaparece: un hueco que a veces está y a veces no hace que la tarjeta
- * cambie de forma según la rutina, y quien la gira no sabe si le falta algo o si es que
- * no hay nada. Decirlo ocupa el mismo sitio y contesta la pregunta.
+ * **What was not answered is left out, never drawn as zero.** A routine that is not
+ * strength has no tonnage, and an execution nobody closed has no duration.
  */
-export const LAST_TIME_NONE = 'Sin sesiones registradas'
-
 export function lastTimeShown(
   last: RoutineLastTime | null | undefined,
   today: Date,
+  mass: MassUnit,
+  locale: Locale,
+  text: WeekWords,
 ): LastTimeShown | undefined {
   if (!last) return undefined
 
   const days = daysBetween(last.trained_on, today)
-  // Sin «HOY»: si fue hoy, no es «la última vez, hoy» — es hoy, y el rótulo solo ya lo
-  // dice. Ayer y los días que hayan pasado sí añaden algo que el rótulo no tiene.
+  // No «today»: the label alone already says it; yesterday and older add something.
   const when =
-    days <= 0
-      ? LAST_TIME_LABEL
-      : days === 1
-        ? `${LAST_TIME_LABEL}, AYER`
-        : `${LAST_TIME_LABEL}, HACE ${days} DÍAS`
+    days <= 0 ? text.lastTime.label : days === 1 ? text.lastTime.yesterday : text.lastTime.ago(days)
 
   const figures: PreviewFigure[] = []
 
   if (last.tonnage_kg !== null && last.tonnage_kg > 0) {
-    figures.push(
-      last.tonnage_kg >= 1000
-        ? { value: (last.tonnage_kg / 1000).toFixed(1).replace('.', ','), unit: 'TONELADAS' }
-        : { value: String(Math.round(last.tonnage_kg)), unit: 'KILOS' },
-    )
+    const tonnage = tonnageFigure(last.tonnage_kg, mass, locale)
+    figures.push({ value: tonnage.value, unit: text.lastTime.tonnage[tonnage.unit] })
   }
 
   if (last.seconds !== null && last.seconds > 0) {
-    // Un minuto es el suelo: una sesión de cuarenta segundos duró algo, y «0 MINUTOS»
-    // dice que no duró nada.
+    // A minute is the floor: forty seconds lasted something, «0 minutes» says it did not.
     const minutes = Math.max(1, Math.round(last.seconds / 60))
-    figures.push({ value: String(minutes), unit: minutes === 1 ? 'MINUTO' : 'MINUTOS' })
+    figures.push({ value: String(minutes), unit: text.lastTime.minutes(minutes) })
   }
 
   if (last.sets > 0) {
-    figures.push({ value: String(last.sets), unit: last.sets === 1 ? 'SERIE' : 'SERIES' })
+    figures.push({ value: String(last.sets), unit: text.lastTime.sets(last.sets) })
   }
 
   return { when, figures }

@@ -18,6 +18,8 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
+import type { Dictionary } from '../i18n'
+
 export type Movement = AllfitV1Schemas['Movement']
 export type CatalogueTerm = AllfitV1Schemas['CatalogueTerm']
 export type MuscleTerm = AllfitV1Schemas['MuscleTerm']
@@ -386,9 +388,8 @@ export function collapseBaseWeek(
 }
 
 /** «8 semanas», «1 semana» when there is only one, and the one with no end. */
-export function weeksLabel(weeks: number | null): string {
-  if (weeks === null) return 'Sin fecha de fin'
-  return weeks === 1 ? '1 semana' : `${weeks} semanas`
+export function weeksLabel(weeks: number | null, text: Dictionary['training']['load']): string {
+  return weeks === null ? text.noEnd : text.weeks(weeks)
 }
 
 /**
@@ -402,15 +403,14 @@ export function weeksLabel(weeks: number | null): string {
 export function programLoad(
   weeks: number | null,
   summary: { daysPerWeek: number; sessions: number | null },
+  text: Dictionary['training']['load'],
 ): string {
-  if (summary.daysPerWeek === 0) return `${weeksLabel(weeks)} · sin días puestos todavía`
-  const perWeek =
-    summary.daysPerWeek === 1 ? '1 día por semana' : `${summary.daysPerWeek} días por semana`
+  if (summary.daysPerWeek === 0) return `${weeksLabel(weeks, text)} · ${text.noDays}`
+  const perWeek = text.daysPerWeek(summary.daysPerWeek)
   // Sin fecha de fin no hay un total de sesiones que decir, y decir el de una vuelta
   // sería contar la primera semana como si fuera el programa entero.
-  if (summary.sessions === null) return `${weeksLabel(weeks)} · ${perWeek}`
-  const sessions = summary.sessions === 1 ? '1 sesión' : `${summary.sessions} sesiones`
-  return `${weeksLabel(weeks)} · ${perWeek} · ${sessions}`
+  if (summary.sessions === null) return `${weeksLabel(weeks, text)} · ${perWeek}`
+  return `${weeksLabel(weeks, text)} · ${perWeek} · ${text.sessions(summary.sessions)}`
 }
 
 /** What `PR-1` shows under the week: how much of it there actually is. */

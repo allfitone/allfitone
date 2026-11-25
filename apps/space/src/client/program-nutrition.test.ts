@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import { programNutritionCopy } from './program-nutrition'
+
+const es = textFor('es').training.nutrition
+const en = textFor('en').training.nutrition
 
 const nutrition = {
   goal_code: 'build_muscle' as const,
@@ -42,13 +46,13 @@ const nutrition = {
 
 describe("the programme's nutrition, as the detail says it", () => {
   test('T-SPC-UNIT-308 energy as a range of kcal, and what the goal is for', () => {
-    const copy = programNutritionCopy(nutrition, 5, 'es')
+    const copy = programNutritionCopy(nutrition, 5, 'es', es)
     expect(copy.energy).toBe('2.800–3.100')
     expect(copy.purpose).toBe('Para ganar músculo con 5 días por semana')
   })
 
   test('T-SPC-UNIT-309 the three macros in order, each with its share of the energy', () => {
-    const copy = programNutritionCopy(nutrition, 5, 'es')
+    const copy = programNutritionCopy(nutrition, 5, 'es', es)
     expect(copy.macros.map((macro) => [macro.code, macro.value, macro.label])).toEqual([
       ['protein', '160 g', 'Proteína'],
       ['carbohydrates', '360 g', 'Carbos'],
@@ -59,11 +63,20 @@ describe("the programme's nutrition, as the detail says it", () => {
   })
 
   test('T-SPC-UNIT-310 a goal for a race or for staying fit says so', () => {
-    expect(programNutritionCopy({ ...nutrition, goal_code: 'run_a_race' }, 4, 'es').purpose).toBe(
-      'Para preparar una carrera con 4 días por semana',
-    )
-    expect(programNutritionCopy({ ...nutrition, goal_code: 'lose_weight' }, 1, 'es').purpose).toBe(
-      'Para perder grasa con 1 día por semana',
-    )
+    expect(
+      programNutritionCopy({ ...nutrition, goal_code: 'run_a_race' }, 4, 'es', es).purpose,
+    ).toBe('Para preparar una carrera con 4 días por semana')
+    expect(
+      programNutritionCopy({ ...nutrition, goal_code: 'lose_weight' }, 1, 'es', es).purpose,
+    ).toBe('Para perder grasa con 1 día por semana')
+  })
+})
+
+describe("the programme's nutrition in English (TECH-44)", () => {
+  test('T-SP-PROGRAM-27 the purpose and the macros read in English, figures grouped as English does', () => {
+    const copy = programNutritionCopy(nutrition, 1, 'en', en)
+    expect(copy.energy).toBe('2,800–3,100')
+    expect(copy.purpose).toBe('To build muscle, training 1 day a week')
+    expect(copy.macros.map((macro) => macro.label)).toEqual(['Protein', 'Carbs', 'Fat'])
   })
 })

@@ -18,6 +18,10 @@ import {
   toggleFilter,
 } from './exercise-catalogue'
 import type { CatalogueTerm, Movement, MuscleTerm } from './content'
+import { textFor } from '../i18n'
+
+const es = textFor('es').training.exercises
+const en = textFor('en').training.exercises
 
 const MUSCLES: MuscleTerm[] = [
   { code: 'chest', name: 'Pecho', region: 'upper', body_slug: 'chest' },
@@ -106,26 +110,32 @@ describe('the numbers a filter screen shows', () => {
   })
 
   test('T-SP-CAT-08 the button says how many, in the right number', () => {
-    expect(resultLabel(0)).toBe('Ver 0 ejercicios')
-    expect(resultLabel(1)).toBe('Ver 1 ejercicio')
-    expect(resultLabel(12)).toBe('Ver 12 ejercicios')
+    expect(resultLabel(0, es)).toBe('Ver 0 ejercicios')
+    expect(resultLabel(1, es)).toBe('Ver 1 ejercicio')
+    expect(resultLabel(12, es)).toBe('Ver 12 ejercicios')
   })
 
   test('T-SP-CAT-09 a facet says what it is set to without being opened', () => {
     const one = toggleFilter(NOTHING_FILTERED, 'muscle', 'chest', MUSCLES)
 
-    expect(facetSummary(NOTHING_FILTERED, 'muscle')).toBe('cualquiera')
-    expect(facetSummary(one, 'muscle')).toBe('1 grupo')
-    expect(facetSummary(toggleFilter(one, 'muscle', 'glutes', MUSCLES), 'muscle')).toBe('2 grupos')
+    expect(facetSummary(NOTHING_FILTERED, 'muscle', es)).toBe('cualquiera')
+    expect(facetSummary(one, 'muscle', es)).toBe('1 grupo')
+    expect(facetSummary(toggleFilter(one, 'muscle', 'glutes', MUSCLES), 'muscle', es)).toBe(
+      '2 grupos',
+    )
     expect(
-      facetSummary(toggleFilter(NOTHING_FILTERED, 'equipment', 'barbell', EQUIPMENT), 'equipment'),
+      facetSummary(
+        toggleFilter(NOTHING_FILTERED, 'equipment', 'barbell', EQUIPMENT),
+        'equipment',
+        es,
+      ),
     ).toBe('1 tipo')
   })
 
   test('T-SP-CAT-10 the list count says when it is filtered and not the whole library', () => {
-    expect(listSummary(38, false)).toBe('38 ejercicios')
-    expect(listSummary(1, false)).toBe('1 ejercicio')
-    expect(listSummary(4, true)).toBe('4 ejercicios · filtrado')
+    expect(listSummary(38, false, es)).toBe('38 ejercicios')
+    expect(listSummary(1, false, es)).toBe('1 ejercicio')
+    expect(listSummary(4, true, es)).toBe('4 ejercicios · filtrado')
   })
 })
 
@@ -202,7 +212,7 @@ describe('the figure and the muscle list say the same thing', () => {
   })
 
   test('T-SP-CAT-18 the blocks follow the catalogue regions, upper before lower', () => {
-    const blocks = muscleBlocks(MUSCLES)
+    const blocks = muscleBlocks(MUSCLES, es)
 
     expect(blocks.map((block) => block.region)).toEqual(['upper', 'lower', 'general'])
     expect(blocks[0]?.title).toBe('TREN SUPERIOR')
@@ -210,7 +220,7 @@ describe('the figure and the muscle list say the same thing', () => {
   })
 
   test('T-SP-CAT-19 an empty vocabulary is no blocks, not one empty block', () => {
-    expect(muscleBlocks([])).toEqual([])
+    expect(muscleBlocks([], es)).toEqual([])
   })
 })
 
@@ -243,5 +253,14 @@ describe('turning one on and off', () => {
 
     expect(isFiltered(both, 'muscle', 'barbell')).toBe(false)
     expect(clearFacet(both, 'equipment').muscles).toEqual(['chest'])
+  })
+})
+
+describe('the exercise catalogue in English (TECH-44)', () => {
+  test('T-SP-CAT-26 counts and summaries speak English, plural included', () => {
+    expect(resultLabel(1, en)).toBe('See 1 exercise')
+    expect(resultLabel(12, en)).toBe('See 12 exercises')
+    expect(facetSummary(NOTHING_FILTERED, 'muscle', en)).toBe('any')
+    expect(listSummary(4, true, en)).toBe('4 exercises · filtered')
   })
 })

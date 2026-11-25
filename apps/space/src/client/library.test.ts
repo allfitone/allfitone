@@ -24,8 +24,12 @@ import {
   whereUsed,
   type RoutineFilter,
 } from './library'
+import { textFor } from '../i18n'
 import type { MyRoutine } from './content'
 import type { MyProgram } from './programs'
+
+const es = textFor('es').training.library
+const en = textFor('en').training.library
 
 function routine(overrides: Partial<MyRoutine> = {}): MyRoutine {
   return {
@@ -69,7 +73,7 @@ function program(overrides: Partial<MyProgram> = {}): MyProgram {
 describe('whereUsed', () => {
   test('names the one programme a routine is in', () => {
     expect(
-      whereUsed(routine({ programs: [{ program_id: 'p1', title: 'Fuerza básica' }] })),
+      whereUsed(routine({ programs: [{ program_id: 'p1', title: 'Fuerza básica' }] }), es),
     ).toEqual({ text: 'En Fuerza básica', loose: false })
   })
 
@@ -80,7 +84,7 @@ describe('whereUsed', () => {
         { program_id: 'p2', title: 'Torso y pierna' },
       ],
     })
-    expect(whereUsed(both).text).toBe('En Fuerza básica y Torso y pierna')
+    expect(whereUsed(both, es).text).toBe('En Fuerza básica y Torso y pierna')
   })
 
   test('and three enumerate with commas and a final «y»', () => {
@@ -91,33 +95,33 @@ describe('whereUsed', () => {
         { program_id: 'p3', title: 'C' },
       ],
     })
-    expect(whereUsed(three).text).toBe('En A, B y C')
+    expect(whereUsed(three, es).text).toBe('En A, B y C')
   })
 
   test('says so out loud when a routine is in none, rather than leaving a hole', () => {
-    expect(whereUsed(routine())).toEqual({ text: 'Sin programa', loose: true })
+    expect(whereUsed(routine(), es)).toEqual({ text: 'Sin programa', loose: true })
   })
 })
 
 describe('programCaption', () => {
   test('a programme of your own says it is yours', () => {
-    expect(programCaption(program())).toBe('Tuyo · 12 semanas · 2 días')
+    expect(programCaption(program(), es)).toBe('Tuyo · 12 semanas · 2 días')
   })
 
   test('one taken from Allfit says where it came from, because it cannot be edited', () => {
-    expect(programCaption(program({ editable: false, weeks: 8, days_per_week: 3 }))).toBe(
+    expect(programCaption(program({ editable: false, weeks: 8, days_per_week: 3 }), es)).toBe(
       'De Allfit · 8 semanas · 3 días',
     )
   })
 
   test('the one in progress adds which week it is on', () => {
-    expect(programCaption(program({ editable: false, weeks: 8, days_per_week: 3 }), 1)).toBe(
+    expect(programCaption(program({ editable: false, weeks: 8, days_per_week: 3 }), es, 1)).toBe(
       'De Allfit · 8 semanas · 3 días · semana 1 de 8',
     )
   })
 
   test('one with no end date says so instead of counting weeks', () => {
-    expect(programCaption(program({ weeks: null, days_per_week: 3 }))).toBe(
+    expect(programCaption(program({ weeks: null, days_per_week: 3 }), es)).toBe(
       'Tuyo · sin fecha de fin · 3 días',
     )
   })
@@ -125,7 +129,7 @@ describe('programCaption', () => {
   test('and tells you which week you are on without inventing a last one', () => {
     // «semana 3 de null» es lo que salía, y un programa que no termina no tiene contra
     // qué medirse: la semana sola es toda la verdad que hay.
-    expect(programCaption(program({ weeks: null, days_per_week: 3 }), 3)).toBe(
+    expect(programCaption(program({ weeks: null, days_per_week: 3 }), es, 3)).toBe(
       'Tuyo · sin fecha de fin · 3 días · semana 3',
     )
   })
@@ -133,32 +137,32 @@ describe('programCaption', () => {
 
 describe('dayName', () => {
   test('names the day the programme assigned, counting Monday as one', () => {
-    expect(dayName(1)).toBe('Lun')
-    expect(dayName(7)).toBe('Dom')
+    expect(dayName(1, es)).toBe('Lun')
+    expect(dayName(7, es)).toBe('Dom')
   })
 
   test('and answers nothing for a number that is not a day of the week', () => {
     // Defensa contra un dato roto, no contra un caso del producto: el check de la base
     // ya lo impide, y la fila prefiere quedarse sin día a pintar «undefined».
-    expect(dayName(0)).toBe('')
-    expect(dayName(9)).toBe('')
+    expect(dayName(0, es)).toBe('')
+    expect(dayName(9, es)).toBe('')
   })
 })
 
 describe('routineFigures', () => {
   test('counts in plural', () => {
-    expect(routineFigures(routine())).toBe('3 ejercicios · 13 series')
+    expect(routineFigures(routine(), es)).toBe('3 ejercicios · 13 series')
   })
 
   test('and in singular, because «1 ejercicios» is how a screen admits nobody read it', () => {
-    expect(routineFigures(routine({ exercise_count: 1, set_count: 1 }))).toBe(
+    expect(routineFigures(routine({ exercise_count: 1, set_count: 1 }), es)).toBe(
       '1 ejercicio · 1 serie',
     )
   })
 
   test('says nothing about series when there are none, rather than «· 0 series»', () => {
     // Una sesión de carrera no tiene series, y el cero parece un error en vez de un dato.
-    expect(routineFigures(routine({ set_count: 0 }))).toBe('3 ejercicios')
+    expect(routineFigures(routine({ set_count: 0 }), es)).toBe('3 ejercicios')
   })
 })
 
@@ -182,20 +186,20 @@ describe('filteredRoutines', () => {
 
 describe('emptyReason', () => {
   test('names what is missing, plainly', () => {
-    expect(emptyReason('all')).toBe('No hay rutinas aún')
-    expect(emptyReason('in-program')).toBe('No hay rutinas en programas aún')
+    expect(emptyReason('all', es)).toBe('No hay rutinas aún')
+    expect(emptyReason('in-program', es)).toBe('No hay rutinas en programas aún')
   })
 
   test('and drops the «aún» where nothing is pending', () => {
     // No tener rutinas sueltas no es algo por hacer: es que todas están colocadas.
-    expect(emptyReason('standalone')).toBe('No hay rutinas sueltas')
+    expect(emptyReason('standalone', es)).toBe('No hay rutinas sueltas')
   })
 })
 
 describe('discardWarning', () => {
   test('says the programme republishes, because that is a change nobody is looking at', () => {
     const used = routine({ programs: [{ program_id: 'p1', title: 'Fuerza básica' }] })
-    expect(discardWarning(used)).toBe(
+    expect(discardWarning(used, es)).toBe(
       'Se va de tu biblioteca y de Fuerza básica, que se republica sin ella.',
     )
   })
@@ -207,11 +211,11 @@ describe('discardWarning', () => {
         { program_id: 'p2', title: 'B' },
       ],
     })
-    expect(discardWarning(used)).toContain('2 programas')
+    expect(discardWarning(used, es)).toContain('2 programas')
   })
 
   test('and one in no programme only promises what it can', () => {
-    expect(discardWarning(routine())).toContain('Lo ya entrenado se conserva')
+    expect(discardWarning(routine(), es)).toContain('Lo ya entrenado se conserva')
   })
 })
 
@@ -279,19 +283,19 @@ describe('eliminar un programa', () => {
   })
 
   test('sin rutinas propias dice lo que se va y lo que se queda', () => {
-    expect(removalWarning(mine, [])).toBe(
+    expect(removalWarning(mine, [], es)).toBe(
       'Se va de tu biblioteca y de tu agenda. Lo que ya entrenaste se conserva.',
     )
   })
 
   test('con una la nombra, porque una rutina con nombre no es una cifra', () => {
-    expect(removalWarning(mine, [inside('Empujar', [here])])).toBe(
+    expect(removalWarning(mine, [inside('Empujar', [here])], es)).toBe(
       'Se va de tu biblioteca y de tu agenda. Se elimina también «Empujar». Lo que ya entrenaste se conserva.',
     )
   })
 
   test('con varias las cuenta', () => {
-    expect(removalWarning(mine, [inside('Empujar', [here]), inside('Tirar', [here])])).toBe(
+    expect(removalWarning(mine, [inside('Empujar', [here]), inside('Tirar', [here])], es)).toBe(
       'Se va de tu biblioteca y de tu agenda. Se eliminan también sus 2 rutinas. Lo que ya entrenaste se conserva.',
     )
   })
@@ -300,7 +304,7 @@ describe('eliminar un programa', () => {
     // Callarlo dejaría a alguien contando rutinas después de borrar, que es cuando ya
     // no se puede preguntar.
     expect(
-      removalWarning(mine, [inside('Empujar', [here]), inside('Tirar', [here, elsewhere])]),
+      removalWarning(mine, [inside('Empujar', [here]), inside('Tirar', [here, elsewhere])], es),
     ).toBe(
       'Se va de tu biblioteca y de tu agenda. Se elimina también «Empujar». «Tirar» se queda, porque está en otro programa. Lo que ya entrenaste se conserva.',
     )
@@ -308,7 +312,7 @@ describe('eliminar un programa', () => {
 
   test('lo entrenado se conserva, se diga lo que se diga de las rutinas', () => {
     for (const held of [[], [inside('Empujar', [here])], [inside('Tirar', [here, elsewhere])]]) {
-      expect(removalWarning(mine, held)).toContain('Lo que ya entrenaste se conserva.')
+      expect(removalWarning(mine, held, es)).toContain('Lo que ya entrenaste se conserva.')
     }
   })
 })
@@ -336,5 +340,26 @@ describe('buscar una rutina por su nombre', () => {
 
   test('y no inventa resultados cuando no hay ninguno', () => {
     expect(routinesNamed(held, 'natación')).toEqual([])
+  })
+})
+
+describe('the library in English (TECH-44)', () => {
+  test('T-SP-LIB-05 captions, figures and where a routine is used read naturally', () => {
+    expect(programCaption(program({ editable: false, weeks: 8, days_per_week: 3 }), en, 1)).toBe(
+      'By Allfit · 8 weeks · 3 days · week 1 of 8',
+    )
+    expect(routineFigures(routine({ exercise_count: 1, set_count: 1 }), en)).toBe(
+      '1 exercise · 1 set',
+    )
+    const three = routine({
+      programs: [
+        { program_id: 'a', title: 'A' },
+        { program_id: 'b', title: 'B' },
+        { program_id: 'c', title: 'C' },
+      ],
+    })
+    expect(whereUsed(three, en).text).toBe('In A, B and C')
+    expect(dayName(1, en)).toBe('Mon')
+    expect(emptyReason('standalone', en)).toBe('No standalone routines')
   })
 })
