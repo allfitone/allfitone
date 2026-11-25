@@ -101,7 +101,7 @@ for (const [viewport, presentation] of [
     page,
   }) => {
     await page.setViewportSize(viewport)
-    await open(page, `/organizations/${ORG}/team/invitations`, base(noInvitations))
+    await open(page, `/organizations/${ORG}/team?tab=invitations`, base(noInvitations))
 
     const announced = page.locator('[data-team-page]').getByRole('status')
     await expect(announced).toBeVisible()
@@ -138,7 +138,7 @@ test('T-REGISTER-07 los cuatro registros anuncian el fallo por el mismo camino',
     ['clientes', `/organizations/${ORG}/clients`],
     ['cobros', `/organizations/${ORG}/billing`],
     ['integrantes', `/organizations/${ORG}/team`],
-    ['invitaciones', `/organizations/${ORG}/team/invitations`],
+    ['invitaciones', `/organizations/${ORG}/team?tab=invitations`],
   ] as const) {
     await open(page, path, base(broken(LIST_READ[name])))
     const announced = page.locator('[data-register-card-state][data-state="error"]')

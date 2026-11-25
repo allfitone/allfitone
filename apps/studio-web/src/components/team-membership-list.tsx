@@ -4,7 +4,7 @@ import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/rea
 import { Avatar, AvatarFallback } from '@allfitone/react/components/avatar'
 import { Badge } from '@allfitone/react/components/badge'
 import { Button, buttonVariants } from '@allfitone/react/components/button'
-import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
+import { CardAction, Card, CardContent, CardHeader } from '@allfitone/react/components/card'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { RegisterCardState } from '@/components/register-card-state'
 import {
@@ -24,11 +24,10 @@ import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { TeamMemberActions } from './team-member-actions'
-import { WorkspacePageHeader } from './workspace-page-header'
 import { canViewTeamDirectory, memberInitials, organizationRoleLabel } from '@/lib/team-directory'
-import { canInviteTeam } from '@/lib/team-invitations'
 import { canManageMemberships } from '@/lib/team-membership-termination'
 import { canManageRoles } from '@/lib/team-roles'
+import { teamPath } from '@/lib/team-sections'
 import { useCompactTable } from '@/lib/use-compact-table'
 import {
   StudioApiError,
@@ -46,7 +45,6 @@ type MembershipFilter = 'all' | OrganizationMembershipStatus
 type LoadError = 'forbidden' | 'stale-cursor' | 'unavailable'
 
 const PAGE_SIZE = 50
-const INVITATIONS_ENABLED = process.env.NEXT_PUBLIC_STAFF_INVITATIONS_ENABLED === 'true'
 const DATE_FORMATTER = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' })
 
 const FILTERS: ReadonlyArray<{ value: MembershipFilter; label: string }> = [
@@ -109,16 +107,16 @@ export function TeamMembershipList() {
 
   if (!canViewDirectory) {
     return (
-      <section data-team-page aria-label="Directorio de integrantes">
-        <WorkspacePageHeader description="El directorio del equipo está disponible para quienes administran membresías o pueden consultarlo." />
+      <div data-team-panel>
         <Alert variant="warning">
           <AlertTitle>No tienes acceso a este directorio</AlertTitle>
           <AlertDescription>
+            El directorio está disponible para quienes administran membresías o pueden consultarlo.
             Puedes consultar los roles y entender qué permite cada uno dentro de la organización.
           </AlertDescription>
           <AlertAction>
             <Link
-              href={`/organizations/${current.organization_id}/team/roles`}
+              href={teamPath(current.organization_id, 'roles')}
               data-slot="button"
               data-variant="outline"
               className={buttonVariants({ variant: 'outline' })}
@@ -127,7 +125,7 @@ export function TeamMembershipList() {
             </Link>
           </AlertAction>
         </Alert>
-      </section>
+      </div>
     )
   }
 
@@ -162,23 +160,7 @@ export function TeamMembershipList() {
             }
           : undefined
   return (
-    <section ref={measuredRef} data-team-page aria-label="Directorio de integrantes">
-      <WorkspacePageHeader
-        description={`Consulta las membresías activas y finalizadas de ${current.display_name}.`}
-        actions={
-          INVITATIONS_ENABLED && canInviteTeam(current.roles) ? (
-            <Link
-              href={`/organizations/${current.organization_id}/team/invitations/new`}
-              data-slot="button"
-              data-variant="default"
-              className={buttonVariants()}
-            >
-              Invitar integrante
-            </Link>
-          ) : null
-        }
-      />
-
+    <div ref={measuredRef} data-team-panel>
       <ToggleGroup
         value={[filter]}
         onValueChange={changeFilter}
@@ -307,7 +289,7 @@ export function TeamMembershipList() {
           </Button>
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 
@@ -340,6 +322,22 @@ function MembershipCard({
             {item.display_name}
           </strong>
         </div>
+        {/* The corner the library's cards and the role catalog's already use
+            for a menu. Below the facts it took the slot the invitation card
+            built for a labelled button, and the rule that stretches that slot
+            on a phone turned an icon into a wide target with its dots adrift
+            in the middle. */}
+        {organizationId ? (
+          <CardAction>
+            <TeamMemberActions
+              organizationId={organizationId}
+              membership={item}
+              ownMembershipId={ownMembershipId}
+              mayManageRoles={mayManageRoles}
+              mayManageMemberships={mayManageMemberships}
+            />
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent>
         {/* The table names every column it shows. The card used to name one of
@@ -367,20 +365,6 @@ function MembershipCard({
             </>
           ) : null}
         </dl>
-        {/* Below the facts, in the slot the invitation cards already use, not
-            beside the role badges: a 44px control inside that pairing pushed
-            the value off its own label. */}
-        {organizationId ? (
-          <div data-team-invitation-actions>
-            <TeamMemberActions
-              organizationId={organizationId}
-              membership={item}
-              ownMembershipId={ownMembershipId}
-              mayManageRoles={mayManageRoles}
-              mayManageMemberships={mayManageMemberships}
-            />
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   )

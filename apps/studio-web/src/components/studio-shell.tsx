@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 
 import { AnalyticsControls } from './analytics-controls'
+import { ScreenView } from './screen-view'
 import { SessionGuard } from './session-guard'
 import { StudioEntryContextProvider } from './studio-entry-context'
 import { StudioQueryProvider } from './studio-query-provider'
@@ -36,6 +37,10 @@ export function StudioShell({
         </StudioEntryContextProvider>
       </StudioQueryProvider>
       <AnalyticsControls locale={locale} floating={privacyEntry === 'floating'} />
+      {/* Only the screen report depends on the address, so only it waits for the client. */}
+      <Suspense fallback={null}>
+        <ScreenView />
+      </Suspense>
     </>
   )
 }

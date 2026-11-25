@@ -84,8 +84,23 @@ describe('where a notice leads', () => {
     expect(noticeHref(link('listStudioOrganizationMemberships'), ORGANIZATION)).toBe(
       `/organizations/${ORGANIZATION}/team`,
     )
+  })
+
+  // The invitations are a tab of the team, so the destination names it.
+  test('opens the section of a screen whose sections share one address', () => {
     expect(noticeHref(link('listStudioTeamInvitations'), ORGANIZATION)).toBe(
-      `/organizations/${ORGANIZATION}/team/invitations`,
+      `/organizations/${ORGANIZATION}/team?tab=invitations`,
+    )
+  })
+
+  /*
+   * Both halves of the address come from different places: the tab from the
+   * destination, the narrowing from the notice. Joined with a second `?` they
+   * would produce an address the router reads as one long tab name.
+   */
+  test('joins a narrowing onto a destination that already names a tab', () => {
+    expect(noticeHref(link('listStudioTeamInvitations', { status: 'pending' }), ORGANIZATION)).toBe(
+      `/organizations/${ORGANIZATION}/team?tab=invitations&status=pending`,
     )
   })
 

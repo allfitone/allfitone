@@ -1,5 +1,5 @@
-import { TeamMembershipList } from '@/components/team-membership-list'
+import { TeamScreen } from '@/components/team-screen'
 
 export default function TeamPage() {
-  return <TeamMembershipList />
+  return <TeamScreen />
 }

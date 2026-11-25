@@ -58,6 +58,7 @@ import {
   invitationRoleOptions,
   type TeamInvitationRole,
 } from '@/lib/team-invitations'
+import { teamPath } from '@/lib/team-sections'
 
 const INVITATIONS_ENABLED = process.env.NEXT_PUBLIC_STAFF_INVITATIONS_ENABLED === 'true'
 
@@ -89,7 +90,7 @@ export function TeamInvitationForm() {
   // invite goes to the register, which refuses it in place and leaves its tab
   // selected; the heading here would otherwise announce a form that never came.
   useEffect(() => {
-    if (refused) router.replace(`/organizations/${current.organization_id}/team/invitations`)
+    if (refused) router.replace(teamPath(current.organization_id, 'invitations'))
   }, [refused, router, current.organization_id])
 
   if (refused) return null
@@ -276,9 +277,7 @@ export function TeamInvitationForm() {
               type="button"
               variant="ghost"
               disabled={submitting}
-              onClick={() =>
-                router.replace(`/organizations/${current.organization_id}/team/invitations`)
-              }
+              onClick={() => router.replace(teamPath(current.organization_id, 'invitations'))}
             >
               Cancelar
             </Button>

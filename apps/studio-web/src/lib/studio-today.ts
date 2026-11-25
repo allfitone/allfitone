@@ -16,6 +16,7 @@
 import { clientCardPath } from './client-card'
 import { relationshipPath } from './client-directory'
 import { organizationRoleName } from './team-directory'
+import { teamPath } from './team-sections'
 import type {
   StudioToday,
   TodayLink,
@@ -86,11 +87,11 @@ const DESTINATIONS: Readonly<Record<TodayOperation, Destination>> = {
   },
   listStudioTeamInvitations: {
     opens: 'list',
-    path: (organizationId) => `/organizations/${organizationId}/team/invitations`,
+    path: (organizationId) => teamPath(organizationId, 'invitations'),
   },
   listStudioOrganizationMemberships: {
     opens: 'list',
-    path: (organizationId) => `/organizations/${organizationId}/team`,
+    path: (organizationId) => teamPath(organizationId),
   },
   assignRelationshipHolder: { opens: 'relationship' },
   terminateRelationship: { opens: 'relationship' },
@@ -104,7 +105,9 @@ export function noticeHref(link: TodayLink, organizationId: string): string | nu
 
   const query = new URLSearchParams(link.query).toString()
   const path = destination.path(organizationId)
-  return query ? `${path}?${query}` : path
+  if (!query) return path
+  // A destination can already name a tab, as the team's invitations do.
+  return `${path}${path.includes('?') ? '&' : '?'}${query}`
 }
 
 /** Where one row leads, when the operation acts on one thing. */

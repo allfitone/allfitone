@@ -4516,7 +4516,7 @@ export const SCREENS: Screen[] = [
     // Reached by opening either invitation URL: `/new` redirects here, because
     // there is no form to show a role that cannot propose one.
     stories: 'HU-015 · invitations a coach may not read',
-    path: `/organizations/${secondActiveMembership.organization_id}/team/invitations`,
+    path: `/organizations/${secondActiveMembership.organization_id}/team?tab=invitations`,
     fixture: asCoach,
     settled: async (page) => {
       await settledByHeading(page)
@@ -4534,7 +4534,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-015 · the invitation register while it loads',
-    path: `${workspace}/team/invitations`,
+    path: `${workspace}/team?tab=invitations`,
     fixture: stallingFor([activeMembership], /\/organizations\/[^/]+\/invitations$/),
     settled: async (page) => {
       await settledByHeading(page)
@@ -4550,10 +4550,10 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No pudimos cargar el equipo')).toBeVisible()
     },
   },
-  { stories: 'HU-018 · role catalog', path: `${workspace}/team/roles`, fixture: memberOfTwo },
+  { stories: 'HU-018 · role catalog', path: `${workspace}/team?tab=roles`, fixture: memberOfTwo },
   {
     stories: 'HU-018 · the role catalog could not be read',
-    path: `${workspace}/team/roles`,
+    path: `${workspace}/team?tab=roles`,
     fixture: failingFor([activeMembership], /\/organizations\/[^/]+\/roles$/),
     settled: async (page) => {
       await settledByHeading(page)
@@ -4562,7 +4562,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-016 · confirming an invitation revocation',
-    path: `${workspace}/team/invitations`,
+    path: `${workspace}/team?tab=invitations`,
     fixture: withIssuedInvitations,
     reveal: async (page) => {
       await page.getByRole('button', { name: 'Revocar' }).first().click()
@@ -4571,7 +4571,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-015 · the invitation register could not be read',
-    path: `${workspace}/team/invitations`,
+    path: `${workspace}/team?tab=invitations`,
     fixture: failingFor([activeMembership], /\/organizations\/[^/]+\/invitations$/),
     settled: async (page) => {
       await settledByHeading(page)
@@ -4580,7 +4580,7 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-018 · the role catalog was refused',
-    path: `${workspace}/team/roles`,
+    path: `${workspace}/team?tab=roles`,
     fixture: () =>
       createStudioApiFixture({
         memberships: [activeMembership],
@@ -4594,14 +4594,14 @@ export const SCREENS: Screen[] = [
   },
   {
     stories: 'HU-015 / HU-016 · issued invitations',
-    path: `${workspace}/team/invitations`,
+    path: `${workspace}/team?tab=invitations`,
     fixture: withIssuedInvitations,
   },
   {
     // Six columns never fit a phone, so the register renders as cards —
     // separate markup, like the directory's, not one behind a toggle.
     stories: 'HU-015 / HU-016 · issued invitations as cards',
-    path: `${workspace}/team/invitations`,
+    path: `${workspace}/team?tab=invitations`,
     fixture: withIssuedInvitations,
     viewport: MOBILE,
   },

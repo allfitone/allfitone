@@ -287,7 +287,7 @@ test('lists, filters, paginates and revokes a pending team invitation', async ({
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations`)
+  await page.goto(`/organizations/${activeMembership.organization_id}/team?tab=invitations`)
 
   await expect(page.getByRole('table')).toContainText('person@example.test')
   await page.getByRole('button', { name: 'Ver más' }).click()
@@ -358,7 +358,7 @@ test('ignores a stale invitation response after the filter changes', async ({ pa
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations`)
+  await page.goto(`/organizations/${activeMembership.organization_id}/team?tab=invitations`)
   await expect.poll(() => fixture.requests.some((request) => request.search === '')).toBe(true)
 
   await page.getByRole('button', { name: 'Pendientes' }).click()
@@ -412,7 +412,7 @@ test('does not append a stale page after the filter changes', async ({ page }) =
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations`)
+  await page.goto(`/organizations/${activeMembership.organization_id}/team?tab=invitations`)
   await expect(page.getByRole('table')).toContainText('first@example.test')
 
   await page.getByRole('button', { name: /Ver/ }).click()
@@ -459,7 +459,7 @@ test('an expired invitation cursor hides pagination until a first-page refresh',
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations`)
+  await page.goto(`/organizations/${activeMembership.organization_id}/team?tab=invitations`)
 
   await page.getByRole('button', { name: 'Ver más' }).click()
   await expect(page.getByText('Las invitaciones cambiaron')).toBeVisible()

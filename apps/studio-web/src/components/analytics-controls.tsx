@@ -1,8 +1,7 @@
 'use client'
 
 import { Button } from '@allfitone/react/components/button'
-import { ANALYTICS_PRIVACY_NOTICE_URL, type TelemetryScreen } from '@allfitone/telemetry'
-import { usePathname } from 'next/navigation'
+import { ANALYTICS_PRIVACY_NOTICE_URL } from '@allfitone/telemetry'
 import { useReportWebVitals } from 'next/web-vitals'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
@@ -66,19 +65,11 @@ export function AnalyticsControls({
   )
   const [expanded, setExpanded] = useState(false)
   const panel = useRef<HTMLDivElement>(null)
-  const pathname = usePathname()
 
   useEffect(() => initializeStudioTelemetry(), [])
   useEffect(() => {
     if (expanded) panel.current?.focus()
   }, [expanded])
-  useEffect(() => {
-    if (!telemetry.active) return
-    captureStudioTelemetry({
-      event: 'client.screen.viewed.v1',
-      properties: { ...studioTelemetryCommon(), screen: studioScreen(pathname) },
-    })
-  }, [pathname, telemetry.active])
 
   useReportWebVitals((metric) => {
     if (!['CLS', 'FCP', 'INP', 'LCP', 'TTFB'].includes(metric.name)) return
@@ -143,16 +134,4 @@ export function AnalyticsControls({
       )}
     </aside>
   )
-}
-
-function studioScreen(pathname: string): TelemetryScreen {
-  if (pathname === '/account') return 'studio.account'
-  if (pathname === '/profile') return 'studio.profile'
-  if (pathname.includes('/team/invitations/new')) return 'studio.team_invitation_new'
-  if (pathname.includes('/team/invitations')) return 'studio.team_invitations'
-  if (pathname.includes('/team/roles')) return 'studio.team_roles'
-  if (pathname.includes('/team')) return 'studio.team_directory'
-  if (pathname.startsWith('/invitations')) return 'studio.invitation_decision'
-  if (pathname.startsWith('/organizations/')) return 'studio.organization_overview'
-  return 'studio.entry'
 }

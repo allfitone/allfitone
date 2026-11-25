@@ -42,7 +42,7 @@ test('cancel returns a directly opened form to the invitation list', async ({ pa
   await page.getByRole('button', { name: 'Cancelar' }).click()
 
   await expect(page).toHaveURL(
-    `/organizations/${activeMembership.organization_id}/team/invitations`,
+    `/organizations/${activeMembership.organization_id}/team?tab=invitations`,
   )
 })
 
@@ -57,12 +57,12 @@ test('a coach keeps the invitations section, is refused in place, and never read
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${coach.organization_id}/team`)
 
-  const sectionNavigation = page.getByRole('navigation', { name: 'Secciones del equipo' })
-  await sectionNavigation.getByRole('link', { name: 'Invitaciones' }).click()
-  await expect(page).toHaveURL(`/organizations/${coach.organization_id}/team/invitations`)
-  await expect(sectionNavigation.getByRole('link', { name: 'Invitaciones' })).toHaveAttribute(
-    'aria-current',
-    'page',
+  const sections = page.getByRole('tablist', { name: 'Secciones del equipo' })
+  await sections.getByRole('tab', { name: 'Invitaciones' }).click()
+  await expect(page).toHaveURL(`/organizations/${coach.organization_id}/team?tab=invitations`)
+  await expect(sections.getByRole('tab', { name: 'Invitaciones' })).toHaveAttribute(
+    'aria-selected',
+    'true',
   )
 
   await expect(page.getByText('No puedes consultar las invitaciones')).toBeVisible()
@@ -79,8 +79,11 @@ test('a coach opening the invitation form directly lands on the refusal, not on 
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${coach.organization_id}/team/invitations/new`)
 
-  await expect(page).toHaveURL(`/organizations/${coach.organization_id}/team/invitations`)
-  await expect(page.getByRole('heading', { name: 'Invitaciones', level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(`/organizations/${coach.organization_id}/team?tab=invitations`)
+  await expect(page.getByRole('tab', { name: 'Invitaciones' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   await expect(page.getByText('No puedes consultar las invitaciones')).toBeVisible()
 })
 
