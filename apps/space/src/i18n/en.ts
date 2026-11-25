@@ -15,6 +15,7 @@ import { identity } from './en/identity'
 import { password } from './en/password'
 import { pro } from './en/pro'
 import { profile } from './en/profile'
+import { session } from './en/session'
 import { training } from './en/training'
 
 export const en: Dictionary = {
@@ -25,5 +26,6 @@ export const en: Dictionary = {
   password,
   pro,
   profile,
+  session,
   training,
 }

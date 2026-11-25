@@ -46,6 +46,7 @@ import { restLine, type RestLine } from '../client/rest-lines'
 import { countdownLabel, remaining, type Rest } from '../client/rest-timer'
 
 import { useNow } from './use-now'
+import { useText } from '../i18n/use-text'
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1)
 const ENTER = FadeInDown.duration(260).easing(EASE_OUT).reduceMotion(ReduceMotion.System)
@@ -91,6 +92,7 @@ export function RestBar({
   readonly onSkip: () => void
 }) {
   const theme = useTheme()
+  const text = useText().session.rest
   const reduced = useReducedMotion()
   // Its own clock, so counting down redraws the bar and not the session behind it.
   const now = useNow()
@@ -125,11 +127,12 @@ export function RestBar({
   // Mid-superset it says the chain's next exercise the whole time it counts.
   const chained = moment.kind === 'chain' || (moment.kind === 'rest' && moment.chained)
   const next = moment.kind === 'rest' ? moment.movement : moment.next
-  const eyebrow =
-    moment.kind === 'done' ? '¡A DARLE!' : chained ? 'SUPERSERIE · DESCANSO' : 'DESCANSO'
-  const line = !next ? '' : chained ? `Ahora: ${next}` : `Sigue con ${next}`
+  const eyebrow = moment.kind === 'done' ? text.go : chained ? text.supersetRest : text.rest
+  const line = !next ? '' : chained ? text.now(next) : text.next(next)
   // While it counts, the long middle says something with some personality (rest-lines).
-  const shown: RestLine = rest ? restLine(rest, now, line) : { kind: 'next', text: line }
+  const shown: RestLine = rest
+    ? restLine(rest, now, line, text.phrases)
+    : { kind: 'next', text: line }
 
   return (
     <Animated.View
@@ -147,9 +150,7 @@ export function RestBar({
       <View
         style={styles.ring}
         accessible
-        accessibilityLabel={
-          moment.kind === 'rest' ? `Quedan ${whole} segundos de descanso` : line || eyebrow
-        }
+        accessibilityLabel={moment.kind === 'rest' ? text.left(whole) : line || eyebrow}
       >
         <Svg width={RING} height={RING} style={styles.svg}>
           <Circle
@@ -221,17 +222,17 @@ export function RestBar({
         </View>
         {moment.kind === 'rest' ? (
           <View style={styles.actions}>
-            <Nudge label="−15" hint="Quitar 15 segundos" onPress={() => onAdjust(-15)} />
-            <Nudge label="+15" hint="Sumar 15 segundos" onPress={() => onAdjust(15)} />
+            <Nudge label="−15" hint={text.less} onPress={() => onAdjust(-15)} />
+            <Nudge label="+15" hint={text.more} onPress={() => onAdjust(15)} />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Saltar el descanso"
+              accessibilityLabel={text.skipRest}
               onPress={onSkip}
               hitSlop={8}
               style={({ pressed }) => [styles.skip, { opacity: pressed ? 0.6 : 1 }]}
             >
               <Text role="control" size="sm" color="secondary">
-                Saltar
+                {text.skip}
               </Text>
               <FoundationIcon
                 name="forward"

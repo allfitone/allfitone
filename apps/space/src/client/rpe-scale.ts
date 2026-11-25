@@ -1,78 +1,60 @@
 /**
- * La escala de esfuerzo, y qué significa cada número.
+ * The effort scale, and what each number means.
  *
- * **Nadie tiene por qué saberse el RPE.** Un campo numérico del 1 al 10 sin nada más es
- * una pregunta en un idioma que la mitad de la gente no habla, y la mitad que lo habla no
- * está de acuerdo en dónde empieza. Por eso la escala se abre explicada: qué se está
- * midiendo arriba, y qué significa el número que se acaba de marcar debajo.
+ * **Nobody has to know what RPE is.** A bare 1-to-10 field is a question in a language
+ * half the people do not speak, and the half that does disagree on where it starts. So
+ * the scale opens explained: what is measured above, and what the number just marked
+ * means below.
  *
- * **De seis para arriba se mide en repeticiones que sobran**, que es como se prescribe de
- * verdad: un 8 es «podías hacer dos más». Por debajo de seis nadie cuenta repeticiones
- * —quedan demasiadas para que el número signifique algo—, así que esos peldaños se
- * describen por lo que se siente. Las dos mitades son la misma escala leída con la
- * herramienta que sirve en cada tramo.
+ * **From six up it is measured in reps left**, which is how it is really prescribed: an
+ * 8 is «you could have done two more». Below six nobody counts reps — too many are left
+ * for the number to mean anything — so those rungs are described by how they feel.
  *
- * **Se marca al entrenar, no al planificar** (`ADR-033`): es lo que costó la serie, y
- * sólo se sabe después de hacerla. Por eso la escala habla en pasado.
+ * **It is marked while training, not while planning** (`ADR-033`): it is what the set
+ * cost, known only after doing it, which is why the scale speaks in the past. The words
+ * are `text.session.rpe`, one rung per entry.
  */
+
+import type { Dictionary } from '../i18n'
 
 export const RPE_MIN = 1
 export const RPE_MAX = 10
 
+/** The scale's words, rung by rung: `text.session.rpe`. */
+export type RpeWords = Dictionary['session']['rpe']
+
 export interface RpeLevel {
   readonly value: number
-  /** Dos palabras: es lo que se lee de un vistazo al marcar. */
+  /** Two words: what is read at a glance while marking. */
   readonly name: string
-  /** Qué se está pidiendo, en la unidad que sirve en ese tramo. */
+  /** What is being asked, in the unit that serves that stretch of the scale. */
   readonly detail: string
 }
 
-/** Qué se mide, dicho antes de pedir el número. */
-export const RPE_EXPLAINER =
-  'Cuánto te costó esa serie, del 1 al 10. Se mide por lo que te quedaba: un 8 es que ' +
-  'podías hacer dos repeticiones más.'
+/** The ten rungs, numbered from one in the order the words list them. */
+export function rpeLevels(words: RpeWords): readonly RpeLevel[] {
+  return words.levels.map((level, index) => ({ value: RPE_MIN + index, ...level }))
+}
 
-/** Lo que dice la escala mientras nadie ha marcado nada. */
-export const RPE_UNSET = 'Sin esfuerzo marcado. Es opcional.'
-
-export const RPE_LEVELS: readonly RpeLevel[] = [
-  { value: 1, name: 'Nada', detail: 'Apenas se sintió. No cuenta como trabajo.' },
-  { value: 2, name: 'Muy ligero', detail: 'Moverse por moverse: calentar, soltar.' },
-  { value: 3, name: 'Ligero', detail: 'Podías seguir mucho rato sin cansarte.' },
-  { value: 4, name: 'Cómodo', detail: 'Se notó, pero te quedaban muchísimas repeticiones.' },
-  { value: 5, name: 'Moderado', detail: 'Te quedaban cinco repeticiones o más.' },
-  { value: 6, name: 'Exigente', detail: 'Te quedaban cuatro repeticiones.' },
-  { value: 7, name: 'Duro', detail: 'Te quedaban tres repeticiones.' },
-  { value: 8, name: 'Muy duro', detail: 'Te quedaban dos repeticiones.' },
-  { value: 9, name: 'Casi al límite', detail: 'Te quedaba una repetición.' },
-  {
-    value: 10,
-    name: 'Al límite',
-    detail: 'No te quedaba ninguna repetición. No podías hacer una más.',
-  },
-]
-
-/** El peldaño que corresponde a un número, o nada para uno que la escala no tiene. */
-export function rpeLevel(value: number | undefined): RpeLevel | undefined {
+/** The rung for a number, or nothing for one the scale does not have. */
+export function rpeLevel(value: number | undefined, words: RpeWords): RpeLevel | undefined {
   if (value === undefined) return undefined
-  return RPE_LEVELS.find((level) => level.value === value)
+  return rpeLevels(words).find((level) => level.value === value)
 }
 
 /**
- * Lo que la fila escribe en su columna. Una raya y no un cero: no haber marcado esfuerzo
- * y marcar el mínimo son cosas distintas, y el cero diría la segunda.
+ * What the row writes in its column. A dash and not a zero: not marking effort and
+ * marking the minimum are different things, and a zero would say the second.
  */
 export function rpeShown(value: number | undefined): string {
   return value === undefined ? '—' : String(value)
 }
 
 /**
- * El copy que la escala enseña, que cambia con lo marcado.
- *
- * Sin nada marcado dice que es opcional, en vez de quedarse en blanco: el hueco se lee
- * como que falta cargar algo.
+ * The copy the scale shows, which changes with what is marked. Unmarked it says it is
+ * optional instead of staying blank: the gap reads as something left to fill.
  */
-export function rpeCopy(value: number | undefined): string {
-  const level = rpeLevel(value)
-  return level === undefined ? RPE_UNSET : `${level.name}. ${level.detail}`
+export function rpeCopy(value: number | undefined, words: RpeWords): string {
+  const level = rpeLevel(value, words)
+  return level === undefined ? words.unset : `${level.name}. ${level.detail}`
 }

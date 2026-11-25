@@ -32,8 +32,10 @@ import Animated, {
 import { clockParts } from '../client/session-form'
 
 import { useNow } from './use-now'
-import { useLocale } from '../i18n/use-text'
-import { intlLocale } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
+import { useUnits } from '../units/use-units'
+import { massIn } from '../units/units'
+import { volumeFigure } from '../client/history'
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1)
 
@@ -50,6 +52,8 @@ export function SessionScoreboard({
   readonly planned: number
 }) {
   const locale = useLocale()
+  const text = useText().session.scoreboard
+  const { mass } = useUnits()
   const theme = useTheme()
   const reduced = useReducedMotion()
   const now = useNow()
@@ -76,7 +80,12 @@ export function SessionScoreboard({
     <View
       style={styles.wrap}
       accessible
-      accessibilityLabel={`Sesión en curso, ${clock.lead}${clock.tail}. ${Math.round(volumeKg)} kilos. ${done} de ${planned} series`}
+      accessibilityLabel={text.summary(
+        `${clock.lead}${clock.tail}`,
+        text.volume(Math.round(massIn(volumeKg, mass)), mass),
+        done,
+        planned,
+      )}
     >
       <View style={styles.board}>
         <View style={styles.clock}>
@@ -93,7 +102,7 @@ export function SessionScoreboard({
               <View style={[styles.dot, { backgroundColor: theme.color.icon.accent }]} />
             </View>
             <Text role="eyebrow" size="xs" color="muted">
-              EN CURSO
+              {text.live}
             </Text>
           </View>
           <View style={styles.time}>
@@ -112,14 +121,14 @@ export function SessionScoreboard({
           <View style={styles.figure}>
             <View style={styles.amount}>
               <Text role="data" size="xl">
-                {Math.round(volumeKg).toLocaleString(intlLocale(locale))}
+                {volumeFigure(volumeKg, mass, locale)}
               </Text>
               <Text role="control" size="xs" color="muted">
-                kg
+                {mass}
               </Text>
             </View>
             <Text role="eyebrow" size="xs" color="muted">
-              VOLUMEN
+              {text.volumeLabel}
             </Text>
           </View>
           <View style={styles.figure}>
@@ -132,7 +141,7 @@ export function SessionScoreboard({
               </Text>
             </View>
             <Text role="eyebrow" size="xs" color="muted">
-              SERIES
+              {text.sets}
             </Text>
           </View>
         </View>

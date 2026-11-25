@@ -8,10 +8,17 @@
  * **A card that has nothing true to say does not appear.** No record, no record card;
  * a streak of one week is just a week. A card announcing «0 récords» is a card telling
  * somebody they failed on the day they trained.
+ *
+ * Words come in as `text.session`; every weight is canonical kilograms, printed in the
+ * person's unit.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
-import { intlLocale, type Locale } from '../i18n'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
+
+/** What the cards say: `text.session`. */
+export type CardWords = Dictionary['session']
 
 export type ShareSummary = AllfitV1Schemas['SpaceExecutionSummary']
 export type ShareRecord = ShareSummary['records'][number]
@@ -71,51 +78,58 @@ export function stickersFor(summary: ShareSummary): readonly StickerKind[] {
   ]
 }
 
-const MEANING: Readonly<Record<ShareRecord['kind'], string>> = {
-  heaviest: 'MÁS PESO QUE NUNCA',
-  e1rm: 'TU MEJOR 1RM ESTIMADO',
-  best_set: 'TU MEJOR SERIE',
-  session_volume: 'TU SESIÓN MÁS PESADA',
-}
-
 /** «+2,5 KG», and what beating it means. */
 export function recordGain(
   record: ShareRecord,
   locale: Locale,
+  unit: MassUnit,
+  words: CardWords,
 ): {
   readonly gain: string
   readonly meaning: string
 } {
-  const gain = Math.round((record.value - record.previous_value) * 10) / 10
-  return { gain: `+${kilos(gain, locale)} KG`, meaning: MEANING[record.kind] }
+  const gain =
+    Math.round((massIn(record.value, unit) - massIn(record.previous_value, unit)) * 10) / 10
+  return {
+    gain: `+${kilos(gain, locale)} ${unit.toUpperCase()}`,
+    meaning: words.cards.meaning[record.kind],
+  }
 }
 
 /** «EN 26 MINUTOS», or «EN 1 H 05» past an hour. */
-export function minutesLine(seconds: number): string {
+export function minutesLine(seconds: number, words: CardWords): string {
   const minutes = Math.max(1, Math.round(seconds / 60))
-  if (minutes < 60) return `EN ${String(minutes)} ${minutes === 1 ? 'MINUTO' : 'MINUTOS'}`
-  return `EN ${String(Math.floor(minutes / 60))} H ${String(minutes % 60).padStart(2, '0')}`
+  if (minutes < 60) return words.cards.minutes(minutes)
+  return words.cards.hours(Math.floor(minutes / 60), String(minutes % 60).padStart(2, '0'))
 }
 
 /** «Tirón · sesión 14 · 2 récords», with only the parts there are. */
-export function shareSubtitle(summary: ShareSummary): string {
+export function shareSubtitle(summary: ShareSummary, words: CardWords): string {
+  const said = words.cards
   const count = summary.records.length
   const parts = [
     summary.title,
-    summary.title ? `sesión ${summary.session_number}` : `Sesión ${summary.session_number}`,
-    count === 0 ? null : count === 1 ? '1 récord' : `${count} récords`,
+    summary.title
+      ? said.subtitleSession(summary.session_number)
+      : said.subtitleSessionAlone(summary.session_number),
+    count === 0 ? null : said.subtitleRecords(count),
   ]
   return parts.filter((part): part is string => Boolean(part)).join(' · ')
 }
 
 /** «MAR 29 · SESIÓN 14»: the day it was trained, in the zone it was trained in. */
-export function whenLine(summary: ShareSummary, timeZone: string, locale: Locale): string {
+export function whenLine(
+  summary: ShareSummary,
+  timeZone: string,
+  locale: Locale,
+  words: CardWords,
+): string {
   const at = new Date(summary.started_at)
   const weekday = new Intl.DateTimeFormat(intlLocale(locale), { weekday: 'short', timeZone })
     .format(at)
     .replace('.', '')
   const day = new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', timeZone }).format(at)
-  return `${weekday} ${day} · sesión ${summary.session_number}`.toUpperCase()
+  return words.cards.when(weekday, day, summary.session_number).toUpperCase()
 }
 
 /** «48:12», or «1:02:05» past an hour. */
@@ -128,9 +142,12 @@ export function durationLabel(seconds: number): string {
 }
 
 /** «4×6», «4×8–10» when the reps varied, «3 series» when none were counted. */
-export function exerciseShape(exercise: ShareSummary['exercises'][number]): string {
+export function exerciseShape(
+  exercise: ShareSummary['exercises'][number],
+  words: CardWords,
+): string {
   const { work_sets: sets, reps_min: low, reps_max: high } = exercise
-  if (low === null || high === null) return `${sets} series`
+  if (low === null || high === null) return words.cards.setsAlone(sets)
   return low === high ? `${sets}×${low}` : `${sets}×${low}–${high}`
 }
 
@@ -198,12 +215,13 @@ export function workedMuscles(
 }
 
 /** «DORSAL Y BÍCEPS»: the two main groups, the routine's name without them, never empty. */
-export function groupsTitle(summary: WorkedSource, catalogue: Catalogue): string {
+export function groupsTitle(summary: WorkedSource, catalogue: Catalogue, words: CardWords): string {
   const leading = workedMuscles(summary, catalogue)
     .filter((muscle) => muscle.main)
     .slice(0, 2)
     .map((muscle) => muscle.name)
-  const title = leading.length > 0 ? leading.join(' y ') : (summary.title ?? 'Entreno')
+  const title =
+    leading.length > 0 ? leading.join(words.cards.and) : (summary.title ?? words.workout)
   return title.toUpperCase()
 }
 
@@ -211,8 +229,12 @@ export function groupsTitle(summary: WorkedSource, catalogue: Catalogue): string
  * The routine's own name for the header, or the groups when the session had none.
  * The groups lead the muscles card; everywhere else the name is what was trained.
  */
-export function routineTitle(summary: ShareSummary, catalogue: Catalogue): string {
-  return summary.title ? summary.title.toUpperCase() : groupsTitle(summary, catalogue)
+export function routineTitle(
+  summary: ShareSummary,
+  catalogue: Catalogue,
+  words: CardWords,
+): string {
+  return summary.title ? summary.title.toUpperCase() : groupsTitle(summary, catalogue, words)
 }
 
 /** The record the card leads with, by `RECORD_ORDER`. */
@@ -233,22 +255,25 @@ export interface RecordFigure {
 }
 
 /** How each kind of record is printed: the figure, its unit, and what it measured. */
-export function recordFigure(record: ShareRecord, locale: Locale): RecordFigure {
-  const big = kilos(record.value, locale)
+export function recordFigure(
+  record: ShareRecord,
+  locale: Locale,
+  unit: MassUnit,
+  words: CardWords,
+): RecordFigure {
+  const value = massIn(record.value, unit)
+  const big = kilos(value, locale)
+  const shown = unit.toUpperCase()
+  const label = words.cards.figureLabel[record.kind]
   switch (record.kind) {
     case 'heaviest':
-      return { big, unit: 'KG', tail: record.reps ? `× ${record.reps}` : '', label: 'PESO MÁXIMO' }
+      return { big, unit: shown, tail: record.reps ? `× ${record.reps}` : '', label }
     case 'e1rm':
-      return {
-        big: kilos(Math.round(record.value), locale),
-        unit: 'KG',
-        tail: '1RM',
-        label: 'MEJOR 1RM ESTIMADO',
-      }
+      return { big: kilos(Math.round(value), locale), unit: shown, tail: '1RM', label }
     case 'best_set':
-      return { big, unit: 'KG', tail: 'en una serie', label: 'MEJOR SERIE' }
+      return { big, unit: shown, tail: words.cards.inASet, label }
     case 'session_volume':
-      return { big, unit: 'KG', tail: 'en la sesión', label: 'MÁS VOLUMEN' }
+      return { big, unit: shown, tail: words.cards.inTheSession, label }
   }
 }
 
@@ -281,12 +306,14 @@ export interface RecordJump {
   readonly ratio: number
 }
 
-/** A record told as the jump it was, in the record's own unit. */
-export function recordJump(record: ShareRecord, locale: Locale): RecordJump {
+/** A record told as the jump it was, in the person's unit. */
+export function recordJump(record: ShareRecord, locale: Locale, unit: MassUnit): RecordJump {
+  const before = massIn(record.previous_value, unit)
+  const now = massIn(record.value, unit)
   return {
-    before: kilos(record.previous_value, locale),
-    now: kilos(record.value, locale),
-    delta: `+${kilos(record.value - record.previous_value, locale)}`,
+    before: kilos(before, locale),
+    now: kilos(now, locale),
+    delta: `+${kilos(now - before, locale)}`,
     ratio: record.value > 0 ? record.previous_value / record.value : 0,
   }
 }
@@ -300,17 +327,14 @@ export function bandFigureSize(values: readonly string[]): number {
   return longest <= 5 ? 30 : longest <= 7 ? 24 : 20
 }
 
-const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']
-
 /** «17 SEP» from a calendar date, without a time zone to move it. */
-export function shortDay(date: string): string {
+export function shortDay(date: string, words: CardWords): string {
   const [, month, day] = date.split('-').map(Number)
-  return `${String(day)} ${MONTHS[(month ?? 1) - 1] ?? ''}`
+  return words.cards.shortDay(day ?? 1, words.cards.monthsShort[(month ?? 1) - 1] ?? '')
 }
 
 /** «1 ejercicio», «5 ejercicios». */
-export const exercisesLabel = (count: number) =>
-  `${String(count)} ${count === 1 ? 'ejercicio' : 'ejercicios'}`
+export const exercisesLabel = (count: number, words: CardWords) => words.cards.exercises(count)
 
 /**
  * Where «Historias» sends the card. Instagram's story composer needs Meta's app id
@@ -324,8 +348,8 @@ export function storyRoute(
 }
 
 /** What undoing a picked background offers: the routine's photo back, or none. */
-export const restoreLabel = (cover: string | null) =>
-  cover ? 'Volver a la foto de la rutina' : 'Quitar mi foto'
+export const restoreLabel = (cover: string | null, words: CardWords) =>
+  cover ? words.share.routinePhoto : words.share.removePhoto
 
 /** The most steps the streak card draws; a longer streak shows its last ones. */
 const MOST_STEPS = 5
@@ -336,29 +360,20 @@ export function streakSteps(weeks: number): { readonly first: number; readonly s
   return { first: weeks - shown + 1, shown }
 }
 
-const LONG_MONTHS = [
-  'ENERO',
-  'FEBRERO',
-  'MARZO',
-  'ABRIL',
-  'MAYO',
-  'JUNIO',
-  'JULIO',
-  'AGOSTO',
-  'SEPTIEMBRE',
-  'OCTUBRE',
-  'NOVIEMBRE',
-  'DICIEMBRE',
-]
-
 /**
  * «EL 28 DE SEPTIEMBRE»: the Monday of the week `weeksBack` before the session's, in
  * the person's zone, which is where the streak counts its ISO weeks.
  */
-export function weekStartLabel(summary: ShareSummary, timeZone: string, weeksBack: number): string {
+export function weekStartLabel(
+  summary: ShareSummary,
+  timeZone: string,
+  weeksBack: number,
+  words: CardWords,
+): string {
   const local = new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(summary.started_at))
   const day = new Date(`${local}T00:00:00Z`)
   const isoWeekday = day.getUTCDay() === 0 ? 7 : day.getUTCDay()
   day.setUTCDate(day.getUTCDate() - (isoWeekday - 1) - 7 * weeksBack)
-  return `EL ${String(day.getUTCDate())} DE ${LONG_MONTHS[day.getUTCMonth()] ?? ''}`
+  const month = (words.calendar.months[day.getUTCMonth()] ?? '').toUpperCase()
+  return words.cards.weekStart(day.getUTCDate(), month)
 }

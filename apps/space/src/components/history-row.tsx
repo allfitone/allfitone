@@ -24,7 +24,8 @@ import type { ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
 
 import { dayParts, historyDetail, recordsLine, type HistoryItem } from '../client/history'
-import { useLocale } from '../i18n/use-text'
+import { useLocale, useText } from '../i18n/use-text'
+import { useUnits } from '../units/use-units'
 
 export interface HistoryTag {
   readonly label: string
@@ -73,11 +74,13 @@ export function HistoryRow({
   readonly onPress?: () => void
 }) {
   const locale = useLocale()
+  const text = useText().session
+  const { mass } = useUnits()
   const theme = useTheme()
-  const { weekday, day } = dayParts(item.trained_on)
-  const records = recordsLine(item.record_count)
-  const name = item.title ?? (item.is_free ? 'Entreno libre' : 'Sesión')
-  const detail = historyDetail(item, locale)
+  const { weekday, day } = dayParts(item.trained_on, text)
+  const records = recordsLine(item.record_count, text)
+  const name = item.title ?? (item.is_free ? text.freeSession : text.history.session)
+  const detail = historyDetail(item, locale, mass, text)
   const below = records ?? extra
 
   return (

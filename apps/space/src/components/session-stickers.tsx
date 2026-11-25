@@ -24,8 +24,10 @@ import {
 import { Faces } from './progress-share-card'
 import { stickerPen, type StickerPen } from './progress-stickers'
 import { BODY_HEAVY, INK, POSTER, type ShareCatalogue } from './share-card'
-import { useLocale } from '../i18n/use-text'
-import { intlLocale, type Locale } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
+import { massIn, type MassUnit } from '../units/units'
+import { useUnits } from '../units/use-units'
 
 const WHITE = '#FFFFFF'
 
@@ -83,26 +85,33 @@ function stickerFor(kind: StickerKind, drawn: Drawn) {
   }
 }
 
-const kilos = (value: number | null, locale: Locale) =>
-  (value ?? 0).toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
+/** A canonical weight as a whole figure in `unit`. */
+const kilos = (value: number | null, locale: Locale, unit: MassUnit) =>
+  massIn(value ?? 0, unit).toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
 
 /** «MAR 20», the day alone from «MAR 20 · SESIÓN 10». */
-const dayOf = (summary: ShareSummary, timeZone: string, locale: Locale) =>
-  whenLine(summary, timeZone, locale).split(' · ')[0] ?? ''
+const dayOf = (
+  summary: ShareSummary,
+  timeZone: string,
+  locale: Locale,
+  text: Dictionary['session'],
+) => whenLine(summary, timeZone, locale, text).split(' · ')[0] ?? ''
 
 function FiguresSticker({ summary, catalogue, u, ink }: Drawn) {
   const locale = useLocale()
+  const text = useText().session
+  const { mass } = useUnits()
   const figures: readonly (readonly [string, string])[] = [
-    [durationLabel(summary.duration_seconds), 'TIEMPO'],
-    [String(summary.work_sets), 'SERIES'],
+    [durationLabel(summary.duration_seconds), text.cards.stickerTime],
+    [String(summary.work_sets), text.cards.sets],
     summary.total_volume_kg === null
-      ? [String(summary.exercise_count), 'EJERCICIOS']
-      : [kilos(summary.total_volume_kg, locale), 'KG'],
+      ? [String(summary.exercise_count), text.cards.exercisesLabel]
+      : [kilos(summary.total_volume_kg, locale, mass), mass.toUpperCase()],
   ]
   return (
     <View style={styles.column}>
       <Text numberOfLines={1} style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 1.6 })}>
-        {`${routineTitle(summary, catalogue)} · SESIÓN ${String(summary.session_number)}`}
+        {text.cards.stickerSession(routineTitle(summary, catalogue, text), summary.session_number)}
       </Text>
       <View style={[styles.row, { gap: u(18), marginTop: u(6) }]}>
         {figures.map(([value, label]) => (
@@ -120,12 +129,14 @@ function FiguresSticker({ summary, catalogue, u, ink }: Drawn) {
 
 function RecordSticker({ summary, u, ink }: Drawn) {
   const locale = useLocale()
+  const text = useText().session
+  const { mass } = useUnits()
   const lead = headline(summary.records)
   if (!lead) return null
-  const { gain, meaning } = recordGain(lead, locale)
+  const { gain, meaning } = recordGain(lead, locale, mass, text)
   return (
     <View style={styles.column}>
-      <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 2 })}>NUEVO RÉCORD</Text>
+      <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 2 })}>{text.cards.newRecord}</Text>
       <Text
         numberOfLines={1}
         style={[{ marginTop: u(4), maxWidth: u(260) }, ink(POSTER, 40, WHITE, { leading: 1 })]}
@@ -139,7 +150,7 @@ function RecordSticker({ summary, u, ink }: Drawn) {
         {gain}
       </Text>
       <Text style={ink(BODY_HEAVY, 9.5, WHITE, { tracking: 1.2 })}>
-        {`${kilos(lead.value, locale)} KG · ${meaning}`}
+        {`${kilos(lead.value, locale, mass)} ${mass.toUpperCase()} · ${meaning}`}
       </Text>
     </View>
   )
@@ -149,12 +160,13 @@ function RecordSticker({ summary, u, ink }: Drawn) {
 const MOST_MARKS = 6
 
 function StreakSticker({ summary, u, ink }: Drawn) {
+  const text = useText().session
   const weeks = summary.streak_weeks
   return (
     <View style={styles.column}>
       <Text style={ink(POSTER, 130, INK.accent, { leading: 0.9 })}>{String(weeks)}</Text>
       <Text style={[{ marginTop: u(6) }, ink(POSTER, 30, WHITE, { leading: 1 })]}>
-        SEMANAS SEGUIDAS
+        {text.cards.weeksInARow}
       </Text>
       <View style={[styles.row, { gap: u(8), marginVertical: u(12) }]}>
         {Array.from({ length: Math.min(weeks, MOST_MARKS) }, (_, index) => (
@@ -169,19 +181,25 @@ function StreakSticker({ summary, u, ink }: Drawn) {
           </View>
         ))}
       </View>
-      <Text style={ink(BODY_HEAVY, 10, WHITE, { tracking: 1.4 })}>ENTRENANDO SIN PARAR</Text>
+      <Text style={ink(BODY_HEAVY, 10, WHITE, { tracking: 1.4 })}>{text.cards.nonStop}</Text>
     </View>
   )
 }
 
 function StripSticker({ summary, catalogue, timeZone, u, ink }: Drawn) {
   const locale = useLocale()
+  const text = useText().session
+  const { mass } = useUnits()
   const figures: (readonly [string, string])[] = [
-    [durationLabel(summary.duration_seconds), 'MIN'],
-    [String(summary.work_sets), 'SERIES'],
+    [durationLabel(summary.duration_seconds), text.cards.minutesShort],
+    [String(summary.work_sets), text.cards.sets],
   ]
-  if (summary.total_volume_kg !== null) figures.push([kilos(summary.total_volume_kg, locale), 'KG'])
-  if (summary.records.length > 0) figures.push([String(summary.records.length), 'PR'])
+  if (summary.total_volume_kg !== null) {
+    figures.push([kilos(summary.total_volume_kg, locale, mass), mass.toUpperCase()])
+  }
+  if (summary.records.length > 0) {
+    figures.push([String(summary.records.length), text.cards.recordsShort])
+  }
   return (
     <View>
       <View style={{ height: u(2), backgroundColor: INK.accent }} />
@@ -189,7 +207,7 @@ function StripSticker({ summary, catalogue, timeZone, u, ink }: Drawn) {
         numberOfLines={1}
         style={[{ marginTop: u(8) }, ink(BODY_HEAVY, 8.5, INK.accent, { tracking: 1.4 })]}
       >
-        {`ALLFIT · ${routineTitle(summary, catalogue)} · ${dayOf(summary, timeZone, locale)}`}
+        {`ALLFIT · ${routineTitle(summary, catalogue, text)} · ${dayOf(summary, timeZone, locale, text)}`}
       </Text>
       <View style={[styles.row, styles.spread, { marginTop: u(4) }]}>
         {figures.map(([value, label]) => (
@@ -204,6 +222,7 @@ function StripSticker({ summary, catalogue, timeZone, u, ink }: Drawn) {
 }
 
 function MusclesSticker({ summary, catalogue, u, ink }: Drawn) {
+  const text = useText().session
   const main = workedMuscles(summary, catalogue).filter((muscle) => muscle.main)
   const lit = litSlugsFor(
     catalogue.muscles,
@@ -213,7 +232,7 @@ function MusclesSticker({ summary, catalogue, u, ink }: Drawn) {
     <View style={styles.column}>
       <Faces lit={lit} scale={u(0.52)} gap={u(10)} />
       <Text style={[{ marginTop: u(14) }, ink(POSTER, 40, WHITE, { leading: 1 })]}>
-        {`${String(summary.work_sets)} ${summary.work_sets === 1 ? 'SERIE' : 'SERIES'}`}
+        {`${String(summary.work_sets)} ${text.cards.setsWord(summary.work_sets)}`}
       </Text>
       <Text
         numberOfLines={1}
@@ -232,9 +251,12 @@ function MusclesSticker({ summary, catalogue, u, ink }: Drawn) {
 }
 
 function NumberSticker({ summary, catalogue, u, ink }: Drawn) {
+  const text = useText().session
   return (
     <View style={styles.column}>
-      <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 2.4 })}>ENTRENO NÚMERO</Text>
+      <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 2.4 })}>
+        {text.cards.numberKicker}
+      </Text>
       {/* Room either side: the leaning face overhangs its box and the capture cut it;
           the foot is taken back, as the face leaves room below its figures. */}
       <Text
@@ -248,7 +270,7 @@ function NumberSticker({ summary, catalogue, u, ink }: Drawn) {
         {String(summary.session_number)}
       </Text>
       <Text numberOfLines={1} style={ink(POSTER, 34, WHITE, { leading: 1 })}>
-        {routineTitle(summary, catalogue)}
+        {routineTitle(summary, catalogue, text)}
       </Text>
     </View>
   )

@@ -13,6 +13,10 @@
  * Set order is global across the session, not per exercise, because
  * `execution.strength_sets` is unique on `(session, set_order)` — one ladder, so two
  * exercises can never claim the same rung.
+ *
+ * **A load is typed in the person's unit and sent in it** (`Load` takes `kg` or `lb`,
+ * and the set keeps the unit it was logged in). A set recorded in another unit opens
+ * converted; left untouched, it travels back as it was recorded, so nothing drifts.
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
@@ -20,6 +24,8 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { PickedMovement } from './exercise-pick'
 import { blockAt, chainedBy, movedTo, renumbered, settled, unchained } from './chain-order'
 import { REST_OPENING_SECONDS, type SetKind } from './set-scheme'
+import { textFor, type Locale } from '../i18n'
+import { isMassUnit, kilogramsFrom, massIn, massLabel, type MassUnit } from '../units/units'
 
 export type Execution = AllfitV1Schemas['SpaceExecution']
 export type ExecutionResults = AllfitV1Schemas['ExecutionResultsReplace']
@@ -28,7 +34,8 @@ export type PlannedStep = AllfitV1Schemas['SpaceProgramStep']
 export interface WorkingSet {
   /** Global across the session: the database keys sets on it. */
   readonly order: number
-  readonly loadKg: string
+  /** As typed, in the person's unit. */
+  readonly load: string
   readonly reps: string
   readonly done: boolean
   /** What this set weighed last time, already written: "60 × 12", or "—". */
@@ -41,6 +48,47 @@ export interface WorkingSet {
   readonly rpe?: number | undefined
   /** Which recorded set it was when a finished session opened for editing (ADR-038). */
   readonly origin?: string | undefined
+  /** The load as the server recorded it, sent back as is while `load` still shows it. */
+  readonly loadOrigin?: { readonly value: number; readonly unit: MassUnit } | undefined
+}
+
+/** How a working state is opened: names, and the unit and locale it reads in. */
+export interface OpeningOptions {
+  /** What the library calls each movement: a recorded set carries only its id. */
+  readonly names?: ReadonlyMap<string, string>
+  readonly unit?: MassUnit
+  readonly locale?: Locale
+  /** The name of an exercise nobody named. */
+  readonly unnamed?: string
+}
+
+interface Reading {
+  readonly unit: MassUnit
+  readonly locale: Locale
+}
+
+/** A load logged in `from`, as the field shows it in `unit`: exact, or to one decimal. */
+export function loadInput(value: number, from: MassUnit, unit: MassUnit): string {
+  if (from === unit) return String(value)
+  return String(Math.round(massIn(kilogramsFrom(value, from), unit) * 10) / 10)
+}
+
+/** A typed load, with either decimal mark; null for anything that is not one. */
+function typedLoad(text: string): number | null {
+  const value = Number(text.trim().replace(',', '.'))
+  return text.trim() === '' || !Number.isFinite(value) ? null : value
+}
+
+/** What a recorded set carried, as the field and as the server keeps it. */
+function recordedLoad(
+  recorded: Record<string, unknown> | undefined,
+  unit: MassUnit,
+): Pick<WorkingSet, 'load' | 'loadOrigin'> {
+  const value = recorded?.load_value
+  if (typeof value !== 'number') return { load: '' }
+  const code = recorded?.load_unit_code
+  const from = isMassUnit(code) ? code : 'kg'
+  return { load: loadInput(value, from, unit), loadOrigin: { value, unit: from } }
 }
 
 const KINDS: readonly SetKind[] = ['normal', 'warmup', 'to_failure', 'drop']
@@ -93,16 +141,18 @@ function targetReps(step: Source): string {
   return typeof reps === 'number' ? String(reps) : ''
 }
 
-function previousLoadOf(step: Source, index: number): string | undefined {
+// `previous` carries no unit; until the contract says one, it is read as kilograms.
+function previousLoadOf(step: Source, index: number, unit: MassUnit): string | undefined {
   const load = step.previous?.[index]?.load_value
-  return typeof load === 'number' ? String(load) : undefined
+  return typeof load === 'number' ? loadInput(load, 'kg', unit) : undefined
 }
 
 /** "60 kg × 12", or an em dash when the movement has no history. */
-function previousLabel(step: Source, index: number): string {
+function previousLabel(step: Source, index: number, reading: Reading): string {
   const entry = step.previous?.[index]
   if (!entry || entry.load_value === null || entry.achieved_reps === null) return '—'
-  return `${String(entry.load_value)} kg × ${String(entry.achieved_reps)}`
+  const load = massLabel(entry.load_value, reading.unit, reading.locale)
+  return `${load} × ${String(entry.achieved_reps)}`
 }
 
 /**
@@ -122,12 +172,11 @@ function previousLabel(step: Source, index: number): string {
  */
 export function workingStateFrom(
   execution: Execution,
-  extra: {
-    /** What the library calls each movement: a recorded set carries only its id. */
-    readonly names?: ReadonlyMap<string, string>
-  } = {},
+  extra: OpeningOptions = {},
 ): readonly WorkingExercise[] {
-  if (execution.exercises.length > 0) return fromList(execution, extra.names)
+  const reading: Reading = { unit: extra.unit ?? 'kg', locale: extra.locale ?? 'es' }
+  const unnamed = extra.unnamed ?? textFor('es').session.exercise
+  if (execution.exercises.length > 0) return fromList(execution, extra.names, reading, unnamed)
 
   const byMovement = new Map<string, Record<string, unknown>[]>()
   const unattributed: Record<string, unknown>[] = []
@@ -147,12 +196,12 @@ export function workingStateFrom(
   let order = 0
   const planned = execution.planned.map((step) => {
     const done = step.movement_id ? (byMovement.get(step.movement_id) ?? []) : unattributed
-    const sets = rowsFor(step, done, order)
+    const sets = rowsFor(step, done, order, reading)
     order += sets.length
     return {
       position: step.position,
       movementId: step.movement_id,
-      movement: step.movement ?? 'Ejercicio',
+      movement: step.movement ?? unnamed,
       sets,
     }
   })
@@ -173,8 +222,7 @@ export function workingStateFrom(
         const recorded = done[row]
         sets.push({
           order,
-          loadKg:
-            recorded && typeof recorded.load_value === 'number' ? String(recorded.load_value) : '',
+          ...recordedLoad(recorded, reading.unit),
           reps:
             recorded && typeof recorded.achieved_reps === 'number'
               ? String(recorded.achieved_reps)
@@ -188,7 +236,7 @@ export function workingStateFrom(
       return {
         position: last + index + 1,
         movementId: id,
-        movement: extra.names?.get(id) ?? 'Ejercicio',
+        movement: extra.names?.get(id) ?? unnamed,
         sets,
       }
     }),
@@ -203,6 +251,7 @@ function rowsFor(
   source: Source,
   done: readonly Record<string, unknown>[],
   after: number,
+  reading: Reading,
 ): WorkingSet[] {
   const reps = targetReps(source)
   const prescribed = source.sets ?? []
@@ -214,15 +263,14 @@ function rowsFor(
     const askedReps = asked ? (asked.target_reps === null ? '' : String(asked.target_reps)) : reps
     sets.push({
       order: after + index + 1,
-      loadKg:
-        recorded && typeof recorded.load_value === 'number' ? String(recorded.load_value) : '',
+      ...recordedLoad(recorded, reading.unit),
       reps:
         recorded && typeof recorded.achieved_reps === 'number'
           ? String(recorded.achieved_reps)
           : askedReps,
       done: recorded !== undefined,
-      previous: previousLabel(source, index),
-      previousLoad: previousLoadOf(source, index),
+      previous: previousLabel(source, index, reading),
+      previousLoad: previousLoadOf(source, index, reading.unit),
       kind: kindOf(recorded?.kind) ?? asked?.kind ?? 'normal',
       rpe: rpeOf(recorded),
     })
@@ -240,6 +288,8 @@ function rowsFor(
 function fromList(
   execution: Execution,
   names: ReadonlyMap<string, string> | undefined,
+  reading: Reading,
+  unnamed: string,
 ): readonly WorkingExercise[] {
   const exercises = [...execution.exercises].sort((one, other) => one.position - other.position)
   const byExercise = new Map<number, Record<string, unknown>[]>()
@@ -256,7 +306,7 @@ function fromList(
 
   let order = 0
   return exercises.map((listed: Listed) => {
-    const sets = rowsFor(listed, byExercise.get(listed.position) ?? [], order)
+    const sets = rowsFor(listed, byExercise.get(listed.position) ?? [], order, reading)
     order += sets.length
     return {
       key: `listed-${listed.position}`,
@@ -265,7 +315,7 @@ function fromList(
       movement:
         listed.movement ??
         (listed.movement_id ? names?.get(listed.movement_id) : undefined) ??
-        'Ejercicio',
+        unnamed,
       plannedStepId: listed.planned_step_id,
       ...(listed.superset_group === null ? {} : { supersetGroup: listed.superset_group }),
       ...(listed.rest_seconds === null ? {} : { restSeconds: listed.rest_seconds }),
@@ -400,7 +450,7 @@ export function withAddedExercises(
       plannedStepId: null,
       sets: Array.from({ length: DEFAULT_SETS }, () => ({
         order: 0,
-        loadKg: '',
+        load: '',
         reps: '',
         done: false,
         previous: '—',
@@ -463,7 +513,7 @@ export function withExtraSet(
             // after a warmup it is the work that follows, not more warming up.
             {
               order: 0,
-              loadKg: last?.loadKg ?? '',
+              load: last?.load ?? '',
               reps: last?.reps ?? '',
               done: false,
               previous: '—',
@@ -513,12 +563,11 @@ export function withTick(
     const above = exercise.sets
       .slice(0, index)
       .reverse()
-      .find((one) => one.loadKg !== '' && (set.kind === 'warmup' || one.kind !== 'warmup'))
-    const loadKg =
-      done && set.loadKg === '' ? (set.previousLoad ?? above?.loadKg ?? '') : set.loadKg
+      .find((one) => one.load !== '' && (set.kind === 'warmup' || one.kind !== 'warmup'))
+    const load = done && set.load === '' ? (set.previousLoad ?? above?.load ?? '') : set.load
     return {
       ...exercise,
-      sets: exercise.sets.map((one) => (one.order === order ? { ...one, done, loadKg } : one)),
+      sets: exercise.sets.map((one) => (one.order === order ? { ...one, done, load } : one)),
     }
   })
 }
@@ -579,25 +628,34 @@ export function setMark(sets: readonly WorkingSet[], index: number): string {
 }
 
 /**
- * Total load moved, in kilos.
+ * Total load moved, in kilos, from loads typed in `unit`.
  *
  * Only ticked sets count, and only those with both a load and a repetition count: a
  * set with no weight is bodyweight, which is real training and not volume anybody can
  * add up.
  */
-export function totalVolumeKg(exercises: readonly WorkingExercise[]): number {
+export function totalVolumeKg(exercises: readonly WorkingExercise[], unit: MassUnit): number {
   return exercises.reduce(
     (total, exercise) =>
       total +
       exercise.sets.reduce((inner, set) => {
         if (!set.done || set.kind === 'warmup') return inner
-        const load = Number(set.loadKg)
+        const load = typedLoad(set.load) ?? 0
         const reps = Number(set.reps)
-        if (!Number.isFinite(load) || !Number.isFinite(reps) || load <= 0 || reps <= 0) return inner
-        return inner + load * reps
+        if (!Number.isFinite(reps) || load <= 0 || reps <= 0) return inner
+        return inner + kilogramsFrom(load, unit) * reps
       }, 0),
     0,
   )
+}
+
+/** What a ticked set's load sends: as recorded while it still shows that, else as typed. */
+function loadSent(set: WorkingSet, unit: MassUnit): { value: number; unit: MassUnit } | null {
+  const typed = typedLoad(set.load)
+  if (typed === null || typed <= 0) return null
+  const origin = set.loadOrigin
+  if (origin && loadInput(origin.value, origin.unit, unit) === String(typed)) return origin
+  return { value: typed, unit }
 }
 
 /** `mm:ss`, or `h:mm:ss` once a session runs past the hour. */
@@ -666,7 +724,10 @@ export function clockParts(seconds: number): { readonly lead: string; readonly t
  * execution when the attempt started, from the template it came from; declaring one
  * here could only contradict what is already recorded.
  */
-export function resultsFrom(exercises: readonly WorkingExercise[]): ExecutionResults {
+export function resultsFrom(
+  exercises: readonly WorkingExercise[],
+  unit: MassUnit,
+): ExecutionResults {
   const listed = exercises.map((exercise) => ({
     position: exercise.position,
     movement_id: exercise.movementId,
@@ -678,15 +739,13 @@ export function resultsFrom(exercises: readonly WorkingExercise[]): ExecutionRes
     exercise.sets
       .filter((set) => set.done)
       .map((set) => {
-        const load = Number(set.loadKg)
+        const load = loadSent(set, unit)
         const reps = Number(set.reps)
         return {
           order: set.order,
           ...(exercise.movementId ? { movement_id: exercise.movementId } : {}),
           ...(Number.isFinite(reps) && reps > 0 ? { achieved_reps: reps } : {}),
-          ...(Number.isFinite(load) && load > 0
-            ? { load: { value: load, unit: 'kg' as const } }
-            : {}),
+          ...(load ? { load } : {}),
           ...(set.rpe === undefined ? {} : { rpe: set.rpe }),
           kind: set.kind,
           exercise_position: exercise.position,

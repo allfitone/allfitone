@@ -20,8 +20,9 @@ import { identity } from './es/identity'
 import { password } from './es/password'
 import { pro } from './es/pro'
 import { profile } from './es/profile'
+import { session } from './es/session'
 import { training } from './es/training'
 
-export const es = { common, fitness, health, identity, password, pro, profile, training }
+export const es = { common, fitness, health, identity, password, pro, profile, session, training }
 
 export type Dictionary = typeof es
