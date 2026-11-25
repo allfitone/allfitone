@@ -3450,6 +3450,7 @@ export type Database = {
         Args: { p_code: string; p_request_id: string }
         Returns: string
       }
+      email_locale_for_event: { Args: { p_event_id: string }; Returns: string }
       expire_backoffice_authentication_attempts: {
         Args: { p_limit: number }
         Returns: number
