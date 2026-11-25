@@ -33,7 +33,6 @@ import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
 import { useStudioSessionMutation } from './studio-query-provider'
-import { WorkspacePageHeader } from './workspace-page-header'
 import { createCommandIntentManager } from '@/lib/command-intent'
 import { useCompactTable } from '@/lib/use-compact-table'
 import {
@@ -53,6 +52,7 @@ import {
   studioQueryKeys,
 } from '@/lib/studio-query'
 import { canInviteTeam, invitationRoleLabel } from '@/lib/team-invitations'
+import { teamPath } from '@/lib/team-sections'
 
 type InvitationItem = TeamInvitationPage['data'][number]
 type Filter = TeamInvitationStatus | 'all'
@@ -64,7 +64,6 @@ const FILTERS: Array<{ value: Filter; label: string }> = [
   { value: 'revoked', label: 'Revocadas' },
   { value: 'expired', label: 'Vencidas' },
 ]
-const INVITATION_ISSUANCE_ENABLED = process.env.NEXT_PUBLIC_STAFF_INVITATIONS_ENABLED === 'true'
 
 export function TeamInvitationList() {
   const { current } = useOrganizationContext()
@@ -163,17 +162,16 @@ export function TeamInvitationList() {
   // for this person. `forbidden` covers a role that changed mid-session.
   if (!canReadInvitations || forbidden) {
     return (
-      <section data-team-page aria-label="Invitaciones del equipo">
-        <WorkspacePageHeader description="Las invitaciones del equipo las gestionan quienes pueden proponerlas." />
+      <div data-team-panel>
         <Alert variant="warning">
           <AlertTitle>No puedes consultar las invitaciones</AlertTitle>
           <AlertDescription>
-            Tu rol no incluye esta parte del equipo. Puedes consultar los roles y entender qué
-            permite cada uno.
+            Las invitaciones las gestionan quienes pueden proponerlas, y tu rol no incluye esta
+            parte del equipo. Puedes consultar los roles y entender qué permite cada uno.
           </AlertDescription>
           <AlertAction>
             <Link
-              href={`/organizations/${current.organization_id}/team/roles`}
+              href={teamPath(current.organization_id, 'roles')}
               data-slot="button"
               data-variant="outline"
               className={buttonVariants({ variant: 'outline' })}
@@ -182,7 +180,7 @@ export function TeamInvitationList() {
             </Link>
           </AlertAction>
         </Alert>
-      </section>
+      </div>
     )
   }
 
@@ -215,23 +213,7 @@ export function TeamInvitationList() {
         : undefined
 
   return (
-    <section ref={measuredRef} data-team-page aria-label="Invitaciones del equipo">
-      <WorkspacePageHeader
-        description="Consulta el destino, la propuesta y el estado de cada invitación."
-        actions={
-          INVITATION_ISSUANCE_ENABLED && canInviteTeam(current.roles) ? (
-            <Link
-              href={`/organizations/${current.organization_id}/team/invitations/new`}
-              data-slot="button"
-              data-variant="default"
-              className={buttonVariants()}
-            >
-              Nueva invitación
-            </Link>
-          ) : null
-        }
-      />
-
+    <div ref={measuredRef} data-team-panel>
       <ToggleGroup
         data-studio-filters
         value={[filter]}
@@ -392,7 +374,7 @@ export function TeamInvitationList() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </div>
   )
 }
 

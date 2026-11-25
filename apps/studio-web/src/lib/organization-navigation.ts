@@ -56,16 +56,10 @@ export function resolveWorkspaceRoute(
     return { title: 'Editar sede' }
   }
   if (pathname === teamPath) {
-    return { title: 'Integrantes' }
-  }
-  if (pathname === invitationPath) {
-    return { title: 'Invitaciones' }
+    return { title: 'Equipo' }
   }
   if (pathname === `${invitationPath}/new`) {
     return { title: 'Nueva invitación' }
-  }
-  if (pathname === `${teamPath}/roles`) {
-    return { title: 'Roles y permisos' }
   }
   if (pathname === `${basePath}/clients`) {
     return { title: 'Clientes' }

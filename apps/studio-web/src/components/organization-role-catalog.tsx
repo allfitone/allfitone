@@ -22,7 +22,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
-import { WorkspacePageHeader } from './workspace-page-header'
 import type { OrganizationRole } from '@/lib/studio-api'
 import { isStudioForbidden, organizationRolesQueryOptions } from '@/lib/studio-query'
 
@@ -51,16 +50,7 @@ export function OrganizationRoleCatalog() {
         : { kind: 'error' }
 
   return (
-    <section data-team-page data-role-page aria-label="Roles y permisos">
-      {/* The panel this replaced said the roles were four, fixed and read-only.
-          The count is on screen to be counted and the screen carries no control
-          to change anything; that they cannot be customised is the one fact a
-          reader could not get anywhere else, so it moves into the sentence that
-          already explains the view. */}
-      <WorkspacePageHeader
-        description={`Allfit One tiene cuatro roles fijos. Consulta para qué sirve cada uno antes de decidir cómo debe participar una persona en ${current.display_name}.`}
-      />
-
+    <div data-team-panel>
       {query.isFetching && state.kind === 'ready' ? (
         <p data-query-refreshing role="status" aria-live="polite">
           Actualizando roles y permisos…
@@ -107,7 +97,7 @@ export function OrganizationRoleCatalog() {
           ))}
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 

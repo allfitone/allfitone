@@ -36,7 +36,7 @@ const REGISTERS = [
   },
   {
     name: 'invitations',
-    path: `/organizations/${ORG}/team/invitations`,
+    path: `/organizations/${ORG}/team?tab=invitations`,
     section: '[data-team-page]',
     cards: '[data-team-directory-card-list]',
   },

@@ -129,11 +129,9 @@ describe('organization workspace navigation', () => {
     })
   })
 
-  test('resolves the governed role catalogue title without duplicating sidebar hierarchy', () => {
-    const rolesPath = `${basePath}/team/roles`
-    expect(resolveWorkspaceRoute(rolesPath, organizationId)).toEqual({
-      title: 'Roles y permisos',
-    })
+  test('titles the whole team after its sidebar entry, whichever section is open', () => {
+    const teamPath = `${basePath}/team`
+    expect(resolveWorkspaceRoute(teamPath, organizationId)).toEqual({ title: 'Equipo' })
   })
 
   test('resolves the invitation creation title', () => {

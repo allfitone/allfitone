@@ -1,5 +1,13 @@
-import { OrganizationRoleCatalog } from '@/components/organization-role-catalog'
+import { redirect } from 'next/navigation'
 
-export default function OrganizationRolesPage() {
-  return <OrganizationRoleCatalog />
+import { teamPath } from '@/lib/team-sections'
+
+// Roles are a tab of the team now; the old address opens it there.
+export default async function OrganizationRolesPage({
+  params,
+}: {
+  params: Promise<{ organizationId: string }>
+}) {
+  const { organizationId } = await params
+  redirect(teamPath(organizationId, 'roles'))
 }

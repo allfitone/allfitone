@@ -63,7 +63,6 @@
 [data-studio-stage],
 [data-organization-content],
 [data-profile-content],
-[data-team-section-content],
 [data-organization-shell],
 [data-organization-context-root],
 [data-profile-canvas],
@@ -268,6 +267,7 @@
 [data-studio-form],
 [data-invitation-waiting],
 [data-team-page],
+[data-team-panel],
 [data-content-page],
 [data-content-panel],
 [data-client-page],
@@ -277,7 +277,6 @@
 [data-correction-proposal-page],
 [data-client-prescription-screen],
 [data-client-invite-page],
-[data-team-section],
 [data-profile-section],
 [data-profile-state],
 [data-organization-state],
@@ -590,7 +589,6 @@
 
 [data-team-role-badges],
 [data-ready-confirmations],
-[data-team-section-navigation],
 [data-today-row-marks],
 [data-membership-roles],
 [data-role-disclosure],
@@ -706,7 +704,6 @@
    down the card instead of leaving each one to start wherever its label ends. */
 /* CardContent pads sideways and nothing else, so the action sat against the
    last fact. The gap belongs to Studio's own element, not to the component. */
-[data-team-member-card] [data-team-invitation-actions],
 [data-historical-case-actions] {
   margin-block-start: var(--afo-space-4);
 }

@@ -10,9 +10,7 @@ import {
   terminatedTeamMember,
 } from './studio-api-mock'
 
-test('owner consults the minimum team directory and navigates with real section links', async ({
-  page,
-}) => {
+test('owner consults the minimum team directory and moves between its tabs', async ({ page }) => {
   const fixture = createStudioApiFixture({
     memberships: [activeMembership],
     organizationMemberships: [
@@ -23,21 +21,23 @@ test('owner consults the minimum team directory and navigates with real section 
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${activeMembership.organization_id}/team`)
 
-  await expect(page.getByRole('heading', { name: 'Integrantes', level: 1 })).toBeVisible()
+  // One heading for the three sections, named after the sidebar entry that
+  // leads here; which section is open is the tab strip's job to say.
+  await expect(page.getByRole('heading', { name: 'Equipo', level: 1 })).toBeVisible()
   const sidebar = page.locator('[data-organization-sidebar]')
-  const sectionNavigation = page.getByRole('navigation', { name: 'Secciones del equipo' })
+  const sections = page.getByRole('tablist', { name: 'Secciones del equipo' })
   await expect(sidebar.getByRole('link', { name: 'Inicio', exact: true })).toBeVisible()
   await expect(sidebar.getByRole('link', { name: 'Equipo', exact: true })).toHaveAttribute(
     'aria-current',
     'page',
   )
   await expect(page.getByRole('navigation', { name: 'Ruta de navegación' })).toHaveCount(0)
-  await expect(sectionNavigation.getByRole('link', { name: 'Integrantes' })).toHaveAttribute(
-    'aria-current',
-    'page',
+  await expect(sections.getByRole('tab', { name: 'Integrantes' })).toHaveAttribute(
+    'aria-selected',
+    'true',
   )
-  await expect(sectionNavigation.getByRole('link', { name: 'Invitaciones' })).toBeVisible()
-  await expect(sectionNavigation.getByRole('link', { name: 'Roles', exact: true })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Invitaciones' })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Roles', exact: true })).toBeVisible()
   await expect(
     page.getByRole('region', { name: 'Tabla de integrantes de la organización' }),
   ).toBeVisible()
@@ -60,12 +60,39 @@ test('owner consults the minimum team directory and navigates with real section 
     ),
   ).toBe(true)
 
-  await sectionNavigation.getByRole('link', { name: 'Roles', exact: true }).focus()
+  // Reached from the keyboard, and the address names the section it opened, so
+  // a reload and a shared link both land back on it.
+  await sections.getByRole('tab', { name: 'Roles', exact: true }).focus()
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}/team/roles`)
-  await expect(sectionNavigation.getByRole('link', { name: 'Roles', exact: true })).toHaveAttribute(
-    'aria-current',
-    'page',
+  await expect(page).toHaveURL(`/organizations/${activeMembership.organization_id}/team?tab=roles`)
+  await expect(sections.getByRole('tab', { name: 'Roles', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+  await expect(page.locator('[data-role-card]')).toHaveCount(4)
+})
+
+/**
+ * Each section had an address of its own for months — in bookmarks, and in the
+ * links the workspace home still builds — so each one opens its tab rather
+ * than answering that the screen is gone.
+ */
+test('the addresses the sections used to have open their tab', async ({ page }) => {
+  const team = `/organizations/${activeMembership.organization_id}/team`
+  await installStudioApiMock(page, createStudioApiFixture({ memberships: [activeMembership] }))
+
+  await page.goto(`${team}/invitations`)
+  await expect(page).toHaveURL(`${team}?tab=invitations`)
+  await expect(page.getByRole('tab', { name: 'Invitaciones' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+
+  await page.goto(`${team}/roles`)
+  await expect(page).toHaveURL(`${team}?tab=roles`)
+  await expect(page.getByRole('tab', { name: 'Roles', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
   )
 })
 
@@ -83,17 +110,20 @@ test('coach sees only the governed role catalog and never requests the team dire
   // section still doing the opposite, and left a coach who opened an invitation
   // URL on a page with no tab selected. The data itself is still never read.
   await expect(page.getByText('No tienes acceso a este directorio')).toBeVisible()
-  const sectionNavigation = page.getByRole('navigation', { name: 'Secciones del equipo' })
-  await expect(sectionNavigation.getByRole('link', { name: 'Integrantes' })).toBeVisible()
-  await expect(sectionNavigation.getByRole('link', { name: 'Invitaciones' })).toBeVisible()
-  await expect(sectionNavigation.getByRole('link', { name: 'Roles', exact: true })).toBeVisible()
+  const sections = page.getByRole('tablist', { name: 'Secciones del equipo' })
+  await expect(sections.getByRole('tab', { name: 'Integrantes' })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Invitaciones' })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Roles', exact: true })).toBeVisible()
   await expect(
     page.locator('[data-organization-sidebar]').getByRole('link', { name: 'Equipo' }),
   ).toHaveAttribute('href', `/organizations/${coachMembership.organization_id}/team`)
   expect(fixture.requests.filter(isOrganizationMembershipRequest)).toHaveLength(0)
 
   await page.getByRole('link', { name: 'Ver roles y permisos' }).click()
-  await expect(page.getByRole('heading', { name: 'Roles y permisos', level: 1 })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Roles', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
   const cards = page.locator('[data-role-card]')
   await expect(cards).toHaveCount(4)
   expect(
@@ -198,9 +228,9 @@ test('coach with staff role regains the directory destinations', async ({ page }
   await installStudioApiMock(page, fixture)
   await page.goto(`/organizations/${combinedMembership.organization_id}/team`)
 
-  const sectionNavigation = page.getByRole('navigation', { name: 'Secciones del equipo' })
-  await expect(sectionNavigation.getByRole('link', { name: 'Integrantes' })).toBeVisible()
-  await expect(sectionNavigation.getByRole('link', { name: 'Invitaciones' })).toBeVisible()
+  const sections = page.getByRole('tablist', { name: 'Secciones del equipo' })
+  await expect(sections.getByRole('tab', { name: 'Integrantes' })).toBeVisible()
+  await expect(sections.getByRole('tab', { name: 'Invitaciones' })).toBeVisible()
   await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
   expect(fixture.requests.filter(isOrganizationMembershipRequest).length).toBeGreaterThan(0)
 })
@@ -212,9 +242,9 @@ for (const role of ['admin', 'staff'] as const) {
     await installStudioApiMock(page, fixture)
     await page.goto(`/organizations/${membership.organization_id}/team`)
 
-    await expect(page.getByRole('heading', { name: 'Integrantes', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Equipo', level: 1 })).toBeVisible()
     await expect(page.getByText('Ada Lovelace', { exact: true })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Invitaciones' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Invitaciones' })).toBeVisible()
     expect(fixture.requests.filter(isOrganizationMembershipRequest).length).toBeGreaterThan(0)
   })
 }
@@ -380,7 +410,7 @@ for (const viewport of [
         true,
       )
 
-      await page.getByRole('link', { name: 'Roles', exact: true }).click()
+      await page.getByRole('tab', { name: 'Roles', exact: true }).click()
       await expect(page.locator('[data-role-card]')).toHaveCount(4)
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,

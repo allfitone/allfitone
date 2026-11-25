@@ -65,7 +65,7 @@ test('a revocation that lost the race explains the invitation was already decide
     },
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations`)
+  await page.goto(`/organizations/${activeMembership.organization_id}/team?tab=invitations`)
 
   await page
     .getByRole('row')
@@ -101,7 +101,7 @@ test('an empty invitation register says so instead of showing rows', async ({ pa
       request.method === 'GET' && request.path === invitationsPath ? emptyPage : undefined,
   })
   await installStudioApiMock(page, fixture)
-  await page.goto(`/organizations/${activeMembership.organization_id}/team/invitations`)
+  await page.goto(`/organizations/${activeMembership.organization_id}/team?tab=invitations`)
 
   await expect(page.getByText('Todavía no hay invitaciones emitidas')).toBeVisible()
   // The empty notice occupies a row of its own, so counting rows proves little.

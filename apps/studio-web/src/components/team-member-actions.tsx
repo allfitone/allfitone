@@ -27,7 +27,7 @@
  * a `422` nobody can interpret.
  */
 
-import { Button } from '@allfitone/react/components/button'
+import { IconButton } from '@allfitone/react/components/icon-button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@allfitone/react/components/dropdown-menu'
+import { FoundationIcon } from '@allfitone/react/icons'
 import { useState } from 'react'
 
 import { TeamMembershipTermination } from './team-membership-termination'
@@ -79,18 +80,22 @@ export function TeamMemberActions({
   return (
     <>
       <DropdownMenu>
+        {/* The same «…» the library, billing, plans and template steps use. A
+            labelled ghost button has no border and no fill, so at rest it was
+            the word «Acciones» under a column header reading ACCIONES, and
+            nothing said it could be pressed. */}
         <DropdownMenuTrigger
           render={
-            <Button
+            <IconButton
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               data-team-member-actions
               aria-label={`Acciones sobre ${membership.display_name}`}
             />
           }
         >
-          Acciones
+          <FoundationIcon name="more" decorative />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" data-team-member-actions-menu>
           {canGrant ? (
