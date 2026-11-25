@@ -48,7 +48,7 @@ export function emailBrandAssetUrl(publicBaseUrl: string | URL): string {
   return new URL(`email/${EMAIL_FILES.logo}`, publicBaseUrl).toString()
 }
 
-/** The languages an email can be written in. Everything but the waitlist is Spanish today. */
+/** The languages an email can be written in. Studio's team emails are Spanish only today. */
 export type EmailLanguage = 'es' | 'en'
 
 // The words the shell writes itself, when a message does not bring its own.
