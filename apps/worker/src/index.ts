@@ -327,6 +327,12 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         },
       }
   const publicBaseUrl = required('STAFF_INVITATION_PUBLIC_BASE_URL')
+  /*
+   * The brand lockup the invitation emails already use. It is a URL on the same
+   * trusted base, not a new setting: a second place to configure the same image
+   * is a second place for it to be wrong.
+   */
+  const brandAssetUrl = emailBrandAssetUrl(publicBaseUrl)
   const teamInvitations = createInvitationBatchProcessor({
     queue,
     database: createInvitationDeliveryDatabase(sql),
@@ -341,10 +347,8 @@ function processorsFromEnvironment(): WorkerJobProcessors {
     publicBaseUrl,
     deliveryEnabled,
   })
-  // Off until Space has a screen for the person to land on. A client invitation is
-  // resolved and decided through `/space/v1`, and that screen does not exist yet, so
-  // turning this on would email somebody a link to nothing. The event stays unclaimed
-  // meanwhile, exactly as it is today, and the path above is tested and ready.
+  // Off by default: the link lands on space-web's page, which hands it to the app.
+  // While off, the event stays unclaimed and nothing is lost.
   const clientInvitationsEnabled =
     deliveryEnabled && process.env.CLIENT_INVITATION_DELIVERY_ENABLED === 'true'
   const clientInvitations = clientInvitationsEnabled
@@ -353,14 +357,9 @@ function processorsFromEnvironment(): WorkerJobProcessors {
         database: createClientInvitationDeliveryDatabase(sql),
         email,
         publicBaseUrl: required('CLIENT_INVITATION_PUBLIC_BASE_URL'),
+        brandAssetUrl,
       })
     : async () => ({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
-  /*
-   * The brand lockup the invitation emails already use. It is a URL on the same
-   * trusted base, not a new setting: a second place to configure the same image
-   * is a second place for it to be wrong.
-   */
-  const brandAssetUrl = emailBrandAssetUrl(publicBaseUrl)
   const reassignments = createReassignmentBatchProcessor({
     queue,
     email,
