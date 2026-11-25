@@ -39,6 +39,7 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { OnboardingHeader } from '../../src/components/onboarding-header'
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { guardStep, nextRouteAfter } from '../../src/client/onboarding-steps'
 import { canSubmitSex, type SexAnswer } from '../../src/client/sex-form'
@@ -47,18 +48,18 @@ import { SexPicker } from '../../src/components/sex-picker'
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
 
-const EXPIRED = 'Tu sesión venció. Vuelve a entrar para guardar tu respuesta.'
-const UNREACHABLE = 'No pudimos guardar tu respuesta. Inténtalo otra vez.'
-const TAKEN_CONFLICT = 'No pudimos guardar tu respuesta. Inténtalo otra vez.'
+type Failure = 'expired' | 'saveFailed'
 
 export default function OnboardingBiologicalSex() {
   const router = useRouter()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [answer, setAnswer] = useState<SexAnswer | undefined>(undefined)
   const [submitting, setSubmitting] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   useEffect(() => {
     let active = true
@@ -84,10 +85,10 @@ export default function OnboardingBiologicalSex() {
         if (!active) return
         if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
           setSessionExpired(true)
-          setFailure(EXPIRED)
+          setFailure('expired')
           return
         }
-        setFailure(UNREACHABLE)
+        setFailure('saveFailed')
       })
 
     return () => {
@@ -107,18 +108,23 @@ export default function OnboardingBiologicalSex() {
       router.replace(nextRouteAfter('/onboarding/sex'))
     } catch (cause) {
       if (cause instanceof ApiError && cause.failure === 'conflict') {
-        setFailure(TAKEN_CONFLICT)
+        setFailure('saveFailed')
         return
       }
       if (cause instanceof ApiError && cause.failure === 'unauthenticated') {
         setSessionExpired(true)
-        setFailure(EXPIRED)
+        setFailure('expired')
         return
       }
-      setFailure(UNREACHABLE)
+      setFailure('saveFailed')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const failures: Record<Failure, string> = {
+    expired: words.expired,
+    saveFailed: words.saveFailed,
   }
 
   return (
@@ -131,17 +137,17 @@ export default function OnboardingBiologicalSex() {
         showsVerticalScrollIndicator={false}
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          {'Tu sexo\nbiológico'}
+          {words.sex.title}
         </Text>
         <Text role="body" size="md" color="secondary" style={styles.lede}>
-          Calibra tu gasto energético y tus rangos de referencia. Es lo único para lo que lo usamos.
+          {words.sex.lede}
         </Text>
 
         <SexPicker
           answer={answer}
           onChoose={setAnswer}
           pressable={pressable}
-          declineNote="Puedes añadirlo cuando quieras desde tu perfil. Nada más cambia."
+          declineNote={words.sex.declineNote}
         />
       </ScrollView>
 
@@ -150,12 +156,12 @@ export default function OnboardingBiologicalSex() {
       <View style={styles.footer}>
         {failure ? (
           <View style={styles.alert}>
-            <InlineAlert message={failure} />
+            <InlineAlert message={failures[failure]} />
           </View>
         ) : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!submittable}
           loading={submitting}
           onPress={() => {
@@ -167,7 +173,7 @@ export default function OnboardingBiologicalSex() {
         {/* Without this the screen says "sign in again" and offers no way to. */}
         {sessionExpired ? (
           <Button
-            label="Iniciar sesión"
+            label={words.signIn}
             variant="secondary"
             onPress={() => router.replace('/sign-in')}
           />

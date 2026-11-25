@@ -13,29 +13,39 @@
  * area here and in `en.ts`, and two batches never edit the same file.
  */
 
+import { access } from './es/access'
 import { common } from './es/common'
 import { fitness } from './es/fitness'
+import { gyms } from './es/gyms'
 import { health } from './es/health'
 import { identity } from './es/identity'
 import { nutrition } from './es/nutrition'
+import { onboarding } from './es/onboarding'
 import { password } from './es/password'
+import { plans } from './es/plans'
 import { pro } from './es/pro'
 import { profile } from './es/profile'
 import { progress } from './es/progress'
 import { session } from './es/session'
+import { sharing } from './es/sharing'
 import { training } from './es/training'
 
 export const es = {
+  access,
   common,
   fitness,
+  gyms,
   health,
   identity,
   nutrition,
+  onboarding,
   password,
+  plans,
   pro,
   profile,
   progress,
   session,
+  sharing,
   training,
 }
 

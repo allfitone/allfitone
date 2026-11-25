@@ -26,9 +26,7 @@ import { StyleSheet, View } from 'react-native'
 
 import { requestPasswordReset } from '../client'
 import { createPasswordResetFlow } from '../client/password-reset'
-
-const INVALID = 'Escribe un correo válido.'
-const UNREACHABLE = 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
+import { useText } from '../i18n/use-text'
 
 export function PasswordResetSheet({
   visible,
@@ -39,6 +37,7 @@ export function PasswordResetSheet({
   readonly onDismiss: () => void
   readonly email: string
 }) {
+  const text = useText().access
   const flow = useMemo(() => createPasswordResetFlow({ request: requestPasswordReset }), [])
 
   const [address, setAddress] = useState(email)
@@ -62,44 +61,44 @@ export function PasswordResetSheet({
     const outcome = await flow.submit(address)
     setSubmitting(false)
     if (outcome === 'sent') setSent(true)
-    else setFailure(outcome === 'invalid' ? INVALID : UNREACHABLE)
+    else setFailure(outcome === 'invalid' ? text.reset.invalid : text.unreachable)
   }
 
   return (
     <Sheet
       visible={visible}
       onDismiss={onDismiss}
-      title={sent ? 'Te enviamos\nun enlace' : 'Recupera tu\ncontraseña'}
+      title={sent ? text.reset.sentTitle : text.reset.title}
     >
       {sent ? (
         <View style={styles.stack}>
           <Text role="body" size="sm" color="secondary">
-            Revisa{' '}
+            {text.reset.check}{' '}
             <Text role="control" size="sm" color="primary">
               {address.trim()}
             </Text>{' '}
-            y ábrelo para crear una contraseña nueva. Vence en poco tiempo.
+            {text.reset.openIt}
           </Text>
 
           <InlineAlert
             tone="info"
-            title="Al cambiarla"
-            message="Se cierran todas tus sesiones. Vuelve a entrar con la contraseña nueva."
+            title={text.reset.onChangeTitle}
+            message={text.reset.onChangeBody}
           />
 
-          <Button label="Entendido" onPress={onDismiss} />
+          <Button label={text.reset.understood} onPress={onDismiss} />
         </View>
       ) : (
         <View style={styles.stack}>
           <Text role="body" size="sm" color="secondary">
-            Te enviaremos un enlace a este correo para que crees una nueva.
+            {text.reset.intro}
           </Text>
 
           <TextField
-            label="Correo"
+            label={text.email}
             value={address}
             onChangeText={setAddress}
-            placeholder="tu@correo.com"
+            placeholder={text.emailPlaceholder}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
@@ -111,7 +110,7 @@ export function PasswordResetSheet({
           {failure ? <InlineAlert message={failure} /> : null}
 
           <Button
-            label="Enviar enlace"
+            label={text.reset.send}
             loading={submitting}
             disabled={submitting}
             onPress={() => {

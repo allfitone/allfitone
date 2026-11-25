@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { coverSpan, endedSpan, pendingCovers } from '../../src/client/gym-affiliation'
 import { gyms, type Cover, type MyRelationship } from '../../src/client/gym-affiliation-transport'
 import { GymMark, RowCard } from '../../src/components/gym-ui'
+import { useText } from '../../src/i18n/use-text'
 
 interface PendingCover {
   readonly relationship: MyRelationship
@@ -33,10 +34,12 @@ export default function Gyms() {
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
+  const text = useText()
+  const words = text.gyms
   const [relationships, setRelationships] = useState<readonly MyRelationship[] | undefined>()
   const [covers, setCovers] = useState<readonly PendingCover[]>([])
   const [deciding, setDeciding] = useState<string | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'loadFailed' | 'decideFailed' | undefined>(undefined)
 
   const load = useCallback(async () => {
     const page = await gyms.list()
@@ -55,7 +58,7 @@ export default function Gyms() {
 
   useFocusEffect(
     useCallback(() => {
-      load().catch(() => setFailure('No pudimos cargar tus gimnasios. Revisa tu conexión.'))
+      load().catch(() => setFailure('loadFailed'))
     }, [load]),
   )
 
@@ -70,7 +73,7 @@ export default function Gyms() {
       )
       await load()
     } catch {
-      setFailure('No pudimos guardar tu decisión. Inténtalo de nuevo.')
+      setFailure('decideFailed')
     } finally {
       setDeciding(undefined)
     }
@@ -82,9 +85,13 @@ export default function Gyms() {
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Tus gimnasios
+          {words.title}
         </Text>
       </View>
 
@@ -92,7 +99,7 @@ export default function Gyms() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={words[failure]} /> : null}
 
         {covers.map((pending) => (
           <View
@@ -109,7 +116,7 @@ export default function Gyms() {
               <Monogram name={pending.cover.display_name} tone="warning" />
               <View style={styles.grow}>
                 <Text role="control" size="sm">
-                  {pending.cover.display_name} te cubriría
+                  {words.wouldCover(pending.cover.display_name)}
                 </Text>
                 <Text role="body" size="xs" style={{ color: theme.color.status.warning }}>
                   {pending.relationship.organization_name} · {coverSpan(pending.cover)}
@@ -117,19 +124,18 @@ export default function Gyms() {
               </View>
             </View>
             <Text role="body" size="xs" color="secondary">
-              Mientras no decidas, no ve nada. Si aceptas, ve lo mismo que tu coach y solo en esas
-              fechas.
+              {words.coverBody}
             </Text>
             <View style={styles.answers}>
               <Button
-                label="Rechazar"
+                label={words.reject}
                 variant="secondary"
                 disabled={deciding !== undefined}
                 onPress={() => void decide(pending, 'rejected')}
                 style={styles.grow}
               />
               <Button
-                label="Aceptar"
+                label={words.accept}
                 loading={deciding === pending.cover.assignment_id}
                 disabled={deciding !== undefined}
                 onPress={() => void decide(pending, 'accepted')}
@@ -141,20 +147,18 @@ export default function Gyms() {
 
         {relationships && relationships.length === 0 ? (
           <Text role="body" size="sm" color="secondary">
-            Todavía no entrenas con ningún gimnasio.
+            {words.none}
           </Text>
         ) : null}
 
         {active.length > 0 ? (
-          <Section title="Activos">
+          <Section title={words.active}>
             {active.map((relationship) => (
               <GymRow
                 key={relationship.relationship_id}
                 relationship={relationship}
                 caption={
-                  relationship.holder_name
-                    ? `Coach: ${relationship.holder_name}`
-                    : 'Todavía sin coach asignado'
+                  relationship.holder_name ? words.coach(relationship.holder_name) : words.noCoach
                 }
                 onPress={() =>
                   router.push({
@@ -169,7 +173,7 @@ export default function Gyms() {
         ) : null}
 
         {ended.length > 0 ? (
-          <Section title="Terminados">
+          <Section title={words.ended}>
             {ended.map((relationship) => (
               <GymRow
                 key={relationship.relationship_id}
@@ -187,10 +191,7 @@ export default function Gyms() {
           </Section>
         ) : null}
 
-        <Note>
-          Si un gimnasio te invita, la invitación te espera en Hoy. Aceptar no comparte nada por sí
-          solo.
-        </Note>
+        <Note>{words.invitationNote}</Note>
       </ScrollView>
     </Screen>
   )
@@ -226,6 +227,7 @@ function GymRow({
   readonly active?: boolean
   readonly muted?: boolean
 }) {
+  const text = useText()
   return (
     <ContentRow
       size="sm"
@@ -241,7 +243,7 @@ function GymRow({
         ? {
             trailing: {
               kind: 'badge',
-              label: 'Activo',
+              label: text.gyms.activeBadge,
               tone: 'success',
               variant: 'quiet',
               uppercase: false,

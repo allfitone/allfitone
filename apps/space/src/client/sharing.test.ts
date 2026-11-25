@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import { consentLine, groupConsents, groupCaption, revokeCopy, type Consent } from './sharing'
+
+const es = textFor('es').sharing
+const en = textFor('en').sharing
 
 const ACTIVE = '019c8000-0000-7000-8000-000000000201'
 const ENDED = '019c8000-0000-7000-8000-000000000202'
@@ -49,19 +53,34 @@ describe('what she shares', () => {
   })
 
   test('T-SPC-UNIT-322 each category says how it stands, in her words', () => {
-    expect(consentLine(consent())).toBe('Lectura · desde el 12 sep')
-    expect(consentLine(consent({ access_level: 'contribute' }))).toBe(
+    expect(consentLine(consent(), es, 'es')).toBe('Lectura · desde el 12 sep')
+    expect(consentLine(consent({ access_level: 'contribute' }), es, 'es')).toBe(
       'Lectura y cambios a tu plan · desde el 12 sep',
     )
-    expect(consentLine(consent({ decision: 'rejected', grant_id: null, grant_status: null }))).toBe(
-      'Elegiste no compartirlo',
-    )
     expect(
-      consentLine(consent({ grant_status: 'revoked', revoked_at: '2026-10-21T15:00:00.000Z' })),
+      consentLine(consent({ decision: 'rejected', grant_id: null, grant_status: null }), es, 'es'),
+    ).toBe('Elegiste no compartirlo')
+    expect(
+      consentLine(
+        consent({ grant_status: 'revoked', revoked_at: '2026-10-21T15:00:00.000Z' }),
+        es,
+        'es',
+      ),
     ).toBe('Dejaste de compartirlo el 21 oct')
     expect(
-      consentLine(consent({ grant_status: 'frozen', frozen_at: '2026-10-01T15:00:00.000Z' })),
+      consentLine(
+        consent({ grant_status: 'frozen', frozen_at: '2026-10-01T15:00:00.000Z' }),
+        es,
+        'es',
+      ),
     ).toBe('Aún pueden ver lo compartido hasta el 1 oct')
+    expect(
+      consentLine(
+        consent({ grant_status: 'revoked', revoked_at: '2026-10-21T15:00:00.000Z' }),
+        en,
+        'en',
+      ),
+    ).toBe('You stopped sharing it on Oct 21')
   })
 
   test('T-SPC-UNIT-323 a gym says since when and how much of what it asked she shares', () => {
@@ -75,7 +94,10 @@ describe('what she shares', () => {
       }),
       consent({ scope_code: 'nutrition_intake', grant_status: 'revoked' }),
     ])
-    expect(group && groupCaption(group)).toBe('Activa desde el 12 sep · 1 de 3 categorías')
+    expect(group && groupCaption(group, es, 'es')).toBe(
+      'Activa desde el 12 sep · 1 de 3 categorías',
+    )
+    expect(group && groupCaption(group, en, 'en')).toBe('Active since Sep 12 · 1 of 3 categories')
   })
 
   test('T-SPC-UNIT-324 an ended gym says it sees nothing new', () => {
@@ -87,7 +109,7 @@ describe('what she shares', () => {
         frozen_at: '2026-06-03T15:00:00.000Z',
       }),
     ])
-    expect(group && groupCaption(group)).toBe('Terminó el 3 jun · ya no ven nada nuevo')
+    expect(group && groupCaption(group, es, 'es')).toBe('Terminó el 3 jun · ya no ven nada nuevo')
   })
 })
 
@@ -98,6 +120,7 @@ describe('taking one back', () => {
         scope_code: 'nutrition_intake',
         presented_snapshot: { display_name: 'Lo que comes' },
       }),
+      es,
     )
     expect(copy.title).toBe('¿Dejar de compartir tus comidas con Bodytech Chicó?')
     expect(copy.lines).toEqual([
@@ -106,10 +129,18 @@ describe('taking one back', () => {
       'No se borra nada tuyo. Sigue en tu Fitness ID.',
       'No se puede deshacer: para volver a compartir hará falta un permiso nuevo.',
     ])
+    expect(revokeCopy(consent(), en).lines.slice(1)).toEqual([
+      'Everything else you share stays the same: each permission is separate.',
+      'Nothing of yours is deleted. It stays in your Fitness ID.',
+      "This can't be undone: sharing again will need a new permission.",
+    ])
   })
 
   test('T-SPC-UNIT-326 for an ended gym it is what they kept that goes', () => {
-    const copy = revokeCopy(consent({ relationship_status: 'terminated', grant_status: 'frozen' }))
+    const copy = revokeCopy(
+      consent({ relationship_status: 'terminated', grant_status: 'frozen' }),
+      es,
+    )
     expect(copy.lines[0]).toBe(
       'Dejan de conservar tu progreso corporal, también lo que ya les compartiste.',
     )

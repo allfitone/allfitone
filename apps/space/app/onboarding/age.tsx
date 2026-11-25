@@ -40,21 +40,24 @@ import { useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
 import { ApiError } from '../../src/client'
+import { useText } from '../../src/i18n/use-text'
 import { createSpaceOnboardingFlow } from '../../src/client/onboarding-transport'
 import { FIRST_STEP_ROUTE } from '../../src/client/onboarding-steps'
-
-const DECLARATION = 'Declaro que tengo 18 años o más.'
 
 /** Keeps the button off the very bottom edge, the same amount on every step. */
 const FOOTER_LIFT = 16
 
+type Failure = 'refused' | 'expired' | 'saveFailed'
+
 export default function AdultDeclaration() {
   const router = useRouter()
   const flow = useMemo(() => createSpaceOnboardingFlow(), [])
+  const text = useText()
+  const words = text.onboarding
 
   const [declared, setDeclared] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
 
   const submit = async () => {
     setSubmitting(true)
@@ -64,19 +67,23 @@ export default function AdultDeclaration() {
       // A refusal is recorded but never eligibility, so the flow stops here
       // rather than advancing on evidence that did not pass.
       if (evidence.result !== 'pass') {
-        setFailure('No podemos continuar sin la declaración de mayoría de edad.')
+        setFailure('refused')
         return
       }
       router.replace(FIRST_STEP_ROUTE)
     } catch (cause) {
       setFailure(
-        cause instanceof ApiError && cause.failure === 'unauthenticated'
-          ? 'Tu sesión venció. Inicia sesión otra vez.'
-          : 'No pudimos guardar tu declaración. Inténtalo otra vez.',
+        cause instanceof ApiError && cause.failure === 'unauthenticated' ? 'expired' : 'saveFailed',
       )
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const failures: Record<Failure, string> = {
+    refused: words.age.refused,
+    expired: words.age.expired,
+    saveFailed: words.age.saveFailed,
   }
 
   return (
@@ -87,15 +94,15 @@ export default function AdultDeclaration() {
         showsVerticalScrollIndicator={false}
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          {'Antes de\nempezar'}
+          {words.age.title}
         </Text>
         <Text role="body" size="md" color="secondary" style={styles.lede}>
-          Allfit Space es solo para personas mayores de edad. No te pedimos tu fecha de nacimiento.
+          {words.age.lede}
         </Text>
 
         <View style={styles.form}>
           <Checkbox
-            label={DECLARATION}
+            label={words.age.declaration}
             checked={declared}
             onChange={setDeclared}
             disabled={submitting}
@@ -106,10 +113,10 @@ export default function AdultDeclaration() {
       {/* Outside the scroll so the button sits in the same place on every step of
           the onboarding, whatever the content above it does. */}
       <View style={styles.footer}>
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={failures[failure]} /> : null}
 
         <Button
-          label="Continuar"
+          label={words.continue}
           disabled={!declared || submitting}
           loading={submitting}
           onPress={() => {

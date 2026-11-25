@@ -36,20 +36,20 @@ import { storeSession } from '../src/client/session'
 import { createSpaceOnboardingFlow } from '../src/client/onboarding-transport'
 import { routeAfterAuthentication } from '../src/client/resume-route'
 import { PasswordResetSheet } from '../src/components/password-reset-sheet'
-
-const FAILURE = 'Correo o contraseña incorrectos'
-const UNREACHABLE = 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
+import { useText } from '../src/i18n/use-text'
 
 export default function SignIn() {
   const router = useRouter()
+  const text = useText()
+  const words = text.access.signInScreen
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<'wrong' | 'unreachable' | undefined>(undefined)
   const [resetting, setResetting] = useState(false)
 
-  const failed = failure === FAILURE
+  const failed = failure === 'wrong'
   const canSubmit = email.length > 0 && password.length > 0 && !submitting
 
   const submit = async () => {
@@ -61,7 +61,7 @@ export default function SignIn() {
       await storeSession({ ...session, email: trimmed })
       router.replace(await routeAfterAuthentication(() => createSpaceOnboardingFlow().resume()))
     } catch (cause) {
-      setFailure(cause instanceof ApiError && unreachable(cause) ? UNREACHABLE : FAILURE)
+      setFailure(cause instanceof ApiError && unreachable(cause) ? 'unreachable' : 'wrong')
     } finally {
       setSubmitting(false)
     }
@@ -74,7 +74,7 @@ export default function SignIn() {
       <IconButton
         icon="back"
         variant="plain"
-        accessibilityLabel="Volver"
+        accessibilityLabel={text.common.back}
         onPress={() => router.back()}
         style={styles.back}
       />
@@ -87,15 +87,15 @@ export default function SignIn() {
         automaticallyAdjustKeyboardInsets
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header" style={styles.title}>
-          {'Vuelve a\nentrenar'}
+          {words.title}
         </Text>
 
         <View style={styles.form}>
           <TextField
-            label="Correo"
+            label={text.access.email}
             value={email}
             onChangeText={setEmail}
-            placeholder="tu@correo.com"
+            placeholder={text.access.emailPlaceholder}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
@@ -106,10 +106,10 @@ export default function SignIn() {
           />
 
           <TextField
-            label="Contraseña"
+            label={text.access.password}
             value={password}
             onChangeText={setPassword}
-            placeholder="Tu contraseña"
+            placeholder={words.passwordPlaceholder}
             autoCapitalize="none"
             autoComplete="current-password"
             secureTextEntry
@@ -118,10 +118,12 @@ export default function SignIn() {
             {...(failed ? { error: '' } : {})}
           />
 
-          {failure ? <InlineAlert message={failure} /> : null}
+          {failure ? (
+            <InlineAlert message={failure === 'wrong' ? words.failure : text.access.unreachable} />
+          ) : null}
 
           <Button
-            label="Entrar"
+            label={words.submit}
             disabled={!canSubmit}
             loading={submitting}
             onPress={() => {
@@ -132,13 +134,13 @@ export default function SignIn() {
 
           <View style={styles.link}>
             <Text role="body" size="sm" color="secondary">
-              ¿Olvidaste tu contraseña?
+              {words.forgot}
             </Text>
             <Button
-              label="Restablecer"
+              label={words.reset}
               variant="ghost"
               size="sm"
-              accessibilityLabel="¿Olvidaste tu contraseña? Restablecer"
+              accessibilityLabel={words.resetLabel}
               onPress={() => setResetting(true)}
             />
           </View>
@@ -150,13 +152,13 @@ export default function SignIn() {
           moving the link down. */}
       <View style={styles.link}>
         <Text role="body" size="sm" color="secondary">
-          ¿No tienes cuenta?
+          {words.noAccount}
         </Text>
         <Button
-          label="Crear una"
+          label={words.create}
           variant="ghost"
           size="sm"
-          accessibilityLabel="¿No tienes cuenta? Crear una"
+          accessibilityLabel={words.createLabel}
           onPress={() => router.replace('/create-account')}
         />
       </View>

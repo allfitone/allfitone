@@ -44,11 +44,7 @@ import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import welcomeHero from '../assets/images/welcome-backlit.webp'
-
-// Kept named so the wording is one line to change while the copy is still open.
-const HEADLINE = 'Entrena con plan,\nno con suerte'
-const SUBHEAD =
-  'Entrena por tu cuenta o con tu entrenador, registra lo que comes y lleva todo tu progreso en el mismo sitio.'
+import { useText } from '../src/i18n/use-text'
 
 // The asset's own ratio, so the rendered box always matches the file.
 const HERO_ASPECT = 1050 / 1546
@@ -64,6 +60,7 @@ export default function Welcome() {
   const router = useRouter()
   const { width } = useWindowDimensions()
   const insets = useSafeAreaInsets()
+  const text = useText().access
 
   const heroHeight = width / HERO_ASPECT
   const scrimHeight = heroHeight * SCRIM_OVERHANG
@@ -104,24 +101,24 @@ export default function Welcome() {
 
         <View style={styles.copy}>
           <Text role="display" size="4xl" uppercase accessibilityRole="header">
-            {HEADLINE}
+            {text.welcome.headline}
           </Text>
           <Text role="body" size="md" color="secondary">
-            {SUBHEAD}
+            {text.welcome.subhead}
           </Text>
         </View>
 
         <GlassPanel radius="panel" style={styles.actions}>
-          <Button label="Crear mi cuenta" onPress={() => router.push('/create-account')} />
+          <Button label={text.welcome.create} onPress={() => router.push('/create-account')} />
           <View style={styles.signIn}>
             <Text role="body" size="sm" color="secondary">
-              ¿Ya tienes cuenta?
+              {text.haveAccount}
             </Text>
             <Button
-              label="Iniciar sesión"
+              label={text.signIn}
               variant="ghost"
               size="sm"
-              accessibilityLabel="¿Ya tienes cuenta? Iniciar sesión"
+              accessibilityLabel={text.signInLabel}
               onPress={() => router.push('/sign-in')}
             />
           </View>

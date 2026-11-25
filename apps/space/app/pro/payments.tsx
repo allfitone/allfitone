@@ -34,8 +34,7 @@ import {
 } from '../../src/client/pro'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
 import { SectionLabel } from '../../src/components/pro-ui'
-
-const UNAVAILABLE = 'No pudimos cargar tus pagos. Revisa tu conexión e inténtalo de nuevo.'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
 export default function ProPaymentsRoute() {
   const flow = useMemo(() => createSpaceProFlow(), [])
@@ -47,10 +46,13 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const theme = useTheme()
+  const text = useText()
+  const locale = useLocale()
+  const words = text.plans.payments
   const [payments, setPayments] = useState<ProPayments | undefined>(undefined)
   const [status, setStatus] = useState<ProStatus | undefined>(undefined)
   const [catalogue, setCatalogue] = useState<ProPlanCatalogue | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState(false)
 
   useFocusEffect(
     useCallback(() => {
@@ -62,7 +64,7 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
           setStatus(read)
           setCatalogue(plans)
         })
-        .catch(() => active && setFailure(UNAVAILABLE))
+        .catch(() => active && setFailure(true))
       return () => {
         active = false
       }
@@ -75,20 +77,26 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
   const first = succeeded[succeeded.length - 1]
   const subscription = status ? subscriptionOf(status) : undefined
   // The fee of the latest charge that went through: what the person pays each period.
-  const fee = latest ? money(latest.amount_minor, latest.currency_code) : undefined
-  const billing = subscription ? billingOf(catalogue, subscription.version_id) : undefined
+  const fee = latest ? money(latest.amount_minor, latest.currency_code, locale) : undefined
+  const billing = subscription
+    ? billingOf(catalogue, subscription.version_id, text.plans)
+    : undefined
   const store = subscription?.store ?? latest?.store
 
   const chips: (readonly [IconName, string])[] = []
-  if (store) chips.push(['external', `Con ${storeName(store)}`])
-  if (subscription) chips.push(['frequency', renewalLine(subscription)])
+  if (store) chips.push(['external', words.through(storeName(store))])
+  if (subscription) chips.push(['frequency', renewalLine(subscription, text.plans, locale)])
 
   return (
     <Screen edges={['top']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Tus pagos
+          {words.title}
         </Text>
       </View>
 
@@ -96,17 +104,17 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
       >
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? <InlineAlert message={words.unavailable} /> : null}
 
         {payments && list.length === 0 ? (
           <Note size="md" icon="history">
-            Todavía no hay cobros de Allfit Pro.
+            {words.none}
           </Note>
         ) : null}
 
         {fee ? (
           <View style={styles.summary}>
-            <SectionLabel>{billing?.fee ?? 'Tu último cobro'}</SectionLabel>
+            <SectionLabel>{billing?.fee ?? words.lastCharge}</SectionLabel>
             <View style={styles.totalRow}>
               <Text role="data" size="6xl">
                 {fee}
@@ -119,13 +127,13 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
             </View>
             {first ? (
               <Text role="body" size="sm" color="secondary">
-                Pagas Pro desde el {shortDate(first.occurred_at)}
+                {words.since(shortDate(first.occurred_at, locale))}
               </Text>
             ) : null}
             <View style={styles.chips}>
-              {chips.map(([icon, text]) => (
+              {chips.map(([icon, chip]) => (
                 <View
-                  key={text}
+                  key={chip}
                   style={[
                     styles.chip,
                     {
@@ -141,7 +149,7 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
                     decorative
                   />
                   <Text role="control" size="xs" color="secondary">
-                    {text}
+                    {chip}
                   </Text>
                 </View>
               ))}
@@ -151,7 +159,7 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
 
         {list.length > 0 ? (
           <View style={styles.section}>
-            <SectionLabel>Cobros</SectionLabel>
+            <SectionLabel>{words.charges}</SectionLabel>
             <ContentGroup>
               {list.map((payment) => {
                 const paid = payment.result === 'succeeded'
@@ -161,10 +169,10 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
                     icon={paid ? 'check' : 'close'}
                     iconTone={paid ? 'success' : 'danger'}
                     iconShape="round"
-                    name={shortDate(payment.occurred_at)}
-                    caption={paid ? 'Pagado' : `${storeName(payment.store)} no pudo cobrar`}
+                    name={shortDate(payment.occurred_at, locale)}
+                    caption={paid ? words.paid : words.failed(storeName(payment.store))}
                     {...(paid ? {} : { captionTone: 'danger' as const })}
-                    value={money(payment.amount_minor, payment.currency_code) ?? '—'}
+                    value={money(payment.amount_minor, payment.currency_code, locale) ?? '—'}
                     valueFace="data"
                     valueTone={paid ? 'primary' : 'muted'}
                     valueSize="md"
@@ -176,8 +184,7 @@ export function ProPaymentsScreen({ flow }: { readonly flow: ProFlow }) {
         ) : null}
 
         <Note size="md" icon="locked">
-          Tus recibos y tu tarjeta están en tu cuenta de {store ? storeName(store) : 'la tienda'}.
-          Allfit nunca ve tu tarjeta.
+          {words.receipts(store ? storeName(store) : words.theStore)}
         </Note>
       </ScrollView>
     </Screen>

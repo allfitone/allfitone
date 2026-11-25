@@ -34,6 +34,7 @@ import { Linking, ScrollView, StyleSheet, View } from 'react-native'
 import { ApiError, register } from '../src/client'
 import { LEGAL_URLS } from '../src/client/legal'
 import { isSignUpPassword, signUpRequirements } from '../src/client/password-form'
+import type { Dictionary } from '../src/i18n'
 import { useText } from '../src/i18n/use-text'
 
 /**
@@ -41,25 +42,27 @@ import { useText } from '../src/i18n/use-text'
  * vague: the API cannot tell us whether the address was taken, and inventing a
  * more specific message would either be a guess or a disclosure.
  */
-function messageFor(cause: unknown): string {
-  if (!(cause instanceof ApiError)) return 'Algo salió mal. Inténtalo otra vez.'
+function messageFor(cause: unknown, text: Dictionary['access']): string {
+  if (!(cause instanceof ApiError)) return text.createAccount.generic
   switch (cause.failure) {
     case 'validation-failed':
       // Reached only when the password passed our rules and the provider still
       // refused it, which now means it resembles something already breached
       // rather than that it is short.
-      return 'Esa contraseña es demasiado fácil de adivinar. Cámbiale algunas letras o alárgala.'
+      return text.createAccount.weakPassword
     case 'unavailable':
     case 'rate-limited':
-      return 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.'
+      return text.unreachable
     default:
-      return 'Revisa el correo y la contraseña.'
+      return text.createAccount.checkFields
   }
 }
 
 export default function CreateAccount() {
   const router = useRouter()
-  const rules = useText().password.rules
+  const text = useText()
+  const words = text.access.createAccount
+  const rules = text.password.rules
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -77,7 +80,7 @@ export default function CreateAccount() {
       await register(address, password)
       router.push({ pathname: '/verify-email', params: { email: address, password } })
     } catch (cause) {
-      setFailure(messageFor(cause))
+      setFailure(messageFor(cause, text.access))
     } finally {
       setSubmitting(false)
     }
@@ -88,7 +91,7 @@ export default function CreateAccount() {
       <IconButton
         icon="back"
         variant="plain"
-        accessibilityLabel="Volver"
+        accessibilityLabel={text.common.back}
         onPress={() => router.back()}
         style={styles.back}
       />
@@ -101,18 +104,18 @@ export default function CreateAccount() {
         automaticallyAdjustKeyboardInsets
       >
         <Text role="display" size="4xl" uppercase accessibilityRole="header">
-          {'Crea tu\ncuenta'}
+          {words.title}
         </Text>
         <Text role="body" size="md" color="secondary" style={styles.lede}>
-          Empiezas sin gimnasio, sin entrenador y sin invitación.
+          {words.lede}
         </Text>
 
         <View style={styles.form}>
           <TextField
-            label="Correo"
+            label={text.access.email}
             value={email}
             onChangeText={setEmail}
-            placeholder="tu@correo.com"
+            placeholder={text.access.emailPlaceholder}
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
@@ -123,7 +126,7 @@ export default function CreateAccount() {
           />
 
           <TextField
-            label="Contraseña"
+            label={text.access.password}
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
@@ -133,8 +136,8 @@ export default function CreateAccount() {
             returnKeyType="go"
             editable={!submitting}
             trailing={{
-              label: shown ? 'Ocultar' : 'Mostrar',
-              accessibilityLabel: `${shown ? 'Ocultar' : 'Mostrar'} contraseña`,
+              label: shown ? words.hide : words.show,
+              accessibilityLabel: words.toggleLabel(shown),
               onPress: () => setShown((was) => !was),
             }}
           />
@@ -143,7 +146,7 @@ export default function CreateAccount() {
           {failure ? <InlineAlert message={failure} /> : null}
 
           <Button
-            label="Crear cuenta"
+            label={words.submit}
             disabled={!canSubmit}
             loading={submitting}
             onPress={() => {
@@ -153,7 +156,7 @@ export default function CreateAccount() {
           />
 
           <Text role="body" size="sm" color="muted" align="center" style={styles.legal}>
-            Al continuar aceptas los{' '}
+            {words.legal.before}{' '}
             <Text
               role="body"
               size="sm"
@@ -161,9 +164,9 @@ export default function CreateAccount() {
               accessibilityRole="link"
               onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
             >
-              términos y condiciones
+              {words.legal.terms}
             </Text>{' '}
-            y la{' '}
+            {words.legal.between}{' '}
             <Text
               role="body"
               size="sm"
@@ -171,22 +174,22 @@ export default function CreateAccount() {
               accessibilityRole="link"
               onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
             >
-              política de privacidad
+              {words.legal.privacy}
             </Text>
-            .
+            {words.legal.after}
           </Text>
         </View>
       </ScrollView>
 
       <View style={styles.link}>
         <Text role="body" size="sm" color="secondary">
-          ¿Ya tienes cuenta?
+          {text.access.haveAccount}
         </Text>
         <Button
-          label="Iniciar sesión"
+          label={text.access.signIn}
           variant="ghost"
           size="sm"
-          accessibilityLabel="¿Ya tienes cuenta? Iniciar sesión"
+          accessibilityLabel={text.access.signInLabel}
           onPress={() => router.replace('/sign-in')}
         />
       </View>

@@ -32,16 +32,20 @@ import {
   periodLabel,
   subscribeRefusalFor,
   subscribeRefusalMessage,
+  type SubscribeRefusal,
   type MyRelationship,
   type PlanOffer,
 } from '../../src/client/subscriptions'
 import { createSpaceSubscriptionFlow } from '../../src/client/subscriptions-transport'
-import { useLocale } from '../../src/i18n/use-text'
+import { useLocale, useText } from '../../src/i18n/use-text'
 
-const READ_FAILED = 'No pudimos cargar los planes. Inténtalo otra vez.'
+type Failure =
+  { readonly kind: 'read' } | { readonly kind: 'subscribe'; readonly refusal: SubscribeRefusal }
 
 export default function OrganizationPlansScreen() {
   const locale = useLocale()
+  const text = useText()
+  const words = text.plans.gym
   const router = useRouter()
   const theme = useTheme()
   const { organizationId } = useLocalSearchParams<{ organizationId: string }>()
@@ -49,7 +53,7 @@ export default function OrganizationPlansScreen() {
 
   const [plans, setPlans] = useState<readonly PlanOffer[]>([])
   const [gym, setGym] = useState<MyRelationship | undefined>(undefined)
-  const [failure, setFailure] = useState<string | undefined>(undefined)
+  const [failure, setFailure] = useState<Failure | undefined>(undefined)
   const [chosen, setChosen] = useState<PlanOffer | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -74,7 +78,7 @@ export default function OrganizationPlansScreen() {
         })
         .catch(() => {
           if (!active) return
-          setFailure(READ_FAILED)
+          setFailure({ kind: 'read' })
           setLoaded(true)
         })
       return () => {
@@ -83,7 +87,7 @@ export default function OrganizationPlansScreen() {
     }, [flow, organizationId]),
   )
 
-  const gymName = gym?.organization_name ?? 'tu gimnasio'
+  const gymName = gym?.organization_name ?? words.offers.yourGym
 
   async function confirmSubscription(plan: PlanOffer): Promise<void> {
     setBusy(true)
@@ -96,7 +100,7 @@ export default function OrganizationPlansScreen() {
       router.replace('/subscriptions')
     } catch (cause) {
       const failed = cause instanceof ApiError ? cause.failure : 'unavailable'
-      setFailure(subscribeRefusalMessage(subscribeRefusalFor(failed), gymName))
+      setFailure({ kind: 'subscribe', refusal: subscribeRefusalFor(failed) })
       setChosen(undefined)
     } finally {
       setBusy(false)
@@ -106,14 +110,26 @@ export default function OrganizationPlansScreen() {
   return (
     <Screen edges={['top', 'bottom']} padded={false}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header" style={styles.grow}>
           {gymName}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {failure ? <InlineAlert message={failure} /> : null}
+        {failure ? (
+          <InlineAlert
+            message={
+              failure.kind === 'read'
+                ? words.offers.readFailed
+                : subscribeRefusalMessage(failure.refusal, gymName, words)
+            }
+          />
+        ) : null}
 
         {plans.map((plan) => (
           <View
@@ -134,26 +150,25 @@ export default function OrganizationPlansScreen() {
               {formatPrice(plan.amount_minor, plan.currency_code, locale)}
             </Text>
             <Text role="body" size="sm" color="muted">
-              {periodLabel(plan.billing_period)}
+              {periodLabel(plan.billing_period, words)}
             </Text>
-            <Button label="Suscribirme" onPress={() => setChosen(plan)} />
+            <Button label={words.offers.subscribe} onPress={() => setChosen(plan)} />
           </View>
         ))}
 
         {loaded && plans.length === 0 && !failure ? (
           <View style={styles.empty}>
             <Text role="control" size="lg">
-              Este gimnasio no tiene planes publicados
+              {words.offers.noneTitle}
             </Text>
             <Text role="body" size="sm" color="muted">
-              Puedes seguir entrenando igual. Si esperabas un plan, pregúntale al gimnasio.
+              {words.offers.noneBody}
             </Text>
           </View>
         ) : null}
 
         <Text role="body" size="sm" color="muted" style={styles.note}>
-          El pago se hace en la pasarela del gimnasio. Allfit nunca ve ni guarda los datos de tu
-          tarjeta.
+          {words.offers.gatewayNote}
         </Text>
       </ScrollView>
 
@@ -163,28 +178,31 @@ export default function OrganizationPlansScreen() {
           if (busy) return
           setChosen(undefined)
         }}
-        title={chosen ? `¿Suscribirte al plan ${chosen.plan_name}?` : ''}
+        title={chosen ? words.offers.confirmTitle(chosen.plan_name) : ''}
       >
         <View style={styles.sheetBody}>
           <Text role="body" size="sm" color="secondary">
             {chosen
-              ? `Vas a pagarle ${formatPrice(chosen.amount_minor, chosen.currency_code, locale)} ${periodLabel(chosen.billing_period)} a ${gymName}. El precio queda fijo en el que ves ahora: si el gimnasio lo sube después, a ti no te cambia.`
+              ? words.offers.confirmBody(
+                  formatPrice(chosen.amount_minor, chosen.currency_code, locale),
+                  periodLabel(chosen.billing_period, words),
+                  gymName,
+                )
               : ''}
           </Text>
           {/* The thing nobody would assume: paying is not permission. */}
           <Text role="body" size="sm" color="secondary">
-            Suscribirte no le da acceso a ninguno de tus datos. Lo que el gimnasio puede ver se
-            decide solo cuando aceptas una relación, y eso no cambia aquí.
+            {words.offers.notPermission}
           </Text>
           <Button
-            label="Sí, suscribirme"
+            label={words.offers.confirm}
             loading={busy}
             onPress={() => {
               if (chosen) void confirmSubscription(chosen)
             }}
           />
           <Button
-            label="Volver"
+            label={words.offers.back}
             variant="ghost"
             onPress={() => {
               if (busy) return
