@@ -61,6 +61,7 @@ function deliver(payload: unknown = NOTICE) {
   const { queue, acked, nacked } = queueWith([message(payload)])
   const email = emailSpy()
   const run = createSubstitutionBatchProcessor({
+    emailAllowed: async () => true,
     queue,
     email: email.sender as never,
     brandAssetUrl: BRAND,
@@ -165,6 +166,7 @@ describe('asking a person to accept a cover', () => {
   test('a delivery failure the provider says is temporary is retried', async () => {
     const { queue, nacked } = queueWith([message()])
     const run = createSubstitutionBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: {
         send: async () => {
@@ -184,6 +186,7 @@ describe('asking a person to accept a cover', () => {
     const { queue, acked, nacked } = queueWith([message()])
     const email = emailSpy()
     const result = await createSubstitutionBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: BRAND,
@@ -195,4 +198,20 @@ describe('asking a person to accept a cover', () => {
     expect(acked).toHaveLength(0)
     expect(nacked).toHaveLength(0)
   })
+})
+
+test('T-WRK-COVER-EMAIL-01 email off for her relationship notices: acknowledged, nothing sent', async () => {
+  // ADR-054: the cover still waits on her in the inbox; turning email off never removes it.
+  const { queue, acked } = queueWith([message()])
+  const email = emailSpy()
+  const result = await createSubstitutionBatchProcessor({
+    emailAllowed: async () => false,
+    queue,
+    email: email.sender as never,
+    brandAssetUrl: BRAND,
+  })()
+
+  expect(result).toMatchObject({ claimed: 1, delivered: 0, deadOrDelayed: 0, skipped: 1 })
+  expect(acked).toEqual([message().id])
+  expect(email.sent).toEqual([])
 })

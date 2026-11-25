@@ -32,6 +32,7 @@ import type { Queue, QueueMessage } from '@allfitone/queue'
 import type postgres from 'postgres'
 
 import { mapWithConcurrency, trustedPublicBaseUrl } from './invitations.js'
+import type { EmailGate } from './email-gate.js'
 
 export interface ClientInvitationDelivery {
   state: 'expired' | 'ready' | 'skipped'
@@ -91,6 +92,8 @@ export function createClientInvitationBatchProcessor(dependencies: {
   publicBaseUrl: string
   environment?: NodeJS.ProcessEnv
   deliveryEnabled?: boolean
+  /** Her email preference for her relationship notices; a no keeps the notice and sends nothing. */
+  emailAllowed: EmailGate
 }) {
   const environment = dependencies.environment ?? process.env
   const baseUrl = trustedPublicBaseUrl(dependencies.publicBaseUrl, environment)
@@ -125,6 +128,10 @@ export function createClientInvitationBatchProcessor(dependencies: {
       ) {
         await dependencies.queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
+      }
+      if (!(await dependencies.emailAllowed(message.id))) {
+        await dependencies.queue.ack(message.id)
+        return 'skipped'
       }
       const token = createInvitationToken(
         delivery.invitationId,

@@ -21,6 +21,7 @@ import {
 import type { Queue, QueueMessage } from '@allfitone/queue'
 
 import { mapWithConcurrency } from './invitations.js'
+import type { EmailGate } from './email-gate.js'
 
 export interface CorrectionProposalBatchResult {
   claimed: number
@@ -41,6 +42,8 @@ export function createCorrectionProposalBatchProcessor(dependencies: {
   email: EmailSender
   brandAssetUrl: string
   deliveryEnabled?: boolean
+  /** Her email preference for the event's category; a no keeps the notice and sends nothing. */
+  emailAllowed: EmailGate
 }): () => Promise<CorrectionProposalBatchResult> {
   return async function processCorrectionProposalBatch(): Promise<CorrectionProposalBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -52,16 +55,20 @@ export function createCorrectionProposalBatchProcessor(dependencies: {
       claimed: messages.length,
       delivered: results.filter((outcome) => outcome === 'delivered').length,
       deadOrDelayed: results.filter((outcome) => outcome === 'failed').length,
-      skipped: 0,
+      skipped: results.filter((outcome) => outcome === 'skipped').length,
     }
   }
 
-  async function deliver(message: QueueMessage): Promise<'delivered' | 'failed'> {
+  async function deliver(message: QueueMessage): Promise<'delivered' | 'failed' | 'skipped'> {
     try {
       const notice = readNotice(message.payload)
       if (!notice) {
         await dependencies.queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
+      }
+      if (!(await dependencies.emailAllowed(message.id))) {
+        await dependencies.queue.ack(message.id)
+        return 'skipped'
       }
       const rendered = renderCorrectionProposedEmail({
         organizationName: notice.organizationName,

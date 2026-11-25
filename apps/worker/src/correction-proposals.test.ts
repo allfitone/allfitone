@@ -61,6 +61,7 @@ function deliver(payload: unknown = NOTICE) {
   const { queue, claimed, acked, nacked } = queueWith([message(payload)])
   const email = emailSpy()
   const run = createCorrectionProposalBatchProcessor({
+    emailAllowed: async () => true,
     queue,
     email: email.sender as never,
     brandAssetUrl: BRAND,
@@ -147,6 +148,7 @@ describe('telling a person a professional proposes a correction (HU-STUDIO-059 c
   test('a delivery failure the provider says is temporary is retried', async () => {
     const { queue, nacked } = queueWith([message()])
     const run = createCorrectionProposalBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: {
         send: async () => {
@@ -166,6 +168,7 @@ describe('telling a person a professional proposes a correction (HU-STUDIO-059 c
     const { queue, claimed, acked, nacked } = queueWith([message()])
     const email = emailSpy()
     const result = await createCorrectionProposalBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: BRAND,
@@ -178,4 +181,25 @@ describe('telling a person a professional proposes a correction (HU-STUDIO-059 c
     expect(acked).toHaveLength(0)
     expect(nacked).toHaveLength(0)
   })
+})
+
+test('T-WRK-CORR-EMAIL-01 email off for her correction notices: acknowledged, nothing sent', async () => {
+  // ADR-054: the notice is already in her inbox; turning email off never removes it.
+  const { queue, acked } = queueWith([message()])
+  const email = emailSpy()
+  const asked: string[] = []
+  const result = await createCorrectionProposalBatchProcessor({
+    emailAllowed: async (eventId) => {
+      asked.push(eventId)
+      return false
+    },
+    queue,
+    email: email.sender as never,
+    brandAssetUrl: BRAND,
+  })()
+
+  expect(result).toMatchObject({ claimed: 1, delivered: 0, deadOrDelayed: 0, skipped: 1 })
+  expect(asked).toEqual([message().id])
+  expect(acked).toEqual([message().id])
+  expect(email.sent).toEqual([])
 })

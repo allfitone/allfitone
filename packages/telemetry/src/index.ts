@@ -204,6 +204,7 @@ export type TelemetryEvent =
           | 'outbox_batch'
           | 'platform_duty_lapse'
           | 'privacy_disposition'
+          | 'push_delivery'
         outcome: 'completed' | 'failed' | 'retrying'
         duration_ms: number
         item_count?: number
@@ -383,6 +384,7 @@ function validateSpecific(name: TelemetryEventName, properties: Record<string, u
             'outbox_batch',
             'platform_duty_lapse',
             'privacy_disposition',
+            'push_delivery',
           ] as const,
           properties.job,
         ) &&

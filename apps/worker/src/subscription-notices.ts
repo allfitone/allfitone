@@ -33,6 +33,7 @@ import {
 import type { Queue, QueueMessage } from '@allfitone/queue'
 
 import { mapWithConcurrency } from './invitations.js'
+import type { EmailGate } from './email-gate.js'
 
 export const SUBSCRIPTION_NOTICE_EVENTS = [
   'payments.subscription_suspended.v1',
@@ -62,6 +63,8 @@ export function createSubscriptionNoticeBatchProcessor(dependencies: {
   email: EmailSender
   brandAssetUrl: string
   deliveryEnabled?: boolean
+  /** Her email preference for the event's category; a no keeps the notice and sends nothing. */
+  emailAllowed: EmailGate
 }): () => Promise<SubscriptionNoticeBatchResult> {
   return async function processSubscriptionNoticeBatch(): Promise<SubscriptionNoticeBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -102,6 +105,10 @@ export function createSubscriptionNoticeBatchProcessor(dependencies: {
         return 'failed'
       }
       if (!notice.contact) {
+        await dependencies.queue.ack(message.id)
+        return 'skipped'
+      }
+      if (!(await dependencies.emailAllowed(message.id))) {
         await dependencies.queue.ack(message.id)
         return 'skipped'
       }

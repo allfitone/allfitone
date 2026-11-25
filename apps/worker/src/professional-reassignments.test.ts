@@ -55,6 +55,7 @@ describe('telling a person their professional changed', () => {
     const { queue, acked } = queueWith([message()])
     const email = emailSpy()
     const process = createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -76,6 +77,7 @@ describe('telling a person their professional changed', () => {
     const { queue } = queueWith([message()])
     const email = emailSpy()
     await createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -92,6 +94,7 @@ describe('telling a person their professional changed', () => {
     const { queue } = queueWith([message()])
     const email = emailSpy()
     await createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -105,6 +108,7 @@ describe('telling a person their professional changed', () => {
     const { queue } = queueWith([message()])
     const email = emailSpy()
     await createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -119,6 +123,7 @@ describe('telling a person their professional changed', () => {
     const { queue, nacked } = queueWith([message({ contact: '' })])
     const email = emailSpy()
     const result = await createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -134,6 +139,7 @@ describe('telling a person their professional changed', () => {
   test('a delivery failure the provider says is temporary is retried', async () => {
     const { queue, nacked } = queueWith([message()])
     const process = createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: {
         send: async () => {
@@ -153,6 +159,7 @@ describe('telling a person their professional changed', () => {
     const { queue, acked, nacked } = queueWith([message()])
     const email = emailSpy()
     const result = await createReassignmentBatchProcessor({
+      emailAllowed: async () => true,
       queue,
       email: email.sender as never,
       brandAssetUrl: 'https://studio.example.test/email/lockup.png',
@@ -164,4 +171,20 @@ describe('telling a person their professional changed', () => {
     expect(acked).toHaveLength(0)
     expect(nacked).toHaveLength(0)
   })
+})
+
+test('T-WRK-REASSIGN-EMAIL-01 email off for her relationship notices: acknowledged, nothing sent', async () => {
+  // ADR-054: the notice is already in her inbox; turning email off never removes it.
+  const { queue, acked } = queueWith([message()])
+  const email = emailSpy()
+  const result = await createReassignmentBatchProcessor({
+    emailAllowed: async () => false,
+    queue,
+    email: email.sender as never,
+    brandAssetUrl: 'https://studio.example.test/email/lockup.png',
+  })()
+
+  expect(result).toMatchObject({ claimed: 1, delivered: 0, deadOrDelayed: 0, skipped: 1 })
+  expect(acked).toEqual([message().id])
+  expect(email.sent).toEqual([])
 })

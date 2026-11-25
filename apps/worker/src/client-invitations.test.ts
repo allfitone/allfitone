@@ -41,6 +41,7 @@ test('T-WRK-CLI-01 sends the person a link carrying the token derived from the i
   const acknowledged: string[] = []
   const sent: EmailMessage[] = []
   const process = createClientInvitationBatchProcessor({
+    emailAllowed: async () => true,
     queue: queue(acknowledged),
     database: { prepare: async () => ready() },
     email: {
@@ -69,6 +70,7 @@ test('T-WRK-CLI-01 sends the person a link carrying the token derived from the i
 test('T-WRK-CLI-02 never puts what the gym asked for in the message', async () => {
   const sent: EmailMessage[] = []
   await createClientInvitationBatchProcessor({
+    emailAllowed: async () => true,
     queue: queue([]),
     database: { prepare: async () => ready() },
     email: {
@@ -92,6 +94,7 @@ test('T-WRK-CLI-03 acknowledges an invitation that is no longer pending without 
   const acknowledged: string[] = []
   let sent = false
   const process = createClientInvitationBatchProcessor({
+    emailAllowed: async () => true,
     queue: queue(acknowledged),
     database: { prepare: async () => ({ state: 'skipped' }) },
     email: {
@@ -110,6 +113,7 @@ test('T-WRK-CLI-03 acknowledges an invitation that is no longer pending without 
 test('T-WRK-CLI-04 refuses a projection missing anything the email needs', async () => {
   const rejected: Array<[string, string, boolean]> = []
   await createClientInvitationBatchProcessor({
+    emailAllowed: async () => true,
     queue: queue([], rejected),
     // Ready, but with no address to send to: the key is absent, not undefined.
     database: {
@@ -138,6 +142,7 @@ test('T-WRK-CLI-05 retries a throttled provider and never retries a rejected add
     new NotificationDeliveryError('provider_rejected', false),
   ]) {
     await createClientInvitationBatchProcessor({
+      emailAllowed: async () => true,
       queue: queue([], rejected),
       database: { prepare: async () => ready() },
       email: { send: async () => Promise.reject(failure) },
@@ -155,6 +160,7 @@ test('T-WRK-CLI-05 retries a throttled provider and never retries a rejected add
 test('T-WRK-CLI-06 claims nothing while delivery is switched off', async () => {
   let claimed = false
   const process = createClientInvitationBatchProcessor({
+    emailAllowed: async () => true,
     queue: {
       claim: async () => {
         claimed = true
@@ -176,4 +182,31 @@ test('T-WRK-CLI-06 claims nothing while delivery is switched off', async () => {
     skipped: 0,
   })
   expect(claimed).toBeFalse()
+})
+
+test('T-WRK-CLI-EMAIL-01 email off for her relationship notices: acknowledged, nothing sent', async () => {
+  // ADR-054: the notice is already in her inbox; turning email off never removes it.
+  const acknowledged: string[] = []
+  const asked: string[] = []
+  const sent: EmailMessage[] = []
+  const result = await createClientInvitationBatchProcessor({
+    emailAllowed: async (eventId) => {
+      asked.push(eventId)
+      return false
+    },
+    queue: queue(acknowledged),
+    database: { prepare: async () => ready() },
+    email: {
+      send: async (message) => {
+        sent.push(message)
+      },
+    },
+    publicBaseUrl: 'http://localhost:3000/',
+    environment: { NODE_ENV: 'development', INVITATION_TOKEN_KEY_V1: KEY },
+  })()
+
+  expect(result).toEqual({ claimed: 1, delivered: 0, deadOrDelayed: 0, skipped: 1 })
+  expect(asked).toEqual(['event-7'])
+  expect(acknowledged).toEqual(['event-7'])
+  expect(sent).toEqual([])
 })

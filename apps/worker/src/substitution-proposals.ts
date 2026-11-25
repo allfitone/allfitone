@@ -21,6 +21,7 @@ import {
 import type { Queue, QueueMessage } from '@allfitone/queue'
 
 import { mapWithConcurrency } from './invitations.js'
+import type { EmailGate } from './email-gate.js'
 
 export interface SubstitutionBatchResult {
   claimed: number
@@ -45,6 +46,8 @@ export function createSubstitutionBatchProcessor(dependencies: {
   email: EmailSender
   brandAssetUrl: string
   deliveryEnabled?: boolean
+  /** Her email preference for the event's category; a no keeps the notice and sends nothing. */
+  emailAllowed: EmailGate
 }): () => Promise<SubstitutionBatchResult> {
   return async function processSubstitutionBatch(): Promise<SubstitutionBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -71,6 +74,10 @@ export function createSubstitutionBatchProcessor(dependencies: {
       if (!notice) {
         await dependencies.queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
+      }
+      if (!(await dependencies.emailAllowed(message.id))) {
+        await dependencies.queue.ack(message.id)
+        return 'skipped'
       }
       const rendered = renderSubstitutionProposedEmail({
         organizationName: notice.organization_name,
