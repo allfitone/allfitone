@@ -75,7 +75,7 @@ const detail = {
 } as unknown as FinishedExecution
 
 describe('the corrections proposed to her (HU-SP-062)', () => {
-  test('T-SPC-UNIT-640 pending soonest to expire first; the rest most recently settled first', () => {
+  test('T-SPC-UNIT-660 pending soonest to expire first; the rest most recently settled first', () => {
     const late = proposal({ id: 'a', expires_at: '2026-10-29T14:00:00Z' })
     const soon = proposal({ id: 'b', expires_at: '2026-10-10T14:00:00Z' })
     const accepted = proposal({ id: 'c', status: 'accepted', settled_at: '2026-09-12T10:00:00Z' })
@@ -94,13 +94,13 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
     expect(findProposal(decided, 'zzz')).toBeUndefined()
   })
 
-  test('T-SPC-UNIT-641 one past its thirty days is expired even before any sweep marks it', () => {
+  test('T-SPC-UNIT-661 one past its thirty days is expired even before any sweep marks it', () => {
     expect(statusOf(proposal(), NOW)).toBe('pending')
     expect(statusOf(proposal(), new Date('2026-10-30T14:00:00Z'))).toBe('expired')
     expect(statusOf(proposal({ status: 'rejected' }), NOW)).toBe('rejected')
   })
 
-  test('T-SPC-UNIT-642 each state wears its badge: pending warns, accepted succeeds, the rest recede', () => {
+  test('T-SPC-UNIT-662 each state wears its badge: pending warns, accepted succeeds, the rest recede', () => {
     expect(statusBadge('pending', ES.corrections)).toEqual({ label: 'Pendiente', tone: 'warning' })
     expect(statusBadge('accepted', ES.corrections)).toEqual({ label: 'Aceptada', tone: 'success' })
     expect(statusBadge('rejected', EN.corrections)).toEqual({ label: 'Rejected', tone: 'neutral' })
@@ -111,7 +111,7 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
     })
   })
 
-  test('T-SPC-UNIT-643 the expiry counts calendar days in her zone', () => {
+  test('T-SPC-UNIT-663 the expiry counts calendar days in her zone', () => {
     expect(expiryLabel(proposal(), NOW, ZONE, ES.corrections)).toBe('Vence en 29 días')
     expect(expiryLabel(proposal(), NOW, ZONE, EN.corrections)).toBe('Expires in 29 days')
     const tomorrow = proposal({ expires_at: '2026-10-02T15:00:00Z' })
@@ -122,7 +122,7 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
     expect(expiryLabel(tonight, NOW, ZONE, EN.corrections)).toBe('Expires today')
   })
 
-  test('T-SPC-UNIT-644 when it was proposed reads today, yesterday, or its day', () => {
+  test('T-SPC-UNIT-664 when it was proposed reads today, yesterday, or its day', () => {
     const months = ES.common.months
     expect(proposedWhen(proposal(), NOW, ZONE, ES.corrections, months)).toBe('ayer')
     const fresh = proposal({ created_at: '2026-10-01T13:00:00Z' })
@@ -132,7 +132,7 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
     expect(proposedWhen(older, NOW, ZONE, EN.corrections, EN.common.months)).toBe('Sep 22')
   })
 
-  test('T-SPC-UNIT-645 a row names the exercise and the set as the session numbers it', () => {
+  test('T-SPC-UNIT-665 a row names the exercise and the set as the session numbers it', () => {
     expect(setOf(detail, 5)?.number).toBe(3)
     expect(setOf(detail, 9)).toBeUndefined()
     expect(proposalTitle(proposal(), 3, ES.corrections)).toBe('Sentadilla · serie 3')
@@ -142,7 +142,7 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
     )
   })
 
-  test('T-SPC-UNIT-646 the caption says who and when it expires, or when it ended', () => {
+  test('T-SPC-UNIT-666 the caption says who and when it expires, or when it ended', () => {
     const months = ES.common.months
     expect(proposalCaption(proposal(), NOW, ZONE, ES.corrections, months)).toBe(
       'Laura Gómez · vence el 30 oct',
@@ -163,7 +163,7 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
     )
   })
 
-  test('T-SPC-UNIT-647 the context names the session, its day in her zone, and the set', () => {
+  test('T-SPC-UNIT-667 the context names the session, its day in her zone, and the set', () => {
     // 03:00Z on Saturday the 22nd is still ten at night on Friday the 21st in Bogotá.
     expect(contextLine(proposal(), detail, ZONE, ES.corrections, ES.common.months)).toBe(
       'Pierna · vie 21 ago · Sentadilla · serie 3',
@@ -180,14 +180,14 @@ describe('the corrections proposed to her (HU-SP-062)', () => {
 describe('what she logged against what is proposed (HU-SP-063)', () => {
   const sentadilla = setOf(detail, 5)?.set
 
-  test('T-SPC-UNIT-648 a proposal on the reps keeps the set load beside them', () => {
+  test('T-SPC-UNIT-668 a proposal on the reps keeps the set load beside them', () => {
     expect(comparison(proposal(), sentadilla, KG, 'es', ES.corrections)).toEqual({
       registered: '100 kg × 6',
       proposed: '100 kg × 8',
     })
   })
 
-  test('T-SPC-UNIT-649 a load reads in her unit, whatever unit it was proposed in', () => {
+  test('T-SPC-UNIT-669 a load reads in her unit, whatever unit it was proposed in', () => {
     const load = proposal({
       field: 'load',
       current: { value: 100, unit: 'kg' },
@@ -212,7 +212,7 @@ describe('what she logged against what is proposed (HU-SP-063)', () => {
     })
   })
 
-  test('T-SPC-UNIT-650 without the session the field reads alone; an effort reads as RPE', () => {
+  test('T-SPC-UNIT-670 without the session the field reads alone; an effort reads as RPE', () => {
     expect(comparison(proposal(), undefined, KG, 'es', ES.corrections)).toEqual({
       registered: '6 reps',
       proposed: '8 reps',
@@ -230,7 +230,7 @@ describe('what she logged against what is proposed (HU-SP-063)', () => {
     expect(comparison(proposal(), bodyweight, KG, 'en', EN.corrections).registered).toBe('6 reps')
   })
 
-  test('T-SPC-UNIT-651 one that no longer waits says what became of it, and why it was cancelled', () => {
+  test('T-SPC-UNIT-671 one that no longer waits says what became of it, and why it was cancelled', () => {
     const months = ES.common.months
     expect(outcomeLine(proposal(), NOW, ZONE, ES.corrections, months)).toBeUndefined()
     const accepted = proposal({ status: 'accepted', settled_at: '2026-09-12T15:00:00Z' })
@@ -256,7 +256,7 @@ describe('what she logged against what is proposed (HU-SP-063)', () => {
     )
   })
 
-  test('T-SPC-UNIT-652 a refused decision says why, and a closed one is read again', () => {
+  test('T-SPC-UNIT-672 a refused decision says why, and a closed one is read again', () => {
     const words = ES.corrections
     expect(decisionFailure(new ApiError('conflict'), words)).toBe(words.failure.closed)
     expect(decisionFailure(new ApiError('not-found'), words)).toBe(words.failure.gone)
