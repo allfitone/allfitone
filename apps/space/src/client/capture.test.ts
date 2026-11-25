@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import type { Locale } from '../i18n'
 import { unitChoices } from './amount'
 import {
   captureTotals,
@@ -139,6 +140,24 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
     })
   })
 
+  test('T-SPC-UNIT-673 the serving sent is the same in every language; only the screen reads it', () => {
+    const cup = unitChoices(avocado).find((one) => one.label === 'unidad')
+    if (!cup) throw new Error('an avocado comes by the unit')
+    const item = withAmount(fromFood(avocado), 1.5, cup, 'number')
+    const sent = (locale: Locale) => {
+      expect(portionText(item, locale)).toBe(locale === 'es' ? '1,5 unidades' : '1.5 unidades')
+      return mealFromCapture({
+        items: [item],
+        mealType: 'lunch',
+        occurredAt: '2026-10-04T12:30:00-05:00',
+        timezone: 'America/Bogota',
+        recognizedBy: null,
+      }).items[0]?.serving
+    }
+    expect(sent('es')).toBe('1,5 unidades')
+    expect(sent('en')).toBe(sent('es'))
+  })
+
   test('T-SPC-UNIT-227 the meal sent says where each item came from, its grams and what it shows', () => {
     const items = [fromRecognition(recognition)[0] as CaptureItem, fromFood(avocado, 100)]
     expect(
@@ -148,7 +167,6 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
         occurredAt: '2026-10-04T20:30:00-05:00',
         timezone: 'America/Bogota',
         recognizedBy: 'google/gemini-3.5-flash-lite',
-        locale: 'es',
       }),
     ).toEqual({
       occurred_at: '2026-10-04T20:30:00-05:00',
@@ -224,7 +242,6 @@ describe('a meal captured by photo or search (R-F, R-A, ADR-041)', () => {
       occurredAt: '2026-10-05T07:00:00-05:00',
       timezone: 'America/Bogota',
       recognizedBy: null,
-      locale: 'es',
     })
     expect(meal.items.map(({ food_id, product_id }) => ({ food_id, product_id }))).toEqual([
       { food_id: null, product_id: milk.id },

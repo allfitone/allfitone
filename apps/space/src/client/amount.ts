@@ -72,13 +72,20 @@ const asNumber = (value: number, locale: Locale) =>
     maximumFractionDigits: 2,
   })
 
-/** An amount as a decimal, or as the common fraction it nearly is («1 ½»). */
-export function formatAmount(value: number, mode: AmountMode, locale: Locale): string {
-  if (mode === 'number' || Number.isInteger(value)) return asNumber(value, locale)
+// What is stored never depends on the language: the decimal comma it was always sent with.
+const storedNumber = (value: number) => String(roundTo(value, 2)).replace('.', ',')
+
+function amountWith(value: number, mode: AmountMode, decimal: (value: number) => string): string {
+  if (mode === 'number' || Number.isInteger(value)) return decimal(value)
   const whole = Math.floor(value)
   const part = FRACTIONS.find(([share]) => Math.abs(value - whole - share) < 0.02)
-  if (!part) return asNumber(value, locale)
+  if (!part) return decimal(value)
   return whole > 0 ? `${String(whole)} ${part[1]}` : part[1]
+}
+
+/** An amount as a decimal, or as the common fraction it nearly is («1 ½»). */
+export function formatAmount(value: number, mode: AmountMode, locale: Locale): string {
+  return amountWith(value, mode, (one) => asNumber(one, locale))
 }
 
 const GRAM: UnitChoice = { label: 'g', grams: 1, countable: false }
@@ -149,9 +156,16 @@ export function servingText(
   mode: AmountMode,
   locale: Locale,
 ): string {
-  const label = unit.countable && amount > 1 ? plural(unit.label) : unit.label
-  return `${formatAmount(amount, mode, locale)} ${label}`
+  return `${formatAmount(amount, mode, locale)} ${unitWord(amount, unit)}`
 }
+
+/** The serving as the meal sends and stores it: the same text whatever the app speaks. */
+export function storedServing(amount: number, unit: UnitChoice, mode: AmountMode): string {
+  return `${amountWith(amount, mode, storedNumber)} ${unitWord(amount, unit)}`
+}
+
+const unitWord = (amount: number, unit: UnitChoice) =>
+  unit.countable && amount > 1 ? plural(unit.label) : unit.label
 
 /** Grams already known, in the food's measure when they make a quarter of one, else grams. */
 export function choiceFor(

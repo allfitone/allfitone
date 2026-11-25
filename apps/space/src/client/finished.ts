@@ -17,15 +17,14 @@
 
 import type { Execution, FinishedExecution, FinishedSet, InvalidationPreview } from './execution'
 import { workingStateFrom, type WorkingExercise } from './session-form'
-import { intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
 import { isMassUnit, kilogramsFrom, massIn, type MassUnit } from '../units/units'
 
 /** What a finished session says: `text.session`. */
 export type SessionWords = Dictionary['session']
 
-/** The half of the day; Spanish until every caller passes its own. */
+/** The half of the day: `text.session.time`. */
 type Periods = SessionWords['time']
-const SPANISH_PERIODS: Periods = textFor('es').session.time
 
 const figure = (value: number, locale: Locale) =>
   value.toLocaleString(intlLocale(locale), { maximumFractionDigits: 2 })
@@ -68,7 +67,7 @@ export const fromTwelve = (hour: number, pm: boolean): number => (hour % 12) + (
 /** «18:02» as people read it: «6:02» and «p. m.», or «PM». */
 export function twelveHour(
   clock: string,
-  periods: Periods = SPANISH_PERIODS,
+  periods: Periods,
 ): { readonly time: string; readonly period: string } {
   const [hour = 0, minute = '00'] = clock.split(':')
   const twelve = toTwelve(Number(hour))
@@ -81,14 +80,11 @@ const label = (clock: string, periods: Periods) => {
 }
 
 /** «6:02 p. m.», the clock an instant shows in the person's zone. */
-export const clockLabel = (
-  iso: string,
-  timeZone: string,
-  periods: Periods = SPANISH_PERIODS,
-): string => label(clockOf(iso, timeZone), periods)
+export const clockLabel = (iso: string, timeZone: string, periods: Periods): string =>
+  label(clockOf(iso, timeZone), periods)
 
 /** «6:02–6:50 p. m.», or «11:40 a. m.–12:20 p. m.» when the range crosses noon. */
-export function rangeLabel(start: string, end: string, periods: Periods = SPANISH_PERIODS): string {
+export function rangeLabel(start: string, end: string, periods: Periods): string {
   const from = twelveHour(start, periods)
   const to = twelveHour(end, periods)
   return from.period === to.period

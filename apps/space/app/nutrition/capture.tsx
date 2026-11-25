@@ -112,8 +112,8 @@ export default function CaptureScreen() {
   const { day: dayParam, type } = useLocalSearchParams<{ day?: string; type?: string }>()
   const router = useRouter()
   const theme = useTheme()
-  const locale = useLocale()
-  const text = useText().nutrition
+  const { nutrition: text, session } = useText()
+  const periods = session.time
   const insets = useSafeAreaInsets()
   const flow = useMemo(() => createSpaceNutritionFlow(), [])
   const timeZone = useMemo(() => deviceTimezone(), [])
@@ -359,7 +359,6 @@ export default function CaptureScreen() {
           occurredAt,
           timezone: timeZone,
           recognizedBy: photo ? recognizedBy : null,
-          locale,
         }),
       )
       handOverSavedMeal({
@@ -436,7 +435,7 @@ export default function CaptureScreen() {
           accessibilityRole="button"
           accessibilityLabel={text.capture.changeMeal(
             text.meals[mealType],
-            clockLabel(occurredAt, timeZone),
+            clockLabel(occurredAt, timeZone, periods),
           )}
           onPress={() => setMenu(true)}
         >
@@ -450,7 +449,7 @@ export default function CaptureScreen() {
             <Text
               role="control"
               size="md"
-            >{`${text.meals[mealType]} · ${clockLabel(occurredAt, timeZone)}`}</Text>
+            >{`${text.meals[mealType]} · ${clockLabel(occurredAt, timeZone, periods)}`}</Text>
             <FoundationIcon name="expand" size="xs" color={theme.color.icon.secondary} decorative />
           </GlassPanel>
         </Pressable>

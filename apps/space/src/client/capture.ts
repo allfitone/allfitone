@@ -15,7 +15,14 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 import { nutrientValue } from '@allfitone/contracts/nutrients'
 
 import type { Locale } from '../i18n'
-import { choiceFor, servingText, toGrams, type AmountMode, type UnitChoice } from './amount'
+import {
+  choiceFor,
+  servingText,
+  storedServing,
+  toGrams,
+  type AmountMode,
+  type UnitChoice,
+} from './amount'
 import type { MealCreate, MealType, NutrientCode } from './nutrition'
 
 export type Food = AllfitV1Schemas['NutritionFood']
@@ -182,8 +189,6 @@ export function mealFromCapture(input: {
   readonly occurredAt: string
   readonly timezone: string
   readonly recognizedBy: string | null
-  /** How the serving is written, as the person read it. */
-  readonly locale: Locale
 }): MealCreate {
   return {
     occurred_at: input.occurredAt,
@@ -195,7 +200,7 @@ export function mealFromCapture(input: {
       name: item.name,
       quantity: item.grams,
       quantity_unit: 'g',
-      serving: portionText(item, input.locale),
+      serving: storedServing(item.amount, item.unit, item.mode),
       origin: item.origin,
       food_id: item.food && item.food.kind !== 'product' ? item.food.id : null,
       product_id: item.food?.kind === 'product' ? item.food.id : null,

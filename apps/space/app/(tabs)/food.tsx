@@ -681,8 +681,9 @@ function LineRow({
   readonly children: React.ReactNode
 }) {
   const theme = useTheme()
+  const periods = useText().session.time
   // A clock reads in twelve hours with its half of the day beneath; «Añadir» reads as it is.
-  const shown = /^\d{2}:\d{2}$/.test(time) ? twelveHour(time) : null
+  const shown = /^\d{2}:\d{2}$/.test(time) ? twelveHour(time, periods) : null
   return (
     <View style={styles.lineRow}>
       <View style={styles.lineTime}>

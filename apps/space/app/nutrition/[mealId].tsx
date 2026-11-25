@@ -75,7 +75,7 @@ const localDay = (timeZone: string) =>
 
 export default function MealDetailScreen() {
   const locale = useLocale()
-  const { common, nutrition: text } = useText()
+  const { common, nutrition: text, session } = useText()
   const { mealId } = useLocalSearchParams<{ mealId: string }>()
   const router = useRouter()
   const theme = useTheme()
@@ -189,7 +189,7 @@ export default function MealDetailScreen() {
   }
 
   const name = text.meals[meal.meal_type]
-  const when = `${dayTitle(meal.local_date, today, locale)} · ${clockLabel(meal.occurred_at, timeZone)}`
+  const when = `${dayTitle(meal.local_date, today, locale)} · ${clockLabel(meal.occurred_at, timeZone, session.time)}`
   const energyShare = shareOfDay('energy')
   const after = dayAfterDeleting(day, meal)
 

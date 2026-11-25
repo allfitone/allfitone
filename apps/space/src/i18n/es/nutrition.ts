@@ -12,7 +12,6 @@ import type { FormMode } from '../../client/nutrition'
 type NutrientCode = AllfitV1Schemas['NutrientCode']
 type MealType = AllfitV1Schemas['MealType']
 type HoldReason = NonNullable<AllfitV1Schemas['MealDeletionHeld']['hold']>['reason_code']
-type ProgramGoal = NonNullable<AllfitV1Schemas['SpaceProgramDetail']['nutrition']>['goal_code']
 type Macro = 'protein' | 'carbohydrates' | 'fat'
 
 const nutrients: Readonly<Record<NutrientCode, string>> = {
@@ -72,14 +71,6 @@ const holdGrounds: Readonly<Record<HoldReason, string>> = {
   regulatory_request: 'un requerimiento de una autoridad',
   service_dispute: 'una disputa sobre el servicio',
   tax_or_accounting_obligation: 'una obligación contable o tributaria',
-}
-
-const programPurposes: Readonly<Record<ProgramGoal, string>> = {
-  build_muscle: 'ganar músculo',
-  lose_weight: 'perder grasa',
-  get_fit: 'ponerte en forma',
-  maintain: 'mantenerte',
-  run_a_race: 'preparar una carrera',
 }
 
 const modeNames: Readonly<Record<FormMode, string>> = {
@@ -172,11 +163,6 @@ export const nutrition = {
     exact: 'Exactamente',
   },
   modeNames,
-  program: {
-    purposes: programPurposes,
-    days: (count: number) => (count === 1 ? '1 día' : `${String(count)} días`),
-    purpose: (goal: string, days: string) => `Para ${goal} con ${days} por semana`,
-  },
   done: 'Listo',
   percent: (share: number) => `${String(share)} %`,
   whatYouAte: 'Qué comiste',

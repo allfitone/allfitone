@@ -98,7 +98,7 @@ export default function LogMealScreen() {
   const router = useRouter()
   const theme = useTheme()
   const locale = useLocale()
-  const text = useText().nutrition
+  const { nutrition: text, session } = useText()
   const insets = useSafeAreaInsets()
   const timeZone = useMemo(() => deviceTimezone(), [])
   const flow = useMemo(() => createSpaceNutritionFlow(), [])
@@ -258,7 +258,7 @@ export default function LogMealScreen() {
   }
 
   const time = clockOf(occurredAt, timeZone)
-  const timeShown = clockLabel(occurredAt, timeZone)
+  const timeShown = clockLabel(occurredAt, timeZone, session.time)
   const dayLabel =
     (read?.local_date ?? day) === today
       ? text.today

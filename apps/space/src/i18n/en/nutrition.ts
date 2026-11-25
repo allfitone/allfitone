@@ -119,17 +119,6 @@ export const nutrition: Nutrition = {
     range: 'Range',
     none: 'No goal',
   },
-  program: {
-    purposes: {
-      build_muscle: 'build muscle',
-      lose_weight: 'lose fat',
-      get_fit: 'get fit',
-      maintain: 'maintain',
-      run_a_race: 'train for a race',
-    },
-    days: (count) => (count === 1 ? '1 day' : `${String(count)} days`),
-    purpose: (goal, days) => `To ${goal}, training ${days} a week`,
-  },
   done: 'Done',
   percent: (share) => `${String(share)}%`,
   whatYouAte: 'What you ate',
