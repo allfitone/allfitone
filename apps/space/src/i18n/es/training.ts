@@ -173,7 +173,6 @@ export const training = {
       }`,
     choosePlan: 'Empecemos por elegir tu plan',
     notices: 'Tus avisos',
-    noticesSoon: 'Tus avisos llegan con las notificaciones.',
     failure: {
       read: 'No pudimos cargar tu día. Inténtalo otra vez.',
       start: 'No pudimos empezar la sesión. Inténtalo otra vez.',

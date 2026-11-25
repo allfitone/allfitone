@@ -161,7 +161,6 @@ export const training: Dictionary['training'] = {
       } ${String(day)}`,
     choosePlan: "Let's start by choosing your plan",
     notices: 'Your notifications',
-    noticesSoon: 'Your notifications arrive with the notifications feature.',
     failure: {
       read: "We couldn't load your day. Please try again.",
       start: "We couldn't start the session. Please try again.",
