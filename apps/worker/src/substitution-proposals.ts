@@ -21,6 +21,8 @@ import {
 import type { Queue, QueueMessage } from '@allfitone/queue'
 
 import { mapWithConcurrency } from './invitations.js'
+import type { EmailGate } from './email-gate.js'
+import type { EmailLocale } from './email-locale.js'
 
 export interface SubstitutionBatchResult {
   claimed: number
@@ -45,6 +47,10 @@ export function createSubstitutionBatchProcessor(dependencies: {
   email: EmailSender
   brandAssetUrl: string
   deliveryEnabled?: boolean
+  /** Her email preference for the event's category; a no keeps the notice and sends nothing. */
+  emailAllowed: EmailGate
+  /** The language she chose for her email; Spanish when she chose none or is nobody yet. */
+  emailLocale: EmailLocale
 }): () => Promise<SubstitutionBatchResult> {
   return async function processSubstitutionBatch(): Promise<SubstitutionBatchResult> {
     if (dependencies.deliveryEnabled === false) {
@@ -72,6 +78,10 @@ export function createSubstitutionBatchProcessor(dependencies: {
         await dependencies.queue.nack(message.id, 'invalid_delivery_projection', false)
         return 'failed'
       }
+      if (!(await dependencies.emailAllowed(message.id))) {
+        await dependencies.queue.ack(message.id)
+        return 'skipped'
+      }
       const rendered = renderSubstitutionProposedEmail({
         organizationName: notice.organization_name,
         substituteName: notice.substitute_name,
@@ -79,6 +89,7 @@ export function createSubstitutionBatchProcessor(dependencies: {
         startsOn: notice.starts_on,
         endsOn: notice.ends_on,
         brandAssetUrl: dependencies.brandAssetUrl,
+        locale: await dependencies.emailLocale(message.id),
       })
       await dependencies.email.send({
         to: notice.contact,

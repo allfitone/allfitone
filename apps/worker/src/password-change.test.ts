@@ -1,11 +1,15 @@
 /**
- * T-WRK-PASSWORD-01..06 — the worker's half of a password change (TECH-325, `OP-IDN-066`,
+ * T-WRK-PASSWORD-01..07 — the worker's half of a password change (TECH-325, `OP-IDN-066`,
  * ADR-051): close every other session, keep the one the change came from, and warn her.
  */
 
 import { expect, test } from 'bun:test'
 import { AuthError, type PasswordChangeIdentity } from '@allfitone/auth-provider'
-import { NotificationDeliveryError, type EmailMessage } from '@allfitone/notifications'
+import {
+  NotificationDeliveryError,
+  type EmailLanguage,
+  type EmailMessage,
+} from '@allfitone/notifications'
 import type { Queue } from '@allfitone/queue'
 
 import {
@@ -77,6 +81,7 @@ function processor(
     revokeFailure?: Error
     emailFailure?: Error
     deliveryEnabled?: boolean
+    locale?: EmailLanguage
   } = {},
 ) {
   return createPasswordChangeBatchProcessor({
@@ -85,6 +90,7 @@ function processor(
     identity: identity(seen, options.revokeFailure),
     email: email(seen, options.emailFailure),
     brandAssetUrl: BRAND,
+    emailLocale: async () => options.locale ?? 'es',
     ...(options.deliveryEnabled === undefined ? {} : { deliveryEnabled: options.deliveryEnabled }),
   })
 }
@@ -156,4 +162,14 @@ test('T-WRK-PASSWORD-06: switched off, nothing is claimed', async () => {
 
   expect(result).toEqual({ claimed: 0, delivered: 0, deadOrDelayed: 0, skipped: 0 })
   expect(seen.steps).toEqual([])
+})
+
+test('T-WRK-PASSWORD-07: the notice speaks the language the database names for her', async () => {
+  const english = trace()
+  await processor(english, { locale: 'en' })()
+  expect(english.emails[0]?.subject).toBe('Your Allfit password changed')
+
+  const spanish = trace()
+  await processor(spanish, { locale: 'es' })()
+  expect(spanish.emails[0]?.subject).toBe('Tu contraseña de Allfit cambió')
 })

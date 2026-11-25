@@ -11,6 +11,7 @@ import type { PlatformDutyLapseResult } from './platform-duties.js'
 import type { PrivacyDispositionResult } from './privacy-dispositions.js'
 import type { CorrectionProposalExpiryResult } from './correction-proposal-expiry.js'
 import type { MediaDisposalResult } from './media-disposals.js'
+import type { PushDeliveryResult } from './push-deliveries.js'
 import type { JobRun, WorkerJobProcessors } from './index.js'
 
 type WorkerEvent = TelemetryEventFor<'worker.job.completed.v1'>
@@ -54,9 +55,10 @@ test('runs the batch after authenticating the scheduler', async () => {
     platformDuties: lapseResult(),
     privacyDispositions: dispositionResult(),
     correctionProposals: expiryResult(),
+    pushDeliveries: pushResult(),
     mediaDisposals: mediaResult(),
   })
-  expect(captured).toHaveLength(8)
+  expect(captured).toHaveLength(9)
   for (const job of [
     'invitation_delivery',
     'backoffice_auth_cleanup',
@@ -64,6 +66,7 @@ test('runs the batch after authenticating the scheduler', async () => {
     'platform_duty_lapse',
     'privacy_disposition',
     'correction_proposal_expiry',
+    'push_delivery',
     'media_disposal',
   ]) {
     expect(captured).toContainEqual(
@@ -73,7 +76,7 @@ test('runs the batch after authenticating the scheduler', async () => {
       }),
     )
   }
-  expect(captured[7]).toMatchObject({
+  expect(captured[8]).toMatchObject({
     event: 'worker.job.completed.v1',
     properties: { job: 'outbox_batch', outcome: 'completed', item_count: 0 },
   })
@@ -198,6 +201,7 @@ test('a sweep that cannot reach the store fails last, after every other job ran'
     ['platform_duty_lapse', 'succeeded'],
     ['privacy_disposition', 'succeeded'],
     ['correction_proposal_expiry', 'succeeded'],
+    ['push_delivery', 'succeeded'],
     ['media_disposal', 'failed'],
   ])
 })
@@ -258,10 +262,11 @@ test('marks individual and aggregate jobs as retrying when work was delayed', as
     ['platform_duty_lapse', 'completed'],
     ['privacy_disposition', 'completed'],
     ['correction_proposal_expiry', 'completed'],
+    ['push_delivery', 'completed'],
     ['media_disposal', 'completed'],
     ['outbox_batch', 'retrying'],
   ])
-  expect(captured[7]?.properties.item_count).toBe(2)
+  expect(captured[8]?.properties.item_count).toBe(2)
 })
 
 test('emits failed job and aggregate events without unreliable item counts', async () => {
@@ -338,6 +343,7 @@ function successfulProcessors(): WorkerJobProcessors {
     platformDutyLapse: async () => lapseResult(),
     privacyDisposition: async () => dispositionResult(),
     correctionProposalExpiry: async () => expiryResult(),
+    pushDelivery: async () => pushResult(),
     mediaDisposal: async () => mediaResult(),
     recordJobRun: async () => undefined,
   }
@@ -380,6 +386,10 @@ test('a run that cannot be recorded never changes what the batch did', async () 
 
   expect(response.status).toBe(200)
 })
+
+function pushResult(overrides: Partial<PushDeliveryResult> = {}): PushDeliveryResult {
+  return { claimed: 0, delivered: 0, deadOrDelayed: 0, unregistered: 0, purged: 0, ...overrides }
+}
 
 function mediaResult(overrides: Partial<MediaDisposalResult> = {}): MediaDisposalResult {
   return { claimed: 0, deadOrDelayed: 0, removed: 0, ...overrides }

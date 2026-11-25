@@ -9,14 +9,12 @@
 -- delivery per active phone only while it is on for the category (scenario 7, the part
 -- the database owns).
 --
--- `identity.password_changed.v1` and `identity.contact_changed.v1` are in ADR-054's map,
--- but in V1 the person herself is always their actor, so rule 4 leaves them with no
--- notice. That conflict is open in ADR-054; this test records what the database does.
+-- Security notices, which reach her even when she acted, are T-IDN-NOTICES-03's.
 --
 -- Written before the migration and watched failing.
 begin;
 
-select plan(38);
+select plan(37);
 
 select has_table('identity', 'person_notifications', 'T-IDN-PHY-34 notices kept for the person have their own table');
 select columns_are('identity', 'person_notifications', array[
@@ -225,16 +223,12 @@ insert into raised values
        "organization_id": "019f8500-0000-7000-8000-000000000101"}')),
   ('planted-on-accepting', pg_temp.raise('planning.assignment_created.v1', '019f8500-0000-7000-8000-000000000b02',
      '{"assignment_id": "019f8500-0000-7000-8000-000000000b02", "person_id": "019f8500-0000-7000-8000-000000000001",
-       "relationship_id": "019f8500-0000-7000-8000-000000000701"}')),
-  ('password', pg_temp.raise('identity.password_changed.v1', '019f8500-0000-7000-8000-000000000d01',
-     '{"change_id": "019f8500-0000-7000-8000-000000000d01"}'));
+       "relationship_id": "019f8500-0000-7000-8000-000000000701"}'));
 
 select is(pg_temp.of('cancelled-herself'), '{}'::text[],
   'T-IDN-INT-72 the plan she ended herself is no notice');
 select is(pg_temp.of('planted-on-accepting'), '{}'::text[],
   'T-IDN-INT-72 nor the program planted when she accepted an invitation');
-select is(pg_temp.of('password'), '{}'::text[],
-  'T-IDN-INT-72 nor, while ADR-054 rule 4 stands as written, the password she changed');
 
 -- An event raised with no person acting still reaches her: the organization closed.
 select set_config('app.actor_kind', 'worker', true);

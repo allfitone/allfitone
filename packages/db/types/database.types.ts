@@ -3442,10 +3442,15 @@ export type Database = {
         Args: { p_person_id: string; p_type: string }
         Returns: string
       }
+      email_allowed_for_event: {
+        Args: { p_event_id: string }
+        Returns: boolean
+      }
       email_change_code_hash: {
         Args: { p_code: string; p_request_id: string }
         Returns: string
       }
+      email_locale_for_event: { Args: { p_event_id: string }; Returns: string }
       expire_backoffice_authentication_attempts: {
         Args: { p_limit: number }
         Returns: number
@@ -4357,6 +4362,17 @@ export type Database = {
           responsible_party: Json
           scope_options: Json
           status: string
+        }[]
+      }
+      resolve_notice_target: {
+        Args: { p_event_type: string; p_payload: Json }
+        Returns: {
+          category: string
+          kind: string
+          organization_id: string
+          recipient: string
+          subject_id: string
+          subject_type: string
         }[]
       }
       resolve_or_create_access_account: {
