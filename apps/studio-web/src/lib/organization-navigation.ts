@@ -8,7 +8,6 @@ export function resolveWorkspaceRoute(
 ): WorkspaceRouteMetadata {
   const basePath = `/organizations/${organizationId}`
   const teamPath = `${basePath}/team`
-  const invitationPath = `${teamPath}/invitations`
 
   if (pathname === basePath) {
     return { title: 'Inicio' }
@@ -57,9 +56,6 @@ export function resolveWorkspaceRoute(
   }
   if (pathname === teamPath) {
     return { title: 'Equipo' }
-  }
-  if (pathname === `${invitationPath}/new`) {
-    return { title: 'Nueva invitación' }
   }
   if (pathname === `${basePath}/clients`) {
     return { title: 'Clientes' }

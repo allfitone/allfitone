@@ -253,3 +253,81 @@ test('T-REGISTER-05 the cards a register falls back to are separated', async ({ 
   expect(rulesChecked, 'ningún registro llegó a mostrar su lista').toBeGreaterThan(0)
   expect(pairsChecked, 'ningún registro tenía dos tarjetas que comparar').toBeGreaterThan(0)
 })
+
+const invitation = (id: string, status: string) => ({
+  id,
+  status,
+  channel: 'email',
+  contact: `${id}@example.test`,
+  created_at: '2026-09-01T00:00:00.000Z',
+  expires_at: '2030-09-20T00:00:00.000Z',
+  intents: [{ id: `${id}-intent`, kind: 'membership', status, proposed_role_code: 'staff' }],
+})
+
+/*
+ * A register's cards come in two shapes, and both defects this covers were
+ * found by looking at the invitations: only a pending one carries «Revocar».
+ *
+ * The grid stretches each item to the tallest in its row, but the card inside
+ * an item is not the item — the one beside a pending invitation stopped 44px
+ * short of its own cell, so a row read as two sizes. And the action needs the
+ * gap its card does not pad for: it sat flush against the last fact.
+ */
+test('cards sharing a row share its height, and an action stands clear of the facts', async ({
+  page,
+}) => {
+  await installStudioApiMock(
+    page,
+    createStudioApiFixture({
+      memberships: [activeMembership],
+      intercept: (request) =>
+        request.method === 'GET' && /\/invitations(\?|$)/.test(request.path)
+          ? {
+              status: 200,
+              body: {
+                data: [
+                  invitation('pendiente', 'pending'),
+                  invitation('decidida', 'completed'),
+                  invitation('revocada', 'revoked'),
+                  invitation('vencida', 'expired'),
+                ],
+                page: { next_cursor: null },
+              },
+            }
+          : undefined,
+    }),
+  )
+  // Wide enough for two cards abreast, narrow enough that the table does not fit.
+  await page.setViewportSize({ width: 1100, height: 900 })
+  await page.goto(`/organizations/${ORG}/team?tab=invitations`)
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
+  const list = page.locator('[data-team-directory-card-list]')
+  await expect(list, 'the invitations did not fall back to cards at this width').toBeVisible()
+
+  const rows = await list.evaluate((element) => {
+    const byRow = new Map<number, number[]>()
+    for (const item of Array.from(element.children)) {
+      const card = item.firstElementChild
+      if (!card) continue
+      const top = Math.round(item.getBoundingClientRect().top)
+      byRow.set(top, [...(byRow.get(top) ?? []), Math.round(card.getBoundingClientRect().height)])
+    }
+    return [...byRow.values()].filter((heights) => heights.length > 1)
+  })
+
+  expect(rows.length, 'no row held two cards to compare').toBeGreaterThan(0)
+  for (const heights of rows) {
+    expect(new Set(heights).size, `one row drew cards of ${heights.join(' and ')}px`).toBe(1)
+  }
+
+  const clearance = await page
+    .locator('[data-team-invitation-actions]')
+    .first()
+    .evaluate((action) => {
+      const facts = action.previousElementSibling
+      if (!facts) return null
+      return Math.round(action.getBoundingClientRect().top - facts.getBoundingClientRect().bottom)
+    })
+  expect(clearance, 'the action sat against the fact above it').toBeGreaterThanOrEqual(8)
+})

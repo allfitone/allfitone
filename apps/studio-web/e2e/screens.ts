@@ -4606,9 +4606,14 @@ export const SCREENS: Screen[] = [
     viewport: MOBILE,
   },
   {
+    // A dialog over the invitations since the form's two fields stopped
+    // earning a screen; the old address redirects here and opens it.
     stories: 'HU-014 · invite a teammate',
-    path: `${workspace}/team/invitations/new`,
+    path: `${workspace}/team?tab=invitations&new=1`,
     fixture: memberOfTwo,
+    settled: async (page) => {
+      await expect(page.getByRole('dialog', { name: 'Nueva invitación' })).toBeVisible()
+    },
   },
 
   // --- the two screens the framework used to answer for us -------------------
