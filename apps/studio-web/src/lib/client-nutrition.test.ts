@@ -46,9 +46,9 @@ function item(overrides: Partial<ClientNutritionMealItem> = {}): ClientNutrition
   }
 }
 
-// Intl may separate «p. m.» with a narrow space; the words are what matter.
+// Each ICU spells the period its way («p. m.», «p.m.», a narrow space): the hour is what matters.
 function plain(text: string | null): string | null {
-  return text === null ? null : text.replace(/\s/g, ' ')
+  return text === null ? null : text.replace(/\s/g, ' ').replace(/([ap])\. ?m\./g, '$1. m.')
 }
 
 describe('the days she is read for', () => {

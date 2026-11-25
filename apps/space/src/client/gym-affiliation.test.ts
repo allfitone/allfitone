@@ -3,12 +3,20 @@ import { describe, expect, test } from 'bun:test'
 import { ApiError } from './api-error'
 import {
   accessLevelLabel,
+  calendarDay,
   createInvitationFlow,
   decisionFailure,
   decisionOf,
   historyLine,
   invitationExpiry,
   pendingCovers,
+  programAnswer,
+  programNeedLine,
+  programNote,
+  programOutcomeLine,
+  programSpan,
+  programStanding,
+  type ProgramOffer,
   scopeDescription,
   scopeName,
   scopeTitle,
@@ -16,6 +24,7 @@ import {
   tokenFromLink,
   coverSpan,
   endedSpan,
+  type InvitationDecisionBody,
   type InvitationTransport,
 } from './gym-affiliation'
 
@@ -243,5 +252,129 @@ describe('the answer a yes/no control gives back (TECH-327)', () => {
     expect(decisionOf('accepted')).toBe('accepted')
     expect(decisionOf('rejected')).toBe('rejected')
     expect(decisionOf('')).toBe('rejected')
+  })
+})
+
+const OFFER: ProgramOffer = {
+  invitation_intent_id: '019b3000-0000-7000-8000-000000000051',
+  program_version_id: '00000000-0000-4000-8000-000000000001',
+  title: 'Fuerza base',
+  version_number: 1,
+  weeks: 8,
+  repeats_forever: false,
+  starts_on: '2026-12-01',
+  required_scope: { scope_code: 'relationship_training', access_level: 'contribute' },
+  decision: null,
+}
+
+describe('the program an invitation offers (TECH-362)', () => {
+  test('T-SPC-UNIT-344 it opens only once the permission it needs is shared', () => {
+    expect(programStanding(OFFER, 'accepted', {})).toBe('locked')
+    expect(programStanding(OFFER, 'accepted', { body_progress: 'accepted' })).toBe('locked')
+    expect(programStanding(OFFER, 'accepted', { relationship_training: 'rejected' })).toBe('locked')
+    expect(programStanding(OFFER, 'accepted', { relationship_training: 'accepted' })).toBe('open')
+    expect(programStanding(OFFER, 'rejected', { relationship_training: 'accepted' })).toBe('off')
+  })
+
+  test('T-SPC-UNIT-345 locked or off, her answer is a no whatever she chose before', () => {
+    expect(programAnswer('open', 'accepted')).toBe('accepted')
+    expect(programAnswer('open', 'rejected')).toBe('rejected')
+    expect(programAnswer('locked', 'accepted')).toBe('rejected')
+    expect(programAnswer('off', 'accepted')).toBe('rejected')
+  })
+
+  test('T-SPC-UNIT-346 its span says its length and the day it starts', () => {
+    expect(calendarDay('2026-12-01')).toBe('mar 1 dic')
+    expect(programSpan(OFFER, '2026-11-24')).toBe('8 semanas · empieza el mar 1 dic')
+    expect(programSpan({ ...OFFER, weeks: 1 }, '2026-11-24')).toBe(
+      '1 semana · empieza el mar 1 dic',
+    )
+    expect(programSpan({ ...OFFER, weeks: null, repeats_forever: true }, '2026-11-24')).toBe(
+      'Se repite cada semana · empieza el mar 1 dic',
+    )
+  })
+
+  test('T-SPC-UNIT-347 a proposed start already past reads as today', () => {
+    expect(programSpan(OFFER, '2026-12-03')).toBe('8 semanas · empieza el jue 3 dic')
+  })
+
+  test('T-SPC-UNIT-348 the note says what unlocks it, then what accepting does', () => {
+    const name = 'Tu entrenamiento con ellos'
+    expect(programNote(OFFER, 'off', 'rejected', name, '2026-11-24')).toBeNull()
+    expect(programNote(OFFER, 'locked', 'rejected', name, '2026-11-24')).toBe(
+      'Para que te lo pongan, primero comparte «Tu entrenamiento con ellos».',
+    )
+    expect(programNote(OFFER, 'open', 'rejected', name, '2026-11-24')).toBe(
+      'Decide si quieres empezarlo.',
+    )
+    expect(programNote(OFFER, 'open', 'accepted', name, '2026-11-24')).toBe(
+      'Si confirmas, lo verás en Entrenar desde el mar 1 dic.',
+    )
+    expect(programNeedLine(OFFER)).toBe('Lo necesitan para ponerte «Fuerza base».')
+  })
+
+  test('T-SPC-UNIT-349 the last screen reports what became of it, and nothing for a no', () => {
+    const outcome = {
+      invitation_intent_id: OFFER.invitation_intent_id,
+      intent_status: 'accepted' as const,
+      assignment_id: null,
+      unmaterialized_reason: null,
+    }
+    expect(programOutcomeLine(null, null, '2026-11-24')).toBeNull()
+    expect(
+      programOutcomeLine(OFFER, { ...outcome, intent_status: 'rejected' }, '2026-11-24'),
+    ).toBeNull()
+    expect(
+      programOutcomeLine(
+        OFFER,
+        { ...outcome, assignment_id: OFFER.program_version_id },
+        '2026-11-24',
+      ),
+    ).toBe('Empieza el mar 1 dic · lo verás en Entrenar')
+    expect(
+      programOutcomeLine(
+        OFFER,
+        { ...outcome, unmaterialized_reason: 'training_not_granted' },
+        '2026-11-24',
+      ),
+    ).toBe('No quedó puesto: no compartiste tu entrenamiento')
+    expect(
+      programOutcomeLine(
+        OFFER,
+        { ...outcome, unmaterialized_reason: 'program_unavailable' },
+        '2026-11-24',
+      ),
+    ).toBe('Tu gimnasio retiró este programa antes de que respondieras')
+  })
+
+  test('T-SPC-UNIT-350 the program answer and her zone go out only when one is offered', async () => {
+    const bodies: InvitationDecisionBody[] = []
+    const { flow } = transport({
+      decide: async (_command, body) => {
+        bodies.push(body)
+        return {
+          invitation_id: INVITATION,
+          invitation_status: 'completed',
+          organization_id: 'org',
+          invitation_intent_id: INTENT,
+          intent_status: 'accepted',
+          relationship_id: 'rel',
+          granted_scope_codes: [],
+          program_proposal: null,
+          replayed: false,
+        }
+      },
+    })
+    const base = {
+      invitation: { token: 't'.repeat(43) },
+      intentId: INTENT,
+      relationship: 'accepted' as const,
+      scopes: { relationship_training: 'accepted' as const },
+    }
+    await flow.decide(base)
+    await flow.decide({ ...base, program: { decision: 'accepted', timezone: 'America/Bogota' } })
+    expect(bodies[0]).not.toHaveProperty('program_decision')
+    expect(bodies[0]).not.toHaveProperty('timezone')
+    expect(bodies[1]).toMatchObject({ program_decision: 'accepted', timezone: 'America/Bogota' })
   })
 })

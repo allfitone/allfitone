@@ -2,7 +2,7 @@
  * The decision she is making on one invitation, shared by «Tu invitación» (INV-4) and
  * «Decide qué pueden ver» (N-8a). Module state, like `exercise-pick.ts`: expo-router has
  * no way to hand a value back to the screen that pushed. Nothing here leaves the phone
- * until she confirms, and every category starts as a no.
+ * until she confirms, and every category starts as a no, and so does the offered program.
  */
 
 import type { Decision, InvitationKey, InvitationPresentation } from './gym-affiliation'
@@ -12,6 +12,7 @@ export interface InvitationDraft {
   readonly invitation: InvitationPresentation
   relationship: Decision
   readonly scopes: Record<string, Decision>
+  program: Decision
 }
 
 let draft: InvitationDraft | undefined
@@ -19,7 +20,7 @@ let draft: InvitationDraft | undefined
 let linkToken: string | undefined
 
 export function openDraft(key: InvitationKey, invitation: InvitationPresentation): InvitationDraft {
-  draft = { key, invitation, relationship: 'accepted', scopes: {} }
+  draft = { key, invitation, relationship: 'accepted', scopes: {}, program: 'rejected' }
   return draft
 }
 

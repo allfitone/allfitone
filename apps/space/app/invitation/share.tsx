@@ -8,6 +8,8 @@
  * Each category reads by the name and description the gym sent, frozen when the
  * invitation was sent. The description is the half that says what is not included, so
  * she decides on where the permission stops, not only on its name.
+ *
+ * When the invitation offers a program, the category it needs says so (TECH-362).
  */
 
 import { Button } from '@allfitone/react-native/button'
@@ -25,6 +27,7 @@ import {
   accessLevelLabel,
   type Decision,
   decisionOf,
+  programNeedLine,
   scopeDescription,
   scopeTitle,
 } from '../../src/client/gym-affiliation'
@@ -48,6 +51,7 @@ export default function InvitationShare() {
     return null
   }
   const options = draft.invitation.scope_options
+  const offer = draft.invitation.program_proposal
   const shared = options.filter((option) => draft.scopes[option.scope_code] === 'accepted').length
 
   return (
@@ -107,6 +111,11 @@ export default function InvitationShare() {
                 {option.purpose ? (
                   <Text role="body" size="xs" color="muted" style={styles.detail}>
                     {option.purpose}
+                  </Text>
+                ) : null}
+                {offer && offer.required_scope.scope_code === option.scope_code ? (
+                  <Text role="body" size="xs" color="accent" style={styles.detail}>
+                    {programNeedLine(offer)}
                   </Text>
                 ) : null}
               </View>
