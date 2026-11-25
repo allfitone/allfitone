@@ -2259,6 +2259,41 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          category: string
+          channel: string
+          enabled: boolean
+          id: string
+          person_id: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          channel: string
+          enabled: boolean
+          id?: string
+          person_id: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          channel?: string
+          enabled?: boolean
+          id?: string
+          person_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_notification_preferences_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       onboarding_attempts: {
         Row: {
           account_id: string
@@ -2493,6 +2528,126 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      person_notifications: {
+        Row: {
+          category: string
+          id: string
+          kind: string
+          occurred_at: string
+          organization_id: string | null
+          person_id: string
+          read_at: string | null
+          source_event_id: string
+          subject_id: string
+          subject_type: string
+        }
+        Insert: {
+          category: string
+          id?: string
+          kind: string
+          occurred_at: string
+          organization_id?: string | null
+          person_id: string
+          read_at?: string | null
+          source_event_id: string
+          subject_id: string
+          subject_type: string
+        }
+        Update: {
+          category?: string
+          id?: string
+          kind?: string
+          occurred_at?: string
+          organization_id?: string | null
+          person_id?: string
+          read_at?: string | null
+          source_event_id?: string
+          subject_id?: string
+          subject_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_person_notifications_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      person_preferences: {
+        Row: {
+          distance_unit: string | null
+          locale: string | null
+          mass_unit: string | null
+          person_id: string
+          updated_at: string
+        }
+        Insert: {
+          distance_unit?: string | null
+          locale?: string | null
+          mass_unit?: string | null
+          person_id: string
+          updated_at?: string
+        }
+        Update: {
+          distance_unit?: string | null
+          locale?: string | null
+          mass_unit?: string | null
+          person_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_person_preferences_person'
+            columns: ['person_id']
+            isOneToOne: true
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      person_push_devices: {
+        Row: {
+          id: string
+          last_seen_at: string
+          person_id: string
+          platform: string
+          push_token: string
+          registered_at: string
+          retired_at: string | null
+          retired_reason: string | null
+        }
+        Insert: {
+          id: string
+          last_seen_at?: string
+          person_id: string
+          platform: string
+          push_token: string
+          registered_at?: string
+          retired_at?: string | null
+          retired_reason?: string | null
+        }
+        Update: {
+          id?: string
+          last_seen_at?: string
+          person_id?: string
+          platform?: string
+          push_token?: string
+          registered_at?: string
+          retired_at?: string | null
+          retired_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'fk_person_push_devices_person'
+            columns: ['person_id']
+            isOneToOne: false
+            referencedRelation: 'people'
+            referencedColumns: ['id']
+          },
+        ]
       }
       professional_credential_verifications: {
         Row: {
@@ -3510,6 +3665,18 @@ export type Database = {
           organization_name: string
         }[]
       }
+      list_my_notices: {
+        Args: {
+          p_before_id: string
+          p_before_occurred_at: string
+          p_filter: string
+          p_issuer: string
+          p_limit: number
+          p_provider: string
+          p_subject: string
+        }
+        Returns: Json
+      }
       list_staff_invitations: {
         Args: {
           p_cursor_created_at: string
@@ -3601,6 +3768,40 @@ export type Database = {
           provider_session_id: string
         }[]
       }
+      mark_my_notice_read: {
+        Args: {
+          p_issuer: string
+          p_notice_id: string
+          p_provider: string
+          p_subject: string
+        }
+        Returns: Json
+      }
+      notice_decision: {
+        Args: { p_kind: string; p_subject_id: string }
+        Returns: {
+          awaiting: boolean
+          expires_at: string
+        }[]
+      }
+      notice_document: { Args: { p_notice_id: string }; Returns: Json }
+      notice_names: {
+        Args: {
+          p_kind: string
+          p_organization_id: string
+          p_subject_id: string
+        }
+        Returns: Json
+      }
+      notification_categories: { Args: never; Returns: string[] }
+      notification_channel_available: {
+        Args: { p_channel: string; p_person_id: string }
+        Returns: boolean
+      }
+      notification_preferences_document: {
+        Args: { p_person_id: string }
+        Returns: Json
+      }
       open_client_category: {
         Args: {
           p_organization_id: string
@@ -3645,6 +3846,10 @@ export type Database = {
         Returns: Json
       }
       own_name_document: { Args: { p_person_id: string }; Returns: Json }
+      person_preferences_document: {
+        Args: { p_person_id: string }
+        Returns: Json
+      }
       prepare_account_link: {
         Args: { p_event_id: string }
         Returns: {
@@ -3768,6 +3973,39 @@ export type Database = {
         Args: { p_profile_id: string }
         Returns: Json
       }
+      push_device_projection: { Args: { p_device_id: string }; Returns: Json }
+      put_my_notification_preferences: {
+        Args: {
+          p_command_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_preferences: Json
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          preferences: Json
+          replayed: boolean
+        }[]
+      }
+      put_my_preferences: {
+        Args: {
+          p_command_id: string
+          p_distance_unit: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_locale: string
+          p_mass_unit: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          preferences: Json
+          replayed: boolean
+        }[]
+      }
       put_professional_profile: {
         Args: {
           p_bio: string
@@ -3838,6 +4076,14 @@ export type Database = {
           scope_options: Json
           status: string
         }[]
+      }
+      read_my_notification_preferences: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: Json
+      }
+      read_my_preferences: {
+        Args: { p_issuer: string; p_provider: string; p_subject: string }
+        Returns: Json
       }
       read_own_identity: {
         Args: { p_issuer: string; p_provider: string; p_subject: string }
@@ -3969,6 +4215,23 @@ export type Database = {
           p_subject_person_id: string
         }
         Returns: string
+      }
+      register_my_push_device: {
+        Args: {
+          p_command_id: string
+          p_device_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_platform: string
+          p_provider: string
+          p_push_token: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          device: Json
+          replayed: boolean
+        }[]
       }
       reject_password_change: {
         Args: { p_issuer: string; p_provider: string; p_subject: string }
@@ -4128,6 +4391,20 @@ export type Database = {
           proposed_role_code: string
           responsible_party: Json
           status: string
+        }[]
+      }
+      retire_my_push_device: {
+        Args: {
+          p_command_id: string
+          p_device_id: string
+          p_idempotency_key: string
+          p_issuer: string
+          p_provider: string
+          p_request_hash: string
+          p_subject: string
+        }
+        Returns: {
+          replayed: boolean
         }[]
       }
       retire_professional_credential: {
