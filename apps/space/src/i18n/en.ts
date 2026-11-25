@@ -16,6 +16,7 @@ import { nutrition } from './en/nutrition'
 import { password } from './en/password'
 import { pro } from './en/pro'
 import { profile } from './en/profile'
+import { progress } from './en/progress'
 import { session } from './en/session'
 import { training } from './en/training'
 
@@ -28,6 +29,7 @@ export const en: Dictionary = {
   password,
   pro,
   profile,
+  progress,
   session,
   training,
 }

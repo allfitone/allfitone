@@ -21,6 +21,7 @@ import { nutrition } from './es/nutrition'
 import { password } from './es/password'
 import { pro } from './es/pro'
 import { profile } from './es/profile'
+import { progress } from './es/progress'
 import { session } from './es/session'
 import { training } from './es/training'
 
@@ -33,6 +34,7 @@ export const es = {
   password,
   pro,
   profile,
+  progress,
   session,
   training,
 }

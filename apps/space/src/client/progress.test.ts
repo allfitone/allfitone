@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   cumulativeVolume,
-  formatKilos,
+  formatMass,
   liftedUp,
   movementsAt,
   muscleRows,
@@ -16,6 +17,9 @@ import {
   type Period,
   type PeriodMovement,
 } from './progress'
+
+const es = textFor('es')
+const en = textFor('en')
 
 const period = (starts_on: string, overrides: Partial<Period> = {}): Period => ({
   starts_on,
@@ -48,9 +52,15 @@ const movement = (name: string, bests: (number | null)[]): PeriodMovement => {
 
 describe('naming a period', () => {
   test('T-SPC-UNIT-PROG-01 a week reads as its days, a month as its name', () => {
-    expect(periodLabel('2026-10-19', 'week')).toBe('19 – 25 oct')
-    expect(periodLabel('2026-09-28', 'week')).toBe('28 sep – 4 oct')
-    expect(periodLabel('2026-10-01', 'month')).toBe('Octubre 2026')
+    expect(periodLabel('2026-10-19', 'week', es)).toBe('19 – 25 oct')
+    expect(periodLabel('2026-09-28', 'week', es)).toBe('28 sep – 4 oct')
+    expect(periodLabel('2026-10-01', 'month', es)).toBe('Octubre 2026')
+  })
+
+  test('T-SPC-UNIT-PROG-17 in English the month comes first', () => {
+    expect(periodLabel('2026-10-19', 'week', en)).toBe('Oct 19 – 25')
+    expect(periodLabel('2026-09-28', 'week', en)).toBe('Sep 28 – Oct 4')
+    expect(periodLabel('2026-10-01', 'month', en)).toBe('October 2026')
   })
 })
 
@@ -64,9 +74,16 @@ describe('the change against the period before', () => {
   })
 
   test('T-SPC-UNIT-PROG-03 kilos read with a decimal comma and a thousands dot', () => {
-    expect(formatKilos(12480)).toBe('12.480')
-    expect(formatKilos(92.5)).toBe('92,5')
-    expect(formatKilos(80)).toBe('80')
+    expect(formatMass(12480, 'kg', 'es')).toBe('12.480')
+    expect(formatMass(92.5, 'kg', 'es')).toBe('92,5')
+    expect(formatMass(80, 'kg', 'es')).toBe('80')
+  })
+
+  test('T-SPC-UNIT-PROG-18 in English a mass groups with commas, and pounds are converted', () => {
+    expect(formatMass(12480, 'kg', 'en')).toBe('12,480')
+    expect(formatMass(92.5, 'kg', 'en')).toBe('92.5')
+    expect(formatMass(100, 'lb', 'en')).toBe('220.5')
+    expect(formatMass(12480, 'lb', 'es')).toBe('27.513,7')
   })
 })
 
@@ -190,7 +207,14 @@ describe('choosing a programme', () => {
   ]
 
   test('T-SPC-UNIT-PROG-15 offers everything, each programme and free training, done of planned', () => {
-    expect(programOptions(programs, [period('w1'), period('w2', { unplanned: 2 })], 1)).toEqual([
+    expect(
+      programOptions(
+        programs,
+        [period('w1'), period('w2', { unplanned: 2 })],
+        1,
+        es.progress.programs,
+      ),
+    ).toEqual([
       {
         key: null,
         label: 'Todos los programas',
@@ -204,9 +228,29 @@ describe('choosing a programme', () => {
     ])
   })
 
+  test('T-SPC-UNIT-PROG-19 in English the choices read in English, programme titles untouched', () => {
+    const options = programOptions(
+      programs,
+      [period('w1'), period('w2', { unplanned: 2 })],
+      1,
+      en.progress.programs,
+    )
+    expect(options.map((option) => [option.label, option.caption])).toEqual([
+      ['All programs', '2 programs and free workouts'],
+      ['Torso y pierna', 'Your own program'],
+      ['Fuerza básica', 'Your own program'],
+      ['Free workouts', 'No program'],
+    ])
+  })
+
   test('T-SPC-UNIT-PROG-16 with one programme and nothing free there is nothing to choose', () => {
     expect(
-      programOptions([programs[0] ?? program('x', 'x', [], [])], [period('w1'), period('w2')], 1),
+      programOptions(
+        [programs[0] ?? program('x', 'x', [], [])],
+        [period('w1'), period('w2')],
+        1,
+        es.progress.programs,
+      ),
     ).toEqual([])
   })
 })

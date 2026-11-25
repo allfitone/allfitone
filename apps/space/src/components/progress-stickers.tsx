@@ -9,7 +9,7 @@
  * natively. The preview draws it at whatever fits, which only ever scales down.
  *
  * They draw no panel: white and cyan type and marks, with a soft shadow that keeps
- * them legible on a light photograph.
+ * them legible on a light photograph. They speak and weigh as the cards do (`useVoice`).
  */
 
 import { FoundationIcon } from '@allfitone/react-native/icons'
@@ -17,9 +17,20 @@ import { StyleSheet, Text, View, type TextStyle } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
 
 import type { MuscleTerm } from '../client/content'
-import { formatKilos } from '../client/progress'
+import { formatMass } from '../client/progress'
 import type { ProgressStickerKind, ShareFacts } from '../client/progress-share'
-import { Faces, kilosOf, litOf, pathOf, signed, trendPoints } from './progress-share-card'
+import {
+  Faces,
+  liftFigure,
+  litOf,
+  pathOf,
+  signed,
+  trendPoints,
+  unitMark,
+  useVoice,
+  volumeOf,
+  type Voice,
+} from './progress-share-card'
 import { BODY_BOLD, BODY_HEAVY, INK, POSTER, type } from './share-card'
 
 const WHITE = '#FFFFFF'
@@ -76,11 +87,12 @@ export function stickerPen(scale: number): StickerPen {
 interface Drawn extends StickerPen {
   readonly facts: ShareFacts
   readonly muscles: readonly MuscleTerm[]
+  readonly voice: Voice
 }
 
 /** A sticker at its own box, with nothing behind it. */
 export function ProgressSticker({ kind, facts, muscles, scale }: ProgressStickerProps) {
-  const drawn: Drawn = { facts, muscles, ...stickerPen(scale) }
+  const drawn: Drawn = { facts, muscles, voice: useVoice(), ...stickerPen(scale) }
   const { u } = drawn
   const box = STICKER_SIZE[kind]
   return (
@@ -111,18 +123,22 @@ function stickerFor(kind: ProgressStickerKind, drawn: Drawn) {
   }
 }
 
-const sessionsWord = (count: number) => (count === 1 ? 'SESIÓN' : 'SESIONES')
+const mine = (facts: ShareFacts, voice: Voice) =>
+  facts.kind === 'week' ? voice.poster.myWeek : voice.poster.myMonth
 
-function FiguresSticker({ facts, u, ink }: Drawn) {
+function FiguresSticker({ facts, voice, u, ink }: Drawn) {
+  const words = voice.poster
   const figures: readonly (readonly [string, string])[] = [
-    [String(facts.sessions), sessionsWord(facts.sessions)],
-    facts.volumeKg === null ? [String(facts.workSets), 'SERIES'] : [kilosOf(facts), 'KG'],
-    [facts.duration, 'TIEMPO'],
+    [String(facts.sessions), words.sessions(facts.sessions)],
+    facts.volumeKg === null
+      ? [String(facts.workSets), words.sets]
+      : [volumeOf(facts, voice), unitMark(voice.mass)],
+    [facts.duration, words.time],
   ]
   return (
     <View style={styles.column}>
       <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 1.6 })}>
-        {`ALLFIT SPACE · ${facts.kind === 'week' ? 'MI SEMANA' : 'MI MES'}`}
+        {`ALLFIT SPACE · ${mine(facts, voice)}`}
       </Text>
       <View style={[styles.row, { gap: u(14), marginTop: u(10) }]}>
         {figures.map(([value, label]) => (
@@ -138,40 +154,41 @@ function FiguresSticker({ facts, u, ink }: Drawn) {
   )
 }
 
-function ChangeSticker({ facts, ink }: Drawn) {
+function ChangeSticker({ facts, voice, ink }: Drawn) {
   const change = facts.change ?? 0
-  const sessions = `${String(facts.sessions)} ${facts.sessions === 1 ? 'sesión' : 'sesiones'}`
+  const sessions = voice.poster.sessionsLower(facts.sessions)
   return (
     <View style={styles.column}>
-      <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 1.6 })}>
-        {facts.kind === 'week' ? 'MI SEMANA' : 'MI MES'}
-      </Text>
+      <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 1.6 })}>{mine(facts, voice)}</Text>
       <Text numberOfLines={1} style={ink(POSTER, 110, WHITE, { leading: 0.95 })}>
-        {signed(change, '%')}
+        {signed(change, voice.locale, '%')}
       </Text>
       <Text style={ink(POSTER, 28, INK.accent, { leading: 1 })}>
-        {change >= 0 ? 'MÁS VOLUMEN' : 'MENOS VOLUMEN'}
+        {change >= 0 ? voice.poster.moreVolume : voice.poster.lessVolume}
       </Text>
-      <Text style={ink(BODY_BOLD, 12, WHITE)}>{`${kilosOf(facts)} kg · ${sessions}`}</Text>
+      <Text style={ink(BODY_BOLD, 12, WHITE)}>
+        {`${volumeOf(facts, voice)} ${voice.mass} · ${sessions}`}
+      </Text>
     </View>
   )
 }
 
-function BarsSticker({ facts, u, ink }: Drawn) {
+function BarsSticker({ facts, voice, u, ink }: Drawn) {
   const heaviest = Math.max(1, ...facts.bars.map((bar) => bar.kg ?? 0))
   return (
     <View>
       <Text style={ink(POSTER, 46, WHITE, { leading: 0.9 })}>
         {facts.planned > 0
-          ? `${String(facts.fulfilled)} DE ${String(facts.planned)}`
-          : `${String(facts.sessions)} ${sessionsWord(facts.sessions)}`}
+          ? voice.poster.doneOf(facts.fulfilled, facts.planned)
+          : `${String(facts.sessions)} ${voice.poster.sessions(facts.sessions)}`}
       </Text>
       <Text style={[{ marginTop: u(4) }, ink(BODY_HEAVY, 9.5, INK.accent, { tracking: 1.2 })]}>
-        {facts.planned > 0 ? `SESIONES · ${facts.label}` : facts.label}
+        {facts.planned > 0 ? voice.poster.sessionsOf(facts.label) : facts.label}
       </Text>
       <View style={[styles.row, styles.foot, { gap: u(8), marginTop: u(14), height: u(112) }]}>
-        {facts.bars.map((bar) => (
-          <View key={bar.label} style={[styles.column, { width: u(26), gap: u(6) }]}>
+        {/* English repeats a weekday's letter, so the label cannot be the key. */}
+        {facts.bars.map((bar, index) => (
+          <View key={index} style={[styles.column, { width: u(26), gap: u(6) }]}>
             <View
               style={{
                 width: u(26),
@@ -188,7 +205,7 @@ function BarsSticker({ facts, u, ink }: Drawn) {
   )
 }
 
-function RingSticker({ facts, u, ink }: Drawn) {
+function RingSticker({ facts, voice, u, ink }: Drawn) {
   const size = u(180)
   const stroke = u(12)
   const radius = (size - stroke) / 2
@@ -222,10 +239,14 @@ function RingSticker({ facts, u, ink }: Drawn) {
         <Text style={ink(POSTER, 64, WHITE, { leading: 1 })}>
           {`${String(facts.fulfilled)}/${String(facts.planned)}`}
         </Text>
-        <Text style={ink(BODY_HEAVY, 10, WHITE, { tracking: 1.6 })}>SESIONES</Text>
+        <Text style={ink(BODY_HEAVY, 10, WHITE, { tracking: 1.6 })}>{voice.poster.planned}</Text>
       </View>
       <Text style={[{ marginTop: u(18) }, ink(POSTER, 26, INK.accent, { leading: 1.1 })]}>
-        {done ? (facts.kind === 'week' ? 'SEMANA CUMPLIDA' : 'MES CUMPLIDO') : 'DEL PLAN'}
+        {done
+          ? facts.kind === 'week'
+            ? voice.poster.weekDone
+            : voice.poster.monthDone
+          : voice.poster.ofThePlan}
       </Text>
       <Text style={ink(BODY_HEAVY, 9.5, WHITE, { tracking: 1.2 })}>
         {`${facts.label} · ALLFIT`}
@@ -234,12 +255,12 @@ function RingSticker({ facts, u, ink }: Drawn) {
   )
 }
 
-function StreakSticker({ facts, u, ink }: Drawn) {
+function StreakSticker({ facts, voice, u, ink }: Drawn) {
   return (
     <View style={styles.column}>
       <Text style={ink(POSTER, 130, INK.accent, { leading: 0.9 })}>{String(facts.streak)}</Text>
       <Text style={[{ marginTop: u(6) }, ink(POSTER, 30, WHITE, { leading: 1 })]}>
-        {facts.kind === 'week' ? 'SEMANAS SEGUIDAS' : 'MESES SEGUIDOS'}
+        {facts.kind === 'week' ? voice.poster.weeksInARow : voice.poster.monthsInARow}
       </Text>
       <View style={[styles.row, { gap: u(8), marginVertical: u(12) }]}>
         {facts.kept.slice(-6).map((kept, index) => (
@@ -261,12 +282,12 @@ function StreakSticker({ facts, u, ink }: Drawn) {
           </View>
         ))}
       </View>
-      <Text style={ink(BODY_HEAVY, 10, WHITE, { tracking: 1.4 })}>SIN FALLARLE AL PLAN</Text>
+      <Text style={ink(BODY_HEAVY, 10, WHITE, { tracking: 1.4 })}>{voice.poster.keptPlan}</Text>
     </View>
   )
 }
 
-function LiftSticker({ facts, u, ink }: Drawn) {
+function LiftSticker({ facts, voice, u, ink }: Drawn) {
   const lift = facts.lift
   if (!lift) return null
   const points = trendPoints(lift.points, {
@@ -275,7 +296,12 @@ function LiftSticker({ facts, u, ink }: Drawn) {
     top: u(128),
     bottom: u(206),
   })
-  const figure = signed(lift.change, ' KG')
+  const figure = signed(
+    liftFigure(lift.change, voice.mass),
+    voice.locale,
+    ` ${unitMark(voice.mass)}`,
+  )
+  const mass = (kg: number) => formatMass(kg, voice.mass, voice.locale)
   const last = points.at(-1)
   return (
     <View>
@@ -289,7 +315,11 @@ function LiftSticker({ facts, u, ink }: Drawn) {
         {figure}
       </Text>
       <Text style={[{ marginTop: u(6) }, ink(BODY_BOLD, 12, WHITE)]}>
-        {`de ${formatKilos(lift.from)} a ${formatKilos(lift.to)} kg en ${facts.kind === 'week' ? 'una semana' : 'un mes'}`}
+        {voice.poster.liftIn(
+          mass(lift.from),
+          `${mass(lift.to)} ${voice.mass}`,
+          facts.kind === 'week',
+        )}
       </Text>
       <Svg width={u(260)} height={u(220)} style={StyleSheet.absoluteFill}>
         <Path
@@ -315,13 +345,15 @@ function LiftSticker({ facts, u, ink }: Drawn) {
   )
 }
 
-function StripSticker({ facts, u, ink }: Drawn) {
+function StripSticker({ facts, voice, u, ink }: Drawn) {
+  const words = voice.poster
   const figures: (readonly [string, string])[] = [
-    [String(facts.sessions), 'SES'],
-    [kilosOf(facts), 'KG'],
-    [facts.duration.replace(' ', ''), 'TIEMPO'],
+    [String(facts.sessions), words.sessionsShort],
+    [volumeOf(facts, voice), unitMark(voice.mass)],
+    [facts.duration.replace(' ', ''), words.time],
   ]
-  if (facts.change !== null) figures.push([signed(facts.change, '%'), 'VOL'])
+  if (facts.change !== null)
+    figures.push([signed(facts.change, voice.locale, '%'), words.volumeShort])
   return (
     <View>
       <View style={{ height: u(2), backgroundColor: INK.accent }} />
@@ -342,14 +374,14 @@ function StripSticker({ facts, u, ink }: Drawn) {
 
 const SHADES = ['#FFFFFF33', '#55EFFB80', '#55EFFBCC', INK.accent] as const
 
-function CalendarSticker({ facts, u, ink }: Drawn) {
+function CalendarSticker({ facts, voice, u, ink }: Drawn) {
   return (
     <View>
       <Text numberOfLines={1} style={ink(POSTER, 52, WHITE, { leading: 0.9 })}>
         {facts.monthName}
       </Text>
       <Text style={[{ marginTop: u(4) }, ink(BODY_HEAVY, 10, INK.accent, { tracking: 1.4 })]}>
-        {`${String(facts.sessions)} ${sessionsWord(facts.sessions)} · ${kilosOf(facts)} KG`}
+        {`${String(facts.sessions)} ${voice.poster.sessions(facts.sessions)} · ${volumeOf(facts, voice)} ${unitMark(voice.mass)}`}
       </Text>
       {facts.cells.map((cell) => {
         const at = facts.offset + cell.day - 1
@@ -372,12 +404,12 @@ function CalendarSticker({ facts, u, ink }: Drawn) {
   )
 }
 
-function MusclesSticker({ facts, muscles, u, ink }: Drawn) {
+function MusclesSticker({ facts, muscles, voice, u, ink }: Drawn) {
   return (
     <View style={styles.column}>
       <Faces lit={litOf(facts, muscles)} scale={u(0.52)} gap={u(10)} />
       <Text style={[{ marginTop: u(14) }, ink(POSTER, 40, WHITE, { leading: 1 })]}>
-        {`${String(facts.workSets)} SERIES`}
+        {voice.poster.setsCount(facts.workSets)}
       </Text>
       <Text
         numberOfLines={1}

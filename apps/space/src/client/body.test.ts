@@ -1,13 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
   MEASURES,
   comparedPhotos,
   daysApart,
   decimal,
   declarationOf,
-  massIn,
+  massTenths,
   monthTicks,
+  readingIn,
+  shownMeasure,
   tenths,
   timeline,
   latestOf,
@@ -17,7 +20,11 @@ import {
   shortDay,
   type BodyPhoto,
   type BodyRecord,
+  type Measure,
 } from './body'
+
+const es = textFor('es')
+const en = textFor('en')
 
 let next = 0
 const record = (
@@ -101,12 +108,16 @@ describe('reading a measurement', () => {
   })
 
   test('T-SPC-UNIT-BODY-11 a mass reads in tenths of the unit it is shown in', () => {
-    expect(massIn(71.1, 'kg')).toBe(71.1)
-    expect(massIn(70, 'lb')).toBe(154.3)
+    expect(massTenths(71.1, 'kg')).toBe(71.1)
+    expect(massTenths(70, 'lb')).toBe(154.3)
   })
 
   test('T-SPC-UNIT-BODY-05 a day reads short and in Spanish', () => {
-    expect(shortDay('2026-08-02')).toBe('2 ago')
+    expect(shortDay('2026-08-02', es)).toBe('2 ago')
+  })
+
+  test('T-SPC-UNIT-BODY-17 in English a day reads month first', () => {
+    expect(shortDay('2026-08-02', en)).toBe('Aug 2')
   })
 
   test('T-SPC-UNIT-BODY-06 the measures are the ones the database keeps, without height', () => {
@@ -144,14 +155,31 @@ describe('the two photos compared', () => {
 
 describe('what a measure sends', () => {
   test('T-SPC-UNIT-BODY-09 each in the unit of its dimension', () => {
-    expect(declarationOf('waist', 82, '2026-10-24')).toEqual({
+    expect(declarationOf('waist', 82, '2026-10-24', 'lb')).toEqual({
       metric_code: 'waist',
       value: 82,
       unit: 'cm',
       measured_on: '2026-10-24',
     })
-    expect(declarationOf('body_fat', 18, '2026-10-24').unit).toBe('percent')
-    expect(declarationOf('muscle_mass', 32, '2026-10-24').unit).toBe('kg')
+    expect(declarationOf('body_fat', 18, '2026-10-24', 'lb').unit).toBe('percent')
+    expect(declarationOf('muscle_mass', 32, '2026-10-24', 'kg').unit).toBe('kg')
+  })
+
+  test('T-SPC-UNIT-BODY-18 muscle mass is read and sent in the unit she reads masses in', () => {
+    const mass = MEASURES.find((one) => one.code === 'muscle_mass') as Measure
+    const waist = MEASURES.find((one) => one.code === 'waist') as Measure
+    expect(shownMeasure(mass, 'kg')).toBe(mass)
+    expect(shownMeasure(mass, 'lb')).toMatchObject({ suffix: 'lb', min: 22, max: 265, resting: 66 })
+    expect(shownMeasure(waist, 'lb')).toBe(waist)
+    expect(readingIn(mass, 30, 'lb')).toBe(66.1)
+    expect(readingIn(mass, 30.25, 'kg')).toBe(30.25)
+    expect(readingIn(waist, 82, 'lb')).toBe(82)
+    expect(declarationOf('muscle_mass', 66.1, '2026-10-24', 'lb')).toEqual({
+      metric_code: 'muscle_mass',
+      value: 66.1,
+      unit: 'lb',
+      measured_on: '2026-10-24',
+    })
   })
 })
 
@@ -197,16 +225,26 @@ describe('the weight line', () => {
   })
 
   test('T-SPC-UNIT-BODY-14 the axis names the months of the range', () => {
-    expect(monthTicks(3, '2026-10-25')).toEqual(['AGO', 'SEP', 'OCT'])
-    expect(monthTicks(1, '2026-10-25')).toEqual(['SEP', 'OCT'])
-    expect(monthTicks(12, '2026-10-25')).toEqual(['NOV', 'FEB', 'MAY', 'JUL', 'OCT'])
+    expect(monthTicks(3, '2026-10-25', es.common.months)).toEqual(['AGO', 'SEP', 'OCT'])
+    expect(monthTicks(1, '2026-10-25', es.common.months)).toEqual(['SEP', 'OCT'])
+    expect(monthTicks(12, '2026-10-25', es.common.months)).toEqual([
+      'NOV',
+      'FEB',
+      'MAY',
+      'JUL',
+      'OCT',
+    ])
+    expect(monthTicks(3, '2026-10-25', en.common.months)).toEqual(['AUG', 'SEP', 'OCT'])
   })
 })
 
 describe('the time between two photos', () => {
   test('T-SPC-UNIT-BODY-15 is said in days, and the same day says so', () => {
-    expect(daysApart('2026-08-02', '2026-10-25')).toBe('84 días')
-    expect(daysApart('2026-10-24', '2026-10-25')).toBe('1 día')
-    expect(daysApart('2026-10-25', '2026-10-25')).toBe('El mismo día')
+    expect(daysApart('2026-08-02', '2026-10-25', es.progress.body)).toBe('84 días')
+    expect(daysApart('2026-10-24', '2026-10-25', es.progress.body)).toBe('1 día')
+    expect(daysApart('2026-10-25', '2026-10-25', es.progress.body)).toBe('El mismo día')
+    expect(daysApart('2026-08-02', '2026-10-25', en.progress.body)).toBe('84 days')
+    expect(daysApart('2026-10-24', '2026-10-25', en.progress.body)).toBe('1 day')
+    expect(daysApart('2026-10-25', '2026-10-25', en.progress.body)).toBe('Same day')
   })
 })

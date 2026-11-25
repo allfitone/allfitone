@@ -18,7 +18,9 @@
  * The factors here are for **display only**. What gets stored is computed by the
  * database from `catalog.units.to_canonical_factor`, because a factor with two homes
  * is a factor with two answers. These exist so the ruler can be drawn without a round
- * trip, and the test pins them to the same values the catalogue holds.
+ * trip, and the test pins them to the same values the catalogue holds. The mass factor
+ * is the one every other screen reads kilos and pounds with, `units.ts`; only the length
+ * factor lives here, because no other screen converts a length.
  *
  * Nothing is preselected in the sense that matters: the rulers are parked at 70 and
  * 170 because a ruler has to be somewhere, but continuing requires having moved both.
@@ -27,7 +29,9 @@
  * because criterion 3 asks for it.
  */
 
-export type MassUnit = 'kg' | 'lb'
+import { kilogramsFrom, massIn, type MassUnit } from '../units/units'
+
+export type { MassUnit } from '../units/units'
 export type LengthUnit = 'cm' | 'in'
 export type MeasureUnit = MassUnit | LengthUnit
 
@@ -54,19 +58,19 @@ export const CANONICAL_LENGTH: LengthUnit = 'cm'
 export const RESTING_WEIGHT_KG = 70
 export const RESTING_HEIGHT_CM = 170
 
-/**
- * To the canonical unit. The same numbers `catalog.units.to_canonical_factor` holds,
- * and the test asserts they agree — two homes for a factor is two answers.
- */
-const TO_CANONICAL: Readonly<Record<MeasureUnit, number>> = {
-  kg: 1,
-  lb: 0.45359237,
-  cm: 1,
-  in: 2.54,
-}
+/** Centimetres per inch, as `catalog.units.to_canonical_factor` holds it; the test pins it. */
+const CM_PER_IN = 2.54
+
+const isMass = (unit: MeasureUnit): unit is MassUnit => unit === 'kg' || unit === 'lb'
 
 export function toCanonical(value: number, unit: MeasureUnit): number {
-  return value * TO_CANONICAL[unit]
+  if (isMass(unit)) return kilogramsFrom(value, unit)
+  return unit === 'in' ? value * CM_PER_IN : value
+}
+
+function fromCanonical(canonical: number, unit: MeasureUnit): number {
+  if (isMass(unit)) return massIn(canonical, unit)
+  return unit === 'in' ? canonical / CM_PER_IN : canonical
 }
 
 /**
@@ -75,7 +79,7 @@ export function toCanonical(value: number, unit: MeasureUnit): number {
  */
 export function displayIn(canonical: number, unit: MeasureUnit): number {
   const scale = SCALES[unit]
-  const raw = Math.round(canonical / TO_CANONICAL[unit])
+  const raw = Math.round(fromCanonical(canonical, unit))
   return Math.min(scale.max, Math.max(scale.min, raw))
 }
 
