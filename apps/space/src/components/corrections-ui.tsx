@@ -52,7 +52,7 @@ export function PendingCorrections({
       {waiting.list.map((proposal) => (
         <ContentRow
           key={proposal.id}
-          preview={<Monogram name={proposal.proposer_name} tone="sport" />}
+          preview={<Monogram name={proposal.proposer_name} letters={2} tone="sport" />}
           name={t.waiting(proposal.proposer_name)}
           caption={expiryLabel(proposal, waiting.at, timeZone, t)}
           onPress={() =>

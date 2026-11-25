@@ -14,12 +14,12 @@
  */
 
 import { Badge } from '@allfitone/react-native/badge'
+import { BeforeAfter } from '@allfitone/react-native/before-after'
 import { Button } from '@allfitone/react-native/button'
-import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Monogram } from '@allfitone/react-native/monogram'
-import { Note } from '@allfitone/react-native/note'
+import { Note, NoteGroup } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
@@ -155,7 +155,13 @@ export default function CorrectionProposalScreen() {
         {proposal && values && badge ? (
           <>
             <View style={styles.who}>
-              <Monogram name={proposal.proposer_name} tone="sport" />
+              <Monogram
+                name={proposal.proposer_name}
+                letters={2}
+                variant="solid"
+                size="lg"
+                tone="sport"
+              />
               <View style={styles.grow}>
                 <Text role="control" size="lg">
                   {t.proposal.proposes(proposal.proposer_name)}
@@ -174,42 +180,27 @@ export default function CorrectionProposalScreen() {
               </View>
             </View>
 
-            <ContentGroup>
-              <View style={styles.block}>
-                <Text role="body" size="xs" color="secondary">
-                  {contextLine(proposal, detail, timeZone, t, text.common.months)}
-                </Text>
-              </View>
-              <ContentRow
-                name={t.proposal.registered}
-                value={values.registered}
-                valueSize="md"
-                valueTone="muted"
-              />
-              <ContentRow
-                icon="forward"
-                name={t.proposal.proposed}
-                value={values.proposed}
-                valueSize="md"
-              />
-              <View style={styles.block}>
-                <Text role="control" size="xs" color="muted">
-                  {t.proposal.why}
-                </Text>
-                <Text role="body" size="sm">
-                  {t.proposal.quoted(proposal.reason)}
-                </Text>
-              </View>
-            </ContentGroup>
+            <BeforeAfter
+              caption={contextLine(proposal, detail, timeZone, t, text.common.months)}
+              before={{ label: t.proposal.registered, value: values.registered }}
+              after={{ label: t.proposal.proposed, value: values.proposed }}
+            >
+              <Text role="control" size="xs" color="muted">
+                {t.proposal.why}
+              </Text>
+              <Text role="body" size="sm">
+                {t.proposal.quoted(proposal.reason)}
+              </Text>
+            </BeforeAfter>
 
-            <ContentGroup>
-              <Note size="md" icon="locked" style={styles.note}>
+            <NoteGroup>
+              <Note size="md" icon="info" accent>
                 {t.proposal.nothingChanges}
               </Note>
-              <Note size="md" icon="history" style={styles.note}>
+              <Note size="md" icon="locked" accent>
                 {t.proposal.originalKept}
               </Note>
-            </ContentGroup>
+            </NoteGroup>
           </>
         ) : null}
       </ScrollView>
@@ -262,8 +253,6 @@ const styles = StyleSheet.create({
   who: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   grow: { flex: 1, gap: 2 },
   badge: { alignSelf: 'flex-start', marginTop: 4 },
-  block: { paddingVertical: 14, gap: 4 },
-  note: { paddingVertical: 12 },
   answers: { flexDirection: 'row', gap: 10 },
   half: { flex: 1 },
   footer: {

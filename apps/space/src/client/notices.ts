@@ -180,7 +180,31 @@ export function expiryLine(
   return text.expires.days(days)
 }
 
-/** The row's last line: when it happened and, while it awaits, when it stops waiting. */
+/** One part of the row's last line, in the ink the row draws it with. */
+export interface NoticeNoteSegment {
+  readonly text: string
+  readonly tone: 'quiet' | 'warning'
+}
+
+/** The row's last line: when it happened, quiet, and while it awaits its deadline, in warning. */
+export function noticeNote(
+  notice: Notice,
+  now: Date,
+  timeZone: string,
+  text: NoticesText,
+  months: readonly string[],
+): readonly NoticeNoteSegment[] {
+  const time = noticeTime(notice.occurred_at, now, timeZone, text, months)
+  const expiry = expiryLine(notice, now, timeZone, text)
+  return expiry
+    ? [
+        { text: time, tone: 'quiet' },
+        { text: expiry, tone: 'warning' },
+      ]
+    : [{ text: time, tone: 'quiet' }]
+}
+
+/** The same line as one phrase, as a screen reader hears it. */
 export function noticeMeta(
   notice: Notice,
   now: Date,
@@ -188,9 +212,9 @@ export function noticeMeta(
   text: NoticesText,
   months: readonly string[],
 ): string {
-  const time = noticeTime(notice.occurred_at, now, timeZone, text, months)
-  const expiry = expiryLine(notice, now, timeZone, text)
-  return expiry ? `${time} · ${expiry}` : time
+  return noticeNote(notice, now, timeZone, text, months)
+    .map((part) => part.text)
+    .join(' · ')
 }
 
 export interface NoticeGroups {
@@ -284,14 +308,7 @@ export function noticeDestination(notice: Notice): NoticeDestination | null {
   }
 }
 
-/** The name a screen reader says for a row: its words, its state and when. */
-export function noticeLabel(
-  words: NoticeWords,
-  meta: string,
-  unread: boolean,
-  text: NoticesText,
-): string {
-  return [unread ? text.unread : undefined, words.title, words.line, meta, words.action]
-    .filter((part): part is string => part !== undefined)
-    .join('. ')
+/** A row's spoken name: title and when, deadline included, as an opening row skips its note. */
+export function noticeLabel(words: Pick<NoticeWords, 'title'>, meta: string): string {
+  return `${words.title}. ${meta}`
 }

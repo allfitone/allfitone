@@ -1,24 +1,20 @@
 /**
- * The pieces «Avisos» is built from: the bell on Hoy, a notice's row, the mark at the
- * top of `NT-2` and `NT-4`, and a group's label with its count.
+ * The pieces «Avisos» is built from: the bell on Hoy, a notice's row and a group's label
+ * with its count.
  *
- * **A notice's row is the design system's `ContentRow`.** `NT-1` draws more than it
- * offers today — an unread dot, «Vence en» in the warning ink and a «Decidir» button at
- * the end — so the row says the same with what exists: the tinted glyph per kind, the
- * time line lit in the accent while unread, «Vence en» inside that line, and the action
- * word as a tonal badge on a row that is itself the target. The gap is reported, not
- * hand-built around.
+ * **A notice's row is the design system's `ContentRow`** as the notice row it offers:
+ * the tinted glyph per kind, the accent dot and «Sin leer» while unread, the time quiet
+ * beside «Vence en» in warning, and «Ver», «Decidir» or «Revisar» as the neutral pill.
+ * An opening row never reads its note, so the deadline travels in its label.
  *
- * **The bell's dot and the large mark are drawn here from theme tokens**, because the
- * design system has neither an icon button with a dot nor an empty-state mark. Both are
- * reported as gaps; each is a few lines that go when the component exists.
+ * **The bell is the design system's `IconButton` with its `dot`.** The dot is drawn only,
+ * so the label says what awaits. The group's label stays here: the design system has no
+ * section header that carries a count.
  */
 
 import { ContentRow } from '@allfitone/react-native/content-row'
 import { IconButton } from '@allfitone/react-native/icon-button'
-import { FoundationIcon, type IconName } from '@allfitone/react-native/icons'
 import { Text } from '@allfitone/react-native/text'
-import { useTheme } from '@allfitone/react-native/theme'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
@@ -28,6 +24,7 @@ import {
   noticeLabel,
   noticeLook,
   noticeMeta,
+  noticeNote,
   noticeWords,
   type Notice,
 } from '../client/notices'
@@ -37,7 +34,6 @@ import { useText } from '../i18n/use-text'
 /** The bell on Hoy: opens «Avisos», with a dot while something awaits her decision. */
 export function NoticesBell() {
   const router = useRouter()
-  const theme = useTheme()
   const text = useText()
   const [awaiting, setAwaiting] = useState(0)
 
@@ -56,25 +52,12 @@ export function NoticesBell() {
   )
 
   return (
-    <View>
-      <IconButton
-        icon="notification"
-        accessibilityLabel={text.notices.bell(awaiting)}
-        onPress={() => router.push('/notices')}
-      />
-      {bellHasDot({ awaiting_count: awaiting }) ? (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.dot,
-            {
-              backgroundColor: theme.color.icon.accent,
-              borderColor: theme.color.background.canvas,
-            },
-          ]}
-        />
-      ) : null}
-    </View>
+    <IconButton
+      icon="notification"
+      dot={bellHasDot({ awaiting_count: awaiting })}
+      accessibilityLabel={text.notices.bell(awaiting)}
+      onPress={() => router.push('/notices')}
+    />
   )
 }
 
@@ -93,7 +76,7 @@ export function NoticeRow({
   const text = useText()
   const look = noticeLook(notice.kind)
   const words = noticeWords(notice, text.notices)
-  const meta = noticeMeta(notice, now, timeZone, text.notices, text.common.months)
+  const months = text.common.months
   const unread = notice.read_at === null
   return (
     <ContentRow
@@ -101,20 +84,17 @@ export function NoticeRow({
       iconTone={look.tone}
       name={words.title}
       caption={words.line}
-      note={meta}
-      noteTone={unread ? 'accent' : 'quiet'}
+      note={noticeNote(notice, now, timeZone, text.notices, months)}
+      {...(unread ? { unread: text.notices.unread } : {})}
       trailing={
         words.action
-          ? {
-              kind: 'badge',
-              label: words.action,
-              tone: 'accent',
-              variant: 'tonal',
-              uppercase: false,
-            }
-          : { kind: 'chevron' }
+          ? { kind: 'button', label: words.action, variant: 'secondary', onPress }
+          : { kind: 'none' }
       }
-      accessibilityLabel={noticeLabel(words, meta, unread, text.notices)}
+      accessibilityLabel={noticeLabel(
+        words,
+        noticeMeta(notice, now, timeZone, text.notices, months),
+      )}
       onPress={onPress}
     />
   )
@@ -142,42 +122,6 @@ export function GroupLabel({
   )
 }
 
-/** The large mark on a tonal tile that opens `NT-2` and `NT-4`. */
-export function HeroMark({ icon }: { readonly icon: IconName }) {
-  const theme = useTheme()
-  return (
-    <View
-      style={[
-        styles.mark,
-        {
-          backgroundColor: theme.color.accent.tonal,
-          borderColor: theme.color.accent.tonalBorder,
-        },
-      ]}
-    >
-      <FoundationIcon name={icon} size="lg" color={theme.color.icon.accent} decorative />
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
-  dot: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
-  },
   groupLabel: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  mark: {
-    width: 96,
-    height: 96,
-    borderRadius: 28,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-  },
 })

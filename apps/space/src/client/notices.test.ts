@@ -10,6 +10,7 @@ import {
   noticeLabel,
   noticeLook,
   noticeMeta,
+  noticeNote,
   noticesPath,
   noticeTime,
   noticeWords,
@@ -171,6 +172,22 @@ describe('when it happened, in her zone', () => {
       'Ayer · Vence en 29 días',
     )
   })
+
+  test('T-SPC-UNIT-763 the row draws when quiet and the deadline in warning, apart', () => {
+    const waiting = notice('correction_proposed', {
+      awaiting: true,
+      occurred_at: '2026-11-24T15:00:00.000Z',
+      expires_at: '2026-12-24T20:00:00.000Z',
+    })
+    expect(noticeNote(waiting, now, ZONE, es.notices, es.common.months)).toEqual([
+      { text: 'Ayer', tone: 'quiet' },
+      { text: 'Vence en 29 días', tone: 'warning' },
+    ])
+    const closed = { ...waiting, awaiting: false }
+    expect(noticeNote(closed, now, ZONE, es.notices, es.common.months)).toEqual([
+      { text: 'Ayer', tone: 'quiet' },
+    ])
+  })
 })
 
 describe('the inbox', () => {
@@ -202,13 +219,12 @@ describe('the inbox', () => {
     )
   })
 
-  test('T-SPC-UNIT-713 a screen reader hears the state, the words, when, and the action', () => {
-    expect(
-      noticeLabel({ title: 'T', line: 'L', action: 'Ver' }, 'Hace 5 min', true, es.notices),
-    ).toBe('Sin leer. T. L. Hace 5 min. Ver')
-    expect(noticeLabel({ title: 'T', line: 'L' }, 'Yesterday', false, en.notices)).toBe(
-      'T. L. Yesterday',
+  // The row itself adds the unread word, its line as the hint and its button as an action.
+  test('T-SPC-UNIT-713 a screen reader hears the title and when, the deadline included', () => {
+    expect(noticeLabel({ title: 'T' }, 'Ayer · Vence en 29 días')).toBe(
+      'T. Ayer · Vence en 29 días',
     )
+    expect(noticeLabel({ title: 'T' }, 'Yesterday')).toBe('T. Yesterday')
   })
 })
 

@@ -14,6 +14,7 @@
 
 import { Button } from '@allfitone/react-native/button'
 import { ContentGroup } from '@allfitone/react-native/content-row'
+import { Empty } from '@allfitone/react-native/empty'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert } from '@allfitone/react-native/inline-alert'
 import { Note } from '@allfitone/react-native/note'
@@ -35,7 +36,7 @@ import {
 } from '../../src/client/notices'
 import { noticesApi } from '../../src/client/notices-transport'
 import { deviceTimezone } from '../../src/client/timezone'
-import { GroupLabel, HeroMark, NoticeRow } from '../../src/components/notices-ui'
+import { GroupLabel, NoticeRow } from '../../src/components/notices-ui'
 import { useText } from '../../src/i18n/use-text'
 
 interface Held {
@@ -152,15 +153,12 @@ export default function Notices() {
       {nothing && filter === 'all' ? (
         <View style={[styles.empty, { paddingBottom: insets.bottom + 24 }]}>
           {failure ? <InlineAlert message={failure} /> : null}
-          <View style={styles.emptyBody}>
-            <HeroMark icon="notification" />
-            <Text role="control" size="xl" align="center">
-              {t.empty.title}
-            </Text>
-            <Text role="body" size="sm" color="secondary" align="center">
-              {t.empty.body}
-            </Text>
-          </View>
+          <Empty
+            icon="notification"
+            title={t.empty.title}
+            body={t.empty.body}
+            style={styles.emptyBody}
+          />
           <Note icon="locked">{t.privacy}</Note>
         </View>
       ) : (
@@ -234,5 +232,5 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, gap: 22 },
   group: { gap: 10 },
   empty: { flex: 1, paddingHorizontal: 24, justifyContent: 'space-between' },
-  emptyBody: { flex: 1, justifyContent: 'center', gap: 14, paddingHorizontal: 12 },
+  emptyBody: { flex: 1, paddingHorizontal: 12 },
 })

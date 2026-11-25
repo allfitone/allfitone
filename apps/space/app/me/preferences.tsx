@@ -11,9 +11,10 @@
  * and an alert says why. Nothing is sent until her current choice has been read, because
  * the `PUT` carries all three keys and a guess would overwrite one she made elsewhere.
  *
- * Apple Health is listed and off: it is its own story and not built yet. The last group
- * reaches her contact, her permissions and the deletion of her data (criterion 3); the
- * deletion is not built yet and says «Pronto» instead of a chevron.
+ * Apple Health is listed as a switch that is off and cannot move: it is its own story and
+ * not built yet. The last group reaches her contact, her permissions and the deletion of
+ * her data (criterion 3); the deletion is not built yet and says «Pronto» instead of a
+ * chevron.
  */
 
 import { ContentGroup, ContentRow } from '@allfitone/react-native/content-row'
@@ -157,8 +158,7 @@ export default function Preferences() {
               iconTone="quiet"
               name={t.health.appleHealth}
               caption={t.health.caption}
-              trailing={{ kind: 'none' }}
-              disabled
+              trailing={{ kind: 'switch', value: false, onChange: () => undefined, disabled: true }}
             />
           </ContentGroup>
         </View>

@@ -14,10 +14,10 @@
  */
 
 import { Button } from '@allfitone/react-native/button'
-import { ContentGroup } from '@allfitone/react-native/content-row'
+import { HeroMark } from '@allfitone/react-native/hero-mark'
 import { IconButton } from '@allfitone/react-native/icon-button'
 import { InlineAlert, type InlineAlertTone } from '@allfitone/react-native/inline-alert'
-import { Note } from '@allfitone/react-native/note'
+import { Note, NoteGroup } from '@allfitone/react-native/note'
 import { Screen } from '@allfitone/react-native/screen'
 import { Text } from '@allfitone/react-native/text'
 import { useRouter } from 'expo-router'
@@ -27,7 +27,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { PushOutcome } from '../../src/client/push'
 import { spacePush } from '../../src/client/push-transport'
-import { HeroMark } from '../../src/components/notices-ui'
 import { useText } from '../../src/i18n/use-text'
 
 export default function PushPermission() {
@@ -79,19 +78,17 @@ export default function PushPermission() {
           </Text>
         </View>
 
-        <ContentGroup>
-          <View style={styles.reasons}>
-            <Note size="md" icon="time" accent>
-              {t.reasons.rest}
-            </Note>
-            <Note size="md" icon="organization" accent>
-              {t.reasons.gym}
-            </Note>
-            <Note size="md" icon="permissions" accent>
-              {t.reasons.security}
-            </Note>
-          </View>
-        </ContentGroup>
+        <NoteGroup>
+          <Note size="md" icon="time" accent>
+            {t.reasons.rest}
+          </Note>
+          <Note size="md" icon="organization" accent>
+            {t.reasons.gym}
+          </Note>
+          <Note size="md" icon="permissions" accent>
+            {t.reasons.security}
+          </Note>
+        </NoteGroup>
 
         <Text role="body" size="xs" color="muted" align="center">
           {t.footnote}
@@ -117,6 +114,5 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12 },
   content: { paddingHorizontal: 24, gap: 22, paddingTop: 24 },
   heading: { gap: 8 },
-  reasons: { gap: 14, paddingVertical: 16 },
   actions: { paddingHorizontal: 24, gap: 12, paddingTop: 12 },
 })
