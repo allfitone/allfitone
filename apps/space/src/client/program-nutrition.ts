@@ -7,6 +7,7 @@
  */
 
 import type { ProgramDetail } from './programs'
+import { intlLocale, type Locale } from '../i18n'
 
 export type ProgramNutrition = NonNullable<ProgramDetail['nutrition']>
 type MacroCode = 'protein' | 'carbohydrates' | 'fat'
@@ -25,8 +26,6 @@ const MACROS: readonly (readonly [MacroCode, string, number])[] = [
   ['fat', 'Grasa', 9],
 ]
 
-const figure = (value: number) => Math.round(value).toLocaleString('es-CO')
-
 export interface ProgramNutritionCopy {
   readonly energy: string
   readonly purpose: string
@@ -42,7 +41,9 @@ export interface ProgramNutritionCopy {
 export function programNutritionCopy(
   nutrition: ProgramNutrition,
   daysPerWeek: number,
+  locale: Locale,
 ): ProgramNutritionCopy {
+  const figure = (value: number) => Math.round(value).toLocaleString(intlLocale(locale))
   const target = (code: string) => nutrition.targets.find((one) => one.nutrient_code === code)
   const energy = target('energy')
   const low = energy?.minimum ?? energy?.exact ?? 0

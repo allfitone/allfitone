@@ -65,9 +65,11 @@ describe('the history, grouped by week (H-2, H-6)', () => {
 
 describe('what a history row says', () => {
   test('T-SPC-UNIT-178 minutes, work sets and kilos, each only when there is one', () => {
-    expect(historyDetail(item({}))).toBe('61 min · 18 series · 6.240 kg')
-    expect(historyDetail(item({ total_volume_kg: null }))).toBe('61 min · 18 series')
-    expect(historyDetail(item({ work_sets: 1, total_volume_kg: null }))).toBe('61 min · 1 serie')
+    expect(historyDetail(item({}), 'es')).toBe('61 min · 18 series · 6.240 kg')
+    expect(historyDetail(item({ total_volume_kg: null }), 'es')).toBe('61 min · 18 series')
+    expect(historyDetail(item({ work_sets: 1, total_volume_kg: null }), 'es')).toBe(
+      '61 min · 1 serie',
+    )
     expect(
       historyDetail(
         item({
@@ -77,6 +79,7 @@ describe('what a history row says', () => {
           work_sets: 9,
           total_volume_kg: null,
         }),
+        'es',
       ),
     ).toBe('Entreno libre · 35 min · 9 series')
   })

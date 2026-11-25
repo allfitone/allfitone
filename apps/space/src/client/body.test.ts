@@ -83,14 +83,21 @@ describe('the weight over a range', () => {
 
 describe('reading a measurement', () => {
   test('T-SPC-UNIT-BODY-04 one decimal with a comma, none when it is whole', () => {
-    expect(decimal(70.2)).toBe('70,2')
-    expect(decimal(82)).toBe('82')
-    expect(decimal(34.55)).toBe('34,6')
+    expect(decimal(70.2, 'es')).toBe('70,2')
+    expect(decimal(82, 'es')).toBe('82')
+    expect(decimal(34.55, 'es')).toBe('34,6')
   })
 
   test('T-SPC-UNIT-BODY-10 a weight always reads with its tenth', () => {
-    expect(tenths(71)).toBe('71,0')
-    expect(tenths(70.25)).toBe('70,3')
+    expect(tenths(71, 'es')).toBe('71,0')
+    expect(tenths(70.25, 'es')).toBe('70,3')
+    expect(tenths(1070.25, 'es')).toBe('1070,3')
+  })
+
+  test('T-SPC-UNIT-355 in English a measurement reads with a decimal point', () => {
+    expect(decimal(70.2, 'en')).toBe('70.2')
+    expect(decimal(82, 'en')).toBe('82')
+    expect(tenths(71, 'en')).toBe('71.0')
   })
 
   test('T-SPC-UNIT-BODY-11 a mass reads in tenths of the unit it is shown in', () => {

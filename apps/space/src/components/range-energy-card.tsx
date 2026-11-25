@@ -17,6 +17,7 @@ import { StyleSheet, View } from 'react-native'
 
 import { rangeCardCopy, type GoalTarget, type RangeProgress } from '../client/nutrition'
 import { CardGlow, FIGURE_TRACKING, ZoneRing } from './nutrition-ui'
+import { useLocale } from '../i18n/use-text'
 
 export function RangeEnergyCard({
   goal,
@@ -27,8 +28,9 @@ export function RangeEnergyCard({
   readonly eaten: number
   readonly range: RangeProgress
 }) {
+  const locale = useLocale()
   const theme = useTheme()
-  const copy = rangeCardCopy(goal, eaten, range)
+  const copy = rangeCardCopy(goal, eaten, range, locale)
   return (
     <View
       accessible

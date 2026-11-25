@@ -16,6 +16,8 @@
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
+import { intlLocale, type Locale } from '../i18n'
+
 export type NutritionMeal = AllfitV1Schemas['NutritionMeal']
 export type MealItem = NutritionMeal['items'][number]
 export type MealType = AllfitV1Schemas['MealType']
@@ -194,10 +196,14 @@ const UNIT_TEXT: Readonly<Record<NutrientUnit, string>> = {
 }
 
 /** «4,1 g», «0,32 mg», «2.456 kcal»: two decimals under one, one under ten, none above. */
-export function nutrientFigure(value: number | undefined, unit: NutrientUnit): string {
+export function nutrientFigure(
+  value: number | undefined,
+  unit: NutrientUnit,
+  locale: Locale,
+): string {
   if (value === undefined) return '—'
   const digits = value < 1 ? 2 : value < 10 ? 1 : 0
-  const text = value.toLocaleString('es-CO', { maximumFractionDigits: digits })
+  const text = value.toLocaleString(intlLocale(locale), { maximumFractionDigits: digits })
   return `${text} ${UNIT_TEXT[unit]}`
 }
 
@@ -206,7 +212,7 @@ export function dailyReference(code: NutrientCode, targets: readonly GoalTarget[
   const target = isGoalNutrient(code)
     ? targets.find((one) => one.nutrient_code === code)
     : undefined
-  return target ? goalFigure(target).value : (DAILY_VALUES[code] ?? null)
+  return target ? goalValue(target) : (DAILY_VALUES[code] ?? null)
 }
 /** Where a card is narrow, as the macro cards are: «Carbohidratos» would wrap. */
 export const NUTRIENT_SHORT_NAMES: Readonly<Record<NutrientCode, string>> = {
@@ -240,7 +246,8 @@ export const mealSaved = (type: MealType): string =>
 export const addToMeal = (type: MealType): string =>
   `Añadir ${ARTICLED[type].replace(/^el /, 'al ').replace(/^(la|esta) /, 'a $1 ')}`
 
-const figure = (value: number) => Math.round(value).toLocaleString('es-CO')
+const figure = (value: number, locale: Locale) =>
+  Math.round(value).toLocaleString(intlLocale(locale))
 
 /** The strong validator a correction carries, rebuilt from the meal's own revision. */
 const HOLD_GROUNDS: Readonly<Record<NonNullable<MealDeletionHeld['hold']>['reason_code'], string>> =
@@ -255,9 +262,9 @@ const HOLD_GROUNDS: Readonly<Record<NonNullable<MealDeletionHeld['hold']>['reaso
  * HU-BO-033 c3: a meal a legal hold keeps was not deleted, and the person is told on what
  * ground and until when. The request stands: it is deleted once the hold ends.
  */
-export function deletionHeldNote(held: MealDeletionHeld): string {
+export function deletionHeldNote(held: MealDeletionHeld, locale: Locale): string {
   if (!held.hold) return 'Ya la estamos eliminando; desaparecerá en un momento.'
-  const until = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(
+  const until = new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'medium' }).format(
     new Date(held.hold.valid_to),
   )
   return `No la eliminamos todavía: la conservamos por ${HOLD_GROUNDS[held.hold.reason_code]} hasta el ${until}. Se eliminará sola cuando termine.`
@@ -292,18 +299,33 @@ export function eatenFor(summary: DailySummary | undefined, code: NutrientCode):
 }
 
 /** The figure a goal is read against: its exact value, its bound, or a range's top. */
-export function goalFigure(target: GoalTarget): { readonly value: number; readonly label: string } {
+export function goalValue(target: GoalTarget): number {
+  return (
+    (target.mode === 'exact'
+      ? target.exact
+      : target.mode === 'minimum'
+        ? target.minimum
+        : target.maximum) ?? 0
+  )
+}
+
+/** That figure and how it reads: «2.300», «mín. 120», «220–260». */
+export function goalFigure(
+  target: GoalTarget,
+  locale: Locale,
+): { readonly value: number; readonly label: string } {
+  const value = goalValue(target)
   switch (target.mode) {
     case 'exact':
-      return { value: target.exact ?? 0, label: figure(target.exact ?? 0) }
+      return { value, label: figure(value, locale) }
     case 'minimum':
-      return { value: target.minimum ?? 0, label: `mín. ${figure(target.minimum ?? 0)}` }
+      return { value, label: `mín. ${figure(value, locale)}` }
     case 'maximum':
-      return { value: target.maximum ?? 0, label: `máx. ${figure(target.maximum ?? 0)}` }
+      return { value, label: `máx. ${figure(value, locale)}` }
     case 'range':
       return {
-        value: target.maximum ?? 0,
-        label: `${figure(target.minimum ?? 0)}–${figure(target.maximum ?? 0)}`,
+        value,
+        label: `${figure(target.minimum ?? 0, locale)}–${figure(value, locale)}`,
       }
   }
 }
@@ -313,7 +335,7 @@ export function remainingFor(
   target: GoalTarget,
   eaten: number,
 ): { readonly left: number; readonly share: number } {
-  const { value } = goalFigure(target)
+  const value = goalValue(target)
   if (value <= 0) return { left: 0, share: 1 }
   return {
     left: Math.max(0, Math.round(value - eaten)),
@@ -326,8 +348,8 @@ export function remainingFor(
  * «De mín. 120 g» reads with the figure above it — 100 g, de mín. 120 g — and stands
  * on its own line, so it starts with a capital.
  */
-export function goalLine(goal: GoalTarget | undefined, unit: string): string {
-  return goal ? `De ${goalFigure(goal).label} ${unit}` : 'Sin meta'
+export function goalLine(goal: GoalTarget | undefined, unit: string, locale: Locale): string {
+  return goal ? `De ${goalFigure(goal, locale).label} ${unit}` : 'Sin meta'
 }
 
 /** Where the day stands against an energy range, and the arc that draws it. */
@@ -386,7 +408,9 @@ export function rangeCardCopy(
   target: GoalTarget,
   eaten: number,
   range: RangeProgress,
+  locale: Locale,
 ): RangeCardCopy {
+  const figure = (value: number) => Math.round(value).toLocaleString(intlLocale(locale))
   const low = target.minimum ?? 0
   const high = target.maximum ?? 0
   const span = `${figure(low)}–${figure(high)}`
@@ -434,7 +458,8 @@ export function mealPrompt(
   now: string,
   timeZone: string,
   left: Partial<Record<'energy' | 'protein', number | null>>,
-  logged: readonly MealType[] = [],
+  logged: readonly MealType[],
+  locale: Locale,
 ): { readonly type: MealType; readonly title: string; readonly detail: string | null } {
   const hour = localHour(now, timeZone)
   const byHour: MealType =
@@ -450,8 +475,8 @@ export function mealPrompt(
             ? ['snack', '¿Qué comiste?']
             : ['dinner', '¿Qué cenaste?']
   const parts = [
-    typeof left.energy === 'number' ? `${figure(left.energy)} kcal` : null,
-    typeof left.protein === 'number' ? `${figure(left.protein)} g de proteína` : null,
+    typeof left.energy === 'number' ? `${figure(left.energy, locale)} kcal` : null,
+    typeof left.protein === 'number' ? `${figure(left.protein, locale)} g de proteína` : null,
   ].filter((part): part is string => part !== null)
   return { type, title, detail: parts.length > 0 ? `Restante: ${parts.join(' · ')}` : null }
 }
@@ -734,8 +759,8 @@ export const formTotals = (items: readonly FormItem[]): Totals => mealTotals(ite
 const UNIT_LABEL = { kcal: 'kcal', g: 'g', mg: 'mg', mcg: 'µg', ml: 'ml' } as const
 
 /** «2.300 kcal», «mín. 150 g», «220–260 g». */
-export function targetText(target: GoalTarget): string {
-  return `${goalFigure(target).label} ${UNIT_LABEL[target.unit]}`
+export function targetText(target: GoalTarget, locale: Locale): string {
+  return `${goalFigure(target, locale).label} ${UNIT_LABEL[target.unit]}`
 }
 
 const sameTarget = (one: GoalTarget, other: GoalTarget) =>
@@ -748,10 +773,11 @@ const sameTarget = (one: GoalTarget, other: GoalTarget) =>
 export function compareTarget(
   now: GoalTarget | undefined,
   proposed: GoalTarget | undefined,
+  locale: Locale,
 ): string {
-  if (!now && proposed) return `Nueva · ${targetText(proposed)}`
-  if (now && !proposed) return `${targetText(now)} → Sin meta`
+  if (!now && proposed) return `Nueva · ${targetText(proposed, locale)}`
+  if (now && !proposed) return `${targetText(now, locale)} → Sin meta`
   if (!now || !proposed) return 'Sin meta'
-  if (sameTarget(now, proposed)) return `${targetText(now)} · sin cambio`
-  return `${goalFigure(now).label} → ${targetText(proposed)}`
+  if (sameTarget(now, proposed)) return `${targetText(now, locale)} · sin cambio`
+  return `${goalFigure(now, locale).label} → ${targetText(proposed, locale)}`
 }

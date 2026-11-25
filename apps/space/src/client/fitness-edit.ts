@@ -10,6 +10,7 @@
  * declaration, so a cleared draft writes nothing rather than an empty value.
  */
 
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
 import { readLevel, type TrainingExperience } from './experience-form'
 import {
   entryOf,
@@ -97,33 +98,34 @@ export interface DatumVersions {
   readonly versions: readonly DatumVersion[]
 }
 
-const SHORT_DATE = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short' })
-
 /** The one shown and why, then the others, none hidden (`OP-IDN-013`). */
 export function versionsOf(
   profile: FitnessProfile | undefined,
   code: string,
+  text: Dictionary['fitness'],
+  locale: Locale,
 ): DatumVersions | undefined {
-  const row = fitnessSections(profile)
+  const row = fitnessSections(profile, text)
     .flatMap((section) => section.rows)
     .find((one) => one.code === code)
   const entry = row?.entry
   if (!row || !entry) return undefined
-  const shown = valueLine(code, entry.values) ?? '—'
+  const shortDate = new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', month: 'short' })
+  const shown = valueLine(code, entry.values, text) ?? '—'
   const version = (
     one: { values: readonly string[]; provenance: typeof entry.provenance; valid_from: string },
     current: boolean,
   ): DatumVersion => ({
-    line: valueLine(code, one.values) ?? '—',
-    origin: `${provenanceLine(one)} · ${SHORT_DATE.format(new Date(one.valid_from))}`,
+    line: valueLine(code, one.values, text) ?? '—',
+    origin: `${provenanceLine(one, text)} · ${shortDate.format(new Date(one.valid_from))}`,
     current,
   })
   return {
     title: row.title,
     reason:
       entry.selected_because === 'declared_by_you'
-        ? `Mostramos «${shown}» porque lo declaraste tú.`
-        : `Mostramos «${shown}» porque es la versión más reciente.`,
+        ? text.versions.declared(shown)
+        : text.versions.latest(shown),
     versions: [version(entry, true), ...entry.alternatives.map((other) => version(other, false))],
   }
 }

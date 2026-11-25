@@ -13,6 +13,8 @@
       "bundleIdentifier": "com.dinnartec.allfitspace",
       "infoPlist": {
         "CADisableMinimumFrameDurationOnPhone": true,
+        "CFBundleDevelopmentRegion": "es",
+        "CFBundleLocalizations": ["es", "en"],
         "LSApplicationQueriesSchemes": ["instagram-stories", "instagram"]
       }
     },

@@ -44,6 +44,7 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { BodyFigure } from '../../src/components/body-figure'
 import { FIGURE_TRACKING } from '../../src/components/nutrition-ui'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import { useLocale } from '../../src/i18n/use-text'
 
 const SAVE_FAILED = 'No pudimos guardar esta medida. Inténtalo otra vez.'
 const FIGURE_SCALE = 0.8
@@ -63,6 +64,7 @@ const TAPE: Partial<Record<Measure['code'], readonly [number, number, number]>> 
 
 export default function MeasuresScreen() {
   const router = useRouter()
+  const locale = useLocale()
   const theme = useTheme()
   const today = useMemo(
     () => new Intl.DateTimeFormat('en-CA', { timeZone: deviceTimezone() }).format(new Date()),
@@ -148,7 +150,9 @@ export default function MeasuresScreen() {
             <Chip
               key={one.code}
               label={
-                done !== undefined && index !== step ? `${one.label} ${decimal(done)}` : one.label
+                done !== undefined && index !== step
+                  ? `${one.label} ${decimal(done, locale)}`
+                  : one.label
               }
               selected={index === step}
               {...(done !== undefined ? { icon: 'check' as const } : {})}
@@ -199,7 +203,7 @@ export default function MeasuresScreen() {
         </Text>
         <View style={styles.value}>
           <Text role="display" tracking={FIGURE_TRACKING} size="6xl">
-            {decimal(value)}
+            {decimal(value, locale)}
           </Text>
           <Text role="control" size="lg" color="secondary" style={styles.unit}>
             {measure.suffix}
@@ -207,7 +211,7 @@ export default function MeasuresScreen() {
         </View>
         <Text role="body" size="xs" color="secondary">
           {last
-            ? `La última vez: ${decimal(last.value)} ${measure.suffix}, el ${shortDay(last.measured_on)}`
+            ? `La última vez: ${decimal(last.value, locale)} ${measure.suffix}, el ${shortDay(last.measured_on)}`
             : 'Tu primera medida'}
         </Text>
       </View>
@@ -220,10 +224,10 @@ export default function MeasuresScreen() {
           setValues({ ...values, [measure.code]: chosen })
           selectionTick()
         }}
-        formatValue={(shown) => decimal(shown)}
+        formatValue={(shown) => decimal(shown, locale)}
         suffix={measure.suffix}
         accessibilityLabel={measure.label}
-        accessibilityText={`${decimal(value)} ${measure.suffix}`}
+        accessibilityText={`${decimal(value, locale)} ${measure.suffix}`}
       />
 
       <View style={styles.bottom}>

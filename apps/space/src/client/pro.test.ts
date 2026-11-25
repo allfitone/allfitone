@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 
+import { textFor } from '../i18n'
+
 import {
   billingOf,
   createProFlow,
@@ -43,15 +45,18 @@ const status = (over: Partial<ProStatus>): ProStatus => ({
   ...over,
 })
 
+const es = textFor('es').pro
+
 describe('what the screens say', () => {
   test('T-SPC-UNIT-288 the source line names who pays, or that nobody does', () => {
     expect(
-      sourceLine(status({ effective_source: 'subscription', sources: [subscription, gym] })),
+      sourceLine(status({ effective_source: 'subscription', sources: [subscription, gym] }), es),
     ).toBe('Pagado con Apple')
-    expect(sourceLine(status({ effective_source: 'organization', sources: [gym] }))).toBe(
+    expect(sourceLine(status({ effective_source: 'organization', sources: [gym] }), es)).toBe(
       'Incluido por Bodytech Chicó',
     )
-    expect(sourceLine(status({}))).toBe('Sin costo, para siempre')
+    expect(sourceLine(status({}), es)).toBe('Sin costo, para siempre')
+    expect(sourceLine(status({}), textFor('en').pro)).toBe('No cost, forever')
   })
 
   test('T-SPC-UNIT-289 the end of the paid period says whether it renews, and grace says until when', () => {

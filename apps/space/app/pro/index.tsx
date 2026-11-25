@@ -46,6 +46,7 @@ import {
 } from '../../src/client/pro'
 import { manageSubscription } from '../../src/client/pro-store'
 import { createSpaceProFlow } from '../../src/client/pro-transport'
+import { useText } from '../../src/i18n/use-text'
 import {
   FeatureList,
   LinkPanel,
@@ -68,6 +69,7 @@ export default function ProPlanRoute() {
 /** The screen itself, given its flow: the route passes the real one. */
 export function ProPlan({ flow }: { readonly flow: ProFlow }) {
   const router = useRouter()
+  const text = useText()
   const insets = useSafeAreaInsets()
   const [status, setStatus] = useState<ProStatus | undefined>(undefined)
   const [payments, setPayments] = useState<ProPayments | undefined>(undefined)
@@ -159,7 +161,11 @@ export function ProPlan({ flow }: { readonly flow: ProFlow }) {
 
         {status ? (
           <>
-            <MembershipCard pro={status.is_pro} source={sourceLine(status)} facts={facts} />
+            <MembershipCard
+              pro={status.is_pro}
+              source={sourceLine(status, text.pro)}
+              facts={facts}
+            />
 
             {status.effective_source === 'organization' && gym ? (
               <Note size="md" icon="info">

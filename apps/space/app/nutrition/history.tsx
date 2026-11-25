@@ -26,6 +26,7 @@ import {
   eatenFor,
   emptyDaysNote,
   goalFigure,
+  goalValue,
   NUTRIENT_SHORT_NAMES,
   type DailySummary,
   type GoalTarget,
@@ -34,6 +35,8 @@ import {
 import { createSpaceNutritionFlow } from '../../src/client/nutrition-transport'
 import { deviceTimezone } from '../../src/client/timezone'
 import { FIGURE_TRACKING, macroColor, MealThumb } from '../../src/components/nutrition-ui'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale } from '../../src/i18n'
 
 const READ_FAILED = 'No pudimos cargar tu historial. Inténtalo otra vez.'
 const SPANS = [7, 14, 31] as const
@@ -51,6 +54,7 @@ const minusDays = (iso: string, days: number) => {
 const weekdayOf = (iso: string) => new Date(`${iso}T12:00:00Z`).getUTCDay()
 
 export default function NutritionHistoryScreen() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const timeZone = useMemo(() => deviceTimezone(), [])
@@ -91,7 +95,7 @@ export default function NutritionHistoryScreen() {
   const tallest = Math.max(
     1,
     ...days.map((one) => eatenFor(one, 'energy')),
-    energyGoal ? goalFigure(energyGoal).value : 0,
+    energyGoal ? goalValue(energyGoal) : 0,
   )
   const emptyNote = emptyDaysNote(days, today)
   const newestFirst = [...days].reverse()
@@ -136,7 +140,7 @@ export default function NutritionHistoryScreen() {
                 size="4xl"
                 style={styles.averageNumber}
               >
-                {average.value === null ? '—' : average.value.toLocaleString('es-CO')}
+                {average.value === null ? '—' : average.value.toLocaleString(intlLocale(locale))}
               </Text>
               <Text role="control" size="sm" color="secondary" style={styles.averageUnit}>
                 kcal
@@ -153,13 +157,13 @@ export default function NutritionHistoryScreen() {
                 style={[
                   styles.goalLine,
                   {
-                    bottom: 22 + (goalFigure(energyGoal).value / tallest) * BAR_HEIGHT,
+                    bottom: 22 + (goalValue(energyGoal) / tallest) * BAR_HEIGHT,
                     borderTopColor: theme.color.border.default,
                   },
                 ]}
               >
                 <Text role="body" size="sm" color="muted" style={styles.goalLabel}>
-                  {`Meta ${goalFigure(energyGoal).label}`}
+                  {`Meta ${goalFigure(energyGoal, locale).label}`}
                 </Text>
               </View>
             ) : null}
@@ -231,7 +235,7 @@ export default function NutritionHistoryScreen() {
                   {mean.value === null ? '—' : `${String(mean.value)} g`}
                 </Text>
                 <Text role="body" size="xs" color="muted">
-                  {target ? `De ${goalFigure(target).label} g` : 'Sin meta'}
+                  {target ? `De ${goalFigure(target, locale).label} g` : 'Sin meta'}
                 </Text>
               </View>
             )
@@ -301,7 +305,7 @@ export default function NutritionHistoryScreen() {
               </View>
               {(one.meal_count ?? 0) > 0 ? (
                 <Text role="poster" tracking={FIGURE_TRACKING} size="xl">
-                  {Math.round(eatenFor(one, 'energy')).toLocaleString('es-CO')}
+                  {Math.round(eatenFor(one, 'energy')).toLocaleString(intlLocale(locale))}
                   <Text role="body" size="xs" color="muted">
                     {' kcal'}
                   </Text>

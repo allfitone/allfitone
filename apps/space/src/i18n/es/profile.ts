@@ -1,0 +1,62 @@
+/** The profile tab (`PF-1`): its rows, the plan card, and signing out. */
+export const profile = {
+  title: 'Perfil',
+  fitnessIdActive: 'Fitness ID activo',
+  signedOutLocally:
+    'Cerramos sesión en este teléfono. No pudimos avisarle al servidor, así que hazlo otra vez cuando tengas conexión.',
+  badge: { soon: 'Pronto', active: 'Activo' },
+  groups: {
+    you: 'Tú',
+    account: 'Cuenta',
+    gyms: 'Tus gimnasios',
+    privacy: 'Privacidad',
+    plan: 'Plan y pagos',
+  },
+  rows: {
+    progress: { title: 'Progreso', caption: 'Tu entrenamiento, semana a semana' },
+    body: { title: 'Cuerpo', caption: 'Peso, medidas y fotos' },
+    fitness: { title: 'Perfil fitness', caption: 'Objetivo, cómo entrenas y con qué' },
+    health: { title: 'Dolor y limitaciones', caption: 'Solo lo ve quien tenga ese permiso' },
+    identity: { title: 'Identidad y acceso', caption: 'Fitness ID, correo, teléfono y contraseña' },
+    notifications: { title: 'Avisos', caption: 'Qué te avisamos y por dónde' },
+    preferences: { title: 'Preferencias', caption: 'Kilos, kilómetros e idioma' },
+    appleHealth: { title: 'Apple Health', caption: 'Publica tus entrenos' },
+    gym: { caption: 'Te incluye Allfit Pro' },
+    noGym: { title: 'Sin gimnasio', caption: 'Si un gimnasio te invita, aparece aquí' },
+    pastRelationships: { title: 'Relaciones anteriores', caption: 'Las que ya terminaron' },
+    sharing: { title: 'Lo que compartes', caption: 'Por gimnasio y categoría' },
+    hiddenSessions: { title: 'Sesiones ocultas', caption: 'Entrenos que no compartes' },
+    deleteData: { title: 'Eliminar mis datos', caption: 'Por categoría o toda la cuenta' },
+    plan: { title: 'Tu plan' },
+    payments: { title: 'Tus pagos' },
+    gymPlans: {
+      title: 'Planes de gimnasio',
+      caption: 'Los que ofrece tu gimnasio y los que pagas',
+    },
+  },
+  planCaption: {
+    paidWith: (store: string) => `Pro · pagado con ${store}`,
+    byGym: 'Pro · incluido por tu gimnasio',
+    free: 'Gratis · sin costo',
+  },
+  paymentsCaption: {
+    fromGym: 'Sin pagos: tu plan viene del gimnasio',
+    withStore: (store: string) => `Tus cobros de Allfit Pro con ${store}`,
+    plain: 'Tus cobros de Allfit Pro',
+  },
+  planCard: { free: 'Plan gratis' },
+  teaser: {
+    label: 'Allfit Pro. Tu historial completo, tu progreso y la IA. Comparar Gratis y Pro',
+    title: 'Lleva tu progreso más lejos',
+    body: 'Todo tu historial, tus medidas y la IA',
+    go: 'Ver Pro',
+  },
+  signOut: 'Cerrar sesión',
+  version: (version: string) => `Versión ${version} · Allfit Space`,
+  unsynced: {
+    title: 'Tienes un entrenamiento sin terminar',
+    body: 'Dejaste una sesión abierta y todavía no llegó al servidor. Si cierras sesión ahora, se pierde lo que registraste en ella.',
+    back: 'Volver al entrenamiento',
+    signOutAnyway: 'Cerrar sesión de todas formas',
+  },
+}

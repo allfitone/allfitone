@@ -80,6 +80,8 @@ import { mealPhotos } from '../../src/client/meal-photos'
 import { DOCK_HEIGHT } from '../../src/components/tab-bar'
 import { RangeEnergyCard } from '../../src/components/range-energy-card'
 import { useMealPhoto } from '../../src/components/use-meal-photo'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale, type Locale } from '../../src/i18n'
 
 const READ_FAILED = 'No pudimos cargar tu día. Inténtalo otra vez.'
 const WEEK_LETTERS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const
@@ -98,13 +100,14 @@ const clock = (iso: string, timeZone: string) =>
     minute: '2-digit',
     hourCycle: 'h23',
   }).format(new Date(iso))
-const kcal = (value: number) => Math.round(value).toLocaleString('es-CO')
+const kcal = (value: number, locale: Locale) => Math.round(value).toLocaleString(intlLocale(locale))
 
 type LineEntry =
   | { readonly kind: 'meal'; readonly at: string; readonly meal: NutritionMeal }
   | { readonly kind: 'workout'; readonly at: string; readonly workout: HistoryItem }
 
 export default function FoodScreen() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
@@ -169,7 +172,7 @@ export default function FoodScreen() {
     nutrition
       .deleteMeal(meal.id)
       .then((held) => {
-        if (held) setFailure(deletionHeldNote(held))
+        if (held) setFailure(deletionHeldNote(held, locale))
         setVersion((current) => current + 1)
       })
       .catch(() => setFailure(READ_FAILED))
@@ -195,6 +198,7 @@ export default function FoodScreen() {
     timeZone,
     { energy: left('energy'), protein: left('protein') },
     meals.map((meal) => meal.meal_type),
+    locale,
   )
 
   // R-0: the camera is the way in, beside the catalogue search.
@@ -335,7 +339,7 @@ export default function FoodScreen() {
                       </Text>
                       {mealTotals(entry.meal.items).energy !== undefined ? (
                         <Text role="poster" tracking={FIGURE_TRACKING} size="lg">
-                          {kcal(mealTotals(entry.meal.items).energy ?? 0)}
+                          {kcal(mealTotals(entry.meal.items).energy ?? 0, locale)}
                           <Text role="body" size="xs" color="muted">
                             {' kcal'}
                           </Text>
@@ -495,6 +499,7 @@ function EnergyCard({
   readonly eaten: number
   readonly onSetGoal: () => void
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const remaining = goal ? remainingFor(goal, eaten) : null
   const range = goal ? rangeProgress(goal, eaten) : null
@@ -510,7 +515,7 @@ function EnergyCard({
       <View style={styles.grow}>
         <View style={styles.energyFigure}>
           <Text role="display" tracking={FIGURE_TRACKING} size="5xl" style={styles.energyNumber}>
-            {kcal(remaining ? remaining.left : eaten)}
+            {kcal(remaining ? remaining.left : eaten, locale)}
           </Text>
           <Text role="control" size="md" color="secondary" style={styles.energyUnit}>
             kcal
@@ -521,7 +526,7 @@ function EnergyCard({
         </Text>
         {goal ? (
           <Text role="body" size="sm" color="muted">
-            {`Consumido ${kcal(eaten)} · Meta ${goalFigure(goal).label}`}
+            {`Consumido ${kcal(eaten, locale)} · Meta ${goalFigure(goal, locale).label}`}
           </Text>
         ) : (
           <Pressable accessibilityRole="button" onPress={onSetGoal} hitSlop={8}>
@@ -571,6 +576,7 @@ function MacroCards({
   readonly summary: DailySummary | undefined
   readonly target: (code: NutrientCode) => GoalTarget | undefined
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const { width } = useWindowDimensions()
   const pages: readonly (readonly NutrientCode[])[] = [
@@ -643,7 +649,7 @@ function MacroCards({
                     {NUTRIENT_SHORT_NAMES[code]}
                   </Text>
                   <Text role="body" size="xs" color="muted">
-                    {goalLine(goal, unit)}
+                    {goalLine(goal, unit, locale)}
                   </Text>
                 </View>
               )

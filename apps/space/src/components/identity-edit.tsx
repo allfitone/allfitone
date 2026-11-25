@@ -50,6 +50,7 @@ import {
 import {
   DEFAULT_COUNTRY,
   chooseCountry,
+  countriesIn,
   countryOf,
   joinPhone,
   searchCountries,
@@ -66,6 +67,8 @@ import {
 } from '../client/profile-transport'
 import { EditHeader, EditScreen } from './edit-screen'
 import { EmailChangeProgress } from './email-change-progress'
+import type { Dictionary } from '../i18n'
+import { useLocale, useText } from '../i18n/use-text'
 import { Note } from '@allfitone/react-native/note'
 
 export interface IdentitySources {
@@ -84,32 +87,13 @@ export const LIVE_IDENTITY: IdentitySources = {
   verifyEmailChange,
 }
 
-const UNREADABLE = 'No pudimos leer tu identidad. Revisa tu conexión e inténtalo otra vez.'
-const SAVE_FAILED = 'No pudimos guardarlo. Inténtalo otra vez.'
-const TAKEN = 'Ese usuario ya está en uso. Prueba con otro.'
-const PHONE_PROBLEM = 'Escribe solo el número, por ejemplo 310 555 0142.'
-const FIELD_PROBLEM: Record<keyof OwnName, string> = {
-  given_name: 'Escribe tu nombre.',
-  family_name: 'Escribe tu apellido.',
-  username: 'Entre 3 y 30 letras, números o guion bajo, y empieza con una letra.',
-}
+type IdentityText = Dictionary['identity']
 
 export type NameEditing = 'name' | 'username'
 
-const NAME_SCREENS: Record<
-  NameEditing,
-  { readonly title: string; readonly subtitle: string; readonly fields: (keyof OwnName)[] }
-> = {
-  name: {
-    title: 'Nombre y apellido',
-    subtitle: 'Así te nombra la app y así te ven tus gimnasios.',
-    fields: ['given_name', 'family_name'],
-  },
-  username: {
-    title: 'Usuario',
-    subtitle: 'Es único y te identifica: nadie más puede tenerlo.',
-    fields: ['username'],
-  },
+const NAME_FIELDS: Record<NameEditing, (keyof OwnName)[]> = {
+  name: ['given_name', 'family_name'],
+  username: ['username'],
 }
 
 function useIdentity(sources: IdentitySources) {
@@ -137,6 +121,8 @@ export function NameEditScreen({
   readonly sources: IdentitySources
 }) {
   const router = useRouter()
+  const text = useText()
+  const t = text.identity
   const { identity, unreadable } = useIdentity(sources)
   const [given, setGiven] = useState('')
   const [family, setFamily] = useState('')
@@ -158,13 +144,14 @@ export function NameEditScreen({
     family_name: family,
     username: cleanUsername(username),
   }
-  const { title, subtitle, fields } = NAME_SCREENS[editing]
+  const { title, subtitle } = editing === 'name' ? t.name : t.username
+  const fields = NAME_FIELDS[editing]
   const problem = nameProblem(name, fields)
   const errorOf = (field: keyof OwnName): { error?: string } => {
     if (field === 'username' && taken !== undefined && taken === name.username) {
-      return { error: TAKEN }
+      return { error: t.username.taken }
     }
-    return tried && problem === field ? { error: FIELD_PROBLEM[field] } : {}
+    return tried && problem === field ? { error: t.fieldProblem[field] } : {}
   }
 
   const save = async () => {
@@ -177,7 +164,7 @@ export function NameEditScreen({
       router.back()
     } catch (cause) {
       if (cause instanceof ApiError && cause.failure === 'conflict') setTaken(name.username)
-      else setFailure(SAVE_FAILED)
+      else setFailure(text.common.saveFailed)
     } finally {
       setSaving(false)
     }
@@ -187,14 +174,14 @@ export function NameEditScreen({
     <EditScreen
       title={title}
       subtitle={subtitle}
-      failure={unreadable ? UNREADABLE : failure}
+      failure={unreadable ? t.unreadable : failure}
       saving={saving}
       onSave={identity ? () => void save() : undefined}
     >
       {identity && editing === 'name' ? (
         <>
           <TextField
-            label="Nombre"
+            label={t.name.given}
             value={given}
             onChangeText={setGiven}
             autoComplete="given-name"
@@ -203,7 +190,7 @@ export function NameEditScreen({
             {...errorOf('given_name')}
           />
           <TextField
-            label="Apellido"
+            label={t.name.family}
             value={family}
             onChangeText={setFamily}
             autoComplete="family-name"
@@ -214,7 +201,7 @@ export function NameEditScreen({
       ) : null}
       {identity && editing === 'username' ? (
         <TextField
-          label="Usuario"
+          label={t.username.field}
           value={username === '' ? '' : `@${cleanUsername(username)}`}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -231,6 +218,9 @@ export function NameEditScreen({
 /** `PF-E9`: the country code from a list, the number beside it. */
 export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
+  const text = useText()
+  const locale = useLocale()
+  const t = text.identity
   const { identity, unreadable } = useIdentity(sources)
   const [country, setCountry] = useState(DEFAULT_COUNTRY)
   const [national, setNational] = useState('')
@@ -254,7 +244,7 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
   )
 
   const phone = joinPhone(country, national)
-  const shown = countryOf(country)
+  const shown = countryOf(country, countriesIn(t.countries, locale))
 
   const write = async (value: string | null) => {
     setSaving(true)
@@ -263,7 +253,7 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
       await sources.correctPhone(value)
       router.back()
     } catch {
-      setFailure(SAVE_FAILED)
+      setFailure(text.common.saveFailed)
     } finally {
       setSaving(false)
     }
@@ -277,9 +267,9 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
 
   return (
     <EditScreen
-      title="Teléfono"
-      subtitle="Es solo un dato de contacto: no te enviamos SMS."
-      failure={unreadable ? UNREADABLE : failure}
+      title={t.phone.title}
+      subtitle={t.phone.subtitle}
+      failure={unreadable ? t.unreadable : failure}
       saving={saving}
       onSave={identity ? save : undefined}
     >
@@ -287,21 +277,21 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
         <>
           <View style={styles.phone}>
             <Text role="label" size="xs" color="secondary">
-              TELÉFONO
+              {t.phone.label}
             </Text>
             <View style={styles.phoneRow}>
               <DisclosureButton
                 variant="select"
                 label={shown?.name ?? ''}
                 value={`+${shown?.dial ?? ''}`}
-                accessibilityLabel={`Indicativo: ${shown?.name ?? ''} +${shown?.dial ?? ''}`}
+                accessibilityLabel={t.phone.code(shown?.name ?? '', shown?.dial ?? '')}
                 onPress={() =>
                   router.push({ pathname: '/me/phone-country', params: { selected: country } })
                 }
                 style={styles.code}
               />
               <TextField
-                label="Número"
+                label={t.phone.number}
                 hideLabel
                 value={national}
                 onChangeText={setNational}
@@ -311,15 +301,15 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
                 placeholder="310 555 0142"
                 autoFocus
                 style={styles.grow}
-                {...(tried && phone === undefined ? { error: PHONE_PROBLEM } : {})}
+                {...(tried && phone === undefined ? { error: t.phone.problem } : {})}
               />
             </View>
           </View>
-          <Note>Solo el número, sin el indicativo: lo eliges a la izquierda.</Note>
+          <Note>{t.phone.note}</Note>
           {identity.phone.number ? (
             <View style={styles.start}>
               <Button
-                label="Quitar mi teléfono"
+                label={t.phone.remove}
                 variant="ghost"
                 icon="remove"
                 onPress={() => void write(null)}
@@ -336,10 +326,13 @@ export function PhoneEditScreen({ sources }: { readonly sources: IdentitySources
 export function CountryCodeScreen() {
   const router = useRouter()
   const theme = useTheme()
+  const t = useText().identity
+  const locale = useLocale()
   const { selected = DEFAULT_COUNTRY } = useLocalSearchParams<{ selected?: string }>()
   const [query, setQuery] = useState('')
-  const found = searchCountries(query)
-  const picked = countryOf(selected)
+  const countries = countriesIn(t.countries, locale)
+  const found = searchCountries(query, countries)
+  const picked = countryOf(selected, countries)
   const rest = query === '' ? found.filter((country) => country.iso !== selected) : found
 
   const pick = (country: Country) => {
@@ -373,7 +366,7 @@ export function CountryCodeScreen() {
 
   return (
     <Screen edges={['top', 'bottom']}>
-      <EditHeader title="Indicativo del país" />
+      <EditHeader title={t.country.title} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -381,11 +374,11 @@ export function CountryCodeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <TextField
-          label="Buscar"
+          label={t.country.search}
           hideLabel
           value={query}
           onChangeText={setQuery}
-          placeholder="Busca un país o un indicativo"
+          placeholder={t.country.placeholder}
           autoCorrect={false}
         />
         <ContentGroup>
@@ -394,7 +387,7 @@ export function CountryCodeScreen() {
               {row(picked)}
               <View style={styles.divider}>
                 <Text role="label" size="2xs" color="muted">
-                  TODOS LOS PAÍSES
+                  {t.country.all}
                 </Text>
               </View>
             </>
@@ -402,7 +395,7 @@ export function CountryCodeScreen() {
           {rest.map((country) => row(country))}
           {rest.length === 0 ? (
             <Text role="body" size="sm" color="muted" style={styles.empty}>
-              Ningún país de la lista coincide.
+              {t.country.none}
             </Text>
           ) : null}
         </ContentGroup>
@@ -411,28 +404,24 @@ export function CountryCodeScreen() {
   )
 }
 
-const EMAIL_SHAPE_PROBLEM = 'Escribe un correo válido.'
-const EMAIL_SAME = 'Ese ya es tu correo.'
-const EMAIL_REFUSED = 'No podemos usar ese correo. Revisa que esté bien escrito.'
-const EMAIL_TOO_SOON = 'Espera un momento antes de pedir otro código.'
-const CODE_REFUSED = 'El código no es válido o ya venció.'
-const CODE_SPENT = 'Ese código ya no sirve. Pide uno nuevo con «Reenviar».'
-const CHANGE_FAILED = 'No pudimos cambiar tu correo. Sigues entrando con el actual.'
-const CHANGE_SLOW = 'Está tardando más de lo normal. Puedes volver: el cambio sigue en curso.'
 // The worker applies a change on its next cycle; this watches for it, not forever.
 const APPLY_CHECK_MS = 2_000
 const APPLY_CHECKS = 45
 
-function emailRequestFailure(cause: unknown): string {
-  if (cause instanceof ApiError && cause.failure === 'validation-failed') return EMAIL_REFUSED
-  if (cause instanceof ApiError && cause.failure === 'conflict') return EMAIL_TOO_SOON
-  return SAVE_FAILED
+function emailRequestFailure(cause: unknown, text: Dictionary): string {
+  if (cause instanceof ApiError && cause.failure === 'validation-failed') {
+    return text.identity.email.refused
+  }
+  if (cause instanceof ApiError && cause.failure === 'conflict') return text.identity.email.tooSoon
+  return text.common.saveFailed
 }
 
 /** `PF-E11`: the address in force, the new one, and a code on its way. */
 export function EmailEditScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const t: IdentityText = text.identity
   const { identity, unreadable } = useIdentity(sources)
   const [typed, setTyped] = useState('')
   const [tried, setTried] = useState(false)
@@ -442,9 +431,9 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
   const problem = identity ? newEmailProblem(typed, identity.email.address) : 'shape'
   const fieldError =
     tried && problem === 'shape'
-      ? { error: EMAIL_SHAPE_PROBLEM }
+      ? { error: t.email.shapeProblem }
       : tried && problem === 'same'
-        ? { error: EMAIL_SAME }
+        ? { error: t.email.same }
         : {}
 
   const send = async () => {
@@ -456,7 +445,7 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
       await sources.requestEmailChange(typed.trim())
       router.replace('/me/email-code')
     } catch (cause) {
-      setFailure(emailRequestFailure(cause))
+      setFailure(emailRequestFailure(cause, text))
     } finally {
       setSaving(false)
     }
@@ -464,11 +453,11 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
 
   return (
     <EditScreen
-      title="Correo"
-      subtitle="Es con el que entras y por donde te escribimos."
-      failure={unreadable ? UNREADABLE : failure}
+      title={t.email.title}
+      subtitle={t.email.subtitle}
+      failure={unreadable ? t.unreadable : failure}
       saving={saving}
-      saveLabel="Enviar código"
+      saveLabel={t.email.send}
       onSave={identity ? () => void send() : undefined}
     >
       {identity ? (
@@ -483,14 +472,14 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
             ]}
           >
             <Text role="label" size="xs" color="secondary">
-              CORREO ACTUAL
+              {t.email.current}
             </Text>
             <Text role="control" size="md">
-              {identity.email.address ?? 'Sin correo'}
+              {identity.email.address ?? t.rows.noEmail}
             </Text>
           </View>
           <TextField
-            label="Correo nuevo"
+            label={t.email.field}
             value={typed}
             onChangeText={setTyped}
             keyboardType="email-address"
@@ -501,12 +490,9 @@ export function EmailEditScreen({ sources }: { readonly sources: IdentitySources
             autoFocus
             {...fieldError}
           />
-          <Note>
-            Te enviaremos un código a ese correo. Hasta que lo confirmes, sigues entrando con el
-            actual.
-          </Note>
-          {replacedCodeNote(identity.email.pending) ? (
-            <Note boxed>{replacedCodeNote(identity.email.pending) ?? ''}</Note>
+          <Note>{t.email.note}</Note>
+          {replacedCodeNote(identity.email.pending, t) ? (
+            <Note boxed>{replacedCodeNote(identity.email.pending, t) ?? ''}</Note>
           ) : null}
         </>
       ) : null}
@@ -524,6 +510,8 @@ function minutesLeft(expiresAt: string): number {
 /** `PF-E12`: the six digits from the new inbox. */
 export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
+  const text = useText()
+  const t = text.identity.code
   const { identity, unreadable } = useIdentity(sources)
   const [pending, setPending] = useState<EmailChange | null | undefined>(undefined)
   const [code, setCode] = useState('')
@@ -559,7 +547,7 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
         if (progress === 'failed') {
           setApplying(undefined)
           setPending(null)
-          setFailure(CHANGE_FAILED)
+          setFailure(t.changeFailed)
           return
         }
       } catch {
@@ -567,7 +555,7 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
       }
       if (checks >= APPLY_CHECKS) {
         setApplying(undefined)
-        setFailure(CHANGE_SLOW)
+        setFailure(t.changeSlow)
         return
       }
       timer = setTimeout(() => void check(), APPLY_CHECK_MS)
@@ -577,14 +565,14 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
       active = false
       if (timer) clearTimeout(timer)
     }
-  }, [applying, sources, router])
+  }, [applying, sources, router, t])
 
   const waiting = !applying && pending?.status === 'awaiting_code' ? pending : undefined
 
   const confirm = async () => {
     if (applying) return
     if (code.length !== CODE_LENGTH) {
-      setFailure('Escribe los 6 dígitos del código.')
+      setFailure(t.digits)
       return
     }
     setSaving(true)
@@ -596,11 +584,11 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
     } catch (cause) {
       setCode('')
       if (cause instanceof ApiError && cause.failure === 'validation-failed') {
-        setFailure(CODE_REFUSED)
+        setFailure(t.refused)
       } else if (cause instanceof ApiError && cause.failure === 'conflict') {
-        setFailure(CODE_SPENT)
+        setFailure(t.spent)
       } else {
-        setFailure(SAVE_FAILED)
+        setFailure(text.common.saveFailed)
       }
     } finally {
       setSaving(false)
@@ -614,25 +602,25 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
     try {
       setPending(await sources.requestEmailChange(waiting.address))
       setCode('')
-      setNotice('Te enviamos un código nuevo.')
+      setNotice(t.resent)
     } catch (cause) {
-      setFailure(emailRequestFailure(cause))
+      setFailure(emailRequestFailure(cause, text))
     }
   }
 
   const subtitle = applying
-    ? `Estamos cambiando tu correo a ${applying}. Toma unos segundos.`
+    ? t.applying(applying)
     : waiting
-      ? `Te enviamos un código de 6 dígitos a ${waiting.address}. Vence en ${String(minutesLeft(waiting.expires_at))} minutos.`
+      ? t.sent(waiting.address, minutesLeft(waiting.expires_at))
       : pending === null
-        ? 'No hay un cambio de correo esperando su código.'
+        ? t.nothingPending
         : ''
 
   const shown = applied ?? applying
   if (shown) {
     return (
       <Screen edges={['top', 'bottom']}>
-        <EditHeader title="Revisa tu correo" />
+        <EditHeader title={t.title} />
         <EmailChangeProgress
           address={shown}
           done={applied !== undefined}
@@ -644,20 +632,18 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
 
   return (
     <EditScreen
-      title="Revisa tu correo"
+      title={t.title}
       subtitle={subtitle}
-      failure={unreadable ? UNREADABLE : failure}
+      failure={unreadable ? text.identity.unreadable : failure}
       saving={saving || applying !== undefined}
-      saveLabel="Confirmar"
+      saveLabel={t.confirm}
       onSave={waiting || applying ? () => void confirm() : undefined}
     >
-      {applying ? (
-        <Note>Cuando termine, entras con el correo nuevo y cerramos tus otras sesiones.</Note>
-      ) : null}
+      {applying ? <Note>{t.whenDone}</Note> : null}
       {waiting ? (
         <>
           <CodeField
-            label="Código"
+            label={t.field}
             value={code}
             onChangeText={(next) => {
               setFailure(undefined)
@@ -669,33 +655,30 @@ export function EmailCodeScreen({ sources }: { readonly sources: IdentitySources
             autoFocus
             editable={!saving}
           />
-          <Note>
-            Al confirmarlo, entras con el correo nuevo y cerramos tus otras sesiones. Avisaremos al
-            correo anterior.
-          </Note>
+          <Note>{t.onConfirm}</Note>
           {notice ? <InlineAlert message={notice} tone="success" /> : null}
           <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">
-              ¿No te llegó?
+              {t.notArrived}
             </Text>
             <Button
-              label="Reenviar"
+              label={t.resend}
               variant="ghost"
               size="sm"
-              accessibilityLabel="¿No te llegó? Reenviar el código"
+              accessibilityLabel={t.resendLabel}
               onPress={() => void resend()}
             />
           </View>
           {/* A code sent to a mistyped address never arrives: this is the way out. */}
           <View style={styles.resend}>
             <Text role="body" size="sm" color="secondary">
-              ¿Te equivocaste de correo?
+              {t.wrongEmail}
             </Text>
             <Button
-              label="Usar otro"
+              label={t.useAnother}
               variant="ghost"
               size="sm"
-              accessibilityLabel="¿Te equivocaste de correo? Usar otro"
+              accessibilityLabel={t.useAnotherLabel}
               onPress={() => router.replace('/me/email')}
             />
           </View>

@@ -244,8 +244,12 @@ describe('what the screen says', () => {
    * where somebody agrees to pay it.
    */
   test('a price comes from the minor unit, not from the integer', () => {
-    expect(formatPrice(12000000, 'COP')).toContain('120.000')
-    expect(formatPrice(12000000, 'COP')).not.toContain('12.000.000')
+    expect(formatPrice(12000000, 'COP', 'es')).toContain('120.000')
+    expect(formatPrice(12000000, 'COP', 'es')).not.toContain('12.000.000')
+  })
+
+  test('T-SPC-UNIT-358 in English the price is written the way English writes money', () => {
+    expect(formatPrice(12000000, 'COP', 'en')).toMatch(/^COP\s120,000\.00$/)
   })
 
   test('a period reads as a person would say it', () => {

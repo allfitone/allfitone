@@ -53,6 +53,8 @@ import { trainedLabel } from '../../src/client/week'
 import { HistoryGroupHeader, HistoryPanel, HistoryRow } from '../../src/components/history-row'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
 import { shortDate } from '../../src/client/pro'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale } from '../../src/i18n'
 
 const PAGE = 20
 const SEARCH_PAUSE_MS = 300
@@ -371,6 +373,7 @@ function MonthCard({
   readonly picked: string | null
   readonly onPick: (day: string) => void
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const chosen: HistoryDay | undefined = summary.days.find((entry) => entry.trained_on === picked)
   const weeks = monthCalendar(summary.month, summary.days, today)
@@ -378,7 +381,7 @@ function MonthCard({
   // With a day picked, every figure is that day's.
   const scope = chosen ?? summary
   const kilos = ((chosen ? chosen.volume_kg : summary.total_volume_kg) ?? 0).toLocaleString(
-    'es-CO',
+    intlLocale(locale),
     { maximumFractionDigits: 0 },
   )
   const figures: readonly (readonly [string, string, boolean])[] = [

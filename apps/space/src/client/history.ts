@@ -14,6 +14,7 @@
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+import { intlLocale, type Locale } from '../i18n'
 
 export type HistoryItem = AllfitV1Schemas['SpaceHistoryItem']
 export type HistoryPage = AllfitV1Schemas['SpaceHistoryPage']
@@ -88,17 +89,18 @@ export function weekGroups(items: readonly HistoryItem[], today: string): readon
   return groups
 }
 
-const kilos = (value: number) => value.toLocaleString('es-CO', { maximumFractionDigits: 0 })
+const kilos = (value: number, locale: Locale) =>
+  value.toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
 const plural = (count: number, one: string, many: string) =>
   `${String(count)} ${count === 1 ? one : many}`
 
 /** «48 min · 12 series · 3.840 kg», with only the parts there are. */
-export function historyDetail(row: HistoryItem): string {
+export function historyDetail(row: HistoryItem, locale: Locale): string {
   const parts = [
     row.is_free ? 'Entreno libre' : null,
     `${String(Math.round(row.duration_seconds / 60))} min`,
     row.work_sets > 0 ? plural(row.work_sets, 'serie', 'series') : null,
-    row.total_volume_kg === null ? null : `${kilos(row.total_volume_kg)} kg`,
+    row.total_volume_kg === null ? null : `${kilos(row.total_volume_kg, locale)} kg`,
   ]
   return parts.filter((part): part is string => part !== null).join(' · ')
 }

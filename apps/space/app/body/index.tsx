@@ -63,6 +63,8 @@ import { deviceTimezone } from '../../src/client/timezone'
 import { BodyFigure } from '../../src/components/body-figure'
 import { CardGlow, FIGURE_TRACKING } from '../../src/components/nutrition-ui'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import type { Locale } from '../../src/i18n'
+import { useLocale } from '../../src/i18n/use-text'
 
 /** A frame past the sheet's exit, so its modal is gone before the next thing appears. */
 const SHEET_SETTLE_MS = 60
@@ -124,6 +126,7 @@ function localToday(timezone: string): string {
 
 export default function BodyScreen() {
   const router = useRouter()
+  const locale = useLocale()
   const today = localToday(deviceTimezone())
   const features = usePlan()
   const upgrade = useUpgradeSheet(features)
@@ -229,7 +232,7 @@ export default function BodyScreen() {
           <Choice
             icon="weight"
             title="Peso"
-            caption={weightCaption(records)}
+            caption={weightCaption(records, locale)}
             tone="strength"
             onPress={() => record('/body/weight')}
           />
@@ -258,10 +261,10 @@ export default function BodyScreen() {
   )
 }
 
-function weightCaption(records: readonly BodyRecord[] | undefined): string {
+function weightCaption(records: readonly BodyRecord[] | undefined, locale: Locale): string {
   const latest = records ? latestOf(records, 'body_weight') : undefined
   return latest
-    ? `Último: ${tenths(latest.value)} kg · ${shortDay(latest.measured_on)}`
+    ? `Último: ${tenths(latest.value, locale)} kg · ${shortDay(latest.measured_on)}`
     : 'Tu primer registro'
 }
 
@@ -321,6 +324,7 @@ function WeightCard({
   readonly onRecord: () => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
   const [range, setRange] = useState<Range>('3')
   const [width, setWidth] = useState(0)
   const months = Number(range)
@@ -355,7 +359,7 @@ function WeightCard({
         <>
           <View style={styles.figure}>
             <Text role="display" tracking={FIGURE_TRACKING} size="6xl">
-              {tenths(latest.value)}
+              {tenths(latest.value, locale)}
             </Text>
             <Text role="control" size="lg" color="secondary" style={styles.unit}>
               kg
@@ -370,7 +374,7 @@ function WeightCard({
                 decorative
               />
               <Text role="control" size="xs" color="accent">
-                {`${change > 0 ? '+' : change < 0 ? '−' : ''}${decimal(Math.abs(change))} kg desde el ${shortDay(first.measured_on)}`}
+                {`${change > 0 ? '+' : change < 0 ? '−' : ''}${decimal(Math.abs(change), locale)} kg desde el ${shortDay(first.measured_on)}`}
               </Text>
             </View>
           ) : (
@@ -490,6 +494,7 @@ function MeasuresCard({
   readonly onRecord: () => void
 }) {
   const theme = useTheme()
+  const locale = useLocale()
   const [width, setWidth] = useState(0)
   const taken = CALLOUTS.filter((callout) => latestOf(records, callout.code))
   const extras = (
@@ -500,7 +505,7 @@ function MeasuresCard({
     ] as const
   ).flatMap(([code, label, unit]) => {
     const latest = latestOf(records, code)
-    return latest ? [`${label} ${decimal(latest.value)} ${unit}`] : []
+    return latest ? [`${label} ${decimal(latest.value, locale)} ${unit}`] : []
   })
 
   if (taken.length === 0) {
@@ -576,7 +581,7 @@ function MeasuresCard({
             <View
               key={callout.code}
               accessible
-              accessibilityLabel={`${callout.label}: ${decimal(latest.value)} centímetros`}
+              accessibilityLabel={`${callout.label}: ${decimal(latest.value, locale)} centímetros`}
               style={[
                 styles.callout,
                 { top: labelTop(callout, taken) },
@@ -588,7 +593,7 @@ function MeasuresCard({
               </Text>
               <View style={styles.calloutValue}>
                 <Text role="poster" tracking={FIGURE_TRACKING} size="xl">
-                  {decimal(latest.value)}
+                  {decimal(latest.value, locale)}
                 </Text>
                 <Text role="body" size="2xs" color="secondary">
                   cm
@@ -596,7 +601,7 @@ function MeasuresCard({
               </View>
               {change && change.change !== 0 ? (
                 <Text role="control" size="2xs" color="accent">
-                  {`${change.change > 0 ? '▲' : '▼'} ${decimal(Math.abs(change.change))} cm`}
+                  {`${change.change > 0 ? '▲' : '▼'} ${decimal(Math.abs(change.change), locale)} cm`}
                 </Text>
               ) : null}
             </View>

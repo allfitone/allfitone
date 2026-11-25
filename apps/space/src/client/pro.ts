@@ -15,6 +15,8 @@ import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
 import type { IconName } from '@allfitone/icons'
 
+import type { Dictionary } from '../i18n'
+
 export type ProStatus = AllfitV1Schemas['SpaceProStatus']
 export type ProPlanCatalogue = AllfitV1Schemas['SpaceProPlanCatalogue']
 export type ProPlan = AllfitV1Schemas['SpaceProPlan']
@@ -88,15 +90,15 @@ export const gymsOf = (status: ProStatus): OrganizationSource[] =>
   status.sources.filter((source): source is OrganizationSource => source.kind === 'organization')
 
 /** The line under the plan's name: who pays for it, or that nobody does. */
-export function sourceLine(status: ProStatus): string {
+export function sourceLine(status: ProStatus, text: Dictionary['pro']): string {
   const subscription = subscriptionOf(status)
   const [gym] = gymsOf(status)
   if (status.effective_source === 'subscription' && subscription) {
-    return `Pagado con ${storeName(subscription.store)}`
+    return text.paidWith(storeName(subscription.store))
   }
   if (status.effective_source === 'organization' && gym)
-    return `Incluido por ${gym.organization_name}`
-  return 'Sin costo, para siempre'
+    return text.includedBy(gym.organization_name)
+  return text.freeForever
 }
 
 /** What happens at the end of the paid period, in one line. */

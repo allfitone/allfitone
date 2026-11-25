@@ -42,8 +42,8 @@ import { phoneLine } from '../../src/client/phone-countries'
 import { Note } from '@allfitone/react-native/note'
 import { LIVE_IDENTITY, type IdentitySources } from '../../src/components/identity-edit'
 import { SectionLabel } from '../../src/components/pro-ui'
+import { useText } from '../../src/i18n/use-text'
 
-const UNREADABLE = 'No pudimos leer tu identidad. Revisa tu conexión e inténtalo otra vez.'
 const CARD = ['#0E3B45', '#08141C'] as const
 
 export default function IdentityRoute() {
@@ -54,9 +54,11 @@ export default function IdentityRoute() {
 export function IdentityScreen({ sources }: { readonly sources: IdentitySources }) {
   const router = useRouter()
   const theme = useTheme()
+  const text = useText()
+  const t = text.identity
   const [identity, setIdentity] = useState<SpaceIdentity | undefined>(undefined)
   const [unreadable, setUnreadable] = useState(false)
-  const email = identity ? emailRow(identity.email) : undefined
+  const email = identity ? emailRow(identity.email, text.identity.emailRow) : undefined
   const emailRoute = email?.route
   const editEmail = emailRoute ? { onEdit: () => router.push(emailRoute) } : {}
 
@@ -101,14 +103,18 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Identidad y acceso
+          {t.title}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
+        {unreadable ? <InlineAlert message={t.unreadable} /> : null}
 
         {identity && email ? (
           <>
@@ -130,7 +136,7 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
                 >
                   <View style={[styles.dot, { backgroundColor: theme.color.status.success }]} />
                   <Text role="control" size="xs" color="success">
-                    Activo
+                    {t.card.active}
                   </Text>
                 </View>
               </View>
@@ -160,77 +166,77 @@ export function IdentityScreen({ sources }: { readonly sources: IdentitySources 
               <View style={styles.facts}>
                 <View style={styles.grow}>
                   <Text role="label" size="2xs" color="muted" uppercase>
-                    Desde
+                    {t.card.since}
                   </Text>
                   <Text role="control" size="sm">
-                    {activeSince(identity.active_since)}
+                    {activeSince(identity.active_since, text.common)}
                   </Text>
                 </View>
                 <View style={styles.grow}>
                   <Text role="label" size="2xs" color="muted" uppercase>
-                    Es tuyo
+                    {t.card.yours}
                   </Text>
                   <Text role="control" size="sm">
-                    Ningún gimnasio lo posee
+                    {t.card.noGymOwnsIt}
                   </Text>
                 </View>
               </View>
             </LinearGradient>
 
             <View style={styles.group}>
-              <SectionLabel>Cómo te llamas</SectionLabel>
+              <SectionLabel>{t.sections.name}</SectionLabel>
               <Panel>
                 <IdentityRow
                   icon="person"
-                  label="Nombre y apellido"
+                  label={t.rows.fullName}
                   value={fullName}
                   onEdit={() => router.push('/me/name')}
                 />
                 <IdentityRow
                   icon="people"
-                  label="Usuario"
-                  value={identity.username ?? 'Sin usuario'}
-                  caption="Único: nadie más puede tenerlo."
+                  label={t.rows.username}
+                  value={identity.username ?? t.rows.noUsername}
+                  caption={t.rows.usernameCaption}
                   onEdit={() => router.push('/me/username')}
                 />
               </Panel>
             </View>
 
             <View style={styles.group}>
-              <SectionLabel>Cómo te contactamos</SectionLabel>
+              <SectionLabel>{t.sections.contact}</SectionLabel>
               <Panel>
                 <IdentityRow
                   icon="notification"
-                  label="Correo"
-                  value={identity.email.address ?? 'Sin correo'}
+                  label={t.rows.email}
+                  value={identity.email.address ?? t.rows.noEmail}
                   caption={email.caption}
                   state={EMAIL_CHIP[email.state]}
                   {...editEmail}
                 />
                 <IdentityRow
                   icon="notification"
-                  label="Teléfono"
-                  value={identity.phone.number ? phoneLine(identity.phone.number) : 'Sin teléfono'}
-                  caption="Solo para contactarte: no te enviamos SMS."
+                  label={t.rows.phone}
+                  value={identity.phone.number ? phoneLine(identity.phone.number) : t.rows.noPhone}
+                  caption={t.rows.phoneCaption}
                   onEdit={() => router.push('/me/phone')}
                 />
               </Panel>
             </View>
 
             <View style={styles.group}>
-              <SectionLabel>Cómo entras</SectionLabel>
+              <SectionLabel>{t.sections.signIn}</SectionLabel>
               <Panel>
                 <IdentityRow
                   icon="locked"
-                  label="Contraseña"
+                  label={t.rows.password}
                   value="••••••••••"
-                  caption="Al cambiarla se cierran tus otras sesiones."
+                  caption={t.rows.passwordCaption}
                   onEdit={() => router.push('/me/password')}
                 />
               </Panel>
             </View>
 
-            <Note>Tus permisos y tus gimnasios tienen su propio lugar en Perfil.</Note>
+            <Note>{t.elsewhere}</Note>
           </>
         ) : null}
       </ScrollView>
@@ -276,6 +282,8 @@ function IdentityRow({
   readonly onEdit?: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const chips = text.identity.chips
   const body = (
     <>
       <View style={[styles.glyph, { backgroundColor: theme.color.background.surfaceMuted }]}>
@@ -299,7 +307,7 @@ function IdentityRow({
           >
             <FoundationIcon name="success" size="xs" color={theme.color.icon.accent} decorative />
             <Text role="control" size="xs" color="accent">
-              Verificado
+              {chips.verified}
             </Text>
           </View>
         ) : state === 'pending' ? (
@@ -308,7 +316,7 @@ function IdentityRow({
           >
             <FoundationIcon name="time" size="xs" color={theme.color.status.warning} decorative />
             <Text role="control" size="xs" style={{ color: theme.color.status.warning }}>
-              Verificación pendiente
+              {chips.pending}
             </Text>
           </View>
         ) : state === 'unverified' ? (
@@ -322,7 +330,7 @@ function IdentityRow({
               decorative
             />
             <Text role="control" size="xs" style={{ color: theme.color.status.warning }}>
-              Sin verificar
+              {chips.unverified}
             </Text>
           </View>
         ) : null}
@@ -336,7 +344,12 @@ function IdentityRow({
     return (
       <View
         accessible
-        accessibilityLabel={[label, value, STATE_LABEL[state ?? 'missing'], caption]
+        accessibilityLabel={[
+          label,
+          value,
+          state && state !== 'missing' ? chips[state] : '',
+          caption,
+        ]
           .filter(Boolean)
           .join('. ')}
         style={styles.row}
@@ -349,7 +362,7 @@ function IdentityRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value}`}
-      accessibilityHint="Cambiar"
+      accessibilityHint={text.common.change}
       onPress={onEdit}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >
@@ -359,13 +372,6 @@ function IdentityRow({
 }
 
 type RowChip = ContactState | 'pending'
-
-const STATE_LABEL: Record<RowChip, string> = {
-  verified: 'Verificado',
-  unverified: 'Sin verificar',
-  pending: 'Verificación pendiente',
-  missing: '',
-}
 
 // While WorkOS takes the address, the line says so and the row carries no chip.
 const EMAIL_CHIP: Record<EmailRowState, RowChip> = {

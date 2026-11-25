@@ -62,6 +62,7 @@ import { DayCard, ExerciseCard, Figure } from '../../src/components/program-deta
 import { programNutritionCopy } from '../../src/client/program-nutrition'
 import { ProgramNutritionCard } from '../../src/components/program-nutrition-card'
 import { usePlan, useUpgradeSheet } from '../../src/components/upgrade-sheet'
+import { useLocale } from '../../src/i18n/use-text'
 
 /** Lo que ocupa la fotografía del programa. La del lienzo, sobre un alto de 844. */
 const HERO = 252
@@ -72,6 +73,7 @@ const NOT_FOUND = 'Este programa ya no está disponible.'
 const CHOOSE_FAILED = 'No pudimos guardar tu programa. Inténtalo otra vez.'
 
 export default function ProgramVersion() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const insets = useSafeAreaInsets()
@@ -152,7 +154,7 @@ export default function ProgramVersion() {
   }
 
   const nutrition = detail?.nutrition
-    ? programNutritionCopy(detail.nutrition, detail.days_per_week)
+    ? programNutritionCopy(detail.nutrition, detail.days_per_week, locale)
     : null
   const days = detail?.days ?? []
   const shown = days[Math.min(openDay, Math.max(0, days.length - 1))]

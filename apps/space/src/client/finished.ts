@@ -14,11 +14,13 @@
 
 import type { Execution, FinishedExecution, FinishedSet, InvalidationPreview } from './execution'
 import { workingStateFrom, type WorkingExercise } from './session-form'
+import { intlLocale, type Locale } from '../i18n'
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
 
-const figure = (value: number) => value.toLocaleString('es-CO', { maximumFractionDigits: 2 })
+const figure = (value: number, locale: Locale) =>
+  value.toLocaleString(intlLocale(locale), { maximumFractionDigits: 2 })
 
 /** The local calendar day and clock of an instant, in the person's zone. */
 function localParts(iso: string, timeZone: string) {
@@ -110,9 +112,9 @@ export function withClock(iso: string, clock: string, timeZone: string): string 
 }
 
 /** «70 kg × 8», «10 reps», «70 kg», or «—» for a set with neither. */
-export function setLine(set: FinishedSet): string {
+export function setLine(set: FinishedSet, locale: Locale): string {
   const unit = set.load_unit_code ?? 'kg'
-  const load = set.load_value === null ? null : `${figure(set.load_value)} ${unit}`
+  const load = set.load_value === null ? null : `${figure(set.load_value, locale)} ${unit}`
   if (load && set.achieved_reps !== null) return `${load} × ${set.achieved_reps}`
   if (load) return load
   if (set.achieved_reps !== null) return `${set.achieved_reps} reps`
@@ -122,8 +124,9 @@ export function setLine(set: FinishedSet): string {
 /** «Mejor serie 70 kg × 8», or nothing when no work set was weighed. */
 export function bestSetLine(
   best: FinishedExecution['exercises'][number]['best_set'],
+  locale: Locale,
 ): string | null {
-  return best ? `Mejor serie ${figure(best.load_kg)} kg × ${best.reps}` : null
+  return best ? `Mejor serie ${figure(best.load_kg, locale)} kg × ${best.reps}` : null
 }
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`

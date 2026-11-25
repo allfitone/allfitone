@@ -27,6 +27,7 @@ import {
   type FocusChoice,
   type FocusSelection,
 } from '../client/focus-form'
+import { useText } from '../i18n/use-text'
 import { BodyFigure } from './body-figure'
 
 export function FocusPicker({
@@ -42,8 +43,9 @@ export function FocusPicker({
   readonly scale: number
   readonly pressable: boolean
 }) {
+  const text = useText().fitness.focus
   const gender = bodyGender(declaredSex)
-  const hint = focusHint(selection)
+  const hint = focusHint(selection, text)
 
   const choose = useCallback(
     (choice: FocusChoice) => {
@@ -84,7 +86,7 @@ export function FocusPicker({
         onPressSlug={side === 'front' ? pressFront : pressBack}
       />
       <Text role="body" size="xs" color="muted" style={styles.faceName}>
-        {side === 'front' ? 'FRENTE' : 'ESPALDA'}
+        {side === 'front' ? text.front : text.back}
       </Text>
     </View>
   )
@@ -93,10 +95,10 @@ export function FocusPicker({
     <View>
       <View style={styles.summary}>
         <Text role="body" size="xs" color="muted">
-          FRENTE Y ESPALDA
+          {text.frontAndBack}
         </Text>
         <Text role="body" size="xs" color={selection.zones.length ? 'accent' : 'muted'}>
-          {focusSummary(selection)}
+          {focusSummary(selection, text)}
         </Text>
       </View>
 
@@ -113,7 +115,7 @@ export function FocusPicker({
           return (
             <Chip
               key={entry.zone}
-              label={entry.name}
+              label={text.zones[entry.zone]}
               selected={on}
               disabled={!pressable}
               onPress={() => choose(entry.zone)}
@@ -125,7 +127,7 @@ export function FocusPicker({
       {/* Set apart from the zones on purpose: it is an answer of another kind,
           not the eighth zone of the body. */}
       <Chip
-        label="Todo el cuerpo"
+        label={text.wholeBody}
         selected={selection.whole}
         disabled={!pressable}
         onPress={() => choose(WHOLE_BODY)}

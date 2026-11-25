@@ -18,6 +18,7 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 import type { CommandHeaders } from '@allfitone/contracts/commands'
+import { intlLocale, type Locale } from '../i18n'
 
 export type MyRelationship = AllfitV1Schemas['SpaceRelationship']
 export type RelationshipPage = AllfitV1Schemas['SpaceRelationshipPage']
@@ -120,8 +121,8 @@ export function payableRelationships(
  */
 const MINOR_UNIT_EXPONENT = 2
 
-export function formatPrice(amountMinor: number, currencyCode: string): string {
-  return new Intl.NumberFormat('es-CO', {
+export function formatPrice(amountMinor: number, currencyCode: string, locale: Locale): string {
+  return new Intl.NumberFormat(intlLocale(locale), {
     style: 'currency',
     currency: currencyCode,
   }).format(amountMinor / 10 ** MINOR_UNIT_EXPONENT)

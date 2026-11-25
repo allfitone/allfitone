@@ -27,12 +27,9 @@ import { ScrollView, StyleSheet, View } from 'react-native'
 import { decimal, latestOf, tenths, type BodyRecord } from '../../src/client/body'
 import { readBodyRecords } from '../../src/client/body-transport'
 import { fitnessSections, type Editor, type FitnessProfile } from '../../src/client/fitness-profile'
-import type { BiologicalSex } from '../../src/client/onboarding'
 import { readFitnessProfile } from '../../src/client/profile-transport'
 import { FitnessGroup } from '../../src/components/fitness-profile-ui'
-
-const UNREADABLE = 'No pudimos leer tu perfil. Revisa tu conexión e inténtalo otra vez.'
-const SEX_NAME: Record<BiologicalSex, string> = { female: 'Femenino', male: 'Masculino' }
+import { useLocale, useText } from '../../src/i18n/use-text'
 
 const EDITOR_ROUTE: Record<Editor, Href> = {
   goal: '/me/goal',
@@ -56,6 +53,9 @@ export default function FitnessProfileRoute() {
 /** The screen given where its data comes from; the route passes the real sources. */
 export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSources }) {
   const router = useRouter()
+  const locale = useLocale()
+  const text = useText()
+  const t = text.fitness
   const [profile, setProfile] = useState<FitnessProfile | undefined>(undefined)
   const [body, setBody] = useState<BodyRecord[]>([])
   const [unreadable, setUnreadable] = useState(false)
@@ -81,7 +81,7 @@ export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSou
     }, [sources]),
   )
 
-  const sections = fitnessSections(profile)
+  const sections = fitnessSections(profile, t)
   const sex = profile?.biological_sex ?? null
   const weight = latestOf(body, 'body_weight')
   const height = latestOf(body, 'body_height')
@@ -89,14 +89,18 @@ export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSou
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+        <IconButton
+          icon="back"
+          accessibilityLabel={text.common.back}
+          onPress={() => router.back()}
+        />
         <Text role="control" size="xl" accessibilityRole="header">
-          Perfil fitness
+          {t.title}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {unreadable ? <InlineAlert message={UNREADABLE} /> : null}
+        {unreadable ? <InlineAlert message={t.unreadable} /> : null}
 
         {profile
           ? sections.map((section) => (
@@ -124,23 +128,23 @@ export function FitnessProfileScreen({ sources }: { readonly sources: FitnessSou
           : null}
 
         {profile ? (
-          <FitnessGroup label="Tu cuerpo">
+          <FitnessGroup label={t.sections.body}>
             <DatumRow
-              label="Sexo biológico"
-              {...(sex ? { value: SEX_NAME[sex] } : {})}
-              origin="Declarado por ti · solo para cálculos"
+              label={t.rows.biologicalSex}
+              {...(sex ? { value: t.sex[sex] } : {})}
+              origin={t.sexOrigin}
               onPress={() => router.push('/me/sex')}
             />
             <DatumRow
-              label="Peso"
-              {...(weight ? { value: `${tenths(weight.value)} kg` } : {})}
-              origin="Declarado por ti"
+              label={t.rows.weight}
+              {...(weight ? { value: `${tenths(weight.value, locale)} kg` } : {})}
+              origin={t.provenance.person_declared}
               onPress={() => router.push('/body')}
             />
             <DatumRow
-              label="Estatura"
-              {...(height ? { value: `${decimal(height.value)} cm` } : {})}
-              origin="Declarado por ti"
+              label={t.rows.height}
+              {...(height ? { value: `${decimal(height.value, locale)} cm` } : {})}
+              origin={t.provenance.person_declared}
               onPress={() => router.push('/body')}
             />
           </FitnessGroup>

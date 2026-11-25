@@ -56,6 +56,8 @@ import { GoalEnergyFigure } from '../../src/components/goal-energy-figure'
 import { GoalSlider } from '../../src/components/goal-slider'
 import { GoalValueField } from '../../src/components/goal-value-field'
 import { CardGlow, FIGURE_TRACKING, foodIcon } from '../../src/components/nutrition-ui'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale, type Locale } from '../../src/i18n'
 
 const PUBLISH_FAILED = 'No pudimos publicar tu meta. Inténtalo otra vez.'
 const MODE_NAMES: Readonly<Record<FormMode, string>> = {
@@ -89,15 +91,17 @@ const DEFAULT_FORM: GoalForm = {
 }
 
 const unitOf = (code: GoalNutrient) => (code === 'energy' ? 'kcal' : code === 'water' ? 'ml' : 'g')
-const number = (value: number | null) => Math.round(value ?? 0).toLocaleString('es-CO')
+const number = (value: number | null, locale: Locale) =>
+  Math.round(value ?? 0).toLocaleString(intlLocale(locale))
 
-function valueText(target: FormTarget): string {
+function valueText(target: FormTarget, locale: Locale): string {
   if (target.mode === 'none') return '—'
-  if (target.mode === 'range') return `${number(target.low)}–${number(target.high)}`
-  return number(target.mode === 'maximum' ? target.high : target.low)
+  if (target.mode === 'range') return `${number(target.low, locale)}–${number(target.high, locale)}`
+  return number(target.mode === 'maximum' ? target.high : target.low, locale)
 }
 
 export default function GoalScreen() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const flow = useMemo(() => createSpaceNutritionFlow(), [])
@@ -288,14 +292,16 @@ export default function GoalScreen() {
                     </Text>
                   </ProgressRing>
                 }
-                value={valueText(form[code])}
+                value={valueText(form[code], locale)}
                 {...(on ? { unit: 'g' } : {})}
                 label={NUTRIENT_SHORT_NAMES[code]}
                 mode={MODE_NAMES[form[code].mode]}
                 selected={picked}
                 onPress={() => setSelected(code)}
                 accessibilityLabel={`${NUTRIENT_NAMES[code]}: ${
-                  on ? `${MODE_NAMES[form[code].mode]}, ${valueText(form[code])} g` : 'sin meta'
+                  on
+                    ? `${MODE_NAMES[form[code].mode]}, ${valueText(form[code], locale)} g`
+                    : 'sin meta'
                 }. Editar`}
                 style={styles.grow}
               />
@@ -318,7 +324,7 @@ export default function GoalScreen() {
             </Text>
             {kcal !== null ? (
               <Text role="control" size="sm" color="muted">
-                {`${number(kcal)} kcal`}
+                {`${number(kcal, locale)} kcal`}
               </Text>
             ) : null}
           </View>
@@ -351,12 +357,12 @@ export default function GoalScreen() {
                 tone={NUTRIENT_TONES[code]}
                 icon={icon}
                 label={NUTRIENT_NAMES[code]}
-                value={on ? `${valueText(form[code])} ${unitOf(code)}` : 'Sin meta'}
+                value={on ? `${valueText(form[code], locale)} ${unitOf(code)}` : 'Sin meta'}
                 empty={!on}
                 selected={picked}
                 onPress={() => setSelected(code)}
                 accessibilityLabel={`${NUTRIENT_NAMES[code]}: ${
-                  on ? `${valueText(form[code])} ${unitOf(code)}` : 'sin meta'
+                  on ? `${valueText(form[code], locale)} ${unitOf(code)}` : 'sin meta'
                 }. Editar`}
                 style={styles.grow}
               />

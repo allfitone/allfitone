@@ -17,10 +17,13 @@ import { useTheme } from '@allfitone/react-native/theme'
 import { typography } from '@allfitone/react-native/tokens'
 import { useEffect, useId, useRef, useState } from 'react'
 import { InputAccessoryView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native'
+import { useLocale } from '../i18n/use-text'
+import { intlLocale, type Locale } from '../i18n'
 
 const SIZE = typography.size['5xl']
 const digits = (value: number) => String(Math.round(value))
-const shown = (value: number) => Math.round(value).toLocaleString('es-CO')
+const shown = (value: number, locale: Locale) =>
+  Math.round(value).toLocaleString(intlLocale(locale))
 
 export function GoalEnergyFigure({
   value,
@@ -38,14 +41,15 @@ export function GoalEnergyFigure({
   readonly keyboardTitle: string
   readonly onDone?: () => void
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const input = useRef<TextInput>(null)
   const accessory = useId()
   const [focused, setFocused] = useState(false)
-  const [text, setText] = useState(shown(value))
+  const [text, setText] = useState(shown(value, locale))
 
   useEffect(() => {
-    if (!focused) setText(shown(value))
+    if (!focused) setText(shown(value, locale))
   }, [value, focused])
 
   const tint = focused ? theme.color.icon.accent : theme.color.border.default
@@ -69,7 +73,7 @@ export function GoalEnergyFigure({
         }}
         onBlur={() => {
           setFocused(false)
-          setText(shown(value))
+          setText(shown(value, locale))
           onDone?.()
         }}
         keyboardType="number-pad"

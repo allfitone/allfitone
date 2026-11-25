@@ -34,6 +34,7 @@ import { Linking, ScrollView, StyleSheet, View } from 'react-native'
 import { ApiError, register } from '../src/client'
 import { LEGAL_URLS } from '../src/client/legal'
 import { isSignUpPassword, signUpRequirements } from '../src/client/password-form'
+import { useText } from '../src/i18n/use-text'
 
 /**
  * Only the password case is described precisely. The others are deliberately
@@ -58,6 +59,7 @@ function messageFor(cause: unknown): string {
 
 export default function CreateAccount() {
   const router = useRouter()
+  const rules = useText().password.rules
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -136,7 +138,7 @@ export default function CreateAccount() {
               onPress: () => setShown((was) => !was),
             }}
           />
-          <RequirementList requirements={signUpRequirements(password)} />
+          <RequirementList requirements={signUpRequirements(password, rules)} />
 
           {failure ? <InlineAlert message={failure} /> : null}
 

@@ -5,15 +5,18 @@
 
 import { describe, expect, test } from 'bun:test'
 
+import { textFor } from '../i18n'
 import {
-  COUNTRIES,
   chooseCountry,
+  countriesIn,
   joinPhone,
   phoneLine,
   searchCountries,
   splitPhone,
   takeChosenCountry,
 } from './phone-countries'
+
+const COUNTRIES = countriesIn(textFor('es').identity.countries, 'es')
 
 describe('the country codes of the Americas', () => {
   test('T-SPC-UNIT-PHONE-01 North, Central and South America, in alphabetical order', () => {
@@ -30,9 +33,9 @@ describe('the country codes of the Americas', () => {
   })
 
   test('T-SPC-UNIT-PHONE-02 a search finds a country by name, without accents, or by its code', () => {
-    expect(searchCountries('peru').map((country) => country.iso)).toEqual(['PE'])
-    expect(searchCountries('  CANADÁ ').map((country) => country.iso)).toEqual(['CA'])
-    expect(searchCountries('+59').map((country) => country.iso)).toEqual([
+    expect(searchCountries('peru', COUNTRIES).map((country) => country.iso)).toEqual(['PE'])
+    expect(searchCountries('  CANADÁ ', COUNTRIES).map((country) => country.iso)).toEqual(['CA'])
+    expect(searchCountries('+59', COUNTRIES).map((country) => country.iso)).toEqual([
       'BO',
       'EC',
       'GY',
@@ -40,7 +43,16 @@ describe('the country codes of the Americas', () => {
       'SR',
       'UY',
     ])
-    expect(searchCountries('')).toHaveLength(22)
+    expect(searchCountries('', COUNTRIES)).toHaveLength(22)
+  })
+
+  test('T-SPC-UNIT-356 in English the countries are named and ordered in English', () => {
+    const english = countriesIn(textFor('en').identity.countries, 'en')
+    const names = english.map((country) => country.name)
+
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'en')))
+    expect(names.slice(-3)).toEqual(['United States', 'Uruguay', 'Venezuela'])
+    expect(searchCountries('brazil', english).map((country) => country.iso)).toEqual(['BR'])
   })
 })
 

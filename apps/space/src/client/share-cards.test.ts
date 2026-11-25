@@ -145,7 +145,7 @@ describe('what the share screen and its cards say', () => {
 
   test("T-SPC-UNIT-154 the day and the number, in the person's zone", () => {
     // 17:00 UTC on the 29th is noon in Bogotá, a Tuesday.
-    expect(whenLine(summary, 'America/Bogota')).toBe('MAR 29 · SESIÓN 14')
+    expect(whenLine(summary, 'America/Bogota', 'es')).toBe('MAR 29 · SESIÓN 14')
   })
 
   test('T-SPC-UNIT-155 the duration reads as a clock', () => {
@@ -186,28 +186,31 @@ describe('the record card', () => {
 
   test('T-SPC-UNIT-160 each kind of record reads as what it is', () => {
     const [e1rm] = summary.records
-    expect(recordFigure(heaviestRecord())).toEqual({
+    expect(recordFigure(heaviestRecord(), 'es')).toEqual({
       big: '10',
       unit: 'KG',
       tail: '× 6',
       label: 'PESO MÁXIMO',
     })
-    expect(e1rm && recordFigure(e1rm)).toEqual({
+    expect(e1rm && recordFigure(e1rm, 'es')).toEqual({
       big: '84',
       unit: 'KG',
       tail: '1RM',
       label: 'MEJOR 1RM ESTIMADO',
     })
-    expect(recordFigure({ ...heaviestRecord(), kind: 'best_set', value: 720, reps: null })).toEqual(
-      {
-        big: '720',
-        unit: 'KG',
-        tail: 'en una serie',
-        label: 'MEJOR SERIE',
-      },
-    )
     expect(
-      recordFigure({ ...heaviestRecord(), kind: 'session_volume', value: 1345.5, reps: null }),
+      recordFigure({ ...heaviestRecord(), kind: 'best_set', value: 720, reps: null }, 'es'),
+    ).toEqual({
+      big: '720',
+      unit: 'KG',
+      tail: 'en una serie',
+      label: 'MEJOR SERIE',
+    })
+    expect(
+      recordFigure(
+        { ...heaviestRecord(), kind: 'session_volume', value: 1345.5, reps: null },
+        'es',
+      ),
     ).toEqual({ big: '1.345,5', unit: 'KG', tail: 'en la sesión', label: 'MÁS VOLUMEN' })
   })
 })
@@ -233,7 +236,7 @@ describe('the anatomical plate and the record bars', () => {
   })
 
   test('T-SPC-UNIT-166 a record is told as the jump: before, now, by how much, to scale', () => {
-    expect(recordJump(heaviestRecord())).toEqual({
+    expect(recordJump(heaviestRecord(), 'es')).toEqual({
       before: '7,5',
       now: '10',
       delta: '+2,5',
@@ -316,11 +319,11 @@ describe('the minimal cards and the stickers', () => {
 
   test('T-SPC-UNIT-177 a record reads as the gain and what it means', () => {
     const [estimated, heaviest] = summary.records
-    expect(heaviest && recordGain(heaviest)).toEqual({
+    expect(heaviest && recordGain(heaviest, 'es')).toEqual({
       gain: '+2,5 KG',
       meaning: 'MÁS PESO QUE NUNCA',
     })
-    expect(estimated && recordGain(estimated)).toEqual({
+    expect(estimated && recordGain(estimated, 'es')).toEqual({
       gain: '+4 KG',
       meaning: 'TU MEJOR 1RM ESTIMADO',
     })

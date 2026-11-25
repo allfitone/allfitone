@@ -138,6 +138,8 @@ import { RestSheetBody } from '../../src/components/rest-sheet'
 import { RpeSheetBody } from '../../src/components/rpe-sheet'
 import { SheetChoice } from '../../src/components/sheet-choice'
 import { clockFrom, clockText, TimeWheels, type Clock } from '../../src/components/time-wheels'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale } from '../../src/i18n'
 
 const READ_FAILED = 'No pudimos abrir la sesión. Inténtalo otra vez.'
 const SAVE_FAILED = 'No pudimos guardar. Lo intentamos otra vez en un momento.'
@@ -232,6 +234,7 @@ const OPEN_PADDING = 16
 const CARD_INSET = 8
 
 export default function Session() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const { executionId, mode } = useLocalSearchParams<{ executionId: string; mode?: string }>()
@@ -738,7 +741,10 @@ export default function Session() {
                     'Duración',
                     trainedLabel((Date.parse(times.end) - Date.parse(times.start)) / 1000),
                   ],
-                  ['Volumen', `${volume.toLocaleString('es-CO', { maximumFractionDigits: 0 })} kg`],
+                  [
+                    'Volumen',
+                    `${volume.toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })} kg`,
+                  ],
                 ] as const
               ).map(([label, value]) => (
                 <View

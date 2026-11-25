@@ -40,7 +40,7 @@ import {
   dayAfterDeleting,
   dayTitle,
   deletionHeldNote,
-  goalFigure,
+  goalValue,
   mealTotals,
   MEAL_NAMES,
   mealWithArticle,
@@ -62,6 +62,8 @@ import {
   MealThumb,
   Ring,
 } from '../../src/components/nutrition-ui'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale } from '../../src/i18n'
 
 const READ_FAILED = 'No pudimos abrir esta comida. Inténtalo otra vez.'
 const PHOTO_FAILED = 'No pudimos guardar la foto. Inténtalo otra vez.'
@@ -78,6 +80,7 @@ const localDay = (timeZone: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date())
 
 export default function MealDetailScreen() {
+  const locale = useLocale()
   const { mealId } = useLocalSearchParams<{ mealId: string }>()
   const router = useRouter()
   const theme = useTheme()
@@ -122,7 +125,7 @@ export default function MealDetailScreen() {
     const target = targetOf(code)
     const value = totals[code]
     if (!target || value === undefined) return null
-    const reference = goalFigure(target).value
+    const reference = goalValue(target)
     return reference > 0 ? value / reference : null
   }
 
@@ -159,7 +162,7 @@ export default function MealDetailScreen() {
         // A legal hold keeps it: the person is told why and until when, not that it went.
         if (held) {
           setSheet(undefined)
-          setFailure(deletionHeldNote(held))
+          setFailure(deletionHeldNote(held, locale))
           return
         }
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -262,7 +265,7 @@ export default function MealDetailScreen() {
                     size="5xl"
                     style={styles.kcalNumber}
                   >
-                    {Math.round(totals.energy).toLocaleString('es-CO')}
+                    {Math.round(totals.energy).toLocaleString(intlLocale(locale))}
                     <Text role="control" size="sm" color="secondary">
                       {' kcal'}
                     </Text>
@@ -488,7 +491,7 @@ export default function MealDetailScreen() {
                   {after.energy ? (
                     <View style={styles.afterRow}>
                       <Text role="poster" tracking={FIGURE_TRACKING} size="2xl" color="muted">
-                        {after.energy.before.toLocaleString('es-CO')}
+                        {after.energy.before.toLocaleString(intlLocale(locale))}
                       </Text>
                       <FoundationIcon
                         name="forward"
@@ -497,7 +500,7 @@ export default function MealDetailScreen() {
                         decorative
                       />
                       <Text role="poster" tracking={FIGURE_TRACKING} size="3xl">
-                        {after.energy.after.toLocaleString('es-CO')}
+                        {after.energy.after.toLocaleString(intlLocale(locale))}
                       </Text>
                       <Text role="control" size="sm" color="secondary">
                         kcal

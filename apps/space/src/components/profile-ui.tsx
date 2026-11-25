@@ -32,6 +32,7 @@ import Animated, {
 
 import teaserPhoto from '../../assets/images/pro-invite.webp'
 import { profileRowLook, type ProfileRowEnd } from '../client/profile'
+import { useText } from '../i18n/use-text'
 import { SectionLabel } from './pro-ui'
 
 const SHINE_WIDTH = 90
@@ -76,7 +77,11 @@ export function ProfileRow({
   readonly value?: string | undefined
   readonly onPress?: (() => void) | undefined
 }) {
-  const look = profileRowLook({ end, opens: onPress !== undefined, value, alert })
+  const text = useText()
+  const look = profileRowLook(
+    { end, opens: onPress !== undefined, value, alert },
+    text.profile.badge,
+  )
   return (
     <ContentRow
       name={title}
@@ -101,7 +106,8 @@ export function PlanCard({
   readonly onPress: () => void
 }) {
   const theme = useTheme()
-  const title = pro ? 'Allfit Pro' : 'Plan gratis'
+  const text = useText()
+  const title = pro ? 'Allfit Pro' : text.profile.planCard.free
   return (
     <Pressable
       accessibilityRole="button"
@@ -210,6 +216,7 @@ const SHINE_EVERY_MS = 4200
  */
 export function ProTeaser({ onPress }: { readonly onPress: () => void }) {
   const theme = useTheme()
+  const teaser = useText().profile.teaser
   const reduced = useReducedMotion()
   const [width, setWidth] = useState(0)
   const shine = useSharedValue(0)
@@ -234,7 +241,7 @@ export function ProTeaser({ onPress }: { readonly onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Allfit Pro. Tu historial completo, tu progreso y la IA. Comparar Gratis y Pro"
+      accessibilityLabel={teaser.label}
       onPress={onPress}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       style={({ pressed }) => [
@@ -276,16 +283,16 @@ export function ProTeaser({ onPress }: { readonly onPress: () => void }) {
           </Text>
         </View>
         <Text role="control" size="md">
-          Lleva tu progreso más lejos
+          {teaser.title}
         </Text>
         <Text role="body" size="xs" color="secondary">
-          Todo tu historial, tus medidas y la IA
+          {teaser.body}
         </Text>
       </View>
       {/* Frosted glass, not a fill: over the photograph a cyan block read as a sticker. */}
       <GlassPanel radius="action" material="chip" style={styles.teaserGo}>
         <Text role="control" size="xs" color="accent">
-          Ver Pro
+          {teaser.go}
         </Text>
         <FoundationIcon name="next" size="xs" color={theme.color.icon.accent} decorative />
       </GlassPanel>

@@ -11,6 +11,7 @@
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
+import { intlLocale, type Locale } from '../i18n'
 
 export type ShareSummary = AllfitV1Schemas['SpaceExecutionSummary']
 export type ShareRecord = ShareSummary['records'][number]
@@ -78,12 +79,15 @@ const MEANING: Readonly<Record<ShareRecord['kind'], string>> = {
 }
 
 /** «+2,5 KG», and what beating it means. */
-export function recordGain(record: ShareRecord): {
+export function recordGain(
+  record: ShareRecord,
+  locale: Locale,
+): {
   readonly gain: string
   readonly meaning: string
 } {
   const gain = Math.round((record.value - record.previous_value) * 10) / 10
-  return { gain: `+${kilos(gain)} KG`, meaning: MEANING[record.kind] }
+  return { gain: `+${kilos(gain, locale)} KG`, meaning: MEANING[record.kind] }
 }
 
 /** «EN 26 MINUTOS», or «EN 1 H 05» past an hour. */
@@ -105,12 +109,12 @@ export function shareSubtitle(summary: ShareSummary): string {
 }
 
 /** «MAR 29 · SESIÓN 14»: the day it was trained, in the zone it was trained in. */
-export function whenLine(summary: ShareSummary, timeZone: string): string {
+export function whenLine(summary: ShareSummary, timeZone: string, locale: Locale): string {
   const at = new Date(summary.started_at)
-  const weekday = new Intl.DateTimeFormat('es-CO', { weekday: 'short', timeZone })
+  const weekday = new Intl.DateTimeFormat(intlLocale(locale), { weekday: 'short', timeZone })
     .format(at)
     .replace('.', '')
-  const day = new Intl.DateTimeFormat('es-CO', { day: 'numeric', timeZone }).format(at)
+  const day = new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', timeZone }).format(at)
   return `${weekday} ${day} · sesión ${summary.session_number}`.toUpperCase()
 }
 
@@ -218,7 +222,8 @@ export function headline(records: readonly ShareRecord[]): ShareRecord | undefin
   )[0]
 }
 
-const kilos = (value: number) => value.toLocaleString('es-CO', { maximumFractionDigits: 1 })
+const kilos = (value: number, locale: Locale) =>
+  value.toLocaleString(intlLocale(locale), { maximumFractionDigits: 1 })
 
 export interface RecordFigure {
   readonly big: string
@@ -228,14 +233,14 @@ export interface RecordFigure {
 }
 
 /** How each kind of record is printed: the figure, its unit, and what it measured. */
-export function recordFigure(record: ShareRecord): RecordFigure {
-  const big = kilos(record.value)
+export function recordFigure(record: ShareRecord, locale: Locale): RecordFigure {
+  const big = kilos(record.value, locale)
   switch (record.kind) {
     case 'heaviest':
       return { big, unit: 'KG', tail: record.reps ? `× ${record.reps}` : '', label: 'PESO MÁXIMO' }
     case 'e1rm':
       return {
-        big: kilos(Math.round(record.value)),
+        big: kilos(Math.round(record.value), locale),
         unit: 'KG',
         tail: '1RM',
         label: 'MEJOR 1RM ESTIMADO',
@@ -277,11 +282,11 @@ export interface RecordJump {
 }
 
 /** A record told as the jump it was, in the record's own unit. */
-export function recordJump(record: ShareRecord): RecordJump {
+export function recordJump(record: ShareRecord, locale: Locale): RecordJump {
   return {
-    before: kilos(record.previous_value),
-    now: kilos(record.value),
-    delta: `+${kilos(record.value - record.previous_value)}`,
+    before: kilos(record.previous_value, locale),
+    now: kilos(record.value, locale),
+    delta: `+${kilos(record.value - record.previous_value, locale)}`,
     ratio: record.value > 0 ? record.previous_value / record.value : 0,
   }
 }

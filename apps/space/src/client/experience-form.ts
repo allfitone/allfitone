@@ -41,6 +41,8 @@
  * `allfitone-docs`, que es donde vive una afirmación de producto.
  */
 
+import { textFor, type Dictionary } from '../i18n'
+
 /** The three simple terms of HU-SP-012 criterion 2, least to most. */
 export const TRAINING_EXPERIENCE = ['starting', 'some_practice', 'experienced'] as const
 
@@ -68,59 +70,30 @@ export interface LevelDefinition {
   readonly outcome: LevelOutcome
 }
 
-export const EXPERIENCE_LEVELS: readonly LevelDefinition[] = [
-  {
-    level: 'starting',
-    name: 'Estoy empezando',
-    description: 'Nunca he entrenado con constancia, o llevo menos de seis meses.',
-    outcome: {
-      before: 'Empezar con ',
-      emphasis: 'poco volumen',
-      after: '.',
-    },
-  },
-  {
-    level: 'some_practice',
-    name: 'Tengo algo de práctica',
-    description: 'Entreno hace más de seis meses y conozco los ejercicios básicos.',
-    outcome: {
-      before: 'Empezar con ',
-      emphasis: 'volumen medio',
-      after: '.',
-    },
-  },
-  {
-    level: 'experienced',
-    name: 'Tengo experiencia',
-    description: 'Años entrenando. Sé de series, cargas y progresiones.',
-    outcome: {
-      before: 'Empezar con ',
-      emphasis: 'volumen alto',
-      after: '.',
-    },
-  },
-]
+type ExperienceText = Dictionary['fitness']['experience']
+
+/** The three levels in the words of `text`, least to most. */
+export function experienceLevels(text: ExperienceText): readonly LevelDefinition[] {
+  return TRAINING_EXPERIENCE.map((level) => ({ level, ...text.levels[level] }))
+}
+
+const SPANISH = textFor('es').fitness.experience
+
+/** The levels in Spanish, for the screens not yet translated (onboarding). */
+export const EXPERIENCE_LEVELS: readonly LevelDefinition[] = experienceLevels(SPANISH)
 
 /**
- * The notice under the cards, shown whether or not anything is chosen. Someone
- * afraid of being mislabelled has to read this before answering, so it cannot wait
- * for a selection to appear.
+ * The screen's lede, in Spanish for the onboarding. It says what to do before why:
+ * without «Marca» first, three hollow stops read as an explanation, not a question.
  */
-/**
- * La bajada de la pantalla. **Dice qué hacer antes de decir por qué**: sin el «marca»
- * delante, tres paradas con un círculo hueco se leen como una explicación y no como una
- * pregunta, y nadie sabe que tiene que tocar algo.
- */
-export const PICK_A_LEVEL =
-  'Marca tu punto de partida, para no tratarte como principiante si no lo eres, ni al revés.'
-
-export const NOT_A_LABEL_TITLE = 'No es una etiqueta fija.'
-export const NOT_A_LABEL_BODY =
-  ' Tus propias sesiones ajustan las cargas desde la primera semana. Esto solo define el punto de partida.'
+export const PICK_A_LEVEL = SPANISH.pickALevel
 
 /** The definition of a level, or undefined for a code this version cannot draw. */
-export function levelDefinition(level: TrainingExperience): LevelDefinition | undefined {
-  return EXPERIENCE_LEVELS.find((entry) => entry.level === level)
+export function levelDefinition(
+  level: TrainingExperience,
+  text: ExperienceText,
+): LevelDefinition | undefined {
+  return experienceLevels(text).find((entry) => entry.level === level)
 }
 
 /**
@@ -143,11 +116,15 @@ export interface LevelStop {
   readonly last: boolean
 }
 
-export function experienceStops(chosen: TrainingExperience | undefined): readonly LevelStop[] {
-  return EXPERIENCE_LEVELS.map((entry, index) => ({
+export function experienceStops(
+  chosen: TrainingExperience | undefined,
+  text: ExperienceText,
+): readonly LevelStop[] {
+  const levels = experienceLevels(text)
+  return levels.map((entry, index) => ({
     entry,
     chosen: entry.level === chosen,
-    last: index === EXPERIENCE_LEVELS.length - 1,
+    last: index === levels.length - 1,
   }))
 }
 

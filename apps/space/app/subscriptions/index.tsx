@@ -49,10 +49,12 @@ import {
   type Subscription,
 } from '../../src/client/subscriptions'
 import { createSpaceSubscriptionFlow } from '../../src/client/subscriptions-transport'
+import { useLocale } from '../../src/i18n/use-text'
 
 const READ_FAILED = 'No pudimos cargar tus planes. Inténtalo otra vez.'
 
 export default function SubscriptionsScreen() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const flow = useMemo(() => createSpaceSubscriptionFlow(), [])
@@ -137,7 +139,7 @@ export default function SubscriptionsScreen() {
             </Text>
             <Text role="body" size="sm" color="secondary">
               {subscription.plan_name} ·{' '}
-              {formatPrice(subscription.amount_minor, subscription.currency_code)}{' '}
+              {formatPrice(subscription.amount_minor, subscription.currency_code, locale)}{' '}
               {periodLabel(subscription.billing_period)}
             </Text>
 

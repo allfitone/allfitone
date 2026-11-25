@@ -24,6 +24,8 @@ import {
 import { Faces } from './progress-share-card'
 import { stickerPen, type StickerPen } from './progress-stickers'
 import { BODY_HEAVY, INK, POSTER, type ShareCatalogue } from './share-card'
+import { useLocale } from '../i18n/use-text'
+import { intlLocale, type Locale } from '../i18n'
 
 const WHITE = '#FFFFFF'
 
@@ -81,20 +83,21 @@ function stickerFor(kind: StickerKind, drawn: Drawn) {
   }
 }
 
-const kilos = (value: number | null) =>
-  (value ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })
+const kilos = (value: number | null, locale: Locale) =>
+  (value ?? 0).toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
 
 /** «MAR 20», the day alone from «MAR 20 · SESIÓN 10». */
-const dayOf = (summary: ShareSummary, timeZone: string) =>
-  whenLine(summary, timeZone).split(' · ')[0] ?? ''
+const dayOf = (summary: ShareSummary, timeZone: string, locale: Locale) =>
+  whenLine(summary, timeZone, locale).split(' · ')[0] ?? ''
 
 function FiguresSticker({ summary, catalogue, u, ink }: Drawn) {
+  const locale = useLocale()
   const figures: readonly (readonly [string, string])[] = [
     [durationLabel(summary.duration_seconds), 'TIEMPO'],
     [String(summary.work_sets), 'SERIES'],
     summary.total_volume_kg === null
       ? [String(summary.exercise_count), 'EJERCICIOS']
-      : [kilos(summary.total_volume_kg), 'KG'],
+      : [kilos(summary.total_volume_kg, locale), 'KG'],
   ]
   return (
     <View style={styles.column}>
@@ -116,9 +119,10 @@ function FiguresSticker({ summary, catalogue, u, ink }: Drawn) {
 }
 
 function RecordSticker({ summary, u, ink }: Drawn) {
+  const locale = useLocale()
   const lead = headline(summary.records)
   if (!lead) return null
-  const { gain, meaning } = recordGain(lead)
+  const { gain, meaning } = recordGain(lead, locale)
   return (
     <View style={styles.column}>
       <Text style={ink(BODY_HEAVY, 10, INK.accent, { tracking: 2 })}>NUEVO RÉCORD</Text>
@@ -135,7 +139,7 @@ function RecordSticker({ summary, u, ink }: Drawn) {
         {gain}
       </Text>
       <Text style={ink(BODY_HEAVY, 9.5, WHITE, { tracking: 1.2 })}>
-        {`${kilos(lead.value)} KG · ${meaning}`}
+        {`${kilos(lead.value, locale)} KG · ${meaning}`}
       </Text>
     </View>
   )
@@ -171,11 +175,12 @@ function StreakSticker({ summary, u, ink }: Drawn) {
 }
 
 function StripSticker({ summary, catalogue, timeZone, u, ink }: Drawn) {
+  const locale = useLocale()
   const figures: (readonly [string, string])[] = [
     [durationLabel(summary.duration_seconds), 'MIN'],
     [String(summary.work_sets), 'SERIES'],
   ]
-  if (summary.total_volume_kg !== null) figures.push([kilos(summary.total_volume_kg), 'KG'])
+  if (summary.total_volume_kg !== null) figures.push([kilos(summary.total_volume_kg, locale), 'KG'])
   if (summary.records.length > 0) figures.push([String(summary.records.length), 'PR'])
   return (
     <View>
@@ -184,7 +189,7 @@ function StripSticker({ summary, catalogue, timeZone, u, ink }: Drawn) {
         numberOfLines={1}
         style={[{ marginTop: u(8) }, ink(BODY_HEAVY, 8.5, INK.accent, { tracking: 1.4 })]}
       >
-        {`ALLFIT · ${routineTitle(summary, catalogue)} · ${dayOf(summary, timeZone)}`}
+        {`ALLFIT · ${routineTitle(summary, catalogue)} · ${dayOf(summary, timeZone, locale)}`}
       </Text>
       <View style={[styles.row, styles.spread, { marginTop: u(4) }]}>
         {figures.map(([value, label]) => (

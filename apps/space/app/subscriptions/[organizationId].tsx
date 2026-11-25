@@ -36,10 +36,12 @@ import {
   type PlanOffer,
 } from '../../src/client/subscriptions'
 import { createSpaceSubscriptionFlow } from '../../src/client/subscriptions-transport'
+import { useLocale } from '../../src/i18n/use-text'
 
 const READ_FAILED = 'No pudimos cargar los planes. Inténtalo otra vez.'
 
 export default function OrganizationPlansScreen() {
+  const locale = useLocale()
   const router = useRouter()
   const theme = useTheme()
   const { organizationId } = useLocalSearchParams<{ organizationId: string }>()
@@ -129,7 +131,7 @@ export default function OrganizationPlansScreen() {
               {plan.plan_name}
             </Text>
             <Text role="display" size="xl">
-              {formatPrice(plan.amount_minor, plan.currency_code)}
+              {formatPrice(plan.amount_minor, plan.currency_code, locale)}
             </Text>
             <Text role="body" size="sm" color="muted">
               {periodLabel(plan.billing_period)}
@@ -166,7 +168,7 @@ export default function OrganizationPlansScreen() {
         <View style={styles.sheetBody}>
           <Text role="body" size="sm" color="secondary">
             {chosen
-              ? `Vas a pagarle ${formatPrice(chosen.amount_minor, chosen.currency_code)} ${periodLabel(chosen.billing_period)} a ${gymName}. El precio queda fijo en el que ves ahora: si el gimnasio lo sube después, a ti no te cambia.`
+              ? `Vas a pagarle ${formatPrice(chosen.amount_minor, chosen.currency_code, locale)} ${periodLabel(chosen.billing_period)} a ${gymName}. El precio queda fijo en el que ves ahora: si el gimnasio lo sube después, a ti no te cambia.`
               : ''}
           </Text>
           {/* The thing nobody would assume: paying is not permission. */}

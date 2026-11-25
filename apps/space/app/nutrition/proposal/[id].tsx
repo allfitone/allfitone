@@ -21,7 +21,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   compareTarget,
-  goalFigure,
+  goalValue,
   NUTRIENTS,
   NUTRIENT_NAMES,
   type GoalTarget,
@@ -29,6 +29,7 @@ import {
 } from '../../../src/client/nutrition'
 import { createSpaceNutritionFlow } from '../../../src/client/nutrition-transport'
 import { macroColor } from '../../../src/components/nutrition-ui'
+import { useLocale } from '../../../src/i18n/use-text'
 
 const READ_FAILED = 'No pudimos abrir la propuesta. Inténtalo otra vez.'
 const DECIDE_FAILED = 'No pudimos guardar tu decisión. Inténtalo otra vez.'
@@ -44,6 +45,7 @@ function span(target: GoalTarget, top: number): { readonly left: number; readonl
 }
 
 export default function ProposalScreen() {
+  const locale = useLocale()
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const theme = useTheme()
@@ -177,9 +179,9 @@ export default function ProposalScreen() {
           const next = proposed(code)
           const top = Math.max(
             1,
-            ...[now, next].flatMap((target) => (target ? [goalFigure(target).value * 1.3] : [])),
+            ...[now, next].flatMap((target) => (target ? [goalValue(target) * 1.3] : [])),
           )
-          const unchanged = compareTarget(now, next).endsWith('sin cambio')
+          const unchanged = compareTarget(now, next, locale).endsWith('sin cambio')
           return (
             <View key={code} style={styles.nutrient}>
               <View style={styles.nutrientHead}>
@@ -187,7 +189,7 @@ export default function ProposalScreen() {
                   {NUTRIENT_NAMES[code]}
                 </Text>
                 <Text role="control" size="sm" color={unchanged ? 'muted' : 'primary'}>
-                  {compareTarget(now, next)}
+                  {compareTarget(now, next, locale)}
                 </Text>
               </View>
               <View

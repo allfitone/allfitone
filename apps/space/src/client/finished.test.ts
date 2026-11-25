@@ -80,16 +80,16 @@ const detail: FinishedExecution = {
 
 describe('what the detail of a finished session says (FIN-18)', () => {
   test('T-SPC-UNIT-192 a set is its load and its reps, as much of it as there is', () => {
-    expect(setLine(set({}))).toBe('70 kg × 8')
-    expect(setLine(set({ load_value: 7.5 }))).toBe('7,5 kg × 8')
-    expect(setLine(set({ load_value: null, achieved_reps: 10 }))).toBe('10 reps')
-    expect(setLine(set({ achieved_reps: null }))).toBe('70 kg')
-    expect(setLine(set({ load_value: null, achieved_reps: null }))).toBe('—')
+    expect(setLine(set({}), 'es')).toBe('70 kg × 8')
+    expect(setLine(set({ load_value: 7.5 }), 'es')).toBe('7,5 kg × 8')
+    expect(setLine(set({ load_value: null, achieved_reps: 10 }), 'es')).toBe('10 reps')
+    expect(setLine(set({ achieved_reps: null }), 'es')).toBe('70 kg')
+    expect(setLine(set({ load_value: null, achieved_reps: null }), 'es')).toBe('—')
   })
 
   test('T-SPC-UNIT-193 each exercise says its best set, and nothing when none was weighed', () => {
-    expect(bestSetLine({ load_kg: 70, reps: 8 })).toBe('Mejor serie 70 kg × 8')
-    expect(bestSetLine(null)).toBeNull()
+    expect(bestSetLine({ load_kg: 70, reps: 8 }, 'es')).toBe('Mejor serie 70 kg × 8')
+    expect(bestSetLine(null, 'es')).toBeNull()
   })
 
   test('T-SPC-UNIT-194 the exercises and their work sets, a warmup not one of them', () => {

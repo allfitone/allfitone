@@ -1,7 +1,7 @@
 /**
  * The frame of every screen that edits one thing of the person's own (`PF-E7` onwards):
  * back and title fixed on top, a line saying what the datum is for, the editor, and
- * «Guardar» fixed at the bottom.
+ * the save button fixed at the bottom.
  *
  * **A pushed screen, not a sheet.** A sheet rides up with the keyboard and covers what it
  * edits, and it leaves the editor the height of a drawer; a screen keeps its header still
@@ -18,11 +18,14 @@ import { useRouter } from 'expo-router'
 import type { ReactNode } from 'react'
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native'
 
+import { useText } from '../i18n/use-text'
+
 export function EditHeader({ title }: { readonly title: string }) {
   const router = useRouter()
+  const text = useText()
   return (
     <View style={styles.header}>
-      <IconButton icon="back" accessibilityLabel="Volver" onPress={() => router.back()} />
+      <IconButton icon="back" accessibilityLabel={text.common.back} onPress={() => router.back()} />
       <Text role="control" size="xl" accessibilityRole="header">
         {title}
       </Text>
@@ -37,7 +40,7 @@ export function EditScreen({
   saving,
   onSave,
   canSave = true,
-  saveLabel = 'Guardar',
+  saveLabel,
   children,
 }: {
   readonly title: string
@@ -50,6 +53,7 @@ export function EditScreen({
   readonly saveLabel?: string
   readonly children: ReactNode
 }) {
+  const text = useText()
   return (
     <Screen edges={['top', 'bottom']}>
       <KeyboardAvoidingView
@@ -70,7 +74,12 @@ export function EditScreen({
         </ScrollView>
         {onSave ? (
           <View style={styles.footer}>
-            <Button label={saveLabel} loading={saving} disabled={!canSave} onPress={onSave} />
+            <Button
+              label={saveLabel ?? text.common.save}
+              loading={saving}
+              disabled={!canSave}
+              onPress={onSave}
+            />
           </View>
         ) : null}
       </KeyboardAvoidingView>

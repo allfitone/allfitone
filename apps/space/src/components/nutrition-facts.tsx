@@ -56,6 +56,7 @@ import {
 } from '../client/nutrition'
 import { macroColor } from './nutrition-ui'
 import { SheetChoice } from './sheet-choice'
+import { useLocale } from '../i18n/use-text'
 
 // ———————————————————————————————————————— amount
 
@@ -505,13 +506,14 @@ function FactRow({
   readonly value: number | undefined
   readonly reference: number | null
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const unit = UNIT_OF[code]
   const share = value !== undefined && reference ? value / reference : null
   const figure =
     reference === null || value === undefined
-      ? nutrientFigure(value, unit)
-      : `${nutrientFigure(value, unit).replace(/ \S+$/, '')} / ${nutrientFigure(reference, unit)}`
+      ? nutrientFigure(value, unit, locale)
+      : `${nutrientFigure(value, unit, locale).replace(/ \S+$/, '')} / ${nutrientFigure(reference, unit, locale)}`
   return (
     <View style={[styles.fact, nested && styles.nested]}>
       <View style={styles.factRow}>

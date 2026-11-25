@@ -29,10 +29,13 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets'
 
 import { energyScale, fractionOf, valueAt, type Scale } from '../client/goal-energy'
+import { useLocale } from '../i18n/use-text'
+import { intlLocale, type Locale } from '../i18n'
 
 const HANDLE = 22
 const SETTLE = { duration: 220 }
-const figure = (value: number) => Math.round(value).toLocaleString('es-CO')
+const figure = (value: number, locale: Locale) =>
+  Math.round(value).toLocaleString(intlLocale(locale))
 
 export function GoalSlider({
   low,
@@ -52,6 +55,7 @@ export function GoalSlider({
   readonly lowLabel: string
   readonly highLabel?: string
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const reduced = useReducedMotion()
   const [width, setWidth] = useState(0)
@@ -144,7 +148,9 @@ export function GoalSlider({
         accessible
         accessibilityRole="adjustable"
         accessibilityLabel={end === 'low' ? lowLabel : (highLabel ?? lowLabel)}
-        accessibilityValue={{ text: `${figure(end === 'low' ? low : (high ?? low))} ${unit}` }}
+        accessibilityValue={{
+          text: `${figure(end === 'low' ? low : (high ?? low), locale)} ${unit}`,
+        }}
         accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
         onAccessibilityAction={(event) =>
           adjust(end, event.nativeEvent.actionName === 'increment' ? step : -step)
@@ -180,13 +186,13 @@ export function GoalSlider({
         importantForAccessibility="no-hide-descendants"
       >
         <Text role="body" size="xs" color="muted">
-          {figure(scale.min)}
+          {figure(scale.min, locale)}
         </Text>
         <Text role="body" size="xs" color="muted">
-          {figure(scale.mid)}
+          {figure(scale.mid, locale)}
         </Text>
         <Text role="body" size="xs" color="muted">
-          {`${figure(scale.max)} ${unit}`}
+          {`${figure(scale.max, locale)} ${unit}`}
         </Text>
       </View>
     </View>

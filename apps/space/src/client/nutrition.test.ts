@@ -110,17 +110,17 @@ describe('the day against the goal (N-1e)', () => {
   }
 
   test('T-SPC-UNIT-205 the goal figure follows its mode', () => {
-    expect(goalFigure(energy)).toEqual({ value: 2300, label: '2.300' })
-    expect(goalFigure({ ...energy, mode: 'minimum', exact: null, minimum: 150 })).toEqual({
+    expect(goalFigure(energy, 'es')).toEqual({ value: 2300, label: '2.300' })
+    expect(goalFigure({ ...energy, mode: 'minimum', exact: null, minimum: 150 }, 'es')).toEqual({
       value: 150,
       label: 'mín. 150',
     })
-    expect(goalFigure({ ...energy, mode: 'maximum', exact: null, maximum: 70 })).toEqual({
+    expect(goalFigure({ ...energy, mode: 'maximum', exact: null, maximum: 70 }, 'es')).toEqual({
       value: 70,
       label: 'máx. 70',
     })
     expect(
-      goalFigure({ ...energy, mode: 'range', exact: null, minimum: 220, maximum: 260 }),
+      goalFigure({ ...energy, mode: 'range', exact: null, minimum: 220, maximum: 260 }, 'es'),
     ).toEqual({
       value: 260,
       label: '220–260',
@@ -136,23 +136,27 @@ describe('the day against the goal (N-1e)', () => {
   })
 
   test('T-SPC-UNIT-207 the next meal is asked for by the hour, with what is left', () => {
-    expect(mealPrompt('2026-09-30T13:30:00.000Z', ZONE, { energy: 880, protein: 54 })).toEqual({
+    expect(
+      mealPrompt('2026-09-30T13:30:00.000Z', ZONE, { energy: 880, protein: 54 }, [], 'es'),
+    ).toEqual({
       type: 'breakfast',
       title: '¿Qué desayunaste?',
       detail: 'Restante: 880 kcal · 54 g de proteína',
     })
-    expect(mealPrompt('2026-10-01T01:30:00.000Z', ZONE, { energy: 880, protein: null }).title).toBe(
-      '¿Qué cenaste?',
-    )
-    expect(mealPrompt('2026-09-30T18:30:00.000Z', ZONE, {}).detail).toBeNull()
+    expect(
+      mealPrompt('2026-10-01T01:30:00.000Z', ZONE, { energy: 880, protein: null }, [], 'es').title,
+    ).toBe('¿Qué cenaste?')
+    expect(mealPrompt('2026-09-30T18:30:00.000Z', ZONE, {}, [], 'es').detail).toBeNull()
   })
 
   test('T-SPC-UNIT-217 a meal already logged is not asked for again', () => {
-    expect(mealPrompt('2026-10-01T01:30:00.000Z', ZONE, {}, ['dinner'])).toMatchObject({
+    expect(mealPrompt('2026-10-01T01:30:00.000Z', ZONE, {}, ['dinner'], 'es')).toMatchObject({
       type: 'snack',
       title: '¿Comiste algo más?',
     })
-    expect(mealPrompt('2026-10-01T01:30:00.000Z', ZONE, {}, ['lunch']).title).toBe('¿Qué cenaste?')
+    expect(mealPrompt('2026-10-01T01:30:00.000Z', ZONE, {}, ['lunch'], 'es').title).toBe(
+      '¿Qué cenaste?',
+    )
   })
 })
 
@@ -223,7 +227,7 @@ describe('deleting a meal (N-4c)', () => {
     })
 
     await expect(flow.deleteMeal(meal().id)).resolves.toEqual(held)
-    const note = deletionHeldNote(held)
+    const note = deletionHeldNote(held, 'es')
     expect(note).toContain('No la eliminamos todavía')
     expect(note).toContain('una orden judicial')
     expect(note).toContain('2027')
@@ -236,7 +240,7 @@ describe('deleting a meal (N-4c)', () => {
     })
 
     await expect(flow.deleteMeal(meal().id)).resolves.toBeNull()
-    expect(deletionHeldNote({ status: 'pending', hold: null })).toContain('en un momento')
+    expect(deletionHeldNote({ status: 'pending', hold: null }, 'es')).toContain('en un momento')
   })
 })
 
@@ -377,9 +381,9 @@ describe('a proposal against the goal kept (N-3b)', () => {
   }
 
   test('T-SPC-UNIT-216 each nutrient says what it is now and what is proposed', () => {
-    expect(targetText(now)).toBe('2.300 kcal')
-    expect(compareTarget(now, { ...now, exact: 2100 })).toBe('2.300 → 2.100 kcal')
-    expect(compareTarget(now, now)).toBe('2.300 kcal · sin cambio')
+    expect(targetText(now, 'es')).toBe('2.300 kcal')
+    expect(compareTarget(now, { ...now, exact: 2100 }, 'es')).toBe('2.300 → 2.100 kcal')
+    expect(compareTarget(now, now, 'es')).toBe('2.300 kcal · sin cambio')
     const water = {
       nutrient_code: 'water' as const,
       mode: 'exact' as const,
@@ -388,8 +392,8 @@ describe('a proposal against the goal kept (N-3b)', () => {
       exact: 2500,
       unit: 'ml' as const,
     }
-    expect(compareTarget(undefined, water)).toBe('Nueva · 2.500 ml')
-    expect(compareTarget(now, undefined)).toBe('2.300 kcal → Sin meta')
+    expect(compareTarget(undefined, water, 'es')).toBe('Nueva · 2.500 ml')
+    expect(compareTarget(now, undefined, 'es')).toBe('2.300 kcal → Sin meta')
   })
 })
 
@@ -420,12 +424,17 @@ describe('what a nutrient is measured against (Resolución 810 de 2021)', () => 
   })
 
   test('T-SPC-UNIT-241 a figure keeps the precision its size needs, in Spanish', () => {
-    expect(nutrientFigure(231.4, 'kcal')).toBe('231 kcal')
-    expect(nutrientFigure(4.13, 'g')).toBe('4,1 g')
-    expect(nutrientFigure(0.324, 'mg')).toBe('0,32 mg')
-    expect(nutrientFigure(2456, 'kcal')).toBe('2.456 kcal')
-    expect(nutrientFigure(201.6, 'mcg')).toBe('202 µg')
-    expect(nutrientFigure(undefined, 'g')).toBe('—')
+    expect(nutrientFigure(231.4, 'kcal', 'es')).toBe('231 kcal')
+    expect(nutrientFigure(4.13, 'g', 'es')).toBe('4,1 g')
+    expect(nutrientFigure(0.324, 'mg', 'es')).toBe('0,32 mg')
+    expect(nutrientFigure(2456, 'kcal', 'es')).toBe('2.456 kcal')
+    expect(nutrientFigure(201.6, 'mcg', 'es')).toBe('202 µg')
+    expect(nutrientFigure(undefined, 'g', 'es')).toBe('—')
+  })
+
+  test('T-SPC-UNIT-359 in English the same figures take a decimal point and a comma for thousands', () => {
+    expect(nutrientFigure(4.13, 'g', 'en')).toBe('4.1 g')
+    expect(nutrientFigure(2456, 'kcal', 'en')).toBe('2,456 kcal')
   })
 })
 
@@ -480,7 +489,7 @@ describe('progress against an energy range', () => {
     const nothing = rangeProgress(goal, 0)
     const halfway = rangeProgress(goal, 1420)
     if (!nothing || !halfway) throw new Error('a range goal has range progress')
-    expect(rangeCardCopy(goal, 0, nothing)).toEqual({
+    expect(rangeCardCopy(goal, 0, nothing, 'es')).toEqual({
       figure: '2.000',
       line: 'Te faltan para tu mínimo',
       center: '0%',
@@ -488,7 +497,7 @@ describe('progress against an energy range', () => {
       detail: 'Meta 2.000–2.850',
       over: false,
     })
-    expect(rangeCardCopy(goal, 1420, halfway)).toMatchObject({ figure: '580', center: '71%' })
+    expect(rangeCardCopy(goal, 1420, halfway, 'es')).toMatchObject({ figure: '580', center: '71%' })
   })
 
   test('T-SPC-UNIT-306 inside it the margin to the maximum; past it, the excess, flagged', () => {
@@ -496,14 +505,14 @@ describe('progress against an energy range', () => {
     const within = rangeProgress(goal, 2300)
     const above = rangeProgress(goal, 3100)
     if (!within || !above) throw new Error('a range goal has range progress')
-    expect(rangeCardCopy(goal, 2300, within)).toMatchObject({
+    expect(rangeCardCopy(goal, 2300, within, 'es')).toMatchObject({
       figure: '550',
       line: 'Margen hasta tu máximo',
       center: 'En meta',
       centerLabel: '2.000–2.850',
       over: false,
     })
-    expect(rangeCardCopy(goal, 3100, above)).toMatchObject({
+    expect(rangeCardCopy(goal, 3100, above, 'es')).toMatchObject({
       figure: '250',
       line: 'Por encima de tu máximo',
       center: '+250',
@@ -516,7 +525,7 @@ describe('progress against an energy range', () => {
     const goal = { ...range, minimum: 2000, maximum: 2850 }
     const nothing = rangeProgress(goal, 0)
     if (!nothing) throw new Error('a range goal has range progress')
-    const copy = rangeCardCopy(goal, 0, nothing)
+    const copy = rangeCardCopy(goal, 0, nothing, 'es')
     const said = [copy.figure, copy.line, copy.center, copy.centerLabel, copy.detail]
     expect(said.filter((text) => text.includes('2.000–2.850'))).toHaveLength(1)
   })
@@ -538,13 +547,13 @@ describe('the goal under a macro card', () => {
   } as const
 
   test('T-SPC-UNIT-279 a card says what the eaten figure is measured against', () => {
-    expect(goalLine({ ...base, mode: 'minimum', minimum: 120 }, 'g')).toBe('De mín. 120 g')
-    expect(goalLine({ ...base, mode: 'maximum', maximum: 70 }, 'g')).toBe('De máx. 70 g')
-    expect(goalLine({ ...base, mode: 'exact', exact: 150 }, 'g')).toBe('De 150 g')
-    expect(goalLine({ ...base, mode: 'range', minimum: 200, maximum: 240 }, 'g')).toBe(
+    expect(goalLine({ ...base, mode: 'minimum', minimum: 120 }, 'g', 'es')).toBe('De mín. 120 g')
+    expect(goalLine({ ...base, mode: 'maximum', maximum: 70 }, 'g', 'es')).toBe('De máx. 70 g')
+    expect(goalLine({ ...base, mode: 'exact', exact: 150 }, 'g', 'es')).toBe('De 150 g')
+    expect(goalLine({ ...base, mode: 'range', minimum: 200, maximum: 240 }, 'g', 'es')).toBe(
       'De 200–240 g',
     )
-    expect(goalLine(undefined, 'g')).toBe('Sin meta')
+    expect(goalLine(undefined, 'g', 'es')).toBe('Sin meta')
   })
 })
 

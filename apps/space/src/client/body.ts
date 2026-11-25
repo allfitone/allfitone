@@ -12,6 +12,8 @@
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
 
+import { intlLocale, type Locale } from '../i18n'
+
 export type BodyRecord = AllfitV1Schemas['BodyProgressRecord']
 export type BodyPage = AllfitV1Schemas['BodyProgressPage']
 export type BodyMetric = BodyRecord['metric_code']
@@ -227,10 +229,13 @@ export function monthTicks(months: number, today: string): string[] {
   return [0, 1, 2, 3, 4].map((tick) => all[Math.round((tick * (all.length - 1)) / 4)] ?? '')
 }
 
-/** «70,2», «82»: one decimal at most, with a comma. */
-export function decimal(value: number): string {
+/** «70,2», «82»: one decimal at most, with the locale's decimal mark and no grouping. */
+export function decimal(value: number, locale: Locale): string {
   const rounded = Math.round(value * 10) / 10
-  return String(rounded).replace('.', ',')
+  return rounded.toLocaleString(intlLocale(locale), {
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  })
 }
 
 const POUND = 0.45359237
@@ -241,8 +246,12 @@ export function massIn(kilos: number, unit: 'kg' | 'lb'): number {
 }
 
 /** «71,0»: a weight keeps its tenth, which is where the progress is. */
-export function tenths(value: number): string {
-  return (Math.round(value * 10) / 10).toFixed(1).replace('.', ',')
+export function tenths(value: number, locale: Locale): string {
+  return (Math.round(value * 10) / 10).toLocaleString(intlLocale(locale), {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  })
 }
 
 /** «2 ago». */

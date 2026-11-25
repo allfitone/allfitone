@@ -42,6 +42,7 @@ import { toCanonical, type MassUnit } from '../../src/client/measures-form'
 import { selectionTick } from '../../src/client/selection-tick'
 import { deviceTimezone } from '../../src/client/timezone'
 import { CardGlow, FIGURE_TRACKING } from '../../src/components/nutrition-ui'
+import { useLocale } from '../../src/i18n/use-text'
 
 const SAVE_FAILED = 'No pudimos guardar tu peso. Inténtalo otra vez.'
 const RESTING_KG = 70
@@ -55,6 +56,7 @@ function localDay(timezone: string, daysBack: number): string {
 
 export default function WeightScreen() {
   const router = useRouter()
+  const locale = useLocale()
   const theme = useTheme()
   const timezone = deviceTimezone()
   const days = useMemo(
@@ -142,7 +144,7 @@ export default function WeightScreen() {
           <CardGlow size={300} right={20} top={-40} />
           <View style={styles.figure}>
             <Text role="display" tracking={FIGURE_TRACKING} size="7xl">
-              {tenths(shown)}
+              {tenths(shown, locale)}
             </Text>
             <Text role="control" size="xl" color="secondary" style={styles.unit}>
               {unit}
@@ -157,7 +159,7 @@ export default function WeightScreen() {
                 decorative
               />
               <Text role="control" size="xs" color="accent">
-                {`${change > 0 ? '+' : '−'}${decimal(Math.abs(change))} kg desde el ${shortDay(latest.measured_on)}`}
+                {`${change > 0 ? '+' : '−'}${decimal(Math.abs(change), locale)} kg desde el ${shortDay(latest.measured_on)}`}
               </Text>
             </View>
           ) : latest ? (
@@ -175,10 +177,10 @@ export default function WeightScreen() {
             setKilos(toCanonical(value, unit))
             selectionTick()
           }}
-          formatValue={(value) => tenths(value)}
+          formatValue={(value) => tenths(value, locale)}
           suffix={unit}
           accessibilityLabel="Peso"
-          accessibilityText={`${tenths(shown)} ${unit === 'kg' ? 'kilos' : 'libras'}`}
+          accessibilityText={`${tenths(shown, locale)} ${unit === 'kg' ? 'kilos' : 'libras'}`}
         />
         <SegmentedControl
           items={[
@@ -208,7 +210,7 @@ export default function WeightScreen() {
             <View
               style={styles.bars}
               accessible
-              accessibilityLabel={`Últimos registros: ${recent.map((one) => decimal(one.value)).join(', ')} kilos`}
+              accessibilityLabel={`Últimos registros: ${recent.map((one) => decimal(one.value, locale)).join(', ')} kilos`}
             >
               {recent.map((one, index) => {
                 const values = recent.map((each) => each.value)
@@ -219,7 +221,7 @@ export default function WeightScreen() {
                   <View key={one.id} style={styles.barColumn}>
                     {last ? (
                       <Text role="control" size="2xs" color="accent">
-                        {decimal(one.value)}
+                        {decimal(one.value, locale)}
                       </Text>
                     ) : null}
                     <View

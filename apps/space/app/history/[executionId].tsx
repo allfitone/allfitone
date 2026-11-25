@@ -65,6 +65,8 @@ import { ActionRow } from '../../src/components/action-row'
 import { BodyFigure } from '../../src/components/body-figure'
 import { INERT_SLUGS } from '../../src/client/focus-form'
 import type { ShareCatalogue } from '../../src/components/share-card'
+import { useLocale } from '../../src/i18n/use-text'
+import { intlLocale } from '../../src/i18n'
 
 const READ_FAILED = 'No pudimos abrir este entreno. Inténtalo otra vez.'
 const REPEAT_FAILED = 'No pudimos empezar el entreno. Inténtalo otra vez.'
@@ -366,6 +368,7 @@ function Hero({
   readonly catalogue: Catalogue
   readonly timeZone: string
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   // The groups title and the figure read the same exercises the share cards do.
   const worked = {
@@ -382,7 +385,9 @@ function Hero({
   const lit = litSlugsFor(catalogue.muscles, main)
   const comparison = comparisonLine(detail.previous, timeZone)
   const change = detail.previous?.change_percent ?? null
-  const kilos = (detail.total_volume_kg ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })
+  const kilos = (detail.total_volume_kg ?? 0).toLocaleString(intlLocale(locale), {
+    maximumFractionDigits: 0,
+  })
   const figures: readonly (readonly [string, string, boolean])[] = [
     [durationLabel(detail.duration_seconds), 'Duración', false],
     [String(detail.work_sets), 'Series', false],
@@ -464,8 +469,9 @@ function ExerciseCard({
   readonly exercise: FinishedExecution['exercises'][number]
   readonly picture: string | null
 }) {
+  const locale = useLocale()
   const theme = useTheme()
-  const best = bestSetLine(exercise.best_set)
+  const best = bestSetLine(exercise.best_set, locale)
   return (
     <View
       style={[
@@ -508,7 +514,7 @@ function ExerciseCard({
             color={one.best_ever ? 'primary' : 'secondary'}
             style={styles.grow}
           >
-            {setLine(one)}
+            {setLine(one, locale)}
           </Text>
           {one.best_ever ? (
             <Text role="body" size="xs" color="primary">

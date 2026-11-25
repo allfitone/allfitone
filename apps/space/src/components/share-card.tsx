@@ -57,6 +57,8 @@ import {
   type ShareSummary,
 } from '../client/share-cards'
 import { BodyFigure, faceShowing } from './body-figure'
+import { useLocale } from '../i18n/use-text'
+import { intlLocale, type Locale } from '../i18n'
 
 export const CARD_WIDTH = 300
 export const CARD_HEIGHT = 533
@@ -413,8 +415,8 @@ function Kicker({
   )
 }
 
-const kilos = (value: number | null) =>
-  (value ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 })
+const kilos = (value: number | null, locale: Locale) =>
+  (value ?? 0).toLocaleString(intlLocale(locale), { maximumFractionDigits: 0 })
 
 /** Where the plain card's title block sits, for a title of two lines and of one. */
 const TWO_LINE_BLOCK = { kicker: 94, title: 118, detail: 216 }
@@ -471,6 +473,7 @@ function MainCard({
   photo,
   withPhoto,
 }: ShareCardProps & { readonly withPhoto: boolean }) {
+  const locale = useLocale()
   const groups = groupsTitle(summary, catalogue)
   const routine = routineTitle(summary, catalogue)
   // The routine leads the body of both, so the header gives the groups: never the
@@ -482,7 +485,7 @@ function MainCard({
   const block = single ? SINGLE_LINE_BLOCK : TWO_LINE_BLOCK
   return (
     <Frame photo={withPhoto ? photo : null}>
-      <Header title={groups} when={whenLine(summary, timeZone)} />
+      <Header title={groups} when={whenLine(summary, timeZone, locale)} />
       {withPhoto ? (
         <View style={[styles.at, styles.who, { left: 20, top: 214 }]}>
           <Text style={type(BODY_HEAVY, 10, INK.accent, { tracking: 2.4 })}>
@@ -530,7 +533,7 @@ function MainCard({
           ['DURACIÓN', durationLabel(summary.duration_seconds)],
           ['SERIES', String(summary.work_sets)],
           ['EJERCICIOS', String(summary.exercise_count)],
-          ['KG TOTALES', kilos(summary.total_volume_kg)],
+          ['KG TOTALES', kilos(summary.total_volume_kg, locale)],
         ]}
       />
       <View style={[styles.at, styles.list, { left: 20, top: 378 }]}>
@@ -560,10 +563,11 @@ const BAR = 196
  * scale that show the jump without reading a word. Little else on purpose.
  */
 function RecordCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const locale = useLocale()
   const record = headline(summary.records)
   if (!record) return <Frame>{null}</Frame>
-  const figure = recordFigure(record)
-  const jump = recordJump(record)
+  const figure = recordFigure(record, locale)
+  const jump = recordJump(record, locale)
   const trainedOn = new Intl.DateTimeFormat('en-CA', { timeZone }).format(
     new Date(summary.started_at),
   )
@@ -578,7 +582,7 @@ function RecordCard({ summary, catalogue, timeZone }: ShareCardProps) {
   ]
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone, locale)} />
       <Kicker x={22} y={70}>
         NUEVO RÉCORD PERSONAL
       </Kicker>
@@ -674,6 +678,7 @@ const stepTop = (index: number) => STEP.floor - STEP.rise * (index + 1)
  * next one drawn and waiting. Two callouts name where it started and where it stands.
  */
 function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const locale = useLocale()
   const weeks = summary.streak_weeks
   const { first, shown } = streakSteps(weeks)
   const last = shown - 1
@@ -682,7 +687,7 @@ function StreakCard({ summary, catalogue, timeZone }: ShareCardProps) {
   const nowCall = { left: stepX(last) - CALL_INSET, top: stepTop(last) - 82 }
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone, locale)} />
       <Kicker x={22} y={70}>
         RACHA ACTIVA
       </Kicker>
@@ -826,11 +831,12 @@ const SESSION_FIGURE = 0.37
  * list of exercises.
  */
 function SessionCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const locale = useLocale()
   const metrics: readonly (readonly [string, string])[] = [
     [durationLabel(summary.duration_seconds), 'DURACIÓN'],
     [String(summary.work_sets), 'SERIES'],
     [String(summary.exercise_count), 'EJERCICIOS'],
-    [`${kilos(summary.total_volume_kg)} kg`, 'LEVANTADOS'],
+    [`${kilos(summary.total_volume_kg, locale)} kg`, 'LEVANTADOS'],
   ]
   const worked = workedMuscles(summary, catalogue)
   const main = worked.filter((muscle) => muscle.main)
@@ -844,7 +850,7 @@ function SessionCard({ summary, catalogue, timeZone }: ShareCardProps) {
   )
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone, locale)} />
       <Swash x={30} y={96} width={270} height={84} turn={-7} seed={23} opacity={0.3} />
       <Kicker x={22} y={62}>
         RESUMEN DE LA SESIÓN
@@ -947,6 +953,7 @@ const CALLOUT_SLOTS = [
  * the headline, numbered callouts on the figure, and what only helped in an inset.
  */
 function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const locale = useLocale()
   const worked = workedMuscles(summary, catalogue)
   const main = worked.filter((muscle) => muscle.main).slice(0, CALLOUT_SLOTS.length)
   const helping = worked.filter((muscle) => !muscle.main).slice(0, 3)
@@ -963,7 +970,7 @@ function MusclesCard({ summary, catalogue, timeZone }: ShareCardProps) {
   const [lead, ...rest] = main
   return (
     <Frame>
-      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header title={routineTitle(summary, catalogue)} when={whenLine(summary, timeZone, locale)} />
       <Kicker x={22} y={70}>
         MÚSCULO PRINCIPAL
       </Kicker>
@@ -1066,14 +1073,15 @@ const NUMERAL = { top: 100, height: 210, size: 230 } as const
  * The outline is SVG text: React Native's text has no stroke.
  */
 function NumberCard({ summary, catalogue, timeZone }: ShareCardProps) {
+  const locale = useLocale()
   const figures: readonly (readonly [string, string])[] = [
     [String(summary.work_sets), 'SERIES'],
     [String(summary.exercise_count), 'EJERCICIOS'],
-    [`${kilos(summary.total_volume_kg)} KG`, 'LEVANTADOS'],
+    [`${kilos(summary.total_volume_kg, locale)} KG`, 'LEVANTADOS'],
   ]
   return (
     <Frame>
-      <Header title={groupsTitle(summary, catalogue)} when={whenLine(summary, timeZone)} />
+      <Header title={groupsTitle(summary, catalogue)} when={whenLine(summary, timeZone, locale)} />
       <Text
         style={[
           styles.at,
@@ -1132,6 +1140,7 @@ function MinimalFrame({
   timeZone,
   children,
 }: ShareCardProps & { readonly children: ReactNode }) {
+  const locale = useLocale()
   return (
     <Frame>
       <Text
@@ -1143,7 +1152,7 @@ function MinimalFrame({
           type(BODY_HEAVY, 9.5, INK.accent, { tracking: 1.6 }),
         ]}
       >
-        {`${routineTitle(summary, catalogue)} · ${whenLine(summary, timeZone)}`}
+        {`${routineTitle(summary, catalogue)} · ${whenLine(summary, timeZone, locale)}`}
       </Text>
       {children}
       <View style={[styles.at, { left: 98, top: 491 }]}>
@@ -1174,11 +1183,12 @@ const MINIMAL_SMALL = type(BODY_HEAVY, 8, INK.ash, { tracking: 1.6 })
 
 /** «FN1 · Una cifra»: the kilos lifted, and what they took. */
 function TotalCard(props: ShareCardProps) {
+  const locale = useLocale()
   const { summary } = props
   return (
     <MinimalFrame {...props}>
       <Centred top={196} style={type(POSTER, 76, INK.text, { leading: 0.9 })}>
-        {kilos(summary.total_volume_kg)}
+        {kilos(summary.total_volume_kg, locale)}
       </Centred>
       <Centred top={272} style={MINIMAL_UNIT}>
         KILOS LEVANTADOS
@@ -1226,6 +1236,7 @@ function TimeCard(props: ShareCardProps) {
 
 /** «FN3 · Récords»: how many, and the one that leads. */
 function RecordsCard(props: ShareCardProps) {
+  const locale = useLocale()
   const { summary } = props
   const lead = headline(summary.records)
   const count = summary.records.length
@@ -1243,10 +1254,10 @@ function RecordsCard(props: ShareCardProps) {
             {lead.movement.toUpperCase()}
           </Centred>
           <Centred top={328} style={type(POSTER, 28, INK.text)}>
-            {recordGain(lead).gain}
+            {recordGain(lead, locale).gain}
           </Centred>
           <Centred top={362} style={MINIMAL_SMALL}>
-            {recordGain(lead).meaning}
+            {recordGain(lead, locale).meaning}
           </Centred>
         </>
       ) : null}

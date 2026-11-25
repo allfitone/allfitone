@@ -32,6 +32,8 @@ import Animated, {
 import { clockParts } from '../client/session-form'
 
 import { useNow } from './use-now'
+import { useLocale } from '../i18n/use-text'
+import { intlLocale } from '../i18n'
 
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1)
 
@@ -47,6 +49,7 @@ export function SessionScoreboard({
   readonly done: number
   readonly planned: number
 }) {
+  const locale = useLocale()
   const theme = useTheme()
   const reduced = useReducedMotion()
   const now = useNow()
@@ -109,7 +112,7 @@ export function SessionScoreboard({
           <View style={styles.figure}>
             <View style={styles.amount}>
               <Text role="data" size="xl">
-                {Math.round(volumeKg).toLocaleString('es-CO')}
+                {Math.round(volumeKg).toLocaleString(intlLocale(locale))}
               </Text>
               <Text role="control" size="xs" color="muted">
                 kg

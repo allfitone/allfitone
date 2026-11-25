@@ -24,10 +24,11 @@ import femalePortrait from '../../assets/images/sex-female.webp'
 import malePortrait from '../../assets/images/sex-male.webp'
 import { cssDuration } from '../client/motion'
 import { cardGeometry, CARD_GAP, type SexAnswer } from '../client/sex-form'
+import { useText } from '../i18n/use-text'
 
-const CHOICES: Array<{ value: Exclude<SexAnswer, null>; label: string; portrait: number }> = [
-  { value: 'male', label: 'Masculino', portrait: malePortrait },
-  { value: 'female', label: 'Femenino', portrait: femalePortrait },
+const CHOICES: Array<{ value: Exclude<SexAnswer, null>; portrait: number }> = [
+  { value: 'male', portrait: malePortrait },
+  { value: 'female', portrait: femalePortrait },
 ]
 
 /** Widths of the three bars on the decline card, as the prototype drew them. */
@@ -64,6 +65,7 @@ export function SexPicker({
   readonly declineNote: string
 }) {
   const theme = useTheme()
+  const text = useText().fitness.sex
   const { height } = useWindowDimensions()
   const reduceMotion = useReducedMotion()
   const [rowWidth, setRowWidth] = useState(0)
@@ -81,7 +83,7 @@ export function SexPicker({
               onPress={() => pressable && onChoose(choice.value)}
               accessibilityRole="radio"
               accessibilityState={{ selected, disabled: !pressable }}
-              accessibilityLabel={choice.label}
+              accessibilityLabel={text[choice.value]}
               style={[
                 styles.card,
                 {
@@ -126,7 +128,7 @@ export function SexPicker({
                 color={selected ? 'accent' : 'secondary'}
                 style={styles.name}
               >
-                {choice.label}
+                {text[choice.value]}
               </Text>
             </Pressable>
           )
@@ -137,7 +139,7 @@ export function SexPicker({
         onPress={() => pressable && onChoose(null)}
         accessibilityRole="radio"
         accessibilityState={{ selected: declined, disabled: !pressable }}
-        accessibilityLabel="Prefiero no decirlo"
+        accessibilityLabel={text.decline}
         style={[
           styles.decline,
           {
@@ -167,7 +169,7 @@ export function SexPicker({
           ))}
         </View>
         <Text role="body" size="md" color={declined ? 'accent' : 'secondary'}>
-          Prefiero no decirlo
+          {text.decline}
         </Text>
       </Pressable>
 

@@ -14,12 +14,11 @@ import Animated, { type FadeInDown } from 'react-native-reanimated'
 
 import {
   chooseLevel,
-  EXPERIENCE_LEVELS,
   experienceStops,
-  NOT_A_LABEL_BODY,
-  NOT_A_LABEL_TITLE,
+  TRAINING_EXPERIENCE,
   type TrainingExperience,
 } from '../client/experience-form'
+import { useText } from '../i18n/use-text'
 import { LevelStopRow } from './level-stop'
 
 export function ExperiencePicker({
@@ -34,13 +33,14 @@ export function ExperiencePicker({
   /** One per stop and one for the notice, in order; absent draws everything at once. */
   readonly entering?: readonly (FadeInDown | undefined)[] | undefined
 }) {
-  const notice = entering?.[EXPERIENCE_LEVELS.length]
+  const text = useText().fitness.experience
+  const notice = entering?.[TRAINING_EXPERIENCE.length]
   return (
     <>
       {/* El recorrido entero, frío, desde el primer fotograma. Si apareciera al
           elegir, la escala sólo la vería quien ya decidió. */}
       <View style={styles.track}>
-        {experienceStops(level).map((stop, index) => {
+        {experienceStops(level, text).map((stop, index) => {
           const enter = entering?.[index]
           return (
             <LevelStopRow
@@ -54,12 +54,13 @@ export function ExperiencePicker({
         })}
       </View>
 
+      {/* Shown whether or not a level is chosen: whoever fears a label reads it first. */}
       <Animated.View {...(notice ? { entering: notice } : {})} style={styles.notice}>
         <Note>
           <Text role="body" size="xs" color="primary">
-            {NOT_A_LABEL_TITLE}
+            {text.notALabelTitle}
           </Text>
-          {NOT_A_LABEL_BODY}
+          {text.notALabelBody}
         </Note>
       </Animated.View>
     </>

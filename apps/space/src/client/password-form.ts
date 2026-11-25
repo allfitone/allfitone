@@ -7,16 +7,15 @@
  * refuse a password that passes them, and that refusal lands on the new password's field.
  */
 
+import type { Dictionary } from '../i18n'
 import { ApiError } from './api-error'
+
+type PasswordText = Dictionary['password']
 
 export type PasswordRule = 'length' | 'cases' | 'digit' | 'different'
 
-export const PASSWORD_RULES: readonly { readonly rule: PasswordRule; readonly label: string }[] = [
-  { rule: 'length', label: 'Al menos 8 caracteres' },
-  { rule: 'cases', label: 'Una mayúscula y una minúscula' },
-  { rule: 'digit', label: 'Un número' },
-  { rule: 'different', label: 'Distinta de la actual' },
-]
+/** In the order the screen lists them; their words are `password.rules` in the dictionary. */
+export const PASSWORD_RULES: readonly PasswordRule[] = ['length', 'cases', 'digit', 'different']
 
 const MIN_LENGTH = 8
 const MAX_LENGTH = 256
@@ -30,19 +29,35 @@ export function passwordChecks(current: string, next: string): Record<PasswordRu
   }
 }
 
+export interface Requirement {
+  readonly label: string
+  readonly met: boolean
+}
+
+/** The change's four rules, worded, and whether each is met. */
+export function passwordRequirements(
+  current: string,
+  next: string,
+  rules: PasswordText['rules'],
+): readonly Requirement[] {
+  const checks = passwordChecks(current, next)
+  return PASSWORD_RULES.map((rule) => ({ label: rules[rule], met: checks[rule] }))
+}
+
+const SIGN_UP_RULES = PASSWORD_RULES.filter((rule) => rule !== 'different')
+
 /** The sign-up's rules: the change's, without the one that compares to a current password. */
 export function signUpRequirements(
   password: string,
-): readonly { readonly label: string; readonly met: boolean }[] {
+  rules: PasswordText['rules'],
+): readonly Requirement[] {
   const checks = passwordChecks('', password)
-  return PASSWORD_RULES.filter(({ rule }) => rule !== 'different').map(({ rule, label }) => ({
-    label,
-    met: checks[rule],
-  }))
+  return SIGN_UP_RULES.map((rule) => ({ label: rules[rule], met: checks[rule] }))
 }
 
 export function isSignUpPassword(password: string): boolean {
-  return signUpRequirements(password).every(({ met }) => met)
+  const checks = passwordChecks('', password)
+  return SIGN_UP_RULES.every((rule) => checks[rule])
 }
 
 export function canChangePassword(current: string, next: string): boolean {
@@ -55,24 +70,19 @@ export interface PasswordFailure {
   readonly message: string
 }
 
-export function passwordFailure(cause: unknown): PasswordFailure {
-  if (!(cause instanceof ApiError)) {
-    return { message: 'No pudimos cambiar tu contraseña. Inténtalo otra vez.' }
-  }
+export function passwordFailure(cause: unknown, text: PasswordText): PasswordFailure {
+  const words = text.failure
+  if (!(cause instanceof ApiError)) return { message: words.generic }
   switch (cause.failure) {
     case 'wrong-password':
-      return { field: 'current', message: 'La contraseña actual no es correcta.' }
+      return { field: 'current', message: words.wrongPassword }
     case 'weak-password':
-      return {
-        field: 'next',
-        message:
-          'Esa contraseña es demasiado fácil de adivinar. Cámbiale algunas letras o alárgala.',
-      }
+      return { field: 'next', message: words.weakPassword }
     case 'rate-limited':
-      return { message: 'Hiciste muchos intentos. Espera un rato y vuelve a intentarlo.' }
+      return { message: words.rateLimited }
     case 'unavailable':
-      return { message: 'No pudimos conectar. Revisa tu conexión e inténtalo otra vez.' }
+      return { message: words.unavailable }
     default:
-      return { message: 'No pudimos cambiar tu contraseña. Inténtalo otra vez.' }
+      return { message: words.generic }
   }
 }

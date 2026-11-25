@@ -18,6 +18,7 @@ import Svg, { Circle } from 'react-native-svg'
 
 import type { Routine } from '../client/fitness-edit'
 import { DURATION_CHOICES, daysLine } from '../client/fitness-profile'
+import { useText } from '../i18n/use-text'
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7] as const
 
@@ -29,19 +30,20 @@ export function RoutinePicker({
   readonly onChange: (routine: Routine) => void
 }) {
   const theme = useTheme()
+  const text = useText().fitness
   const { days } = routine
   return (
     <>
       <Text role="label" size="xs" color="secondary" uppercase>
-        Días por semana
+        {text.routine.daysPerWeek}
       </Text>
       <Stepper
         size="lg"
-        accessibilityLabel="Días por semana"
+        accessibilityLabel={text.routine.daysPerWeek}
         value={days ?? 3}
         min={1}
         max={7}
-        unit={days === 1 ? 'día' : 'días'}
+        unit={text.routine.dayUnit(days ?? 3)}
         format={(value) => (days === undefined ? '–' : String(value))}
         onChange={(value) => onChange({ ...routine, days: days === undefined ? 3 : value })}
       />
@@ -50,7 +52,7 @@ export function RoutinePicker({
           <Pressable
             key={day}
             accessibilityRole="button"
-            accessibilityLabel={daysLine(day)}
+            accessibilityLabel={daysLine(day, text)}
             accessibilityState={{ selected: days === day }}
             onPress={() => onChange({ ...routine, days: day })}
             style={styles.segment}
@@ -74,7 +76,7 @@ export function RoutinePicker({
       </View>
 
       <Text role="label" size="xs" color="secondary" uppercase style={styles.second}>
-        Tiempo por sesión
+        {text.routine.timePerSession}
       </Text>
       <View style={styles.rings}>
         {DURATION_CHOICES.map((choice) => {
@@ -82,8 +84,8 @@ export function RoutinePicker({
           return (
             <SelectableTile
               key={choice.value}
-              name={choice.caption}
-              accessibilityLabel={choice.line}
+              name={text.durations[choice.value].caption}
+              accessibilityLabel={text.durations[choice.value].line}
               choice="single"
               selected={chosen}
               onPress={() => onChange({ ...routine, duration: choice.value })}

@@ -29,6 +29,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg'
 
 import { emailChangeSteps, type StepState } from '../client/fitness-profile'
+import { useText } from '../i18n/use-text'
 
 const RING = 132
 const STROKE = 3
@@ -104,9 +105,10 @@ export function Ring({ done }: { readonly done: boolean }) {
 
 function Step({ label, state }: { readonly label: string; readonly state: StepState }) {
   const theme = useTheme()
+  const words = useText().identity.progress.stepState
   const accent = theme.color.icon.accent
   return (
-    <View style={styles.step} accessible accessibilityLabel={`${label}: ${STATE_WORDS[state]}`}>
+    <View style={styles.step} accessible accessibilityLabel={`${label}: ${words[state]}`}>
       <View
         style={[
           styles.mark,
@@ -133,12 +135,6 @@ function Step({ label, state }: { readonly label: string; readonly state: StepSt
   )
 }
 
-const STATE_WORDS: Record<StepState, string> = {
-  done: 'hecho',
-  now: 'en curso',
-  todo: 'pendiente',
-}
-
 export function EmailChangeProgress({
   address,
   done,
@@ -149,18 +145,18 @@ export function EmailChangeProgress({
   readonly onDone: () => void
 }) {
   const theme = useTheme()
+  const text = useText()
+  const progress = text.identity.progress
   return (
     <View style={styles.grow}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Ring done={done} />
         <View style={styles.words} accessibilityLiveRegion="polite">
           <Text role="display" size="3xl" align="center" accessibilityRole="header">
-            {done ? 'TU CORREO CAMBIÓ' : 'CAMBIANDO TU CORREO'}
+            {done ? progress.changed : progress.changing}
           </Text>
           <Text role="body" size="sm" color="secondary" align="center">
-            {done
-              ? 'Desde ahora entras con este correo. Cerramos tus otras sesiones y avisamos al correo anterior.'
-              : 'Toma unos segundos. Puedes quedarte aquí: te avisamos cuando termine.'}
+            {done ? progress.changedBody : progress.changingBody}
           </Text>
         </View>
         <View
@@ -173,7 +169,7 @@ export function EmailChangeProgress({
           ]}
         >
           <Text role="label" size="xs" color="secondary">
-            CORREO NUEVO
+            {progress.newEmail}
           </Text>
           <Text role="control" size="md" align="center">
             {address}
@@ -181,7 +177,7 @@ export function EmailChangeProgress({
         </View>
         {done ? null : (
           <View style={styles.steps}>
-            {emailChangeSteps(done).map((step) => (
+            {emailChangeSteps(done, text.identity.emailSteps).map((step) => (
               <Step key={step.label} label={step.label} state={step.state} />
             ))}
           </View>
@@ -189,7 +185,7 @@ export function EmailChangeProgress({
       </ScrollView>
       {done ? (
         <View style={styles.footer}>
-          <Button label="Listo" onPress={onDone} />
+          <Button label={progress.done} onPress={onDone} />
         </View>
       ) : null}
     </View>
