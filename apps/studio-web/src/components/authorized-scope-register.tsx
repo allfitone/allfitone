@@ -39,9 +39,10 @@ import {
 import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
 
 import { RegisterCardState } from '@/components/register-card-state'
-import { WorkspacePageHeader } from '@/components/workspace-page-header'
+import { ClientViewToggle } from './client-views'
 import { useOrganizationContext } from './organization-context'
 import { canViewClientDirectory, seesEveryClient } from '@/lib/client-directory'
+import { useClientView } from '@/lib/client-view'
 import { useCompactTable } from '@/lib/use-compact-table'
 import { StudioApiError, type AuthorizedScopeItem } from '@/lib/studio-api'
 import {
@@ -57,6 +58,7 @@ type LoadError = 'forbidden' | 'stale-cursor' | 'unavailable'
 export function AuthorizedScopeRegister() {
   const { current } = useOrganizationContext()
   const { compact, measuredRef } = useCompactTable<HTMLElement>()
+  const [view, setView] = useClientView()
   const queryClient = useQueryClient()
   const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
   const canView = canViewClientDirectory(current.roles, rolesQuery.data?.items)
@@ -91,16 +93,15 @@ export function AuthorizedScopeRegister() {
 
   if (!rolesQuery.isPending && !canView) {
     return (
-      <section data-authorized-scope-page aria-label="Autorizaciones de clientes">
-        <WorkspacePageHeader description="Lo que cada persona autorizó está disponible para quienes la atienden o administran la organización." />
+      <div data-client-panel>
         <Alert variant="warning">
           <AlertTitle>No tienes acceso a estas autorizaciones</AlertTitle>
           <AlertDescription>
-            Tu rol en {current.display_name} no permite consultar lo que las personas vinculadas
-            autorizaron.
+            Lo que cada persona autorizó está disponible para quienes la atienden o administran la
+            organización, y tu rol en {current.display_name} no lo permite.
           </AlertDescription>
         </Alert>
-      </section>
+      </div>
     )
   }
 
@@ -140,14 +141,13 @@ export function AuthorizedScopeRegister() {
           : undefined
 
   return (
-    <section ref={measuredRef} data-authorized-scope-page aria-label="Autorizaciones de clientes">
-      <WorkspacePageHeader
-        description={
-          everyClient
-            ? `Consulta qué autorizó cada persona vinculada con ${current.display_name}, y desde cuándo.`
-            : 'Consulta qué autorizó cada persona que atiendes, y desde cuándo.'
-        }
-      />
+    <div ref={measuredRef} data-client-panel>
+      {/* This register asks nothing of the reader, so its toolbar holds only
+          the one choice it can offer. The strip hides itself where a table
+          would not fit anyway. */}
+      <div data-client-toolbar>
+        <ClientViewToggle view={view} onChange={setView} />
+      </div>
 
       {query.isFetching && !loading && !loadingMore ? (
         <p data-query-refreshing role="status" aria-live="polite">
@@ -156,9 +156,10 @@ export function AuthorizedScopeRegister() {
       ) : null}
 
       {/* Five columns do not fit the space a narrow register has, so it gets the
-          same data as cards. Only one presentation is rendered — see
+          same data as cards, whatever the reader chose: a preference cannot
+          conjure room. Only one presentation is rendered — see
           useCompactTable. */}
-      {compact ? (
+      {compact || view === 'cards' ? (
         <div
           data-authorized-scope-cards
           aria-label="Autorizaciones"
@@ -246,7 +247,7 @@ export function AuthorizedScopeRegister() {
           </Button>
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 

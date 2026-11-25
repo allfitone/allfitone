@@ -13,7 +13,7 @@ import {
 } from './studio-api-mock'
 
 const ORG = activeMembership.organization_id
-const PATH = `/organizations/${ORG}/clients/authorizations`
+const PATH = `/organizations/${ORG}/clients?tab=authorizations`
 const DESKTOP = { width: 1600, height: 900 }
 const MOBILE = { width: 390, height: 844 }
 const LIST_READ = /\/authorized-scopes(\?|$)/
@@ -42,7 +42,7 @@ test.beforeEach(async ({ page }) => {
 test('T-STUDIO-035-01 says what each person authorized and from when', async ({ page }) => {
   await open(page)
 
-  const register = page.locator('[data-authorized-scope-page]')
+  const register = page.locator('[data-client-panel]')
   await expect(register.getByText('Contexto de salud')).toBeVisible()
   await expect(register.getByText('Ana Álvarez').first()).toBeVisible()
   // The date the authorization started, in the reader's format rather than ISO.
@@ -58,7 +58,7 @@ test('T-STUDIO-035-02 a withdrawn authorization stays, with the date it ended', 
 }) => {
   await open(page)
 
-  const register = page.locator('[data-authorized-scope-page]')
+  const register = page.locator('[data-client-panel]')
   await expect(register.getByText('Progreso corporal')).toBeVisible()
   await expect(register.getByText('Retirada').first()).toBeVisible()
   await expect(register.getByText('19/07/2025')).toBeVisible()
@@ -76,7 +76,7 @@ test('T-STUDIO-035-03 shows the state of each permission and nothing it covers',
 
   // Compared lowercased: the Design System uppercases a header through CSS, and
   // what this pins is which columns exist, not how they are drawn.
-  const headers = await page.locator('[data-authorized-scope-page] thead th').allInnerTexts()
+  const headers = await page.locator('[data-client-panel] thead th').allInnerTexts()
   expect(headers.map((header) => header.toLocaleLowerCase('es'))).toEqual([
     'persona',
     'categoría',
@@ -112,7 +112,7 @@ test('T-STUDIO-035-05 a failed load is announced and offers a retry', async ({ p
     ),
   )
 
-  const register = page.locator('[data-authorized-scope-page]')
+  const register = page.locator('[data-client-panel]')
   await expect(register.getByRole('alert')).toContainText('No pudimos cargar las autorizaciones')
   await expect(register.getByRole('button', { name: 'Reintentar' })).toBeVisible()
 })
@@ -145,36 +145,28 @@ test('T-STUDIO-035-07 on a phone the same facts arrive as cards', async ({ page 
 
 /*
  * The regex that titles a relationship is a bare `[^/]+`, so every static route
- * beside it has to be excluded by name. Without that, this page is titled
+ * beside it has to be excluded by name. Without that, this address is titled
  * "Vínculo" — which is what happened to the categories screen.
+ *
+ * The heading is the screen's now, not this section's: the four are tabs of
+ * one address. What it must never be is "Vínculo", and never "Studio" either,
+ * which is what an address missing from the map falls through to.
+ *
+ * Reaching this section by pressing its tab is covered once, with the other
+ * three, in `client-header-actions.spec.ts` — `T-STUDIO-035-10` lived here
+ * when it was a page of its own and would now be the same click twice.
  */
-test('T-STUDIO-035-08 the workspace names the page, not the relationship pattern', async ({
+test('T-STUDIO-035-08 the workspace names the screen, not the relationship pattern', async ({
   page,
 }) => {
   await open(page)
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autorizaciones')
-})
-
-/*
- * A route nobody links to is not a screen, it is a URL. Kevin asked how one
- * reaches this page and the honest answer at the time was "by typing it", which
- * is what this guards against coming back.
- */
-test('T-STUDIO-035-10 the client directory leads here', async ({ page }) => {
-  await installStudioApiMock(page, base())
-  await page.goto(`/organizations/${ORG}/clients`)
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-
-  await page.getByRole('link', { name: 'Autorizaciones' }).click()
-
-  await expect(page).toHaveURL(new RegExp(`${ORG}/clients/authorizations$`))
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Autorizaciones')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clientes')
 })
 
 test('T-STUDIO-035-09 the grant ids and scope codes never reach the reader', async ({ page }) => {
   await open(page)
 
-  const text = (await page.locator('[data-authorized-scope-page]').innerText()).toLowerCase()
+  const text = (await page.locator('[data-client-panel]').innerText()).toLowerCase()
   expect(text).not.toContain(grantedHealthContext.grant_id)
   expect(text).not.toContain(withdrawnBodyProgress.grant_id)
   // The code is English and twenty-two characters; the reader gets the words.

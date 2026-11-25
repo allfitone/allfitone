@@ -271,10 +271,9 @@
 [data-content-page],
 [data-content-panel],
 [data-client-page],
+[data-client-panel],
 [data-billing-page],
 [data-billing-panel],
-[data-authorized-scope-page],
-[data-correction-proposal-page],
 [data-client-prescription-screen],
 [data-client-invite-page],
 [data-profile-section],
@@ -760,9 +759,7 @@
 [data-today-rows],
 [data-organization-site-list],
 [data-team-directory-card-list],
-[data-client-directory-card-list],
 [data-billing-card-list],
-[data-authorized-scope-card-list],
 [data-relationship-substitution-list],
 [data-relationship-grant-cards],
 [data-relationship-history-list],
@@ -1339,6 +1336,27 @@
 
 [data-team-directory-card-list] {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Cards the reader asked for, on a display with room for several: as many
+   columns as fit, never one card stretched into a banner. `auto-fill` and not
+   `auto-fit`, so two results keep a card's width instead of spreading across
+   the canvas — the library settled this for its own grid. The minimum is wider
+   than the library's 17rem because these cards carry a label beside every
+   value, and a masked address is long. */
+[data-client-directory-card-list],
+[data-authorized-scope-card-list] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(21rem, 100%), 1fr));
+  gap: var(--afo-space-3);
+  min-width: 0;
+}
+
+/* The row stretches the item, and the item hands its whole cell to the card —
+   see the same pairing under the team's list, and the library's own grid. */
+[data-client-directory-card-list] > li,
+[data-authorized-scope-card-list] > li {
+  display: grid;
 }
 
 /* The row stretches each item to its tallest, but the card inside one is not
@@ -2190,7 +2208,8 @@
    leave, and the view switch closes the row. It wraps when it does not fit,
    and the search then has a line of its own. */
 [data-library-toolbar],
-[data-billing-toolbar] {
+[data-billing-toolbar],
+[data-client-toolbar] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -2203,15 +2222,24 @@
 /* A register needs 44rem to be a table. Under that the rows fall back to
    cards, so a switch there would offer a view it cannot give. */
 @container (max-width: 44rem) {
-  [data-library-view] {
+  [data-library-view],
+  [data-client-view] {
     display: none;
   }
+}
+
+/* Said under the box it is about, in the voice of the rest of the register's
+   small print. It appears only when the search is off or the term too long. */
+[data-client-search-note] {
+  color: var(--afo-color-text-muted);
+  font-size: var(--afo-font-size-sm);
 }
 
 /* A small basis, so the filters and the switch stay on its row on a laptop;
    it grows into whatever they leave. */
 [data-library-search],
-[data-billing-search] {
+[data-billing-search],
+[data-client-search] {
   flex: 1 1 12rem;
   max-width: 26rem;
 }
@@ -2222,8 +2250,19 @@
   flex: none;
 }
 
-[data-library-view] {
+[data-library-view],
+[data-client-view] {
   margin-inline-start: auto;
+}
+
+/* Pushed to the end only when there is something at the start to be pushed
+   away from. Alone in its row — the authorizations ask the reader nothing,
+   because their route takes no filter — it was a control stranded across a gap
+   from nothing at all. Written as `:only-child` rather than as a modifier on
+   the toolbar so the day that register gains a filter, the switch goes back to
+   the end on its own. */
+[data-client-view]:only-child {
+  margin-inline-start: 0;
 }
 
 /* `auto-fill` and not `auto-fit`: two results keep the width of a card, where
@@ -3387,52 +3426,10 @@
   flex: none;
 }
 
-/* -------------------------------------------------------------- references */
-
-/* The client directory's two consultations, closing the section. A rule and
-   space set them apart from the list rather than a box: the page is a spread
-   and has borders enough already. The pair stacks when it does not fit,
-   instead of taking a third of the width each as it did in the action row. */
-[data-client-references] {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--afo-space-1) var(--afo-space-5);
-  padding-block-start: var(--afo-space-3);
-  border-block-start: 1px solid var(--afo-color-border-default);
-}
-
 /*
- * A text link that announces itself without waiting for the cursor and without
- * asking for a button's weight: underlined at rest in the border grey, turning
- * the text's own colour when pointed at.
- *
- * The token carries its suffix on purpose. `--afo-color-border` does not exist
- * in the Design System — the names are `-default`, `-subtle`, `-strong` and
- * `-accent` — and an invalid custom property in `text-decoration-color` or in
- * `border-color` falls back to `currentcolor`, meaning full ink, which also
- * leaves `:hover` with nothing to change. Four more rules in this file still
- * carry the name that does not exist, `data-client-open` among them: the
- * pattern this one came from. They go in STUDIO-157, because fixing them
- * changes how other screens look.
- */
-[data-client-reference] {
-  color: inherit;
-  font-size: var(--afo-font-size-sm);
-  text-decoration: underline;
-  text-decoration-color: var(--afo-color-border-default);
-  text-underline-offset: 3px;
-}
-
-[data-client-reference]:hover {
-  text-decoration-color: currentcolor;
-}
-
-/*
- * The hour that opens a session, in her list. Same mechanism as
- * `data-client-reference` above and the same correct token — with no rule at
- * all it rendered as the browser's blue underlined link, which reads as a
- * reference to somewhere else rather than as the row opening.
+ * The hour that opens a session, in her list. With no rule at all it rendered
+ * as the browser's blue underlined link, which reads as a reference to
+ * somewhere else rather than as the row opening.
  *
  * It keeps the row's own size and weight, because the hour is the row's title:
  * what changes is that it is underlined, and the underline darkens when
@@ -3448,15 +3445,6 @@
 
 [data-client-execution-open]:hover {
   text-decoration-color: currentcolor;
-}
-
-/* One link per line: on a phone the two of them in a row left the second one
-   broken mid-word. */
-@media (max-width: 640px) {
-  [data-client-references] {
-    flex-direction: column;
-    gap: var(--afo-space-3);
-  }
 }
 
 /* ----------------------------------------------------------- relationship */

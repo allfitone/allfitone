@@ -32,14 +32,19 @@ import {
 } from '@allfitone/react/components/empty'
 import { Skeleton } from '@allfitone/react/components/skeleton'
 import { Spinner } from '@allfitone/react/components/spinner'
-import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@allfitone/react/components/select'
 import { FoundationIcon } from '@allfitone/react/icons'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
 
 import { useOrganizationContext } from './organization-context'
-import { WorkspacePageHeader } from './workspace-page-header'
 import { correctionFieldLabel } from '@/lib/client-correction-proposal'
 import {
   PROPOSAL_FILTERS,
@@ -80,26 +85,34 @@ export function CorrectionProposalRegisterScreen() {
   const refusal = query.error instanceof StudioApiError ? query.error : undefined
 
   return (
-    <section data-correction-proposal-page aria-label="Propuestas de corrección">
-      <WorkspacePageHeader description="Las correcciones que propusiste a las personas que atiendes, de la que vence primero a la que vence después. Solo las tuyas." />
-
-      <ToggleGroup
-        value={[filter]}
-        onValueChange={(chosen: string[]) => {
-          const next = chosen[0]
-          if (next && (PROPOSAL_FILTERS as readonly string[]).includes(next)) {
-            setFilter(next as ProposalFilter)
-          }
-        }}
-        aria-label="Estado de las propuestas"
-        data-correction-proposal-filter
-      >
-        {PROPOSAL_FILTERS.map((option) => (
-          <ToggleGroupItem key={option} value={option}>
-            {proposalFilterLabel(option)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+    <div data-client-panel>
+      {/* A picker, like the library's and the directory's. Six states as six
+          buttons took a row of their own and wrapped on anything narrower
+          than a laptop. */}
+      <div data-client-toolbar>
+        <Select
+          value={filter}
+          onValueChange={(value) => {
+            const next = PROPOSAL_FILTERS.find((option) => option === value)
+            if (next) setFilter(next)
+          }}
+          items={PROPOSAL_FILTERS.map((option) => ({
+            value: option,
+            label: proposalFilterLabel(option),
+          }))}
+        >
+          <SelectTrigger aria-label="Estado de las propuestas" data-correction-proposal-filter>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start">
+            {PROPOSAL_FILTERS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {proposalFilterLabel(option)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* The register may refresh by itself — it holds none of her data — so it
           says when it is doing it. */}
@@ -156,7 +169,7 @@ export function CorrectionProposalRegisterScreen() {
           </Button>
         </div>
       ) : null}
-    </section>
+    </div>
   )
 }
 

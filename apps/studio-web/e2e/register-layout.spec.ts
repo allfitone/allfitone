@@ -42,8 +42,8 @@ const REGISTERS = [
   },
   {
     name: 'authorizations',
-    path: `/organizations/${ORG}/clients/authorizations`,
-    section: '[data-authorized-scope-page]',
+    path: `/organizations/${ORG}/clients?tab=authorizations`,
+    section: '[data-client-page]',
     cards: '[data-authorized-scope-card-list]',
   },
   {

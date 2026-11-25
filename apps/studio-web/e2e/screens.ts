@@ -1136,7 +1136,8 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/clients`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Invitados' }).click()
+      await page.getByRole('combobox', { name: 'Filtrar clientes por estado' }).click()
+      await page.getByRole('option', { name: 'Invitados', exact: true }).click()
       await expect(page.getByText(/correo-institucional-muy-largo/)).toBeVisible()
     },
   },
@@ -1164,7 +1165,8 @@ export const SCREENS: Screen[] = [
     path: `${workspace}/clients`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
-      await page.getByRole('button', { name: 'Invitados', exact: true }).click()
+      await page.getByRole('combobox', { name: 'Filtrar clientes por estado' }).click()
+      await page.getByRole('option', { name: 'Invitados', exact: true }).click()
       await expect(page.locator('#client-directory-search')).toBeDisabled()
     },
   },
@@ -2174,13 +2176,13 @@ export const SCREENS: Screen[] = [
       await expect(page.locator('[data-client-prescription-write-failure]')).toBeVisible()
     },
   },
-  // --- `/organizations/[id]/clients/correction-proposals` · HU-060 ---
+  // --- `/organizations/[id]/clients?tab=proposals` · HU-060 ---
   {
     // Las cinco respuestas que una propuesta puede tener, a la vez: es la única
     // forma de ver que los cinco estados se distinguen entre sí, y la fila más
     // larga de la pantalla es la que cita el motivo que ella leyó.
     stories: 'HU-060 · ver mis propuestas de corrección',
-    path: `${workspace}/clients/correction-proposals`,
+    path: `${workspace}/clients?tab=proposals`,
     fixture: () =>
       createStudioApiFixture({
         memberships: [holderMembership],
@@ -2195,7 +2197,7 @@ export const SCREENS: Screen[] = [
     // Sin ninguna propuesta: dice dónde se proponen, en vez de leerse como un
     // error. Es el estado que un administrador que no atiende a nadie ve siempre.
     stories: 'HU-060 · todavía no has propuesto ninguna',
-    path: `${workspace}/clients/correction-proposals`,
+    path: `${workspace}/clients?tab=proposals`,
     fixture: () =>
       createStudioApiFixture({ memberships: [holderMembership], proposedCorrections: [] }),
     settled: async (page) => {
@@ -2372,13 +2374,13 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('No pudimos cargar el estado del vínculo')).toBeVisible()
     },
   },
-  // --- `/organizations/[id]/clients/authorizations` · HU-035 ---
+  // --- `/organizations/[id]/clients?tab=authorizations` · HU-035 ---
   {
     // What every client authorized, across the directory. The widest row is a
     // person's name beside a category name, so this is where a register with
     // five columns has to decide between a table and cards.
     stories: 'HU-035 · what each person authorized us to see',
-    path: `${workspace}/clients/authorizations`,
+    path: `${workspace}/clients?tab=authorizations`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     settled: async (page) => {
       await settledByHeading(page)
@@ -2388,7 +2390,7 @@ export const SCREENS: Screen[] = [
   {
     // The same register as cards, which is what a phone gets.
     stories: 'HU-035 · what each person authorized, as cards',
-    path: `${workspace}/clients/authorizations`,
+    path: `${workspace}/clients?tab=authorizations`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     viewport: MOBILE,
     settled: async (page) => {
@@ -2396,13 +2398,13 @@ export const SCREENS: Screen[] = [
       await expect(page.getByText('Contexto de salud')).toBeVisible()
     },
   },
-  // --- `/organizations/[id]/clients/information-categories` · HU-034 ---
+  // --- `/organizations/[id]/clients?tab=categories` · HU-034 ---
   {
     // Seven cards of reference material, each with its own one-line limit. The
     // widest text on the page is a summary, so this is where a card's title and
     // its code badge compete for the same row on a phone.
     stories: 'HU-034 · what each category of information covers',
-    path: `${workspace}/clients/information-categories`,
+    path: `${workspace}/clients?tab=categories`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     settled: async (page) => {
       await settledByHeading(page)
@@ -2413,7 +2415,7 @@ export const SCREENS: Screen[] = [
     // One card open. The client wording is quoted behind a rule, and it is the
     // longest prose the screen ever shows — four lines on a phone.
     stories: 'HU-034 · the wording the client will read',
-    path: `${workspace}/clients/information-categories`,
+    path: `${workspace}/clients?tab=categories`,
     fixture: () => createStudioApiFixture({ memberships: [activeMembership] }),
     reveal: async (page) => {
       await page

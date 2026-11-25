@@ -3,10 +3,16 @@
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@allfitone/react/components/alert'
 import { Avatar, AvatarFallback } from '@allfitone/react/components/avatar'
 import { Badge } from '@allfitone/react/components/badge'
-import { Button, buttonVariants } from '@allfitone/react/components/button'
+import { Button } from '@allfitone/react/components/button'
 import { Card, CardContent, CardHeader } from '@allfitone/react/components/card'
-import { Field, FieldDescription, FieldLabel } from '@allfitone/react/components/field'
 import { Input } from '@allfitone/react/components/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@allfitone/react/components/select'
 import { Spinner } from '@allfitone/react/components/spinner'
 import { RegisterCardState } from '@/components/register-card-state'
 import {
@@ -19,14 +25,12 @@ import {
   TableRow,
   TableState,
 } from '@allfitone/react/components/table'
-import { ToggleGroup, ToggleGroupItem } from '@allfitone/react/components/toggle-group'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useState } from 'react'
 
+import { ClientViewToggle } from './client-views'
 import { useOrganizationContext } from './organization-context'
-import { WorkspacePageHeader } from './workspace-page-header'
-import { canInviteClients } from '@/lib/client-invitations'
 import {
   SEARCH_RAW_LIMIT,
   SEARCH_TOO_LONG_REASON,
@@ -41,6 +45,7 @@ import {
   seesEveryClient,
 } from '@/lib/client-directory'
 import { guestQuotaOf, quotaSummary } from '@/lib/guest-quota'
+import { useClientView } from '@/lib/client-view'
 import { useCompactTable } from '@/lib/use-compact-table'
 import { useDebouncedValue } from '@/lib/use-debounced-value'
 import { StudioApiError, type ClientDirectoryItem } from '@/lib/studio-api'
@@ -79,7 +84,6 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
   const rolesQuery = useQuery(organizationRolesQueryOptions(current.organization_id))
   const canView = canViewClientDirectory(current.roles, rolesQuery.data?.items)
   const everyClient = seesEveryClient(current.roles, rolesQuery.data?.items)
-  const canInvite = canInviteClients(current.roles, rolesQuery.data?.items)
   const [filter, setFilter] = useState<ClientFilter>(initialFilter)
   const [searchBox, setSearchBox] = useState('')
   /*
@@ -88,6 +92,7 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
    * does not survive is the request: nothing is sent while searching is
    * unavailable.
    */
+  const [view, setView] = useClientView()
   const searchAllowed = canSearchWithin(filter)
   const termState = searchTermState(searchBox)
   const settledBox = useDebouncedValue(searchBox, SEARCH_SETTLE_MS)
@@ -98,6 +103,13 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
    * the reader instead of a path: `clientEntryPath` says why.
    */
   const reader = { organizationId: current.organization_id, everyClient }
+  /* Only what the reader could not work out: why the box is off, or that the
+     term is too long. The scope of the search is in the page header. */
+  const searchNote = !searchAllowed
+    ? SEARCH_UNAVAILABLE_REASON
+    : termState === 'too-long'
+      ? SEARCH_TOO_LONG_REASON
+      : undefined
   const options = organizationClientsQueryOptions(
     current.organization_id,
     filter,
@@ -140,15 +152,16 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
 
   if (!rolesQuery.isPending && !canView) {
     return (
-      <section data-client-page aria-label="Directorio de clientes">
-        <WorkspacePageHeader description="El directorio de clientes está disponible para quienes atienden personas o administran la organización." />
+      <div data-client-panel>
         <Alert variant="warning">
           <AlertTitle>No tienes acceso a este directorio</AlertTitle>
           <AlertDescription>
-            Tu rol en {current.display_name} no permite consultar las personas vinculadas.
+            El directorio está disponible para quienes atienden personas o administran la
+            organización, y tu rol en {current.display_name} no permite consultar las personas
+            vinculadas.
           </AlertDescription>
         </Alert>
-      </section>
+      </div>
     )
   }
 
@@ -184,68 +197,64 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
           : undefined
 
   return (
-    <section ref={measuredRef} data-client-page aria-label="Directorio de clientes">
-      <WorkspacePageHeader
-        description={
-          everyClient
-            ? `Consulta las personas vinculadas con ${current.display_name} y a quienes invitaron.`
-            : 'Consulta las personas que atiendes y las invitaciones que enviaste.'
-        }
-        actions={
-          canInvite ? (
-            <Link
-              href={`/organizations/${current.organization_id}/clients/invitations/new`}
-              data-slot="button"
-              data-variant="default"
-              className={buttonVariants()}
-            >
-              Invitar cliente
-            </Link>
-          ) : undefined
-        }
-      />
-
+    <div ref={measuredRef} data-client-panel>
       {/* Counted over the whole gym whatever the filter or the caller's narrowing. */}
       {quotaLine ? <p data-guest-quota-summary>{quotaLine}</p> : null}
 
-      <ToggleGroup
-        value={[filter]}
-        onValueChange={changeFilter}
-        aria-label="Filtrar clientes por estado"
-      >
-        {FILTERS.map((option) => (
-          <ToggleGroupItem key={option.value} value={option.value}>
-            {option.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-
-      {/* Disabled rather than hidden while the invitations filter is on: a
-          control that disappears leaves the reader hunting for why. */}
-      <Field data-client-directory-search>
-        <FieldLabel htmlFor="client-directory-search">Buscar por nombre</FieldLabel>
+      {/* One row, as the library's is: the box carries its own label, and the
+          sentence that used to sit under it said the scope the page header
+          already states. What is left is the note below, which only appears
+          when there is something exceptional to say. */}
+      <div data-client-toolbar>
         <Input
           id="client-directory-search"
           name="q"
           type="search"
           autoComplete="off"
           maxLength={SEARCH_RAW_LIMIT}
+          aria-label="Buscar por nombre"
           placeholder="Nombre de la persona"
           value={searchBox}
           disabled={!searchAllowed}
           onChange={(event) => setSearchBox(event.target.value)}
-          aria-describedby="client-directory-search-note"
+          aria-describedby={searchNote ? 'client-directory-search-note' : undefined}
+          data-client-search
         />
-        <FieldDescription id="client-directory-search-note">
-          {!searchAllowed
-            ? SEARCH_UNAVAILABLE_REASON
-            : termState === 'too-long'
-              ? SEARCH_TOO_LONG_REASON
-              : everyClient
-                ? 'Busca entre las personas vinculadas con la organización.'
-                : 'Busca solo entre las personas que atiendes.'}
-        </FieldDescription>
-      </Field>
+
+        {/* A picker, like the library's, and not a row of four buttons: four
+            of them took a third of the toolbar and wrapped onto a line of
+            their own on anything narrower than a laptop. */}
+        <Select
+          value={filter}
+          onValueChange={(value) => {
+            const next = FILTERS.find((option) => option.value === value)?.value
+            if (next) changeFilter([next])
+          }}
+          items={FILTERS}
+        >
+          <SelectTrigger aria-label="Filtrar clientes por estado" data-client-filter>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start">
+            {FILTERS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <ClientViewToggle view={view} onChange={setView} />
+      </div>
+
+      {/* Disabled rather than hidden while the invitations filter is on: a
+          control that disappears leaves the reader hunting for why. The reason
+          has to be said, so it is said here. */}
+      {searchNote ? (
+        <p id="client-directory-search-note" data-client-search-note>
+          {searchNote}
+        </p>
+      ) : null}
 
       {query.isFetching && !loading && !loadingMore ? (
         <p data-query-refreshing role="status" aria-live="polite">
@@ -254,9 +263,10 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
       ) : null}
 
       {/* Four columns do not fit the space a narrow register has, so it gets the
-          same data as cards. Only one presentation is rendered — see
+          same data as cards, whatever the reader chose: a preference cannot
+          conjure room. Only one presentation is rendered — see
           useCompactTable. */}
-      {compact ? (
+      {compact || view === 'cards' ? (
         <div data-client-directory-cards aria-label="Clientes" aria-busy={loading || undefined}>
           {tableState ? (
             <RegisterCardState
@@ -339,50 +349,7 @@ export function ClientDirectoryList({ initialFilter = 'all' }: { initialFilter?:
           </Button>
         </div>
       ) : null}
-
-      {/*
-       * Two consultations about what the directory lists, not actions taken
-       * from it: one says what may be asked of a client, the other what each
-       * person granted.
-       *
-       * They sat in the header's action row, drawn exactly like "Invitar
-       * cliente". With three children that row split into thirds below 640px,
-       * and the top of the page carried four bands before the list. Down here,
-       * behind a rule rather than inside a box, the top is header, filters and
-       * list.
-       *
-       * Neither depends on the published catalogue or on being able to invite:
-       * a coach who only attends clients still needs to know what may be asked
-       * of them, so the block is not conditioned on `canInvite`.
-       *
-       * Text links, not buttons. The design system's `link` variant keeps the
-       * button's height and padding and only underlines on hover, so it still
-       * read as a control. These carry the same resting underline as the
-       * client's name in the table above.
-       */}
-      <nav data-client-references aria-label="Consultas sobre los clientes">
-        <Link
-          data-client-reference
-          href={`/organizations/${current.organization_id}/clients/information-categories`}
-        >
-          Categorías de información
-        </Link>
-        <Link
-          data-client-reference
-          href={`/organizations/${current.organization_id}/clients/authorizations`}
-        >
-          Autorizaciones
-        </Link>
-        {/* The third of the cross-client consultations, and the only one about
-            the reader's own work rather than about the clients. */}
-        <Link
-          data-client-reference
-          href={`/organizations/${current.organization_id}/clients/correction-proposals`}
-        >
-          Mis propuestas de corrección
-        </Link>
-      </nav>
-    </section>
+    </div>
   )
 }
 

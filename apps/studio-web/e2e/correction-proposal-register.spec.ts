@@ -21,7 +21,7 @@ import {
  */
 
 const ORG = holderMembership.organization_id
-const REGISTER = `/organizations/${ORG}/clients/correction-proposals`
+const REGISTER = `/organizations/${ORG}/clients?tab=proposals`
 
 async function open(page: Page, fixture?: unknown) {
   await installStudioApiMock(
@@ -33,7 +33,18 @@ async function open(page: Page, fixture?: unknown) {
       }),
   )
   await page.goto(REGISTER)
-  await expect(page.getByRole('heading', { name: 'Propuestas de corrección' })).toBeVisible()
+  // The heading is the screen's — «Clientes» — since the four sections became
+  // its tabs, so what says this one is open is the tab itself.
+  await expect(page.getByRole('tab', { name: 'Propuestas' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  )
+}
+
+/** Six states as six buttons did not fit a narrow screen; it is a picker now. */
+async function filterProposals(page: Page, option: string) {
+  await page.getByRole('combobox', { name: 'Estado de las propuestas' }).click()
+  await page.getByRole('option', { name: option, exact: true }).click()
 }
 
 /* Criterion 1: the state and the deadline of each one. */
@@ -141,12 +152,12 @@ test('one it still reaches opens its session', async ({ page }) => {
 test('the filter asks the server, so an expired one is not «esperando»', async ({ page }) => {
   await open(page)
 
-  await page.getByRole('button', { name: 'Esperando', exact: true }).click()
+  await filterProposals(page, 'Esperando')
   const rows = page.locator('[data-correction-proposal]')
   await expect(rows).toHaveCount(1)
   await expect(rows.first()).toContainText('Conté nueve repeticiones')
 
-  await page.getByRole('button', { name: 'Vencidas' }).click()
+  await filterProposals(page, 'Vencidas')
   await expect(rows).toHaveCount(1)
   await expect(rows.first()).toContainText('Me parece que fueron dos.')
 })
@@ -160,7 +171,7 @@ test('a filter with nothing in it speaks of that filter', async ({ page }) => {
   await expect(page.locator('[data-correction-proposal-empty]')).toContainText(
     'Todavía no has propuesto',
   )
-  await page.getByRole('button', { name: 'Aceptadas' }).click()
+  await filterProposals(page, 'Aceptadas')
   await expect(page.locator('[data-correction-proposal-empty]')).toContainText(
     'No tienes propuestas aceptadas',
   )
@@ -191,16 +202,8 @@ test('each professional sees only their own', async ({ page }) => {
   await expect(page.locator('[data-correction-proposal-empty]')).toBeVisible()
 })
 
-test('the directory links to it', async ({ page }) => {
-  await installStudioApiMock(
-    page,
-    createStudioApiFixture({
-      memberships: [holderMembership],
-      proposedCorrections: structuredClone(proposedCorrections),
-    }),
-  )
-  await page.goto(`/organizations/${ORG}/clients`)
-
-  await page.getByRole('link', { name: 'Mis propuestas de corrección' }).click()
-  await expect(page.getByRole('heading', { name: 'Propuestas de corrección' })).toBeVisible()
-})
+/*
+ * Reaching this section from the directory is covered once, with the other
+ * three, in `client-header-actions.spec.ts`. It lived here while this was a
+ * page of its own; against a tab strip it would be the same click twice.
+ */
