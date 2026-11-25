@@ -56,12 +56,6 @@ export const session = {
   /** The half of the day on a twelve-hour clock. */
   time: { am: 'a. m.', pm: 'p. m.' },
 
-  setKinds: {
-    normal: { name: 'Normal', detail: 'Serie de trabajo, la que cuenta para el volumen' },
-    warmup: { name: 'Calentamiento', detail: 'Carga ligera, no suma al volumen' },
-    to_failure: { name: 'Al fallo', detail: 'Hasta no poder más. Sin número de repeticiones' },
-    drop: { name: 'Descendente', detail: 'Bajas peso y sigues sin descansar' },
-  },
   /** Where a warmup's number would be, in the finished session's list. */
   warmupMark: 'C',
 
@@ -99,9 +93,7 @@ export const session = {
     nothingToSave: 'Todavía no has marcado ninguna serie, así que no hay nada que guardar.',
     discardWorkout: 'Descartar entrenamiento',
     goBack: 'Regresar',
-    setKind: 'Tipo de serie',
     setEffort: 'Esfuerzo de la serie',
-    restBetweenSets: 'Descanso entre series',
     superset: 'Superserie',
     unchain: 'Quitar de la superserie',
     unchainDetail: 'Deja de encadenarse con su vecino',
@@ -162,10 +154,8 @@ export const session = {
     skipRest: 'Saltar el descanso',
     skip: 'Saltar',
     sheetLead: 'Cuánto esperas antes de la siguiente serie.',
-    stepper: 'Descanso entre series',
     stepCaption: (step: number) => `de ${String(step)} en ${String(step)} segundos`,
     presets: 'O elige uno habitual',
-    none: 'Ninguno',
     /** The local notification when a rest ends: its Android channel and its words. */
     channel: 'Descanso',
     noticeTitle: 'Allfit Space',

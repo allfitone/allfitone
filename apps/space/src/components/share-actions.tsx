@@ -26,15 +26,8 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native'
 import Share, { Social } from 'react-native-share'
 
 import { storyRoute } from '../client/share-cards'
-import { textFor } from '../i18n'
 
 export type Notice = { readonly tone: 'done' | 'failed'; readonly text: string }
-
-const SPANISH = textFor('es').session.share
-
-// Spanish, for a screen that has not passed `text.session.share` yet.
-export const SAVE_FAILED = SPANISH.saveFailed
-export const SHARE_FAILED = SPANISH.shareFailed
 
 export type ShareMode = 'image' | 'sticker'
 
@@ -89,11 +82,7 @@ export async function shareFile(uri: string, dialogTitle: string): Promise<undef
 }
 
 /** Into Photos; `denied` is what the toast says when the phone refuses. */
-export async function saveFile(
-  uri: string,
-  done: string,
-  denied: string = SPANISH.noPermission,
-): Promise<Notice> {
+export async function saveFile(uri: string, done: string, denied: string): Promise<Notice> {
   const permission = await MediaLibrary.requestPermissionsAsync(true)
   if (!permission.granted) return { tone: 'failed', text: denied }
   await MediaLibrary.Asset.create(uri)

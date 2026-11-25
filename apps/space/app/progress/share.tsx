@@ -67,10 +67,8 @@ import {
   copyImage,
   openStory,
   saveFile,
-  SAVE_FAILED,
   shareFile,
   ShareActionRow,
-  SHARE_FAILED,
   useShareMode,
   useShareRun,
   type ShareAction,
@@ -118,6 +116,7 @@ export default function ShareProgressScreen() {
   const router = useRouter()
   const text = useText()
   const words = text.progress.share
+  const said = text.session.share
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const reduceMotion = useReducedMotion()
@@ -231,15 +230,15 @@ export default function ShareProgressScreen() {
           : await stickerImage('base64')
       const background = mode === 'sticker' ? (picked ?? undefined) : undefined
       return (await openStory({ sticker: png, inks: STORY_INKS, background })) ? undefined : sheet()
-    }, SHARE_FAILED)
+    }, said.shareFailed)
 
   const save = () =>
     run(
       async () =>
         mode === 'image'
-          ? saveFile(await image('tmpfile'), words.savedImage)
-          : saveFile(await stickerImage('tmpfile'), words.savedSticker),
-      SAVE_FAILED,
+          ? saveFile(await image('tmpfile'), words.savedImage, said.noPermission)
+          : saveFile(await stickerImage('tmpfile'), words.savedSticker, said.noPermission),
+      said.saveFailed,
     )
 
   const copy = () =>
@@ -248,7 +247,7 @@ export default function ShareProgressScreen() {
         mode === 'image'
           ? copyImage(await image('base64'), words.copiedImage)
           : copyImage(await stickerImage('base64'), words.copiedSticker),
-      SHARE_FAILED,
+      said.shareFailed,
     )
 
   // The system picker needs no permission: it hands back only the picture chosen.
@@ -258,7 +257,7 @@ export default function ShareProgressScreen() {
       const uri = result.canceled ? undefined : result.assets[0]?.uri
       if (uri) setPicked(uri)
       return undefined
-    }, SHARE_FAILED)
+    }, said.shareFailed)
 
   if (failed || !facts) {
     return (
@@ -283,13 +282,13 @@ export default function ShareProgressScreen() {
           { label: words.stories, icon: 'instagram', onPress: story },
           { label: words.save, icon: 'download', onPress: save },
           { label: words.copy, icon: 'duplicate', onPress: copy },
-          { label: words.more, icon: 'more', onPress: () => run(sheet, SHARE_FAILED) },
+          { label: words.more, icon: 'more', onPress: () => run(sheet, said.shareFailed) },
         ]
       : [
           { label: words.copy, icon: 'duplicate', onPress: copy, primary: true },
           { label: words.save, icon: 'download', onPress: save },
           { label: words.stories, icon: 'instagram', onPress: story },
-          { label: words.more, icon: 'more', onPress: () => run(sheet, SHARE_FAILED) },
+          { label: words.more, icon: 'more', onPress: () => run(sheet, said.shareFailed) },
         ]
 
   const previewScale = (kindOf: keyof typeof STICKER_SIZE) =>

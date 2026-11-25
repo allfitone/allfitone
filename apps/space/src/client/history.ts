@@ -16,7 +16,7 @@
  */
 
 import type { AllfitV1Schemas } from '@allfitone/contracts'
-import { intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
 import { massIn, type MassUnit } from '../units/units'
 
 export type HistoryItem = AllfitV1Schemas['SpaceHistoryItem']
@@ -75,14 +75,11 @@ function weekLabel(monday: string, today: string, words: HistoryWords): string {
       )
 }
 
-/**
- * Consecutive rows of one week, in the order the server answered: newest first.
- * Hoy still calls it without words, which reads Spanish until it passes its own.
- */
+/** Consecutive rows of one week, in the order the server answered: newest first. */
 export function weekGroups(
   items: readonly HistoryItem[],
   today: string,
-  words: HistoryWords = textFor('es').session,
+  words: HistoryWords,
 ): readonly WeekGroup[] {
   const groups: { weekStartsOn: string; label: string; items: HistoryItem[] }[] = []
   for (const row of items) {

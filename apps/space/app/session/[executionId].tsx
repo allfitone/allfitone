@@ -122,7 +122,7 @@ import { rpeCopy, rpeShown } from '../../src/client/rpe-scale'
 import {
   SET_KIND_TONES,
   REST_OPENING_SECONDS,
-  restLabel,
+  restPresetLabel,
   type SetKind,
 } from '../../src/client/set-scheme'
 import { volumeLabel } from '../../src/client/history'
@@ -136,16 +136,9 @@ import { RestSheetBody } from '../../src/components/rest-sheet'
 import { RpeSheetBody } from '../../src/components/rpe-sheet'
 import { SheetChoice } from '../../src/components/sheet-choice'
 import { clockFrom, clockText, TimeWheels, type Clock } from '../../src/components/time-wheels'
-import type { Dictionary } from '../../src/i18n'
 import { useLocale, useText } from '../../src/i18n/use-text'
 import type { MassUnit } from '../../src/units/units'
 import { useUnits } from '../../src/units/use-units'
-
-type Words = Dictionary['session']
-
-/** A rest as a chip or the pill reads it: «Ninguno» is the one word, the rest a clock. */
-const restShown = (seconds: number, words: Words, sets: Dictionary['training']['sets']) =>
-  seconds === 0 ? words.rest.none : restLabel(seconds, sets)
 
 /** Long enough to stop writing on every keystroke, short enough to never lose a set. */
 const SAVE_DELAY_MS = 1_200
@@ -232,7 +225,9 @@ const CARD_INSET = 8
 
 export default function Session() {
   const locale = useLocale()
-  const text = useText().session
+  const dictionary = useText()
+  const text = dictionary.session
+  const sets = dictionary.training.sets
   const said = text.live
   const { mass } = useUnits()
   const router = useRouter()
@@ -938,15 +933,15 @@ export default function Session() {
       <Sheet
         visible={asking?.about === 'kind'}
         onDismiss={() => setAsking(undefined)}
-        title={said.setKind}
+        title={dictionary.training.routine.sheets['set-kind']}
       >
         <View style={styles.decisions}>
           {(['normal', 'warmup', 'to_failure', 'drop'] as const).map((kind: SetKind) => (
             <SheetChoice
               key={kind}
-              name={text.setKinds[kind].name}
+              name={sets.kinds[kind]}
               tone={SET_KIND_TONES[kind]}
-              detail={text.setKinds[kind].detail}
+              detail={sets.details[kind]}
               selected={askedSet?.kind === kind}
               onPress={() => {
                 if (asking?.about === 'kind') {
@@ -987,7 +982,7 @@ export default function Session() {
       <Sheet
         visible={asking?.about === 'rest'}
         onDismiss={() => setAsking(undefined)}
-        title={said.restBetweenSets}
+        title={dictionary.training.routine.sheets.rest}
       >
         <RestSheetBody
           value={asked?.restSeconds ?? REST_OPENING_SECONDS}
@@ -1187,7 +1182,7 @@ function Exercise({
       {/* A quiet pill, not a cyan line: it is a setting, and the rows below are the work. */}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={said.restPill(restShown(effectiveRest, text, sets))}
+        accessibilityLabel={said.restPill(restPresetLabel(effectiveRest, sets))}
         onPress={onRest}
         hitSlop={8}
         style={({ pressed }) => [
@@ -1204,7 +1199,7 @@ function Exercise({
           {said.rest}
         </Text>
         <Text role="control" size="xs">
-          {restShown(effectiveRest, text, sets)}
+          {restPresetLabel(effectiveRest, sets)}
         </Text>
         <FoundationIcon
           name="expand"
@@ -1415,7 +1410,9 @@ function SetRow({
   readonly onRemove: () => void
   readonly unit: MassUnit
 }) {
-  const text = useText().session
+  const dictionary = useText()
+  const text = dictionary.session
+  const sets = dictionary.training.sets
   const said = text.live
   const theme = useTheme()
   const offset = useSharedValue(0)
@@ -1525,7 +1522,7 @@ function SetRow({
               looked like a label, and nobody guessed it opened the kinds. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={said.setKindOf(index + 1, text.setKinds[set.kind].name)}
+            accessibilityLabel={said.setKindOf(index + 1, sets.kinds[set.kind])}
             onPress={open ? close : onKind}
             hitSlop={4}
             style={[

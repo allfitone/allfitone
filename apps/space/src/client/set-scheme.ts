@@ -20,7 +20,7 @@
 
 import type { BadgeTone } from '@allfitone/react-native/badge'
 
-import { intlLocale, textFor, type Dictionary, type Locale } from '../i18n'
+import { intlLocale, type Dictionary, type Locale } from '../i18n'
 
 type SetWords = Dictionary['training']['sets']
 
@@ -45,14 +45,6 @@ const NORMAL = (reps: number): WorkingSet => ({ kind: 'normal', reps })
 /** What an exercise starts with. Four of eight, and every one of them editable. */
 export const OPENING_SETS: readonly WorkingSet[] = [NORMAL(8), NORMAL(8), NORMAL(8), NORMAL(8)]
 
-/** Spanish, for the session screens until they read `text.training.sets.kinds`. */
-export const SET_KIND_NAMES: Readonly<Record<SetKind, string>> = {
-  normal: 'Normal',
-  warmup: 'Calentamiento',
-  to_failure: 'Al fallo',
-  drop: 'Descendente',
-}
-
 /**
  * The badge's tone per kind, and each one is a meaning rather than a taste.
  *
@@ -67,14 +59,6 @@ export const SET_KIND_TONES: Readonly<Record<SetKind, BadgeTone>> = {
   warmup: 'warning',
   to_failure: 'danger',
   drop: 'sport',
-}
-
-/** Spanish, for the session screens until they read `text.training.sets.details`. */
-export const SET_KIND_DETAILS: Readonly<Record<SetKind, string>> = {
-  normal: 'Serie de trabajo, la que cuenta para el volumen',
-  warmup: 'Carga ligera, no suma al volumen',
-  to_failure: 'Hasta no poder más. Sin número de repeticiones',
-  drop: 'Bajas peso y sigues sin descansar',
 }
 
 /**
@@ -139,11 +123,7 @@ export function restLabel(seconds: number | undefined, text: SetWords): string {
 export const REST_PRESETS: readonly number[] = [0, 45, 60, 90, 120, 180, 300]
 
 /** The same seconds as a chip reads them. «Ninguno» is a choice; «sin definir» is not. */
-// The default keeps the session screens, which do not pass their words yet, in Spanish.
-export function restPresetLabel(
-  seconds: number,
-  text: SetWords = textFor('es').training.sets,
-): string {
+export function restPresetLabel(seconds: number, text: SetWords): string {
   return seconds === 0 ? text.restNone : restLabel(seconds, text)
 }
 

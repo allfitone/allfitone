@@ -11,7 +11,12 @@ import { Text } from '@allfitone/react-native/text'
 import { useTheme } from '@allfitone/react-native/theme'
 import { StyleSheet, View } from 'react-native'
 
-import { REST_MAX_SECONDS, REST_PRESETS, REST_STEP_SECONDS, restLabel } from '../client/set-scheme'
+import {
+  REST_MAX_SECONDS,
+  REST_PRESETS,
+  REST_STEP_SECONDS,
+  restPresetLabel,
+} from '../client/set-scheme'
 import { useText } from '../i18n/use-text'
 
 export function RestSheetBody({
@@ -24,9 +29,7 @@ export function RestSheetBody({
   const theme = useTheme()
   const words = useText()
   const text = words.session.rest
-  // «Ninguno» is a choice and the only word; any other rest reads as a clock.
-  const shown = (seconds: number) =>
-    seconds === 0 ? text.none : restLabel(seconds, words.training.sets)
+  const shown = (seconds: number) => restPresetLabel(seconds, words.training.sets)
 
   return (
     <View style={styles.sheet}>
@@ -37,7 +40,7 @@ export function RestSheetBody({
       {/* Any rest, not one of seven. The presets below are a shortcut to the common
           answers, never the whole set of them. */}
       <Stepper
-        accessibilityLabel={text.stepper}
+        accessibilityLabel={words.training.routine.sheets.rest}
         value={value}
         min={0}
         max={REST_MAX_SECONDS}

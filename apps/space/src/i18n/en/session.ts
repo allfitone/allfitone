@@ -45,12 +45,6 @@ export const session: Dictionary['session'] = {
 
   time: { am: 'AM', pm: 'PM' },
 
-  setKinds: {
-    normal: { name: 'Normal', detail: 'A working set, the one that counts toward volume' },
-    warmup: { name: 'Warm-up', detail: "Light load, doesn't add to volume" },
-    to_failure: { name: 'To failure', detail: "Until you can't do more. No rep count" },
-    drop: { name: 'Drop set', detail: 'Lower the weight and keep going without resting' },
-  },
   warmupMark: 'W',
 
   live: {
@@ -87,9 +81,7 @@ export const session: Dictionary['session'] = {
     nothingToSave: "You haven't checked off any sets yet, so there's nothing to save.",
     discardWorkout: 'Discard workout',
     goBack: 'Go back',
-    setKind: 'Set type',
     setEffort: 'Set effort',
-    restBetweenSets: 'Rest between sets',
     superset: 'Superset',
     unchain: 'Remove from superset',
     unchainDetail: 'Stops being paired with its neighbor',
@@ -146,10 +138,8 @@ export const session: Dictionary['session'] = {
     skipRest: 'Skip the rest',
     skip: 'Skip',
     sheetLead: 'How long you wait before the next set.',
-    stepper: 'Rest between sets',
     stepCaption: (step) => `in steps of ${String(step)} seconds`,
     presets: 'Or pick a common one',
-    none: 'None',
     channel: 'Rest',
     noticeTitle: 'Allfit Space',
     noticeSubtitle: 'Rest over ⏱️',

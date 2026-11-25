@@ -267,6 +267,7 @@ export default function Today() {
       ? { executionId: inProgress.routine.open_execution_id, title: inProgress.routine.title }
       : undefined,
     openFree,
+    text.session.freeSession,
   )
   const [startingFree, setStartingFree] = useState(false)
   const [discarding, setDiscarding] = useState(false)
@@ -510,7 +511,7 @@ export default function Today() {
             {recent.length > 0 ? (
               // Grouped by week, each week its own panel: H-2 draws the break between
               // them, so «semana pasada» reads as a heading and not as another row.
-              weekGroups(recent, localToday(timezone)).map((group) => (
+              weekGroups(recent, localToday(timezone), text.session).map((group) => (
                 <View key={group.weekStartsOn} style={styles.historyGroup}>
                   <HistoryGroupHeader label={group.label} />
                   <HistoryPanel>

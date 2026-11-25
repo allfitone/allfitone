@@ -15,7 +15,6 @@ import {
   REST_OPENING_SECONDS,
   REST_PRESETS,
   REST_STEP_SECONDS,
-  SET_KIND_NAMES,
   SET_KIND_TONES,
   loadLabel,
   otherUnit,
@@ -152,7 +151,7 @@ describe('what the row says', () => {
     for (const preset of REST_PRESETS) {
       expect(restLabel(preset, es).length).toBeGreaterThan(0)
     }
-    expect(Object.keys(SET_KIND_NAMES)).toHaveLength(4)
+    expect(Object.keys(es.kinds)).toHaveLength(4)
   })
 })
 
@@ -161,7 +160,6 @@ describe('the sets in English (TECH-44)', () => {
     expect(setsLabel([{ kind: 'to_failure' }], en)).toBe('1 set · to failure')
     expect(restLabel(undefined, en)).toBe('No rest set')
     expect(restPresetLabel(0, en)).toBe('None')
-    expect(restPresetLabel(0)).toBe('Ninguno')
     expect(loadLabel(22.5, 'kg', 'es')).toBe('22,5 kg')
     expect(loadLabel(22.5, 'lb', 'en')).toBe('22.5 lb')
   })

@@ -451,7 +451,7 @@ function ExerciseCard({
   readonly picture: string | null
 }) {
   const locale = useLocale()
-  const words = useText().session
+  const { session: words, training } = useText()
   const { mass } = useUnits()
   const theme = useTheme()
   const best = bestSetLine(exercise.best_set, locale, mass, words)
@@ -505,7 +505,7 @@ function ExerciseCard({
             </Text>
           ) : one.kind !== 'normal' ? (
             <Text role="body" size="xs" color="muted">
-              {words.setKinds[one.kind].name}
+              {training.sets.kinds[one.kind]}
             </Text>
           ) : null}
         </View>
