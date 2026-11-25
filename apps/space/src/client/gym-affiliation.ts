@@ -20,6 +20,8 @@ export type PendingInvitationList = AllfitV1Schemas['ClientInvitationPendingList
 export type PendingInvitation = AllfitV1Schemas['ClientInvitationPending']
 export type InvitationDecisionResult = AllfitV1Schemas['ClientInvitationDecisionResult']
 export type InvitationDecisionBody = AllfitV1Schemas['ClientInvitationDecisionCreate']
+export type ProgramOffer = AllfitV1Schemas['ClientInvitationProgramOffer']
+export type ProgramOutcome = AllfitV1Schemas['ClientInvitationProgramOutcome']
 export type Decision = 'accepted' | 'rejected'
 
 /** What a yes/no control gave back, as a decision: only «accepted» accepts. */
@@ -45,6 +47,8 @@ export interface InvitationFlow {
     readonly intentId: string
     readonly relationship: Decision
     readonly scopes: Readonly<Record<string, Decision>>
+    /** Only for an invitation that offers a program: the API refuses it otherwise. */
+    readonly program?: { readonly decision: Decision; readonly timezone: string }
   }): Promise<InvitationDecisionResult>
 }
 
@@ -74,6 +78,9 @@ export function createInvitationFlow(dependencies: {
         invitation_intent_id: decision.intentId,
         relationship_decision: decision.relationship,
         scope_decisions: { ...decision.scopes },
+        ...(decision.program
+          ? { program_decision: decision.program.decision, timezone: decision.program.timezone }
+          : {}),
       }
       const result = await dependencies.transport.decide(command, body)
       pending.delete(name)
@@ -141,6 +148,95 @@ export function sharedSummary(
   if (asked === 0) return 'No pide ningún dato'
   const accepted = Object.values(decisions).filter((decision) => decision === 'accepted').length
   return `Compartes ${String(accepted)} de ${String(asked)}`
+}
+
+/**
+ * Where the offered program stands on «Tu invitación». It depends on a permission, so
+ * until she shares that one it is locked, and without the relationship it is off.
+ */
+export type ProgramStanding = 'off' | 'locked' | 'open'
+
+export function programStanding(
+  offer: ProgramOffer,
+  relationship: Decision,
+  scopes: Readonly<Record<string, Decision>>,
+): ProgramStanding {
+  if (relationship === 'rejected') return 'off'
+  return scopes[offer.required_scope.scope_code] === 'accepted' ? 'open' : 'locked'
+}
+
+/** Her answer counts only while the program is open; locked or off, it is a no. */
+export const programAnswer = (standing: ProgramStanding, chosen: Decision): Decision =>
+  standing === 'open' ? chosen : 'rejected'
+
+const WEEKDAYS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/** «lun 1 dic» from a calendar date, without a zone to move it. */
+export function calendarDay(date: string): string {
+  const [year = 1970, month = 1, day = 1] = date.split('-').map(Number)
+  const weekday = WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()] ?? ''
+  return `${weekday} ${String(day)} ${MONTHS[month - 1] ?? ''}`
+}
+
+/** The phone's calendar date, «2026-11-24». */
+export function localDate(now: Date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${String(now.getFullYear())}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+/** The proposed start is tentative: accepted later, it starts the day she accepts. */
+export const programStart = (offer: ProgramOffer, today: string): string =>
+  offer.starts_on > today ? offer.starts_on : today
+
+/** «8 semanas · empieza el lun 1 dic», or «Se repite cada semana · …». */
+export function programSpan(offer: ProgramOffer, today: string): string {
+  const length =
+    offer.repeats_forever || offer.weeks === null
+      ? 'Se repite cada semana'
+      : `${String(offer.weeks)} ${offer.weeks === 1 ? 'semana' : 'semanas'}`
+  return `${length} · empieza el ${calendarDay(programStart(offer, today))}`
+}
+
+/** What the program row says under it, for each standing and answer. */
+export function programNote(
+  offer: ProgramOffer,
+  standing: ProgramStanding,
+  chosen: Decision,
+  requiredTitle: string,
+  today: string,
+): string | null {
+  if (standing === 'off') return null
+  if (standing === 'locked') return `Para que te lo pongan, primero comparte «${requiredTitle}».`
+  return chosen === 'accepted'
+    ? `Si confirmas, lo verás en Entrenar desde el ${calendarDay(programStart(offer, today))}.`
+    : 'Decide si quieres empezarlo.'
+}
+
+/** Under the permission the program needs, on «Decide qué pueden ver». */
+export const programNeedLine = (offer: ProgramOffer): string =>
+  `Lo necesitan para ponerte «${offer.title}».`
+
+/**
+ * What became of the program, for «Ya entrenas con…». Nothing when she declined it or
+ * none was offered: the screen only reports what accepting did.
+ */
+export function programOutcomeLine(
+  offer: ProgramOffer | null,
+  outcome: ProgramOutcome | null,
+  today: string,
+): string | null {
+  if (!offer || !outcome) return null
+  if (outcome.assignment_id) {
+    return `Empieza el ${calendarDay(programStart(offer, today))} · lo verás en Entrenar`
+  }
+  if (outcome.unmaterialized_reason === 'training_not_granted') {
+    return 'No quedó puesto: no compartiste tu entrenamiento'
+  }
+  if (outcome.unmaterialized_reason === 'program_unavailable') {
+    return 'Tu gimnasio retiró este programa antes de que respondieras'
+  }
+  return null
 }
 
 export const invitationExpiry = (instant: string): string => `vence el ${shortDate(instant)}`
